@@ -4,6 +4,9 @@ mod api;
 use electrum::ElectrumClient;
 use wallet::WalletManager;
 use api::create_router;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio::time::{interval, Duration};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -11,7 +14,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let features = electrum_client.server_features()?;
     println!("Connected to Electrum server: {}", features);
     
-    let wallet_manager = WalletManager::new().await;
+    let wallet_manager = Arc::new(Mutex::new(WalletManager::new().await));
+    
+    // Spawn background task for wallet syncing
+    let wallet_manager_sync = Arc::clone(&wallet_manager);
+    tokio::spawn(async move {
+        let mut interval = interval(Duration::from_secs(4));
+        
+        loop {
+            interval.tick().await;
+            
+            let mut manager = wallet_manager_sync.lock().await;
+            if let Err(e) = manager.sync_all_wallets().await {
+                eprintln!("Error syncing wallets: {}", e);
+            }
+        }
+    });
     
     let app = create_router(wallet_manager);
     

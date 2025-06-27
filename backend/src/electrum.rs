@@ -62,4 +62,22 @@ impl ElectrumClient {
         
         Ok(())
     }
+
+    pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Store<ChangeSet>>) -> Result<(), Box<dyn Error>> {
+        // Populate the electrum client's transaction cache
+        self.client.populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
+        
+        // Start sync request (only checks known addresses)
+        let request = wallet.start_sync_with_revealed_spks();
+        
+        // Perform the sync
+        let update = self.client.sync(request, BATCH_SIZE, false)
+            .map_err(|e| format!("Sync failed: {}", e))?;
+        
+        // Apply the update
+        wallet.apply_update(update)
+            .map_err(|e| format!("Failed to apply update: {}", e))?;
+        
+        Ok(())
+    }
 }

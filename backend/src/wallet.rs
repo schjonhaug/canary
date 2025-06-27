@@ -212,4 +212,37 @@ impl WalletManager {
         
         Ok(())
     }
+
+    pub async fn sync_all_wallets(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.wallets.is_empty() {
+            return Ok(());
+        }
+        
+        println!("🔄 Syncing {} wallets...", self.wallets.len());
+        
+        let electrum_client = ElectrumClient::new_regtest()
+            .map_err(|e| format!("Failed to create electrum client: {}", e))?;
+        
+        for (i, wallet) in self.wallets.iter_mut().enumerate() {
+            let balance_before = wallet.balance().total();
+            
+            match electrum_client.sync_wallet_incremental(wallet) {
+                Ok(()) => {
+                    let balance_after = wallet.balance().total();
+                    if balance_before != balance_after {
+                        println!("💰 Wallet {}: Balance changed {} -> {}", 
+                               i + 1, balance_before, balance_after);
+                    } else {
+                        println!("📊 Wallet {}: Balance {} (no change)", 
+                               i + 1, balance_after);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ Wallet {}: Sync failed - {}", i + 1, e);
+                }
+            }
+        }
+        
+        Ok(())
+    }
 }

@@ -90,14 +90,12 @@ pub async fn create_wallet(
 )]
 pub struct ApiDoc;
 
-pub fn create_router(wallet_manager: WalletManager) -> Router {
-    let state = Arc::new(Mutex::new(wallet_manager));
-    
+pub fn create_router(wallet_manager: AppState) -> Router {
     let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(routes!(create_wallet))
         .split_for_parts();
     
     router
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api))
-        .with_state(state)
+        .with_state(wallet_manager)
 }
