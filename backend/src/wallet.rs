@@ -4,6 +4,7 @@ use miniscript::{Descriptor, DescriptorPublicKey, descriptor::checksum::desc_che
 use std::error::Error;
 use std::path::PathBuf;
 use std::fs;
+use crate::electrum::ElectrumClient;
 
 pub struct WalletManager {
     wallets: Vec<PersistedWallet<Store<ChangeSet>>>,
@@ -139,9 +140,20 @@ impl WalletManager {
         // Get the first address
         let first_address = wallet.reveal_next_address(KeychainKind::External);
         
-        // Persist wallet changes to file store
+        // Persist initial wallet state
         wallet.persist(&mut db)
             .map_err(|e| format!("Failed to persist wallet: {}", e))?;
+        
+        // Sync with electrum
+        let electrum_client = ElectrumClient::new_regtest()
+            .map_err(|e| format!("Failed to create electrum client: {}", e))?;
+        
+        electrum_client.sync_wallet(&mut wallet)
+            .map_err(|e| format!("Failed to sync wallet: {}", e))?;
+        
+        // Persist wallet changes after sync
+        wallet.persist(&mut db)
+            .map_err(|e| format!("Failed to persist wallet after sync: {}", e))?;
         
         // Add wallet to the in-memory manager 
         self.wallets.push(wallet);
