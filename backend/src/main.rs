@@ -1,7 +1,7 @@
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 
 mod electrum;
-use electrum::ElectrumClient;
+use electrum::ElectrumClient; 
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

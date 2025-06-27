@@ -16,7 +16,4 @@ impl ElectrumClient {
         Ok(format!("{:?}", features))
     }
 
-    pub fn is_connected(&self) -> bool {
-        true
-    }
 }
