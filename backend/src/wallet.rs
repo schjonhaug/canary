@@ -9,6 +9,7 @@ use crate::electrum::ElectrumClient;
 pub struct WalletManager {
     wallets: Vec<(String, PersistedWallet<Store<ChangeSet>>)>, // (checksum, wallet)
     wallet_dir: PathBuf,
+    electrum_client: ElectrumClient,
 }
 
 impl WalletManager {
@@ -19,9 +20,21 @@ impl WalletManager {
             eprintln!("Warning: Failed to create wallet directory: {}", e);
         }
         
+        // Initialize electrum client
+        let electrum_client = match ElectrumClient::new_regtest() {
+            Ok(client) => client,
+            Err(e) => {
+                eprintln!("Warning: Failed to create electrum client: {}", e);
+                // We still need to return a manager, so we'll panic for now
+                // In production, you might want to handle this more gracefully
+                panic!("Cannot create WalletManager without electrum client");
+            }
+        };
+        
         let mut manager = WalletManager {
             wallets: Vec::new(),
             wallet_dir,
+            electrum_client,
         };
         
         // Load all existing wallets
@@ -55,11 +68,8 @@ impl WalletManager {
 
     /// Sync wallet with electrum and persist changes
     async fn sync_and_persist_wallet(&self, wallet: &mut PersistedWallet<Store<ChangeSet>>, db: &mut Store<ChangeSet>) -> Result<(), Box<dyn Error>> {
-        // Sync with electrum
-        let electrum_client = ElectrumClient::new_regtest()
-            .map_err(|e| format!("Failed to create electrum client: {}", e))?;
-        
-        electrum_client.sync_wallet(wallet)
+        // Sync with electrum using shared client
+        self.electrum_client.sync_wallet(wallet)
             .map_err(|e| format!("Failed to sync wallet: {}", e))?;
         
         // Persist wallet changes after sync
@@ -222,17 +232,20 @@ impl WalletManager {
         println!("");
         println!("🔄 Syncing {} wallets...", self.wallets.len());
         
-        let electrum_client = ElectrumClient::new_regtest()
-            .map_err(|e| format!("Failed to create electrum client: {}", e))?;
-        
         for (checksum, wallet) in self.wallets.iter_mut() {
             println!("\n═══ Wallet {} ═══", checksum);
             
             let balance_before = wallet.balance().total();
             
-            match electrum_client.sync_wallet_incremental(wallet) {
+            match self.electrum_client.sync_wallet_incremental(wallet) {
                 Ok(()) => {
                     let balance_after = wallet.balance().total();
+
+                    println!("Trusted pending: {}", wallet.balance().trusted_pending);
+                    println!("Unconfirmed pending: {}", wallet.balance().untrusted_pending);
+                    println!("Confirmed: {}", wallet.balance().confirmed);
+                    
+                    
                     
                     if balance_before != balance_after {
                         println!("💰 Balance changed {} -> {}", 
