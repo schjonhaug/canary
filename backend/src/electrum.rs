@@ -11,7 +11,7 @@ impl ElectrumClient {
         Ok(ElectrumClient { client })
     }
 
-    pub async fn server_features(&self) -> Result<String, Box<dyn Error>> {
+    pub fn server_features(&self) -> Result<String, Box<dyn Error>> {
         Ok("Connected to Electrum via BDK".to_string())
     }
 
