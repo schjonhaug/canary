@@ -177,7 +177,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17698c25d2728afd6950d82069dce172147006f73960b9dc793a7e8dd7089016"
 dependencies = [
  "bitcoin",
- "hashbrown",
+ "hashbrown 0.14.5",
  "serde",
 ]
 
@@ -404,6 +404,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "equivalent"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+
+[[package]]
 name = "errno"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -513,6 +519,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.15.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5971ac85611da7067dbfcabef3c70ebb5606018acd9e2a3903a0da507521e0d5"
+
+[[package]]
 name = "hex-conservative"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -615,6 +627,17 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tower-service",
+]
+
+[[package]]
+name = "indexmap"
+version = "2.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe4cd85333e22411419a0bcae1297d25e58c9443848b11dc6a86fefe8c78a661"
+dependencies = [
+ "equivalent",
+ "hashbrown 0.15.4",
+ "serde",
 ]
 
 [[package]]
@@ -1234,6 +1257,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "utoipa",
 ]
 
 [[package]]
@@ -1247,6 +1271,30 @@ name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+
+[[package]]
+name = "utoipa"
+version = "5.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fcc29c80c21c31608227e0912b2d7fddba57ad76b606890627ba8ee7964e993"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+ "utoipa-gen",
+]
+
+[[package]]
+name = "utoipa-gen"
+version = "5.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d79d08d92ab8af4c5e8a6da20c47ae3f61a0f1dabc1997cdf2d082b757ca08b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn",
+]
 
 [[package]]
 name = "version_check"
