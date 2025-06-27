@@ -64,36 +64,6 @@ impl ElectrumClient {
     }
 
     pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Store<ChangeSet>>) -> Result<(), Box<dyn Error>> {
-       
-       // Check what's the current revealed index for each keychain
-       let receive_index = wallet.next_unused_address(KeychainKind::External).index;
-       let change_index = wallet.next_unused_address(KeychainKind::Internal).index;
-       
-       println!("   📊 Current revealed indices: receive={}, change={}", receive_index, change_index);
-       
-       // Show the actually revealed receive addresses (0..receive_index)
-       for i in 0..receive_index.min(5) {
-           let address_info = wallet.peek_address(KeychainKind::External, i);
-           let addr_str = address_info.address.to_string();
-           let short_addr = if addr_str.len() >= 5 {
-               &addr_str[addr_str.len() - 5..]
-           } else {
-               &addr_str
-           };
-           println!("     📥 Receive[{}]: ...{}", i, short_addr);
-       }
-       
-       // Show the actually revealed change addresses (0..change_index)
-       for i in 0..change_index.min(3) {
-           let address_info = wallet.peek_address(KeychainKind::Internal, i);
-           let addr_str = address_info.address.to_string();
-           let short_addr = if addr_str.len() >= 5 {
-               &addr_str[addr_str.len() - 5..]
-           } else {
-               &addr_str
-           };
-           println!("     🔄 Change[{}]: ...{}", i, short_addr);
-       }
 
         // Populate the electrum client's transaction cache
         self.client.populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
