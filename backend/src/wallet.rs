@@ -1,3 +1,4 @@
+use bdk_wallet::descriptor::IntoWalletDescriptor;
 use bdk_wallet::{bitcoin::Network, KeychainKind, Wallet, ChangeSet, PersistedWallet};
 use bdk_wallet::file_store::Store;
 use miniscript::{Descriptor, DescriptorPublicKey, descriptor::checksum::desc_checksum};
@@ -32,6 +33,42 @@ impl WalletManager {
         manager
     }
 
+    /// Get the network configuration used by all wallets
+    fn get_network() -> Network {
+        Network::Regtest
+    }
+
+    /// Create or load a file store for a wallet
+    fn create_file_store(&self, wallet_path: &PathBuf) -> Result<Store<ChangeSet>, Box<dyn Error>> {
+        let (db, _changeset) = Store::<ChangeSet>::load_or_create(
+            b"magic_bytes", 
+            wallet_path
+        ).map_err(|e| format!("Failed to create/load wallet store: {}", e))?;
+        
+        Ok(db)
+    }
+
+    /// Persist wallet changes to the database
+    fn persist_wallet(&self, wallet: &mut PersistedWallet<Store<ChangeSet>>, db: &mut Store<ChangeSet>) -> Result<bool, Box<dyn Error>> {
+        wallet.persist(db)
+            .map_err(|e| format!("Failed to persist wallet: {}", e).into())
+    }
+
+    /// Sync wallet with electrum and persist changes
+    async fn sync_and_persist_wallet(&self, wallet: &mut PersistedWallet<Store<ChangeSet>>, db: &mut Store<ChangeSet>) -> Result<(), Box<dyn Error>> {
+        // Sync with electrum
+        let electrum_client = ElectrumClient::new_regtest()
+            .map_err(|e| format!("Failed to create electrum client: {}", e))?;
+        
+        electrum_client.sync_wallet(wallet)
+            .map_err(|e| format!("Failed to sync wallet: {}", e))?;
+        
+        // Persist wallet changes after sync
+        self.persist_wallet(wallet, db)?;
+        
+        Ok(())
+    }
+
     fn load_all_wallets(&mut self) -> Result<(), Box<dyn Error>> {
         let entries = fs::read_dir(&self.wallet_dir)?;
         
@@ -59,27 +96,17 @@ impl WalletManager {
         println!("Loading wallet from file: {}", filename);
         
         // Open the file store
-        let (mut db, _changeset) = Store::<ChangeSet>::load_or_create(
-            b"magic_bytes", 
-            wallet_path
-        ).map_err(|e| format!("Failed to load wallet store: {}", e))?;
-
-        // Set network
-        let network = Network::Regtest;
+        let mut db = self.create_file_store(wallet_path)?;
 
         // Try to load the wallet (we don't know the descriptors, so we let BDK figure it out)
         let wallet_opt = Wallet::load()
             .extract_keys()
-            .check_network(network)
+            .check_network(Self::get_network())
             .load_wallet(&mut db)
             .map_err(|e| format!("Failed to load wallet: {}", e))?;
 
         if let Some(wallet) = wallet_opt {
-
-            
-            
             println!("    - Network: {:?}", wallet.network());
-            
             self.wallets.push(wallet);
         } else {
             println!("  ⚠ No wallet data found in file");
@@ -88,7 +115,30 @@ impl WalletManager {
         Ok(())
     }
 
-    pub async fn create_from_multipath(&mut self, descriptor_str: &str) -> Result<(), Box<dyn Error>> {
+    /// Extract checksum from descriptor if present, or compute a new one
+    fn get_descriptor_checksum(&self, descriptor_str: &str) -> Result<String, Box<dyn Error>> {
+        // Check if descriptor already has a checksum (format: descriptor#checksum)
+        if let Some(hash_pos) = descriptor_str.rfind('#') {
+            let checksum = &descriptor_str[hash_pos + 1..];
+            println!("Found existing checksum in descriptor: {}", checksum);
+            return Ok(checksum.to_string());
+        }
+        
+        // No existing checksum, compute a new one
+        let checksum = desc_checksum(descriptor_str)
+            .map_err(|e| format!("Failed to generate checksum: {}", e))?;
+        println!("Computed new checksum: {}", checksum);
+        Ok(checksum)
+    }
+
+    /// Create wallet file path from checksum
+    fn get_wallet_path(&self, checksum: &str) -> PathBuf {
+        let wallet_filename = format!("{}.db", checksum);
+        self.wallet_dir.join(wallet_filename)
+    }
+
+    /// Parse and validate multipath descriptor
+    fn parse_multipath_descriptor(&self, descriptor_str: &str) -> Result<(String, String), Box<dyn Error>> {
         // Parse the descriptor
         let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str.parse()
             .map_err(|e| format!("Invalid descriptor: {}", e))?;
@@ -108,49 +158,47 @@ impl WalletManager {
 
         let receive_descriptor = descriptors[0].to_string();
         let change_descriptor = descriptors[1].to_string();
+        
+        println!("  Receive descriptor: {}", receive_descriptor);
+        println!("  Change descriptor: {}", change_descriptor);
 
-        // Generate checksum for filename using receive descriptor
-        let checksum = desc_checksum(&receive_descriptor)
-            .map_err(|e| format!("Failed to generate checksum: {}", e))?;
+        Ok((receive_descriptor, change_descriptor))
+    }
+
+    pub async fn create_from_multipath(&mut self, descriptor_str: &str) -> Result<(), Box<dyn Error>> {
+        println!("Creating wallet from multipath descriptor:");
+        println!("  Input descriptor: {}", descriptor_str);
+        
+        // Get checksum (either existing or computed)
+        let checksum = self.get_descriptor_checksum(descriptor_str)?;
+        println!("  Final checksum: {}", checksum);
         
         // Create wallet file path using checksum
-        let wallet_filename = format!("{}.db", checksum);
-        let wallet_path = self.wallet_dir.join(wallet_filename);
+        let wallet_path = self.get_wallet_path(&checksum);
+        println!("  Wallet file path: {}", wallet_path.display());
 
         // Check if wallet file already exists
         if wallet_path.exists() {
             return Err("Wallet already exists".into());
         }
 
+        // Parse and validate the multipath descriptor
+        let (receive_descriptor, change_descriptor) = self.parse_multipath_descriptor(descriptor_str)?;
+
         // Open or create file store
-        let (mut db, _changeset) = Store::<ChangeSet>::load_or_create(
-            b"magic_bytes", 
-            &wallet_path
-        ).map_err(|e| format!("Failed to create/load wallet store: {}", e))?;
+        let mut db = self.create_file_store(&wallet_path)?;
 
-        // Set network
-        let network = Network::Regtest;
-
-        // Create new wallet (since we already checked it doesn't exist)
+        // Create new wallet
         let mut wallet = Wallet::create(receive_descriptor, change_descriptor)
-            .network(network)
+            .network(Self::get_network())
             .create_wallet(&mut db)
             .map_err(|e| format!("Failed to create wallet: {}", e))?;
 
         // Persist initial wallet state
-        wallet.persist(&mut db)
-            .map_err(|e| format!("Failed to persist wallet: {}", e))?;
+        self.persist_wallet(&mut wallet, &mut db)?;
         
-        // Sync with electrum
-        let electrum_client = ElectrumClient::new_regtest()
-            .map_err(|e| format!("Failed to create electrum client: {}", e))?;
-        
-        electrum_client.sync_wallet(&mut wallet)
-            .map_err(|e| format!("Failed to sync wallet: {}", e))?;
-        
-        // Persist wallet changes after sync
-        wallet.persist(&mut db)
-            .map_err(|e| format!("Failed to persist wallet after sync: {}", e))?;
+        // Sync with electrum and persist changes
+        self.sync_and_persist_wallet(&mut wallet, &mut db).await?;
         
         // Add wallet to the in-memory manager 
         self.wallets.push(wallet);
