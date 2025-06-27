@@ -88,7 +88,7 @@ impl WalletManager {
         Ok(())
     }
 
-    pub async fn create_from_multipath(&mut self, descriptor_str: &str) -> Result<String, Box<dyn Error>> {
+    pub async fn create_from_multipath(&mut self, descriptor_str: &str) -> Result<(), Box<dyn Error>> {
         // Parse the descriptor
         let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str.parse()
             .map_err(|e| format!("Invalid descriptor: {}", e))?;
@@ -137,9 +137,6 @@ impl WalletManager {
             .create_wallet(&mut db)
             .map_err(|e| format!("Failed to create wallet: {}", e))?;
 
-        // Get the first address
-        let first_address = wallet.reveal_next_address(KeychainKind::External);
-        
         // Persist initial wallet state
         wallet.persist(&mut db)
             .map_err(|e| format!("Failed to persist wallet: {}", e))?;
@@ -158,6 +155,6 @@ impl WalletManager {
         // Add wallet to the in-memory manager 
         self.wallets.push(wallet);
         
-        Ok(first_address.address.to_string())
+        Ok(())
     }
 }

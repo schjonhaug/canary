@@ -49,8 +49,7 @@ pub async fn create_wallet(
     Json(payload): Json<CreateWalletRequest>,
 ) -> Result<(StatusCode, Json<CreateWalletResponse>), (StatusCode, Json<ErrorResponse>)> {
     match wallet_manager.lock().await.create_from_multipath(&payload.descriptor).await {
-        Ok(first_address) => {
-            println!("First address: {}", first_address);
+        Ok(()) => {
             Ok((
                 StatusCode::CREATED,
                 Json(CreateWalletResponse {
