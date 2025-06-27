@@ -40,6 +40,7 @@ pub type AppState = Arc<Mutex<WalletManager>>;
     responses(
         (status = 201, description = "Wallet created successfully", body = CreateWalletResponse),
         (status = 400, description = "Invalid request", body = ErrorResponse),
+        (status = 500, description = "Wallet already exists", body = ErrorResponse),
     ),
     tag = "wallet"
 )]
@@ -57,12 +58,21 @@ pub async fn create_wallet(
                 }),
             ))
         }
-        Err(e) => Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )),
+        Err(e) => {
+            let error_msg = e.to_string();
+            let status_code = if error_msg == "Wallet already exists" {
+                StatusCode::INTERNAL_SERVER_ERROR
+            } else {
+                StatusCode::BAD_REQUEST
+            };
+            
+            Err((
+                status_code,
+                Json(ErrorResponse {
+                    error: error_msg,
+                }),
+            ))
+        }
     }
 }
 

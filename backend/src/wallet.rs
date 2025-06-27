@@ -3,6 +3,7 @@ use bdk_wallet::file_store::Store;
 use miniscript::{Descriptor, DescriptorPublicKey, descriptor::checksum::desc_checksum};
 use std::error::Error;
 use std::path::PathBuf;
+use std::fs;
 
 pub struct WalletManager {
     wallets: Vec<PersistedWallet<Store<ChangeSet>>>,
@@ -17,10 +18,60 @@ impl WalletManager {
             eprintln!("Warning: Failed to create wallet directory: {}", e);
         }
         
-        WalletManager {
+        let mut manager = WalletManager {
             wallets: Vec::new(),
             wallet_dir,
+        };
+        
+        // Load all existing wallets
+        if let Err(e) = manager.load_all_wallets() {
+            eprintln!("Warning: Failed to load existing wallets: {}", e);
         }
+        
+        manager
+    }
+
+    fn load_all_wallets(&mut self) -> Result<(), Box<dyn Error>> {
+        let entries = fs::read_dir(&self.wallet_dir)?;
+        
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+            
+            // Only process .db files
+            if path.extension().and_then(|s| s.to_str()) == Some("db") {
+                if let Err(e) = self.load_wallet_from_file(&path) {
+                    eprintln!("Warning: Failed to load wallet from {}: {}", path.display(), e);
+                }
+            }
+        }
+        
+        println!("Loaded {} wallets from disk", self.wallets.len());
+        Ok(())
+    }
+
+    fn load_wallet_from_file(&mut self, wallet_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+        // Open the file store
+        let (mut db, _changeset) = Store::<ChangeSet>::load_or_create(
+            b"magic_bytes", 
+            wallet_path
+        ).map_err(|e| format!("Failed to load wallet store: {}", e))?;
+
+        // Set network
+        let network = Network::Regtest;
+
+        // Try to load the wallet (we don't know the descriptors, so we let BDK figure it out)
+        let wallet_opt = Wallet::load()
+            .extract_keys()
+            .check_network(network)
+            .load_wallet(&mut db)
+            .map_err(|e| format!("Failed to load wallet: {}", e))?;
+
+        if let Some(wallet) = wallet_opt {
+            self.wallets.push(wallet);
+        }
+        
+        Ok(())
     }
 
     pub async fn create_from_multipath(&mut self, descriptor_str: &str) -> Result<String, Box<dyn Error>> {
@@ -52,6 +103,11 @@ impl WalletManager {
         let wallet_filename = format!("{}.db", checksum);
         let wallet_path = self.wallet_dir.join(wallet_filename);
 
+        // Check if wallet file already exists
+        if wallet_path.exists() {
+            return Err("Wallet already exists".into());
+        }
+
         // Open or create file store
         let (mut db, _changeset) = Store::<ChangeSet>::load_or_create(
             b"magic_bytes", 
@@ -61,22 +117,11 @@ impl WalletManager {
         // Set network
         let network = Network::Regtest;
 
-        // Try to load existing wallet, or create new one
-        let wallet_opt = Wallet::load()
-            .descriptor(KeychainKind::External, Some(receive_descriptor.clone()))
-            .descriptor(KeychainKind::Internal, Some(change_descriptor.clone()))
-            .extract_keys()
-            .check_network(network)
-            .load_wallet(&mut db)
-            .map_err(|e| format!("Failed to load wallet: {}", e))?;
-
-        let mut wallet = match wallet_opt {
-            Some(wallet) => wallet,
-            None => Wallet::create(receive_descriptor, change_descriptor)
-                .network(network)
-                .create_wallet(&mut db)
-                .map_err(|e| format!("Failed to create wallet: {}", e))?,
-        };
+        // Create new wallet (since we already checked it doesn't exist)
+        let mut wallet = Wallet::create(receive_descriptor, change_descriptor)
+            .network(network)
+            .create_wallet(&mut db)
+            .map_err(|e| format!("Failed to create wallet: {}", e))?;
 
         // Get the first address
         let first_address = wallet.reveal_next_address(KeychainKind::External);
