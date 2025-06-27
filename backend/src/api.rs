@@ -1,13 +1,14 @@
 use axum::{
     extract::State,
     http::StatusCode,
-    response::{Html, Json},
-    routing::{get, post},
+    response::Json,
     Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use utoipa::{OpenApi, ToSchema};
+use utoipa_axum::{router::OpenApiRouter, routes};
+use utoipa_swagger_ui::SwaggerUi;
 use crate::wallet::WalletManager;
 
 #[derive(Deserialize, ToSchema)]
@@ -82,52 +83,11 @@ pub struct ApiDoc;
 pub fn create_router(wallet_manager: WalletManager) -> Router {
     let state = Arc::new(wallet_manager);
     
-    Router::new()
-        .route("/wallet", post(create_wallet))
-        .route("/api-docs/openapi.json", get(serve_openapi))
-        .route("/swagger-ui", get(serve_swagger_ui))
+    let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+        .routes(routes!(create_wallet))
+        .split_for_parts();
+    
+    router
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api))
         .with_state(state)
-}
-
-async fn serve_openapi() -> Json<utoipa::openapi::OpenApi> {
-    Json(ApiDoc::openapi())
-}
-
-async fn serve_swagger_ui() -> Html<String> {
-    Html(format!(r#"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>TxRay Wallet API</title>
-    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.0.0/swagger-ui.css" />
-    <style>
-        html {{ box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }}
-        *, *:before, *:after {{ box-sizing: inherit; }}
-        body {{ margin:0; background: #fafafa; }}
-    </style>
-</head>
-<body>
-    <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5.0.0/swagger-ui-bundle.js"></script>
-    <script src="https://unpkg.com/swagger-ui-dist@5.0.0/swagger-ui-standalone-preset.js"></script>
-    <script>
-        window.onload = function() {{
-            SwaggerUIBundle({{
-                url: '/api-docs/openapi.json',
-                dom_id: '#swagger-ui',
-                deepLinking: true,
-                presets: [
-                    SwaggerUIBundle.presets.apis,
-                    SwaggerUIStandalonePreset
-                ],
-                plugins: [
-                    SwaggerUIBundle.plugins.DownloadUrl
-                ],
-                layout: "StandaloneLayout"
-            }})
-        }}
-    </script>
-</body>
-</html>
-    "#))
 }
