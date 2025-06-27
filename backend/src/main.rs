@@ -1,7 +1,9 @@
 use sqlx::PgPool;
 
 mod electrum;
-use electrum::ElectrumClient; 
+mod wallet;
+use electrum::ElectrumClient;
+use wallet::WalletManager; 
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -11,9 +13,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _pool = PgPool::connect(&database_url).await?;
     println!("Connected to PostgreSQL database!");
     
-    let mut electrum_client = ElectrumClient::new_regtest()?;
-    let features = electrum_client.server_features()?;
+    let electrum_client = ElectrumClient::new_regtest()?;
+    let features = electrum_client.server_features().await?;
     println!("Connected to Electrum server: {}", features);
+    
+    let mut wallet = WalletManager::new()?;
+    let address = wallet.get_new_address()?;
+    println!("New wallet address: {}", address);
     
     Ok(())
 }
