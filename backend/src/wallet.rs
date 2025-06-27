@@ -12,7 +12,7 @@ pub struct WalletManager {
 }
 
 impl WalletManager {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         let wallet_dir = PathBuf::from("./wallets");
         // Create wallet directory if it doesn't exist
         if let Err(e) = std::fs::create_dir_all(&wallet_dir) {
@@ -25,7 +25,7 @@ impl WalletManager {
         };
         
         // Load all existing wallets
-        if let Err(e) = manager.load_all_wallets() {
+        if let Err(e) = manager.load_all_wallets().await {
             eprintln!("Warning: Failed to load existing wallets: {}", e);
         }
         
@@ -68,7 +68,7 @@ impl WalletManager {
         Ok(())
     }
 
-    fn load_all_wallets(&mut self) -> Result<(), Box<dyn Error>> {
+    async fn load_all_wallets(&mut self) -> Result<(), Box<dyn Error>> {
         let entries = fs::read_dir(&self.wallet_dir)?;
         
         for entry in entries {
@@ -77,7 +77,7 @@ impl WalletManager {
             
             // Only process .db files
             if path.extension().and_then(|s| s.to_str()) == Some("db") {
-                if let Err(e) = self.load_wallet_from_file(&path) {
+                if let Err(e) = self.load_wallet_from_file(&path).await {
                     eprintln!("Warning: Failed to load wallet from {}: {}", path.display(), e);
                 }
             }
@@ -87,7 +87,7 @@ impl WalletManager {
         Ok(())
     }
 
-    fn load_wallet_from_file(&mut self, wallet_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    async fn load_wallet_from_file(&mut self, wallet_path: &PathBuf) -> Result<(), Box<dyn Error>> {
         let filename = wallet_path.file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
@@ -104,8 +104,16 @@ impl WalletManager {
             .load_wallet(&mut db)
             .map_err(|e| format!("Failed to load wallet: {}", e))?;
 
-        if let Some(wallet) = wallet_opt {
+        if let Some(mut wallet) = wallet_opt {
             println!("    - Network: {:?}", wallet.network());
+            
+            // Sync wallet with electrum and persist changes
+            if let Err(e) = self.sync_and_persist_wallet(&mut wallet, &mut db).await {
+                eprintln!("Warning: Failed to sync wallet {}: {}", filename, e);
+            } else {
+                println!("    - Synced with electrum");
+            }
+            
             self.wallets.push(wallet);
         } else {
             println!("  ⚠ No wallet data found in file");
