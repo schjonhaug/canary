@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 electrum-client = "0.23.1"
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono"] }
+tokio = { version = "1", features = ["full"] }
