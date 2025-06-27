@@ -1,5 +1,4 @@
-use bdk_wallet::descriptor::IntoWalletDescriptor;
-use bdk_wallet::{bitcoin::Network, KeychainKind, Wallet, ChangeSet, PersistedWallet};
+use bdk_wallet::{bitcoin::Network, Wallet, ChangeSet, PersistedWallet};
 use bdk_wallet::file_store::Store;
 use miniscript::{Descriptor, DescriptorPublicKey, descriptor::checksum::desc_checksum};
 use std::error::Error;
