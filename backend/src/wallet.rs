@@ -20,12 +20,6 @@ impl WalletManager {
         Ok(WalletManager { wallet })
     }
 
-    pub fn get_new_address(&mut self) -> Result<String, Box<dyn Error>> {
-        // Get a new address to receive bitcoin.
-        let receive_address = self.wallet.reveal_next_address(KeychainKind::External);
-        Ok(receive_address.address.to_string())
-    }
-
     pub async fn create_from_multipath(&self, descriptor_str: &str) -> Result<String, Box<dyn Error>> {
         // Parse the descriptor
         let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str.parse()

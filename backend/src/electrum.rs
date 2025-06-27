@@ -15,7 +15,4 @@ impl ElectrumClient {
         Ok("Connected to Electrum via BDK".to_string())
     }
 
-    pub fn is_connected(&self) -> bool {
-        true
-    }
 }
