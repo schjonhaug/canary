@@ -7,7 +7,7 @@ use std::fs;
 use crate::electrum::ElectrumClient;
 
 pub struct WalletManager {
-    wallets: Vec<PersistedWallet<Store<ChangeSet>>>,
+    wallets: Vec<(String, PersistedWallet<Store<ChangeSet>>)>, // (checksum, wallet)
     wallet_dir: PathBuf,
 }
 
@@ -114,7 +114,9 @@ impl WalletManager {
                 println!("    - Synced with electrum");
             }
             
-            self.wallets.push(wallet);
+            // Extract checksum from filename (remove .db extension)
+            let checksum = filename.strip_suffix(".db").unwrap_or(filename).to_string();
+            self.wallets.push((checksum, wallet));
         } else {
             println!("  ⚠ No wallet data found in file");
         }
@@ -208,7 +210,7 @@ impl WalletManager {
         self.sync_and_persist_wallet(&mut wallet, &mut db).await?;
         
         // Add wallet to the in-memory manager 
-        self.wallets.push(wallet);
+        self.wallets.push((checksum, wallet));
         
         Ok(())
     }
@@ -217,28 +219,136 @@ impl WalletManager {
         if self.wallets.is_empty() {
             return Ok(());
         }
-        
+        println!("");
         println!("🔄 Syncing {} wallets...", self.wallets.len());
         
         let electrum_client = ElectrumClient::new_regtest()
             .map_err(|e| format!("Failed to create electrum client: {}", e))?;
         
-        for (i, wallet) in self.wallets.iter_mut().enumerate() {
+        for (checksum, wallet) in self.wallets.iter_mut() {
+            println!("\n═══ Wallet {} ═══", checksum);
+            
             let balance_before = wallet.balance().total();
             
             match electrum_client.sync_wallet_incremental(wallet) {
                 Ok(()) => {
                     let balance_after = wallet.balance().total();
+                    
                     if balance_before != balance_after {
-                        println!("💰 Wallet {}: Balance changed {} -> {}", 
-                               i + 1, balance_before, balance_after);
+                        println!("💰 Balance changed {} -> {}", 
+                               balance_before, balance_after);
+                        
+                        // Show only unconfirmed transactions (these are likely the cause of balance change)
+                        println!("📋 Unconfirmed transactions:");
+                        let unconfirmed_txs: Vec<_> = wallet.transactions()
+                            .filter(|tx| matches!(tx.chain_position, bdk_wallet::chain::ChainPosition::Unconfirmed { .. }))
+                            .take(5)
+                            .collect();
+                        
+                        if unconfirmed_txs.is_empty() {
+                            println!("  No unconfirmed transactions found");
+                            // If no unconfirmed transactions but balance changed, show recent confirmed ones
+                            println!("📋 Recent confirmed transactions:");
+                            let recent_confirmed: Vec<_> = wallet.transactions()
+                                .filter(|tx| matches!(tx.chain_position, bdk_wallet::chain::ChainPosition::Confirmed { .. }))
+                                .take(2)
+                                .collect();
+                            
+                            for tx_details in recent_confirmed {
+                                let tx = &tx_details.tx_node.tx;
+                                let txid = tx.compute_txid();
+                                
+                                // Calculate received and sent amounts for this wallet
+                                let mut received = 0u64;
+                                let mut sent = 0u64;
+                                
+                                // Check outputs for received amounts
+                                for output in &tx.output {
+                                    if wallet.is_mine(output.script_pubkey.clone()) {
+                                        received += output.value.to_sat();
+                                    }
+                                }
+                                
+                                // Check inputs for sent amounts
+                                for input in &tx.input {
+                                    if let Some(prev_tx) = wallet.get_tx(input.previous_output.txid) {
+                                        if let Some(prev_output) = prev_tx.tx_node.tx.output.get(input.previous_output.vout as usize) {
+                                            if wallet.is_mine(prev_output.script_pubkey.clone()) {
+                                                sent += prev_output.value.to_sat();
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                let net_change = received as i64 - sent as i64;
+                                
+                                println!("  📄 TXID: {}", txid);
+                                println!("     Received: {} sats", received);
+                                println!("     Sent: {} sats", sent);
+                                println!("     Net change: {} sats", net_change);
+                                
+                                match &tx_details.chain_position {
+                                    bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                                        println!("     Confirmed at height: {}", anchor.block_id.height);
+                                    }
+                                    bdk_wallet::chain::ChainPosition::Unconfirmed { .. } => {
+                                        println!("     Status: Unconfirmed");
+                                    }
+                                }
+                                println!();
+                            }
+                        } else {
+                            for tx_details in unconfirmed_txs {
+                                let tx = &tx_details.tx_node.tx;
+                                let txid = tx.compute_txid();
+                                
+                                // Calculate received and sent amounts for this wallet
+                                let mut received = 0u64;
+                                let mut sent = 0u64;
+                                
+                                // Check outputs for received amounts
+                                for output in &tx.output {
+                                    if wallet.is_mine(output.script_pubkey.clone()) {
+                                        received += output.value.to_sat();
+                                    }
+                                }
+                                
+                                // Check inputs for sent amounts
+                                for input in &tx.input {
+                                    if let Some(prev_tx) = wallet.get_tx(input.previous_output.txid) {
+                                        if let Some(prev_output) = prev_tx.tx_node.tx.output.get(input.previous_output.vout as usize) {
+                                            if wallet.is_mine(prev_output.script_pubkey.clone()) {
+                                                sent += prev_output.value.to_sat();
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                let net_change = received as i64 - sent as i64;
+                                
+                                println!("  📄 TXID: {}", txid);
+                                println!("     Received: {} sats", received);
+                                println!("     Sent: {} sats", sent);
+                                println!("     Net change: {} sats", net_change);
+                                
+                                match &tx_details.chain_position {
+                                    bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                                        println!("     Confirmed at height: {}", anchor.block_id.height);
+                                    }
+                                    bdk_wallet::chain::ChainPosition::Unconfirmed { .. } => {
+                                        println!("     Status: Unconfirmed");
+                                    }
+                                }
+                                println!();
+                            }
+                        }
                     } else {
-                        println!("📊 Wallet {}: Balance {} (no change)", 
-                               i + 1, balance_after);
+                        println!("📊 Balance {} (no change)", 
+                               balance_after);
                     }
                 }
                 Err(e) => {
-                    eprintln!("❌ Wallet {}: Sync failed - {}", i + 1, e);
+                    eprintln!("❌ Sync failed - {}", e);
                 }
             }
         }
