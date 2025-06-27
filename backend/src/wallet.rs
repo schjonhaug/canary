@@ -51,6 +51,12 @@ impl WalletManager {
     }
 
     fn load_wallet_from_file(&mut self, wallet_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+        let filename = wallet_path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
+        
+        println!("Loading wallet from file: {}", filename);
+        
         // Open the file store
         let (mut db, _changeset) = Store::<ChangeSet>::load_or_create(
             b"magic_bytes", 
@@ -68,7 +74,14 @@ impl WalletManager {
             .map_err(|e| format!("Failed to load wallet: {}", e))?;
 
         if let Some(wallet) = wallet_opt {
+
+            
+            
+            println!("    - Network: {:?}", wallet.network());
+            
             self.wallets.push(wallet);
+        } else {
+            println!("  ⚠ No wallet data found in file");
         }
         
         Ok(())
