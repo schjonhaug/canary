@@ -9,10 +9,10 @@ impl WalletManager {
     pub fn new() -> Result<Self, Box<dyn Error>> {
         // Create a simple in-memory wallet for now
         let network = Network::Regtest;
-        let descriptor = "wpkh(tprv8ZgxMBicQKsPdcAqYBpzAFwU5yxBUo88ggoBqu1qPcHUfSbKK1sKMLmC7EAk438btHQrSdu3jGGQa6PA71nvH5nkDexhLteJqkM4dQmWF9g/84'/1'/0'/0/*)";
+        let receive_descriptor = "wpkh(tprv8ZgxMBicQKsPdcAqYBpzAFwU5yxBUo88ggoBqu1qPcHUfSbKK1sKMLmC7EAk438btHQrSdu3jGGQa6PA71nvH5nkDexhLteJqkM4dQmWF9g/84'/1'/0'/0/*)";
         let change_descriptor = "wpkh(tprv8ZgxMBicQKsPdcAqYBpzAFwU5yxBUo88ggoBqu1qPcHUfSbKK1sKMLmC7EAk438btHQrSdu3jGGQa6PA71nvH5nkDexhLteJqkM4dQmWF9g/84'/1'/0'/1/*)";
         
-        let wallet = Wallet::create(descriptor, change_descriptor)
+        let wallet = Wallet::create(receive_descriptor, change_descriptor)
             .network(network)
             .create_wallet_no_persist()?;
 
