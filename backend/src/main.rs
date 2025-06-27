@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let features = electrum_client.server_features()?;
     println!("Connected to Electrum server: {}", features);
     
-    let wallet_manager = WalletManager::new()?;
+    let wallet_manager = WalletManager::new();
     
     let app = create_router(wallet_manager);
     

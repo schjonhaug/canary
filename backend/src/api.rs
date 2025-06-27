@@ -6,6 +6,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use utoipa_swagger_ui::SwaggerUi;
@@ -30,7 +31,7 @@ pub struct ErrorResponse {
     pub error: String,
 }
 
-pub type AppState = Arc<WalletManager>;
+pub type AppState = Arc<Mutex<WalletManager>>;
 
 #[utoipa::path(
     post,
@@ -46,7 +47,7 @@ pub async fn create_wallet(
     State(wallet_manager): State<AppState>,
     Json(payload): Json<CreateWalletRequest>,
 ) -> Result<(StatusCode, Json<CreateWalletResponse>), (StatusCode, Json<ErrorResponse>)> {
-    match wallet_manager.create_from_multipath(&payload.descriptor).await {
+    match wallet_manager.lock().await.create_from_multipath(&payload.descriptor).await {
         Ok(first_address) => {
             println!("First address: {}", first_address);
             Ok((
@@ -81,7 +82,7 @@ pub async fn create_wallet(
 pub struct ApiDoc;
 
 pub fn create_router(wallet_manager: WalletManager) -> Router {
-    let state = Arc::new(wallet_manager);
+    let state = Arc::new(Mutex::new(wallet_manager));
     
     let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(routes!(create_wallet))
