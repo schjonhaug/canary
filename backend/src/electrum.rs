@@ -1,6 +1,6 @@
 use bdk_electrum::{electrum_client, BdkElectrumClient};
-use bdk_wallet::{PersistedWallet, ChangeSet};
-use bdk_wallet::file_store::Store;
+use bdk_wallet::PersistedWallet;
+use rusqlite::Connection;
 use bdk_wallet::chain::collections::HashSet;
 use bdk_wallet::KeychainKind;
 use std::error::Error;
@@ -23,7 +23,7 @@ impl ElectrumClient {
         Ok("Connected to Electrum via BDK".to_string())
     }
 
-    pub fn sync_wallet(&self, wallet: &mut PersistedWallet<Store<ChangeSet>>) -> Result<(), Box<dyn Error>> {
+    pub fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<(), Box<dyn Error>> {
         println!("Syncing with electrum...");
         
         // Print initial balance
@@ -73,7 +73,7 @@ impl ElectrumClient {
         Ok(())
     }
 
-    pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Store<ChangeSet>>) -> Result<(), Box<dyn Error>> {
+    pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Connection>) -> Result<(), Box<dyn Error>> {
 
         // Populate the electrum client's transaction cache
         self.client.populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
