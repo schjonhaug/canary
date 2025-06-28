@@ -333,6 +333,18 @@ impl WalletManager {
                             println!("✅ Sent confirmed");
                         }
                         
+                        // Detect if this is a received transaction being confirmed
+                        let untrusted_pending_decrease = untrusted_pending_after.to_sat() < untrusted_pending_before.to_sat();
+                        let confirmed_increase = confirmed_after.to_sat() > confirmed_before.to_sat();
+                        let total_same = total_after.to_sat() == total_before.to_sat();
+                        
+                        if untrusted_pending_decrease && confirmed_increase && total_same {
+                            let received_amount = untrusted_pending_before.to_sat() - untrusted_pending_after.to_sat();
+                            let received_btc = received_amount as f64 / 100_000_000.0;
+                            
+                            println!("✅ Received {:.8} BTC", received_btc);
+                        }
+                        
                         println!(); // Add spacing between wallets
                     }
                         
