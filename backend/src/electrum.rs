@@ -73,7 +73,7 @@ impl ElectrumClient {
         Ok(())
     }
 
-    pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Store<ChangeSet>>) -> Result<String, Box<dyn Error>> {
+    pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Store<ChangeSet>>) -> Result<(), Box<dyn Error>> {
 
         // Populate the electrum client's transaction cache
         self.client.populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
@@ -85,66 +85,10 @@ impl ElectrumClient {
         let update = self.client.sync(request, BATCH_SIZE, false)
             .map_err(|e| format!("Sync failed: {}", e))?;
         
-        // Create readable summary
-        let mut summary = String::new();
-        
-        // TxUpdate summary
-        summary.push_str(&format!("📦 TxUpdate:\n"));
-        summary.push_str(&format!("  - Transactions: {}\n", update.tx_update.txs.len()));
-        summary.push_str(&format!("  - Floating txouts: {}\n", update.tx_update.txouts.len()));
-        summary.push_str(&format!("  - Anchors (confirmations): {}\n", update.tx_update.anchors.len()));
-        summary.push_str(&format!("  - Seen in mempool: {}\n", update.tx_update.seen_ats.len()));
-        summary.push_str(&format!("  - Evicted from mempool: {}\n", update.tx_update.evicted_ats.len()));
-        
-        // List transaction IDs if any
-        if !update.tx_update.txs.is_empty() {
-            summary.push_str("  📄 Transaction IDs:\n");
-            for tx in &update.tx_update.txs {
-                let txid = tx.compute_txid();
-                summary.push_str(&format!("    - {}\n", txid));
-            }
-        }
-        
-        // List anchors if any
-        if !update.tx_update.anchors.is_empty() {
-            summary.push_str("  ⚓ Anchors (confirmations):\n");
-            for (anchor, txid) in &update.tx_update.anchors {
-                summary.push_str(&format!("    - {} at block {}\n", txid, anchor.block_id.height));
-            }
-        }
-        
-        // List seen_ats if any
-        if !update.tx_update.seen_ats.is_empty() {
-            summary.push_str("  👀 Seen in mempool:\n");
-            for (txid, timestamp) in &update.tx_update.seen_ats {
-                summary.push_str(&format!("    - {} at {}\n", txid, timestamp));
-            }
-        }
-        
-        // List evicted_ats if any
-        if !update.tx_update.evicted_ats.is_empty() {
-            summary.push_str("  🗑️ Evicted from mempool:\n");
-            for (txid, timestamp) in &update.tx_update.evicted_ats {
-                summary.push_str(&format!("    - {} at {}\n", txid, timestamp));
-            }
-        }
-        
-        // Chain update summary
-        match &update.chain_update {
-            Some(checkpoint) => {
-                summary.push_str(&format!("\n⛓️ Chain Update:\n"));
-                summary.push_str(&format!("  - Tip height: {}\n", checkpoint.height()));
-                summary.push_str(&format!("  - Tip hash: {}\n", checkpoint.hash()));
-            }
-            None => {
-                summary.push_str("\n⛓️ Chain Update: None\n");
-            }
-        }
-        
         // Apply the update
         wallet.apply_update(update)
             .map_err(|e| format!("Failed to apply update: {}", e))?;
         
-        Ok(summary)
+        Ok(())
     }
 }
