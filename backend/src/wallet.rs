@@ -233,23 +233,34 @@ impl WalletManager {
         println!("🔄 Syncing {} wallets...", self.wallets.len());
         
         for (checksum, wallet) in self.wallets.iter_mut() {
-            println!("\n═══ Wallet {} ═══", checksum);
-            
-            let balance_before = wallet.balance().total();
+            // Get balance before sync
+            let balance_before = wallet.balance();
+            let trusted_pending_before = balance_before.trusted_pending;
+            let untrusted_pending_before = balance_before.untrusted_pending;
+            let confirmed_before = balance_before.confirmed;
+            let total_before = balance_before.total();
             
             match self.electrum_client.sync_wallet_incremental(wallet) {
                 Ok(()) => {
-                    let balance_after = wallet.balance().total();
-
-                    println!("Trusted pending: {}", wallet.balance().trusted_pending);
-                    println!("Unconfirmed pending: {}", wallet.balance().untrusted_pending);
-                    println!("Confirmed: {}", wallet.balance().confirmed);
+                    // Get balance after sync
+                    let balance_after = wallet.balance();
+                    let trusted_pending_after = balance_after.trusted_pending;
+                    let untrusted_pending_after = balance_after.untrusted_pending;
+                    let confirmed_after = balance_after.confirmed;
+                    let total_after = balance_after.total();
                     
+                    // Check if any balance component changed
+                    let has_changes = trusted_pending_before != trusted_pending_after ||
+                                    untrusted_pending_before != untrusted_pending_after ||
+                                    confirmed_before != confirmed_after ||
+                                    total_before != total_after;
                     
-                    
-                    if balance_before != balance_after {
-                        println!("💰 Balance changed {} -> {}", 
-                               balance_before, balance_after);
+                    if has_changes {
+                        println!("\n═══ Wallet {} ═══", checksum);
+                        println!("Trusted pending: {}", trusted_pending_after);
+                        println!("Unconfirmed pending: {}", untrusted_pending_after);
+                        println!("Confirmed: {}", confirmed_after);
+                        println!("💰 Balance changed {} -> {}", total_before, total_after);
                         
                         // Show only unconfirmed transactions (these are likely the cause of balance change)
                         println!("📋 Unconfirmed transactions:");
@@ -355,13 +366,10 @@ impl WalletManager {
                                 println!();
                             }
                         }
-                    } else {
-                        println!("📊 Balance {} (no change)", 
-                               balance_after);
                     }
                 }
                 Err(e) => {
-                    eprintln!("❌ Sync failed - {}", e);
+                    eprintln!("❌ Sync failed for wallet {} - {}", checksum, e);
                 }
             }
         }
