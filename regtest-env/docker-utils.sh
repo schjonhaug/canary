@@ -47,6 +47,225 @@ btc_wallet() {
     docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet="$wallet_name" "$@"
 }
 
+# --- CPFP logic as a function for both Alice and Bob ---
+cpfp_for_wallet() {
+    WALLET="$1"
+    PARENT_TXID="$2"
+    if [ -z "$PARENT_TXID" ]; then
+        echo "Usage: $0 $WALLET cpfp <parent_txid>"
+        exit 1
+    fi
+    btc_wallet() {
+        local wallet_name=$1
+        shift
+        docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet="$wallet_name" "$@"
+    }
+    # Check if wallet exists
+    if ! btc_wallet "$WALLET" getwalletinfo >/dev/null 2>&1; then
+        echo "❌ $WALLET wallet not found. Run '$0 create-wallets' first"
+        exit 1
+    fi
+    # Check wallet has sufficient confirmed funds for fees
+    WALLET_BALANCE=$(btc_wallet "$WALLET" getbalance)
+    echo "💰 $WALLET wallet balance: $WALLET_BALANCE BTC (confirmed)"
+    if [ "$(echo "$WALLET_BALANCE < 0.001" | bc -l)" -eq 1 ]; then
+        echo "❌ $WALLET needs confirmed funds for CPFP fees. Current balance: $WALLET_BALANCE BTC"
+        echo "💡 Fund $WALLET first with: $0 $([[ "$WALLET" == "alice" ]] && echo "bob" || echo "alice") send 0.01 && $0 mine 1"
+        exit 1
+    fi
+    # $WALLET creates high-fee child transaction (CPFP)
+    echo "👶 Creating CPFP child transaction ($WALLET spends unconfirmed output)..."
+    # Verify parent transaction is in wallet and unconfirmed
+    PARENT_IN_WALLET=$(btc_wallet "$WALLET" gettransaction $PARENT_TXID 2>/dev/null || echo "not found")
+    if [ "$PARENT_IN_WALLET" = "not found" ]; then
+        echo "❌ Parent transaction not found in $WALLET wallet"
+        exit 1
+    fi
+    PARENT_CONFIRMATIONS=$(echo "$PARENT_IN_WALLET" | jq -r '.confirmations')
+    PARENT_AMOUNT=$(echo "$PARENT_IN_WALLET" | jq -r '.amount')
+    if [ "$PARENT_CONFIRMATIONS" -gt 0 ]; then
+        echo "❌ Parent transaction is already confirmed ($PARENT_CONFIRMATIONS confirmations)"
+        echo "💡 CPFP only works on unconfirmed transactions"
+        exit 1
+    fi
+    echo "   ✅ Parent transaction found in $WALLET wallet (unconfirmed)"
+    echo "   💰 Parent amount: $PARENT_AMOUNT BTC"
+    # Get the raw parent transaction to find outputs that belong to wallet
+    PARENT_RAW=$(btc getrawtransaction $PARENT_TXID true)
+    # Find which output(s) in the parent transaction belong to wallet
+    WALLET_OUTPUTS=()
+    TOTAL_WALLET_AMOUNT=0
+    OUTPUT_COUNT=$(echo "$PARENT_RAW" | jq '.vout | length')
+    for ((i=0; i<OUTPUT_COUNT; i++)); do
+        OUTPUT_ADDRESS=$(echo "$PARENT_RAW" | jq -r ".vout[$i].scriptPubKey.address")
+        OUTPUT_VALUE=$(echo "$PARENT_RAW" | jq -r ".vout[$i].value")
+        # Check if this address belongs to wallet
+        if btc_wallet "$WALLET" getaddressinfo "$OUTPUT_ADDRESS" 2>/dev/null | jq -r '.ismine' | grep -q "true"; then
+            WALLET_OUTPUTS+=("$i:$OUTPUT_VALUE")
+            TOTAL_WALLET_AMOUNT=$(echo "scale=8; $TOTAL_WALLET_AMOUNT + $OUTPUT_VALUE" | bc -l)
+            echo "   📍 Found $WALLET's output $i: $OUTPUT_VALUE BTC at $OUTPUT_ADDRESS"
+        fi
+    done
+    if [ ${#WALLET_OUTPUTS[@]} -eq 0 ]; then
+        echo "❌ No outputs in parent transaction belong to $WALLET's wallet"
+        exit 1
+    fi
+    # Calculate child amount (leave high fee for CPFP acceleration)
+    CHILD_AMOUNT_RAW=$(echo "scale=8; $TOTAL_WALLET_AMOUNT - 0.005" | bc -l)  # 0.005 BTC fee
+    CHILD_AMOUNT=$(echo "$CHILD_AMOUNT_RAW" | sed 's/^\.*$/0./')
+    if [ "$(echo "$CHILD_AMOUNT < 0.0001" | bc -l)" -eq 1 ]; then
+        echo "❌ Child amount too small: $CHILD_AMOUNT BTC (need at least 0.0001 BTC after fees)"
+        exit 1
+    fi
+    # Get change address for the child transaction
+    CHANGE_ADDRESS=$(btc_wallet "$WALLET" getnewaddress)
+    echo "   🔍 Creating CPFP child spending $TOTAL_WALLET_AMOUNT BTC → $CHILD_AMOUNT BTC (0.005 BTC fee)"
+    echo "   🎯 Target: $CHANGE_ADDRESS"
+    # Create raw transaction inputs from wallet's outputs in the parent transaction
+    INPUTS="["
+    for i in "${!WALLET_OUTPUTS[@]}"; do
+        OUTPUT_INDEX=$(echo "${WALLET_OUTPUTS[$i]}" | cut -d':' -f1)
+        if [ $i -gt 0 ]; then
+            INPUTS+="," 
+        fi
+        INPUTS+="{\"txid\":\"$PARENT_TXID\",\"vout\":$OUTPUT_INDEX}"
+    done
+    INPUTS+="]"
+    # Create raw transaction output
+    OUTPUTS="{\"$CHANGE_ADDRESS\":$CHILD_AMOUNT}"
+    # Create the raw transaction that specifically spends from the unconfirmed parent
+    echo "   🔧 Creating raw transaction..."
+    RAW_TX=$(btc_wallet "$WALLET" createrawtransaction "$INPUTS" "$OUTPUTS")
+    if [ -z "$RAW_TX" ]; then
+        echo "❌ Failed to create raw transaction"
+        exit 1
+    fi
+    # Sign the raw transaction
+    echo "   ✍️  Signing transaction..."
+    SIGNED_TX=$(btc_wallet "$WALLET" signrawtransactionwithwallet "$RAW_TX")
+    SIGNED_HEX=$(echo "$SIGNED_TX" | jq -r '.hex')
+    SIGN_COMPLETE=$(echo "$SIGNED_TX" | jq -r '.complete')
+    if [ "$SIGN_COMPLETE" != "true" ]; then
+        echo "❌ Failed to sign transaction"
+        echo "Signing result: $SIGNED_TX"
+        exit 1
+    fi
+    # Broadcast the child transaction
+    echo "   📡 Broadcasting CPFP child transaction..."
+    CHILD_TXID=$(btc sendrawtransaction "$SIGNED_HEX")
+    if [ -z "$CHILD_TXID" ]; then
+        echo "❌ Failed to create child transaction"
+        echo "   $WALLET balance (confirmed): $(btc_wallet "$WALLET" getbalance)"
+        echo "   $WALLET balance (unconfirmed): $(btc_wallet "$WALLET" getbalance "*" 0)"
+        exit 1
+    fi
+    echo "   ✅ Child transaction created: $CHILD_TXID"
+    echo "   💰 Amount: $CHILD_AMOUNT BTC (high fee: 0.005 BTC)"
+    echo "   🎯 Target: $CHANGE_ADDRESS ($WALLET change address)"
+    echo ""
+    echo "🔗 CPFP Relationship Created:"
+    echo "   👨 Parent: $PARENT_TXID ($WALLET → $WALLET, stuck due to low fee)"
+    echo "   👶 Child:  $CHILD_TXID ($WALLET → $WALLET, high fee accelerates parent)"
+    echo ""
+    echo "📊 Current mempool status:"
+    MEMPOOL_SIZE=$(btc getmempoolinfo | grep '"size"' | cut -d':' -f2 | tr -d ' ,')
+    echo "   Transactions in mempool: $MEMPOOL_SIZE"
+    echo ""
+    echo "🔍 Transaction Details:"
+    echo "Parent transaction ($WALLET wallet view):"
+    btc_wallet "$WALLET" gettransaction $PARENT_TXID | jq -r '"   Fee: " + (.fee | tostring) + " BTC, Confirmations: " + (.confirmations | tostring)'
+    echo ""
+    echo "Child transaction ($WALLET wallet view):"
+    btc_wallet "$WALLET" gettransaction $CHILD_TXID | jq -r '"   Fee: " + (.fee | tostring) + " BTC, Confirmations: " + (.confirmations | tostring)'
+    echo ""
+    echo "🎉 CPFP test scenario complete!"
+    echo ""
+    echo "📱 Check your application to see:"
+    echo "   - Both transactions appear in mempool"
+    echo "   - $WALLET's balance shows pending amounts"
+    echo "   - CPFP relationship should be detected"
+    echo ""
+    echo "⛏️  Mine blocks to confirm both transactions:"
+    echo "   $0 mine 1"
+    echo ""
+    echo "🔍 Both transactions should confirm together due to CPFP!"
+}
+# --- End CPFP logic function ---
+
+# --- New multi-word command parsing for wallet actions ---
+if [[ "$1" == "alice" || "$1" == "bob" ]]; then
+    WALLET="$1"
+    SUBCMD="$2"
+    shift 2
+    case "$SUBCMD" in
+        send)
+            AMOUNT="$1"
+            if [ -z "$AMOUNT" ]; then
+                echo "Usage: $0 $WALLET send <amount>"
+                exit 1
+            fi
+            btc loadwallet "$WALLET" 2>/dev/null || true
+            if [ "$WALLET" == "alice" ]; then
+                btc loadwallet "bob" 2>/dev/null || true
+                TARGET_ADDRESS=$(btc_bob getnewaddress)
+                echo "🎯 Sending $AMOUNT BTC from Alice to Bob address: $TARGET_ADDRESS"
+                TXID=$(btc_alice sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+            else
+                btc loadwallet "alice" 2>/dev/null || true
+                TARGET_ADDRESS=$(btc_alice getnewaddress)
+                echo "🎯 Sending $AMOUNT BTC from Bob to Alice address: $TARGET_ADDRESS"
+                TXID=$(btc_bob sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+            fi
+            echo "✅ Transaction sent: $TXID"
+            echo "💡 Use '$0 mine' to confirm transaction"
+            exit 0
+            ;;
+        rbf)
+            TXID="$1"
+            FEE_RATE=${2:-10}
+            if [ -z "$TXID" ]; then
+                echo "Usage: $0 $WALLET rbf <txid> [fee_rate_sat_per_byte]"
+                exit 1
+            fi
+            echo "🔄 Bumping fee for transaction $TXID to $FEE_RATE sat/byte..."
+            btc loadwallet "$WALLET" 2>/dev/null || true
+            if [ "$WALLET" == "alice" ]; then
+                RESULT=$(btc_alice bumpfee "$TXID" "{\"fee_rate\": $FEE_RATE}" 2>&1)
+            else
+                RESULT=$(btc_bob bumpfee "$TXID" "{\"fee_rate\": $FEE_RATE}" 2>&1)
+            fi
+            if echo "$RESULT" | jq -e '.txid' > /dev/null 2>&1; then
+                NEW_TXID=$(echo "$RESULT" | jq -r '.txid')
+                OLD_FEE=$(echo "$RESULT" | jq -r '.origfee')
+                NEW_FEE=$(echo "$RESULT" | jq -r '.fee')
+                echo "✅ RBF replacement successful!"
+                echo "   Original TXID: $TXID"
+                echo "   New TXID: $NEW_TXID"
+                echo "   Original fee: $OLD_FEE BTC"
+                echo "   New fee: $NEW_FEE BTC"
+                echo "💡 Use '$0 mine' to confirm when ready"
+            else
+                echo "❌ RBF failed: $RESULT"
+                echo "💡 Common reasons:"
+                echo "   - Transaction already confirmed"
+                echo "   - Transaction was not RBF-enabled"
+                echo "   - Fee rate not higher than original"
+            fi
+            exit 0
+            ;;
+        cpfp)
+            PARENT_TXID="$1"
+            cpfp_for_wallet "$WALLET" "$PARENT_TXID"
+            exit 0
+            ;;
+        *)
+            echo "Unknown subcommand for $WALLET: $SUBCMD"
+            exit 1
+            ;;
+    esac
+fi
+# --- End new multi-word command parsing ---
+
 case "$1" in
     "start")
         echo "Starting Bitcoin regtest environment with Docker..."
@@ -419,38 +638,6 @@ case "$1" in
         echo "New Alice address: $ADDRESS"
         ;;
     
-    "alice-send")
-        AMOUNT="$2"
-        if [ -z "$AMOUNT" ]; then
-            echo "Usage: $0 alice-send <amount>"
-            exit 1
-        fi
-        btc loadwallet "alice" 2>/dev/null || true
-        btc loadwallet "bob" 2>/dev/null || true
-        BOB_ADDRESS=$(btc_bob getnewaddress)
-        echo "🎯 Sending $AMOUNT BTC from Alice to Bob address: $BOB_ADDRESS"
-        TXID=$(btc_alice sendtoaddress "$BOB_ADDRESS" "$AMOUNT")
-        echo "✅ Transaction sent from Alice to Bob: $TXID"
-        echo "💡 Use '$0 mine' to confirm transaction"
-        ;;
-    
-    
-    "bob-send")
-        AMOUNT="$2"
-        if [ -z "$AMOUNT" ]; then
-            echo "Usage: $0 bob-send <amount>"
-            exit 1
-        fi
-        btc loadwallet "alice" 2>/dev/null || true
-        btc loadwallet "bob" 2>/dev/null || true
-        ALICE_ADDRESS=$(btc_alice getnewaddress)
-        echo "🎯 Sending $AMOUNT BTC from Bob to Alice address: $ALICE_ADDRESS"
-        TXID=$(btc_bob sendtoaddress "$ALICE_ADDRESS" "$AMOUNT")
-        echo "✅ Transaction sent from Bob to Alice: $TXID"
-        echo "💡 Use '$0 mine' to confirm transaction"
-        ;;
-    
-    
     "bob-balance")
         btc loadwallet "bob" 2>/dev/null || true
         BALANCE=$(btc_bob getbalance)
@@ -461,72 +648,6 @@ case "$1" in
         btc loadwallet "bob" 2>/dev/null || true
         ADDRESS=$(btc_bob getnewaddress)
         echo "New Bob address: $ADDRESS"
-        ;;
-    
-    "alice-bumpfee")
-        TXID="$2"
-        FEE_RATE=${3:-10}
-        if [ -z "$TXID" ]; then
-            echo "Usage: $0 alice-bumpfee <txid> [fee_rate_sat_per_byte]"
-            echo "Example: $0 alice-bumpfee abc123def456 15"
-            exit 1
-        fi
-        echo "🔄 Bumping fee for transaction $TXID to $FEE_RATE sat/byte..."
-        btc loadwallet "alice" 2>/dev/null || true
-        
-        # Use bumpfee to replace transaction with higher fee
-        RESULT=$(btc_alice bumpfee "$TXID" "{\"fee_rate\": $FEE_RATE}" 2>&1)
-        
-        if echo "$RESULT" | jq -e '.txid' > /dev/null 2>&1; then
-            NEW_TXID=$(echo "$RESULT" | jq -r '.txid')
-            OLD_FEE=$(echo "$RESULT" | jq -r '.origfee')
-            NEW_FEE=$(echo "$RESULT" | jq -r '.fee')
-            echo "✅ RBF replacement successful!"
-            echo "   Original TXID: $TXID"
-            echo "   New TXID: $NEW_TXID"
-            echo "   Original fee: $OLD_FEE BTC"
-            echo "   New fee: $NEW_FEE BTC"
-            echo "💡 Use '$0 mine' to confirm when ready"
-        else
-            echo "❌ RBF failed: $RESULT"
-            echo "💡 Common reasons:"
-            echo "   - Transaction already confirmed"
-            echo "   - Transaction was not RBF-enabled"
-            echo "   - Fee rate not higher than original"
-        fi
-        ;;
-    
-    "bob-bumpfee")
-        TXID="$2"
-        FEE_RATE=${3:-10}
-        if [ -z "$TXID" ]; then
-            echo "Usage: $0 bob-bumpfee <txid> [fee_rate_sat_per_byte]"
-            echo "Example: $0 bob-bumpfee abc123def456 15"
-            exit 1
-        fi
-        echo "🔄 Bumping fee for transaction $TXID to $FEE_RATE sat/byte..."
-        btc loadwallet "bob" 2>/dev/null || true
-        
-        # Use bumpfee to replace transaction with higher fee
-        RESULT=$(btc_bob bumpfee "$TXID" "{\"fee_rate\": $FEE_RATE}" 2>&1)
-        
-        if echo "$RESULT" | jq -e '.txid' > /dev/null 2>&1; then
-            NEW_TXID=$(echo "$RESULT" | jq -r '.txid')
-            OLD_FEE=$(echo "$RESULT" | jq -r '.origfee')
-            NEW_FEE=$(echo "$RESULT" | jq -r '.fee')
-            echo "✅ RBF replacement successful!"
-            echo "   Original TXID: $TXID"
-            echo "   New TXID: $NEW_TXID"
-            echo "   Original fee: $OLD_FEE BTC"
-            echo "   New fee: $NEW_FEE BTC"
-            echo "💡 Use '$0 mine' to confirm when ready"
-        else
-            echo "❌ RBF failed: $RESULT"
-            echo "💡 Common reasons:"
-            echo "   - Transaction already confirmed"
-            echo "   - Transaction was not RBF-enabled"
-            echo "   - Fee rate not higher than original"
-        fi
         ;;
     
     "alice-fund")
@@ -972,17 +1093,19 @@ case "$1" in
         echo "  status              Show environment status"
         echo ""
         echo "Alice Commands (funded wallet - 100 BTC):"
-        echo "  alice-balance           Show Alice wallet balance"
-        echo "  alice-address           Generate new Alice address"
-        echo "  alice-send <amt>        Send Bitcoin from Alice to Bob (RBF-enabled)"
-        echo "  alice-fund <addr> [amt] Fund address from Alice (default: 1.0)"
-        echo "  alice-bumpfee <txid> [rate] Replace transaction with higher fee (default: 10 sat/byte)"
+        echo "  alice balance             Show Alice wallet balance"
+        echo "  alice address             Generate new Alice address"
+        echo "  alice send <amt>          Send Bitcoin from Alice to Bob (RBF-enabled)"
+        echo "  alice fund <addr> [amt]   Fund address from Alice (default: 1.0)"
+        echo "  alice rbf <txid> [rate]   Replace transaction with higher fee (default: 10 sat/byte)"
+        echo "  alice cpfp <txid>         Create CPFP child transaction for Alice's unconfirmed output"
         echo ""
         echo "Bob Commands (unfunded wallet):"
-        echo "  bob-balance             Show Bob wallet balance"
-        echo "  bob-address             Generate new Bob address"
-        echo "  bob-send <amt>          Send Bitcoin from Bob to Alice (RBF-enabled)"
-        echo "  bob-bumpfee <txid> [rate]   Replace transaction with higher fee (default: 10 sat/byte)"
+        echo "  bob balance               Show Bob wallet balance"
+        echo "  bob address               Generate new Bob address"
+        echo "  bob send <amt>            Send Bitcoin from Bob to Alice (RBF-enabled)"
+        echo "  bob rbf <txid> [rate]     Replace transaction with higher fee (default: 10 sat/byte)"
+        echo "  bob cpfp <txid>           Create CPFP child transaction for Bob's unconfirmed output"
         echo ""
         echo "Mining Commands:"
         echo "  mine [blocks]           Mine blocks to Miner wallet (default: 1)"
@@ -1002,11 +1125,14 @@ case "$1" in
         echo "  $0 create-wallets               # Create Alice/Bob wallets (Alice gets 100 BTC)"
         echo "  $0 add-wallets-to-backend       # Add Alice/Bob to your backend"
         echo "  $0 mine 6                       # Mine 6 blocks"
-        echo "  $0 alice-send 0.5               # Send 0.5 BTC from Alice to Bob (RBF-enabled)"
-        echo "  $0 alice-bumpfee <txid> 15      # Replace transaction with 15 sat/byte fee"
-        echo "  $0 cpfp-test <txid>             # Create CPFP child for parent transaction"
-        echo "  $0 mempool-status               # Check mempool"
+        echo "  $0 alice send 0.5               # Send 0.5 BTC from Alice to Bob (RBF-enabled)"
+        echo "  $0 alice rbf <txid> 15          # Replace transaction with 15 sat/byte fee (Alice)"
+        echo "  $0 bob send 0.01                # Send 0.01 BTC from Bob to Alice"
+        echo "  $0 bob rbf <txid> 20            # Replace transaction with 20 sat/byte fee (Bob)"
+        echo "  $0 alice cpfp <txid>            # Alice creates CPFP child for parent transaction"
+        echo "  $0 bob cpfp <txid>              # Bob creates CPFP child for parent transaction"
         echo "  $0 mine 1                       # Mine 1 block (confirms pending transactions)"
+        echo "  $0 mempool-status               # Check mempool"
         echo "  $0 invalidate-tip               # Invalidate tip block (test blockchain reorg)"
         echo "  $0 reset                        # Reset everything (includes backend cleanup)"
         ;;
