@@ -403,6 +403,18 @@ impl WalletManager {
                             println!("✅ Received {:.8} BTC", received_btc);
                         }
                         
+                        // Detect CPFP (Child-Pays-For-Parent)
+                        let untrusted_pending_decrease = untrusted_pending_after.to_sat() < untrusted_pending_before.to_sat();
+                        let confirmed_same = confirmed_after.to_sat() == confirmed_before.to_sat();
+                        let total_decrease = total_after.to_sat() < total_before.to_sat();
+                        
+                        if untrusted_pending_decrease && confirmed_same && total_decrease {
+                            let fee_paid = total_before.to_sat() - total_after.to_sat();
+                            let fee_paid_btc = fee_paid as f64 / 100_000_000.0;
+                            
+                            println!("🚀 CPFP fee: {:.8} BTC", fee_paid_btc);
+                        }
+                        
                         println!(); // Add spacing between wallets
                     }
                         
