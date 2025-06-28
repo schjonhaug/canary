@@ -254,11 +254,18 @@ impl WalletManager {
                                     total_before != total_after;
                     
                     if has_changes {
-                        println!("\n═══ Wallet {} ═══", checksum);
-                        println!("Trusted pending: {}", trusted_pending_after);
-                        println!("Unconfirmed pending: {}", untrusted_pending_after);
-                        println!("Confirmed: {}", confirmed_after);
-                        println!("💰 Balance changed {} -> {}", total_before, total_after);
+                        // 22 for label, 18 for each value, 3 for separators
+                        println!("{:>22} | {:<18} | {:<18} | {:<18}", format!("Wallet {}", checksum), "Before", "After", "Diff");
+                        println!("{:-<79}", "");
+                        let fmt = |amt: bdk_wallet::bitcoin::Amount| format!("{:>13.8} BTC", amt.to_sat() as f64 / 100_000_000.0);
+                        let fmt_diff = |before: bdk_wallet::bitcoin::Amount, after: bdk_wallet::bitcoin::Amount| {
+                            let diff_sats = after.to_sat() as i64 - before.to_sat() as i64;
+                            format!("{:>+13.8} BTC", diff_sats as f64 / 100_000_000.0)
+                        };
+                        println!("{:>22} | {:<18} | {:<18} | {:<18}", "Trusted pending", fmt(trusted_pending_before), fmt(trusted_pending_after), fmt_diff(trusted_pending_before, trusted_pending_after));
+                        println!("{:>22} | {:<18} | {:<18} | {:<18}", "Unconfirmed pending", fmt(untrusted_pending_before), fmt(untrusted_pending_after), fmt_diff(untrusted_pending_before, untrusted_pending_after));
+                        println!("{:>22} | {:<18} | {:<18} | {:<18}", "Confirmed", fmt(confirmed_before), fmt(confirmed_after), fmt_diff(confirmed_before, confirmed_after));
+                        println!("{:>22} | {:<18} | {:<18} | {:<18}", "Total", fmt(total_before), fmt(total_after), fmt_diff(total_before, total_after));
                     }
                         
                     
