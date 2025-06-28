@@ -312,6 +312,18 @@ impl WalletManager {
                             println!("📤 Sending {:.8} BTC", sending_btc);
                         }
                         
+                        // Detect if this is a receiving transaction
+                        let untrusted_pending_increase = untrusted_pending_after.to_sat() > untrusted_pending_before.to_sat();
+                        let confirmed_same = confirmed_after.to_sat() == confirmed_before.to_sat();
+                        let total_increase = total_after.to_sat() > total_before.to_sat();
+                        
+                        if untrusted_pending_increase && confirmed_same && total_increase {
+                            let receiving_amount = untrusted_pending_after.to_sat() - untrusted_pending_before.to_sat();
+                            let receiving_btc = receiving_amount as f64 / 100_000_000.0;
+                            
+                            println!("📥 Receiving {:.8} BTC", receiving_btc);
+                        }
+                        
                         println!(); // Add spacing between wallets
                     }
                         
