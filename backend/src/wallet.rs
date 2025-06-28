@@ -303,32 +303,71 @@ impl WalletManager {
                         let confirmed_decrease = confirmed_after.to_sat() < confirmed_before.to_sat();
                         let total_decrease = total_after.to_sat() < total_before.to_sat();
                         
-                        // Case 1: Spending from confirmed balance (first transaction)
-                        if trusted_pending_increase && confirmed_decrease && total_decrease {
-                            let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
-                            let change_received = trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
-                            let sending_amount = confirmed_spent - change_received;
+                        // Check if this might be RBF by looking for existing unconfirmed transactions
+                        let has_unconfirmed = wallet.transactions()
+                            .any(|tx| matches!(tx.chain_position, bdk_wallet::chain::ChainPosition::Unconfirmed { .. }));
+                        
+                        // RBF detection: small amount change (just fee difference) with existing unconfirmed tx
+                        if has_unconfirmed && total_decrease {
+                            let fee_increase = total_before.to_sat() - total_after.to_sat();
+                            let fee_increase_btc = fee_increase as f64 / 100_000_000.0;
                             
-                            let sending_btc = sending_amount as f64 / 100_000_000.0;
-                            
-                            println!("📤 Sending {:.8} BTC", sending_btc);
-                        }
-                        // Case 2: Spending from trusted pending balance (subsequent transactions)
-                        else if trusted_pending_decrease && confirmed_decrease && total_decrease {
-                            let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
-                            let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
-                            let total_spent = trusted_spent + confirmed_spent;
-                            
-                            let sending_btc = total_spent as f64 / 100_000_000.0;
-                            
-                            println!("📤 Sending {:.8} BTC", sending_btc);
-                        }
-                        // Case 3: Spending only from trusted pending (no confirmed spent)
-                        else if trusted_pending_decrease && !confirmed_decrease && total_decrease {
-                            let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
-                            let sending_btc = trusted_spent as f64 / 100_000_000.0;
-                            
-                            println!("📤 Sending {:.8} BTC", sending_btc);
+                            // RBF pattern: trusted pending decreases (spending from change) with existing unconfirmed
+                            if trusted_pending_decrease && !confirmed_decrease {
+                                println!("📤 RBF fee bump: +{:.8} BTC", fee_increase_btc);
+                            } else {
+                                // Regular sending logic continues below
+                                // Case 1: Spending from confirmed balance (first transaction)
+                                if trusted_pending_increase && confirmed_decrease {
+                                    let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
+                                    let change_received = trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
+                                    let sending_amount = confirmed_spent - change_received;
+                                    
+                                    let sending_btc = sending_amount as f64 / 100_000_000.0;
+                                    println!("📤 Sending {:.8} BTC", sending_btc);
+                                }
+                                // Case 2: Spending from trusted pending balance (subsequent transactions)
+                                else if trusted_pending_decrease && confirmed_decrease {
+                                    let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
+                                    let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
+                                    let total_spent = trusted_spent + confirmed_spent;
+                                    
+                                    let sending_btc = total_spent as f64 / 100_000_000.0;
+                                    println!("📤 Sending {:.8} BTC", sending_btc);
+                                }
+                                // Case 3: Spending only from trusted pending (no confirmed funds used)
+                                else if trusted_pending_decrease && !confirmed_decrease {
+                                    let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
+                                    let sending_btc = trusted_spent as f64 / 100_000_000.0;
+                                    println!("📤 Sending {:.8} BTC", sending_btc);
+                                }
+                            }
+                        } else {
+                            // Regular sending logic (no existing unconfirmed transactions)
+                            // Case 1: Spending from confirmed balance (first transaction)
+                            if trusted_pending_increase && confirmed_decrease && total_decrease {
+                                let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
+                                let change_received = trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
+                                let sending_amount = confirmed_spent - change_received;
+                                
+                                let sending_btc = sending_amount as f64 / 100_000_000.0;
+                                println!("📤 Sending {:.8} BTC", sending_btc);
+                            }
+                            // Case 2: Spending from trusted pending balance (subsequent transactions)
+                            else if trusted_pending_decrease && confirmed_decrease && total_decrease {
+                                let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
+                                let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
+                                let total_spent = trusted_spent + confirmed_spent;
+                                
+                                let sending_btc = total_spent as f64 / 100_000_000.0;
+                                println!("📤 Sending {:.8} BTC", sending_btc);
+                            }
+                            // Case 3: Spending only from trusted pending (no confirmed funds used)
+                            else if trusted_pending_decrease && !confirmed_decrease && total_decrease {
+                                let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
+                                let sending_btc = trusted_spent as f64 / 100_000_000.0;
+                                println!("📤 Sending {:.8} BTC", sending_btc);
+                            }
                         }
                         
                         // Detect if this is a receiving transaction
