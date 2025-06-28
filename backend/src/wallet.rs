@@ -296,6 +296,22 @@ impl WalletManager {
                         println!("{:-<79}", "");
                         println!("{:>22} | {:<18} | {:<18} | {:<18}", "Total", fmt(total_before), fmt(total_after), fmt_diff(total_before, total_after));
                         println!("{:-<79}", "");
+                        
+                        // Detect if this is a sending transaction
+                        let trusted_pending_increase = trusted_pending_after.to_sat() > trusted_pending_before.to_sat();
+                        let confirmed_decrease = confirmed_after.to_sat() < confirmed_before.to_sat();
+                        let total_decrease = total_after.to_sat() < total_before.to_sat();
+                        
+                        if trusted_pending_increase && confirmed_decrease && total_decrease {
+                            let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
+                            let change_received = trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
+                            let sending_amount = confirmed_spent - change_received;
+                            
+                            let sending_btc = sending_amount as f64 / 100_000_000.0;
+                            
+                            println!("📤 Sending {:.8} BTC", sending_btc);
+                        }
+                        
                         println!(); // Add spacing between wallets
                     }
                         
