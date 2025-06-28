@@ -299,15 +299,34 @@ impl WalletManager {
                         
                         // Detect if this is a sending transaction
                         let trusted_pending_increase = trusted_pending_after.to_sat() > trusted_pending_before.to_sat();
+                        let trusted_pending_decrease = trusted_pending_after.to_sat() < trusted_pending_before.to_sat();
                         let confirmed_decrease = confirmed_after.to_sat() < confirmed_before.to_sat();
                         let total_decrease = total_after.to_sat() < total_before.to_sat();
                         
+                        // Case 1: Spending from confirmed balance (first transaction)
                         if trusted_pending_increase && confirmed_decrease && total_decrease {
                             let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
                             let change_received = trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
                             let sending_amount = confirmed_spent - change_received;
                             
                             let sending_btc = sending_amount as f64 / 100_000_000.0;
+                            
+                            println!("📤 Sending {:.8} BTC", sending_btc);
+                        }
+                        // Case 2: Spending from trusted pending balance (subsequent transactions)
+                        else if trusted_pending_decrease && confirmed_decrease && total_decrease {
+                            let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
+                            let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
+                            let total_spent = trusted_spent + confirmed_spent;
+                            
+                            let sending_btc = total_spent as f64 / 100_000_000.0;
+                            
+                            println!("📤 Sending {:.8} BTC", sending_btc);
+                        }
+                        // Case 3: Spending only from trusted pending (no confirmed spent)
+                        else if trusted_pending_decrease && !confirmed_decrease && total_decrease {
+                            let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
+                            let sending_btc = trusted_spent as f64 / 100_000_000.0;
                             
                             println!("📤 Sending {:.8} BTC", sending_btc);
                         }
