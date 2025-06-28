@@ -6,7 +6,7 @@ use bdk_wallet::KeychainKind;
 use std::error::Error;
 use std::io::{self, Write};
 
-const STOP_GAP: usize = 50;
+const STOP_GAP: usize = 20;
 const BATCH_SIZE: usize = 5;
 
 pub struct ElectrumClient {
@@ -29,6 +29,16 @@ impl ElectrumClient {
         // Print initial balance
         let balance_before = wallet.balance();
         println!("Wallet balance before syncing: {}", balance_before.total());
+
+        println!("Revealing external addresses:");
+        for (i, address) in wallet.reveal_addresses_to(KeychainKind::External, 50).enumerate() {
+            println!("External  {}: {}", i, address);
+        }
+        
+        println!("Revealing internal addresses:");
+        for (i, address) in wallet.reveal_addresses_to(KeychainKind::Internal, 50).enumerate() {
+            println!("Internal  {}: {}", i, address);
+        }
         
         // Populate the electrum client's transaction cache
         self.client.populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
