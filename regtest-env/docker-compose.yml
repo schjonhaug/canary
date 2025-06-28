@@ -1,0 +1,31 @@
+services:
+  bitcoind:
+    image: ghcr.io/sethforprivacy/bitcoind:latest
+    container_name: bitcoind-regtest
+    restart: unless-stopped
+    ports:
+      - "18443:8332"
+      - "18444:18444"
+    volumes:
+      - bitcoin_data:/bitcoin/.bitcoin
+      - ./bitcoin.conf:/bitcoin/.bitcoin/bitcoin.conf
+    environment:
+      - RPC_USER=bitcoin
+      - RPC_PASSWORD=bitcoin
+
+  fulcrum:
+    image: cculianu/fulcrum:latest
+    container_name: fulcrum-regtest
+    restart: unless-stopped
+    depends_on:
+      - bitcoind
+    ports:
+      - "50001:50001"
+    volumes:
+      - fulcrum_data:/data
+      - ./fulcrum.conf:/data/fulcrum.conf:ro
+    command: ["Fulcrum", "/data/fulcrum.conf"]
+
+volumes:
+  bitcoin_data:
+  fulcrum_data:
