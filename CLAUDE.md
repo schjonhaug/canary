@@ -30,6 +30,9 @@ cd regtest-env && docker-compose up -d
 
 # Stop regtest environment
 cd regtest-env && docker-compose down
+
+# Reset regtest environment (removes all data)
+cd regtest-env && ./docker-utils.sh reset
 ```
 
 ## Project Structure
@@ -118,26 +121,32 @@ txray/
 ### Development Environment
 - Complete Docker-based regtest setup
 - Bitcoin Core + Fulcrum Electrum server
-- Comprehensive testing utilities
-- Transaction testing scripts
-- Wallet management utilities
+- Comprehensive testing utilities including RBF and CPFP scenarios
+- Transaction testing scripts with Alice/Bob wallet management
+- Complete environment reset capability that removes all SQLite databases
 
 ## Storage Details
 ### BDK Wallet Storage
 - **Database**: SQLite with `.sqlite` extension
-- **Location**: `wallets/` directory
+- **Location**: `wallets/` directory (completely removed on reset)
 - **Naming**: Uses BDK's `wallet_name_from_descriptor()` function for standardized filenames
 - **Persistence**: Automatic wallet loading on startup
 - **Sync Parameters**: STOP_GAP=20, BATCH_SIZE=5
 
 ### Wallet Metadata Storage
-- **Database**: `txray.sqlite` in backend root directory
+- **Database**: `txray.sqlite` in backend root directory (completely removed on reset)
 - **Schema**: Stores wallet IDs, names, descriptors, filenames, and creation timestamps
 - **Constraints**: 
   - `id` field is PRIMARY KEY AUTOINCREMENT (unique wallet identifier)
   - `descriptor` field has UNIQUE constraint (prevents duplicate wallets)
   - `name` field allows duplicates (multiple wallets can have same name)
 - **Purpose**: Maps user-friendly names to BDK wallet files and provides API access via IDs
+
+### Reset Behavior
+- **Complete Cleanup**: `./docker-utils.sh reset` removes all SQLite databases
+- **BDK Wallets**: Entire `wallets/` directory is deleted (not just individual files)
+- **Metadata**: `txray.sqlite` file is completely removed (not just table contents)
+- **Fresh Start**: All databases are recreated from scratch on next backend startup
 
 ## Notes
 - Uses Rust 2024 edition
