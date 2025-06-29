@@ -40,9 +40,11 @@ txray/
 │   │   ├── main.rs            # Application entry point with background sync
 │   │   ├── api.rs             # REST API endpoints with OpenAPI docs
 │   │   ├── wallet.rs          # Comprehensive wallet management using BDK
-│   │   └── electrum.rs        # Electrum client with dual sync modes
+│   │   ├── electrum.rs        # Electrum client with dual sync modes
+│   │   └── metadata.rs        # Wallet metadata database operations
 │   ├── target/                # Build artifacts
-│   ├── wallets/               # SQLite wallet database files
+│   ├── wallets/               # BDK SQLite wallet database files
+│   ├── txray.sqlite           # Wallet metadata database
 │   ├── Cargo.toml             # Rust dependencies
 │   └── Cargo.lock             # Dependency lock file
 ├── regtest-env/               # Complete Bitcoin regtest environment
@@ -67,12 +69,15 @@ txray/
 - `utoipa = "5.4"` with axum_extras - OpenAPI documentation
 - `utoipa-swagger-ui = "9"` with axum - Swagger UI integration
 - `utoipa-axum = "0.2"` - OpenAPI-Axum integration
+- `anyhow = "1.0"` - Error handling
+- `secp256k1 = "0.29"` - Secp256k1 elliptic curve operations
 
 ## API Endpoints
-- `POST /wallet`: Create a new wallet from multipath descriptor
-  - Validates multipath descriptors
-  - Prevents duplicate wallet creation
-  - Returns 201 (created), 400 (invalid), or 500 (error)
+- `POST /wallet`: Create a new wallet from multipath descriptor and name
+  - Requires both `name` (user-friendly) and `descriptor` (multipath) fields
+  - Validates multipath descriptors and enforces descriptor uniqueness
+  - Returns 201 (created), 400 (invalid), or 409 (duplicate descriptor)
+  - Allows duplicate wallet names but enforces unique descriptors
 - `/swagger-ui`: Interactive API documentation
 - `/api-docs/openapi.json`: OpenAPI specification
 
@@ -84,11 +89,12 @@ txray/
 
 ## Advanced Features
 ### Transaction Analysis
-- Real-time balance change detection and reporting
+- Real-time balance change detection and reporting with user-friendly wallet names
 - Transaction type classification (send, receive, confirmation)
 - RBF (Replace-By-Fee) detection
 - CPFP (Child-Pays-For-Parent) detection
 - Detailed Bitcoin amount formatting
+- Balance change notifications display wallet names instead of technical IDs
 
 ### Sync Capabilities
 - **Full Scan**: Initial comprehensive sync with address revelation (up to 50 addresses)
@@ -104,11 +110,20 @@ txray/
 - Wallet management utilities
 
 ## Storage Details
+### BDK Wallet Storage
 - **Database**: SQLite with `.sqlite` extension
 - **Location**: `wallets/` directory
-- **Naming**: Filenames based on descriptor checksums (e.g., `8nt3y08q.sqlite`)
+- **Naming**: Uses BDK's `wallet_name_from_descriptor()` function for standardized filenames
 - **Persistence**: Automatic wallet loading on startup
 - **Sync Parameters**: STOP_GAP=20, BATCH_SIZE=5
+
+### Wallet Metadata Storage
+- **Database**: `txray.sqlite` in backend root directory
+- **Schema**: Stores wallet names, descriptors, filenames, and creation timestamps
+- **Constraints**: 
+  - `descriptor` field has UNIQUE constraint (prevents duplicate wallets)
+  - `name` field allows duplicates (multiple wallets can have same name)
+- **Purpose**: Maps user-friendly names to BDK wallet files for better UX
 
 ## Notes
 - Uses Rust 2024 edition

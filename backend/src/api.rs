@@ -1,19 +1,22 @@
 use axum::{
     extract::State,
     http::StatusCode,
-    response::Json,
+    response::{Json, IntoResponse, Response},
+    routing::post,
     Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use utoipa::{OpenApi, ToSchema};
-use utoipa_axum::{router::OpenApiRouter, routes};
 use utoipa_swagger_ui::SwaggerUi;
 use crate::wallet::WalletManager;
 
 #[derive(Deserialize, ToSchema)]
 pub struct CreateWalletRequest {
+    /// The name of the wallet
+    #[schema(example = "My Bitcoin Wallet")]
+    pub name: String,
     /// The multipath output descriptor for the wallet
     #[schema(example = "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)")] 
     pub descriptor: String,
@@ -40,37 +43,37 @@ pub type AppState = Arc<Mutex<WalletManager>>;
     responses(
         (status = 201, description = "Wallet created successfully", body = CreateWalletResponse),
         (status = 400, description = "Invalid request", body = ErrorResponse),
-        (status = 500, description = "Wallet already exists", body = ErrorResponse),
+        (status = 409, description = "Descriptor already exists", body = ErrorResponse),
     ),
     tag = "wallet"
 )]
 pub async fn create_wallet(
     State(wallet_manager): State<AppState>,
     Json(payload): Json<CreateWalletRequest>,
-) -> Result<(StatusCode, Json<CreateWalletResponse>), (StatusCode, Json<ErrorResponse>)> {
-    match wallet_manager.lock().await.create_from_multipath(&payload.descriptor).await {
+) -> Response {
+    match wallet_manager.lock().await.create_from_multipath(&payload.name, &payload.descriptor).await {
         Ok(()) => {
-            Ok((
+            (
                 StatusCode::CREATED,
                 Json(CreateWalletResponse {
                     message: "Wallet created successfully".to_string(),
                 }),
-            ))
+            ).into_response()
         }
         Err(e) => {
             let error_msg = e.to_string();
-            let status_code = if error_msg == "Wallet already exists" {
-                StatusCode::INTERNAL_SERVER_ERROR
-            } else {
-                StatusCode::BAD_REQUEST
+            let status_code = match error_msg.as_str() {
+                "Descriptor already exists" => StatusCode::CONFLICT,
+                "Wallet already exists" | "Wallet file already exists" => StatusCode::CONFLICT,
+                _ => StatusCode::BAD_REQUEST,
             };
             
-            Err((
+            (
                 status_code,
                 Json(ErrorResponse {
                     error: error_msg,
                 }),
-            ))
+            ).into_response()
         }
     }
 }
@@ -91,11 +94,8 @@ pub async fn create_wallet(
 pub struct ApiDoc;
 
 pub fn create_router(wallet_manager: AppState) -> Router {
-    let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
-        .routes(routes!(create_wallet))
-        .split_for_parts();
-    
-    router
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api))
+    Router::new()
+        .route("/wallet", post(create_wallet))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(wallet_manager)
 }

@@ -1,15 +1,18 @@
-use bdk_wallet::{bitcoin::Network, Wallet, PersistedWallet};
+use bdk_wallet::{bitcoin::Network, Wallet, PersistedWallet, wallet_name_from_descriptor};
 use rusqlite::Connection;
-use miniscript::{Descriptor, DescriptorPublicKey, descriptor::checksum::desc_checksum};
-use std::error::Error;
+use miniscript::{Descriptor, DescriptorPublicKey};
 use std::path::PathBuf;
 use std::fs;
 use crate::electrum::ElectrumClient;
+use crate::metadata::MetadataDb;
+use anyhow::{Result, anyhow};
+use secp256k1::Secp256k1;
 
 pub struct WalletManager {
     wallets: Vec<(String, PersistedWallet<Connection>)>, // (checksum, wallet)
     wallet_dir: PathBuf,
     electrum_client: ElectrumClient,
+    metadata_db: MetadataDb,
 }
 
 impl WalletManager {
@@ -31,10 +34,20 @@ impl WalletManager {
             }
         };
         
+        // Initialize metadata database
+        let metadata_db = match MetadataDb::new("txray.sqlite") {
+            Ok(db) => db,
+            Err(e) => {
+                eprintln!("Warning: Failed to create metadata database: {}", e);
+                panic!("Cannot create WalletManager without metadata database");
+            }
+        };
+        
         let mut manager = WalletManager {
             wallets: Vec::new(),
             wallet_dir,
             electrum_client,
+            metadata_db,
         };
         
         // Load all existing wallets
@@ -51,24 +64,24 @@ impl WalletManager {
     }
 
     /// Create or load a SQLite connection for a wallet
-    fn create_sqlite_connection(&self, wallet_path: &PathBuf) -> Result<Connection, Box<dyn Error>> {
+    fn create_sqlite_connection(&self, wallet_path: &PathBuf) -> Result<Connection> {
         let conn = Connection::open(wallet_path)
-            .map_err(|e| format!("Failed to create/load wallet database: {}", e))?;
+            .map_err(|e| anyhow!("Failed to create/load wallet database: {}", e))?;
         
         Ok(conn)
     }
 
     /// Persist wallet changes to the database
-    fn persist_wallet(&self, wallet: &mut PersistedWallet<Connection>, db: &mut Connection) -> Result<bool, Box<dyn Error>> {
+    fn persist_wallet(&self, wallet: &mut PersistedWallet<Connection>, db: &mut Connection) -> Result<bool> {
         wallet.persist(db)
-            .map_err(|e| format!("Failed to persist wallet: {}", e).into())
+            .map_err(|e| anyhow!("Failed to persist wallet: {}", e))
     }
 
     /// Sync wallet with electrum and persist changes
-    async fn sync_and_persist_wallet(&self, wallet: &mut PersistedWallet<Connection>, db: &mut Connection) -> Result<(), Box<dyn Error>> {
+    async fn sync_and_persist_wallet(&self, wallet: &mut PersistedWallet<Connection>, db: &mut Connection) -> Result<()> {
         // Sync with electrum using shared client
         self.electrum_client.sync_wallet(wallet)
-            .map_err(|e| format!("Failed to sync wallet: {}", e))?;
+            .map_err(|e| anyhow!("Failed to sync wallet: {}", e))?;
         
         // Persist wallet changes after sync
         self.persist_wallet(wallet, db)?;
@@ -76,7 +89,7 @@ impl WalletManager {
         Ok(())
     }
 
-    async fn load_all_wallets(&mut self) -> Result<(), Box<dyn Error>> {
+    async fn load_all_wallets(&mut self) -> Result<()> {
         let entries = fs::read_dir(&self.wallet_dir)?;
         
         for entry in entries {
@@ -95,7 +108,7 @@ impl WalletManager {
         Ok(())
     }
 
-    async fn load_wallet_from_file(&mut self, wallet_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    async fn load_wallet_from_file(&mut self, wallet_path: &PathBuf) -> Result<()> {
         let filename = wallet_path.file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
@@ -110,7 +123,7 @@ impl WalletManager {
             .extract_keys()
             .check_network(Self::get_network())
             .load_wallet(&mut db)
-            .map_err(|e| format!("Failed to load wallet: {}", e))?;
+            .map_err(|e| anyhow!("Failed to load wallet: {}", e))?;
 
         if let Some(mut wallet) = wallet_opt {
             println!("    - Network: {:?}", wallet.network());
@@ -132,45 +145,24 @@ impl WalletManager {
         Ok(())
     }
 
-    /// Extract checksum from descriptor if present, or compute a new one
-    fn get_descriptor_checksum(&self, descriptor_str: &str) -> Result<String, Box<dyn Error>> {
-        // Check if descriptor already has a checksum (format: descriptor#checksum)
-        if let Some(hash_pos) = descriptor_str.rfind('#') {
-            let checksum = &descriptor_str[hash_pos + 1..];
-            println!("Found existing checksum in descriptor: {}", checksum);
-            return Ok(checksum.to_string());
-        }
-        
-        // No existing checksum, compute a new one
-        let checksum = desc_checksum(descriptor_str)
-            .map_err(|e| format!("Failed to generate checksum: {}", e))?;
-        println!("Computed new checksum: {}", checksum);
-        Ok(checksum)
-    }
-
-    /// Create wallet file path from checksum
-    fn get_wallet_path(&self, checksum: &str) -> PathBuf {
-        let wallet_filename = format!("{}.sqlite", checksum);
-        self.wallet_dir.join(wallet_filename)
-    }
 
     /// Parse and validate multipath descriptor
-    fn parse_multipath_descriptor(&self, descriptor_str: &str) -> Result<(String, String), Box<dyn Error>> {
+    fn parse_multipath_descriptor(&self, descriptor_str: &str) -> Result<(String, String)> {
         // Parse the descriptor
         let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str.parse()
-            .map_err(|e| format!("Invalid descriptor: {}", e))?;
+            .map_err(|e| anyhow!("Invalid descriptor: {}", e))?;
 
         // Check if it's a multipath descriptor
         if !descriptor.is_multipath() {
-            return Err("Descriptor is not a multipath descriptor".into());
+            return Err(anyhow!("Descriptor is not a multipath descriptor"));
         }
 
         // Split multipath descriptor into receive and change descriptors
         let descriptors = descriptor.into_single_descriptors()
-            .map_err(|e| format!("Failed to split multipath descriptor: {}", e))?;
+            .map_err(|e| anyhow!("Failed to split multipath descriptor: {}", e))?;
 
         if descriptors.len() != 2 {
-            return Err("Multipath descriptor must have exactly 2 paths (receive and change)".into());
+            return Err(anyhow!("Multipath descriptor must have exactly 2 paths (receive and change)"));
         }
 
         let receive_descriptor = descriptors[0].to_string();
@@ -182,34 +174,46 @@ impl WalletManager {
         Ok((receive_descriptor, change_descriptor))
     }
 
-    pub async fn create_from_multipath(&mut self, descriptor_str: &str) -> Result<(), Box<dyn Error>> {
+    pub async fn create_from_multipath(&mut self, name: &str, descriptor_str: &str) -> Result<()> {
         println!("Creating wallet from multipath descriptor:");
+        println!("  Name: {}", name);
         println!("  Input descriptor: {}", descriptor_str);
         
-        // Get checksum (either existing or computed)
-        let checksum = self.get_descriptor_checksum(descriptor_str)?;
-        println!("  Final checksum: {}", checksum);
+        // Check if descriptor already exists
+        if self.metadata_db.descriptor_exists(descriptor_str)? {
+            return Err(anyhow!("Descriptor already exists"));
+        }
         
-        // Create wallet file path using checksum
-        let wallet_path = self.get_wallet_path(&checksum);
+        // Parse and validate the multipath descriptor first
+        let (receive_descriptor, change_descriptor) = self.parse_multipath_descriptor(descriptor_str)?;
+        
+        // Use BDK's function to generate wallet filename
+        let wallet_filename = wallet_name_from_descriptor(
+            &receive_descriptor,
+            Some(&change_descriptor),
+            Self::get_network(),
+            &Secp256k1::new()
+        )?;
+        let wallet_filename_with_ext = format!("{}.sqlite", wallet_filename);
+        println!("  Wallet filename: {}", wallet_filename_with_ext);
+        
+        // Create wallet file path
+        let wallet_path = self.wallet_dir.join(&wallet_filename_with_ext);
         println!("  Wallet file path: {}", wallet_path.display());
 
         // Check if wallet file already exists
         if wallet_path.exists() {
-            return Err("Wallet already exists".into());
+            return Err(anyhow!("Wallet file already exists"));
         }
-
-        // Parse and validate the multipath descriptor
-        let (receive_descriptor, change_descriptor) = self.parse_multipath_descriptor(descriptor_str)?;
 
         // Open or create SQLite connection
         let mut db = self.create_sqlite_connection(&wallet_path)?;
 
         // Create new wallet
-        let mut wallet = Wallet::create(receive_descriptor, change_descriptor)
+        let mut wallet = Wallet::create(receive_descriptor.clone(), change_descriptor.clone())
             .network(Self::get_network())
             .create_wallet(&mut db)
-            .map_err(|e| format!("Failed to create wallet: {}", e))?;
+            .map_err(|e| anyhow!("Failed to create wallet: {}", e))?;
 
         // Persist initial wallet state
         self.persist_wallet(&mut wallet, &mut db)?;
@@ -217,13 +221,17 @@ impl WalletManager {
         // Sync with electrum and persist changes
         self.sync_and_persist_wallet(&mut wallet, &mut db).await?;
         
-        // Add wallet to the in-memory manager 
-        self.wallets.push((checksum, wallet));
+        // Save wallet metadata
+        self.metadata_db.insert_wallet(name, descriptor_str, &wallet_filename_with_ext)?;
+        println!("  Metadata saved to txray.sqlite");
+        
+        // Add wallet to the in-memory manager (using wallet_filename as key)
+        self.wallets.push((wallet_filename, wallet));
         
         Ok(())
     }
 
-    pub async fn sync_all_wallets(&mut self) -> Result<(), Box<dyn Error>> {
+    pub async fn sync_all_wallets(&mut self) -> Result<()> {
         if self.wallets.is_empty() {
             return Ok(());
         }
@@ -252,8 +260,13 @@ impl WalletManager {
                                     total_before != total_after;
                     
                     if has_changes {
+                        // Get the user-friendly wallet name
+                        let wallet_filename = format!("{}.sqlite", checksum);
+                        let wallet_name = self.metadata_db.get_wallet_name_by_filename(&wallet_filename)
+                            .expect("Wallet name should exist in metadata database");
+                        
                         // 22 for label, 18 for each value, 3 for separators
-                        println!("{:>22} | {:<18} | {:<18} | {:<18}", format!("Wallet {}", checksum), "Before", "After", "Diff");
+                        println!("{:>22} | {:<18} | {:<18} | {:<18}", format!("Wallet {}", wallet_name), "Before", "After", "Diff");
                         println!("{:-<79}", "");
                         let fmt = |amt: bdk_wallet::bitcoin::Amount| {
                             let btc = amt.to_sat() as f64 / 100_000_000.0;

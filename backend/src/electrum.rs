@@ -3,8 +3,8 @@ use bdk_wallet::PersistedWallet;
 use rusqlite::Connection;
 use bdk_wallet::chain::collections::HashSet;
 use bdk_wallet::KeychainKind;
-use std::error::Error;
 use std::io::{self, Write};
+use anyhow::{Result, anyhow};
 
 const STOP_GAP: usize = 20;
 const BATCH_SIZE: usize = 5;
@@ -14,16 +14,16 @@ pub struct ElectrumClient {
 }
 
 impl ElectrumClient {
-    pub fn new_regtest() -> Result<Self, Box<dyn Error>> {
+    pub fn new_regtest() -> Result<Self> {
         let client = BdkElectrumClient::new(electrum_client::Client::new("tcp://127.0.0.1:50001")?);
         Ok(ElectrumClient { client })
     }
 
-    pub fn server_features(&self) -> Result<String, Box<dyn Error>> {
+    pub fn server_features(&self) -> Result<String> {
         Ok("Connected to Electrum via BDK".to_string())
     }
 
-    pub fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<(), Box<dyn Error>> {
+    pub fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
         println!("Syncing with electrum...");
         
         // Print initial balance
@@ -58,13 +58,13 @@ impl ElectrumClient {
         
         // Perform the full scan
         let update = self.client.full_scan(request, STOP_GAP, BATCH_SIZE, false)
-            .map_err(|e| format!("Full scan failed: {}", e))?;
+            .map_err(|e| anyhow!("Full scan failed: {}", e))?;
         
         println!(); // New line after scan progress
         
         // Apply the update
         wallet.apply_update(update)
-            .map_err(|e| format!("Failed to apply update: {}", e))?;
+            .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
         
         // Print final balance
         let balance_after = wallet.balance();
@@ -73,7 +73,7 @@ impl ElectrumClient {
         Ok(())
     }
 
-    pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Connection>) -> Result<(), Box<dyn Error>> {
+    pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
 
         // Populate the electrum client's transaction cache
         self.client.populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
@@ -83,11 +83,11 @@ impl ElectrumClient {
         
         // Perform the sync
         let update = self.client.sync(request, BATCH_SIZE, false)
-            .map_err(|e| format!("Sync failed: {}", e))?;
+            .map_err(|e| anyhow!("Sync failed: {}", e))?;
         
         // Apply the update
         wallet.apply_update(update)
-            .map_err(|e| format!("Failed to apply update: {}", e))?;
+            .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
         
         Ok(())
     }

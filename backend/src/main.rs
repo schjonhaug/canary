@@ -1,6 +1,7 @@
 mod electrum;
 mod wallet;
 mod api;
+mod metadata;
 use electrum::ElectrumClient;
 use wallet::WalletManager;
 use api::create_router;
@@ -9,7 +10,7 @@ use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> anyhow::Result<()> {
     let electrum_client = ElectrumClient::new_regtest()?;
     let features = electrum_client.server_features()?;
     println!("Connected to Electrum server: {}", features);
