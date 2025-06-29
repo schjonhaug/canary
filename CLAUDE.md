@@ -73,11 +73,24 @@ txray/
 - `secp256k1 = "0.29"` - Secp256k1 elliptic curve operations
 
 ## API Endpoints
-- `POST /wallet`: Create a new wallet from multipath descriptor and name
+### Wallet Management
+- `POST /wallets`: Create a new wallet from multipath descriptor and name
   - Requires both `name` (user-friendly) and `descriptor` (multipath) fields
   - Validates multipath descriptors and enforces descriptor uniqueness
-  - Returns 201 (created), 400 (invalid), or 409 (duplicate descriptor)
+  - Returns 201 (created) with full wallet metadata including ID, 400 (invalid), or 409 (duplicate descriptor)
   - Allows duplicate wallet names but enforces unique descriptors
+- `GET /wallets`: List all wallets
+  - Returns array of wallet metadata objects ordered by creation date (newest first)
+  - Includes ID, name, descriptor, filename, and created_at for each wallet
+- `GET /wallets/{id}`: Get a specific wallet by ID
+  - Returns wallet metadata object or 404 if not found
+  - Uses database ID as path parameter
+- `DELETE /wallets/{id}`: Delete a wallet by ID
+  - Completely removes wallet: unloads from BDK memory, deletes database file, removes metadata
+  - Returns 204 (no content) on success, 404 if not found
+  - Uses database ID as path parameter
+
+### Documentation
 - `/swagger-ui`: Interactive API documentation
 - `/api-docs/openapi.json`: OpenAPI specification
 
@@ -119,11 +132,12 @@ txray/
 
 ### Wallet Metadata Storage
 - **Database**: `txray.sqlite` in backend root directory
-- **Schema**: Stores wallet names, descriptors, filenames, and creation timestamps
+- **Schema**: Stores wallet IDs, names, descriptors, filenames, and creation timestamps
 - **Constraints**: 
+  - `id` field is PRIMARY KEY AUTOINCREMENT (unique wallet identifier)
   - `descriptor` field has UNIQUE constraint (prevents duplicate wallets)
   - `name` field allows duplicates (multiple wallets can have same name)
-- **Purpose**: Maps user-friendly names to BDK wallet files for better UX
+- **Purpose**: Maps user-friendly names to BDK wallet files and provides API access via IDs
 
 ## Notes
 - Uses Rust 2024 edition
@@ -131,3 +145,5 @@ txray/
 - Shared state management with Arc<Mutex<>>
 - Automatic loading of existing wallets on startup
 - Full wallet sync performed on creation and incremental sync ongoing
+- RESTful API design: uses proper HTTP methods and status codes
+- Complete wallet lifecycle management: create, read, list, delete operations

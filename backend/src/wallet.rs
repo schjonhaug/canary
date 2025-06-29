@@ -1,12 +1,12 @@
 use bdk_wallet::{bitcoin::Network, Wallet, PersistedWallet, wallet_name_from_descriptor};
+use bdk_wallet::bitcoin::secp256k1::Secp256k1;
 use rusqlite::Connection;
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::path::PathBuf;
 use std::fs;
 use crate::electrum::ElectrumClient;
-use crate::metadata::MetadataDb;
+use crate::metadata::{MetadataDb, WalletMetadata};
 use anyhow::{Result, anyhow};
-use secp256k1::Secp256k1;
 
 pub struct WalletManager {
     wallets: Vec<(String, PersistedWallet<Connection>)>, // (checksum, wallet)
@@ -174,7 +174,7 @@ impl WalletManager {
         Ok((receive_descriptor, change_descriptor))
     }
 
-    pub async fn create_from_multipath(&mut self, name: &str, descriptor_str: &str) -> Result<()> {
+    pub async fn create_from_multipath(&mut self, name: &str, descriptor_str: &str) -> Result<WalletMetadata> {
         println!("Creating wallet from multipath descriptor:");
         println!("  Name: {}", name);
         println!("  Input descriptor: {}", descriptor_str);
@@ -228,7 +228,11 @@ impl WalletManager {
         // Add wallet to the in-memory manager (using wallet_filename as key)
         self.wallets.push((wallet_filename, wallet));
         
-        Ok(())
+        // Retrieve and return the created wallet metadata
+        let wallet_metadata = self.metadata_db.get_wallet_by_descriptor(descriptor_str)?
+            .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
+        
+        Ok(wallet_metadata)
     }
 
     pub async fn sync_all_wallets(&mut self) -> Result<()> {
@@ -437,6 +441,58 @@ impl WalletManager {
             }
         }
         
+        Ok(())
+    }
+
+
+    pub fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
+        self.metadata_db.get_wallet_by_id(id)
+            .map_err(|e| anyhow!("Failed to get wallet by ID: {}", e))
+    }
+
+    pub fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
+        self.metadata_db.get_all_wallets()
+            .map_err(|e| anyhow!("Failed to get all wallets: {}", e))
+    }
+
+    pub async fn delete_wallet_by_id(&mut self, id: i64) -> Result<()> {
+        println!("Deleting wallet with ID: {}", id);
+        
+        // Get the descriptor and filename for this wallet ID and delete from metadata
+        let (descriptor, wallet_filename) = match self.metadata_db.delete_wallet_by_id(id)? {
+            Some((desc, filename)) => (desc, filename),
+            None => return Err(anyhow!("Wallet not found")),
+        };
+        
+        println!("  Found descriptor: {}", descriptor);
+        println!("  Wallet filename: {}", wallet_filename);
+        
+        // Extract checksum from filename (remove .sqlite extension)
+        let checksum = wallet_filename.strip_suffix(".sqlite").unwrap_or(&wallet_filename);
+        
+        // Find and remove wallet from in-memory manager
+        let wallet_index = self.wallets.iter()
+            .position(|(stored_checksum, _)| stored_checksum == checksum);
+        
+        if let Some(index) = wallet_index {
+            // Remove wallet from in-memory storage (this unloads it from BDK)
+            self.wallets.remove(index);
+            println!("  Unloaded wallet from memory");
+        } else {
+            println!("  Warning: Wallet not found in memory (may have been manually removed)");
+        }
+        
+        // Delete wallet database file from disk
+        let wallet_path = self.wallet_dir.join(&wallet_filename);
+        if wallet_path.exists() {
+            fs::remove_file(&wallet_path)
+                .map_err(|e| anyhow!("Failed to delete wallet file {}: {}", wallet_path.display(), e))?;
+            println!("  Deleted wallet file: {}", wallet_path.display());
+        } else {
+            println!("  Warning: Wallet file not found on disk: {}", wallet_path.display());
+        }
+        
+        println!("Wallet deletion completed successfully");
         Ok(())
     }
 }
