@@ -548,18 +548,23 @@ case "$1" in
             # Stop containers and remove all volumes (includes wallet data)
             docker-compose down -v
             
-            # Clean up BDK wallet files to prevent stale cache
-            echo "Cleaning up BDK wallet cache..."
+            # Clean up BDK wallet files completely
+            echo "Cleaning up BDK wallets..."
             if [ -d "../backend/wallets" ]; then
-                rm -rf ../backend/wallets/*.db
-                echo "✅ BDK wallet cache cleared"
+                rm -rf ../backend/wallets
+                echo "✅ BDK wallets directory removed"
             else
                 echo "⚠️  BDK wallets directory not found (this is normal for first run)"
             fi
             
-            # Wipe database
-            echo "Wiping database..."
-            ./docker-utils.sh wipe-database
+            # Remove SQLite metadata database
+            echo "Removing SQLite metadata database..."
+            if [ -f "../backend/txray.sqlite" ]; then
+                rm -f ../backend/txray.sqlite
+                echo "✅ Metadata database removed"
+            else
+                echo "⚠️  Metadata database not found (this is normal for first run)"
+            fi
             
             echo "✅ Environment reset complete (all wallets, blockchain data, and database wiped)"
         else
@@ -1070,35 +1075,23 @@ case "$1" in
         ;;
         
     "wipe-database")
-        echo "🗑️  Wiping database..."
+        echo "🗑️  Wiping SQLite database..."
         
-        # Get database name from environment or use default
-        DATABASE_URL=${DATABASE_URL:-"postgresql://localhost/output_descriptor_monitor"}
-        DB_NAME=$(echo "$DATABASE_URL" | sed -n 's|.*postgresql://[^/]*/\([^?]*\).*|\1|p')
-        if [ -z "$DB_NAME" ]; then
-            DB_NAME="output_descriptor_monitor"
+        # Remove SQLite metadata database
+        if [ -f "../backend/txray.sqlite" ]; then
+            rm -f ../backend/txray.sqlite
+            echo "✅ SQLite metadata database removed"
+            echo "💡 The database will be recreated when the backend starts"
+        else
+            echo "⚠️  SQLite metadata database not found"
         fi
         
-        echo "Database: $DB_NAME"
-        echo "Dropping all tables..."
-        
-        # Drop all tables in the correct order (respecting foreign key constraints)
-        if psql -d "$DB_NAME" -c "
-            DROP TABLE IF EXISTS notifications CASCADE;
-            DROP TABLE IF EXISTS address_utxos CASCADE;
-            DROP TABLE IF EXISTS transaction_relationships CASCADE; 
-            DROP TABLE IF EXISTS transactions CASCADE;
-            DROP TABLE IF EXISTS addresses CASCADE;
-            DROP TABLE IF EXISTS wallets CASCADE;
-            DROP TABLE IF EXISTS _sqlx_migrations CASCADE;
-        " 2>/dev/null; then
-            echo "✅ Database tables dropped successfully"
-            echo "💡 The database will be recreated with fresh tables when the backend starts"
+        # Remove BDK wallet files
+        if [ -d "../backend/wallets" ]; then
+            rm -rf ../backend/wallets
+            echo "✅ BDK wallets directory removed"
         else
-            echo "❌ Could not connect to database"
-            echo "   Make sure PostgreSQL is running and the database '$DB_NAME' exists"
-            echo "   You may need to wipe the database manually with:"
-            echo "   psql -d $DB_NAME -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'"
+            echo "⚠️  BDK wallets directory not found"
         fi
         ;;
         
