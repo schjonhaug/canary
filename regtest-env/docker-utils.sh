@@ -4,18 +4,18 @@
 # 
 # This script provides a complete Bitcoin regtest development environment with:
 # - Docker-based Bitcoin Core + Fulcrum Electrum server
-# - Alice (funded with 100 BTC) and Bob (unfunded) wallet creation
+# - Alice (funded with 1 BTC distributed) and Bob (unfunded) wallet creation
 # - Backend integration for Output Descriptor Monitor
 # - Advanced Bitcoin transaction testing (RBF, CPFP, mempool operations)
 #
 # Key Commands:
 #   start           - Start infrastructure (Bitcoin Core + Fulcrum)
-#   create-wallets  - Create Alice (100 BTC) and Bob (unfunded) wallets
+#   create-wallets  - Create Alice (1 BTC distributed) and Bob (unfunded) wallets
 #   add-wallets-to-backend - Integrate wallets with backend API
 #
 # Workflow:
 #   1. ./docker-utils.sh start
-#   2. ./docker-utils.sh create-wallets  (Alice gets 100 BTC automatically)
+#   2. ./docker-utils.sh create-wallets  (Alice gets 1 BTC distributed automatically)
 #   3. cd ../backend && BITCOIN_NETWORK=regtest cargo run
 #   4. cd ../regtest-env && ./docker-utils.sh add-wallets-to-backend
 
@@ -313,7 +313,7 @@ case "$1" in
         echo "Fulcrum Electrum server: localhost:50001"
         echo "Set BITCOIN_NETWORK=regtest in your environment"
         echo ""
-        echo "💡 Next: $0 create-wallets (creates Alice with 100 BTC)"
+        echo "💡 Next: $0 create-wallets (creates Alice with 1 BTC distributed)"
         ;;
     
     "create-wallets")
@@ -450,7 +450,7 @@ case "$1" in
         # Get a fresh address for mining (only used for background operations)
         MINER_ADDRESS=$(btc_wallet miner getnewaddress)
         
-        # Fund Alice wallet with simplified strategy
+        # Fund Alice wallet with distributed strategy
         echo "💰 Funding Alice wallet..."
         BLOCK_COUNT=$(btc getblockcount 2>/dev/null || echo "0")
         
@@ -459,13 +459,38 @@ case "$1" in
             # Mine 103 blocks to Miner (150 BTC total)
             btc generatetoaddress 103 "$MINER_ADDRESS" >/dev/null 2>&1
             
-            # Send 100 BTC from Miner to Alice (get fresh address for funding)
-            ALICE_FUNDING_ADDRESS=$(btc_wallet alice getnewaddress)
-            TXID=$(btc_miner sendtoaddress "$ALICE_FUNDING_ADDRESS" 100)
+            # Generate Alice addresses for distributed funding
+            echo "   📍 Generating addresses for distributed funding..."
+            
+            # Build sendmany recipients object
+            RECIPIENTS="{"
+            
+            # 1 address with 0.5 BTC
+            ALICE_ADDR_5=$(btc_wallet alice getnewaddress)
+            RECIPIENTS="${RECIPIENTS}\"$ALICE_ADDR_5\":0.5"
+            
+            # 5 addresses with 0.05 BTC each
+            for i in {1..5}; do
+                ALICE_ADDR_05=$(btc_wallet alice getnewaddress)
+                RECIPIENTS="${RECIPIENTS},\"$ALICE_ADDR_05\":0.05"
+            done
+            
+            # 25 addresses with 0.01 BTC each
+            for i in {1..25}; do
+                ALICE_ADDR_01=$(btc_wallet alice getnewaddress)
+                RECIPIENTS="${RECIPIENTS},\"$ALICE_ADDR_01\":0.01"
+            done
+            
+            RECIPIENTS="${RECIPIENTS}}"
+            
+            # Send 1 BTC distributed across multiple addresses in one transaction
+            echo "   💸 Creating single transaction with multiple outputs..."
+            echo "   📊 Distribution: 1×0.5 BTC + 5×0.05 BTC + 25×0.01 BTC = 1 BTC across 31 addresses"
+            TXID=$(btc_miner sendmany "" "$RECIPIENTS")
             
             # Mine 1 block to confirm Alice's transaction
             btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
-            echo "   ✅ Alice funded with 100 BTC (spendable)"
+            echo "   ✅ Alice funded with 1 BTC (distributed across 31 addresses)"
         else
             echo "   ✅ Alice already funded"
         fi
@@ -478,8 +503,8 @@ case "$1" in
         echo "🎉 Alice and Bob wallets setup complete!"
         echo ""
         echo "📱 Add these descriptors to your wallet app to follow along:"
-        echo "   👩 Alice Wallet (funded - 100 BTC):  $ALICE_DESCRIPTOR"
-        echo "   👨 Bob Wallet (unfunded):            $BOB_DESCRIPTOR"
+        echo "   👩 Alice Wallet (funded - 1 BTC):  $ALICE_DESCRIPTOR"
+        echo "   👨 Bob Wallet (unfunded):           $BOB_DESCRIPTOR"
         echo ""
         echo "💡 Wallets are ready - addresses will be derived automatically by your backend"
         echo ""
@@ -889,7 +914,7 @@ case "$1" in
             btc loadwallet "alice" 2>/dev/null || true
             btc loadwallet "bob" 2>/dev/null || true
             btc loadwallet "miner" 2>/dev/null || true
-            echo "Alice wallet balance: $(btc_alice getbalance) BTC (funded for testing)"
+            echo "Alice wallet balance: $(btc_alice getbalance) BTC (funded - distributed across addresses)"
             echo "Bob wallet balance: $(btc_bob getbalance) BTC (unfunded)"
             echo "Miner wallet balance: $(btc_miner getbalance) BTC (background infrastructure)"
             echo "Network: $(btc getblockchaininfo | grep '"chain"' | cut -d'"' -f4)"
@@ -1092,7 +1117,7 @@ case "$1" in
         echo "  logs [service]      Show logs (bitcoin/electrum or all)"
         echo "  status              Show environment status"
         echo ""
-        echo "Alice Commands (funded wallet - 100 BTC):"
+        echo "Alice Commands (funded wallet - 1 BTC distributed):"
         echo "  alice balance             Show Alice wallet balance"
         echo "  alice address             Generate new Alice address"
         echo "  alice send <amt>          Send Bitcoin from Alice to Bob (RBF-enabled)"
@@ -1122,7 +1147,7 @@ case "$1" in
         echo ""
         echo "Examples:"
         echo "  $0 start                        # Start the environment"
-        echo "  $0 create-wallets               # Create Alice/Bob wallets (Alice gets 100 BTC)"
+        echo "  $0 create-wallets               # Create Alice/Bob wallets (Alice gets 1 BTC distributed)"
         echo "  $0 add-wallets-to-backend       # Add Alice/Bob to your backend"
         echo "  $0 mine 6                       # Mine 6 blocks"
         echo "  $0 alice send 0.5               # Send 0.5 BTC from Alice to Bob (RBF-enabled)"
