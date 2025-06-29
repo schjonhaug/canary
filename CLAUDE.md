@@ -3,7 +3,7 @@
 This file contains project-specific information and preferences for Claude Code.
 
 ## Project Overview
-TxRay is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors and syncs with Electrum servers.
+TxRay is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, and includes advanced transaction analysis capabilities with automatic background synchronization.
 
 ## Development Commands
 ```bash
@@ -24,40 +24,95 @@ cd backend && cargo fmt
 
 # Lint code
 cd backend && cargo clippy
+
+# Start regtest environment (Bitcoin Core + Fulcrum)
+cd regtest-env && docker-compose up -d
+
+# Stop regtest environment
+cd regtest-env && docker-compose down
 ```
 
 ## Project Structure
 ```
 txray/
-├── backend/                 # Rust backend service
+├── backend/                    # Rust backend service
 │   ├── src/
-│   │   ├── main.rs         # Application entry point
-│   │   ├── api.rs          # REST API endpoints with OpenAPI docs
-│   │   ├── wallet.rs       # Wallet management logic using BDK
-│   │   └── electrum.rs     # Electrum client integration
-│   ├── wallets/            # Wallet database files
-│   └── Cargo.toml          # Rust dependencies
-└── CLAUDE.md               # This file
+│   │   ├── main.rs            # Application entry point with background sync
+│   │   ├── api.rs             # REST API endpoints with OpenAPI docs
+│   │   ├── wallet.rs          # Comprehensive wallet management using BDK
+│   │   └── electrum.rs        # Electrum client with dual sync modes
+│   ├── target/                # Build artifacts
+│   ├── wallets/               # SQLite wallet database files
+│   ├── Cargo.toml             # Rust dependencies
+│   └── Cargo.lock             # Dependency lock file
+├── regtest-env/               # Complete Bitcoin regtest environment
+│   ├── docker-compose.yml     # Bitcoin Core + Fulcrum setup
+│   ├── bitcoin.conf           # Bitcoin Core regtest configuration
+│   ├── fulcrum.conf          # Fulcrum Electrum server configuration
+│   ├── docker-utils.sh       # Development utilities script
+│   ├── README.md             # Regtest environment documentation
+│   └── test-*.sh             # Transaction testing scripts
+└── CLAUDE.md                  # This file
 ```
 
 ## Key Dependencies
-- `bdk_wallet`: Bitcoin wallet functionality
-- `bdk_electrum`: Electrum server integration
-- `axum`: Web framework for REST API
-- `utoipa`: OpenAPI documentation generation
-- `tokio`: Async runtime
+- `bdk_wallet = "2"` with `rusqlite` feature - Bitcoin wallet functionality
+- `rusqlite = "0.31"` - SQLite database operations
+- `bdk_electrum = "0.23"` - Electrum server integration
+- `miniscript = "12.3"` - Bitcoin script processing
+- `axum = "0.8"` - Web framework for REST API
+- `tokio = "1.45"` with full features - Async runtime
+- `serde = "1.0"` with derive - JSON serialization
+- `serde_json = "1.0"` - JSON processing
+- `utoipa = "5.4"` with axum_extras - OpenAPI documentation
+- `utoipa-swagger-ui = "9"` with axum - Swagger UI integration
+- `utoipa-axum = "0.2"` - OpenAPI-Axum integration
 
 ## API Endpoints
 - `POST /wallet`: Create a new wallet from multipath descriptor
+  - Validates multipath descriptors
+  - Prevents duplicate wallet creation
+  - Returns 201 (created), 400 (invalid), or 500 (error)
 - `/swagger-ui`: Interactive API documentation
+- `/api-docs/openapi.json`: OpenAPI specification
 
 ## Network Configuration
-- Currently configured for Bitcoin Regtest
-- Electrum server: tcp://127.0.0.1:50001
-- Web server: http://127.0.0.1:3000
+- **Bitcoin Network**: Regtest (hardcoded)
+- **Electrum Server**: tcp://127.0.0.1:50001
+- **Web Server**: http://127.0.0.1:3000
+- **Background Sync**: Every 4 seconds automatic wallet synchronization
+
+## Advanced Features
+### Transaction Analysis
+- Real-time balance change detection and reporting
+- Transaction type classification (send, receive, confirmation)
+- RBF (Replace-By-Fee) detection
+- CPFP (Child-Pays-For-Parent) detection
+- Detailed Bitcoin amount formatting
+
+### Sync Capabilities
+- **Full Scan**: Initial comprehensive sync with address revelation (up to 50 addresses)
+- **Incremental Sync**: Ongoing updates with transaction cache management
+- **Background Sync**: Automatic 4-second interval synchronization
+- **Progress Indicators**: Detailed logging with keychain information
+
+### Development Environment
+- Complete Docker-based regtest setup
+- Bitcoin Core + Fulcrum Electrum server
+- Comprehensive testing utilities
+- Transaction testing scripts
+- Wallet management utilities
+
+## Storage Details
+- **Database**: SQLite with `.sqlite` extension
+- **Location**: `wallets/` directory
+- **Naming**: Filenames based on descriptor checksums (e.g., `8nt3y08q.sqlite`)
+- **Persistence**: Automatic wallet loading on startup
+- **Sync Parameters**: STOP_GAP=20, BATCH_SIZE=5
 
 ## Notes
-- Wallets are persisted as .db files in the `wallets/` directory
-- Each wallet filename is based on the descriptor checksum
-- The service automatically loads existing wallets on startup
-- Full wallet sync with Electrum is performed on creation and loading
+- Uses Rust 2024 edition
+- Comprehensive error handling throughout
+- Shared state management with Arc<Mutex<>>
+- Automatic loading of existing wallets on startup
+- Full wallet sync performed on creation and incremental sync ongoing
