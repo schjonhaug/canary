@@ -318,12 +318,30 @@ impl WalletManager {
                         let confirmed_decrease = confirmed_after.to_sat() < confirmed_before.to_sat();
                         let total_decrease = total_after.to_sat() < total_before.to_sat();
                         
+                        // First check for consolidation (takes precedence over regular sending)
+                        let mut is_consolidation = false;
+                        if trusted_pending_increase && confirmed_decrease && total_decrease {
+                            let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
+                            let trusted_received = trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
+                            let fee_paid = total_before.to_sat() - total_after.to_sat();
+                            
+                            // Consolidation pattern: most of the confirmed amount comes back as trusted pending
+                            // with only a small fee difference
+                            if trusted_received > 0 && fee_paid > 0 && confirmed_spent == trusted_received + fee_paid {
+                                let consolidated_btc = trusted_received as f64 / 100_000_000.0;
+                                let fee_btc = fee_paid as f64 / 100_000_000.0;
+                                
+                                println!("🔄 Consolidation: {:.8} BTC (fee: {:.8} BTC)", consolidated_btc, fee_btc);
+                                is_consolidation = true;
+                            }
+                        }
+                        
                         // Check if this might be RBF by looking for existing unconfirmed transactions
                         let has_unconfirmed = wallet.transactions()
                             .any(|tx| matches!(tx.chain_position, bdk_wallet::chain::ChainPosition::Unconfirmed { .. }));
                         
                         // RBF detection: small amount change (just fee difference) with existing unconfirmed tx
-                        if has_unconfirmed && total_decrease {
+                        if has_unconfirmed && total_decrease && !is_consolidation {
                             let fee_increase = total_before.to_sat() - total_after.to_sat();
                             let fee_increase_btc = fee_increase as f64 / 100_000_000.0;
                             
@@ -357,7 +375,7 @@ impl WalletManager {
                                     println!("📤 Sending {:.8} BTC", sending_btc);
                                 }
                             }
-                        } else {
+                        } else if !is_consolidation {
                             // Regular sending logic (no existing unconfirmed transactions)
                             // Case 1: Spending from confirmed balance (first transaction)
                             if trusted_pending_increase && confirmed_decrease && total_decrease {
@@ -429,6 +447,7 @@ impl WalletManager {
                             
                             println!("🚀 CPFP fee: {:.8} BTC", fee_paid_btc);
                         }
+                        
                         
                         println!(); // Add spacing between wallets
                     }
