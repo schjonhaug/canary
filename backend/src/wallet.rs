@@ -321,23 +321,6 @@ impl WalletManager {
                         // First check for special transaction types (takes precedence over regular sending)
                         let mut is_special_tx = false;
                         
-                        // Check for consolidation
-                        if trusted_pending_increase && confirmed_decrease && total_decrease {
-                            let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
-                            let trusted_received = trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
-                            let fee_paid = total_before.to_sat() - total_after.to_sat();
-                            
-                            // Consolidation pattern: most of the confirmed amount comes back as trusted pending
-                            // with only a small fee difference
-                            if trusted_received > 0 && fee_paid > 0 && confirmed_spent == trusted_received + fee_paid {
-                                let consolidated_btc = trusted_received as f64 / 100_000_000.0;
-                                let fee_btc = fee_paid as f64 / 100_000_000.0;
-                                
-                                println!("🔄 Consolidation: {:.8} BTC (fee: {:.8} BTC)", consolidated_btc, fee_btc);
-                                is_special_tx = true;
-                            }
-                        }
-                        
                         // Check for CPFP (Child-Pays-For-Parent)
                         if !is_special_tx {
                             let untrusted_pending_decrease = untrusted_pending_after.to_sat() < untrusted_pending_before.to_sat();
