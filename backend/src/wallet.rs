@@ -318,8 +318,10 @@ impl WalletManager {
                         let confirmed_decrease = confirmed_after.to_sat() < confirmed_before.to_sat();
                         let total_decrease = total_after.to_sat() < total_before.to_sat();
                         
-                        // First check for consolidation (takes precedence over regular sending)
-                        let mut is_consolidation = false;
+                        // First check for special transaction types (takes precedence over regular sending)
+                        let mut is_special_tx = false;
+                        
+                        // Check for consolidation
                         if trusted_pending_increase && confirmed_decrease && total_decrease {
                             let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
                             let trusted_received = trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
@@ -332,7 +334,21 @@ impl WalletManager {
                                 let fee_btc = fee_paid as f64 / 100_000_000.0;
                                 
                                 println!("🔄 Consolidation: {:.8} BTC (fee: {:.8} BTC)", consolidated_btc, fee_btc);
-                                is_consolidation = true;
+                                is_special_tx = true;
+                            }
+                        }
+                        
+                        // Check for CPFP (Child-Pays-For-Parent)
+                        if !is_special_tx {
+                            let untrusted_pending_decrease = untrusted_pending_after.to_sat() < untrusted_pending_before.to_sat();
+                            let confirmed_same = confirmed_after.to_sat() == confirmed_before.to_sat();
+                            
+                            if untrusted_pending_decrease && confirmed_same && total_decrease {
+                                let fee_paid = total_before.to_sat() - total_after.to_sat();
+                                let fee_paid_btc = fee_paid as f64 / 100_000_000.0;
+                                
+                                println!("🚀 CPFP fee: {:.8} BTC", fee_paid_btc);
+                                is_special_tx = true;
                             }
                         }
                         
@@ -341,7 +357,7 @@ impl WalletManager {
                             .any(|tx| matches!(tx.chain_position, bdk_wallet::chain::ChainPosition::Unconfirmed { .. }));
                         
                         // RBF detection: small amount change (just fee difference) with existing unconfirmed tx
-                        if has_unconfirmed && total_decrease && !is_consolidation {
+                        if has_unconfirmed && total_decrease && !is_special_tx {
                             let fee_increase = total_before.to_sat() - total_after.to_sat();
                             let fee_increase_btc = fee_increase as f64 / 100_000_000.0;
                             
@@ -375,7 +391,7 @@ impl WalletManager {
                                     println!("📤 Sending {:.8} BTC", sending_btc);
                                 }
                             }
-                        } else if !is_consolidation {
+                        } else if !is_special_tx {
                             // Regular sending logic (no existing unconfirmed transactions)
                             // Case 1: Spending from confirmed balance (first transaction)
                             if trusted_pending_increase && confirmed_decrease && total_decrease {
@@ -436,17 +452,6 @@ impl WalletManager {
                             println!("✅ Received {:.8} BTC", received_btc);
                         }
                         
-                        // Detect CPFP (Child-Pays-For-Parent)
-                        let untrusted_pending_decrease = untrusted_pending_after.to_sat() < untrusted_pending_before.to_sat();
-                        let confirmed_same = confirmed_after.to_sat() == confirmed_before.to_sat();
-                        let total_decrease = total_after.to_sat() < total_before.to_sat();
-                        
-                        if untrusted_pending_decrease && confirmed_same && total_decrease {
-                            let fee_paid = total_before.to_sat() - total_after.to_sat();
-                            let fee_paid_btc = fee_paid as f64 / 100_000_000.0;
-                            
-                            println!("🚀 CPFP fee: {:.8} BTC", fee_paid_btc);
-                        }
                         
                         
                         println!(); // Add spacing between wallets
