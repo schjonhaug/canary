@@ -258,6 +258,97 @@ if [[ "$1" == "alice" || "$1" == "bob" ]]; then
             cpfp_for_wallet "$WALLET" "$PARENT_TXID"
             exit 0
             ;;
+        consolidate)
+            echo "🔄 Consolidating 2 smallest UTXOs for $WALLET..."
+            btc loadwallet "$WALLET" 2>/dev/null || true
+            
+            # Check if wallet exists
+            if ! btc_wallet "$WALLET" getwalletinfo >/dev/null 2>&1; then
+                echo "❌ $WALLET wallet not found. Run '$0 create-wallets' first"
+                exit 1
+            fi
+            
+            # Get UTXOs and sort by amount (smallest first)
+            UTXOS=$(btc_wallet "$WALLET" listunspent | jq -r '.[] | "\(.amount) \(.txid) \(.vout)"' | sort -n)
+            UTXO_COUNT=$(echo "$UTXOS" | wc -l | tr -d ' ')
+            
+            if [ "$UTXO_COUNT" -lt 2 ]; then
+                echo "❌ $WALLET needs at least 2 UTXOs to consolidate. Current UTXOs: $UTXO_COUNT"
+                echo "💡 Fund $WALLET with multiple transactions first"
+                exit 1
+            fi
+            
+            # Get the 2 smallest UTXOs
+            UTXO1=$(echo "$UTXOS" | head -1)
+            UTXO2=$(echo "$UTXOS" | head -2 | tail -1)
+            
+            AMOUNT1=$(echo "$UTXO1" | cut -d' ' -f1)
+            TXID1=$(echo "$UTXO1" | cut -d' ' -f2)
+            VOUT1=$(echo "$UTXO1" | cut -d' ' -f3)
+            
+            AMOUNT2=$(echo "$UTXO2" | cut -d' ' -f1)
+            TXID2=$(echo "$UTXO2" | cut -d' ' -f2)
+            VOUT2=$(echo "$UTXO2" | cut -d' ' -f3)
+            
+            echo "   📍 UTXO 1: $AMOUNT1 BTC (txid: $TXID1, vout: $VOUT1)"
+            echo "   📍 UTXO 2: $AMOUNT2 BTC (txid: $TXID2, vout: $VOUT2)"
+            
+            # Calculate total amount minus fee using awk with C locale for proper decimal format
+            TOTAL_AMOUNT=$(LC_NUMERIC=C awk "BEGIN {printf \"%.8f\", $AMOUNT1 + $AMOUNT2}")
+            CONSOLIDATE_AMOUNT=$(LC_NUMERIC=C awk "BEGIN {printf \"%.8f\", $AMOUNT1 + $AMOUNT2 - 0.0001}")
+            
+            echo "   💰 Total: $TOTAL_AMOUNT BTC → $CONSOLIDATE_AMOUNT BTC (0.0001 BTC fee)"
+            
+            # Get new change address for consolidation (internal keychain)
+            CONSOLIDATE_ADDRESS=$(btc_wallet "$WALLET" getrawchangeaddress)
+            echo "   🎯 Consolidating to: $CONSOLIDATE_ADDRESS"
+            
+            # Create raw transaction
+            INPUTS="[{\"txid\":\"$TXID1\",\"vout\":$VOUT1},{\"txid\":\"$TXID2\",\"vout\":$VOUT2}]"
+            OUTPUTS="{\"$CONSOLIDATE_ADDRESS\":$CONSOLIDATE_AMOUNT}"
+            
+            echo "   🔧 Creating consolidation transaction..."
+            RAW_TX=$(btc_wallet "$WALLET" createrawtransaction "$INPUTS" "$OUTPUTS")
+            
+            if [ -z "$RAW_TX" ]; then
+                echo "❌ Failed to create raw transaction"
+                exit 1
+            fi
+            
+            # Sign the transaction
+            echo "   ✍️  Signing transaction..."
+            SIGNED_TX=$(btc_wallet "$WALLET" signrawtransactionwithwallet "$RAW_TX")
+            SIGNED_HEX=$(echo "$SIGNED_TX" | jq -r '.hex')
+            SIGN_COMPLETE=$(echo "$SIGNED_TX" | jq -r '.complete')
+            
+            if [ "$SIGN_COMPLETE" != "true" ]; then
+                echo "❌ Failed to sign transaction"
+                echo "Signing result: $SIGNED_TX"
+                exit 1
+            fi
+            
+            # Broadcast the transaction
+            echo "   📡 Broadcasting consolidation transaction..."
+            CONSOLIDATE_TXID=$(btc sendrawtransaction "$SIGNED_HEX")
+            
+            if [ -z "$CONSOLIDATE_TXID" ]; then
+                echo "❌ Failed to broadcast transaction"
+                exit 1
+            fi
+            
+            echo "   ✅ Consolidation transaction created: $CONSOLIDATE_TXID"
+            echo "   💰 Consolidated: $CONSOLIDATE_AMOUNT BTC"
+            echo "   🎯 Address: $CONSOLIDATE_ADDRESS"
+            echo ""
+            echo "🔗 Consolidation Summary:"
+            echo "   Input 1: $AMOUNT1 BTC from $TXID1:$VOUT1"
+            echo "   Input 2: $AMOUNT2 BTC from $TXID2:$VOUT2"
+            echo "   Output:  $CONSOLIDATE_AMOUNT BTC to $CONSOLIDATE_ADDRESS"
+            echo "   Fee:     0.0001 BTC"
+            echo ""
+            echo "💡 Use '$0 mine 1' to confirm the consolidation"
+            exit 0
+            ;;
         *)
             echo "Unknown subcommand for $WALLET: $SUBCMD"
             exit 1
@@ -1117,6 +1208,7 @@ case "$1" in
         echo "  alice fund <addr> [amt]   Fund address from Alice (default: 1.0)"
         echo "  alice rbf <txid> [rate]   Replace transaction with higher fee (default: 10 sat/byte)"
         echo "  alice cpfp <txid>         Create CPFP child transaction for Alice's unconfirmed output"
+        echo "  alice consolidate         Consolidate 2 smallest UTXOs to new receive address"
         echo ""
         echo "Bob Commands (unfunded wallet):"
         echo "  bob balance               Show Bob wallet balance"
@@ -1124,6 +1216,7 @@ case "$1" in
         echo "  bob send <amt>            Send Bitcoin from Bob to Alice (RBF-enabled)"
         echo "  bob rbf <txid> [rate]     Replace transaction with higher fee (default: 10 sat/byte)"
         echo "  bob cpfp <txid>           Create CPFP child transaction for Bob's unconfirmed output"
+        echo "  bob consolidate           Consolidate 2 smallest UTXOs to new receive address"
         echo ""
         echo "Mining Commands:"
         echo "  mine [blocks]           Mine blocks to Miner wallet (default: 1)"
@@ -1149,6 +1242,8 @@ case "$1" in
         echo "  $0 bob rbf <txid> 20            # Replace transaction with 20 sat/byte fee (Bob)"
         echo "  $0 alice cpfp <txid>            # Alice creates CPFP child for parent transaction"
         echo "  $0 bob cpfp <txid>              # Bob creates CPFP child for parent transaction"
+        echo "  $0 alice consolidate            # Consolidate Alice's 2 smallest UTXOs"
+        echo "  $0 bob consolidate              # Consolidate Bob's 2 smallest UTXOs"
         echo "  $0 mine 1                       # Mine 1 block (confirms pending transactions)"
         echo "  $0 mempool-status               # Check mempool"
         echo "  $0 invalidate-tip               # Invalidate tip block (test blockchain reorg)"
