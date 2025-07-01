@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-
 bdk_wallet = { version = "2", features = ["rusqlite"] }
 rusqlite = "0.31"
 bdk_electrum = "0.23"
@@ -22,3 +21,10 @@ chrono = "0.4"
 num-format = "0.4"
 reqwest = { version = "0.12", features = ["json"] }
 base64 = "0.22"
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.4", features = ["util"] }
+mime = "0.3"
+tempfile = "3.3"
+uuid = { version = "1", features = ["v4"] }

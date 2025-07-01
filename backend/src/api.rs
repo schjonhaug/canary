@@ -13,7 +13,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::wallet::WalletManager;
 use crate::metadata::{WalletMetadata, ContactPerson, TwilioConfig, SmsLog};
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct CreateWalletRequest {
     /// The name of the wallet
     #[schema(example = "My Bitcoin Wallet")]
@@ -38,7 +38,7 @@ pub struct ErrorResponse {
     pub error: String,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct CreateContactRequest {
     /// The name of the contact person
     #[schema(example = "John Doe")]
@@ -56,13 +56,13 @@ pub struct CreateContactResponse {
     pub contact_id: i64,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct AddContactToWalletRequest {
     /// The contact ID to add
     pub contact_id: i64,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct TwilioConfigRequest {
     /// Twilio Account SID
     #[schema(example = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]

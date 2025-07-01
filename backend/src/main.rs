@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 mod electrum;
 mod wallet;
 mod api;
@@ -24,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
     // Create SMS worker subscriber
     let sms_rx = event_tx.subscribe();
     
-    let wallet_manager = Arc::new(Mutex::new(WalletManager::new(event_tx).await));
+    let wallet_manager = Arc::new(Mutex::new(WalletManager::new(event_tx, "./wallets".into(), "txray.sqlite").await));
     
     // Spawn background task for wallet syncing
     let wallet_manager_sync = Arc::clone(&wallet_manager);
