@@ -6,11 +6,11 @@ use bdk_wallet::KeychainKind;
 use std::io::{self, Write};
 use anyhow::{Result, anyhow};
 
-const STOP_GAP: usize = 20;
-const BATCH_SIZE: usize = 5;
+pub const STOP_GAP: usize = 20;
+pub const BATCH_SIZE: usize = 5;
 
 pub struct ElectrumClient {
-    client: BdkElectrumClient<electrum_client::Client>,
+    pub client: BdkElectrumClient<electrum_client::Client>,
 }
 
 impl ElectrumClient {

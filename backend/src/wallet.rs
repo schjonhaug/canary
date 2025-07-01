@@ -10,11 +10,11 @@ use anyhow::{Result, anyhow};
 use tokio::sync::broadcast;
 
 pub struct WalletManager {
-    wallets: Vec<(String, PersistedWallet<Connection>)>, // (checksum, wallet)
+    pub wallets: Vec<(String, PersistedWallet<Connection>)>, // (checksum, wallet)
     pub wallet_dir: PathBuf,
     electrum_client: Option<ElectrumClient>,
     pub metadata_db: MetadataDb,
-    event_sender: broadcast::Sender<TransactionEvent>,
+    pub event_sender: broadcast::Sender<TransactionEvent>,
 }
 
 impl WalletManager {
@@ -52,13 +52,13 @@ impl WalletManager {
     }
 
     /// Get the network configuration used by all wallets
-    fn get_network() -> Network {
+    pub fn get_network() -> Network {
         Network::Regtest
     }
 
 
     /// Helper function to insert event and broadcast using extracted components
-    fn insert_and_broadcast_event_helper(
+    pub fn insert_and_broadcast_event_helper(
         metadata_db: &MetadataDb,
         event_sender: &broadcast::Sender<TransactionEvent>,
         event_insert: &EventInsert<'_>
@@ -88,7 +88,7 @@ impl WalletManager {
     }
 
     /// Create or load a SQLite connection for a wallet
-    fn create_sqlite_connection(&self, wallet_path: &PathBuf) -> Result<Connection> {
+    pub fn create_sqlite_connection(&self, wallet_path: &PathBuf) -> Result<Connection> {
         let conn = Connection::open(wallet_path)
             .map_err(|e| anyhow!("Failed to create/load wallet database: {}", e))?;
         
@@ -173,7 +173,7 @@ impl WalletManager {
 
 
     /// Parse and validate multipath descriptor
-    fn parse_multipath_descriptor(&self, descriptor_str: &str) -> Result<(String, String)> {
+    pub fn parse_multipath_descriptor(&self, descriptor_str: &str) -> Result<(String, String)> {
         // Parse the descriptor
         let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str.parse()
             .map_err(|e| anyhow!("Invalid descriptor: {}", e))?;

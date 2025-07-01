@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
 pub enum EventType {
     #[serde(rename = "send")]
     Send,

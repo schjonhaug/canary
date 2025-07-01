@@ -22,7 +22,7 @@ pub struct SmsResponse {
 }
 
 pub struct SmsService {
-    client: Client,
+    pub client: Client,
 }
 
 impl SmsService {
@@ -33,7 +33,7 @@ impl SmsService {
     }
 
     /// Format Bitcoin amount in Norwegian style
-    fn format_btc_amount(amount_sats: i64) -> String {
+    pub fn format_btc_amount(amount_sats: i64) -> String {
         let btc_amount = amount_sats as f64 / 100_000_000.0;
         
         // Format manually for Norwegian locale (comma as decimal separator, space as thousands separator)
@@ -62,7 +62,7 @@ impl SmsService {
     }
 
     /// Generate Norwegian SMS message for transaction event
-    fn create_norwegian_message(event: &TransactionEvent, wallet_name: &str) -> String {
+    pub fn create_norwegian_message(event: &TransactionEvent, wallet_name: &str) -> String {
         match event.event_type {
             EventType::Send => {
                 if event.is_confirmed {
