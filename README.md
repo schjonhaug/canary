@@ -33,6 +33,16 @@ Currently, TxRay detects and classifies the following transaction patterns:
 - **Detection**: Zero net balance change but transaction activity
 - **Value**: Privacy indication, regulatory awareness
 
+**5. Block Reorg/Invalidation Detection** 🔄
+- **What**: A previously confirmed block becomes invalid due to a blockchain reorganization (reorg)
+- **Detection**: Transactions that were confirmed become unconfirmed or disappear; confirmed balance decreases unexpectedly after a reorg event
+- **Value**: Users are alerted that some transactions may have been reversed or are now pending due to a chain reorganization
+
+**6. Mempool Purge Detection** 🗑️
+- **What**: A transaction in the mempool gets purged (e.g., due to low fee, mempool eviction, or node restart)
+- **Detection**: Unconfirmed transaction disappears from the mempool and wallet, pending balance decreases without confirmation or spending event
+- **Value**: Users are notified that their unconfirmed transaction was dropped and may need to resend or increase the fee
+
 #### Medium Priority Patterns:
 
 **5. Payment Batching Variants**
