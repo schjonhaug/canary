@@ -3,6 +3,33 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use utoipa::ToSchema;
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub enum EventType {
+    #[serde(rename = "send")]
+    Send,
+    #[serde(rename = "receive")]
+    Receive,
+}
+
+impl EventType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            EventType::Send => "send",
+            EventType::Receive => "receive",
+        }
+    }
+}
+
+impl From<&str> for EventType {
+    fn from(s: &str) -> Self {
+        match s {
+            "send" => EventType::Send,
+            "receive" => EventType::Receive,
+            _ => panic!("Invalid event type: {}", s),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct WalletMetadata {
     pub id: Option<i64>,
@@ -10,6 +37,36 @@ pub struct WalletMetadata {
     pub descriptor: String,
     pub wallet_filename: String,
     pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct TransactionEvent {
+    pub id: Option<i64>,
+    pub wallet_id: i64,
+    pub event_type: EventType,
+    pub amount_sats: i64,
+    pub is_confirmed: bool,
+    pub is_rbf: bool,
+    pub is_cpfp: bool,
+    pub message: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Default)]
+pub struct EventInsert<'a> {
+    pub wallet_id: i64,
+    pub event_type: EventType,
+    pub amount_sats: i64,
+    pub is_confirmed: bool,
+    pub is_rbf: bool,
+    pub is_cpfp: bool,
+    pub message: &'a str,
+}
+
+impl Default for EventType {
+    fn default() -> Self {
+        EventType::Send
+    }
 }
 
 pub struct MetadataDb {
@@ -27,6 +84,22 @@ impl MetadataDb {
                 descriptor TEXT NOT NULL UNIQUE,
                 wallet_filename TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS transaction_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                wallet_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL CHECK (event_type IN ('send', 'receive')),
+                amount_sats INTEGER NOT NULL,
+                is_confirmed BOOLEAN DEFAULT FALSE,
+                is_rbf BOOLEAN DEFAULT FALSE,
+                is_cpfp BOOLEAN DEFAULT FALSE,
+                message TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (wallet_id) REFERENCES wallets (id)
             )",
             [],
         )?;
@@ -152,5 +225,82 @@ impl MetadataDb {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn insert_event(&self, event: EventInsert) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+        )?;
+        
+        stmt.execute([
+            &event.wallet_id.to_string(),
+            event.event_type.as_str(),
+            &event.amount_sats.to_string(),
+            &(event.is_confirmed as i32).to_string(),
+            &(event.is_rbf as i32).to_string(),
+            &(event.is_cpfp as i32).to_string(),
+            event.message,
+        ])?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn get_events_by_wallet(&self, wallet_id: i64) -> Result<Vec<TransactionEvent>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message, created_at 
+             FROM transaction_events WHERE wallet_id = ?1 ORDER BY created_at DESC"
+        )?;
+        
+        let event_iter = stmt.query_map([wallet_id], |row| {
+            Ok(TransactionEvent {
+                id: Some(row.get(0)?),
+                wallet_id: row.get(1)?,
+                event_type: EventType::from(row.get::<_, String>(2)?.as_str()),
+                amount_sats: row.get(3)?,
+                is_confirmed: row.get(4)?,
+                is_rbf: row.get(5)?,
+                is_cpfp: row.get(6)?,
+                message: row.get(7)?,
+                created_at: row.get(8)?,
+            })
+        })?;
+        
+        let mut events = Vec::new();
+        for event in event_iter {
+            events.push(event?);
+        }
+        
+        Ok(events)
+    }
+
+    pub fn get_all_events(&self) -> Result<Vec<TransactionEvent>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message, created_at 
+             FROM transaction_events ORDER BY created_at DESC"
+        )?;
+        
+        let event_iter = stmt.query_map([], |row| {
+            Ok(TransactionEvent {
+                id: Some(row.get(0)?),
+                wallet_id: row.get(1)?,
+                event_type: EventType::from(row.get::<_, String>(2)?.as_str()),
+                amount_sats: row.get(3)?,
+                is_confirmed: row.get(4)?,
+                is_rbf: row.get(5)?,
+                is_cpfp: row.get(6)?,
+                message: row.get(7)?,
+                created_at: row.get(8)?,
+            })
+        })?;
+        
+        let mut events = Vec::new();
+        for event in event_iter {
+            events.push(event?);
+        }
+        
+        Ok(events)
     }
 }

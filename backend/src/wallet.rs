@@ -5,7 +5,7 @@ use miniscript::{Descriptor, DescriptorPublicKey};
 use std::path::PathBuf;
 use std::fs;
 use crate::electrum::ElectrumClient;
-use crate::metadata::{MetadataDb, WalletMetadata};
+use crate::metadata::{MetadataDb, WalletMetadata, EventType, EventInsert};
 use anyhow::{Result, anyhow};
 
 pub struct WalletManager {
@@ -264,10 +264,18 @@ impl WalletManager {
                                     total_before != total_after;
                     
                     if has_changes {
-                        // Get the user-friendly wallet name
+                        // Get the user-friendly wallet name and wallet ID
                         let wallet_filename = format!("{}.sqlite", checksum);
                         let wallet_name = self.metadata_db.get_wallet_name_by_filename(&wallet_filename)
-                            .expect("Wallet name should exist in metadata database");
+                            .expect(&format!("Wallet name for filename '{}' should exist in metadata database", wallet_filename));
+                        
+                        // Get wallet ID for database events
+                        let wallet_metadata = self.metadata_db.get_all_wallets()
+                            .expect("Failed to get wallets")
+                            .into_iter()
+                            .find(|w| w.wallet_filename == wallet_filename)
+                            .expect("Wallet should exist in metadata database");
+                        let wallet_id = wallet_metadata.id.expect("Wallet should have ID");
                         
                         // 22 for label, 18 for each value, 3 for separators
                         println!("{:>22} | {:<18} | {:<18} | {:<18}", format!("Wallet {}", wallet_name), "Before", "After", "Diff");
@@ -330,7 +338,21 @@ impl WalletManager {
                                 let fee_paid = total_before.to_sat() - total_after.to_sat();
                                 let fee_paid_btc = fee_paid as f64 / 100_000_000.0;
                                 
-                                println!("🚀 CPFP fee: {:.8} BTC", fee_paid_btc);
+                                let message = format!("🚀 CPFP fee: {:.8} BTC", fee_paid_btc);
+                                println!("{}", message);
+                                
+                                // Insert CPFP event to database
+                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                    wallet_id,
+                                    event_type: EventType::Send,
+                                    amount_sats: fee_paid as i64,
+                                    is_cpfp: true,
+                                    message: &message,
+                                    ..Default::default()
+                                }) {
+                                    eprintln!("Failed to insert CPFP event: {}", e);
+                                }
+                                
                                 is_special_tx = true;
                             }
                         }
@@ -346,7 +368,20 @@ impl WalletManager {
                             
                             // RBF pattern: trusted pending decreases (spending from change) with existing unconfirmed
                             if trusted_pending_decrease && !confirmed_decrease {
-                                println!("📤 RBF fee bump: +{:.8} BTC", fee_increase_btc);
+                                let message = format!("📤 RBF fee bump: +{:.8} BTC", fee_increase_btc);
+                                println!("{}", message);
+                                
+                                // Insert RBF event to database
+                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                    wallet_id,
+                                    event_type: EventType::Send,
+                                    amount_sats: fee_increase as i64,
+                                    is_rbf: true,
+                                    message: &message,
+                                    ..Default::default()
+                                }) {
+                                    eprintln!("Failed to insert RBF event: {}", e);
+                                }
                             } else {
                                 // Regular sending logic continues below
                                 // Case 1: Spending from confirmed balance (first transaction)
@@ -356,7 +391,19 @@ impl WalletManager {
                                     let sending_amount = confirmed_spent - change_received;
                                     
                                     let sending_btc = sending_amount as f64 / 100_000_000.0;
-                                    println!("📤 Sending {:.8} BTC", sending_btc);
+                                    let message = format!("📤 Sending {:.8} BTC", sending_btc);
+                                    println!("{}", message);
+                                    
+                                    // Insert sending event to database
+                                    if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                        wallet_id,
+                                        event_type: EventType::Send,
+                                        amount_sats: sending_amount as i64,
+                                        message: &message,
+                                        ..Default::default()
+                                    }) {
+                                        eprintln!("Failed to insert sending event: {}", e);
+                                    }
                                 }
                                 // Case 2: Spending from trusted pending balance (subsequent transactions)
                                 else if trusted_pending_decrease && confirmed_decrease {
@@ -365,13 +412,37 @@ impl WalletManager {
                                     let total_spent = trusted_spent + confirmed_spent;
                                     
                                     let sending_btc = total_spent as f64 / 100_000_000.0;
-                                    println!("📤 Sending {:.8} BTC", sending_btc);
+                                    let message = format!("📤 Sending {:.8} BTC", sending_btc);
+                                    println!("{}", message);
+                                    
+                                    // Insert sending event to database
+                                    if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                        wallet_id,
+                                        event_type: EventType::Send,
+                                        amount_sats: total_spent as i64,
+                                        message: &message,
+                                        ..Default::default()
+                                    }) {
+                                        eprintln!("Failed to insert sending event: {}", e);
+                                    }
                                 }
                                 // Case 3: Spending only from trusted pending (no confirmed funds used)
                                 else if trusted_pending_decrease && !confirmed_decrease {
                                     let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
                                     let sending_btc = trusted_spent as f64 / 100_000_000.0;
-                                    println!("📤 Sending {:.8} BTC", sending_btc);
+                                    let message = format!("📤 Sending {:.8} BTC", sending_btc);
+                                    println!("{}", message);
+                                    
+                                    // Insert sending event to database
+                                    if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                        wallet_id,
+                                        event_type: EventType::Send,
+                                        amount_sats: trusted_spent as i64,
+                                        message: &message,
+                                        ..Default::default()
+                                    }) {
+                                        eprintln!("Failed to insert sending event: {}", e);
+                                    }
                                 }
                             }
                         } else if !is_special_tx {
@@ -383,7 +454,19 @@ impl WalletManager {
                                 let sending_amount = confirmed_spent - change_received;
                                 
                                 let sending_btc = sending_amount as f64 / 100_000_000.0;
-                                println!("📤 Sending {:.8} BTC", sending_btc);
+                                let message = format!("📤 Sending {:.8} BTC", sending_btc);
+                                println!("{}", message);
+                                
+                                // Insert sending event to database
+                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                    wallet_id,
+                                    event_type: EventType::Send,
+                                    amount_sats: sending_amount as i64,
+                                    message: &message,
+                                    ..Default::default()
+                                }) {
+                                    eprintln!("Failed to insert sending event: {}", e);
+                                }
                             }
                             // Case 2: Spending from trusted pending balance (subsequent transactions)
                             else if trusted_pending_decrease && confirmed_decrease && total_decrease {
@@ -392,13 +475,37 @@ impl WalletManager {
                                 let total_spent = trusted_spent + confirmed_spent;
                                 
                                 let sending_btc = total_spent as f64 / 100_000_000.0;
-                                println!("📤 Sending {:.8} BTC", sending_btc);
+                                let message = format!("📤 Sending {:.8} BTC", sending_btc);
+                                println!("{}", message);
+                                
+                                // Insert sending event to database
+                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                    wallet_id,
+                                    event_type: EventType::Send,
+                                    amount_sats: total_spent as i64,
+                                    message: &message,
+                                    ..Default::default()
+                                }) {
+                                    eprintln!("Failed to insert sending event: {}", e);
+                                }
                             }
                             // Case 3: Spending only from trusted pending (no confirmed funds used)
                             else if trusted_pending_decrease && !confirmed_decrease && total_decrease {
                                 let trusted_spent = trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
                                 let sending_btc = trusted_spent as f64 / 100_000_000.0;
-                                println!("📤 Sending {:.8} BTC", sending_btc);
+                                let message = format!("📤 Sending {:.8} BTC", sending_btc);
+                                println!("{}", message);
+                                
+                                // Insert sending event to database
+                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                    wallet_id,
+                                    event_type: EventType::Send,
+                                    amount_sats: trusted_spent as i64,
+                                    message: &message,
+                                    ..Default::default()
+                                }) {
+                                    eprintln!("Failed to insert sending event: {}", e);
+                                }
                             }
                         }
                         
@@ -411,7 +518,19 @@ impl WalletManager {
                             let receiving_amount = untrusted_pending_after.to_sat() - untrusted_pending_before.to_sat();
                             let receiving_btc = receiving_amount as f64 / 100_000_000.0;
                             
-                            println!("📥 Receiving {:.8} BTC", receiving_btc);
+                            let message = format!("📥 Receiving {:.8} BTC", receiving_btc);
+                            println!("{}", message);
+                            
+                            // Insert receiving event to database
+                            if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                wallet_id,
+                                event_type: EventType::Receive,
+                                amount_sats: receiving_amount as i64,
+                                message: &message,
+                                ..Default::default()
+                            }) {
+                                eprintln!("Failed to insert receiving event: {}", e);
+                            }
                         }
                         
                         // Detect if this is a sent transaction being confirmed
@@ -420,7 +539,20 @@ impl WalletManager {
                         let total_same = total_after.to_sat() == total_before.to_sat();
                         
                         if trusted_pending_decrease && confirmed_increase && total_same {
-                            println!("✅ Sent confirmed");
+                            let message = "✅ Sent confirmed".to_string();
+                            println!("{}", message);
+                            
+                            // Insert sent confirmation event to database (amount=0 since confirmation amount is misleading)
+                            if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                wallet_id,
+                                event_type: EventType::Send,
+                                amount_sats: 0,
+                                is_confirmed: true,
+                                message: &message,
+                                ..Default::default()
+                            }) {
+                                eprintln!("Failed to insert sent confirmation event: {}", e);
+                            }
                         }
                         
                         // Detect if this is a received transaction being confirmed
@@ -429,10 +561,20 @@ impl WalletManager {
                         let total_same = total_after.to_sat() == total_before.to_sat();
                         
                         if untrusted_pending_decrease && confirmed_increase && total_same {
-                            let received_amount = untrusted_pending_before.to_sat() - untrusted_pending_after.to_sat();
-                            let received_btc = received_amount as f64 / 100_000_000.0;
+                            let message = "✅ Received confirmed".to_string();
+                            println!("{}", message);
                             
-                            println!("✅ Received {:.8} BTC", received_btc);
+                            // Insert received confirmation event to database (amount=0 for consistency)
+                            if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                wallet_id,
+                                event_type: EventType::Receive,
+                                amount_sats: 0,
+                                is_confirmed: true,
+                                message: &message,
+                                ..Default::default()
+                            }) {
+                                eprintln!("Failed to insert received confirmation event: {}", e);
+                            }
                         }
                         
                         
