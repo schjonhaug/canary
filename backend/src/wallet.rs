@@ -66,10 +66,6 @@ impl WalletManager {
         Network::Regtest
     }
 
-    /// Insert event to database and broadcast to SMS worker
-    fn insert_and_broadcast_event_sync(&self, event_insert: &EventInsert<'_>) -> Result<()> {
-        Self::insert_and_broadcast_event_helper(&self.metadata_db, &self.event_sender, event_insert)
-    }
 
     /// Helper function to insert event and broadcast using extracted components
     fn insert_and_broadcast_event_helper(

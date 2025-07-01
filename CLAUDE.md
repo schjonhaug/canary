@@ -3,7 +3,7 @@
 This file contains project-specific information and preferences for Claude Code.
 
 ## Project Overview
-TxRay is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, and includes advanced transaction analysis capabilities with automatic background synchronization.
+TxRay is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
 
 ## Development Commands
 ```bash
@@ -40,11 +40,12 @@ cd regtest-env && ./docker-utils.sh reset
 txray/
 ├── backend/                    # Rust backend service
 │   ├── src/
-│   │   ├── main.rs            # Application entry point with background sync
+│   │   ├── main.rs            # Application entry point with background sync and SMS worker
 │   │   ├── api.rs             # REST API endpoints with OpenAPI docs
 │   │   ├── wallet.rs          # Comprehensive wallet management using BDK
 │   │   ├── electrum.rs        # Electrum client with dual sync modes
-│   │   └── metadata.rs        # Wallet metadata database operations
+│   │   ├── metadata.rs        # Wallet metadata and contact database operations
+│   │   └── sms.rs             # Norwegian SMS notifications via Twilio
 │   ├── target/                # Build artifacts
 │   ├── wallets/               # BDK SQLite wallet database files
 │   ├── txray.sqlite           # Wallet metadata database
@@ -74,6 +75,9 @@ txray/
 - `utoipa-axum = "0.2"` - OpenAPI-Axum integration
 - `anyhow = "1.0"` - Error handling
 - `secp256k1 = "0.29"` - Secp256k1 elliptic curve operations
+- `reqwest = "0.12"` with json features - HTTP client for Twilio API
+- `base64 = "0.22"` - Base64 encoding for Twilio authentication
+- `chrono = "0.4"` - Date and time handling for SMS logs
 
 ## API Endpoints
 ### Wallet Management
@@ -93,6 +97,33 @@ txray/
   - Returns 204 (no content) on success, 404 if not found
   - Uses database ID as path parameter
 
+### Contact Management
+- `POST /contacts`: Create a new contact person
+  - Requires `name` and `phone_number` fields (without country code)
+  - Returns 201 (created) with contact ID and metadata
+- `GET /contacts`: List all available contacts
+  - Returns array of contact objects ordered by name
+- `DELETE /contacts/{id}`: Delete a contact person
+  - Returns 204 (no content) on success, 404 if not found
+
+### Wallet-Contact Relationships
+- `POST /wallets/{id}/contacts`: Add a contact to a wallet for SMS notifications
+  - Requires `contact_id` in request body
+  - Enables SMS alerts for that contact when wallet has transactions
+- `GET /wallets/{id}/contacts`: Get all contacts linked to a wallet
+  - Returns array of contact objects for the specified wallet
+- `DELETE /wallets/{wallet_id}/contacts/{contact_id}`: Remove contact from wallet
+  - Stops SMS notifications for that contact on this wallet
+
+### Twilio Configuration
+- `POST /twilio/config`: Configure Twilio SMS settings
+  - Requires `account_sid`, `auth_token`, and `messaging_service_sid`
+  - Only one configuration supported (upserts existing)
+  - Enables SMS sending for all wallets
+- `GET /twilio/config`: Get current Twilio configuration
+  - Returns configuration details (auth_token is included but should be secured)
+  - Returns 404 if no configuration exists
+
 ### Documentation
 - `/swagger-ui`: Interactive API documentation
 - `/api-docs/openapi.json`: OpenAPI specification
@@ -104,13 +135,22 @@ txray/
 - **Background Sync**: Every 4 seconds automatic wallet synchronization
 
 ## Advanced Features
-### Transaction Analysis
+### Transaction Analysis & SMS Notifications
 - Real-time balance change detection and reporting with user-friendly wallet names
 - Transaction type classification (send, receive, confirmation)
 - RBF (Replace-By-Fee) detection
 - CPFP (Child-Pays-For-Parent) detection
-- Detailed Bitcoin amount formatting
+- Detailed Bitcoin amount formatting in Norwegian locale
 - Balance change notifications display wallet names instead of technical IDs
+- **Norwegian SMS Alerts**: Instant SMS notifications for all transaction events
+  - **📤 Sending**: "Sender 0,00012345 BTC fra Min Wallet"
+  - **📥 Receiving**: "Mottar 0,00012345 BTC til Min Wallet"
+  - **✅ Confirmations**: "Sending bekreftet for Min Wallet" / "Mottak bekreftet: 0,00012345 BTC til Min Wallet"
+  - **📤 RBF**: "RBF gebyr økning: +0,00001000 BTC for Min Wallet"
+  - **🚀 CPFP**: "CPFP gebyr: 0,00001000 BTC for Min Wallet"
+- **Norwegian Number Formatting**: Comma (,) as decimal separator, space ( ) as thousands separator
+- **Multi-recipient**: Each wallet can have multiple contacts for SMS notifications
+- **Delivery Tracking**: Complete SMS logs with Twilio SIDs and delivery status
 
 ### Sync Capabilities
 - **Full Scan**: Initial comprehensive sync with address revelation (up to 50 addresses)
@@ -133,14 +173,22 @@ txray/
 - **Persistence**: Automatic wallet loading on startup
 - **Sync Parameters**: STOP_GAP=20, BATCH_SIZE=5
 
-### Wallet Metadata Storage
+### Wallet Metadata & SMS Storage
 - **Database**: `txray.sqlite` in backend root directory (completely removed on reset)
-- **Schema**: Stores wallet IDs, names, descriptors, filenames, and creation timestamps
+- **Core Tables**:
+  - `wallets`: Stores wallet IDs, names, descriptors, filenames, and creation timestamps
+  - `transaction_events`: Bitcoin transaction events with type-safe enums and broadcast channels
+  - `contact_persons`: Reusable contact information (name, phone number)
+  - `wallet_contacts`: Junction table linking wallets to contacts (many-to-many)
+  - `twilio_config`: Single Twilio account configuration (account SID, auth token, messaging service SID)
+  - `sms_logs`: Complete SMS delivery tracking (event ID, contact ID, Twilio SID, status, errors)
 - **Constraints**: 
-  - `id` field is PRIMARY KEY AUTOINCREMENT (unique wallet identifier)
-  - `descriptor` field has UNIQUE constraint (prevents duplicate wallets)
-  - `name` field allows duplicates (multiple wallets can have same name)
-- **Purpose**: Maps user-friendly names to BDK wallet files and provides API access via IDs
+  - `wallets.id` is PRIMARY KEY AUTOINCREMENT (unique wallet identifier)
+  - `wallets.descriptor` has UNIQUE constraint (prevents duplicate wallets)
+  - `wallets.name` allows duplicates (multiple wallets can have same name)
+  - `contact_persons` can be reused across multiple wallets via junction table
+  - `wallet_contacts` has UNIQUE constraint on (wallet_id, contact_id) pairs
+- **Event System**: Write-through pattern with database persistence + tokio broadcast channels for real-time SMS
 
 ### Reset Behavior
 - **Complete Cleanup**: `./docker-utils.sh reset` removes all SQLite databases
@@ -148,11 +196,51 @@ txray/
 - **Metadata**: `txray.sqlite` file is completely removed (not just table contents)
 - **Fresh Start**: All databases are recreated from scratch on next backend startup
 
-## Notes
-- Uses Rust 2024 edition
-- Comprehensive error handling throughout
-- Shared state management with Arc<Mutex<>>
+## SMS Integration Setup
+
+### 1. Configure Twilio
+```bash
+curl -X POST http://127.0.0.1:3000/twilio/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "auth_token": "your_auth_token_here",
+    "messaging_service_sid": "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  }'
+```
+
+### 2. Create Contacts
+```bash
+curl -X POST http://127.0.0.1:3000/contacts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "phone_number": "+4712345678"
+  }'
+```
+
+### 3. Link Contact to Wallet
+```bash
+curl -X POST http://127.0.0.1:3000/wallets/1/contacts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contact_id": 1
+  }'
+```
+
+### 4. SMS Notifications Active
+Once configured, all Bitcoin transactions will automatically trigger Norwegian SMS notifications to all contacts linked to each wallet.
+
+## Architecture Notes
+- Uses Rust 2024 edition with comprehensive async/await support
+- **Event-Driven SMS**: tokio broadcast channels for real-time notifications without blocking wallet sync
+- **Norwegian Localization**: Custom number formatting (comma decimal, space thousands separator)
+- **Twilio Integration**: Direct HTTP API calls using reqwest with proper authentication
+- **Database-Driven Config**: All settings stored in SQLite for web interface management
+- **Contact Reusability**: Junction table pattern allows sharing contacts across wallets
+- **Complete Logging**: Every SMS attempt tracked with delivery status and Twilio SIDs
+- Shared state management with Arc<Mutex<>> for thread-safe access
 - Automatic loading of existing wallets on startup
 - Full wallet sync performed on creation and incremental sync ongoing
 - RESTful API design: uses proper HTTP methods and status codes
-- Complete wallet lifecycle management: create, read, list, delete operations
+- Complete wallet and contact lifecycle management with proper foreign key constraints
