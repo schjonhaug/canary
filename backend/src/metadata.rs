@@ -39,7 +39,43 @@ pub struct WalletMetadata {
     pub created_at: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct ContactPerson {
+    pub id: Option<i64>,
+    pub name: String,
+    pub phone_number: String,
+    pub created_at: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct WalletContact {
+    pub id: Option<i64>,
+    pub wallet_id: i64,
+    pub contact_id: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct TwilioConfig {
+    pub id: Option<i64>,
+    pub account_sid: String,
+    pub auth_token: String,
+    pub messaging_service_sid: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct SmsLog {
+    pub id: Option<i64>,
+    pub event_id: i64,
+    pub contact_id: i64,
+    pub twilio_sid: Option<String>,
+    pub status: String,
+    pub error_message: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEvent {
     pub id: Option<i64>,
     pub wallet_id: i64,
@@ -52,7 +88,7 @@ pub struct TransactionEvent {
     pub created_at: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct EventInsert<'a> {
     pub wallet_id: i64,
     pub event_type: EventType,
@@ -100,6 +136,55 @@ impl MetadataDb {
                 message TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (wallet_id) REFERENCES wallets (id)
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS contact_persons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone_number TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS wallet_contacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                wallet_id INTEGER NOT NULL,
+                contact_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (wallet_id) REFERENCES wallets (id),
+                FOREIGN KEY (contact_id) REFERENCES contact_persons (id),
+                UNIQUE(wallet_id, contact_id)
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS twilio_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_sid TEXT NOT NULL,
+                auth_token TEXT NOT NULL,
+                messaging_service_sid TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS sms_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER NOT NULL,
+                contact_id INTEGER NOT NULL,
+                twilio_sid TEXT,
+                status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'pending')),
+                error_message TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (event_id) REFERENCES transaction_events (id),
+                FOREIGN KEY (contact_id) REFERENCES contact_persons (id)
             )",
             [],
         )?;
@@ -227,7 +312,7 @@ impl MetadataDb {
         }
     }
 
-    pub fn insert_event(&self, event: EventInsert) -> Result<i64> {
+    pub fn insert_event(&self, event: &EventInsert) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message) 
@@ -302,5 +387,176 @@ impl MetadataDb {
         }
         
         Ok(events)
+    }
+
+    // Contact management functions
+    pub fn insert_contact(&self, name: &str, phone_number: &str) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "INSERT INTO contact_persons (name, phone_number) VALUES (?1, ?2)"
+        )?;
+        
+        stmt.execute([name, phone_number])?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn get_all_contacts(&self) -> Result<Vec<ContactPerson>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, phone_number, created_at FROM contact_persons ORDER BY name"
+        )?;
+        
+        let contact_iter = stmt.query_map([], |row| {
+            Ok(ContactPerson {
+                id: Some(row.get(0)?),
+                name: row.get(1)?,
+                phone_number: row.get(2)?,
+                created_at: row.get(3)?,
+            })
+        })?;
+        
+        let mut contacts = Vec::new();
+        for contact in contact_iter {
+            contacts.push(contact?);
+        }
+        
+        Ok(contacts)
+    }
+
+    pub fn delete_contact(&self, contact_id: i64) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("DELETE FROM contact_persons WHERE id = ?1")?;
+        let changes = stmt.execute([contact_id])?;
+        Ok(changes > 0)
+    }
+
+    // Wallet-contact relationship functions
+    pub fn add_contact_to_wallet(&self, wallet_id: i64, contact_id: i64) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "INSERT INTO wallet_contacts (wallet_id, contact_id) VALUES (?1, ?2)"
+        )?;
+        
+        stmt.execute([wallet_id, contact_id])?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn remove_contact_from_wallet(&self, wallet_id: i64, contact_id: i64) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "DELETE FROM wallet_contacts WHERE wallet_id = ?1 AND contact_id = ?2"
+        )?;
+        let changes = stmt.execute([wallet_id, contact_id])?;
+        Ok(changes > 0)
+    }
+
+    pub fn get_contacts_for_wallet(&self, wallet_id: i64) -> Result<Vec<ContactPerson>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT cp.id, cp.name, cp.phone_number, cp.created_at 
+             FROM contact_persons cp 
+             JOIN wallet_contacts wc ON cp.id = wc.contact_id 
+             WHERE wc.wallet_id = ?1 ORDER BY cp.name"
+        )?;
+        
+        let contact_iter = stmt.query_map([wallet_id], |row| {
+            Ok(ContactPerson {
+                id: Some(row.get(0)?),
+                name: row.get(1)?,
+                phone_number: row.get(2)?,
+                created_at: row.get(3)?,
+            })
+        })?;
+        
+        let mut contacts = Vec::new();
+        for contact in contact_iter {
+            contacts.push(contact?);
+        }
+        
+        Ok(contacts)
+    }
+
+    // Twilio configuration functions
+    pub fn upsert_twilio_config(&self, account_sid: &str, auth_token: &str, messaging_service_sid: &str) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        
+        // Delete existing config (we only want one)
+        conn.execute("DELETE FROM twilio_config", [])?;
+        
+        // Insert new config
+        let mut stmt = conn.prepare(
+            "INSERT INTO twilio_config (account_sid, auth_token, messaging_service_sid) VALUES (?1, ?2, ?3)"
+        )?;
+        
+        stmt.execute([account_sid, auth_token, messaging_service_sid])?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn get_twilio_config(&self) -> Result<Option<TwilioConfig>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, account_sid, auth_token, messaging_service_sid, created_at FROM twilio_config LIMIT 1"
+        )?;
+        
+        match stmt.query_row([], |row| {
+            Ok(TwilioConfig {
+                id: Some(row.get(0)?),
+                account_sid: row.get(1)?,
+                auth_token: row.get(2)?,
+                messaging_service_sid: row.get(3)?,
+                created_at: row.get(4)?,
+            })
+        }) {
+            Ok(config) => Ok(Some(config)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    // SMS logging functions
+    pub fn insert_sms_log(&self, event_id: i64, contact_id: i64, status: &str, twilio_sid: Option<&str>, error_message: Option<&str>) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "INSERT INTO sms_logs (event_id, contact_id, status, twilio_sid, error_message) VALUES (?1, ?2, ?3, ?4, ?5)"
+        )?;
+        
+        stmt.execute([
+            &event_id.to_string(),
+            &contact_id.to_string(),
+            status,
+            &twilio_sid.unwrap_or(""),
+            &error_message.unwrap_or(""),
+        ])?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn get_sms_logs_by_event(&self, event_id: i64) -> Result<Vec<SmsLog>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, event_id, contact_id, twilio_sid, status, error_message, created_at 
+             FROM sms_logs WHERE event_id = ?1 ORDER BY created_at DESC"
+        )?;
+        
+        let log_iter = stmt.query_map([event_id], |row| {
+            let twilio_sid: String = row.get(3)?;
+            let error_message: String = row.get(5)?;
+            
+            Ok(SmsLog {
+                id: Some(row.get(0)?),
+                event_id: row.get(1)?,
+                contact_id: row.get(2)?,
+                twilio_sid: if twilio_sid.is_empty() { None } else { Some(twilio_sid) },
+                status: row.get(4)?,
+                error_message: if error_message.is_empty() { None } else { Some(error_message) },
+                created_at: row.get(6)?,
+            })
+        })?;
+        
+        let mut logs = Vec::new();
+        for log in log_iter {
+            logs.push(log?);
+        }
+        
+        Ok(logs)
     }
 }

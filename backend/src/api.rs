@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 use crate::wallet::WalletManager;
-use crate::metadata::WalletMetadata;
+use crate::metadata::{WalletMetadata, ContactPerson, TwilioConfig, SmsLog};
 
 #[derive(Deserialize, ToSchema)]
 pub struct CreateWalletRequest {
@@ -36,6 +36,49 @@ pub struct CreateWalletResponse {
 pub struct ErrorResponse {
     /// Error description
     pub error: String,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct CreateContactRequest {
+    /// The name of the contact person
+    #[schema(example = "John Doe")]
+    pub name: String,
+    /// The phone number (without country code)
+    #[schema(example = "12345678")]
+    pub phone_number: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct CreateContactResponse {
+    /// Success message
+    pub message: String,
+    /// Contact ID
+    pub contact_id: i64,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct AddContactToWalletRequest {
+    /// The contact ID to add
+    pub contact_id: i64,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct TwilioConfigRequest {
+    /// Twilio Account SID
+    #[schema(example = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
+    pub account_sid: String,
+    /// Twilio Auth Token
+    #[schema(example = "your_auth_token")]
+    pub auth_token: String,
+    /// Twilio Messaging Service SID
+    #[schema(example = "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
+    pub messaging_service_sid: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct TwilioConfigResponse {
+    /// Success message
+    pub message: String,
 }
 
 pub type AppState = Arc<Mutex<WalletManager>>;
@@ -186,12 +229,316 @@ pub async fn get_all_wallets(
     }
 }
 
+// Contact management endpoints
+
+#[utoipa::path(
+    post,
+    path = "/contacts",
+    request_body = CreateContactRequest,
+    responses(
+        (status = 201, description = "Contact created successfully", body = CreateContactResponse),
+        (status = 400, description = "Invalid request", body = ErrorResponse),
+    ),
+    tag = "contact"
+)]
+pub async fn create_contact(
+    State(wallet_manager): State<AppState>,
+    Json(payload): Json<CreateContactRequest>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    match manager.metadata_db.insert_contact(&payload.name, &payload.phone_number) {
+        Ok(contact_id) => {
+            (
+                StatusCode::CREATED,
+                Json(CreateContactResponse {
+                    message: "Contact created successfully".to_string(),
+                    contact_id,
+                }),
+            ).into_response()
+        }
+        Err(e) => {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            ).into_response()
+        }
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/contacts",
+    responses(
+        (status = 200, description = "List of all contacts", body = Vec<ContactPerson>),
+    ),
+    tag = "contact"
+)]
+pub async fn get_all_contacts(
+    State(wallet_manager): State<AppState>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    match manager.metadata_db.get_all_contacts() {
+        Ok(contacts) => {
+            (StatusCode::OK, Json(contacts)).into_response()
+        }
+        Err(e) => {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            ).into_response()
+        }
+    }
+}
+
+#[utoipa::path(
+    delete,
+    path = "/contacts/{id}",
+    params(
+        ("id" = i64, Path, description = "The contact ID to delete")
+    ),
+    responses(
+        (status = 204, description = "Contact deleted successfully"),
+        (status = 404, description = "Contact not found", body = ErrorResponse),
+    ),
+    tag = "contact"
+)]
+pub async fn delete_contact(
+    State(wallet_manager): State<AppState>,
+    Path(id): Path<i64>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    match manager.metadata_db.delete_contact(id) {
+        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "Contact not found".to_string(),
+            }),
+        ).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ).into_response(),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/wallets/{id}/contacts",
+    params(
+        ("id" = i64, Path, description = "The wallet ID")
+    ),
+    request_body = AddContactToWalletRequest,
+    responses(
+        (status = 201, description = "Contact added to wallet successfully"),
+        (status = 400, description = "Invalid request", body = ErrorResponse),
+        (status = 404, description = "Wallet not found", body = ErrorResponse),
+    ),
+    tag = "wallet"
+)]
+pub async fn add_contact_to_wallet(
+    State(wallet_manager): State<AppState>,
+    Path(wallet_id): Path<i64>,
+    Json(payload): Json<AddContactToWalletRequest>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    
+    // Check if wallet exists
+    match manager.get_wallet_by_id(wallet_id) {
+        Ok(Some(_)) => {},
+        Ok(None) => return (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "Wallet not found".to_string(),
+            }),
+        ).into_response(),
+        Err(e) => return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ).into_response(),
+    }
+    
+    match manager.metadata_db.add_contact_to_wallet(wallet_id, payload.contact_id) {
+        Ok(_) => StatusCode::CREATED.into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ).into_response(),
+    }
+}
+
+#[utoipa::path(
+    delete,
+    path = "/wallets/{wallet_id}/contacts/{contact_id}",
+    params(
+        ("wallet_id" = i64, Path, description = "The wallet ID"),
+        ("contact_id" = i64, Path, description = "The contact ID to remove")
+    ),
+    responses(
+        (status = 204, description = "Contact removed from wallet successfully"),
+        (status = 404, description = "Contact not found in wallet", body = ErrorResponse),
+    ),
+    tag = "wallet"
+)]
+pub async fn remove_contact_from_wallet(
+    State(wallet_manager): State<AppState>,
+    Path((wallet_id, contact_id)): Path<(i64, i64)>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    match manager.metadata_db.remove_contact_from_wallet(wallet_id, contact_id) {
+        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "Contact not found in wallet".to_string(),
+            }),
+        ).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ).into_response(),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/wallets/{id}/contacts",
+    params(
+        ("id" = i64, Path, description = "The wallet ID")
+    ),
+    responses(
+        (status = 200, description = "List of contacts for wallet", body = Vec<ContactPerson>),
+        (status = 404, description = "Wallet not found", body = ErrorResponse),
+    ),
+    tag = "wallet"
+)]
+pub async fn get_wallet_contacts(
+    State(wallet_manager): State<AppState>,
+    Path(wallet_id): Path<i64>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    
+    // Check if wallet exists
+    match manager.get_wallet_by_id(wallet_id) {
+        Ok(Some(_)) => {},
+        Ok(None) => return (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "Wallet not found".to_string(),
+            }),
+        ).into_response(),
+        Err(e) => return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ).into_response(),
+    }
+    
+    match manager.metadata_db.get_contacts_for_wallet(wallet_id) {
+        Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ).into_response(),
+    }
+}
+
+// Twilio configuration endpoints
+
+#[utoipa::path(
+    post,
+    path = "/twilio/config",
+    request_body = TwilioConfigRequest,
+    responses(
+        (status = 201, description = "Twilio configuration saved successfully", body = TwilioConfigResponse),
+        (status = 400, description = "Invalid request", body = ErrorResponse),
+    ),
+    tag = "twilio"
+)]
+pub async fn save_twilio_config(
+    State(wallet_manager): State<AppState>,
+    Json(payload): Json<TwilioConfigRequest>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    match manager.metadata_db.upsert_twilio_config(&payload.account_sid, &payload.auth_token, &payload.messaging_service_sid) {
+        Ok(_) => (
+            StatusCode::CREATED,
+            Json(TwilioConfigResponse {
+                message: "Twilio configuration saved successfully".to_string(),
+            }),
+        ).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ).into_response(),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/twilio/config",
+    responses(
+        (status = 200, description = "Twilio configuration", body = TwilioConfig),
+        (status = 404, description = "No Twilio configuration found", body = ErrorResponse),
+    ),
+    tag = "twilio"
+)]
+pub async fn get_twilio_config(
+    State(wallet_manager): State<AppState>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    match manager.metadata_db.get_twilio_config() {
+        Ok(Some(config)) => (StatusCode::OK, Json(config)).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "No Twilio configuration found".to_string(),
+            }),
+        ).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ).into_response(),
+    }
+}
+
 #[derive(OpenApi)]
 #[openapi(
-    paths(create_wallet, delete_wallet, get_wallet, get_all_wallets),
-    components(schemas(CreateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata)),
+    paths(
+        create_wallet, delete_wallet, get_wallet, get_all_wallets,
+        create_contact, get_all_contacts, delete_contact,
+        add_contact_to_wallet, remove_contact_from_wallet, get_wallet_contacts,
+        save_twilio_config, get_twilio_config
+    ),
+    components(schemas(
+        CreateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
+        CreateContactRequest, CreateContactResponse, AddContactToWalletRequest,
+        TwilioConfigRequest, TwilioConfigResponse,
+        ContactPerson, TwilioConfig, SmsLog
+    )),
     tags(
-        (name = "wallet", description = "Wallet management endpoints")
+        (name = "wallet", description = "Wallet management endpoints"),
+        (name = "contact", description = "Contact management endpoints"),
+        (name = "twilio", description = "Twilio configuration endpoints")
     ),
     info(
         title = "TxRay Wallet API",
@@ -205,6 +552,11 @@ pub fn create_router(wallet_manager: AppState) -> Router {
     Router::new()
         .route("/wallets", post(create_wallet).get(get_all_wallets))
         .route("/wallets/{id}", get(get_wallet).delete(delete_wallet))
+        .route("/wallets/{id}/contacts", post(add_contact_to_wallet).get(get_wallet_contacts))
+        .route("/wallets/{wallet_id}/contacts/{contact_id}", axum::routing::delete(remove_contact_from_wallet))
+        .route("/contacts", post(create_contact).get(get_all_contacts))
+        .route("/contacts/{id}", axum::routing::delete(delete_contact))
+        .route("/twilio/config", post(save_twilio_config).get(get_twilio_config))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(wallet_manager)
 }

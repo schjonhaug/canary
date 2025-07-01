@@ -5,18 +5,20 @@ use miniscript::{Descriptor, DescriptorPublicKey};
 use std::path::PathBuf;
 use std::fs;
 use crate::electrum::ElectrumClient;
-use crate::metadata::{MetadataDb, WalletMetadata, EventType, EventInsert};
+use crate::metadata::{MetadataDb, WalletMetadata, EventType, EventInsert, TransactionEvent};
 use anyhow::{Result, anyhow};
+use tokio::sync::broadcast;
 
 pub struct WalletManager {
     wallets: Vec<(String, PersistedWallet<Connection>)>, // (checksum, wallet)
     wallet_dir: PathBuf,
     electrum_client: ElectrumClient,
-    metadata_db: MetadataDb,
+    pub metadata_db: MetadataDb,
+    event_sender: broadcast::Sender<TransactionEvent>,
 }
 
 impl WalletManager {
-    pub async fn new() -> Self {
+    pub async fn new(event_sender: broadcast::Sender<TransactionEvent>) -> Self {
         let wallet_dir = PathBuf::from("./wallets");
         // Create wallet directory if it doesn't exist
         if let Err(e) = std::fs::create_dir_all(&wallet_dir) {
@@ -48,6 +50,7 @@ impl WalletManager {
             wallet_dir,
             electrum_client,
             metadata_db,
+            event_sender,
         };
         
         // Load all existing wallets
@@ -61,6 +64,41 @@ impl WalletManager {
     /// Get the network configuration used by all wallets
     fn get_network() -> Network {
         Network::Regtest
+    }
+
+    /// Insert event to database and broadcast to SMS worker
+    fn insert_and_broadcast_event_sync(&self, event_insert: &EventInsert<'_>) -> Result<()> {
+        Self::insert_and_broadcast_event_helper(&self.metadata_db, &self.event_sender, event_insert)
+    }
+
+    /// Helper function to insert event and broadcast using extracted components
+    fn insert_and_broadcast_event_helper(
+        metadata_db: &MetadataDb,
+        event_sender: &broadcast::Sender<TransactionEvent>,
+        event_insert: &EventInsert<'_>
+    ) -> Result<()> {
+        // First, insert to database (write-through pattern)
+        let event_id = metadata_db.insert_event(event_insert)?;
+        
+        // Create TransactionEvent for broadcasting
+        let event = TransactionEvent {
+            id: Some(event_id),
+            wallet_id: event_insert.wallet_id,
+            event_type: event_insert.event_type.clone(),
+            amount_sats: event_insert.amount_sats,
+            is_confirmed: event_insert.is_confirmed,
+            is_rbf: event_insert.is_rbf,
+            is_cpfp: event_insert.is_cpfp,
+            message: event_insert.message.to_string(),
+            created_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        };
+        
+        // Broadcast to SMS worker (non-blocking)
+        if let Err(e) = event_sender.send(event) {
+            eprintln!("Failed to broadcast event: {}", e);
+        }
+        
+        Ok(())
     }
 
     /// Create or load a SQLite connection for a wallet
@@ -240,6 +278,10 @@ impl WalletManager {
             return Ok(());
         }
         
+        // Extract needed components to avoid borrowing issues
+        let metadata_db = &self.metadata_db;
+        let event_sender = &self.event_sender;
+        
         for (checksum, wallet) in self.wallets.iter_mut() {
             // Get balance before sync
             let balance_before = wallet.balance();
@@ -341,8 +383,8 @@ impl WalletManager {
                                 let message = format!("🚀 CPFP fee: {:.8} BTC", fee_paid_btc);
                                 println!("{}", message);
                                 
-                                // Insert CPFP event to database
-                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                // Insert CPFP event to database and broadcast
+                                if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                     wallet_id,
                                     event_type: EventType::Send,
                                     amount_sats: fee_paid as i64,
@@ -371,8 +413,8 @@ impl WalletManager {
                                 let message = format!("📤 RBF fee bump: +{:.8} BTC", fee_increase_btc);
                                 println!("{}", message);
                                 
-                                // Insert RBF event to database
-                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                // Insert RBF event to database and broadcast
+                                if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                     wallet_id,
                                     event_type: EventType::Send,
                                     amount_sats: fee_increase as i64,
@@ -394,8 +436,8 @@ impl WalletManager {
                                     let message = format!("📤 Sending {:.8} BTC", sending_btc);
                                     println!("{}", message);
                                     
-                                    // Insert sending event to database
-                                    if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                    // Insert sending event to database and broadcast
+                                    if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: sending_amount as i64,
@@ -415,8 +457,8 @@ impl WalletManager {
                                     let message = format!("📤 Sending {:.8} BTC", sending_btc);
                                     println!("{}", message);
                                     
-                                    // Insert sending event to database
-                                    if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                    // Insert sending event to database and broadcast
+                                    if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: total_spent as i64,
@@ -433,8 +475,8 @@ impl WalletManager {
                                     let message = format!("📤 Sending {:.8} BTC", sending_btc);
                                     println!("{}", message);
                                     
-                                    // Insert sending event to database
-                                    if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                    // Insert sending event to database and broadcast
+                                    if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: trusted_spent as i64,
@@ -457,8 +499,8 @@ impl WalletManager {
                                 let message = format!("📤 Sending {:.8} BTC", sending_btc);
                                 println!("{}", message);
                                 
-                                // Insert sending event to database
-                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                // Insert sending event to database and broadcast
+                                if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                     wallet_id,
                                     event_type: EventType::Send,
                                     amount_sats: sending_amount as i64,
@@ -478,8 +520,8 @@ impl WalletManager {
                                 let message = format!("📤 Sending {:.8} BTC", sending_btc);
                                 println!("{}", message);
                                 
-                                // Insert sending event to database
-                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                // Insert sending event to database and broadcast
+                                if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                     wallet_id,
                                     event_type: EventType::Send,
                                     amount_sats: total_spent as i64,
@@ -496,8 +538,8 @@ impl WalletManager {
                                 let message = format!("📤 Sending {:.8} BTC", sending_btc);
                                 println!("{}", message);
                                 
-                                // Insert sending event to database
-                                if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                                // Insert sending event to database and broadcast
+                                if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                     wallet_id,
                                     event_type: EventType::Send,
                                     amount_sats: trusted_spent as i64,
@@ -521,8 +563,8 @@ impl WalletManager {
                             let message = format!("📥 Receiving {:.8} BTC", receiving_btc);
                             println!("{}", message);
                             
-                            // Insert receiving event to database
-                            if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                            // Insert receiving event to database and broadcast
+                            if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                 wallet_id,
                                 event_type: EventType::Receive,
                                 amount_sats: receiving_amount as i64,
@@ -542,8 +584,8 @@ impl WalletManager {
                             let message = "✅ Sent confirmed".to_string();
                             println!("{}", message);
                             
-                            // Insert sent confirmation event to database (amount=0 since confirmation amount is misleading)
-                            if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                            // Insert sent confirmation event to database and broadcast
+                            if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                 wallet_id,
                                 event_type: EventType::Send,
                                 amount_sats: 0,
@@ -567,8 +609,8 @@ impl WalletManager {
                             let message = format!("✅ Received confirmed: {:.8} BTC", confirmed_btc);
                             println!("{}", message);
                             
-                            // Insert received confirmation event to database with the confirmed amount
-                            if let Err(e) = self.metadata_db.insert_event(EventInsert {
+                            // Insert received confirmation event to database and broadcast
+                            if let Err(e) = Self::insert_and_broadcast_event_helper(metadata_db, event_sender, &EventInsert {
                                 wallet_id,
                                 event_type: EventType::Receive,
                                 amount_sats: confirmed_amount as i64,
