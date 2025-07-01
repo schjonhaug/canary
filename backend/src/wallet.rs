@@ -561,14 +561,17 @@ impl WalletManager {
                         let total_same = total_after.to_sat() == total_before.to_sat();
                         
                         if untrusted_pending_decrease && confirmed_increase && total_same {
-                            let message = "✅ Received confirmed".to_string();
+                            let confirmed_amount = confirmed_after.to_sat() - confirmed_before.to_sat();
+                            let confirmed_btc = confirmed_amount as f64 / 100_000_000.0;
+                            
+                            let message = format!("✅ Received confirmed: {:.8} BTC", confirmed_btc);
                             println!("{}", message);
                             
-                            // Insert received confirmation event to database (amount=0 for consistency)
+                            // Insert received confirmation event to database with the confirmed amount
                             if let Err(e) = self.metadata_db.insert_event(EventInsert {
                                 wallet_id,
                                 event_type: EventType::Receive,
-                                amount_sats: 0,
+                                amount_sats: confirmed_amount as i64,
                                 is_confirmed: true,
                                 message: &message,
                                 ..Default::default()
