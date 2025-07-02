@@ -400,9 +400,7 @@ mempool_purge() {
 
 # --- Blockchain reorganization function ---
 reorg() {
-    local BLOCKS_TO_REORG=${1:-3}
-    
-    echo "🔄 Testing Blockchain Reorganization (reorg $BLOCKS_TO_REORG blocks)"
+    echo "🔄 Testing Blockchain Reorganization"
     
     echo "📊 Current blockchain state:"
     local INITIAL_HEIGHT=$(btc getblockcount)
@@ -410,27 +408,24 @@ reorg() {
     echo "   Height: $INITIAL_HEIGHT"
     echo "   Tip: $INITIAL_TIP"
     
-    # Ensure we have enough blocks to reorg
-    if [ $INITIAL_HEIGHT -lt $BLOCKS_TO_REORG ]; then
-        echo "⚠️  Not enough blocks for reorg. Mining some blocks first..."
-        local NEEDED_BLOCKS=$((BLOCKS_TO_REORG + 3))
-        mine_blocks "$NEEDED_BLOCKS"
-        INITIAL_HEIGHT=$(btc getblockcount)
-        INITIAL_TIP=$(btc getbestblockhash)
-        echo "✅ New height: $INITIAL_HEIGHT"
-    fi
-    
-    # Create test transaction before reorg
+    # Create test transaction before reorg (Alice sends to Bob)
     echo ""
     echo "💰 Creating test transaction before reorg..."
     btc loadwallet "alice" 2>/dev/null || true
-    local TEST_ADDRESS=$(btc_alice getnewaddress)
-    local TEST_TXID=$(btc_alice sendtoaddress "$TEST_ADDRESS" 0.001)
+    btc loadwallet "bob" 2>/dev/null || true
+    local BOB_ADDRESS=$(btc_bob getnewaddress)
+    local TEST_TXID=$(btc_alice sendtoaddress "$BOB_ADDRESS" 0.001)
     echo "✅ Test transaction: $TEST_TXID"
+    echo "   👩 Alice → 👨 Bob: 0.001 BTC"
+    echo "   🎯 Bob's address: $BOB_ADDRESS"
     
-    # Mine blocks to confirm the transaction
-    echo "⛏️  Mining blocks to confirm transaction..."
-    mine_blocks "$BLOCKS_TO_REORG"
+    echo ""
+    echo "⏸️  After the tx is found in the mempool, press enter to mine a block"
+    read -r
+    
+    # Mine 1 block to confirm the transaction
+    echo "⛏️  Mining 1 block to confirm transaction..."
+    mine_blocks 1
     local CONFIRMED_HEIGHT=$(btc getblockcount)
     local CONFIRMED_TIP=$(btc getbestblockhash)
     
@@ -443,17 +438,23 @@ reorg() {
     local CONFIRMATIONS=$(echo "$TX_INFO" | jq -r '.confirmations')
     echo "   Transaction confirmations: $CONFIRMATIONS"
     
-    # Find the block hash to invalidate (go back to before our test transaction)
-    local REORG_TARGET_HEIGHT=$((INITIAL_HEIGHT))
-    local REORG_BLOCK_HASH=$(btc getblockhash "$REORG_TARGET_HEIGHT")
+    echo ""
+    echo "⏸️  Press enter to invalidate the tip block"
+    read -r
+    
+    # Get the current tip block hash to invalidate (same as invalidate-tip)
+    local TIP_HASH=$(btc getbestblockhash)
+    local TIP_HEIGHT=$(btc getblockcount)
     
     echo ""
     echo "🔄 Starting reorganization..."
-    echo "   Invalidating blocks from height $REORG_TARGET_HEIGHT"
-    echo "   Target block: $REORG_BLOCK_HASH"
+    echo "   Invalidating tip block: $TIP_HASH (height: $TIP_HEIGHT)"
+    echo "   This will move transaction back to mempool"
     
-    # Invalidate the block (this will cause a reorg)
-    btc invalidateblock "$REORG_BLOCK_HASH"
+    # Invalidate the tip block (same approach as invalidate-tip)
+    echo "🚫 Invalidating tip block..."
+    btc invalidateblock "$TIP_HASH"
+    echo "✅ Tip block invalidated successfully"
     
     local NEW_HEIGHT=$(btc getblockcount)
     local NEW_TIP=$(btc getbestblockhash)
@@ -480,12 +481,15 @@ reorg() {
     else
         echo "⚠️  Transaction still has $CONFIRMATIONS_AFTER confirmations"
     fi
-    
-    # Create alternate chain (longer than original)
-    local ALTERNATE_BLOCKS=$((BLOCKS_TO_REORG + 2))
+
     echo ""
-    echo "⛏️  Mining alternate chain ($ALTERNATE_BLOCKS blocks)..."
-    mine_blocks "$ALTERNATE_BLOCKS"
+    echo "⏸️  Press enter to mine a new block, completing the reorg"
+    read -r
+    
+    # Mine a new block to re-confirm the transaction
+    echo ""
+    echo "⛏️  Mining new block to re-confirm transaction..."
+    mine_blocks 1
     
     local FINAL_HEIGHT=$(btc getblockcount)
     local FINAL_TIP=$(btc getbestblockhash)
@@ -1162,36 +1166,7 @@ case "$1" in
         echo "✅ Mined $BLOCKS block(s) to Miner wallet"
         ;;
     
-    "invalidate-tip")
-        echo "🔄 Invalidating tip block (simulating blockchain reorganization)..."
-        
-        # Get current tip block hash
-        TIP_HASH=$(btc getbestblockhash)
-        TIP_HEIGHT=$(btc getblockcount)
-        
-        echo "   Current tip: $TIP_HASH (height: $TIP_HEIGHT)"
-        
-        # Invalidate the tip block
-        btc invalidateblock "$TIP_HASH"
-        
-        # Show new state
-        NEW_TIP_HASH=$(btc getbestblockhash)
-        NEW_TIP_HEIGHT=$(btc getblockcount)
-        
-        echo "   ✅ Block invalidated!"
-        echo "   New tip: $NEW_TIP_HASH (height: $NEW_TIP_HEIGHT)"
-        echo ""
-        echo "📊 Effect:"
-        echo "   - Blockchain reorganized (tip block removed)"
-        echo "   - Transactions from invalidated block moved back to mempool"
-        echo "   - Balance changes from that block are reverted"
-        echo ""
-        echo "💡 To restore the block:"
-        echo "   $0 reconsider-block $TIP_HASH"
-        echo ""
-        echo "💡 To mine a new competing block:"
-        echo "   $0 mine 1"
-        ;;
+
     
     "reconsider-block")
         BLOCK_HASH="$2"
@@ -1280,8 +1255,7 @@ case "$1" in
         ;;
     
     "reorg")
-        BLOCKS_TO_REORG=${2:-3}
-        reorg "$BLOCKS_TO_REORG"
+        reorg
         ;;
     
     "run-tests")
@@ -1532,14 +1506,13 @@ case "$1" in
         echo ""
         echo "Mining Commands:"
         echo "  mine [blocks]           Mine blocks to Miner wallet (default: 1)"
-        echo "  invalidate-tip          Invalidate tip block (simulate blockchain reorg)"
         echo "  reconsider-block <hash> Reconsider invalidated block"
         echo ""
         echo "Mempool Commands:"
         echo "  mempool-status               Show mempool transaction count and details"
         echo "  get-mempool-txid [index]     Get TXID from mempool by index (default: 0)"
         echo "  mempool-purge [method]       Purge mempool using method (restart/double-spend/low-fee)"
-        echo "  reorg [blocks]               Blockchain reorganization (default: 3 blocks)"
+        echo "  reorg                        Blockchain reorganization (1 block)"
         echo "  run-tests <address>          Run comprehensive test suite with wallet address"
         echo ""
         echo "Backend Integration:"
@@ -1560,9 +1533,8 @@ case "$1" in
         echo "  $0 mempool-status                    # Check mempool"
         echo "  $0 get-mempool-txid 0                # Get first transaction from mempool"
         echo "  $0 mempool-purge restart             # Purge mempool via node restart"
-        echo "  $0 reorg 3                           # 3-block reorganization"
+        echo "  $0 reorg                             # 1-block reorganization"
         echo "  $0 run-tests bcrt1q...               # Run full test suite with wallet address"
-        echo "  $0 invalidate-tip                    # Invalidate tip block (test blockchain reorg)"
         echo "  $0 reset                             # Reset everything (includes backend cleanup)"
         ;;
 esac
