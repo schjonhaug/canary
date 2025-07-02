@@ -169,15 +169,9 @@ impl WalletManager {
             .load_wallet(&mut db)
             .map_err(|e| anyhow!("Failed to load wallet: {}", e))?;
 
-        if let Some(mut wallet) = wallet_opt {
+        if let Some(wallet) = wallet_opt {
             println!("    - Network: {:?}", wallet.network());
-
-            // Sync wallet with electrum and persist changes
-            if let Err(e) = self.sync_and_persist_wallet(&mut wallet, &mut db).await {
-                eprintln!("Warning: Failed to sync wallet {}: {}", filename, e);
-            } else {
-                println!("    - Synced with electrum");
-            }
+            println!("    - Loaded from disk (sync will happen in background loop)");
 
             // Extract checksum from filename (remove .sqlite extension)
             let checksum = filename
@@ -346,6 +340,20 @@ impl WalletManager {
                 .map(|client| client.sync_wallet_incremental(wallet))
             {
                 Some(Ok(())) => {
+                    // Persist wallet changes after successful incremental sync
+                    let wallet_filename = format!("{}.sqlite", checksum);
+                    let wallet_path = self.wallet_dir.join(&wallet_filename);
+                    
+                    match Connection::open(&wallet_path) {
+                        Ok(mut db) => {
+                            if let Err(e) = wallet.persist(&mut db) {
+                                eprintln!("❌ Failed to persist wallet {} after sync: {}", checksum, e);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Failed to create database connection for wallet {}: {}", checksum, e);
+                        }
+                    }
                     // Get balance after sync
                     let balance_after = wallet.balance();
                     let trusted_pending_after = balance_after.trusted_pending;
