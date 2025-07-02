@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::secp256k1::Secp256k1;
 use bdk_wallet::{PersistedWallet, Wallet, bitcoin::Network, wallet_name_from_descriptor};
 use miniscript::{Descriptor, DescriptorPublicKey};
-use rusqlite::Connection;
+use bdk_wallet::rusqlite::Connection;
 use std::fs;
 use std::path::PathBuf;
 use tokio::sync::broadcast;

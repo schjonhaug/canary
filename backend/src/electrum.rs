@@ -3,7 +3,7 @@ use bdk_electrum::{BdkElectrumClient, electrum_client};
 use bdk_wallet::KeychainKind;
 use bdk_wallet::PersistedWallet;
 use bdk_wallet::chain::collections::HashSet;
-use rusqlite::Connection;
+use bdk_wallet::rusqlite::Connection;
 use std::io::{self, Write};
 
 pub const STOP_GAP: usize = 20;

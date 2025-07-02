@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 bdk_wallet = { version = "2", features = ["rusqlite"] }
-rusqlite = "0.31"
 bdk_electrum = "0.23"
 miniscript = "12.3"
 axum = "0.8"

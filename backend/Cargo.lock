@@ -2288,7 +2288,6 @@ dependencies = [
  "mime",
  "miniscript",
  "reqwest",
- "rusqlite",
  "secp256k1 0.31.1",
  "serde",
  "serde_json",

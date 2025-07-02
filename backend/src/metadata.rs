@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result};
+use bdk_wallet::rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use utoipa::ToSchema;
@@ -239,7 +239,7 @@ impl MetadataDb {
             })
         }) {
             Ok(metadata) => Ok(Some(metadata)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e),
         }
     }
@@ -260,7 +260,7 @@ impl MetadataDb {
             })
         }) {
             Ok(metadata) => Ok(Some(metadata)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e),
         }
     }
@@ -299,7 +299,7 @@ impl MetadataDb {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         }) {
             Ok((desc, filename)) => Some((desc, filename)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => None,
             Err(e) => return Err(e),
         };
 
@@ -516,7 +516,7 @@ impl MetadataDb {
             })
         }) {
             Ok(config) => Ok(Some(config)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e),
         }
     }
