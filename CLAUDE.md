@@ -33,6 +33,12 @@ cd regtest-env && docker-compose down
 
 # Reset regtest environment (removes all data)
 cd regtest-env && ./docker-utils.sh reset
+
+# Comprehensive testing commands
+cd regtest-env && ./docker-utils.sh run-tests <wallet_address>  # Full test suite
+cd regtest-env && ./docker-utils.sh mempool-purge restart       # Test mempool purge
+cd regtest-env && ./docker-utils.sh reorg 3                     # Test blockchain reorg
+cd regtest-env && ./docker-utils.sh get-mempool-txid 0          # Get mempool TXID
 ```
 
 ## Project Structure
@@ -55,9 +61,8 @@ txray/
 │   ├── docker-compose.yml     # Bitcoin Core + Fulcrum setup
 │   ├── bitcoin.conf           # Bitcoin Core regtest configuration
 │   ├── fulcrum.conf          # Fulcrum Electrum server configuration
-│   ├── docker-utils.sh       # Development utilities script
-│   ├── README.md             # Regtest environment documentation
-│   └── test-*.sh             # Transaction testing scripts
+│   ├── docker-utils.sh       # Comprehensive development and testing utilities
+│   └── README.md             # Regtest environment documentation
 └── CLAUDE.md                  # This file
 ```
 
@@ -159,10 +164,14 @@ txray/
 - **Progress Indicators**: Detailed logging with keychain information
 
 ### Development Environment
-- Complete Docker-based regtest setup
-- Bitcoin Core + Fulcrum Electrum server
-- Comprehensive testing utilities including RBF and CPFP scenarios
-- Transaction testing scripts with Alice/Bob wallet management
+- Complete Docker-based regtest setup with Bitcoin Core + Fulcrum Electrum server
+- Comprehensive testing utilities integrated in `docker-utils.sh`:
+  - **Alice/Bob wallet management**: Funded (Alice) and unfunded (Bob) test wallets with deterministic descriptors
+  - **Advanced transaction testing**: RBF (Replace-By-Fee), CPFP (Child-Pays-For-Parent), consolidation
+  - **Mempool testing**: Transaction purge scenarios (restart, double-spend, low-fee), status monitoring
+  - **Blockchain testing**: Reorganization simulation, tip invalidation/reconsideration
+  - **Automated test suite**: Comprehensive testing with wallet address integration
+  - **Helper utilities**: Mempool TXID extraction, mining, environment management
 - Complete environment reset capability that removes all SQLite databases
 
 ## Storage Details
