@@ -1,10 +1,10 @@
-use bdk_electrum::{electrum_client, BdkElectrumClient};
-use bdk_wallet::PersistedWallet;
-use rusqlite::Connection;
-use bdk_wallet::chain::collections::HashSet;
-use bdk_wallet::KeychainKind;
-use std::io::{self, Write};
 use anyhow::{Result, anyhow};
+use bdk_electrum::{BdkElectrumClient, electrum_client};
+use bdk_wallet::KeychainKind;
+use bdk_wallet::PersistedWallet;
+use bdk_wallet::chain::collections::HashSet;
+use rusqlite::Connection;
+use std::io::{self, Write};
 
 pub const STOP_GAP: usize = 20;
 pub const BATCH_SIZE: usize = 5;
@@ -25,24 +25,31 @@ impl ElectrumClient {
 
     pub fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
         println!("Syncing with electrum...");
-        
+
         // Print initial balance
         let balance_before = wallet.balance();
         println!("Wallet balance before syncing: {}", balance_before.total());
 
         println!("Revealing external addresses:");
-        for (i, address) in wallet.reveal_addresses_to(KeychainKind::External, 50).enumerate() {
+        for (i, address) in wallet
+            .reveal_addresses_to(KeychainKind::External, 50)
+            .enumerate()
+        {
             println!("External  {}: {}", i, address);
         }
-        
+
         println!("Revealing internal addresses:");
-        for (i, address) in wallet.reveal_addresses_to(KeychainKind::Internal, 50).enumerate() {
+        for (i, address) in wallet
+            .reveal_addresses_to(KeychainKind::Internal, 50)
+            .enumerate()
+        {
             println!("Internal  {}: {}", i, address);
         }
-        
+
         // Populate the electrum client's transaction cache
-        self.client.populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
-        
+        self.client
+            .populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
+
         // Start full scan with progress indicator
         let request = wallet.start_full_scan().inspect({
             let mut stdout = io::stdout();
@@ -55,40 +62,46 @@ impl ElectrumClient {
                 stdout.flush().expect("must flush");
             }
         });
-        
+
         // Perform the full scan
-        let update = self.client.full_scan(request, STOP_GAP, BATCH_SIZE, false)
+        let update = self
+            .client
+            .full_scan(request, STOP_GAP, BATCH_SIZE, false)
             .map_err(|e| anyhow!("Full scan failed: {}", e))?;
-        
+
         println!(); // New line after scan progress
-        
+
         // Apply the update
-        wallet.apply_update(update)
+        wallet
+            .apply_update(update)
             .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
-        
+
         // Print final balance
         let balance_after = wallet.balance();
         println!("Wallet balance after syncing: {}", balance_after.total());
-        
+
         Ok(())
     }
 
     pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
-
         // Populate the electrum client's transaction cache
-        self.client.populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
-        
+        self.client
+            .populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
+
         // Start sync request (only checks known addresses)
         let request = wallet.start_sync_with_revealed_spks();
-        
+
         // Perform the sync
-        let update = self.client.sync(request, BATCH_SIZE, false)
+        let update = self
+            .client
+            .sync(request, BATCH_SIZE, false)
             .map_err(|e| anyhow!("Sync failed: {}", e))?;
-        
+
         // Apply the update
-        wallet.apply_update(update)
+        wallet
+            .apply_update(update)
             .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
-        
+
         Ok(())
     }
 }

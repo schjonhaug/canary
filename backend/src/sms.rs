@@ -1,8 +1,8 @@
-use crate::metadata::{TwilioConfig, ContactPerson, TransactionEvent, EventType};
-use reqwest::Client;
-use serde::Serialize;
+use crate::metadata::{ContactPerson, EventType, TransactionEvent, TwilioConfig};
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
+use reqwest::Client;
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 struct TwilioSmsRequest {
@@ -35,7 +35,7 @@ impl SmsService {
     /// Format Bitcoin amount in Norwegian style
     pub fn format_btc_amount(amount_sats: i64) -> String {
         let btc_amount = amount_sats as f64 / 100_000_000.0;
-        
+
         // Format manually for Norwegian locale (comma as decimal separator, space as thousands separator)
         if btc_amount < 1.0 {
             // For small amounts, show all decimal places
@@ -46,7 +46,7 @@ impl SmsService {
             let parts: Vec<&str> = formatted.split('.').collect();
             let integer_part = parts[0];
             let decimal_part = parts.get(1).unwrap_or(&"00000000");
-            
+
             // Add space thousands separator
             let mut result = String::new();
             for (i, c) in integer_part.chars().rev().enumerate() {
@@ -56,7 +56,7 @@ impl SmsService {
                 result.push(c);
             }
             let integer_formatted: String = result.chars().rev().collect();
-            
+
             format!("{},{}", integer_formatted, decimal_part)
         }
     }
@@ -66,7 +66,15 @@ impl SmsService {
         match event.event_type {
             EventType::Send => {
                 if event.is_confirmed {
-                    format!("✅ Sending bekreftet for {}", wallet_name)
+                    if event.amount_sats > 0 {
+                        let amount_btc = Self::format_btc_amount(event.amount_sats);
+                        format!(
+                            "✅ Sending bekreftet: {} BTC fra {}",
+                            amount_btc, wallet_name
+                        )
+                    } else {
+                        format!("✅ Sending bekreftet for {}", wallet_name)
+                    }
                 } else if event.is_rbf {
                     let fee_btc = Self::format_btc_amount(event.amount_sats);
                     format!("📤 RBF gebyr økning: +{} BTC for {}", fee_btc, wallet_name)
@@ -81,7 +89,10 @@ impl SmsService {
             EventType::Receive => {
                 if event.is_confirmed {
                     let amount_btc = Self::format_btc_amount(event.amount_sats);
-                    format!("✅ Mottak bekreftet: {} BTC til {}", amount_btc, wallet_name)
+                    format!(
+                        "✅ Mottak bekreftet: {} BTC til {}",
+                        amount_btc, wallet_name
+                    )
                 } else {
                     let amount_btc = Self::format_btc_amount(event.amount_sats);
                     format!("📥 Mottar {} BTC til {}", amount_btc, wallet_name)
@@ -124,13 +135,16 @@ impl SmsService {
         if response.status().is_success() {
             // Parse successful response to get Twilio SID
             let response_text = response.text().await?;
-            
+
             // Try to extract SID from JSON response
-            let twilio_sid = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text) {
-                json.get("sid").and_then(|v| v.as_str()).map(|s| s.to_string())
-            } else {
-                None
-            };
+            let twilio_sid =
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                    json.get("sid")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                };
 
             Ok(SmsResponse {
                 success: true,

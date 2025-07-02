@@ -112,7 +112,7 @@ pub struct MetadataDb {
 impl MetadataDb {
     pub fn new(db_path: &str) -> Result<Self> {
         let conn = Connection::open(db_path)?;
-        
+
         conn.execute(
             "CREATE TABLE IF NOT EXISTS wallets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -189,19 +189,25 @@ impl MetadataDb {
             [],
         )?;
 
-        Ok(MetadataDb { conn: Mutex::new(conn) })
+        Ok(MetadataDb {
+            conn: Mutex::new(conn),
+        })
     }
 
-    pub fn insert_wallet(&self, name: &str, descriptor: &str, wallet_filename: &str) -> Result<i64> {
+    pub fn insert_wallet(
+        &self,
+        name: &str,
+        descriptor: &str,
+        wallet_filename: &str,
+    ) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "INSERT INTO wallets (name, descriptor, wallet_filename) VALUES (?1, ?2, ?3)"
+            "INSERT INTO wallets (name, descriptor, wallet_filename) VALUES (?1, ?2, ?3)",
         )?;
-        
+
         stmt.execute([name, descriptor, wallet_filename])?;
         Ok(conn.last_insert_rowid())
     }
-
 
     pub fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
@@ -217,13 +223,12 @@ impl MetadataDb {
         Ok(name)
     }
 
-
     pub fn get_wallet_by_descriptor(&self, descriptor: &str) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, name, descriptor, wallet_filename, created_at FROM wallets WHERE descriptor = ?1"
         )?;
-        
+
         match stmt.query_row([descriptor], |row| {
             Ok(WalletMetadata {
                 id: Some(row.get(0)?),
@@ -242,9 +247,9 @@ impl MetadataDb {
     pub fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, descriptor, wallet_filename, created_at FROM wallets WHERE id = ?1"
+            "SELECT id, name, descriptor, wallet_filename, created_at FROM wallets WHERE id = ?1",
         )?;
-        
+
         match stmt.query_row([id], |row| {
             Ok(WalletMetadata {
                 id: Some(row.get(0)?),
@@ -265,7 +270,7 @@ impl MetadataDb {
         let mut stmt = conn.prepare(
             "SELECT id, name, descriptor, wallet_filename, created_at FROM wallets ORDER BY created_at DESC"
         )?;
-        
+
         let wallet_iter = stmt.query_map([], |row| {
             Ok(WalletMetadata {
                 id: Some(row.get(0)?),
@@ -275,20 +280,21 @@ impl MetadataDb {
                 created_at: row.get(4)?,
             })
         })?;
-        
+
         let mut wallets = Vec::new();
         for wallet in wallet_iter {
             wallets.push(wallet?);
         }
-        
+
         Ok(wallets)
     }
 
     pub fn delete_wallet_by_id(&self, id: i64) -> Result<Option<(String, String)>> {
         let conn = self.conn.lock().unwrap();
-        
+
         // First get the descriptor and filename before deleting
-        let mut stmt = conn.prepare("SELECT descriptor, wallet_filename FROM wallets WHERE id = ?1")?;
+        let mut stmt =
+            conn.prepare("SELECT descriptor, wallet_filename FROM wallets WHERE id = ?1")?;
         let wallet_info = match stmt.query_row([id], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         }) {
@@ -296,12 +302,12 @@ impl MetadataDb {
             Err(rusqlite::Error::QueryReturnedNoRows) => None,
             Err(e) => return Err(e),
         };
-        
+
         if let Some((descriptor, filename)) = wallet_info {
             // Delete the wallet
             let mut delete_stmt = conn.prepare("DELETE FROM wallets WHERE id = ?1")?;
             let changes = delete_stmt.execute([id])?;
-            
+
             if changes > 0 {
                 Ok(Some((descriptor, filename)))
             } else {
@@ -318,7 +324,7 @@ impl MetadataDb {
             "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
         )?;
-        
+
         stmt.execute([
             &event.wallet_id.to_string(),
             event.event_type.as_str(),
@@ -337,7 +343,7 @@ impl MetadataDb {
             "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message, created_at 
              FROM transaction_events WHERE wallet_id = ?1 ORDER BY created_at DESC"
         )?;
-        
+
         let event_iter = stmt.query_map([wallet_id], |row| {
             Ok(TransactionEvent {
                 id: Some(row.get(0)?),
@@ -351,12 +357,12 @@ impl MetadataDb {
                 created_at: row.get(8)?,
             })
         })?;
-        
+
         let mut events = Vec::new();
         for event in event_iter {
             events.push(event?);
         }
-        
+
         Ok(events)
     }
 
@@ -366,7 +372,7 @@ impl MetadataDb {
             "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message, created_at 
              FROM transaction_events ORDER BY created_at DESC"
         )?;
-        
+
         let event_iter = stmt.query_map([], |row| {
             Ok(TransactionEvent {
                 id: Some(row.get(0)?),
@@ -380,22 +386,21 @@ impl MetadataDb {
                 created_at: row.get(8)?,
             })
         })?;
-        
+
         let mut events = Vec::new();
         for event in event_iter {
             events.push(event?);
         }
-        
+
         Ok(events)
     }
 
     // Contact management functions
     pub fn insert_contact(&self, name: &str, phone_number: &str) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "INSERT INTO contact_persons (name, phone_number) VALUES (?1, ?2)"
-        )?;
-        
+        let mut stmt =
+            conn.prepare("INSERT INTO contact_persons (name, phone_number) VALUES (?1, ?2)")?;
+
         stmt.execute([name, phone_number])?;
         Ok(conn.last_insert_rowid())
     }
@@ -403,9 +408,9 @@ impl MetadataDb {
     pub fn get_all_contacts(&self) -> Result<Vec<ContactPerson>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, phone_number, created_at FROM contact_persons ORDER BY name"
+            "SELECT id, name, phone_number, created_at FROM contact_persons ORDER BY name",
         )?;
-        
+
         let contact_iter = stmt.query_map([], |row| {
             Ok(ContactPerson {
                 id: Some(row.get(0)?),
@@ -414,12 +419,12 @@ impl MetadataDb {
                 created_at: row.get(3)?,
             })
         })?;
-        
+
         let mut contacts = Vec::new();
         for contact in contact_iter {
             contacts.push(contact?);
         }
-        
+
         Ok(contacts)
     }
 
@@ -433,19 +438,17 @@ impl MetadataDb {
     // Wallet-contact relationship functions
     pub fn add_contact_to_wallet(&self, wallet_id: i64, contact_id: i64) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "INSERT INTO wallet_contacts (wallet_id, contact_id) VALUES (?1, ?2)"
-        )?;
-        
+        let mut stmt =
+            conn.prepare("INSERT INTO wallet_contacts (wallet_id, contact_id) VALUES (?1, ?2)")?;
+
         stmt.execute([wallet_id, contact_id])?;
         Ok(conn.last_insert_rowid())
     }
 
     pub fn remove_contact_from_wallet(&self, wallet_id: i64, contact_id: i64) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "DELETE FROM wallet_contacts WHERE wallet_id = ?1 AND contact_id = ?2"
-        )?;
+        let mut stmt =
+            conn.prepare("DELETE FROM wallet_contacts WHERE wallet_id = ?1 AND contact_id = ?2")?;
         let changes = stmt.execute([wallet_id, contact_id])?;
         Ok(changes > 0)
     }
@@ -456,9 +459,9 @@ impl MetadataDb {
             "SELECT cp.id, cp.name, cp.phone_number, cp.created_at 
              FROM contact_persons cp 
              JOIN wallet_contacts wc ON cp.id = wc.contact_id 
-             WHERE wc.wallet_id = ?1 ORDER BY cp.name"
+             WHERE wc.wallet_id = ?1 ORDER BY cp.name",
         )?;
-        
+
         let contact_iter = stmt.query_map([wallet_id], |row| {
             Ok(ContactPerson {
                 id: Some(row.get(0)?),
@@ -467,27 +470,32 @@ impl MetadataDb {
                 created_at: row.get(3)?,
             })
         })?;
-        
+
         let mut contacts = Vec::new();
         for contact in contact_iter {
             contacts.push(contact?);
         }
-        
+
         Ok(contacts)
     }
 
     // Twilio configuration functions
-    pub fn upsert_twilio_config(&self, account_sid: &str, auth_token: &str, messaging_service_sid: &str) -> Result<i64> {
+    pub fn upsert_twilio_config(
+        &self,
+        account_sid: &str,
+        auth_token: &str,
+        messaging_service_sid: &str,
+    ) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
-        
+
         // Delete existing config (we only want one)
         conn.execute("DELETE FROM twilio_config", [])?;
-        
+
         // Insert new config
         let mut stmt = conn.prepare(
             "INSERT INTO twilio_config (account_sid, auth_token, messaging_service_sid) VALUES (?1, ?2, ?3)"
         )?;
-        
+
         stmt.execute([account_sid, auth_token, messaging_service_sid])?;
         Ok(conn.last_insert_rowid())
     }
@@ -497,7 +505,7 @@ impl MetadataDb {
         let mut stmt = conn.prepare(
             "SELECT id, account_sid, auth_token, messaging_service_sid, created_at FROM twilio_config LIMIT 1"
         )?;
-        
+
         match stmt.query_row([], |row| {
             Ok(TwilioConfig {
                 id: Some(row.get(0)?),
@@ -514,12 +522,19 @@ impl MetadataDb {
     }
 
     // SMS logging functions
-    pub fn insert_sms_log(&self, event_id: i64, contact_id: i64, status: &str, twilio_sid: Option<&str>, error_message: Option<&str>) -> Result<i64> {
+    pub fn insert_sms_log(
+        &self,
+        event_id: i64,
+        contact_id: i64,
+        status: &str,
+        twilio_sid: Option<&str>,
+        error_message: Option<&str>,
+    ) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "INSERT INTO sms_logs (event_id, contact_id, status, twilio_sid, error_message) VALUES (?1, ?2, ?3, ?4, ?5)"
         )?;
-        
+
         stmt.execute([
             &event_id.to_string(),
             &contact_id.to_string(),
@@ -534,29 +549,37 @@ impl MetadataDb {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, event_id, contact_id, twilio_sid, status, error_message, created_at 
-             FROM sms_logs WHERE event_id = ?1 ORDER BY created_at DESC"
+             FROM sms_logs WHERE event_id = ?1 ORDER BY created_at DESC",
         )?;
-        
+
         let log_iter = stmt.query_map([event_id], |row| {
             let twilio_sid: String = row.get(3)?;
             let error_message: String = row.get(5)?;
-            
+
             Ok(SmsLog {
                 id: Some(row.get(0)?),
                 event_id: row.get(1)?,
                 contact_id: row.get(2)?,
-                twilio_sid: if twilio_sid.is_empty() { None } else { Some(twilio_sid) },
+                twilio_sid: if twilio_sid.is_empty() {
+                    None
+                } else {
+                    Some(twilio_sid)
+                },
                 status: row.get(4)?,
-                error_message: if error_message.is_empty() { None } else { Some(error_message) },
+                error_message: if error_message.is_empty() {
+                    None
+                } else {
+                    Some(error_message)
+                },
                 created_at: row.get(6)?,
             })
         })?;
-        
+
         let mut logs = Vec::new();
         for log in log_iter {
             logs.push(log?);
         }
-        
+
         Ok(logs)
     }
 }

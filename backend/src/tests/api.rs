@@ -1,23 +1,20 @@
-use std::path::PathBuf;
+use crate::api::{
+    AddContactToWalletRequest, CreateContactRequest, CreateWalletRequest, TwilioConfigRequest,
+    create_router,
+};
+use crate::wallet::WalletManager;
 use axum::{
     body::Body,
     http::{self, Request, StatusCode},
 };
 use http_body_util::BodyExt;
 use serde_json::Value;
-use tower::ServiceExt;
-use crate::api::{
-    create_router, 
-    CreateWalletRequest, 
-    CreateContactRequest, 
-    AddContactToWalletRequest,
-    TwilioConfigRequest
-};
-use crate::wallet::WalletManager;
+use std::env;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{Mutex, broadcast};
-use std::fs;
-use std::env;
+use tower::ServiceExt;
 use uuid::Uuid;
 
 async fn setup_test_app() -> (axum::Router, PathBuf) {
@@ -30,7 +27,12 @@ async fn setup_test_app() -> (axum::Router, PathBuf) {
 
     let (event_tx, _) = broadcast::channel(100);
     let metadata_db_path = unique_dir.join("txray.sqlite");
-    let wallet_manager = WalletManager::new(event_tx, wallet_dir.clone(), metadata_db_path.to_str().unwrap()).await;
+    let wallet_manager = WalletManager::new(
+        event_tx,
+        wallet_dir.clone(),
+        metadata_db_path.to_str().unwrap(),
+    )
+    .await;
 
     let app = create_router(Arc::new(Mutex::new(wallet_manager)));
     (app, wallet_dir)
@@ -63,7 +65,7 @@ async fn test_create_wallet_success() {
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(body["message"], "Wallet created successfully");
     assert_eq!(body["wallet"]["name"], "Test Wallet");
 }
@@ -138,7 +140,12 @@ async fn test_create_wallet_invalid_descriptor() {
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
-    assert!(body["error"].as_str().unwrap().contains("Invalid descriptor"));
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("Invalid descriptor")
+    );
 }
 
 #[tokio::test]
@@ -231,7 +238,12 @@ async fn test_get_wallet_by_id() {
         .await
         .unwrap();
 
-    let create_body = create_response.into_body().collect().await.unwrap().to_bytes();
+    let create_body = create_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let create_body: Value = serde_json::from_slice(&create_body).unwrap();
     let wallet_id = create_body["wallet"]["id"].as_i64().unwrap();
 
@@ -301,7 +313,12 @@ async fn test_delete_wallet() {
         .await
         .unwrap();
 
-    let create_body = create_response.into_body().collect().await.unwrap().to_bytes();
+    let create_body = create_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let create_body: Value = serde_json::from_slice(&create_body).unwrap();
     let wallet_id = create_body["wallet"]["id"].as_i64().unwrap();
 
@@ -383,11 +400,11 @@ async fn test_create_contact() {
     let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
-    
+
     if status != StatusCode::CREATED {
         println!("Error response: {:?}", body);
     }
-    
+
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(body["message"], "Contact created successfully");
     assert!(body["contact_id"].as_i64().is_some());
@@ -484,7 +501,12 @@ async fn test_delete_contact() {
         .await
         .unwrap();
 
-    let create_body = create_response.into_body().collect().await.unwrap().to_bytes();
+    let create_body = create_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let create_body: Value = serde_json::from_slice(&create_body).unwrap();
     let contact_id = create_body["contact_id"].as_i64().unwrap();
 
@@ -567,7 +589,12 @@ async fn test_add_contact_to_wallet() {
         .await
         .unwrap();
 
-    let wallet_body = wallet_response.into_body().collect().await.unwrap().to_bytes();
+    let wallet_body = wallet_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let wallet_body: Value = serde_json::from_slice(&wallet_body).unwrap();
     let wallet_id = wallet_body["wallet"]["id"].as_i64().unwrap();
 
@@ -590,14 +617,17 @@ async fn test_add_contact_to_wallet() {
         .await
         .unwrap();
 
-    let contact_body = contact_response.into_body().collect().await.unwrap().to_bytes();
+    let contact_body = contact_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let contact_body: Value = serde_json::from_slice(&contact_body).unwrap();
     let contact_id = contact_body["contact_id"].as_i64().unwrap();
 
     // Add contact to wallet
-    let add_request = AddContactToWalletRequest {
-        contact_id,
-    };
+    let add_request = AddContactToWalletRequest { contact_id };
 
     let response = app
         .clone()
@@ -638,14 +668,17 @@ async fn test_add_contact_to_wallet_not_found() {
         .await
         .unwrap();
 
-    let contact_body = contact_response.into_body().collect().await.unwrap().to_bytes();
+    let contact_body = contact_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let contact_body: Value = serde_json::from_slice(&contact_body).unwrap();
     let contact_id = contact_body["contact_id"].as_i64().unwrap();
 
     // Try to add contact to non-existent wallet
-    let add_request = AddContactToWalletRequest {
-        contact_id,
-    };
+    let add_request = AddContactToWalletRequest { contact_id };
 
     let response = app
         .oneshot(
@@ -689,7 +722,12 @@ async fn test_get_wallet_contacts() {
         .await
         .unwrap();
 
-    let wallet_body = wallet_response.into_body().collect().await.unwrap().to_bytes();
+    let wallet_body = wallet_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let wallet_body: Value = serde_json::from_slice(&wallet_body).unwrap();
     let wallet_id = wallet_body["wallet"]["id"].as_i64().unwrap();
 
@@ -712,14 +750,17 @@ async fn test_get_wallet_contacts() {
         .await
         .unwrap();
 
-    let contact_body = contact_response.into_body().collect().await.unwrap().to_bytes();
+    let contact_body = contact_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let contact_body: Value = serde_json::from_slice(&contact_body).unwrap();
     let contact_id = contact_body["contact_id"].as_i64().unwrap();
 
     // Add contact to wallet
-    let add_request = AddContactToWalletRequest {
-        contact_id,
-    };
+    let add_request = AddContactToWalletRequest { contact_id };
 
     app.clone()
         .oneshot(
@@ -801,7 +842,12 @@ async fn test_remove_contact_from_wallet() {
         .await
         .unwrap();
 
-    let wallet_body = wallet_response.into_body().collect().await.unwrap().to_bytes();
+    let wallet_body = wallet_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let wallet_body: Value = serde_json::from_slice(&wallet_body).unwrap();
     let wallet_id = wallet_body["wallet"]["id"].as_i64().unwrap();
 
@@ -824,14 +870,17 @@ async fn test_remove_contact_from_wallet() {
         .await
         .unwrap();
 
-    let contact_body = contact_response.into_body().collect().await.unwrap().to_bytes();
+    let contact_body = contact_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
     let contact_body: Value = serde_json::from_slice(&contact_body).unwrap();
     let contact_id = contact_body["contact_id"].as_i64().unwrap();
 
     // Add contact to wallet
-    let add_request = AddContactToWalletRequest {
-        contact_id,
-    };
+    let add_request = AddContactToWalletRequest { contact_id };
 
     app.clone()
         .oneshot(
@@ -972,7 +1021,10 @@ async fn test_get_twilio_config() {
 
     assert_eq!(body["account_sid"], "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
     assert_eq!(body["auth_token"], "your_auth_token");
-    assert_eq!(body["messaging_service_sid"], "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+    assert_eq!(
+        body["messaging_service_sid"],
+        "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    );
 }
 
 #[tokio::test]
@@ -1078,7 +1130,7 @@ async fn test_openapi_spec_endpoint() {
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
-    
+
     // Verify it's a valid OpenAPI spec
     assert_eq!(body["info"]["title"], "TxRay Wallet API");
     assert_eq!(body["info"]["version"], "0.1.0");
