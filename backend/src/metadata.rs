@@ -430,8 +430,20 @@ impl MetadataDb {
 
     pub fn delete_contact(&self, contact_id: i64) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare("DELETE FROM contact_persons WHERE id = ?1")?;
-        let changes = stmt.execute([contact_id])?;
+        
+        // Start a transaction to ensure atomicity
+        let tx = conn.unchecked_transaction()?;
+        
+        // First, delete from sms_logs that reference this contact
+        tx.execute("DELETE FROM sms_logs WHERE contact_id = ?1", [contact_id])?;
+        
+        // Then, delete from wallet_contacts that reference this contact
+        tx.execute("DELETE FROM wallet_contacts WHERE contact_id = ?1", [contact_id])?;
+        
+        // Finally, delete the contact itself
+        let changes = tx.execute("DELETE FROM contact_persons WHERE id = ?1", [contact_id])?;
+        
+        tx.commit()?;
         Ok(changes > 0)
     }
 
