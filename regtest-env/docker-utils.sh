@@ -193,6 +193,486 @@ cpfp_for_wallet() {
 }
 # --- End CPFP logic function ---
 
+# --- Helper function to get mempool TXID by index ---
+get_mempool_txid() {
+    local INDEX=${1:-0}
+    
+    # Get mempool transactions as array
+    local MEMPOOL_TXIDS=$(btc getrawmempool)
+    
+    # Check if mempool is empty
+    if [ "$MEMPOOL_TXIDS" = "[]" ]; then
+        echo "Error: Mempool is empty" >&2
+        return 1
+    fi
+    
+    # Extract the specified transaction (default to first)
+    local TXID=$(echo "$MEMPOOL_TXIDS" | jq -r ".[$INDEX] // empty")
+    
+    if [ -z "$TXID" ] || [ "$TXID" = "null" ]; then
+        echo "Error: No transaction found at index $INDEX" >&2
+        echo "Available transactions:" >&2
+        echo "$MEMPOOL_TXIDS" | jq -r '.[]' | nl -v0 >&2
+        return 1
+    fi
+    
+    echo "$TXID"
+}
+
+# --- Mempool purge testing function ---
+mempool_purge() {
+    local METHOD=${1:-restart}
+    
+    echo "🗑️  Testing Mempool Purge using method: $METHOD"
+    
+    case "$METHOD" in
+        "restart")
+            echo "🔄 Method: Bitcoin node restart (simulates mempool purge)"
+            
+            # Check current mempool
+            echo "📊 Current mempool before restart:"
+            local MEMPOOL_BEFORE=$(btc getrawmempool)
+            echo "$MEMPOOL_BEFORE" | jq length
+            echo "$MEMPOOL_BEFORE" | jq -r '.[]' | head -5
+            
+            if [ "$(echo "$MEMPOOL_BEFORE" | jq length)" -eq 0 ]; then
+                echo "⚠️  Mempool is empty. Creating test transaction first..."
+                local NEW_ADDRESS=$(btc_alice getnewaddress)
+                btc loadwallet "alice" 2>/dev/null || true
+                btc_alice sendtoaddress "$NEW_ADDRESS" 0.001
+                echo "✅ Created test transaction"
+            fi
+            
+            echo ""
+            echo "🛑 Stopping Bitcoin node..."
+            docker stop bitcoind-regtest
+            
+            echo "⏳ Waiting 3 seconds..."
+            sleep 3
+            
+            echo "🚀 Starting Bitcoin node..."
+            docker start bitcoind-regtest
+            
+            # Wait for Bitcoin to be ready
+            echo "⏳ Waiting for Bitcoin Core to be ready..."
+            local timeout=30
+            while [ $timeout -gt 0 ]; do
+                if btc getblockchaininfo > /dev/null 2>&1; then
+                    echo "✅ Bitcoin Core is ready"
+                    break
+                fi
+                sleep 1
+                timeout=$((timeout-1))
+            done
+            
+            echo ""
+            echo "📊 Mempool after restart:"
+            local MEMPOOL_AFTER=$(btc getrawmempool)
+            echo "$MEMPOOL_AFTER" | jq length
+            
+            echo ""
+            echo "🎯 Result: Mempool should be empty after restart"
+            echo "   This simulates various purge scenarios like:"
+            echo "   - Node restart"
+            echo "   - Memory pressure eviction"
+            echo "   - Network partition recovery"
+            ;;
+            
+        "double-spend")
+            echo "💰 Method: Double-spend conflict (one tx will be purged)"
+            
+            # Get a UTXO to double-spend
+            echo "🔍 Finding UTXO to double-spend..."
+            btc loadwallet "alice" 2>/dev/null || true
+            local UTXOS=$(btc_alice listunspent 1)
+            
+            if [ "$(echo "$UTXOS" | jq length)" -eq 0 ]; then
+                echo "❌ No confirmed UTXOs available for double-spend test"
+                echo "💡 Mine some blocks first: $0 mine 6"
+                return 1
+            fi
+            
+            # Get first available UTXO
+            local UTXO=$(echo "$UTXOS" | jq -r '.[0]')
+            local UTXO_TXID=$(echo "$UTXO" | jq -r '.txid')
+            local UTXO_VOUT=$(echo "$UTXO" | jq -r '.vout')
+            local UTXO_AMOUNT=$(echo "$UTXO" | jq -r '.amount')
+            
+            echo "📋 Using UTXO: $UTXO_TXID:$UTXO_VOUT ($UTXO_AMOUNT BTC)"
+            
+            # Create two addresses for double-spend
+            local ADDRESS1=$(btc_alice getnewaddress)
+            local ADDRESS2=$(btc_alice getnewaddress)
+            
+            # Send amount split for fees
+            local SEND_AMOUNT=$(echo "scale=8; $UTXO_AMOUNT - 0.001" | bc -l)
+            
+            echo "🚀 Creating first transaction to $ADDRESS1..."
+            # Create raw transaction manually to ensure we use the same UTXO
+            local RAW_TX1=$(btc createrawtransaction "[{\"txid\":\"$UTXO_TXID\",\"vout\":$UTXO_VOUT}]" "{\"$ADDRESS1\":$SEND_AMOUNT}")
+            local SIGNED_TX1=$(btc_alice signrawtransactionwithwallet "$RAW_TX1" | jq -r '.hex')
+            local TXID1=$(btc sendrawtransaction "$SIGNED_TX1")
+            
+            echo "✅ First transaction: $TXID1"
+            
+            echo "🚀 Creating conflicting transaction to $ADDRESS2..."
+            # Create conflicting transaction using same UTXO
+            local RAW_TX2=$(btc createrawtransaction "[{\"txid\":\"$UTXO_TXID\",\"vout\":$UTXO_VOUT}]" "{\"$ADDRESS2\":$SEND_AMOUNT}")
+            local SIGNED_TX2=$(btc_alice signrawtransactionwithwallet "$RAW_TX2" | jq -r '.hex')
+            
+            # Try to send second transaction (should fail)
+            echo "🚀 Attempting to send conflicting transaction..."
+            if btc sendrawtransaction "$SIGNED_TX2" 2>/dev/null; then
+                echo "❌ Unexpected: Second transaction was accepted"
+            else
+                echo "✅ Expected: Second transaction rejected (double-spend)"
+            fi
+            
+            echo ""
+            echo "🎯 Result: First transaction should remain in mempool"
+            echo "   Second transaction should be rejected/purged"
+            echo "   This demonstrates conflict resolution"
+            ;;
+            
+        "low-fee")
+            echo "💸 Method: Low-fee transaction (may be purged under fee pressure)"
+            
+            echo "🚀 Creating very low-fee transaction..."
+            btc loadwallet "alice" 2>/dev/null || true
+            local NEW_ADDRESS=$(btc_alice getnewaddress)
+            
+            # Create transaction with extremely low fee (1 sat/kB)
+            local LOW_FEE_RATE=0.00000001
+            
+            local TXID=$(btc_alice sendtoaddress "$NEW_ADDRESS" 0.001 "" "" false true "$LOW_FEE_RATE" "unset" 2>/dev/null || echo "")
+            
+            if [ -n "$TXID" ]; then
+                echo "✅ Low-fee transaction created: $TXID"
+                
+                # Get fee details
+                local TX_INFO=$(btc getmempoolentry "$TXID" 2>/dev/null || echo "")
+                if [ -n "$TX_INFO" ]; then
+                    local FEE=$(echo "$TX_INFO" | jq -r '.fees.base')
+                    local SIZE=$(echo "$TX_INFO" | jq -r '.size')
+                    local FEE_RATE=$(echo "scale=8; $FEE * 100000000 / $SIZE" | bc -l)
+                    
+                    echo "📊 Transaction details:"
+                    echo "   Fee: $FEE BTC"
+                    echo "   Size: $SIZE bytes"
+                    echo "   Fee rate: $FEE_RATE sat/byte"
+                fi
+                
+                echo ""
+                echo "💡 This transaction may be purged when:"
+                echo "   - Mempool becomes full"
+                echo "   - Higher fee transactions arrive"
+                echo "   - Node restarts"
+                echo ""
+                echo "🧪 To test purging, create many higher-fee transactions:"
+                echo "   for i in {1..10}; do $0 alice fund \$(btc_alice getnewaddress) 0.001; done"
+            else
+                echo "❌ Failed to create low-fee transaction"
+                echo "💡 Fee might be too low to be accepted even in regtest"
+            fi
+            ;;
+            
+        *)
+            echo "❌ Unknown method: $METHOD"
+            echo "Available methods:"
+            echo "  restart     - Restart Bitcoin node (clears mempool)"
+            echo "  double-spend - Create conflicting transactions"
+            echo "  low-fee     - Create low-fee transaction for purging"
+            echo ""
+            echo "Usage: $0 mempool-purge [method]"
+            return 1
+            ;;
+    esac
+    
+    echo ""
+    echo "🔍 Monitor your backend logs for purge detection messages!"
+    echo "📊 Check your application for updated transaction states!"
+    
+    # Show final mempool status
+    echo ""
+    echo "📊 Final mempool status:"
+    btc getmempoolinfo
+}
+
+# --- Blockchain reorganization function ---
+reorg() {
+    local BLOCKS_TO_REORG=${1:-3}
+    
+    echo "🔄 Testing Blockchain Reorganization (reorg $BLOCKS_TO_REORG blocks)"
+    
+    echo "📊 Current blockchain state:"
+    local INITIAL_HEIGHT=$(btc getblockcount)
+    local INITIAL_TIP=$(btc getbestblockhash)
+    echo "   Height: $INITIAL_HEIGHT"
+    echo "   Tip: $INITIAL_TIP"
+    
+    # Ensure we have enough blocks to reorg
+    if [ $INITIAL_HEIGHT -lt $BLOCKS_TO_REORG ]; then
+        echo "⚠️  Not enough blocks for reorg. Mining some blocks first..."
+        local NEEDED_BLOCKS=$((BLOCKS_TO_REORG + 3))
+        mine_blocks "$NEEDED_BLOCKS"
+        INITIAL_HEIGHT=$(btc getblockcount)
+        INITIAL_TIP=$(btc getbestblockhash)
+        echo "✅ New height: $INITIAL_HEIGHT"
+    fi
+    
+    # Create test transaction before reorg
+    echo ""
+    echo "💰 Creating test transaction before reorg..."
+    btc loadwallet "alice" 2>/dev/null || true
+    local TEST_ADDRESS=$(btc_alice getnewaddress)
+    local TEST_TXID=$(btc_alice sendtoaddress "$TEST_ADDRESS" 0.001)
+    echo "✅ Test transaction: $TEST_TXID"
+    
+    # Mine blocks to confirm the transaction
+    echo "⛏️  Mining blocks to confirm transaction..."
+    mine_blocks "$BLOCKS_TO_REORG"
+    local CONFIRMED_HEIGHT=$(btc getblockcount)
+    local CONFIRMED_TIP=$(btc getbestblockhash)
+    
+    echo "📊 After mining:"
+    echo "   Height: $CONFIRMED_HEIGHT"
+    echo "   Tip: $CONFIRMED_TIP"
+    
+    # Verify transaction is confirmed
+    local TX_INFO=$(btc_alice gettransaction "$TEST_TXID")
+    local CONFIRMATIONS=$(echo "$TX_INFO" | jq -r '.confirmations')
+    echo "   Transaction confirmations: $CONFIRMATIONS"
+    
+    # Find the block hash to invalidate (go back to before our test transaction)
+    local REORG_TARGET_HEIGHT=$((INITIAL_HEIGHT))
+    local REORG_BLOCK_HASH=$(btc getblockhash "$REORG_TARGET_HEIGHT")
+    
+    echo ""
+    echo "🔄 Starting reorganization..."
+    echo "   Invalidating blocks from height $REORG_TARGET_HEIGHT"
+    echo "   Target block: $REORG_BLOCK_HASH"
+    
+    # Invalidate the block (this will cause a reorg)
+    btc invalidateblock "$REORG_BLOCK_HASH"
+    
+    local NEW_HEIGHT=$(btc getblockcount)
+    local NEW_TIP=$(btc getbestblockhash)
+    
+    echo "📊 After invalidation:"
+    echo "   Height: $NEW_HEIGHT"
+    echo "   Tip: $NEW_TIP"
+    
+    # Check transaction status (should be back in mempool)
+    echo ""
+    echo "🔍 Checking transaction status after reorg..."
+    local TX_INFO_AFTER=$(btc_alice gettransaction "$TEST_TXID" 2>/dev/null || echo "{}")
+    local CONFIRMATIONS_AFTER=$(echo "$TX_INFO_AFTER" | jq -r '.confirmations // 0')
+    
+    if [ "$CONFIRMATIONS_AFTER" -eq 0 ]; then
+        echo "✅ Transaction is back in mempool (0 confirmations)"
+        
+        # Check if it's actually in mempool
+        if btc getmempoolentry "$TEST_TXID" > /dev/null 2>&1; then
+            echo "✅ Confirmed: Transaction is in mempool"
+        else
+            echo "⚠️  Transaction not found in mempool (may have been dropped)"
+        fi
+    else
+        echo "⚠️  Transaction still has $CONFIRMATIONS_AFTER confirmations"
+    fi
+    
+    # Create alternate chain (longer than original)
+    local ALTERNATE_BLOCKS=$((BLOCKS_TO_REORG + 2))
+    echo ""
+    echo "⛏️  Mining alternate chain ($ALTERNATE_BLOCKS blocks)..."
+    mine_blocks "$ALTERNATE_BLOCKS"
+    
+    local FINAL_HEIGHT=$(btc getblockcount)
+    local FINAL_TIP=$(btc getbestblockhash)
+    
+    echo "📊 Final state:"
+    echo "   Height: $FINAL_HEIGHT"
+    echo "   Tip: $FINAL_TIP"
+    
+    # Check final transaction status
+    echo ""
+    echo "🔍 Final transaction status..."
+    local TX_INFO_FINAL=$(btc_alice gettransaction "$TEST_TXID" 2>/dev/null || echo "{}")
+    local CONFIRMATIONS_FINAL=$(echo "$TX_INFO_FINAL" | jq -r '.confirmations // 0')
+    
+    if [ "$CONFIRMATIONS_FINAL" -gt 0 ]; then
+        echo "✅ Transaction re-confirmed with $CONFIRMATIONS_FINAL confirmations"
+    elif [ "$CONFIRMATIONS_FINAL" -eq 0 ]; then
+        echo "📋 Transaction still in mempool"
+    else
+        echo "❌ Transaction status unknown"
+    fi
+    
+    echo ""
+    echo "🎯 Reorg test completed! Check your application for:"
+    echo "   - Transaction moved from confirmed → mempool → confirmed"
+    echo "   - Proper state transitions in database"
+    echo "   - Balance updates reflecting reorg"
+    echo "   - No lost transactions or double-counting"
+    echo ""
+    echo "📊 Summary:"
+    echo "   Initial height: $INITIAL_HEIGHT → Final height: $FINAL_HEIGHT"
+    echo "   Transaction: $TEST_TXID"
+    echo "   Final confirmations: $CONFIRMATIONS_FINAL"
+    
+    echo ""
+    echo "🔍 Monitor your backend logs for reorg detection messages!"
+    
+    # Show mempool and blockchain info
+    echo ""
+    echo "📊 Final mempool status:"
+    btc getmempoolinfo
+}
+
+# --- Comprehensive test suite function ---
+run_tests() {
+    local WALLET_ADDRESS=${1:-}
+    
+    echo "🧪 TxRay - Comprehensive Bitcoin Test Suite"
+    echo "=========================================="
+    
+    if [ -z "$WALLET_ADDRESS" ]; then
+        echo "⚠️  No wallet address provided. You'll need to:"
+        echo "   1. Start your application"
+        echo "   2. Add a test wallet"
+        echo "   3. Get an address from that wallet"
+        echo "   4. Run: $0 run-tests <wallet_address>"
+        echo ""
+        echo "Example: $0 run-tests bcrt1qtest123456789abcdef"
+        return 1
+    fi
+    
+    # Function to pause between tests
+    pause_test() {
+        echo ""
+        echo "⏸️  Pausing for 5 seconds to observe changes..."
+        echo "   Check your application for updates!"
+        sleep 5
+        echo ""
+    }
+    
+    echo "🚀 Starting comprehensive test suite with address: $WALLET_ADDRESS"
+    echo ""
+    
+    # Test 1: Basic mempool transaction
+    echo "📍 TEST 1: Basic Mempool Transaction"
+    echo "-----------------------------------"
+    btc loadwallet "alice" 2>/dev/null || true
+    btc_alice sendtoaddress "$WALLET_ADDRESS" 0.001
+    pause_test
+    
+    # Test 2: RBF Testing
+    echo "📍 TEST 2: RBF (Replace-By-Fee)"
+    echo "-------------------------------"
+    echo "Creating low-fee transaction for RBF testing..."
+    local FIRST_TXID=$(btc_alice sendtoaddress "$WALLET_ADDRESS" 0.002 "" "" false true 0.00001 "unset")
+    echo "First transaction: $FIRST_TXID"
+    sleep 2
+    
+    echo "Attempting RBF replacement with bumpfee..."
+    local RESULT=$(btc_alice bumpfee "$FIRST_TXID" "{\"fee_rate\": 15}" 2>&1 || echo "RBF failed")
+    if echo "$RESULT" | jq -e '.txid' > /dev/null 2>&1; then
+        local NEW_TXID=$(echo "$RESULT" | jq -r '.txid')
+        echo "✅ RBF successful: $NEW_TXID"
+    else
+        echo "❌ RBF failed: $RESULT"
+    fi
+    pause_test
+    
+    # Test 3: CPFP Testing
+    echo "📍 TEST 3: CPFP (Child-Pays-For-Parent)"
+    echo "---------------------------------------"
+    echo "Creating low-fee parent transaction..."
+    local PARENT_TXID=$(btc_alice sendtoaddress "$WALLET_ADDRESS" 0.003 "" "" false true 0.00001 "unset")
+    echo "Parent transaction: $PARENT_TXID"
+    sleep 2
+    
+    echo "Creating CPFP child transaction..."
+    cpfp_for_wallet "alice" "$PARENT_TXID"
+    pause_test
+    
+    # Test 4: Mempool Purge Testing
+    echo "📍 TEST 4: Mempool Purge (Node Restart)"
+    echo "---------------------------------------"
+    echo "Creating transaction to be purged..."
+    btc_alice sendtoaddress "$WALLET_ADDRESS" 0.001
+    sleep 2
+    
+    echo "Testing mempool purge via restart..."
+    mempool_purge "restart"
+    pause_test
+    
+    # Test 5: Blockchain Reorganization
+    echo "📍 TEST 5: Blockchain Reorganization"
+    echo "------------------------------------"
+    echo "Creating transaction for reorg testing..."
+    btc_alice sendtoaddress "$WALLET_ADDRESS" 0.004
+    sleep 2
+    
+    echo "Mining blocks to confirm transaction..."
+    mine_blocks 3
+    sleep 2
+    
+    echo "Testing blockchain reorganization..."
+    reorg 2
+    pause_test
+    
+    # Test 6: Confirmation Testing
+    echo "📍 TEST 6: Transaction Confirmation"
+    echo "-----------------------------------"
+    echo "Creating final test transaction..."
+    btc_alice sendtoaddress "$WALLET_ADDRESS" 0.005
+    sleep 2
+    
+    echo "Confirming transaction..."
+    mine_blocks 1
+    pause_test
+    
+    # Final Status
+    echo "📍 FINAL STATUS"
+    echo "==============="
+    echo "All tests completed! Your application should now have examples of:"
+    echo ""
+    echo "✅ Basic mempool transactions"
+    echo "✅ RBF (Replace-By-Fee) relationships"
+    echo "✅ CPFP (Child-Pays-For-Parent) chains"
+    echo "✅ Mempool purge scenarios"
+    echo "✅ Blockchain reorganizations"
+    echo "✅ Transaction confirmations"
+    echo ""
+    echo "🔍 Check your application and database for:"
+    echo "   - Transaction state changes"
+    echo "   - RBF and CPFP relationships"
+    echo "   - Proper balance calculations"
+    echo "   - Real-time SMS updates"
+    echo ""
+    
+    # Show final blockchain and mempool state
+    echo "📊 Final blockchain state:"
+    btc getblockchaininfo | jq '.blocks, .bestblockhash'
+    
+    echo ""
+    echo "📊 Final mempool state:"
+    btc getmempoolinfo
+    
+    echo ""
+    echo "🎉 Test suite completed successfully!"
+    echo "Monitor your backend logs and application for all the changes!"
+}
+
+# --- Helper function for mining blocks ---
+mine_blocks() {
+    local BLOCKS=${1:-1}
+    btc loadwallet "miner" 2>/dev/null || true
+    local ADDRESS=$(btc_miner getnewaddress)
+    btc generatetoaddress "$BLOCKS" "$ADDRESS" >/dev/null 2>&1
+}
+
 # --- New multi-word command parsing for wallet actions ---
 if [[ "$1" == "alice" || "$1" == "bob" ]]; then
     WALLET="$1"
@@ -786,6 +1266,29 @@ case "$1" in
         ;;
     
     
+    "get-mempool-txid")
+        INDEX=${2:-0}
+        TXID=$(get_mempool_txid "$INDEX")
+        if [ $? -eq 0 ]; then
+            echo "$TXID"
+        fi
+        ;;
+    
+    "mempool-purge")
+        METHOD=${2:-restart}
+        mempool_purge "$METHOD"
+        ;;
+    
+    "reorg")
+        BLOCKS_TO_REORG=${2:-3}
+        reorg "$BLOCKS_TO_REORG"
+        ;;
+    
+    "run-tests")
+        WALLET_ADDRESS="$2"
+        run_tests "$WALLET_ADDRESS"
+        ;;
+    
     "mempool-status")
         echo "=== Mempool Status ==="
         if btc getblockchaininfo > /dev/null 2>&1; then
@@ -1033,29 +1536,33 @@ case "$1" in
         echo "  reconsider-block <hash> Reconsider invalidated block"
         echo ""
         echo "Mempool Commands:"
-        echo "  mempool-status          Show mempool transaction count and details"
-        echo "  cpfp-test <txid>        Create CPFP child transaction for given parent txid"
+        echo "  mempool-status               Show mempool transaction count and details"
+        echo "  get-mempool-txid [index]     Get TXID from mempool by index (default: 0)"
+        echo "  mempool-purge [method]       Purge mempool using method (restart/double-spend/low-fee)"
+        echo "  reorg [blocks]               Blockchain reorganization (default: 3 blocks)"
+        echo "  run-tests <address>          Run comprehensive test suite with wallet address"
         echo ""
         echo "Backend Integration:"
         echo "  add-wallets-to-backend [url]    Add Alice/Bob wallets to backend (default: http://localhost:3001)"
         echo "  remove-wallets-from-backend [url] Remove regtest wallets from backend"
         echo ""
         echo "Examples:"
-        echo "  $0 start                        # Start the environment"
-        echo "  $0 create-wallets               # Create Alice/Bob wallets (Alice gets 1 BTC distributed)"
-        echo "  $0 add-wallets-to-backend       # Add Alice/Bob to your backend"
-        echo "  $0 mine 6                       # Mine 6 blocks"
-        echo "  $0 alice send 0.5               # Send 0.5 BTC from Alice to Bob (RBF-enabled)"
-        echo "  $0 alice rbf <txid> 15          # Replace transaction with 15 sat/byte fee (Alice)"
-        echo "  $0 bob send 0.01                # Send 0.01 BTC from Bob to Alice"
-        echo "  $0 bob rbf <txid> 20            # Replace transaction with 20 sat/byte fee (Bob)"
-        echo "  $0 alice cpfp <txid>            # Alice creates CPFP child for parent transaction"
-        echo "  $0 bob cpfp <txid>              # Bob creates CPFP child for parent transaction"
-        echo "  $0 alice consolidate            # Consolidate Alice's 2 smallest UTXOs"
-        echo "  $0 bob consolidate              # Consolidate Bob's 2 smallest UTXOs"
-        echo "  $0 mine 1                       # Mine 1 block (confirms pending transactions)"
-        echo "  $0 mempool-status               # Check mempool"
-        echo "  $0 invalidate-tip               # Invalidate tip block (test blockchain reorg)"
-        echo "  $0 reset                        # Reset everything (includes backend cleanup)"
+        echo "  $0 start                             # Start the environment"
+        echo "  $0 create-wallets                    # Create Alice/Bob wallets (Alice gets 1 BTC distributed)"
+        echo "  $0 add-wallets-to-backend            # Add Alice/Bob to your backend"
+        echo "  $0 mine 6                            # Mine 6 blocks"
+        echo "  $0 alice send 0.5                    # Send 0.5 BTC from Alice to Bob (RBF-enabled)"
+        echo "  $0 alice rbf <txid> 15               # Replace transaction with 15 sat/byte fee (Alice)"
+        echo "  $0 bob send 0.01                     # Send 0.01 BTC from Bob to Alice"
+        echo "  $0 alice cpfp <txid>                 # Alice creates CPFP child for parent transaction"
+        echo "  $0 alice consolidate                 # Consolidate Alice's 2 smallest UTXOs"
+        echo "  $0 mine 1                            # Mine 1 block (confirms pending transactions)"
+        echo "  $0 mempool-status                    # Check mempool"
+        echo "  $0 get-mempool-txid 0                # Get first transaction from mempool"
+        echo "  $0 mempool-purge restart             # Purge mempool via node restart"
+        echo "  $0 reorg 3                           # 3-block reorganization"
+        echo "  $0 run-tests bcrt1q...               # Run full test suite with wallet address"
+        echo "  $0 invalidate-tip                    # Invalidate tip block (test blockchain reorg)"
+        echo "  $0 reset                             # Reset everything (includes backend cleanup)"
         ;;
 esac
