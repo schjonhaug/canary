@@ -4,7 +4,7 @@ use crate::electrum::ElectrumClient;
 fn test_electrum_client_creation() {
     // Test that we can create an Electrum client
     // Note: This will fail if no Electrum server is running on regtest
-    let result = ElectrumClient::new_regtest();
+    let result = ElectrumClient::new("tcp://127.0.0.1:50001");
 
     // In a test environment without a running Electrum server, this should fail
     // But we can still test the error handling
@@ -133,8 +133,8 @@ fn test_bdk_electrum_client_creation() {
 
 #[test]
 fn test_electrum_client_new_regtest_error_handling() {
-    // Test that new_regtest() handles connection errors gracefully
-    let result = ElectrumClient::new_regtest();
+    // Test that new() with regtest URL handles connection errors gracefully
+    let result = ElectrumClient::new("tcp://127.0.0.1:50001");
 
     match result {
         Ok(_) => {

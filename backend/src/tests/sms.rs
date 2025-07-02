@@ -90,7 +90,7 @@ fn test_create_norwegian_message_send_confirmed() {
     };
 
     let message = SmsService::create_norwegian_message(&event, "Test Wallet");
-    assert_eq!(message, "✅ Sending bekreftet for Test Wallet");
+    assert_eq!(message, "✅ Sending bekreftet: 0,25000000 BTC fra Test Wallet");
 }
 
 #[test]
