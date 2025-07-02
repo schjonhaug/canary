@@ -241,6 +241,8 @@ mempool_purge() {
                 btc loadwallet "alice" 2>/dev/null || true
                 btc_alice sendtoaddress "$NEW_ADDRESS" 0.001
                 echo "✅ Created test transaction"
+                # Update mempool after creating transaction
+                MEMPOOL_BEFORE=$(btc getrawmempool)
             fi
             
             echo ""
@@ -270,6 +272,17 @@ mempool_purge() {
             local MEMPOOL_AFTER=$(btc getrawmempool)
             echo "$MEMPOOL_AFTER" | jq length
             
+            # Check if mempool was actually purged
+            if [ "$(echo "$MEMPOOL_AFTER" | jq length)" -eq 0 ]; then
+                echo "✅ SUCCESS: Mempool was purged during restart"
+            else
+                echo "⚠️  WARNING: Mempool was NOT purged during restart"
+                echo "   This may be due to mempool persistence being enabled"
+                echo "   Check bitcoin.conf for 'persistmempool=0' setting"
+                echo "   Transactions remaining:"
+                echo "$MEMPOOL_AFTER" | jq -r '.[]' | head -5
+            fi
+            
             echo ""
             echo "🎯 Result: Mempool should be empty after restart"
             echo "   This simulates various purge scenarios like:"
@@ -277,7 +290,7 @@ mempool_purge() {
             echo "   - Memory pressure eviction"
             echo "   - Network partition recovery"
             ;;
-            
+        
         "double-spend")
             echo "💰 Method: Double-spend conflict (one tx will be purged)"
             
@@ -333,7 +346,7 @@ mempool_purge() {
             echo "   Second transaction should be rejected/purged"
             echo "   This demonstrates conflict resolution"
             ;;
-            
+        
         "low-fee")
             echo "💸 Method: Low-fee transaction (may be purged under fee pressure)"
             
@@ -375,11 +388,11 @@ mempool_purge() {
                 echo "💡 Fee might be too low to be accepted even in regtest"
             fi
             ;;
-            
+        
         *)
             echo "❌ Unknown method: $METHOD"
             echo "Available methods:"
-            echo "  restart     - Restart Bitcoin node (clears mempool)"
+            echo "  restart     - Restart Bitcoin node (clears mempool if persistmempool=0)"
             echo "  double-spend - Create conflicting transactions"
             echo "  low-fee     - Create low-fee transaction for purging"
             echo ""
