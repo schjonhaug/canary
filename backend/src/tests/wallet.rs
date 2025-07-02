@@ -1,5 +1,6 @@
 use crate::metadata::{EventInsert, EventType, TransactionEvent};
 use crate::wallet::WalletManager;
+use bdk_wallet::bitcoin::Network;
 use std::fs;
 use tempfile::TempDir;
 use tokio::sync::broadcast;
@@ -13,7 +14,13 @@ fn create_temp_wallet_manager() -> (WalletManager, TempDir) {
     let metadata_db_path = temp_dir.path().join("txray.sqlite");
 
     let wallet_manager = tokio::runtime::Runtime::new().unwrap().block_on(async {
-        WalletManager::new(event_tx, wallet_dir, metadata_db_path.to_str().unwrap()).await
+        WalletManager::new(
+            event_tx, 
+            wallet_dir, 
+            metadata_db_path.to_str().unwrap(),
+            Network::Regtest,
+            "tcp://127.0.0.1:50001"
+        ).await
     });
 
     (wallet_manager, temp_dir)
@@ -69,8 +76,8 @@ fn test_parse_multipath_descriptor_not_multipath() {
 
 #[test]
 fn test_get_network() {
-    let (_wallet_manager, _temp_dir) = create_temp_wallet_manager();
-    let network = WalletManager::get_network();
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+    let network = wallet_manager.get_network();
     assert_eq!(network, bdk_wallet::bitcoin::Network::Regtest);
 }
 

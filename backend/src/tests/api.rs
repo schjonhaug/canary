@@ -3,6 +3,7 @@ use crate::api::{
     create_router,
 };
 use crate::wallet::WalletManager;
+use bdk_wallet::bitcoin::Network;
 use axum::{
     body::Body,
     http::{self, Request, StatusCode},
@@ -31,6 +32,8 @@ async fn setup_test_app() -> (axum::Router, PathBuf) {
         event_tx,
         wallet_dir.clone(),
         metadata_db_path.to_str().unwrap(),
+        Network::Regtest,
+        "tcp://127.0.0.1:50001"
     )
     .await;
 

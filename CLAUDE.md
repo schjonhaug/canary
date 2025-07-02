@@ -7,8 +7,17 @@ TxRay is a Bitcoin wallet management service built in Rust that provides REST AP
 
 ## Development Commands
 ```bash
-# Run the backend server
+# Run the backend server (regtest - default)
 cd backend && cargo run
+
+# Run on testnet
+cd backend && cargo run -- --network testnet
+
+# Run on mainnet
+cd backend && cargo run -- --network mainnet
+
+# Run with custom Electrum server
+cd backend && cargo run -- --network mainnet --electrum-url ssl://custom.electrum.server:50002
 
 # Build the project
 cd backend && cargo build
@@ -134,9 +143,63 @@ txray/
 - `/api-docs/openapi.json`: OpenAPI specification
 
 ## Network Configuration
-- **Bitcoin Network**: Regtest (hardcoded)
+TxRay supports multiple Bitcoin networks with configurable Electrum servers:
+
+### Supported Networks
+- **Regtest** (default): For development and testing
+- **Testnet**: For testing with testnet bitcoins
+- **Mainnet**: For production use with real bitcoins
+
+### Configuration Methods
+
+#### Command Line Arguments
+```bash
+# Network selection
+cargo run -- --network regtest
+cargo run -- --network testnet
+cargo run -- --network mainnet
+
+# Custom Electrum server
+cargo run -- --network mainnet --electrum-url ssl://your.electrum.server:50002
+
+# Custom bind address and paths
+cargo run -- --bind-address 0.0.0.0:8080 --wallet-dir /custom/wallets --metadata-db custom.sqlite
+```
+
+#### Environment Variables
+```bash
+# Network configuration
+export TXRAY_NETWORK=mainnet
+export TXRAY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
+export TXRAY_BIND_ADDRESS=0.0.0.0:3000
+export TXRAY_WALLET_DIR=/app/wallets
+export TXRAY_METADATA_DB=/app/txray.sqlite
+
+# Run with environment configuration
+cargo run
+```
+
+#### Environment File (.env)
+Create a `.env` file in the backend directory:
+```env
+TXRAY_NETWORK=mainnet
+TXRAY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
+TXRAY_BIND_ADDRESS=127.0.0.1:3000
+TXRAY_WALLET_DIR=./wallets
+TXRAY_METADATA_DB=txray.sqlite
+```
+
+### Default Electrum Servers
+- **Regtest**: `tcp://127.0.0.1:50001` (local development)
+- **Testnet**: `ssl://electrum.blockstream.info:60002` (Blockstream)
+- **Mainnet**: `ssl://electrum.blockstream.info:50002` (Blockstream)
+
+### Default Configuration
+- **Bitcoin Network**: Regtest
 - **Electrum Server**: tcp://127.0.0.1:50001
 - **Web Server**: http://127.0.0.1:3000
+- **Wallet Directory**: ./wallets
+- **Metadata Database**: txray.sqlite
 - **Background Sync**: Every 4 seconds automatic wallet synchronization
 
 ## Advanced Features

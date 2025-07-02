@@ -2,11 +2,13 @@
 mod tests;
 
 mod api;
+mod config;
 mod electrum;
 mod metadata;
 mod sms;
 mod wallet;
 use api::create_router;
+use config::AppConfig;
 use electrum::ElectrumClient;
 use metadata::TransactionEvent;
 use sms::SmsService;
@@ -17,7 +19,18 @@ use wallet::WalletManager;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let electrum_client = ElectrumClient::new_regtest()?;
+    // Load configuration
+    let config = AppConfig::load()?;
+    
+    println!("Starting TxRay with configuration:");
+    println!("  Network: {:?}", config.network);
+    println!("  Electrum URL: {}", config.electrum_url());
+    println!("  Bind address: {}", config.bind_address);
+    println!("  Wallet directory: {}", config.wallet_dir_path());
+    println!("  Metadata database: {}", config.metadata_db_path());
+    
+    // Test Electrum connection
+    let electrum_client = ElectrumClient::new(&config.electrum_url())?;
     let features = electrum_client.server_features()?;
     println!("Connected to Electrum server: {}", features);
 
@@ -28,7 +41,13 @@ async fn main() -> anyhow::Result<()> {
     let sms_rx = event_tx.subscribe();
 
     let wallet_manager = Arc::new(Mutex::new(
-        WalletManager::new(event_tx, "./wallets".into(), "txray.sqlite").await,
+        WalletManager::new(
+            event_tx,
+            config.wallet_dir_path().into(),
+            &config.metadata_db_path(),
+            config.network(),
+            &config.electrum_url(),
+        ).await,
     ));
 
     // Spawn background task for wallet syncing
@@ -173,8 +192,8 @@ async fn main() -> anyhow::Result<()> {
 
     let app = create_router(wallet_manager);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
-    println!("Server running on http://127.0.0.1:3000");
+    let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
+    println!("Server running on http://{}", config.bind_address);
 
     axum::serve(listener, app).await?;
 

@@ -14,8 +14,14 @@ pub struct ElectrumClient {
 }
 
 impl ElectrumClient {
-    pub fn new_regtest() -> Result<Self> {
-        let client = BdkElectrumClient::new(electrum_client::Client::new("tcp://127.0.0.1:50001")?);
+    pub fn new(url: &str) -> Result<Self> {
+        // electrum_client::Client::new() handles both tcp:// and ssl:// schemes automatically
+        if !url.starts_with("tcp://") && !url.starts_with("ssl://") {
+            return Err(anyhow!("Unsupported Electrum URL scheme. Use 'tcp://' or 'ssl://'"));
+        }
+        
+        let electrum_client = electrum_client::Client::new(url)?;
+        let client = BdkElectrumClient::new(electrum_client);
         Ok(ElectrumClient { client })
     }
 

@@ -15,6 +15,7 @@ pub struct WalletManager {
     electrum_client: Option<ElectrumClient>,
     pub metadata_db: MetadataDb,
     pub event_sender: broadcast::Sender<TransactionEvent>,
+    network: Network,
 }
 
 impl WalletManager {
@@ -22,13 +23,15 @@ impl WalletManager {
         event_sender: broadcast::Sender<TransactionEvent>,
         wallet_dir: PathBuf,
         metadata_db_path: &str,
+        network: Network,
+        electrum_url: &str,
     ) -> Self {
         if let Err(e) = std::fs::create_dir_all(&wallet_dir) {
             eprintln!("Warning: Failed to create wallet directory: {}", e);
         }
 
         // Initialize electrum client
-        let electrum_client = ElectrumClient::new_regtest().ok();
+        let electrum_client = ElectrumClient::new(electrum_url).ok();
 
         // Initialize metadata database
         let metadata_db = match MetadataDb::new(metadata_db_path) {
@@ -45,6 +48,7 @@ impl WalletManager {
             electrum_client,
             metadata_db,
             event_sender,
+            network,
         };
 
         // Load all existing wallets
@@ -56,8 +60,8 @@ impl WalletManager {
     }
 
     /// Get the network configuration used by all wallets
-    pub fn get_network() -> Network {
-        Network::Regtest
+    pub fn get_network(&self) -> Network {
+        self.network
     }
 
     /// Helper function to insert event and broadcast using extracted components
@@ -165,7 +169,7 @@ impl WalletManager {
         // Try to load the wallet (we don't know the descriptors, so we let BDK figure it out)
         let wallet_opt = Wallet::load()
             .extract_keys()
-            .check_network(Self::get_network())
+            .check_network(self.get_network())
             .load_wallet(&mut db)
             .map_err(|e| anyhow!("Failed to load wallet: {}", e))?;
 
@@ -240,7 +244,7 @@ impl WalletManager {
         let wallet_filename = wallet_name_from_descriptor(
             &receive_descriptor,
             Some(&change_descriptor),
-            Self::get_network(),
+            self.get_network(),
             &Secp256k1::new(),
         )?;
         let wallet_filename_with_ext = format!("{}.sqlite", wallet_filename);
@@ -260,7 +264,7 @@ impl WalletManager {
 
         // Create new wallet
         let mut wallet = Wallet::create(receive_descriptor.clone(), change_descriptor.clone())
-            .network(Self::get_network())
+            .network(self.get_network())
             .create_wallet(&mut db)
             .map_err(|e| anyhow!("Failed to create wallet: {}", e))?;
 
