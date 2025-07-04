@@ -279,7 +279,7 @@ impl WalletManager {
         // Save wallet metadata
         self.metadata_db
             .insert_wallet(name, descriptor_str, &wallet_filename_with_ext)?;
-        println!("  Metadata saved to txray.sqlite");
+        println!("  Metadata saved to file: {}", wallet_filename_with_ext);
 
         // Add wallet to the in-memory manager (using wallet_filename as key)
         self.wallets.push((wallet_filename, wallet));
