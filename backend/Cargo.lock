@@ -2294,6 +2294,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tower",
+ "tower-http",
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",

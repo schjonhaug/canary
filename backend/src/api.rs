@@ -1,4 +1,4 @@
-use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata};
+use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata, TransactionEvent, EventType};
 use crate::wallet::WalletManager;
 use axum::{
     Router,
@@ -7,6 +7,7 @@ use axum::{
     response::{IntoResponse, Json, Response},
     routing::{get, post},
 };
+use tower_http::cors::CorsLayer;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -528,24 +529,48 @@ pub async fn get_twilio_config(State(wallet_manager): State<AppState>) -> Respon
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/transaction-events",
+    responses(
+        (status = 200, description = "List of all transaction events", body = Vec<TransactionEvent>),
+    ),
+    tag = "transaction"
+)]
+pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) -> Response {
+    let manager = wallet_manager.lock().await;
+    match manager.metadata_db.get_all_events() {
+        Ok(events) => (StatusCode::OK, Json(events)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+            .into_response(),
+    }
+}
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
         create_wallet, delete_wallet, get_wallet, get_all_wallets,
         create_contact, get_all_contacts, delete_contact,
         add_contact_to_wallet, remove_contact_from_wallet, get_wallet_contacts,
-        save_twilio_config, get_twilio_config
+        save_twilio_config, get_twilio_config,
+        get_all_transaction_events
     ),
     components(schemas(
         CreateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactRequest, CreateContactResponse, AddContactToWalletRequest,
         TwilioConfigRequest, TwilioConfigResponse,
-        ContactPerson, TwilioConfig, SmsLog
+        ContactPerson, TwilioConfig, SmsLog, TransactionEvent, EventType
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),
         (name = "contact", description = "Contact management endpoints"),
-        (name = "twilio", description = "Twilio configuration endpoints")
+        (name = "twilio", description = "Twilio configuration endpoints"),
+        (name = "transaction", description = "Transaction events endpoints")
     ),
     info(
         title = "TxRay Wallet API",
@@ -573,6 +598,8 @@ pub fn create_router(wallet_manager: AppState) -> Router {
             "/twilio/config",
             post(save_twilio_config).get(get_twilio_config),
         )
+        .route("/transaction-events", get(get_all_transaction_events))
+        .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(wallet_manager)
 }
