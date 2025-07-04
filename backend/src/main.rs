@@ -78,30 +78,6 @@ async fn main() -> anyhow::Result<()> {
                     // Get contacts for this wallet and send SMS notifications
                     let manager = sms_wallet_manager.lock().await;
 
-                    // Helper function to get current wallet balance
-                    let get_wallet_balance = |wallet_id: i64| -> Option<i64> {
-                        manager
-                            .wallets
-                            .iter()
-                            .find(|(checksum, _)| {
-                                // Find wallet by matching ID via metadata
-                                if let Ok(all_wallets) = manager.metadata_db.get_all_wallets() {
-                                    all_wallets.iter().any(|w| {
-                                        w.id == Some(wallet_id)
-                                            && w.wallet_filename
-                                                .strip_suffix(".sqlite")
-                                                .unwrap_or("")
-                                                == checksum
-                                    })
-                                } else {
-                                    false
-                                }
-                            })
-                            .map(|(_, wallet)| wallet.balance().total().to_sat() as i64)
-                    };
-
-                    // Get current wallet balance
-                    let current_balance = get_wallet_balance(event.wallet_id);
 
                     // Get contacts for the wallet
                     match manager.metadata_db.get_contacts_for_wallet(event.wallet_id) {
@@ -113,7 +89,6 @@ async fn main() -> anyhow::Result<()> {
                                         let message = sms::SmsService::create_norwegian_message(
                                             &event,
                                             &wallet_metadata.name,
-                                            current_balance,
                                         );
                                         println!("📱 SMS Alert (no contacts): {}", message);
                                     }
@@ -155,7 +130,6 @@ async fn main() -> anyhow::Result<()> {
                                             &wallet_name,
                                             contacts.clone(),
                                             &twilio_config,
-                                            current_balance,
                                         )
                                         .await;
 
@@ -209,7 +183,6 @@ async fn main() -> anyhow::Result<()> {
                                             let message = sms::SmsService::create_norwegian_message(
                                                 &event,
                                                 &wallet_metadata.name,
-                                                current_balance,
                                             );
                                             println!(
                                                 "📱 SMS Alert (Twilio not configured): {}",

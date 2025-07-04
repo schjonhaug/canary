@@ -115,7 +115,7 @@ fn test_insert_and_broadcast_event_helper() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
-        confirmed_amount_sats: Some(1000000),
+        balance_total: Some(1000000),
     };
 
     // Test the helper function
@@ -194,7 +194,7 @@ fn test_event_insert_creation() {
         is_confirmed: false,
         is_rbf: true,
         is_cpfp: false,
-        confirmed_amount_sats: None,
+        balance_total: None,
     };
 
     assert_eq!(event_insert.wallet_id, 1);
@@ -215,7 +215,7 @@ fn test_transaction_event_creation() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
-        confirmed_amount_sats: Some(1000000),
+        balance_total: Some(1000000),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 

@@ -2,7 +2,7 @@ use bdk_wallet::rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use utoipa::ToSchema;
-use chrono::{DateTime, Utc};
+// chrono imports removed as they're no longer needed
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
 pub enum EventType {
@@ -85,7 +85,7 @@ pub struct TransactionEvent {
     pub is_confirmed: bool,
     pub is_rbf: bool,
     pub is_cpfp: bool,
-    pub confirmed_amount_sats: Option<i64>,
+    pub balance_total: Option<i64>,
     pub created_at: String,
 }
 
@@ -99,7 +99,7 @@ pub struct TransactionEventWithWallet {
     pub is_confirmed: bool,
     pub is_rbf: bool,
     pub is_cpfp: bool,
-    pub confirmed_amount_sats: Option<i64>,
+    pub balance_total: Option<i64>,
     pub created_at: String,
 }
 
@@ -111,7 +111,7 @@ pub struct EventInsert {
     pub is_confirmed: bool,
     pub is_rbf: bool,
     pub is_cpfp: bool,
-    pub confirmed_amount_sats: Option<i64>,
+    pub balance_total: Option<i64>,
 }
 
 impl Default for EventType {
@@ -158,9 +158,13 @@ impl MetadataDb {
         conn.execute("ALTER TABLE transaction_events DROP COLUMN message", [])
             .ok(); // Ignore errors if column doesn't exist
 
-        // Add confirmed_amount_sats column if it doesn't exist
+        // Migration: Remove old confirmed_amount_sats column if it exists
+        conn.execute("ALTER TABLE transaction_events DROP COLUMN confirmed_amount_sats", [])
+            .ok(); // Ignore errors if column doesn't exist
+
+        // Add balance_total column if it doesn't exist
         conn.execute(
-            "ALTER TABLE transaction_events ADD COLUMN confirmed_amount_sats INTEGER",
+            "ALTER TABLE transaction_events ADD COLUMN balance_total INTEGER",
             [],
         ).ok(); // Ignore errors if column already exists
 
@@ -345,7 +349,7 @@ impl MetadataDb {
     pub fn insert_event(&self, event: &EventInsert) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, confirmed_amount_sats) 
+            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
         )?;
 
@@ -357,7 +361,7 @@ impl MetadataDb {
             &(event.is_rbf as i32).to_string(),
             &(event.is_cpfp as i32).to_string(),
             &event
-                .confirmed_amount_sats
+                .balance_total
                 .map(|v| v.to_string())
                 .unwrap_or_default(),
         ])?;
@@ -367,7 +371,7 @@ impl MetadataDb {
     pub fn get_events_by_wallet(&self, wallet_id: i64) -> Result<Vec<TransactionEvent>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, confirmed_amount_sats, created_at 
+            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, created_at 
              FROM transaction_events WHERE wallet_id = ?1 ORDER BY created_at DESC"
         )?;
 
@@ -380,7 +384,7 @@ impl MetadataDb {
                 is_confirmed: row.get(4)?,
                 is_rbf: row.get(5)?,
                 is_cpfp: row.get(6)?,
-                confirmed_amount_sats: row.get(7).ok(),
+                balance_total: row.get(7).ok(),
                 created_at: row.get(8)?,
             })
         })?;
@@ -396,7 +400,7 @@ impl MetadataDb {
     pub fn get_all_events(&self) -> Result<Vec<TransactionEvent>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, confirmed_amount_sats, created_at 
+            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, created_at 
              FROM transaction_events ORDER BY created_at DESC"
         )?;
 
@@ -409,7 +413,7 @@ impl MetadataDb {
                 is_confirmed: row.get(4)?,
                 is_rbf: row.get(5)?,
                 is_cpfp: row.get(6)?,
-                confirmed_amount_sats: row.get(7).ok(),
+                balance_total: row.get(7).ok(),
                 created_at: row.get(8)?,
             })
         })?;
@@ -425,7 +429,7 @@ impl MetadataDb {
     pub fn get_all_events_with_wallets(&self) -> Result<Vec<TransactionEventWithWallet>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT te.id, te.wallet_id, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.confirmed_amount_sats, te.created_at 
+            "SELECT te.id, te.wallet_id, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.created_at 
              FROM transaction_events te 
              JOIN wallets w ON te.wallet_id = w.id 
              ORDER BY te.created_at DESC"
@@ -449,7 +453,7 @@ impl MetadataDb {
                 is_confirmed: row.get(5)?,
                 is_rbf: row.get(6)?,
                 is_cpfp: row.get(7)?,
-                confirmed_amount_sats: row.get(8).ok(),
+                balance_total: row.get(8).ok(),
                 created_at,
             })
         })?;

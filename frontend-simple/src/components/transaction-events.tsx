@@ -22,7 +22,7 @@ interface TransactionEvent {
   is_confirmed: boolean
   is_rbf: boolean
   is_cpfp: boolean
-  confirmed_amount_sats?: number
+  balance_total?: number
   created_at: string
 }
 
@@ -108,6 +108,7 @@ export function TransactionEvents() {
                 <TableHead>Wallet</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead>Total Balance</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Flags</TableHead>
                 <TableHead>Date/Time</TableHead>
@@ -126,11 +127,9 @@ export function TransactionEvents() {
                   </TableCell>
                   <TableCell className="font-mono">
                     {formatSats(event.amount_sats)}
-                    {event.confirmed_amount_sats && event.confirmed_amount_sats !== event.amount_sats && (
-                      <div className="text-sm text-muted-foreground">
-                        Confirmed: {formatSats(event.confirmed_amount_sats)}
-                      </div>
-                    )}
+                  </TableCell>
+                  <TableCell className="font-mono">
+                    {event.balance_total ? formatSats(event.balance_total) : "N/A"}
                   </TableCell>
                   <TableCell>
                     <Badge variant={event.is_confirmed ? "default" : "outline"}>
