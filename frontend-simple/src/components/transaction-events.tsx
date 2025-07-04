@@ -26,7 +26,11 @@ interface TransactionEvent {
   created_at: string
 }
 
-export function TransactionEvents() {
+interface TransactionEventsProps {
+  selectedWalletId?: number | null
+}
+
+export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) {
   const [events, setEvents] = useState<TransactionEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -69,11 +73,33 @@ export function TransactionEvents() {
     return date.toLocaleString()
   }
 
+  // Filter events by selected wallet if one is selected
+  const filteredEvents = selectedWalletId 
+    ? events.filter(event => event.wallet_id === selectedWalletId)
+    : events
+
+  const getCardTitle = () => {
+    if (selectedWalletId && filteredEvents.length > 0) {
+      const walletName = filteredEvents[0]?.wallet_name || `Wallet ${selectedWalletId}`
+      return `Transaction Events - ${walletName}`
+    }
+    return "Transaction Events"
+  }
+
+  const getCardDescription = () => {
+    if (selectedWalletId) {
+      return filteredEvents.length > 0 
+        ? `${filteredEvents.length} transaction event${filteredEvents.length !== 1 ? 's' : ''} for selected wallet`
+        : "No transaction events found for selected wallet"
+    }
+    return "Real-time Bitcoin transaction events from all wallets"
+  }
+
   if (loading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Transaction Events</CardTitle>
+          <CardTitle>{getCardTitle()}</CardTitle>
           <CardDescription>Loading transaction events...</CardDescription>
         </CardHeader>
       </Card>
@@ -94,12 +120,17 @@ export function TransactionEvents() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Transaction Events</CardTitle>
-        <CardDescription>Real-time Bitcoin transaction events from all wallets</CardDescription>
+        <CardTitle>{getCardTitle()}</CardTitle>
+        <CardDescription>{getCardDescription()}</CardDescription>
       </CardHeader>
       <CardContent>
-        {events.length === 0 ? (
-          <p className="text-muted-foreground">No transaction events found.</p>
+        {filteredEvents.length === 0 ? (
+          <p className="text-muted-foreground">
+            {selectedWalletId 
+              ? "No transaction events found for the selected wallet." 
+              : "No transaction events found."
+            }
+          </p>
         ) : (
           <Table>
             <TableCaption>A list of all transaction events from the TxRay system.</TableCaption>
@@ -115,7 +146,7 @@ export function TransactionEvents() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {events.map((event) => (
+              {filteredEvents.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell className="font-medium">{event.wallet_name}</TableCell>
                   <TableCell>

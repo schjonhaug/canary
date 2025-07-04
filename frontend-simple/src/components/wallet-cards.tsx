@@ -14,7 +14,12 @@ interface Wallet {
   last_activity?: string
 }
 
-export function WalletCards() {
+interface WalletCardsProps {
+  selectedWalletId: number | null
+  onSelectWallet: (walletId: number | null) => void
+}
+
+export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsProps) {
   const [wallets, setWallets] = useState<Wallet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,6 +62,19 @@ export function WalletCards() {
     return wallets.reduce((total, wallet) => {
       return total + (wallet.balance_total || 0)
     }, 0)
+  }
+
+  const extractChecksum = (descriptor: string) => {
+    const checksumMatch = descriptor.match(/#([a-zA-Z0-9]+)$/)
+    return checksumMatch ? checksumMatch[1] : "Unknown"
+  }
+
+  const handleWalletClick = (walletId: number) => {
+    if (selectedWalletId === walletId) {
+      onSelectWallet(null) // Deselect if already selected
+    } else {
+      onSelectWallet(walletId)
+    }
   }
 
   if (loading) {
@@ -119,39 +137,52 @@ export function WalletCards() {
 
       {/* Individual Wallet Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {wallets.map((wallet) => (
-          <Card key={wallet.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg truncate" title={wallet.name}>
-                {wallet.name}
-              </CardTitle>
-              <CardDescription className="text-xs font-mono truncate" title={wallet.descriptor}>
-                {wallet.descriptor.length > 50 
-                  ? `${wallet.descriptor.substring(0, 47)}...` 
-                  : wallet.descriptor
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div>
-                  <div className="text-sm text-muted-foreground">Balance</div>
-                  <div className="text-xl font-bold font-mono">
-                    {formatBalance(wallet.balance_total)}
+        {wallets.map((wallet) => {
+          const isSelected = selectedWalletId === wallet.id
+          return (
+            <Card 
+              key={wallet.id} 
+              className={`cursor-pointer transition-all duration-200 ${
+                isSelected 
+                  ? "ring-2 ring-orange-500 bg-orange-50/50 shadow-lg" 
+                  : "hover:shadow-md hover:bg-gray-50/50"
+              }`}
+              onClick={() => handleWalletClick(wallet.id)}
+            >
+              <CardHeader className="pb-3 relative">
+                <CardTitle className="text-lg truncate pr-20" title={wallet.name}>
+                  {wallet.name}
+                </CardTitle>
+                <div className="absolute top-6 right-6 text-xs font-mono text-muted-foreground bg-gray-100 px-2 py-1 rounded">
+                  #{extractChecksum(wallet.descriptor)}
+                </div>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Click to {isSelected ? 'deselect' : 'view transactions'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Balance</div>
+                    <div className={`text-xl font-bold font-mono ${
+                      isSelected ? "text-orange-700" : ""
+                    }`}>
+                      {formatBalance(wallet.balance_total)}
+                    </div>
+                  </div>
+                  <div className="flex justify-center items-center text-xs text-muted-foreground">
+                    <span>
+                      {wallet.last_activity 
+                        ? `Last activity: ${new Date(wallet.last_activity).toLocaleDateString()}` 
+                        : "No recent activity"
+                      }
+                    </span>
                   </div>
                 </div>
-                <div className="flex justify-center items-center text-xs text-muted-foreground">
-                  <span>
-                    {wallet.last_activity 
-                      ? `Last activity: ${new Date(wallet.last_activity).toLocaleDateString()}` 
-                      : "No recent activity"
-                    }
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
     </div>
   )
