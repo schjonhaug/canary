@@ -250,6 +250,7 @@ fn test_wallet_metadata_serialization() {
         wallet_filename: "test.sqlite".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),
         balance_total: Some(100000000), // 1 BTC in satoshis
+        last_activity: Some("2024-01-01 12:30:00".to_string()),
     };
 
     // Test serialization
