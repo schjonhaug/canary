@@ -179,6 +179,7 @@ fn test_event_operations() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
+        confirmed_amount_sats: Some(1000000),
     };
 
     let event_id = db.insert_event(&event).unwrap();
@@ -212,6 +213,7 @@ fn test_sms_log_operations() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
+        confirmed_amount_sats: Some(1000000),
     };
     let event_id = db.insert_event(&event).unwrap();
 

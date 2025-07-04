@@ -46,13 +46,14 @@ fn test_create_norwegian_message_receive_confirmed() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
+        confirmed_amount_sats: Some(100_000_000),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_norwegian_message(&event, "Test Wallet", Some(150_000_000)); // 1.5 BTC balance
     assert_eq!(
         message,
-        "✅ Mottak bekreftet: 1,00000000 BTC til Test Wallet"
+        "✅ Mottak bekreftet: 1,00000000 BTC til Test Wallet. Ny saldo: 1,50000000 BTC"
     );
 }
 
@@ -66,10 +67,11 @@ fn test_create_norwegian_message_receive_unconfirmed() {
         is_confirmed: false,
         is_rbf: false,
         is_cpfp: false,
+        confirmed_amount_sats: None,
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_norwegian_message(&event, "Test Wallet", None);
     assert_eq!(message, "📥 Mottar 0,50000000 BTC til Test Wallet");
 }
 
@@ -83,13 +85,14 @@ fn test_create_norwegian_message_send_confirmed() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
+        confirmed_amount_sats: Some(25_000_000),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_norwegian_message(&event, "Test Wallet", Some(75_000_000));
     assert_eq!(
         message,
-        "✅ Sending bekreftet: 0,25000000 BTC fra Test Wallet"
+        "✅ Sending bekreftet: 0,25000000 BTC fra Test Wallet. Ny saldo: 0,75000000 BTC"
     );
 }
 
@@ -103,10 +106,11 @@ fn test_create_norwegian_message_send_unconfirmed() {
         is_confirmed: false,
         is_rbf: false,
         is_cpfp: false,
+        confirmed_amount_sats: None,
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_norwegian_message(&event, "Test Wallet", None);
     assert_eq!(message, "📤 Sender 0,10000000 BTC fra Test Wallet");
 }
 
@@ -120,10 +124,11 @@ fn test_create_norwegian_message_rbf() {
         is_confirmed: false,
         is_rbf: true,
         is_cpfp: false,
+        confirmed_amount_sats: None,
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_norwegian_message(&event, "Test Wallet", None);
     assert_eq!(
         message,
         "📤 RBF gebyr økning: +0,00005000 BTC for Test Wallet"
@@ -140,10 +145,11 @@ fn test_create_norwegian_message_cpfp() {
         is_confirmed: false,
         is_rbf: false,
         is_cpfp: true,
+        confirmed_amount_sats: None,
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_norwegian_message(&event, "Test Wallet", None);
     assert_eq!(message, "🚀 CPFP gebyr: 0,00010000 BTC for Test Wallet");
 }
 
@@ -227,6 +233,7 @@ fn test_transaction_event_creation() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
+        confirmed_amount_sats: Some(100_000_000),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
