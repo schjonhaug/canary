@@ -4,8 +4,9 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
+import { Trash2, Plus } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
+import { CreateWalletModal } from "./create-wallet-modal"
 
 interface Wallet {
   id: number
@@ -28,25 +29,26 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   const [error, setError] = useState<string | null>(null)
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+
+  // Define fetchWallets function
+  const fetchWallets = async () => {
+    try {
+      const apiUrl = `http://${window.location.hostname}:3000/wallets`
+      const response = await fetch(apiUrl)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      setWallets(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch wallets")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchWallets() {
-      try {
-        // Use the same hostname as the current page, but port 3000 for the API
-        const apiUrl = `http://${window.location.hostname}:3000/wallets`
-        const response = await fetch(apiUrl)
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        const data = await response.json()
-        setWallets(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch wallets")
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchWallets()
     
     // Refresh every 10 seconds (less frequent than transaction events)
@@ -115,6 +117,19 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
     setWalletToDelete(null)
   }
 
+  const handleCreateWallet = () => {
+    setIsCreateModalOpen(true)
+  }
+
+  const handleCreateModalClose = () => {
+    setIsCreateModalOpen(false)
+  }
+
+  const handleWalletCreated = () => {
+    // Refresh the wallet list after creating a new wallet
+    fetchWallets()
+  }
+
   if (loading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -143,14 +158,31 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
 
   if (wallets.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>No Wallets</CardTitle>
-          <CardDescription>
-            No wallets found. Create a wallet to get started.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>No Wallets</CardTitle>
+            <CardDescription>
+              No wallets found. Create your first wallet to get started.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={handleCreateWallet}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Wallet
+            </Button>
+          </CardContent>
+        </Card>
+
+        <CreateWalletModal
+          isOpen={isCreateModalOpen}
+          onClose={handleCreateModalClose}
+          onWalletCreated={handleWalletCreated}
+        />
+      </div>
     )
   }
 
@@ -159,11 +191,21 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
       {/* Total Balance Summary Card */}
       <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            ₿ Total Balance
-            <Badge variant="outline" className="text-xs">
-              {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
-            </Badge>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              ₿ Total Balance
+              <Badge variant="outline" className="text-xs">
+                {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
+            <Button
+              onClick={handleCreateWallet}
+              size="sm"
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Wallet
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -239,6 +281,12 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
         isOpen={isDeleteModalOpen}
         onClose={handleDeleteModalClose}
         onConfirmDelete={handleDeleteConfirm}
+      />
+
+      <CreateWalletModal
+        isOpen={isCreateModalOpen}
+        onClose={handleCreateModalClose}
+        onWalletCreated={handleWalletCreated}
       />
     </div>
   )
