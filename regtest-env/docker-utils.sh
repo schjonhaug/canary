@@ -110,17 +110,29 @@ cpfp_for_wallet() {
         echo "❌ No outputs in parent transaction belong to $WALLET's wallet"
         exit 1
     fi
-    # Calculate child amount (leave high fee for CPFP acceleration)
-    CHILD_AMOUNT_RAW=$(echo "scale=8; $TOTAL_WALLET_AMOUNT - 0.005" | bc -l)  # 0.005 BTC fee
+    # Calculate child amount (dynamic fee based on available amount)
+    # Use 50% of available amount as fee for CPFP acceleration, but cap at 0.005 BTC
+    HALF_AMOUNT=$(echo "scale=8; $TOTAL_WALLET_AMOUNT * 0.5" | bc -l)
+    if [ "$(echo "$HALF_AMOUNT > 0.005" | bc -l)" -eq 1 ]; then
+        DYNAMIC_FEE=0.005
+    else
+        DYNAMIC_FEE=$HALF_AMOUNT
+    fi
+    # Ensure minimum fee of 0.0001 BTC
+    if [ "$(echo "$DYNAMIC_FEE < 0.0001" | bc -l)" -eq 1 ]; then
+        DYNAMIC_FEE=0.0001
+    fi
+    CHILD_AMOUNT_RAW=$(echo "scale=8; $TOTAL_WALLET_AMOUNT - $DYNAMIC_FEE" | bc -l)
     # Ensure proper decimal formatting for JSON (must start with 0. not .)
     CHILD_AMOUNT=$(echo "$CHILD_AMOUNT_RAW" | sed 's/^\./0./')
     if [ "$(echo "$CHILD_AMOUNT < 0.0001" | bc -l)" -eq 1 ]; then
         echo "❌ Child amount too small: $CHILD_AMOUNT BTC (need at least 0.0001 BTC after fees)"
+        echo "   Available: $TOTAL_WALLET_AMOUNT BTC, Required fee: $DYNAMIC_FEE BTC"
         exit 1
     fi
     # Get change address for the child transaction
     CHANGE_ADDRESS=$(btc_wallet "$WALLET" getnewaddress)
-    echo "   🔍 Creating CPFP child spending $TOTAL_WALLET_AMOUNT BTC → $CHILD_AMOUNT BTC (0.005 BTC fee)"
+    echo "   🔍 Creating CPFP child spending $TOTAL_WALLET_AMOUNT BTC → $CHILD_AMOUNT BTC ($DYNAMIC_FEE BTC fee)"
     echo "   🎯 Target: $CHANGE_ADDRESS"
     # Create raw transaction inputs from wallet's outputs in the parent transaction
     INPUTS="["
@@ -161,7 +173,7 @@ cpfp_for_wallet() {
         exit 1
     fi
     echo "   ✅ Child transaction created: $CHILD_TXID"
-    echo "   💰 Amount: $CHILD_AMOUNT BTC (high fee: 0.005 BTC)"
+    echo "   💰 Amount: $CHILD_AMOUNT BTC (high fee: $DYNAMIC_FEE BTC)"
     echo "   🎯 Target: $CHANGE_ADDRESS ($WALLET change address)"
     echo ""
     echo "🔗 CPFP Relationship Created:"
