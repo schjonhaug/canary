@@ -57,9 +57,9 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   }, [])
 
   const formatBalance = (sats?: number) => {
-    if (sats === undefined || sats === null) return "0,00000000 BTC"
+    if (sats === undefined || sats === null) return "0.00000000 BTC"
     const btc = sats / 100_000_000
-    return `${btc.toLocaleString("nb-NO", { 
+    return `${btc.toLocaleString("en-US", { 
       minimumFractionDigits: 8, 
       maximumFractionDigits: 8 
     })} BTC`

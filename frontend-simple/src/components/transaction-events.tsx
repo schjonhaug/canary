@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowDown, ArrowUp, CheckCircle, Clock, RefreshCw, Zap } from "lucide-react"
 
 interface TransactionEvent {
   id: number
@@ -62,7 +63,7 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
 
   const formatSats = (sats: number) => {
     const btc = sats / 100_000_000
-    return `${btc.toLocaleString("nb-NO", { 
+    return `${btc.toLocaleString("en-US", { 
       minimumFractionDigits: 8, 
       maximumFractionDigits: 8 
     })} BTC`
@@ -152,8 +153,19 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                   <TableCell>
                     <Badge 
                       variant={event.event_type === "receive" ? "default" : "secondary"}
+                      className="flex items-center gap-1"
                     >
-                      {event.event_type === "receive" ? "📥 Receive" : "📤 Send"}
+                      {event.event_type === "receive" ? (
+                        <>
+                          <ArrowDown className="h-3 w-3" />
+                          Receive
+                        </>
+                      ) : (
+                        <>
+                          <ArrowUp className="h-3 w-3" />
+                          Send
+                        </>
+                      )}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono">
@@ -163,17 +175,36 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                     {event.balance_total ? formatSats(event.balance_total) : "N/A"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={event.is_confirmed ? "default" : "outline"}>
-                      {event.is_confirmed ? "✅ Confirmed" : "⏳ Pending"}
+                    <Badge 
+                      variant={event.is_confirmed ? "default" : "outline"}
+                      className="flex items-center gap-1"
+                    >
+                      {event.is_confirmed ? (
+                        <>
+                          <CheckCircle className="h-3 w-3" />
+                          Confirmed
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="h-3 w-3" />
+                          Pending
+                        </>
+                      )}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       {event.is_rbf && (
-                        <Badge variant="outline" className="text-xs">RBF</Badge>
+                        <Badge variant="outline" className="text-xs flex items-center gap-1">
+                          <RefreshCw className="h-3 w-3" />
+                          RBF
+                        </Badge>
                       )}
                       {event.is_cpfp && (
-                        <Badge variant="outline" className="text-xs">CPFP</Badge>
+                        <Badge variant="outline" className="text-xs flex items-center gap-1">
+                          <Zap className="h-3 w-3" />
+                          CPFP
+                        </Badge>
                       )}
                     </div>
                   </TableCell>
