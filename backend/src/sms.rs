@@ -89,7 +89,7 @@ impl SmsService {
                     }
                 } else if event.is_rbf {
                     let fee_btc = Self::format_btc_amount(event.amount_sats);
-                    format!("📤 RBF gebyr økning: +{} BTC for {}", fee_btc, wallet_name)
+                    format!("📤 RBF gebyrøkning: +{} BTC for {}", fee_btc, wallet_name)
                 } else if event.is_cpfp {
                     let fee_btc = Self::format_btc_amount(event.amount_sats);
                     format!("🚀 CPFP gebyr: {} BTC for {}", fee_btc, wallet_name)

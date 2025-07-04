@@ -131,7 +131,7 @@ fn test_create_norwegian_message_rbf() {
     let message = SmsService::create_norwegian_message(&event, "Test Wallet", None);
     assert_eq!(
         message,
-        "📤 RBF gebyr økning: +0,00005000 BTC for Test Wallet"
+        "📤 RBF gebyrøkning: +0,00005000 BTC for Test Wallet"
     );
 }
 
