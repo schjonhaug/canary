@@ -179,7 +179,6 @@ fn test_event_operations() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
-        message: "Test transaction",
     };
 
     let event_id = db.insert_event(&event).unwrap();
@@ -190,7 +189,6 @@ fn test_event_operations() {
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].event_type, EventType::Receive);
     assert_eq!(events[0].amount_sats, 1000000);
-    assert_eq!(events[0].message, "Test transaction");
 
     // Test get all events
     let all_events = db.get_all_events().unwrap();
@@ -214,7 +212,6 @@ fn test_sms_log_operations() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
-        message: "Test transaction",
     };
     let event_id = db.insert_event(&event).unwrap();
 

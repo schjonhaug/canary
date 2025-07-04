@@ -46,7 +46,6 @@ fn test_create_norwegian_message_receive_confirmed() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
-        message: "Test transaction".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
@@ -67,7 +66,6 @@ fn test_create_norwegian_message_receive_unconfirmed() {
         is_confirmed: false,
         is_rbf: false,
         is_cpfp: false,
-        message: "Test transaction".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
@@ -85,12 +83,14 @@ fn test_create_norwegian_message_send_confirmed() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
-        message: "Test transaction".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
     let message = SmsService::create_norwegian_message(&event, "Test Wallet");
-    assert_eq!(message, "✅ Sending bekreftet: 0,25000000 BTC fra Test Wallet");
+    assert_eq!(
+        message,
+        "✅ Sending bekreftet: 0,25000000 BTC fra Test Wallet"
+    );
 }
 
 #[test]
@@ -103,7 +103,6 @@ fn test_create_norwegian_message_send_unconfirmed() {
         is_confirmed: false,
         is_rbf: false,
         is_cpfp: false,
-        message: "Test transaction".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
@@ -121,7 +120,6 @@ fn test_create_norwegian_message_rbf() {
         is_confirmed: false,
         is_rbf: true,
         is_cpfp: false,
-        message: "Test transaction".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
@@ -142,7 +140,6 @@ fn test_create_norwegian_message_cpfp() {
         is_confirmed: false,
         is_rbf: false,
         is_cpfp: true,
-        message: "Test transaction".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
@@ -230,7 +227,6 @@ fn test_transaction_event_creation() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
-        message: "Test transaction".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
@@ -240,7 +236,6 @@ fn test_transaction_event_creation() {
     assert!(event.is_confirmed);
     assert!(!event.is_rbf);
     assert!(!event.is_cpfp);
-    assert_eq!(event.message, "Test transaction");
 }
 
 #[test]

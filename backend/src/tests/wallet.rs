@@ -15,12 +15,13 @@ fn create_temp_wallet_manager() -> (WalletManager, TempDir) {
 
     let wallet_manager = tokio::runtime::Runtime::new().unwrap().block_on(async {
         WalletManager::new(
-            event_tx, 
-            wallet_dir, 
+            event_tx,
+            wallet_dir,
             metadata_db_path.to_str().unwrap(),
             Network::Regtest,
-            "tcp://127.0.0.1:50001"
-        ).await
+            "tcp://127.0.0.1:50001",
+        )
+        .await
     });
 
     (wallet_manager, temp_dir)
@@ -114,7 +115,6 @@ fn test_insert_and_broadcast_event_helper() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
-        message: "Test transaction",
     };
 
     // Test the helper function
@@ -134,7 +134,6 @@ fn test_insert_and_broadcast_event_helper() {
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].event_type, EventType::Receive);
     assert_eq!(events[0].amount_sats, 1000000);
-    assert_eq!(events[0].message, "Test transaction");
 }
 
 #[test]
@@ -194,7 +193,6 @@ fn test_event_insert_creation() {
         is_confirmed: false,
         is_rbf: true,
         is_cpfp: false,
-        message: "Test RBF transaction",
     };
 
     assert_eq!(event_insert.wallet_id, 1);
@@ -203,7 +201,6 @@ fn test_event_insert_creation() {
     assert!(!event_insert.is_confirmed);
     assert!(event_insert.is_rbf);
     assert!(!event_insert.is_cpfp);
-    assert_eq!(event_insert.message, "Test RBF transaction");
 }
 
 #[test]
@@ -216,7 +213,6 @@ fn test_transaction_event_creation() {
         is_confirmed: true,
         is_rbf: false,
         is_cpfp: false,
-        message: "Test confirmed receive".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
@@ -227,7 +223,6 @@ fn test_transaction_event_creation() {
     assert!(event.is_confirmed);
     assert!(!event.is_rbf);
     assert!(!event.is_cpfp);
-    assert_eq!(event.message, "Test confirmed receive");
     assert_eq!(event.created_at, "2024-01-01 12:00:00");
 }
 

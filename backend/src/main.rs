@@ -21,14 +21,14 @@ use wallet::WalletManager;
 async fn main() -> anyhow::Result<()> {
     // Load configuration
     let config = AppConfig::load()?;
-    
+
     println!("Starting TxRay with configuration:");
     println!("  Network: {:?}", config.network);
     println!("  Electrum URL: {}", config.electrum_url());
     println!("  Bind address: {}", config.bind_address);
     println!("  Wallet directory: {}", config.wallet_dir_path());
     println!("  Metadata database: {}", config.metadata_db_path());
-    
+
     // Test Electrum connection
     let electrum_client = ElectrumClient::new(&config.electrum_url())?;
     let features = electrum_client.server_features()?;
@@ -47,7 +47,8 @@ async fn main() -> anyhow::Result<()> {
             &config.metadata_db_path(),
             config.network(),
             &config.electrum_url(),
-        ).await,
+        )
+        .await,
     ));
 
     // Spawn background task for wallet syncing
@@ -81,7 +82,22 @@ async fn main() -> anyhow::Result<()> {
                     match manager.metadata_db.get_contacts_for_wallet(event.wallet_id) {
                         Ok(contacts) => {
                             if contacts.is_empty() {
-                                println!("📱 SMS Alert (no contacts): {}", event.message);
+                                // Get wallet name for message generation
+                                match manager.metadata_db.get_wallet_by_id(event.wallet_id) {
+                                    Ok(Some(wallet_metadata)) => {
+                                        let message = sms::SmsService::create_norwegian_message(
+                                            &event,
+                                            &wallet_metadata.name,
+                                        );
+                                        println!("📱 SMS Alert (no contacts): {}", message);
+                                    }
+                                    _ => {
+                                        println!(
+                                            "📱 SMS Alert (no contacts): Event for wallet {}",
+                                            event.wallet_id
+                                        );
+                                    }
+                                }
                                 continue;
                             }
 
@@ -160,10 +176,25 @@ async fn main() -> anyhow::Result<()> {
                                     }
                                 }
                                 Ok(None) => {
-                                    println!(
-                                        "📱 SMS Alert (Twilio not configured): {}",
-                                        event.message
-                                    );
+                                    // Get wallet name for message generation
+                                    match manager.metadata_db.get_wallet_by_id(event.wallet_id) {
+                                        Ok(Some(wallet_metadata)) => {
+                                            let message = sms::SmsService::create_norwegian_message(
+                                                &event,
+                                                &wallet_metadata.name,
+                                            );
+                                            println!(
+                                                "📱 SMS Alert (Twilio not configured): {}",
+                                                message
+                                            );
+                                        }
+                                        _ => {
+                                            println!(
+                                                "📱 SMS Alert (Twilio not configured): Event for wallet {}",
+                                                event.wallet_id
+                                            );
+                                        }
+                                    }
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to get Twilio config: {}", e);

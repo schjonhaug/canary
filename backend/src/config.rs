@@ -1,6 +1,6 @@
+use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::Network;
 use clap::{Parser, ValueEnum};
-use anyhow::{Result, anyhow};
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum NetworkConfig {
@@ -35,7 +35,10 @@ impl std::str::FromStr for NetworkConfig {
             "regtest" => Ok(NetworkConfig::Regtest),
             "testnet" => Ok(NetworkConfig::Testnet),
             "mainnet" => Ok(NetworkConfig::Mainnet),
-            _ => Err(anyhow!("Invalid network: {}. Valid options: regtest, testnet, mainnet", s)),
+            _ => Err(anyhow!(
+                "Invalid network: {}. Valid options: regtest, testnet, mainnet",
+                s
+            )),
         }
     }
 }
@@ -114,7 +117,7 @@ impl AppConfig {
     pub fn wallet_dir_path(&self) -> String {
         let network_name = match self.network {
             NetworkConfig::Regtest => "regtest",
-            NetworkConfig::Testnet => "testnet", 
+            NetworkConfig::Testnet => "testnet",
             NetworkConfig::Mainnet => "mainnet",
         };
         format!("database/{}/wallets", network_name)
@@ -126,7 +129,7 @@ impl AppConfig {
         let network_name = match self.network {
             NetworkConfig::Regtest => "regtest",
             NetworkConfig::Testnet => "testnet",
-            NetworkConfig::Mainnet => "mainnet", 
+            NetworkConfig::Mainnet => "mainnet",
         };
         format!("database/{}/metadata.sqlite", network_name)
     }
@@ -138,17 +141,35 @@ mod tests {
 
     #[test]
     fn test_network_config_parsing() {
-        assert!(matches!("regtest".parse::<NetworkConfig>().unwrap(), NetworkConfig::Regtest));
-        assert!(matches!("testnet".parse::<NetworkConfig>().unwrap(), NetworkConfig::Testnet));
-        assert!(matches!("mainnet".parse::<NetworkConfig>().unwrap(), NetworkConfig::Mainnet));
+        assert!(matches!(
+            "regtest".parse::<NetworkConfig>().unwrap(),
+            NetworkConfig::Regtest
+        ));
+        assert!(matches!(
+            "testnet".parse::<NetworkConfig>().unwrap(),
+            NetworkConfig::Testnet
+        ));
+        assert!(matches!(
+            "mainnet".parse::<NetworkConfig>().unwrap(),
+            NetworkConfig::Mainnet
+        ));
         assert!("invalid".parse::<NetworkConfig>().is_err());
     }
 
     #[test]
     fn test_default_electrum_urls() {
-        assert_eq!(NetworkConfig::Regtest.default_electrum_url(), "tcp://127.0.0.1:50001");
-        assert_eq!(NetworkConfig::Testnet.default_electrum_url(), "ssl://electrum.blockstream.info:60002");
-        assert_eq!(NetworkConfig::Mainnet.default_electrum_url(), "ssl://electrum.blockstream.info:50002");
+        assert_eq!(
+            NetworkConfig::Regtest.default_electrum_url(),
+            "tcp://127.0.0.1:50001"
+        );
+        assert_eq!(
+            NetworkConfig::Testnet.default_electrum_url(),
+            "ssl://electrum.blockstream.info:60002"
+        );
+        assert_eq!(
+            NetworkConfig::Mainnet.default_electrum_url(),
+            "ssl://electrum.blockstream.info:50002"
+        );
     }
 
     #[test]
@@ -169,7 +190,10 @@ mod tests {
             metadata_db: "txray.sqlite".to_string(),
         };
         assert_eq!(config.wallet_dir_path(), "database/regtest/wallets");
-        assert_eq!(config.metadata_db_path(), "database/regtest/metadata.sqlite");
+        assert_eq!(
+            config.metadata_db_path(),
+            "database/regtest/metadata.sqlite"
+        );
 
         // Test testnet paths
         let config = AppConfig {
@@ -180,7 +204,10 @@ mod tests {
             metadata_db: "txray.sqlite".to_string(),
         };
         assert_eq!(config.wallet_dir_path(), "database/testnet/wallets");
-        assert_eq!(config.metadata_db_path(), "database/testnet/metadata.sqlite");
+        assert_eq!(
+            config.metadata_db_path(),
+            "database/testnet/metadata.sqlite"
+        );
 
         // Test mainnet paths
         let config = AppConfig {
@@ -191,6 +218,9 @@ mod tests {
             metadata_db: "txray.sqlite".to_string(),
         };
         assert_eq!(config.wallet_dir_path(), "database/mainnet/wallets");
-        assert_eq!(config.metadata_db_path(), "database/mainnet/metadata.sqlite");
+        assert_eq!(
+            config.metadata_db_path(),
+            "database/mainnet/metadata.sqlite"
+        );
     }
 }

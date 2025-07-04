@@ -84,19 +84,17 @@ pub struct TransactionEvent {
     pub is_confirmed: bool,
     pub is_rbf: bool,
     pub is_cpfp: bool,
-    pub message: String,
     pub created_at: String,
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct EventInsert<'a> {
+pub struct EventInsert {
     pub wallet_id: i64,
     pub event_type: EventType,
     pub amount_sats: i64,
     pub is_confirmed: bool,
     pub is_rbf: bool,
     pub is_cpfp: bool,
-    pub message: &'a str,
 }
 
 impl Default for EventType {
@@ -133,12 +131,15 @@ impl MetadataDb {
                 is_confirmed BOOLEAN DEFAULT FALSE,
                 is_rbf BOOLEAN DEFAULT FALSE,
                 is_cpfp BOOLEAN DEFAULT FALSE,
-                message TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (wallet_id) REFERENCES wallets (id)
             )",
             [],
         )?;
+
+        // Drop the message column if it exists
+        conn.execute("ALTER TABLE transaction_events DROP COLUMN message", [])
+            .ok(); // Ignore errors if column doesn't exist
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS contact_persons (
@@ -321,8 +322,8 @@ impl MetadataDb {
     pub fn insert_event(&self, event: &EventInsert) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
         )?;
 
         stmt.execute([
@@ -332,7 +333,6 @@ impl MetadataDb {
             &(event.is_confirmed as i32).to_string(),
             &(event.is_rbf as i32).to_string(),
             &(event.is_cpfp as i32).to_string(),
-            event.message,
         ])?;
         Ok(conn.last_insert_rowid())
     }
@@ -340,7 +340,7 @@ impl MetadataDb {
     pub fn get_events_by_wallet(&self, wallet_id: i64) -> Result<Vec<TransactionEvent>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message, created_at 
+            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, created_at 
              FROM transaction_events WHERE wallet_id = ?1 ORDER BY created_at DESC"
         )?;
 
@@ -353,8 +353,7 @@ impl MetadataDb {
                 is_confirmed: row.get(4)?,
                 is_rbf: row.get(5)?,
                 is_cpfp: row.get(6)?,
-                message: row.get(7)?,
-                created_at: row.get(8)?,
+                created_at: row.get(7)?,
             })
         })?;
 
@@ -369,7 +368,7 @@ impl MetadataDb {
     pub fn get_all_events(&self) -> Result<Vec<TransactionEvent>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, message, created_at 
+            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, created_at 
              FROM transaction_events ORDER BY created_at DESC"
         )?;
 
@@ -382,8 +381,7 @@ impl MetadataDb {
                 is_confirmed: row.get(4)?,
                 is_rbf: row.get(5)?,
                 is_cpfp: row.get(6)?,
-                message: row.get(7)?,
-                created_at: row.get(8)?,
+                created_at: row.get(7)?,
             })
         })?;
 
@@ -430,19 +428,22 @@ impl MetadataDb {
 
     pub fn delete_contact(&self, contact_id: i64) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
-        
+
         // Start a transaction to ensure atomicity
         let tx = conn.unchecked_transaction()?;
-        
+
         // First, delete from sms_logs that reference this contact
         tx.execute("DELETE FROM sms_logs WHERE contact_id = ?1", [contact_id])?;
-        
+
         // Then, delete from wallet_contacts that reference this contact
-        tx.execute("DELETE FROM wallet_contacts WHERE contact_id = ?1", [contact_id])?;
-        
+        tx.execute(
+            "DELETE FROM wallet_contacts WHERE contact_id = ?1",
+            [contact_id],
+        )?;
+
         // Finally, delete the contact itself
         let changes = tx.execute("DELETE FROM contact_persons WHERE id = ?1", [contact_id])?;
-        
+
         tx.commit()?;
         Ok(changes > 0)
     }

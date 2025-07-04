@@ -2,9 +2,9 @@ use crate::electrum::ElectrumClient;
 use crate::metadata::{EventInsert, EventType, MetadataDb, TransactionEvent, WalletMetadata};
 use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::secp256k1::Secp256k1;
+use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{PersistedWallet, Wallet, bitcoin::Network, wallet_name_from_descriptor};
 use miniscript::{Descriptor, DescriptorPublicKey};
-use bdk_wallet::rusqlite::Connection;
 use std::fs;
 use std::path::PathBuf;
 use tokio::sync::broadcast;
@@ -68,7 +68,7 @@ impl WalletManager {
     pub fn insert_and_broadcast_event_helper(
         metadata_db: &MetadataDb,
         event_sender: &broadcast::Sender<TransactionEvent>,
-        event_insert: &EventInsert<'_>,
+        event_insert: &EventInsert,
     ) -> Result<()> {
         // First, insert to database (write-through pattern)
         let event_id = metadata_db.insert_event(event_insert)?;
@@ -82,7 +82,6 @@ impl WalletManager {
             is_confirmed: event_insert.is_confirmed,
             is_rbf: event_insert.is_rbf,
             is_cpfp: event_insert.is_cpfp,
-            message: event_insert.message.to_string(),
             created_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
         };
 
@@ -347,15 +346,21 @@ impl WalletManager {
                     // Persist wallet changes after successful incremental sync
                     let wallet_filename = format!("{}.sqlite", checksum);
                     let wallet_path = self.wallet_dir.join(&wallet_filename);
-                    
+
                     match Connection::open(&wallet_path) {
                         Ok(mut db) => {
                             if let Err(e) = wallet.persist(&mut db) {
-                                eprintln!("❌ Failed to persist wallet {} after sync: {}", checksum, e);
+                                eprintln!(
+                                    "❌ Failed to persist wallet {} after sync: {}",
+                                    checksum, e
+                                );
                             }
                         }
                         Err(e) => {
-                            eprintln!("❌ Failed to create database connection for wallet {}: {}", checksum, e);
+                            eprintln!(
+                                "❌ Failed to create database connection for wallet {}: {}",
+                                checksum, e
+                            );
                         }
                     }
                     // Get balance after sync
@@ -525,7 +530,6 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: fee_paid as i64,
                                         is_cpfp: true,
-                                        message: &message,
                                         ..Default::default()
                                     },
                                 ) {
@@ -564,7 +568,6 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: fee_increase as i64,
                                         is_rbf: true,
-                                        message: &message,
                                         ..Default::default()
                                     },
                                 ) {
@@ -592,7 +595,6 @@ impl WalletManager {
                                             wallet_id,
                                             event_type: EventType::Send,
                                             amount_sats: sending_amount as i64,
-                                            message: &message,
                                             ..Default::default()
                                         },
                                     ) {
@@ -619,7 +621,6 @@ impl WalletManager {
                                             wallet_id,
                                             event_type: EventType::Send,
                                             amount_sats: total_spent as i64,
-                                            message: &message,
                                             ..Default::default()
                                         },
                                     ) {
@@ -642,7 +643,6 @@ impl WalletManager {
                                             wallet_id,
                                             event_type: EventType::Send,
                                             amount_sats: trusted_spent as i64,
-                                            message: &message,
                                             ..Default::default()
                                         },
                                     ) {
@@ -672,7 +672,6 @@ impl WalletManager {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: sending_amount as i64,
-                                        message: &message,
                                         ..Default::default()
                                     },
                                 ) {
@@ -702,7 +701,6 @@ impl WalletManager {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: total_spent as i64,
-                                        message: &message,
                                         ..Default::default()
                                     },
                                 ) {
@@ -728,7 +726,6 @@ impl WalletManager {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: trusted_spent as i64,
-                                        message: &message,
                                         ..Default::default()
                                     },
                                 ) {
@@ -759,7 +756,6 @@ impl WalletManager {
                                     wallet_id,
                                     event_type: EventType::Receive,
                                     amount_sats: receiving_amount as i64,
-                                    message: &message,
                                     ..Default::default()
                                 },
                             ) {
@@ -792,7 +788,6 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: total_confirmed_send_amount,
                                         is_confirmed: true,
-                                        message: &message,
                                         ..Default::default()
                                     },
                                 ) {
@@ -812,7 +807,6 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: 0,
                                         is_confirmed: true,
-                                        message: &message,
                                         ..Default::default()
                                     },
                                 ) {
@@ -846,7 +840,6 @@ impl WalletManager {
                                     event_type: EventType::Receive,
                                     amount_sats: confirmed_amount as i64,
                                     is_confirmed: true,
-                                    message: &message,
                                     ..Default::default()
                                 },
                             ) {
