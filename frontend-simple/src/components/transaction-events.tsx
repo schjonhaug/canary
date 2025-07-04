@@ -63,7 +63,7 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
 
   const formatSats = (sats: number) => {
     const btc = sats / 100_000_000
-    return `${btc.toLocaleString("en-US", { 
+    return `${btc.toLocaleString(undefined, { 
       minimumFractionDigits: 8, 
       maximumFractionDigits: 8 
     })} BTC`
