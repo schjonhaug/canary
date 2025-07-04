@@ -1137,22 +1137,13 @@ case "$1" in
             # Stop containers and remove all volumes (includes wallet data)
             docker-compose down -v
             
-            # Clean up BDK wallet files completely
-            echo "Cleaning up BDK wallets..."
-            if [ -d "../backend/wallets" ]; then
-                rm -rf ../backend/wallets
-                echo "✅ BDK wallets directory removed"
+            # Clean up regtest database folder completely
+            echo "Cleaning up regtest database..."
+            if [ -d "../backend/database/regtest" ]; then
+                rm -rf ../backend/database/regtest
+                echo "✅ Regtest database folder removed"
             else
-                echo "⚠️  BDK wallets directory not found (this is normal for first run)"
-            fi
-            
-            # Remove SQLite metadata database
-            echo "Removing SQLite metadata database..."
-            if [ -f "../backend/txray.sqlite" ]; then
-                rm -f ../backend/txray.sqlite
-                echo "✅ Metadata database removed"
-            else
-                echo "⚠️  Metadata database not found (this is normal for first run)"
+                echo "⚠️  Regtest database folder not found (this is normal for first run)"
             fi
             
             echo "✅ Environment reset complete (all wallets, blockchain data, and database wiped)"
