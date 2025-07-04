@@ -88,6 +88,20 @@ pub struct TransactionEvent {
     pub created_at: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct TransactionEventWithWallet {
+    pub id: Option<i64>,
+    pub wallet_id: i64,
+    pub wallet_name: String,
+    pub event_type: EventType,
+    pub amount_sats: i64,
+    pub is_confirmed: bool,
+    pub is_rbf: bool,
+    pub is_cpfp: bool,
+    pub confirmed_amount_sats: Option<i64>,
+    pub created_at: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct EventInsert {
     pub wallet_id: i64,
@@ -396,6 +410,38 @@ impl MetadataDb {
                 is_cpfp: row.get(6)?,
                 confirmed_amount_sats: row.get(7).ok(),
                 created_at: row.get(8)?,
+            })
+        })?;
+
+        let mut events = Vec::new();
+        for event in event_iter {
+            events.push(event?);
+        }
+
+        Ok(events)
+    }
+
+    pub fn get_all_events_with_wallets(&self) -> Result<Vec<TransactionEventWithWallet>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT te.id, te.wallet_id, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.confirmed_amount_sats, te.created_at 
+             FROM transaction_events te 
+             JOIN wallets w ON te.wallet_id = w.id 
+             ORDER BY te.created_at DESC"
+        )?;
+
+        let event_iter = stmt.query_map([], |row| {
+            Ok(TransactionEventWithWallet {
+                id: Some(row.get(0)?),
+                wallet_id: row.get(1)?,
+                wallet_name: row.get(2)?,
+                event_type: EventType::from(row.get::<_, String>(3)?.as_str()),
+                amount_sats: row.get(4)?,
+                is_confirmed: row.get(5)?,
+                is_rbf: row.get(6)?,
+                is_cpfp: row.get(7)?,
+                confirmed_amount_sats: row.get(8).ok(),
+                created_at: row.get(9)?,
             })
         })?;
 

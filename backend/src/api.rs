@@ -1,4 +1,4 @@
-use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata, TransactionEvent, EventType};
+use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata, TransactionEvent, TransactionEventWithWallet, EventType};
 use crate::wallet::WalletManager;
 use axum::{
     Router,
@@ -533,13 +533,13 @@ pub async fn get_twilio_config(State(wallet_manager): State<AppState>) -> Respon
     get,
     path = "/transaction-events",
     responses(
-        (status = 200, description = "List of all transaction events", body = Vec<TransactionEvent>),
+        (status = 200, description = "List of all transaction events with wallet names", body = Vec<TransactionEventWithWallet>),
     ),
     tag = "transaction"
 )]
 pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) -> Response {
     let manager = wallet_manager.lock().await;
-    match manager.metadata_db.get_all_events() {
+    match manager.metadata_db.get_all_events_with_wallets() {
         Ok(events) => (StatusCode::OK, Json(events)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -564,7 +564,7 @@ pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) 
         CreateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactRequest, CreateContactResponse, AddContactToWalletRequest,
         TwilioConfigRequest, TwilioConfigResponse,
-        ContactPerson, TwilioConfig, SmsLog, TransactionEvent, EventType
+        ContactPerson, TwilioConfig, SmsLog, TransactionEvent, TransactionEventWithWallet, EventType
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),

@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 interface TransactionEvent {
   id: number
   wallet_id: number
+  wallet_name: string
   event_type: "send" | "receive"
   amount_sats: number
   is_confirmed: boolean
@@ -103,7 +104,7 @@ export function TransactionEvents() {
             <TableCaption>A list of all transaction events from the TxRay system.</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead>Wallet ID</TableHead>
+                <TableHead>Wallet</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
@@ -114,7 +115,7 @@ export function TransactionEvents() {
             <TableBody>
               {events.map((event) => (
                 <TableRow key={event.id}>
-                  <TableCell className="font-medium">{event.wallet_id}</TableCell>
+                  <TableCell className="font-medium">{event.wallet_name}</TableCell>
                   <TableCell>
                     <Badge 
                       variant={event.event_type === "receive" ? "default" : "secondary"}
