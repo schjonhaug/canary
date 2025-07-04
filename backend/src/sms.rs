@@ -62,18 +62,30 @@ impl SmsService {
     }
 
     /// Generate Norwegian SMS message for transaction event
-    pub fn create_norwegian_message(event: &TransactionEvent, wallet_name: &str) -> String {
+    pub fn create_norwegian_message(
+        event: &TransactionEvent,
+        wallet_name: &str,
+        new_balance_sats: Option<i64>,
+    ) -> String {
+        // Only include balance for confirmed transactions
+        let balance_text = if event.is_confirmed && new_balance_sats.is_some() {
+            let balance_btc = Self::format_btc_amount(new_balance_sats.unwrap());
+            format!(". Ny saldo: {} BTC", balance_btc)
+        } else {
+            String::new()
+        };
+
         match event.event_type {
             EventType::Send => {
                 if event.is_confirmed {
-                    if event.amount_sats > 0 {
+                    if let Some(confirmed_amount) = event.confirmed_amount_sats {
+                        let amount_btc = Self::format_btc_amount(confirmed_amount);
+                        format!("✅ Sending bekreftet: {} BTC fra {}{}", amount_btc, wallet_name, balance_text)
+                    } else if event.amount_sats > 0 {
                         let amount_btc = Self::format_btc_amount(event.amount_sats);
-                        format!(
-                            "✅ Sending bekreftet: {} BTC fra {}",
-                            amount_btc, wallet_name
-                        )
+                        format!("✅ Sending bekreftet: {} BTC fra {}{}", amount_btc, wallet_name, balance_text)
                     } else {
-                        format!("✅ Sending bekreftet for {}", wallet_name)
+                        format!("✅ Sending bekreftet for {}{}", wallet_name, balance_text)
                     }
                 } else if event.is_rbf {
                     let fee_btc = Self::format_btc_amount(event.amount_sats);
@@ -88,11 +100,13 @@ impl SmsService {
             }
             EventType::Receive => {
                 if event.is_confirmed {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats);
-                    format!(
-                        "✅ Mottak bekreftet: {} BTC til {}",
-                        amount_btc, wallet_name
-                    )
+                    if let Some(confirmed_amount) = event.confirmed_amount_sats {
+                        let amount_btc = Self::format_btc_amount(confirmed_amount);
+                        format!("✅ Mottak bekreftet: {} BTC til {}{}", amount_btc, wallet_name, balance_text)
+                    } else {
+                        let amount_btc = Self::format_btc_amount(event.amount_sats);
+                        format!("✅ Mottak bekreftet: {} BTC til {}{}", amount_btc, wallet_name, balance_text)
+                    }
                 } else {
                     let amount_btc = Self::format_btc_amount(event.amount_sats);
                     format!("📥 Mottar {} BTC til {}", amount_btc, wallet_name)
@@ -169,8 +183,9 @@ impl SmsService {
         wallet_name: &str,
         contacts: Vec<ContactPerson>,
         twilio_config: &TwilioConfig,
+        new_balance_sats: Option<i64>,
     ) -> Vec<(ContactPerson, SmsResponse)> {
-        let message = Self::create_norwegian_message(event, wallet_name);
+        let message = Self::create_norwegian_message(event, wallet_name, new_balance_sats);
         let mut results = Vec::new();
 
         for contact in contacts {

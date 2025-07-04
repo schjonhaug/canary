@@ -82,6 +82,7 @@ impl WalletManager {
             is_confirmed: event_insert.is_confirmed,
             is_rbf: event_insert.is_rbf,
             is_cpfp: event_insert.is_cpfp,
+            confirmed_amount_sats: event_insert.confirmed_amount_sats,
             created_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
         };
 
@@ -788,6 +789,7 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: total_confirmed_send_amount,
                                         is_confirmed: true,
+                                        confirmed_amount_sats: Some(total_confirmed_send_amount),
                                         ..Default::default()
                                     },
                                 ) {
@@ -840,6 +842,7 @@ impl WalletManager {
                                     event_type: EventType::Receive,
                                     amount_sats: confirmed_amount as i64,
                                     is_confirmed: true,
+                                    confirmed_amount_sats: Some(confirmed_amount as i64),
                                     ..Default::default()
                                 },
                             ) {
