@@ -277,9 +277,20 @@ impl WalletManager {
         }
 
         // Save wallet metadata
-        self.metadata_db
+        let wallet_id = self.metadata_db
             .insert_wallet(name, descriptor_str, &wallet_filename_with_ext)?;
         println!("  Metadata saved to file: {}", wallet_filename_with_ext);
+
+        // Set initial balance in metadata database (after full scan)
+        let initial_balance = wallet.balance().total().to_sat() as i64;
+        let initial_balance_btc = initial_balance as f64 / 100_000_000.0;
+        println!("  Initial balance: {:.8} BTC ({} sats)", initial_balance_btc, initial_balance);
+        
+        if let Err(e) = self.metadata_db.update_wallet_balance(wallet_id, initial_balance) {
+            eprintln!("Warning: Failed to set initial wallet balance: {}", e);
+        } else {
+            println!("  Balance saved to metadata database");
+        }
 
         // Add wallet to the in-memory manager (using wallet_filename as key)
         self.wallets.push((wallet_filename, wallet));
@@ -411,6 +422,11 @@ impl WalletManager {
                             .find(|w| w.wallet_filename == wallet_filename)
                             .expect("Wallet should exist in metadata database");
                         let wallet_id = wallet_metadata.id.expect("Wallet should have ID");
+
+                        // Update the wallet balance in the metadata database
+                        if let Err(e) = self.metadata_db.update_wallet_balance(wallet_id, total_after.to_sat() as i64) {
+                            eprintln!("Failed to update wallet balance in metadata: {}", e);
+                        }
 
                         // 22 for label, 18 for each value, 3 for separators
                         println!(

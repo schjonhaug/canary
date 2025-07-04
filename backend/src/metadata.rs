@@ -38,6 +38,7 @@ pub struct WalletMetadata {
     pub descriptor: String,
     pub wallet_filename: String,
     pub created_at: String,
+    pub balance_total: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -163,10 +164,10 @@ impl MetadataDb {
     ) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "INSERT INTO wallets (name, descriptor, wallet_filename) VALUES (?1, ?2, ?3)",
+            "INSERT INTO wallets (name, descriptor, wallet_filename, balance_total) VALUES (?1, ?2, ?3, ?4)",
         )?;
 
-        stmt.execute([name, descriptor, wallet_filename])?;
+        stmt.execute([name, descriptor, wallet_filename, "0"])?;
         Ok(conn.last_insert_rowid())
     }
 
@@ -187,7 +188,7 @@ impl MetadataDb {
     pub fn get_wallet_by_descriptor(&self, descriptor: &str) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, descriptor, wallet_filename, created_at FROM wallets WHERE descriptor = ?1"
+            "SELECT id, name, descriptor, wallet_filename, created_at, balance_total FROM wallets WHERE descriptor = ?1"
         )?;
 
         match stmt.query_row([descriptor], |row| {
@@ -197,6 +198,7 @@ impl MetadataDb {
                 descriptor: row.get(2)?,
                 wallet_filename: row.get(3)?,
                 created_at: row.get(4)?,
+                balance_total: row.get(5).ok(),
             })
         }) {
             Ok(metadata) => Ok(Some(metadata)),
@@ -208,7 +210,7 @@ impl MetadataDb {
     pub fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, descriptor, wallet_filename, created_at FROM wallets WHERE id = ?1",
+            "SELECT id, name, descriptor, wallet_filename, created_at, balance_total FROM wallets WHERE id = ?1",
         )?;
 
         match stmt.query_row([id], |row| {
@@ -218,6 +220,7 @@ impl MetadataDb {
                 descriptor: row.get(2)?,
                 wallet_filename: row.get(3)?,
                 created_at: row.get(4)?,
+                balance_total: row.get(5).ok(),
             })
         }) {
             Ok(metadata) => Ok(Some(metadata)),
@@ -229,7 +232,7 @@ impl MetadataDb {
     pub fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, descriptor, wallet_filename, created_at FROM wallets ORDER BY created_at DESC"
+            "SELECT id, name, descriptor, wallet_filename, created_at, balance_total FROM wallets ORDER BY created_at DESC"
         )?;
 
         let wallet_iter = stmt.query_map([], |row| {
@@ -239,6 +242,7 @@ impl MetadataDb {
                 descriptor: row.get(2)?,
                 wallet_filename: row.get(3)?,
                 created_at: row.get(4)?,
+                balance_total: row.get(5).ok(),
             })
         })?;
 
@@ -562,6 +566,13 @@ impl MetadataDb {
             &error_message.unwrap_or(""),
         ])?;
         Ok(conn.last_insert_rowid())
+    }
+
+    pub fn update_wallet_balance(&self, wallet_id: i64, balance_total: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("UPDATE wallets SET balance_total = ?1 WHERE id = ?2")?;
+        stmt.execute([balance_total, wallet_id])?;
+        Ok(())
     }
 
     pub fn get_sms_logs_by_event(&self, event_id: i64) -> Result<Vec<SmsLog>> {
