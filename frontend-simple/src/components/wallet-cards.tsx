@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Trash2 } from "lucide-react"
+import { DeleteWalletModal } from "./delete-wallet-modal"
 
 interface Wallet {
   id: number
@@ -23,6 +26,8 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   const [wallets, setWallets] = useState<Wallet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
   useEffect(() => {
     async function fetchWallets() {
@@ -75,6 +80,39 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
     } else {
       onSelectWallet(walletId)
     }
+  }
+
+  const handleDeleteClick = (wallet: Wallet, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent wallet selection when clicking delete
+    setWalletToDelete(wallet)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirm = async (walletId: number) => {
+    const apiUrl = `http://${window.location.hostname}:3000/wallets/${walletId}`
+    const response = await fetch(apiUrl, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Wallet not found')
+      }
+      throw new Error(`Delete failed: ${response.status}`)
+    }
+
+    // Remove wallet from local state
+    setWallets(prev => prev.filter(w => w.id !== walletId))
+    
+    // Clear selection if the deleted wallet was selected
+    if (selectedWalletId === walletId) {
+      onSelectWallet(null)
+    }
+  }
+
+  const handleDeleteModalClose = () => {
+    setIsDeleteModalOpen(false)
+    setWalletToDelete(null)
   }
 
   if (loading) {
@@ -153,7 +191,18 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
                 <CardTitle className="text-lg truncate pr-20" title={wallet.name}>
                   {wallet.name}
                 </CardTitle>
-                <div className="absolute top-6 right-6 text-xs font-mono text-muted-foreground bg-gray-100 px-2 py-1 rounded">
+                <div className="absolute top-2 right-2 flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                    onClick={(e) => handleDeleteClick(wallet, e)}
+                    title="Delete wallet"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="absolute top-2 right-12 text-xs font-mono text-muted-foreground bg-gray-100 px-2 py-1 rounded">
                   #{extractChecksum(wallet.descriptor)}
                 </div>
                 <CardDescription className="text-xs text-muted-foreground">
@@ -184,6 +233,13 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
           )
         })}
       </div>
+
+      <DeleteWalletModal
+        wallet={walletToDelete}
+        isOpen={isDeleteModalOpen}
+        onClose={handleDeleteModalClose}
+        onConfirmDelete={handleDeleteConfirm}
+      />
     </div>
   )
 }
