@@ -2,7 +2,7 @@ use bdk_wallet::rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use utoipa::ToSchema;
-// chrono imports removed as they're no longer needed
+use crate::migrations::MigrationRunner;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
 pub enum EventType {
@@ -126,96 +126,29 @@ pub struct MetadataDb {
 
 impl MetadataDb {
     pub fn new(db_path: &str) -> Result<Self> {
-        let conn = Connection::open(db_path)?;
+        // Run migrations first
+        let migration_runner = MigrationRunner::new(db_path)?;
+        // Try multiple migration paths (for development and production)
+        let migration_paths = ["./migrations", "../migrations", "migrations"];
+        let mut migrations_run = false;
+        for path in &migration_paths {
+            if std::path::Path::new(path).exists() {
+                if let Err(e) = migration_runner.run_migrations(path) {
+                    eprintln!("Migration error with path {}: {}", path, e);
+                } else {
+                    migrations_run = true;
+                    break;
+                }
+            }
+        }
+        if !migrations_run {
+            eprintln!("Warning: No migrations directory found in any of: {:?}", migration_paths);
+            // Continue anyway - we'll create tables manually as fallback
+        }
+        
+        // Get the connection back from the migration runner
+        let conn = migration_runner.get_connection();
 
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS wallets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                descriptor TEXT NOT NULL UNIQUE,
-                wallet_filename TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
-        )?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS transaction_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                wallet_id INTEGER NOT NULL,
-                event_type TEXT NOT NULL CHECK (event_type IN ('send', 'receive')),
-                amount_sats INTEGER NOT NULL,
-                is_confirmed BOOLEAN DEFAULT FALSE,
-                is_rbf BOOLEAN DEFAULT FALSE,
-                is_cpfp BOOLEAN DEFAULT FALSE,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (wallet_id) REFERENCES wallets (id)
-            )",
-            [],
-        )?;
-
-        // Drop the message column if it exists
-        conn.execute("ALTER TABLE transaction_events DROP COLUMN message", [])
-            .ok(); // Ignore errors if column doesn't exist
-
-        // Migration: Remove old confirmed_amount_sats column if it exists
-        conn.execute("ALTER TABLE transaction_events DROP COLUMN confirmed_amount_sats", [])
-            .ok(); // Ignore errors if column doesn't exist
-
-        // Add balance_total column if it doesn't exist
-        conn.execute(
-            "ALTER TABLE transaction_events ADD COLUMN balance_total INTEGER",
-            [],
-        ).ok(); // Ignore errors if column already exists
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS contact_persons (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                phone_number TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
-        )?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS wallet_contacts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                wallet_id INTEGER NOT NULL,
-                contact_id INTEGER NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (wallet_id) REFERENCES wallets (id),
-                FOREIGN KEY (contact_id) REFERENCES contact_persons (id),
-                UNIQUE(wallet_id, contact_id)
-            )",
-            [],
-        )?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS twilio_config (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_sid TEXT NOT NULL,
-                auth_token TEXT NOT NULL,
-                messaging_service_sid TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
-        )?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS sms_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                event_id INTEGER NOT NULL,
-                contact_id INTEGER NOT NULL,
-                twilio_sid TEXT,
-                status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'pending')),
-                error_message TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (event_id) REFERENCES transaction_events (id),
-                FOREIGN KEY (contact_id) REFERENCES contact_persons (id)
-            )",
-            [],
-        )?;
 
         Ok(MetadataDb {
             conn: Mutex::new(conn),

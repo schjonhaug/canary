@@ -5,6 +5,7 @@ mod api;
 mod config;
 mod electrum;
 mod metadata;
+mod migrations;
 mod sms;
 mod wallet;
 use api::create_router;
