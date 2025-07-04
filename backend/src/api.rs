@@ -76,6 +76,9 @@ pub struct TwilioConfigRequest {
     /// Twilio Messaging Service SID
     #[schema(example = "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
     pub messaging_service_sid: String,
+    /// Skip Twilio validation (for development mode)
+    #[schema(example = false)]
+    pub skip_validation: Option<bool>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -477,86 +480,112 @@ pub async fn save_twilio_config(
     State(wallet_manager): State<AppState>,
     Json(payload): Json<TwilioConfigRequest>,
 ) -> Response {
-    // First validate credentials with Twilio
-    let client = reqwest::Client::new();
-    let auth_header = general_purpose::STANDARD.encode(format!("{}:{}", payload.account_sid, payload.auth_token));
-    
-    let validation_response = client
-        .get("https://api.twilio.com/2010-04-01/Accounts.json")
-        .header("Authorization", format!("Basic {}", auth_header))
-        .send()
-        .await;
+    // Skip validation if requested (for development mode)
+    if payload.skip_validation.unwrap_or(false) {
+        // Save directly to database without validation
+        let manager = wallet_manager.lock().await;
+        match manager.metadata_db.upsert_twilio_config(
+            &payload.account_sid,
+            &payload.auth_token,
+            &payload.messaging_service_sid,
+        ) {
+            Ok(_) => (
+                StatusCode::CREATED,
+                Json(TwilioConfigResponse {
+                    message: "Twilio configuration saved successfully (validation skipped for development)".to_string(),
+                }),
+            )
+                .into_response(),
+            Err(e) => (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response(),
+        }
+    } else {
+        // Validate credentials with Twilio
+        let client = reqwest::Client::new();
+        let auth_header = general_purpose::STANDARD.encode(format!("{}:{}", payload.account_sid, payload.auth_token));
+        
+        let validation_response = client
+            .get("https://api.twilio.com/2010-04-01/Accounts.json")
+            .header("Authorization", format!("Basic {}", auth_header))
+            .send()
+            .await;
 
-    match validation_response {
-        Ok(response) => {
-            if !response.status().is_success() {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse {
-                        error: "Invalid Twilio credentials. Please check your Account SID and Auth Token.".to_string(),
-                    }),
-                ).into_response();
-            }
+        match validation_response {
+            Ok(response) => {
+                if !response.status().is_success() {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse {
+                            error: "Invalid Twilio credentials. Please check your Account SID and Auth Token.".to_string(),
+                        }),
+                    ).into_response();
+                }
 
-            // Parse response to verify account SID matches
-            match response.json::<serde_json::Value>().await {
-                Ok(data) => {
-                    if let Some(accounts) = data.get("accounts").and_then(|a| a.as_array()) {
-                        if let Some(account) = accounts.first() {
-                            if let Some(account_sid) = account.get("sid").and_then(|s| s.as_str()) {
-                                if account_sid != payload.account_sid {
-                                    return (
-                                        StatusCode::BAD_REQUEST,
-                                        Json(ErrorResponse {
-                                            error: "Account SID mismatch in Twilio response.".to_string(),
-                                        }),
-                                    ).into_response();
+                // Parse response to verify account SID matches
+                match response.json::<serde_json::Value>().await {
+                    Ok(data) => {
+                        if let Some(accounts) = data.get("accounts").and_then(|a| a.as_array()) {
+                            if let Some(account) = accounts.first() {
+                                if let Some(account_sid) = account.get("sid").and_then(|s| s.as_str()) {
+                                    if account_sid != payload.account_sid {
+                                        return (
+                                            StatusCode::BAD_REQUEST,
+                                            Json(ErrorResponse {
+                                                error: "Account SID mismatch in Twilio response.".to_string(),
+                                            }),
+                                        ).into_response();
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                Err(_) => {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse {
-                            error: "Failed to parse Twilio response.".to_string(),
-                        }),
-                    ).into_response();
+                    Err(_) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse {
+                                error: "Failed to parse Twilio response.".to_string(),
+                            }),
+                        ).into_response();
+                    }
                 }
             }
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse {
+                        error: "Failed to validate credentials with Twilio.".to_string(),
+                    }),
+                ).into_response();
+            }
         }
-        Err(_) => {
-            return (
+
+        // If validation passed, save to database
+        let manager = wallet_manager.lock().await;
+        match manager.metadata_db.upsert_twilio_config(
+            &payload.account_sid,
+            &payload.auth_token,
+            &payload.messaging_service_sid,
+        ) {
+            Ok(_) => (
+                StatusCode::CREATED,
+                Json(TwilioConfigResponse {
+                    message: "Twilio configuration validated and saved successfully".to_string(),
+                }),
+            )
+                .into_response(),
+            Err(e) => (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
-                    error: "Failed to validate credentials with Twilio.".to_string(),
+                    error: e.to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response(),
         }
-    }
-
-    // If validation passed, save to database
-    let manager = wallet_manager.lock().await;
-    match manager.metadata_db.upsert_twilio_config(
-        &payload.account_sid,
-        &payload.auth_token,
-        &payload.messaging_service_sid,
-    ) {
-        Ok(_) => (
-            StatusCode::CREATED,
-            Json(TwilioConfigResponse {
-                message: "Twilio configuration validated and saved successfully".to_string(),
-            }),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-            .into_response(),
     }
 }
 

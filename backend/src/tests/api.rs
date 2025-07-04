@@ -961,6 +961,7 @@ async fn test_save_twilio_config() {
         account_sid: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_string(),
         auth_token: "your_auth_token".to_string(),
         messaging_service_sid: "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_string(),
+        skip_validation: Some(true), // Skip validation for testing
     };
 
     let response = app
@@ -979,7 +980,7 @@ async fn test_save_twilio_config() {
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(body["message"], "Twilio configuration saved successfully");
+    assert_eq!(body["message"], "Twilio configuration saved successfully (validation skipped for development)");
 }
 
 #[tokio::test]
@@ -991,6 +992,7 @@ async fn test_get_twilio_config() {
         account_sid: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_string(),
         auth_token: "your_auth_token".to_string(),
         messaging_service_sid: "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_string(),
+        skip_validation: Some(true), // Skip validation for testing
     };
 
     app.clone()

@@ -79,12 +79,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setValidationResult(null)
     
     try {
+      // Include development mode flag to skip Twilio validation
+      const requestBody = {
+        ...formData,
+        skip_validation: process.env.NODE_ENV === "development"
+      }
+
       const response = await fetch("http://127.0.0.1:3000/twilio/config", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(requestBody),
       })
 
       if (response.ok) {
