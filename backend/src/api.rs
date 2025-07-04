@@ -1,4 +1,4 @@
-use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata, TransactionEvent, TransactionEventWithWallet, EventType};
+use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata, TransactionEventWithWallet, EventType};
 use crate::wallet::WalletManager;
 use axum::{
     Router,
@@ -564,7 +564,7 @@ pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) 
         CreateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactRequest, CreateContactResponse, AddContactToWalletRequest,
         TwilioConfigRequest, TwilioConfigResponse,
-        ContactPerson, TwilioConfig, SmsLog, TransactionEvent, TransactionEventWithWallet, EventType
+        ContactPerson, TwilioConfig, SmsLog, TransactionEventWithWallet, EventType
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),
