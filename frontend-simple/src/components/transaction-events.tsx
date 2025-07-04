@@ -65,7 +65,8 @@ export function TransactionEvents() {
   }
 
   const formatDateTime = (dateTime: string) => {
-    return new Date(dateTime).toLocaleString("nb-NO")
+    const date = new Date(dateTime)
+    return date.toLocaleString()
   }
 
   if (loading) {

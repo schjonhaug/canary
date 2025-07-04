@@ -2,6 +2,7 @@ use bdk_wallet::rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use utoipa::ToSchema;
+use chrono::{DateTime, Utc};
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
 pub enum EventType {
@@ -431,6 +432,14 @@ impl MetadataDb {
         )?;
 
         let event_iter = stmt.query_map([], |row| {
+            let sqlite_timestamp: String = row.get(9)?;
+            // Convert SQLite timestamp to RFC3339 (ISO 8601 with timezone)
+            let created_at = if sqlite_timestamp.ends_with('Z') {
+                sqlite_timestamp
+            } else {
+                format!("{}Z", sqlite_timestamp.replace(' ', "T"))
+            };
+            
             Ok(TransactionEventWithWallet {
                 id: Some(row.get(0)?),
                 wallet_id: row.get(1)?,
@@ -441,7 +450,7 @@ impl MetadataDb {
                 is_rbf: row.get(6)?,
                 is_cpfp: row.get(7)?,
                 confirmed_amount_sats: row.get(8).ok(),
-                created_at: row.get(9)?,
+                created_at,
             })
         })?;
 
