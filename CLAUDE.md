@@ -3,7 +3,7 @@
 This file contains project-specific information and preferences for Claude Code.
 
 ## Project Overview
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
+TxRay is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
 
 ## Development Commands
 ```bash
@@ -52,18 +52,23 @@ cd regtest-env && ./docker-utils.sh get-mempool-txid 0          # Get mempool TX
 
 ## Project Structure
 ```
-canary/
+txray/
 ├── backend/                    # Rust backend service
 │   ├── src/
 │   │   ├── main.rs            # Application entry point with background sync and SMS worker
 │   │   ├── api.rs             # REST API endpoints with OpenAPI docs
+│   │   ├── config.rs          # Configuration management with CLI args and env vars
 │   │   ├── wallet.rs          # Comprehensive wallet management using BDK
 │   │   ├── electrum.rs        # Electrum client with dual sync modes
 │   │   ├── metadata.rs        # Wallet metadata and contact database operations
+│   │   ├── migrations.rs      # Database migration runner
 │   │   └── sms.rs             # Norwegian SMS notifications via Twilio
 │   ├── target/                # Build artifacts
-│   ├── wallets/               # BDK SQLite wallet database files
-│   ├── metadata.sqlite        # Wallet metadata database
+│   ├── database/              # Network-specific database storage
+│   │   ├── regtest/          # Regtest network databases
+│   │   ├── testnet/          # Testnet network databases
+│   │   └── mainnet/          # Mainnet network databases
+│   ├── migrations/           # Database migration files
 │   ├── Cargo.toml             # Rust dependencies
 │   └── Cargo.lock             # Dependency lock file
 ├── frontend/                  # Next.js frontend application
@@ -87,14 +92,17 @@ canary/
 - `bdk_electrum = "0.23"` - Electrum server integration
 - `miniscript = "12.3"` - Bitcoin script processing
 - `axum = "0.8"` - Web framework for REST API
-- `tokio = "1.45"` with full features - Async runtime
+- `tokio = "1.46"` with full features - Async runtime
 - `serde = "1.0"` with derive - JSON serialization
 - `serde_json = "1.0"` - JSON processing
 - `utoipa = "5.4"` with axum_extras - OpenAPI documentation
 - `utoipa-swagger-ui = "9"` with axum - Swagger UI integration
 - `utoipa-axum = "0.2"` - OpenAPI-Axum integration
 - `anyhow = "1.0"` - Error handling
-- `secp256k1 = "0.29"` - Secp256k1 elliptic curve operations
+- `secp256k1 = "0.31"` - Secp256k1 elliptic curve operations
+- `tower-http = "0.6"` with cors features - HTTP middleware for CORS
+- `clap = "4.0"` with derive - Command line argument parsing
+- `dotenvy = "0.15"` - Environment variable loading from .env files
 - `reqwest = "0.12"` with json features - HTTP client for Twilio API
 - `base64 = "0.22"` - Base64 encoding for Twilio authentication
 - `chrono = "0.4"` - Date and time handling for SMS logs
@@ -149,7 +157,7 @@ canary/
 - `/api-docs/openapi.json`: OpenAPI specification
 
 ## Network Configuration
-TxRay supports multiple Bitcoin networks with configurable Electrum servers:
+TxRay supports multiple Bitcoin networks with configurable Electrum servers and network-specific database storage:
 
 ### Supported Networks
 - **Regtest** (default): For development and testing
@@ -204,9 +212,14 @@ CANARY_METADATA_DB=metadata.sqlite
 - **Bitcoin Network**: Regtest
 - **Electrum Server**: tcp://127.0.0.1:50001
 - **Web Server**: http://127.0.0.1:3000
-- **Wallet Directory**: ./wallets
-- **Metadata Database**: metadata.sqlite
+- **Wallet Directory**: database/{network}/wallets
+- **Metadata Database**: database/{network}/metadata.sqlite
 - **Background Sync**: Every 4 seconds automatic wallet synchronization
+
+### Network-Specific Storage
+- **Database Structure**: All databases are stored in network-specific subdirectories under `database/`
+- **Wallet Isolation**: Each network maintains separate wallet databases to prevent cross-network contamination
+- **Metadata Isolation**: Each network has its own metadata database for contacts, events, and SMS logs
 
 ## Advanced Features
 ### Transaction Analysis & SMS Notifications
@@ -246,13 +259,14 @@ CANARY_METADATA_DB=metadata.sqlite
 ## Storage Details
 ### BDK Wallet Storage
 - **Database**: SQLite with `.sqlite` extension
-- **Location**: `wallets/` directory (completely removed on reset)
+- **Location**: `database/{network}/wallets/` directory (completely removed on reset)
 - **Naming**: Uses BDK's `wallet_name_from_descriptor()` function for standardized filenames
 - **Persistence**: Automatic wallet loading on startup
 - **Sync Parameters**: STOP_GAP=20, BATCH_SIZE=5
 
 ### Wallet Metadata & SMS Storage
-- **Database**: `metadata.sqlite` in backend root directory (completely removed on reset)
+- **Database**: `database/{network}/metadata.sqlite` (completely removed on reset)
+- **Migration System**: Automatic database schema migrations using SQL files in `migrations/` directory
 - **Core Tables**:
   - `wallets`: Stores wallet IDs, names, descriptors, filenames, and creation timestamps
   - `transaction_events`: Bitcoin transaction events with type-safe enums and broadcast channels
@@ -270,9 +284,9 @@ CANARY_METADATA_DB=metadata.sqlite
 
 ### Reset Behavior
 - **Complete Cleanup**: `./docker-utils.sh reset` removes all SQLite databases
-- **BDK Wallets**: Entire `wallets/` directory is deleted (not just individual files)
-- **Metadata**: `metadata.sqlite` file is completely removed (not just table contents)
-- **Fresh Start**: All databases are recreated from scratch on next backend startup
+- **BDK Wallets**: Entire `database/{network}/wallets/` directory is deleted (not just individual files)
+- **Metadata**: `database/{network}/metadata.sqlite` file is completely removed (not just table contents)
+- **Fresh Start**: All databases are recreated from scratch on next backend startup with automatic migrations
 
 ## SMS Integration Setup
 
@@ -317,6 +331,9 @@ Once configured, all Bitcoin transactions will automatically trigger Norwegian S
 - **Database-Driven Config**: All settings stored in SQLite for web interface management
 - **Contact Reusability**: Junction table pattern allows sharing contacts across wallets
 - **Complete Logging**: Every SMS attempt tracked with delivery status and Twilio SIDs
+- **Network Isolation**: Complete database separation per Bitcoin network to prevent cross-contamination
+- **Migration System**: Automatic database schema migrations with version tracking
+- **Configuration Management**: Flexible config system supporting CLI args, environment variables, and .env files
 - Shared state management with Arc<Mutex<>> for thread-safe access
 - Automatic loading of existing wallets on startup
 - Full wallet sync performed on creation and incremental sync ongoing
