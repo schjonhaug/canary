@@ -15,7 +15,7 @@ export default function Home() {
     <div className="container mx-auto py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">TxRay</h1>
+          <h1 className="text-3xl font-bold">Canary</h1>
           <p className="text-muted-foreground">Bitcoin Wallet Management System</p>
         </div>
         <Button

@@ -3,7 +3,7 @@
 This file contains project-specific information and preferences for Claude Code.
 
 ## Project Overview
-TxRay is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
 
 ## Development Commands
 ```bash
@@ -52,7 +52,7 @@ cd regtest-env && ./docker-utils.sh get-mempool-txid 0          # Get mempool TX
 
 ## Project Structure
 ```
-txray/
+canary/
 ├── backend/                    # Rust backend service
 │   ├── src/
 │   │   ├── main.rs            # Application entry point with background sync and SMS worker
@@ -63,9 +63,15 @@ txray/
 │   │   └── sms.rs             # Norwegian SMS notifications via Twilio
 │   ├── target/                # Build artifacts
 │   ├── wallets/               # BDK SQLite wallet database files
-│   ├── txray.sqlite           # Wallet metadata database
+│   ├── metadata.sqlite        # Wallet metadata database
 │   ├── Cargo.toml             # Rust dependencies
 │   └── Cargo.lock             # Dependency lock file
+├── frontend/                  # Next.js frontend application
+│   ├── src/
+│   │   ├── app/               # Next.js app router
+│   │   └── components/        # React components
+│   ├── package.json           # Node.js dependencies
+│   └── next.config.ts         # Next.js configuration
 ├── regtest-env/               # Complete Bitcoin regtest environment
 │   ├── docker-compose.yml     # Bitcoin Core + Fulcrum setup
 │   ├── bitcoin.conf           # Bitcoin Core regtest configuration
@@ -169,11 +175,11 @@ cargo run -- --bind-address 0.0.0.0:8080 --wallet-dir /custom/wallets --metadata
 #### Environment Variables
 ```bash
 # Network configuration
-export TXRAY_NETWORK=mainnet
-export TXRAY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
-export TXRAY_BIND_ADDRESS=0.0.0.0:3000
-export TXRAY_WALLET_DIR=/app/wallets
-export TXRAY_METADATA_DB=/app/txray.sqlite
+export CANARY_NETWORK=mainnet
+export CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
+export CANARY_BIND_ADDRESS=0.0.0.0:3000
+export CANARY_WALLET_DIR=/app/wallets
+export CANARY_METADATA_DB=/app/metadata.sqlite
 
 # Run with environment configuration
 cargo run
@@ -182,11 +188,11 @@ cargo run
 #### Environment File (.env)
 Create a `.env` file in the backend directory:
 ```env
-TXRAY_NETWORK=mainnet
-TXRAY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
-TXRAY_BIND_ADDRESS=127.0.0.1:3000
-TXRAY_WALLET_DIR=./wallets
-TXRAY_METADATA_DB=txray.sqlite
+CANARY_NETWORK=mainnet
+CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
+CANARY_BIND_ADDRESS=127.0.0.1:3000
+CANARY_WALLET_DIR=./wallets
+CANARY_METADATA_DB=metadata.sqlite
 ```
 
 ### Default Electrum Servers
@@ -199,7 +205,7 @@ TXRAY_METADATA_DB=txray.sqlite
 - **Electrum Server**: tcp://127.0.0.1:50001
 - **Web Server**: http://127.0.0.1:3000
 - **Wallet Directory**: ./wallets
-- **Metadata Database**: txray.sqlite
+- **Metadata Database**: metadata.sqlite
 - **Background Sync**: Every 4 seconds automatic wallet synchronization
 
 ## Advanced Features
@@ -246,7 +252,7 @@ TXRAY_METADATA_DB=txray.sqlite
 - **Sync Parameters**: STOP_GAP=20, BATCH_SIZE=5
 
 ### Wallet Metadata & SMS Storage
-- **Database**: `txray.sqlite` in backend root directory (completely removed on reset)
+- **Database**: `metadata.sqlite` in backend root directory (completely removed on reset)
 - **Core Tables**:
   - `wallets`: Stores wallet IDs, names, descriptors, filenames, and creation timestamps
   - `transaction_events`: Bitcoin transaction events with type-safe enums and broadcast channels
@@ -265,7 +271,7 @@ TXRAY_METADATA_DB=txray.sqlite
 ### Reset Behavior
 - **Complete Cleanup**: `./docker-utils.sh reset` removes all SQLite databases
 - **BDK Wallets**: Entire `wallets/` directory is deleted (not just individual files)
-- **Metadata**: `txray.sqlite` file is completely removed (not just table contents)
+- **Metadata**: `metadata.sqlite` file is completely removed (not just table contents)
 - **Fresh Start**: All databases are recreated from scratch on next backend startup
 
 ## SMS Integration Setup

@@ -44,7 +44,7 @@ impl std::str::FromStr for NetworkConfig {
 }
 
 #[derive(Debug, Clone, Parser)]
-#[command(name = "txray")]
+#[command(name = "canary")]
 #[command(about = "Bitcoin wallet management service")]
 pub struct AppConfig {
     /// Bitcoin network to use
@@ -64,7 +64,7 @@ pub struct AppConfig {
     pub wallet_dir: String,
 
     /// Metadata database path
-    #[arg(long, default_value = "txray.sqlite")]
+    #[arg(long, default_value = "metadata.sqlite")]
     pub metadata_db: String,
 }
 
@@ -79,23 +79,23 @@ impl AppConfig {
         let mut config = Self::parse();
 
         // Override with environment variables if present
-        if let Ok(network_env) = std::env::var("TXRAY_NETWORK") {
+        if let Ok(network_env) = std::env::var("CANARY_NETWORK") {
             config.network = network_env.parse()?;
         }
 
-        if let Ok(electrum_url_env) = std::env::var("TXRAY_ELECTRUM_URL") {
+        if let Ok(electrum_url_env) = std::env::var("CANARY_ELECTRUM_URL") {
             config.electrum_url = Some(electrum_url_env);
         }
 
-        if let Ok(bind_address_env) = std::env::var("TXRAY_BIND_ADDRESS") {
+        if let Ok(bind_address_env) = std::env::var("CANARY_BIND_ADDRESS") {
             config.bind_address = bind_address_env;
         }
 
-        if let Ok(wallet_dir_env) = std::env::var("TXRAY_WALLET_DIR") {
+        if let Ok(wallet_dir_env) = std::env::var("CANARY_WALLET_DIR") {
             config.wallet_dir = wallet_dir_env;
         }
 
-        if let Ok(metadata_db_env) = std::env::var("TXRAY_METADATA_DB") {
+        if let Ok(metadata_db_env) = std::env::var("CANARY_METADATA_DB") {
             config.metadata_db = metadata_db_env;
         }
 
