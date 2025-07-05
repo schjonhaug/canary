@@ -73,12 +73,9 @@ pub struct TwilioConfigRequest {
     /// Twilio Auth Token
     #[schema(example = "your_auth_token")]
     pub auth_token: String,
-    /// Twilio Messaging Service SID
+    /// Twilio Messaging Service SID (use 'TEST' for test mode)
     #[schema(example = "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
     pub messaging_service_sid: String,
-    /// Skip Twilio validation (for development mode)
-    #[schema(example = false)]
-    pub skip_validation: Option<bool>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -480,8 +477,8 @@ pub async fn save_twilio_config(
     State(wallet_manager): State<AppState>,
     Json(payload): Json<TwilioConfigRequest>,
 ) -> Response {
-    // Skip validation if requested (for development mode)
-    if payload.skip_validation.unwrap_or(false) {
+    // Skip validation if messaging_service_sid is 'TEST' (for test mode)
+    if payload.messaging_service_sid == "TEST" {
         // Save directly to database without validation
         let manager = wallet_manager.lock().await;
         match manager.metadata_db.upsert_twilio_config(
@@ -492,7 +489,7 @@ pub async fn save_twilio_config(
             Ok(_) => (
                 StatusCode::CREATED,
                 Json(TwilioConfigResponse {
-                    message: "Twilio configuration saved successfully (validation skipped for development)".to_string(),
+                    message: "Twilio configuration saved successfully (TEST mode - validation skipped)".to_string(),
                 }),
             )
                 .into_response(),

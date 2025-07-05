@@ -118,9 +118,22 @@ impl SmsService {
             twilio_config.account_sid
         );
 
+        let (from_number, is_test_mode) = if twilio_config.messaging_service_sid == "TEST" {
+            ("+15005550006".to_string(), true)
+        } else {
+            (twilio_config.messaging_service_sid.clone(), false)
+        };
+
+        println!(
+            "📱 SMS Mode: {} - Sending to {} using from: {}",
+            if is_test_mode { "TEST" } else { "LIVE" },
+            contact.phone_number,
+            from_number
+        );
+
         let sms_request = TwilioSmsRequest {
             to: contact.phone_number.clone(),
-            from: twilio_config.messaging_service_sid.clone(),
+            from: from_number,
             body: message.to_string(),
         };
 

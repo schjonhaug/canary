@@ -960,8 +960,7 @@ async fn test_save_twilio_config() {
     let twilio_request = TwilioConfigRequest {
         account_sid: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_string(),
         auth_token: "your_auth_token".to_string(),
-        messaging_service_sid: "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_string(),
-        skip_validation: Some(true), // Skip validation for testing
+        messaging_service_sid: "TEST".to_string(), // Use TEST to skip validation
     };
 
     let response = app
@@ -980,7 +979,7 @@ async fn test_save_twilio_config() {
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(body["message"], "Twilio configuration saved successfully (validation skipped for development)");
+    assert_eq!(body["message"], "Twilio configuration saved successfully (TEST mode - validation skipped)");
 }
 
 #[tokio::test]
@@ -991,8 +990,7 @@ async fn test_get_twilio_config() {
     let twilio_request = TwilioConfigRequest {
         account_sid: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_string(),
         auth_token: "your_auth_token".to_string(),
-        messaging_service_sid: "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_string(),
-        skip_validation: Some(true), // Skip validation for testing
+        messaging_service_sid: "TEST".to_string(), // Use TEST to skip validation
     };
 
     app.clone()
@@ -1028,7 +1026,7 @@ async fn test_get_twilio_config() {
     assert_eq!(body["auth_token"], "your_auth_token");
     assert_eq!(
         body["messaging_service_sid"],
-        "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        "TEST"
     );
 }
 
