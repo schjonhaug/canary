@@ -27,8 +27,8 @@ async fn main() -> anyhow::Result<()> {
     println!("  Network: {:?}", config.network);
     println!("  Electrum URL: {}", config.electrum_url());
     println!("  Bind address: {}", config.bind_address);
-    println!("  Wallet directory: {}", config.wallet_dir_path());
-    println!("  Metadata database: {}", config.metadata_db_path());
+    println!("  Wallet directory: {}", config.effective_wallet_dir());
+    println!("  Metadata database: {}", config.effective_metadata_db());
 
     // Test Electrum connection
     let electrum_client = ElectrumClient::new(&config.electrum_url())?;
@@ -44,8 +44,8 @@ async fn main() -> anyhow::Result<()> {
     let wallet_manager = Arc::new(Mutex::new(
         WalletManager::new(
             event_tx,
-            config.wallet_dir_path().into(),
-            &config.metadata_db_path(),
+            config.effective_wallet_dir().into(),
+            &config.effective_metadata_db(),
             config.network(),
             &config.electrum_url(),
         )

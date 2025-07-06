@@ -128,6 +128,13 @@ pub struct MetadataDb {
 
 impl MetadataDb {
     pub fn new(db_path: &str) -> Result<Self> {
+        // Create parent directory if it doesn't exist
+        if let Some(parent) = std::path::Path::new(db_path).parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                eprintln!("Warning: Failed to create database directory: {}", e);
+            }
+        }
+        
         // Run migrations first
         let migration_runner = MigrationRunner::new(db_path)?;
         // Try multiple migration paths (for development and production)

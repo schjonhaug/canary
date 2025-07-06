@@ -133,6 +133,32 @@ impl AppConfig {
         };
         format!("database/{}/metadata.sqlite", network_name)
     }
+
+    /// Get the effective wallet directory path
+    /// Uses the configured path if it's absolute,
+    /// otherwise uses network-specific path
+    pub fn effective_wallet_dir(&self) -> String {
+        if self.wallet_dir.starts_with('/') {
+            // Absolute path - use as-is
+            self.wallet_dir.clone()
+        } else {
+            // Relative path - use network-specific path
+            self.wallet_dir_path()
+        }
+    }
+
+    /// Get the effective metadata database path
+    /// Uses the configured path if it's absolute,
+    /// otherwise uses network-specific path
+    pub fn effective_metadata_db(&self) -> String {
+        if self.metadata_db.starts_with('/') {
+            // Absolute path - use as-is
+            self.metadata_db.clone()
+        } else {
+            // Relative path - use network-specific path
+            self.metadata_db_path()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -222,5 +248,30 @@ mod tests {
             config.metadata_db_path(),
             "database/mainnet/metadata.sqlite"
         );
+    }
+
+    #[test]
+    fn test_effective_paths() {
+        // Test with relative paths (local development)
+        let config = AppConfig {
+            network: NetworkConfig::Regtest,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            wallet_dir: "./wallets".to_string(),
+            metadata_db: "metadata.sqlite".to_string(),
+        };
+        assert_eq!(config.effective_wallet_dir(), "database/regtest/wallets");
+        assert_eq!(config.effective_metadata_db(), "database/regtest/metadata.sqlite");
+
+        // Test with absolute paths (Docker/Umbrel)
+        let config = AppConfig {
+            network: NetworkConfig::Mainnet,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            wallet_dir: "/app/data/database/mainnet/wallets".to_string(),
+            metadata_db: "/app/data/database/mainnet/metadata.sqlite".to_string(),
+        };
+        assert_eq!(config.effective_wallet_dir(), "/app/data/database/mainnet/wallets");
+        assert_eq!(config.effective_metadata_db(), "/app/data/database/mainnet/metadata.sqlite");
     }
 }
