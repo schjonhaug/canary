@@ -55,6 +55,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
   // Format phone number for display using libphonenumber-js
   const formatPhoneForDisplay = (phoneNumber: string): string => {
     try {
+      // Use libphonenumber-js for all formatting (follows official regulations)
       const formatted = formatNumber(phoneNumber, 'INTERNATIONAL')
       return formatted || phoneNumber
     } catch {

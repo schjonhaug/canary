@@ -106,6 +106,8 @@ txray/
 - `reqwest = "0.12"` with json features - HTTP client for Twilio API
 - `base64 = "0.22"` - Base64 encoding for Twilio authentication
 - `chrono = "0.4"` - Date and time handling for SMS logs
+- `phonenumber = "0.3"` - International phone number validation and formatting
+- `libphonenumber-js = "1.12.9"` (frontend) - Client-side phone number formatting
 
 ## API Endpoints
 ### Wallet Management

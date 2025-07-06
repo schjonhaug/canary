@@ -380,12 +380,12 @@ async fn test_delete_wallet_not_found() {
 // ===== CONTACT MANAGEMENT TESTS =====
 
 #[tokio::test]
-async fn test_create_contact() {
+async fn test_create_contact_valid_phone() {
     let (app, _temp_dir) = setup_test_app().await;
 
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
-        phone_number: "12345678".to_string(),
+        phone_number: "+4792050946".to_string(), // Valid Norwegian mobile
     };
 
     let response = app
@@ -400,17 +400,111 @@ async fn test_create_contact() {
         .await
         .unwrap();
 
-    let status = response.status();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
 
-    if status != StatusCode::CREATED {
-        println!("Error response: {:?}", body);
-    }
-
-    assert_eq!(status, StatusCode::CREATED);
     assert_eq!(body["message"], "Contact created successfully");
     assert!(body["contact_id"].as_i64().is_some());
+}
+
+#[tokio::test]
+async fn test_create_contact_missing_country_code() {
+    let (app, _temp_dir) = setup_test_app().await;
+
+    let contact_request = CreateContactRequest {
+        name: "John Doe".to_string(),
+        phone_number: "92050946".to_string(), // Missing country code
+    };
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(http::Method::POST)
+                .uri("/contacts")
+                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body: Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(body["error"], "Phone number must include country code (e.g., +4712345678)");
+}
+
+#[tokio::test]
+async fn test_create_contact_invalid_phone_format() {
+    let (app, _temp_dir) = setup_test_app().await;
+
+    let contact_request = CreateContactRequest {
+        name: "John Doe".to_string(),
+        phone_number: "+47invalid".to_string(), // Invalid format
+    };
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(http::Method::POST)
+                .uri("/contacts")
+                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body: Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(body["error"], "Invalid phone number");
+}
+
+#[tokio::test]
+async fn test_create_contact_various_valid_formats() {
+    let (app, _temp_dir) = setup_test_app().await;
+
+    let test_cases = vec![
+        ("+4792050946", "Norwegian mobile"),
+        ("+4722334455", "Norwegian landline"),
+        ("+14155552345", "US number"),
+        ("+447911123456", "UK mobile"),
+    ];
+
+    for (phone_number, description) in test_cases {
+        let contact_request = CreateContactRequest {
+            name: format!("Test Contact {}", description),
+            phone_number: phone_number.to_string(),
+        };
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/contacts")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CREATED, "Failed for {}: {}", description, phone_number);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body["message"], "Contact created successfully");
+        assert!(body["contact_id"].as_i64().is_some());
+    }
 }
 
 #[tokio::test]
@@ -443,7 +537,7 @@ async fn test_get_all_contacts_with_data() {
     // Create a contact first
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
-        phone_number: "12345678".to_string(),
+        phone_number: "+4792050946".to_string(),
     };
 
     app.clone()
@@ -478,7 +572,7 @@ async fn test_get_all_contacts_with_data() {
     let contacts = body.as_array().unwrap();
     assert_eq!(contacts.len(), 1);
     assert_eq!(contacts[0]["name"], "John Doe");
-    assert_eq!(contacts[0]["phone_number"], "12345678");
+    assert_eq!(contacts[0]["phone_number"], "+4792050946");
 }
 
 #[tokio::test]
@@ -488,7 +582,7 @@ async fn test_delete_contact() {
     // Create a contact first
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
-        phone_number: "12345678".to_string(),
+        phone_number: "+4792050946".to_string(),
     };
 
     let create_response = app
@@ -604,7 +698,7 @@ async fn test_add_contact_to_wallet() {
     // Create a contact
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
-        phone_number: "12345678".to_string(),
+        phone_number: "+4792050946".to_string(),
     };
 
     let contact_response = app
@@ -655,7 +749,7 @@ async fn test_add_contact_to_wallet_not_found() {
     // Create a contact
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
-        phone_number: "12345678".to_string(),
+        phone_number: "+4792050946".to_string(),
     };
 
     let contact_response = app
@@ -737,7 +831,7 @@ async fn test_get_wallet_contacts() {
     // Create a contact
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
-        phone_number: "12345678".to_string(),
+        phone_number: "+4792050946".to_string(),
     };
 
     let contact_response = app
@@ -797,7 +891,7 @@ async fn test_get_wallet_contacts() {
     let contacts = body.as_array().unwrap();
     assert_eq!(contacts.len(), 1);
     assert_eq!(contacts[0]["name"], "John Doe");
-    assert_eq!(contacts[0]["phone_number"], "12345678");
+    assert_eq!(contacts[0]["phone_number"], "+4792050946");
 }
 
 #[tokio::test]
@@ -857,7 +951,7 @@ async fn test_remove_contact_from_wallet() {
     // Create a contact
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
-        phone_number: "12345678".to_string(),
+        phone_number: "+4792050946".to_string(),
     };
 
     let contact_response = app
