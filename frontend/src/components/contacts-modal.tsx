@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Trash2, Edit2, Users, Phone, X } from "lucide-react"
 import { extractChecksum } from "@/lib/utils"
+import { isValidPhoneNumber, formatNumber } from "libphonenumber-js"
 
 interface Contact {
   id: number
@@ -44,8 +45,39 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     name: "",
     phone_number: ""
   })
+  const [formErrors, setFormErrors] = useState({
+    name: "",
+    phone_number: ""
+  })
 
   const apiUrl = `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:3000`
+
+  // Format phone number for display using libphonenumber-js
+  const formatPhoneForDisplay = (phoneNumber: string): string => {
+    try {
+      const formatted = formatNumber(phoneNumber, 'INTERNATIONAL')
+      return formatted || phoneNumber
+    } catch {
+      return phoneNumber
+    }
+  }
+
+  // Validate phone number
+  const validatePhoneNumber = (phoneNumber: string): string | null => {
+    if (!phoneNumber.trim()) {
+      return "Phone number is required"
+    }
+    
+    if (!phoneNumber.startsWith('+')) {
+      return "Phone number must include country code (e.g., +4712345678)"
+    }
+    
+    if (!isValidPhoneNumber(phoneNumber)) {
+      return "Invalid phone number format"
+    }
+    
+    return null
+  }
 
   const fetchContacts = async () => {
     try {
@@ -96,6 +128,18 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Clear previous errors
+    setFormErrors({ name: "", phone_number: "" })
+    
+    // Validate form data
+    const nameError = formData.name.trim() ? "" : "Name is required"
+    const phoneError = validatePhoneNumber(formData.phone_number) || ""
+    
+    if (nameError || phoneError) {
+      setFormErrors({ name: nameError, phone_number: phoneError })
+      return
+    }
+    
     try {
       const url = editingContact 
         ? `${apiUrl}/contacts/${editingContact.id}` 
@@ -113,7 +157,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       await fetchContacts()
@@ -155,6 +199,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
 
   const resetForm = () => {
     setFormData({ name: "", phone_number: "" })
+    setFormErrors({ name: "", phone_number: "" })
     setEditingContact(null)
     setIsCreating(false)
   }
@@ -260,7 +305,11 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                         placeholder="Enter contact name"
                         required
+                        className={formErrors.name ? "border-red-500" : ""}
                       />
+                      {formErrors.name && (
+                        <p className="text-sm text-red-600 mt-1">{formErrors.name}</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="phone_number">Phone Number</Label>
@@ -270,7 +319,12 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
                         onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
                         placeholder="+4712345678"
                         required
+                        className={formErrors.phone_number ? "border-red-500" : ""}
                       />
+                      {formErrors.phone_number && (
+                        <p className="text-sm text-red-600 mt-1">{formErrors.phone_number}</p>
+                      )}
+                      <p className="text-sm text-gray-500 mt-1">Include country code (e.g., +47 for Norway)</p>
                     </div>
                     <div className="flex gap-2">
                       <Button type="submit" size="sm">
@@ -300,7 +354,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
                         <Phone className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="font-medium">{contact.name}</p>
-                          <p className="text-sm text-muted-foreground">{contact.phone_number}</p>
+                          <p className="text-sm text-muted-foreground">{formatPhoneForDisplay(contact.phone_number)}</p>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -363,7 +417,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">
-                    SMS Notifications for "{selectedWallet.name}"
+                    SMS Notifications for &quot;{selectedWallet.name}&quot;
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -381,7 +435,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
                           <Phone className="h-4 w-4 text-green-600" />
                           <div>
                             <p className="text-sm font-medium">{contact.name}</p>
-                            <p className="text-xs text-muted-foreground">{contact.phone_number}</p>
+                            <p className="text-xs text-muted-foreground">{formatPhoneForDisplay(contact.phone_number)}</p>
                           </div>
                         </div>
                         <Button
@@ -404,7 +458,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
                               <Phone className="h-4 w-4 text-muted-foreground" />
                               <div>
                                 <p className="text-sm font-medium">{contact.name}</p>
-                                <p className="text-xs text-muted-foreground">{contact.phone_number}</p>
+                                <p className="text-xs text-muted-foreground">{formatPhoneForDisplay(contact.phone_number)}</p>
                               </div>
                             </div>
                             <Button

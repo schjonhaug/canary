@@ -14,6 +14,8 @@ use tokio::sync::Mutex;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 use base64::{Engine as _, engine::general_purpose};
+use phonenumber::PhoneNumber;
+use std::str::FromStr;
 
 #[derive(Deserialize, Serialize, ToSchema)]
 pub struct CreateWalletRequest {
@@ -46,8 +48,8 @@ pub struct CreateContactRequest {
     /// The name of the contact person
     #[schema(example = "John Doe")]
     pub name: String,
-    /// The phone number (without country code)
-    #[schema(example = "12345678")]
+    /// The phone number (must include country code)
+    #[schema(example = "+4712345678")]
     pub phone_number: String,
 }
 
@@ -85,6 +87,26 @@ pub struct TwilioConfigResponse {
 }
 
 pub type AppState = Arc<Mutex<WalletManager>>;
+
+/// Validates and normalizes a phone number
+fn validate_phone_number(phone_number: &str) -> Result<String, String> {
+    // Check if phone number starts with country code
+    if !phone_number.starts_with('+') {
+        return Err("Phone number must include country code (e.g., +4712345678)".to_string());
+    }
+
+    // Parse phone number
+    let parsed_number = PhoneNumber::from_str(phone_number)
+        .map_err(|_| "Invalid phone number format".to_string())?;
+
+    // Check if it's a valid number
+    if !parsed_number.is_valid() {
+        return Err("Invalid phone number".to_string());
+    }
+
+    // Return normalized E.164 format
+    Ok(parsed_number.format().mode(phonenumber::Mode::E164).to_string())
+}
 
 #[utoipa::path(
     post,
@@ -228,10 +250,22 @@ pub async fn create_contact(
     State(wallet_manager): State<AppState>,
     Json(payload): Json<CreateContactRequest>,
 ) -> Response {
+    // Validate phone number first
+    let normalized_phone = match validate_phone_number(&payload.phone_number) {
+        Ok(phone) => phone,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse { error }),
+            )
+                .into_response();
+        }
+    };
+
     let manager = wallet_manager.lock().await;
     match manager
         .metadata_db
-        .insert_contact(&payload.name, &payload.phone_number)
+        .insert_contact(&payload.name, &normalized_phone)
     {
         Ok(contact_id) => (
             StatusCode::CREATED,
