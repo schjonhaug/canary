@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -80,7 +80,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     return null
   }
 
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
     try {
       const response = await fetch(`${apiUrl}/contacts`)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
@@ -89,9 +89,9 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch contacts")
     }
-  }
+  }, [apiUrl])
 
-  const fetchWallets = async () => {
+  const fetchWallets = useCallback(async () => {
     try {
       const response = await fetch(`${apiUrl}/wallets`)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
@@ -100,9 +100,9 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch wallets")
     }
-  }
+  }, [apiUrl])
 
-  const fetchWalletContacts = async (walletId: number) => {
+  const fetchWalletContacts = useCallback(async (walletId: number) => {
     try {
       const response = await fetch(`${apiUrl}/wallets/${walletId}/contacts`)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
@@ -111,20 +111,20 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch wallet contacts")
     }
-  }
+  }, [apiUrl])
 
   useEffect(() => {
     if (isOpen) {
       Promise.all([fetchContacts(), fetchWallets()])
         .finally(() => setLoading(false))
     }
-  }, [isOpen])
+  }, [isOpen, fetchContacts, fetchWallets])
 
   useEffect(() => {
     if (selectedWallet) {
       fetchWalletContacts(selectedWallet.id)
     }
-  }, [selectedWallet])
+  }, [selectedWallet, fetchWalletContacts])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

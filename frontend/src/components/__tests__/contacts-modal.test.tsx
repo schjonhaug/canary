@@ -9,8 +9,8 @@ jest.mock('libphonenumber-js', () => ({
 }))
 
 // Mock window.location
-delete (window as any).location
-window.location = { hostname: 'localhost' } as any
+delete (window as unknown as { location: unknown }).location
+window.location = { hostname: 'localhost' } as unknown as Location
 
 // Mock fetch
 global.fetch = jest.fn()
