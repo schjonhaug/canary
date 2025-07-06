@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2, Plus } from "lucide-react"
+import { Trash2, Plus, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { CreateWalletModal } from "./create-wallet-modal"
 
@@ -16,6 +16,7 @@ interface Wallet {
   created_at: string
   balance_total?: number
   last_activity?: string
+  contact_count?: number
 }
 
 interface WalletCardsProps {
@@ -34,13 +35,31 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   // Define fetchWallets function
   const fetchWallets = async () => {
     try {
-      const apiUrl = `http://${window.location.hostname}:3000/wallets`
-      const response = await fetch(apiUrl)
+      const baseUrl = `http://${window.location.hostname}:3000`
+      const response = await fetch(`${baseUrl}/wallets`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       const data = await response.json()
-      setWallets(data)
+      
+      // Fetch contact count for each wallet
+      const walletsWithContactCount = await Promise.all(
+        data.map(async (wallet: Wallet) => {
+          try {
+            const contactsResponse = await fetch(`${baseUrl}/wallets/${wallet.id}/contacts`)
+            if (contactsResponse.ok) {
+              const contacts = await contactsResponse.json()
+              return { ...wallet, contact_count: contacts.length }
+            }
+            return { ...wallet, contact_count: 0 }
+          } catch (err) {
+            console.error(`Failed to fetch contacts for wallet ${wallet.id}:`, err)
+            return { ...wallet, contact_count: 0 }
+          }
+        })
+      )
+      
+      setWallets(walletsWithContactCount)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch wallets")
     } finally {
@@ -91,8 +110,8 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   }
 
   const handleDeleteConfirm = async (walletId: number) => {
-    const apiUrl = `http://${window.location.hostname}:3000/wallets/${walletId}`
-    const response = await fetch(apiUrl, {
+    const baseUrl = `http://${window.location.hostname}:3000`
+    const response = await fetch(`${baseUrl}/wallets/${walletId}`, {
       method: 'DELETE',
     })
 
@@ -261,13 +280,17 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
                       {formatBalance(wallet.balance_total)}
                     </div>
                   </div>
-                  <div className="flex justify-center items-center text-xs text-muted-foreground">
+                  <div className="flex justify-between items-center text-xs text-muted-foreground">
                     <span>
                       {wallet.last_activity 
                         ? `Last activity: ${new Date(wallet.last_activity).toLocaleDateString()}` 
                         : "No recent activity"
                       }
                     </span>
+                    <div className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      <span>{wallet.contact_count || 0}</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>

@@ -4,12 +4,14 @@ import { useState } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { SettingsModal } from "@/components/settings-modal"
+import { ContactsModal } from "@/components/contacts-modal"
 import { Button } from "@/components/ui/button"
-import { Settings } from "lucide-react"
+import { Settings, Users } from "lucide-react"
 
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isContactsOpen, setIsContactsOpen] = useState(false)
 
   return (
     <div className="container mx-auto py-8">
@@ -18,15 +20,26 @@ export default function Home() {
           <h1 className="text-3xl font-bold">Canary</h1>
           <p className="text-muted-foreground">Bitcoin Wallet Management System</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsSettingsOpen(true)}
-          className="gap-2"
-        >
-          <Settings size={16} />
-          Settings
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsContactsOpen(true)}
+            className="gap-2"
+          >
+            <Users size={16} />
+            Contacts
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSettingsOpen(true)}
+            className="gap-2"
+          >
+            <Settings size={16} />
+            Settings
+          </Button>
+        </div>
       </div>
       
       <div className="space-y-8">
@@ -66,6 +79,11 @@ export default function Home() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+      
+      <ContactsModal
+        isOpen={isContactsOpen}
+        onClose={() => setIsContactsOpen(false)}
       />
     </div>
   )
