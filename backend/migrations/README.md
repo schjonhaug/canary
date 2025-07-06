@@ -1,10 +1,10 @@
-# TxRay Database Migrations
+# Kanari Database Migrations
 
-This directory contains SQL migration files for the TxRay database schema.
+This directory contains SQL migration files for the Kanari database schema.
 
 ## Migration System
 
-TxRay uses a simple, file-based migration system that automatically applies database schema changes when the application starts. This is the standard and recommended approach for database migrations.
+Kanari uses a simple, file-based migration system that automatically applies database schema changes when the application starts. This is the standard and recommended approach for database migrations.
 
 ## How It Works
 

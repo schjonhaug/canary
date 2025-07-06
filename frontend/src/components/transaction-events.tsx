@@ -134,7 +134,7 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
           </p>
         ) : (
           <Table>
-            <TableCaption>A list of all transaction events from the TxRay system.</TableCaption>
+            <TableCaption>A list of all transaction events from the Kanari system.</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>Wallet</TableHead>

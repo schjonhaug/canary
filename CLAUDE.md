@@ -3,7 +3,7 @@
 This file contains project-specific information and preferences for Claude Code.
 
 ## Project Overview
-TxRay is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
+Kanari is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
 
 ## Development Commands
 ```bash
@@ -52,7 +52,7 @@ cd regtest-env && ./docker-utils.sh get-mempool-txid 0          # Get mempool TX
 
 ## Project Structure
 ```
-txray/
+kanari/
 ├── backend/                    # Rust backend service
 │   ├── src/
 │   │   ├── main.rs            # Application entry point with background sync and SMS worker
@@ -159,7 +159,7 @@ txray/
 - `/api-docs/openapi.json`: OpenAPI specification
 
 ## Network Configuration
-TxRay supports multiple Bitcoin networks with configurable Electrum servers and network-specific database storage:
+Kanari supports multiple Bitcoin networks with configurable Electrum servers and network-specific database storage:
 
 ### Supported Networks
 - **Regtest** (default): For development and testing

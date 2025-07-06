@@ -21,13 +21,13 @@ use uuid::Uuid;
 async fn setup_test_app() -> (axum::Router, PathBuf) {
     // Use a unique temp directory for each test run
     let base_temp = env::temp_dir();
-    let unique_dir = base_temp.join(format!("txray_test_{}", Uuid::new_v4()));
+    let unique_dir = base_temp.join(format!("kanari_test_{}", Uuid::new_v4()));
     fs::create_dir_all(&unique_dir).unwrap();
     let wallet_dir = unique_dir.join("wallets");
     fs::create_dir_all(&wallet_dir).unwrap();
 
     let (event_tx, _) = broadcast::channel(100);
-    let metadata_db_path = unique_dir.join("txray.sqlite");
+    let metadata_db_path = unique_dir.join("kanari.sqlite");
     let wallet_manager = WalletManager::new(
         event_tx,
         wallet_dir.clone(),
@@ -1229,6 +1229,6 @@ async fn test_openapi_spec_endpoint() {
     let body: Value = serde_json::from_slice(&body).unwrap();
 
     // Verify it's a valid OpenAPI spec
-    assert_eq!(body["info"]["title"], "TxRay Wallet API");
+    assert_eq!(body["info"]["title"], "Kanari Wallet API");
     assert_eq!(body["info"]["version"], "0.1.0");
 }

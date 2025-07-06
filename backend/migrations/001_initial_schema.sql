@@ -1,4 +1,4 @@
--- Initial schema for TxRay wallet management system
+-- Initial schema for Kanari wallet management system
 -- Creates all base tables
 
 CREATE TABLE IF NOT EXISTS wallets (

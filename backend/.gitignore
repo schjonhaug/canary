@@ -13,7 +13,7 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
-# TxRay database files
+# Kanari database files
 database/
 wallets/
 *.sqlite

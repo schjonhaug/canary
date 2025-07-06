@@ -694,7 +694,7 @@ pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) 
         (name = "transaction", description = "Transaction events endpoints")
     ),
     info(
-        title = "TxRay Wallet API",
+        title = "Kanari Wallet API",
         version = "0.1.0",
         description = "REST API for creating Bitcoin wallets from multipath descriptors",
     )
