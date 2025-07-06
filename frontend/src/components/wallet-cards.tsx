@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Trash2, Plus, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { CreateWalletModal } from "./create-wallet-modal"
+import { extractChecksum } from "@/lib/utils"
 
 interface Wallet {
   id: number
@@ -90,10 +91,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
     }, 0)
   }
 
-  const extractChecksum = (descriptor: string) => {
-    const checksumMatch = descriptor.match(/#([a-zA-Z0-9]+)$/)
-    return checksumMatch ? checksumMatch[1] : "Unknown"
-  }
 
   const handleWalletClick = (walletId: number) => {
     if (selectedWalletId === walletId) {

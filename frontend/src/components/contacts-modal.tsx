@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Trash2, Edit2, Users, Phone, X } from "lucide-react"
+import { extractChecksum } from "@/lib/utils"
 
 interface Contact {
   id: number
@@ -202,10 +203,6 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     return walletContacts.some(wc => wc.id === contactId)
   }
 
-  const extractChecksum = (descriptor: string) => {
-    const checksumMatch = descriptor.match(/#([a-zA-Z0-9]+)$/)
-    return checksumMatch ? checksumMatch[1] : "Unknown"
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
