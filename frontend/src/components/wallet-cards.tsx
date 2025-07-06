@@ -36,7 +36,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   // Define fetchWallets function
   const fetchWallets = async () => {
     try {
-      const baseUrl = `http://${window.location.hostname}:3000`
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL!
       const response = await fetch(`${baseUrl}/wallets`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -107,7 +107,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   }
 
   const handleDeleteConfirm = async (walletId: number) => {
-    const baseUrl = `http://${window.location.hostname}:3000`
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL!
     const response = await fetch(`${baseUrl}/wallets/${walletId}`, {
       method: 'DELETE',
     })

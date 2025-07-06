@@ -39,8 +39,9 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
   useEffect(() => {
     async function fetchEvents() {
       try {
-        // Use the same hostname as the current page, but port 3000 for the API
-        const apiUrl = `http://${window.location.hostname}:3000/transaction-events`
+        // Use the configured API URL or fallback to current hostname
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL!
+        const apiUrl = `${baseUrl}/transaction-events`
         const response = await fetch(apiUrl)
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)

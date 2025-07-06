@@ -50,7 +50,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     phone_number: ""
   })
 
-  const apiUrl = `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:3000`
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL!
 
   // Format phone number for display using libphonenumber-js
   const formatPhoneForDisplay = (phoneNumber: string): string => {
