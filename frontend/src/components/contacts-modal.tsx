@@ -82,7 +82,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
 
   const fetchContacts = useCallback(async () => {
     try {
-      const response = await fetch(`${apiUrl}/contacts`)
+      const response = await fetch(`${apiUrl}/api/contacts`)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
       setContacts(data)
@@ -93,7 +93,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
 
   const fetchWallets = useCallback(async () => {
     try {
-      const response = await fetch(`${apiUrl}/wallets`)
+      const response = await fetch(`${apiUrl}/api/wallets`)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
       setWallets(data)
@@ -104,7 +104,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
 
   const fetchWalletContacts = useCallback(async (walletId: number) => {
     try {
-      const response = await fetch(`${apiUrl}/wallets/${walletId}/contacts`)
+      const response = await fetch(`${apiUrl}/api/wallets/${walletId}/contacts`)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
       setWalletContacts(data)
@@ -143,8 +143,8 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     
     try {
       const url = editingContact 
-        ? `${apiUrl}/contacts/${editingContact.id}` 
-        : `${apiUrl}/contacts`
+        ? `${apiUrl}/api/contacts/${editingContact.id}` 
+        : `${apiUrl}/api/contacts`
       
       const method = editingContact ? 'PUT' : 'POST'
       
@@ -172,7 +172,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     if (!confirm("Are you sure you want to delete this contact?")) return
 
     try {
-      const response = await fetch(`${apiUrl}/contacts/${contactId}`, {
+      const response = await fetch(`${apiUrl}/api/contacts/${contactId}`, {
         method: 'DELETE',
       })
 
@@ -209,7 +209,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     if (!selectedWallet) return
 
     try {
-      const response = await fetch(`${apiUrl}/wallets/${selectedWallet.id}/contacts`, {
+      const response = await fetch(`${apiUrl}/api/wallets/${selectedWallet.id}/contacts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -231,7 +231,7 @@ export function ContactsModal({ isOpen, onClose }: ContactsModalProps) {
     if (!selectedWallet) return
 
     try {
-      const response = await fetch(`${apiUrl}/wallets/${selectedWallet.id}/contacts/${contactId}`, {
+      const response = await fetch(`${apiUrl}/api/wallets/${selectedWallet.id}/contacts/${contactId}`, {
         method: 'DELETE',
       })
 

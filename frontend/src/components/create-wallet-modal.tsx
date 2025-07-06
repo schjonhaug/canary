@@ -58,7 +58,7 @@ export function CreateWalletModal({
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const apiUrl = `${baseUrl}/wallets`
+      const apiUrl = `${baseUrl}/api/wallets`
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {

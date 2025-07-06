@@ -56,7 +56,7 @@ async fn test_create_wallet_success() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -88,7 +88,7 @@ async fn test_create_wallet_duplicate_descriptor() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -103,7 +103,7 @@ async fn test_create_wallet_duplicate_descriptor() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -131,7 +131,7 @@ async fn test_create_wallet_invalid_descriptor() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -159,7 +159,7 @@ async fn test_get_all_wallets_empty() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -188,7 +188,7 @@ async fn test_get_all_wallets_with_data() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -201,7 +201,7 @@ async fn test_get_all_wallets_with_data() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -233,7 +233,7 @@ async fn test_get_wallet_by_id() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -255,7 +255,7 @@ async fn test_get_wallet_by_id() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri(&format!("/wallets/{}", wallet_id))
+                .uri(&format!("/api/wallets/{}", wallet_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -279,7 +279,7 @@ async fn test_get_wallet_by_id_not_found() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/wallets/999")
+                .uri("/api/wallets/999")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -308,7 +308,7 @@ async fn test_delete_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -331,7 +331,7 @@ async fn test_delete_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::DELETE)
-                .uri(&format!("/wallets/{}", wallet_id))
+                .uri(&format!("/api/wallets/{}", wallet_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -345,7 +345,7 @@ async fn test_delete_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri(&format!("/wallets/{}", wallet_id))
+                .uri(&format!("/api/wallets/{}", wallet_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -363,7 +363,7 @@ async fn test_delete_wallet_not_found() {
         .oneshot(
             Request::builder()
                 .method(http::Method::DELETE)
-                .uri("/wallets/999")
+                .uri("/api/wallets/999")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -392,7 +392,7 @@ async fn test_create_contact_valid_phone() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
@@ -422,7 +422,7 @@ async fn test_create_contact_missing_country_code() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
@@ -451,7 +451,7 @@ async fn test_create_contact_invalid_phone_format() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
@@ -489,7 +489,7 @@ async fn test_create_contact_various_valid_formats() {
             .oneshot(
                 Request::builder()
                     .method(http::Method::POST)
-                    .uri("/contacts")
+                    .uri("/api/contacts")
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                     .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                     .unwrap(),
@@ -515,7 +515,7 @@ async fn test_get_all_contacts_empty() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -544,7 +544,7 @@ async fn test_get_all_contacts_with_data() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
@@ -557,7 +557,7 @@ async fn test_get_all_contacts_with_data() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -590,7 +590,7 @@ async fn test_delete_contact() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
@@ -613,7 +613,7 @@ async fn test_delete_contact() {
         .oneshot(
             Request::builder()
                 .method(http::Method::DELETE)
-                .uri(&format!("/contacts/{}", contact_id))
+                .uri(&format!("/api/contacts/{}", contact_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -627,7 +627,7 @@ async fn test_delete_contact() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -647,7 +647,7 @@ async fn test_delete_contact_not_found() {
         .oneshot(
             Request::builder()
                 .method(http::Method::DELETE)
-                .uri("/contacts/999")
+                .uri("/api/contacts/999")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -678,7 +678,7 @@ async fn test_add_contact_to_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -706,7 +706,7 @@ async fn test_add_contact_to_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
@@ -731,7 +731,7 @@ async fn test_add_contact_to_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri(&format!("/wallets/{}/contacts", wallet_id))
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&add_request).unwrap()))
                 .unwrap(),
@@ -757,7 +757,7 @@ async fn test_add_contact_to_wallet_not_found() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
@@ -781,7 +781,7 @@ async fn test_add_contact_to_wallet_not_found() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets/999/contacts")
+                .uri("/api/wallets/999/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&add_request).unwrap()))
                 .unwrap(),
@@ -811,7 +811,7 @@ async fn test_get_wallet_contacts() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -839,7 +839,7 @@ async fn test_get_wallet_contacts() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
@@ -863,7 +863,7 @@ async fn test_get_wallet_contacts() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri(&format!("/wallets/{}/contacts", wallet_id))
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&add_request).unwrap()))
                 .unwrap(),
@@ -876,7 +876,7 @@ async fn test_get_wallet_contacts() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri(&format!("/wallets/{}/contacts", wallet_id))
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -902,7 +902,7 @@ async fn test_get_wallet_contacts_wallet_not_found() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/wallets/999/contacts")
+                .uri("/api/wallets/999/contacts")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -931,7 +931,7 @@ async fn test_remove_contact_from_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
@@ -959,7 +959,7 @@ async fn test_remove_contact_from_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/contacts")
+                .uri("/api/contacts")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
@@ -983,7 +983,7 @@ async fn test_remove_contact_from_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri(&format!("/wallets/{}/contacts", wallet_id))
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&add_request).unwrap()))
                 .unwrap(),
@@ -997,7 +997,7 @@ async fn test_remove_contact_from_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::DELETE)
-                .uri(&format!("/wallets/{}/contacts/{}", wallet_id, contact_id))
+                .uri(&format!("/api/wallets/{}/contacts/{}", wallet_id, contact_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1011,7 +1011,7 @@ async fn test_remove_contact_from_wallet() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri(&format!("/wallets/{}/contacts", wallet_id))
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1031,7 +1031,7 @@ async fn test_remove_contact_from_wallet_not_found() {
         .oneshot(
             Request::builder()
                 .method(http::Method::DELETE)
-                .uri("/wallets/999/contacts/999")
+                .uri("/api/wallets/999/contacts/999")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1061,7 +1061,7 @@ async fn test_save_twilio_config() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/twilio/config")
+                .uri("/api/twilio/config")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&twilio_request).unwrap()))
                 .unwrap(),
@@ -1091,7 +1091,7 @@ async fn test_get_twilio_config() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/twilio/config")
+                .uri("/api/twilio/config")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from(serde_json::to_string(&twilio_request).unwrap()))
                 .unwrap(),
@@ -1104,7 +1104,7 @@ async fn test_get_twilio_config() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/twilio/config")
+                .uri("/api/twilio/config")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1132,7 +1132,7 @@ async fn test_get_twilio_config_not_found() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/twilio/config")
+                .uri("/api/twilio/config")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1156,7 +1156,7 @@ async fn test_invalid_json_request() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                 .body(Body::from("{ invalid json }"))
                 .unwrap(),
@@ -1180,7 +1180,7 @@ async fn test_missing_content_type() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/wallets")
+                .uri("/api/wallets")
                 .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
                 .unwrap(),
         )

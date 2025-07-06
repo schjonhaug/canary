@@ -41,7 +41,7 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
       try {
         // Use the configured API URL or fallback to current hostname
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-        const apiUrl = `${baseUrl}/transaction-events`
+        const apiUrl = `${baseUrl}/api/transaction-events`
         const response = await fetch(apiUrl)
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)

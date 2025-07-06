@@ -37,7 +37,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   const fetchWallets = async () => {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const response = await fetch(`${baseUrl}/wallets`)
+      const response = await fetch(`${baseUrl}/api/wallets`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -47,7 +47,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
       const walletsWithContactCount = await Promise.all(
         data.map(async (wallet: Wallet) => {
           try {
-            const contactsResponse = await fetch(`${baseUrl}/wallets/${wallet.id}/contacts`)
+            const contactsResponse = await fetch(`${baseUrl}/api/wallets/${wallet.id}/contacts`)
             if (contactsResponse.ok) {
               const contacts = await contactsResponse.json()
               return { ...wallet, contact_count: contacts.length }
@@ -108,7 +108,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
 
   const handleDeleteConfirm = async (walletId: number) => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-    const response = await fetch(`${baseUrl}/wallets/${walletId}`, {
+    const response = await fetch(`${baseUrl}/api/wallets/${walletId}`, {
       method: 'DELETE',
     })
 

@@ -110,7 +110,7 @@ fn validate_phone_number(phone_number: &str) -> Result<String, String> {
 
 #[utoipa::path(
     post,
-    path = "/wallets",
+    path = "/api/wallets",
     request_body = CreateWalletRequest,
     responses(
         (status = 201, description = "Wallet created successfully", body = CreateWalletResponse),
@@ -152,7 +152,7 @@ pub async fn create_wallet(
 
 #[utoipa::path(
     delete,
-    path = "/wallets/{id}",
+    path = "/api/wallets/{id}",
     params(
         ("id" = i64, Path, description = "The wallet ID to delete")
     ),
@@ -183,7 +183,7 @@ pub async fn delete_wallet(
 
 #[utoipa::path(
     get,
-    path = "/wallets/{id}",
+    path = "/api/wallets/{id}",
     params(
         ("id" = i64, Path, description = "The wallet ID to retrieve")
     ),
@@ -215,7 +215,7 @@ pub async fn get_wallet(State(wallet_manager): State<AppState>, Path(id): Path<i
 
 #[utoipa::path(
     get,
-    path = "/wallets",
+    path = "/api/wallets",
     responses(
         (status = 200, description = "List of all wallets", body = Vec<WalletMetadata>),
     ),
@@ -238,7 +238,7 @@ pub async fn get_all_wallets(State(wallet_manager): State<AppState>) -> Response
 
 #[utoipa::path(
     post,
-    path = "/contacts",
+    path = "/api/contacts",
     request_body = CreateContactRequest,
     responses(
         (status = 201, description = "Contact created successfully", body = CreateContactResponse),
@@ -287,7 +287,7 @@ pub async fn create_contact(
 
 #[utoipa::path(
     get,
-    path = "/contacts",
+    path = "/api/contacts",
     responses(
         (status = 200, description = "List of all contacts", body = Vec<ContactPerson>),
     ),
@@ -309,7 +309,7 @@ pub async fn get_all_contacts(State(wallet_manager): State<AppState>) -> Respons
 
 #[utoipa::path(
     delete,
-    path = "/contacts/{id}",
+    path = "/api/contacts/{id}",
     params(
         ("id" = i64, Path, description = "The contact ID to delete")
     ),
@@ -345,7 +345,7 @@ pub async fn delete_contact(
 
 #[utoipa::path(
     post,
-    path = "/wallets/{id}/contacts",
+    path = "/api/wallets/{id}/contacts",
     params(
         ("id" = i64, Path, description = "The wallet ID")
     ),
@@ -404,7 +404,7 @@ pub async fn add_contact_to_wallet(
 
 #[utoipa::path(
     delete,
-    path = "/wallets/{wallet_id}/contacts/{contact_id}",
+    path = "/api/wallets/{wallet_id}/contacts/{contact_id}",
     params(
         ("wallet_id" = i64, Path, description = "The wallet ID"),
         ("contact_id" = i64, Path, description = "The contact ID to remove")
@@ -444,7 +444,7 @@ pub async fn remove_contact_from_wallet(
 
 #[utoipa::path(
     get,
-    path = "/wallets/{id}/contacts",
+    path = "/api/wallets/{id}/contacts",
     params(
         ("id" = i64, Path, description = "The wallet ID")
     ),
@@ -499,7 +499,7 @@ pub async fn get_wallet_contacts(
 
 #[utoipa::path(
     post,
-    path = "/twilio/config",
+    path = "/api/twilio/config",
     request_body = TwilioConfigRequest,
     responses(
         (status = 201, description = "Twilio configuration saved successfully", body = TwilioConfigResponse),
@@ -622,7 +622,7 @@ pub async fn save_twilio_config(
 
 #[utoipa::path(
     get,
-    path = "/twilio/config",
+    path = "/api/twilio/config",
     responses(
         (status = 200, description = "Twilio configuration", body = TwilioConfig),
         (status = 404, description = "No Twilio configuration found", body = ErrorResponse),
@@ -652,7 +652,7 @@ pub async fn get_twilio_config(State(wallet_manager): State<AppState>) -> Respon
 
 #[utoipa::path(
     get,
-    path = "/transaction-events",
+    path = "/api/transaction-events",
     responses(
         (status = 200, description = "List of all transaction events with wallet names", body = Vec<TransactionEventWithWallet>),
     ),
@@ -703,24 +703,26 @@ pub struct ApiDoc;
 
 pub fn create_router(wallet_manager: AppState) -> Router {
     Router::new()
-        .route("/wallets", post(create_wallet).get(get_all_wallets))
-        .route("/wallets/{id}", get(get_wallet).delete(delete_wallet))
-        .route(
-            "/wallets/{id}/contacts",
-            post(add_contact_to_wallet).get(get_wallet_contacts),
+        .nest("/api", Router::new()
+            .route("/wallets", post(create_wallet).get(get_all_wallets))
+            .route("/wallets/{id}", get(get_wallet).delete(delete_wallet))
+            .route(
+                "/wallets/{id}/contacts",
+                post(add_contact_to_wallet).get(get_wallet_contacts),
+            )
+            .route(
+                "/wallets/{wallet_id}/contacts/{contact_id}",
+                axum::routing::delete(remove_contact_from_wallet),
+            )
+            .route("/contacts", post(create_contact).get(get_all_contacts))
+            .route("/contacts/{id}", axum::routing::delete(delete_contact))
+            .route(
+                "/twilio/config",
+                post(save_twilio_config).get(get_twilio_config),
+            )
+            .route("/transaction-events", get(get_all_transaction_events))
+            .layer(CorsLayer::permissive())
         )
-        .route(
-            "/wallets/{wallet_id}/contacts/{contact_id}",
-            axum::routing::delete(remove_contact_from_wallet),
-        )
-        .route("/contacts", post(create_contact).get(get_all_contacts))
-        .route("/contacts/{id}", axum::routing::delete(delete_contact))
-        .route(
-            "/twilio/config",
-            post(save_twilio_config).get(get_twilio_config),
-        )
-        .route("/transaction-events", get(get_all_transaction_events))
-        .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(wallet_manager)
 }

@@ -51,7 +51,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setIsLoading(true)
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const response = await fetch(`${baseUrl}/twilio/config`)
+      const response = await fetch(`${baseUrl}/api/twilio/config`)
       if (response.ok) {
         const data = await response.json()
         setConfig(data)
@@ -87,7 +87,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }
 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const response = await fetch(`${baseUrl}/twilio/config`, {
+      const response = await fetch(`${baseUrl}/api/twilio/config`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
