@@ -185,11 +185,11 @@ cargo run -- --bind-address 0.0.0.0:8080 --wallet-dir /custom/wallets --metadata
 #### Environment Variables
 ```bash
 # Network configuration
-export CANARY_NETWORK=mainnet
-export CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
-export CANARY_BIND_ADDRESS=0.0.0.0:3000
-export CANARY_WALLET_DIR=/app/wallets
-export CANARY_METADATA_DB=/app/metadata.sqlite
+export KANARI_NETWORK=mainnet
+export KANARI_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
+export KANARI_BIND_ADDRESS=0.0.0.0:3000
+export KANARI_WALLET_DIR=/app/wallets
+export KANARI_METADATA_DB=/app/metadata.sqlite
 
 # Run with environment configuration
 cargo run
@@ -198,11 +198,11 @@ cargo run
 #### Environment File (.env)
 Create a `.env` file in the backend directory:
 ```env
-CANARY_NETWORK=mainnet
-CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
-CANARY_BIND_ADDRESS=127.0.0.1:3000
-CANARY_WALLET_DIR=./wallets
-CANARY_METADATA_DB=metadata.sqlite
+KANARI_NETWORK=mainnet
+KANARI_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
+KANARI_BIND_ADDRESS=127.0.0.1:3000
+KANARI_WALLET_DIR=./wallets
+KANARI_METADATA_DB=metadata.sqlite
 ```
 
 ### Default Electrum Servers

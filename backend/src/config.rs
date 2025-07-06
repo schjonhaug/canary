@@ -44,7 +44,7 @@ impl std::str::FromStr for NetworkConfig {
 }
 
 #[derive(Debug, Clone, Parser)]
-#[command(name = "canary")]
+#[command(name = "kanari")]
 #[command(about = "Bitcoin wallet management service")]
 pub struct AppConfig {
     /// Bitcoin network to use
@@ -79,23 +79,23 @@ impl AppConfig {
         let mut config = Self::parse();
 
         // Override with environment variables if present
-        if let Ok(network_env) = std::env::var("CANARY_NETWORK") {
+        if let Ok(network_env) = std::env::var("KANARI_NETWORK") {
             config.network = network_env.parse()?;
         }
 
-        if let Ok(electrum_url_env) = std::env::var("CANARY_ELECTRUM_URL") {
+        if let Ok(electrum_url_env) = std::env::var("KANARI_ELECTRUM_URL") {
             config.electrum_url = Some(electrum_url_env);
         }
 
-        if let Ok(bind_address_env) = std::env::var("CANARY_BIND_ADDRESS") {
+        if let Ok(bind_address_env) = std::env::var("KANARI_BIND_ADDRESS") {
             config.bind_address = bind_address_env;
         }
 
-        if let Ok(wallet_dir_env) = std::env::var("CANARY_WALLET_DIR") {
+        if let Ok(wallet_dir_env) = std::env::var("KANARI_WALLET_DIR") {
             config.wallet_dir = wallet_dir_env;
         }
 
-        if let Ok(metadata_db_env) = std::env::var("CANARY_METADATA_DB") {
+        if let Ok(metadata_db_env) = std::env::var("KANARI_METADATA_DB") {
             config.metadata_db = metadata_db_env;
         }
 
