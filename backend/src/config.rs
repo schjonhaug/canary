@@ -187,7 +187,7 @@ mod tests {
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
             wallet_dir: "./wallets".to_string(),
-            metadata_db: "kanari.sqlite".to_string(),
+            metadata_db: "metadata.sqlite".to_string(),
         };
         assert_eq!(config.wallet_dir_path(), "database/regtest/wallets");
         assert_eq!(
@@ -201,7 +201,7 @@ mod tests {
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
             wallet_dir: "./wallets".to_string(),
-            metadata_db: "kanari.sqlite".to_string(),
+            metadata_db: "metadata.sqlite".to_string(),
         };
         assert_eq!(config.wallet_dir_path(), "database/testnet/wallets");
         assert_eq!(
@@ -215,7 +215,7 @@ mod tests {
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
             wallet_dir: "./wallets".to_string(),
-            metadata_db: "kanari.sqlite".to_string(),
+            metadata_db: "metadata.sqlite".to_string(),
         };
         assert_eq!(config.wallet_dir_path(), "database/mainnet/wallets");
         assert_eq!(

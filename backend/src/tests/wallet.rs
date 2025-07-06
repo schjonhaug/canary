@@ -11,7 +11,7 @@ fn create_temp_wallet_manager() -> (WalletManager, TempDir) {
     fs::create_dir_all(&wallet_dir).unwrap();
 
     let (event_tx, _) = broadcast::channel(100);
-    let metadata_db_path = temp_dir.path().join("kanari.sqlite");
+    let metadata_db_path = temp_dir.path().join("metadata.sqlite");
 
     let wallet_manager = tokio::runtime::Runtime::new().unwrap().block_on(async {
         WalletManager::new(
