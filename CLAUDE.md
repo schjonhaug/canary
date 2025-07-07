@@ -107,6 +107,8 @@ kanari/
 - `base64 = "0.22"` - Base64 encoding for Twilio authentication
 - `chrono = "0.4"` - Date and time handling for SMS logs
 - `phonenumber = "0.3"` - International phone number validation and formatting
+- `tokio-stream = "0.1"` with sync features - Async stream processing for SSE
+- `futures-util = "0.3"` - Stream utilities for Server-Sent Events
 - `libphonenumber-js = "1.12.9"` (frontend) - Client-side phone number formatting
 
 ## API Endpoints
@@ -153,6 +155,16 @@ kanari/
 - `GET /twilio/config`: Get current Twilio configuration
   - Returns configuration details (auth_token is included but should be secured)
   - Returns 404 if no configuration exists
+
+### Blockchain Information
+- `GET /block-headers/current`: Get current block header from database
+  - Returns stored block header with height, hash, and Unix timestamp
+  - Returns 404 if no block header is stored yet
+  - Provides immediate block information on app startup
+- `GET /block-headers/stream`: Server-Sent Events stream of real-time block headers
+  - Streams live block header updates in JSON format
+  - Auto-reconnects on connection loss
+  - Content-Type: text/event-stream
 
 ### Documentation
 - `/swagger-ui`: Interactive API documentation
@@ -241,10 +253,18 @@ KANARI_METADATA_DB=metadata.sqlite
 - **Multi-recipient**: Each wallet can have multiple contacts for SMS notifications
 - **Delivery Tracking**: Complete SMS logs with Twilio SIDs and delivery status
 
+### Real-Time Blockchain Integration
+- **Block Header Subscription**: Real-time monitoring of new Bitcoin blocks via Electrum protocol
+- **Server-Sent Events (SSE)**: Live streaming of block headers to frontend with automatic reconnection
+- **Immediate Display**: Current block information shown instantly on app startup from database cache
+- **Persistent Storage**: Block headers stored in SQLite for offline access and fast loading
+- **Block Header Data**: Height, hash, and Unix timestamp for each block
+- **Network-Aware**: Works across regtest, testnet, and mainnet with appropriate block explorers
+
 ### Sync Capabilities
 - **Full Scan**: Initial comprehensive sync with address revelation (up to 50 addresses)
 - **Incremental Sync**: Ongoing updates with transaction cache management
-- **Background Sync**: Automatic 4-second interval synchronization
+- **Background Sync**: Automatic 4-second interval synchronization with block header polling
 - **Progress Indicators**: Detailed logging with keychain information
 
 ### Development Environment
@@ -276,6 +296,7 @@ KANARI_METADATA_DB=metadata.sqlite
   - `wallet_contacts`: Junction table linking wallets to contacts (many-to-many)
   - `twilio_config`: Single Twilio account configuration (account SID, auth token, messaging service SID)
   - `sms_logs`: Complete SMS delivery tracking (event ID, contact ID, Twilio SID, status, errors)
+  - `current_block_header`: Current blockchain tip (height, hash, timestamp, updated_at)
 - **Constraints**: 
   - `wallets.id` is PRIMARY KEY AUTOINCREMENT (unique wallet identifier)
   - `wallets.descriptor` has UNIQUE constraint (prevents duplicate wallets)
@@ -328,6 +349,8 @@ Once configured, all Bitcoin transactions will automatically trigger Norwegian S
 ## Architecture Notes
 - Uses Rust 2024 edition with comprehensive async/await support
 - **Event-Driven SMS**: tokio broadcast channels for real-time notifications without blocking wallet sync
+- **Real-Time Blockchain Streaming**: Server-Sent Events (SSE) for live block header updates with tokio streams
+- **Block Header Caching**: Persistent storage of current blockchain tip for immediate UI display
 - **Norwegian Localization**: Custom number formatting (comma decimal, space thousands separator)
 - **Twilio Integration**: Direct HTTP API calls using reqwest with proper authentication
 - **Database-Driven Config**: All settings stored in SQLite for web interface management
@@ -336,6 +359,7 @@ Once configured, all Bitcoin transactions will automatically trigger Norwegian S
 - **Network Isolation**: Complete database separation per Bitcoin network to prevent cross-contamination
 - **Migration System**: Automatic database schema migrations with version tracking
 - **Configuration Management**: Flexible config system supporting CLI args, environment variables, and .env files
+- **Dual-Mode Frontend**: REST API for initial data load + SSE for real-time updates
 - Shared state management with Arc<Mutex<>> for thread-safe access
 - Automatic loading of existing wallets on startup
 - Full wallet sync performed on creation and incremental sync ongoing
