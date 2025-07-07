@@ -12,7 +12,7 @@ use tokio::sync::broadcast;
 pub struct WalletManager {
     pub wallets: Vec<(String, PersistedWallet<Connection>)>, // (checksum, wallet)
     pub wallet_dir: PathBuf,
-    electrum_client: Option<ElectrumClient>,
+    pub electrum_client: Option<ElectrumClient>,
     pub metadata_db: MetadataDb,
     pub event_sender: broadcast::Sender<TransactionEvent>,
     network: Network,

@@ -1,16 +1,19 @@
 use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata, TransactionEventWithWallet, EventType};
 use crate::wallet::WalletManager;
+use crate::electrum::BlockHeader;
 use axum::{
     Router,
     extract::{Path, State},
     http::StatusCode,
-    response::{IntoResponse, Json, Response},
+    response::{IntoResponse, Json, Response, Sse},
     routing::{get, post},
 };
 use tower_http::cors::CorsLayer;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, broadcast};
+use tokio_stream::wrappers::BroadcastStream;
+use futures_util::StreamExt as FuturesStreamExt;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 use base64::{Engine as _, engine::general_purpose};
@@ -87,6 +90,7 @@ pub struct TwilioConfigResponse {
 }
 
 pub type AppState = Arc<Mutex<WalletManager>>;
+pub type BlockHeaderBroadcast = broadcast::Sender<BlockHeader>;
 
 /// Validates and normalizes a phone number
 fn validate_phone_number(phone_number: &str) -> Result<String, String> {
@@ -672,6 +676,36 @@ pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) 
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/block-headers/stream",
+    responses(
+        (status = 200, description = "Server-sent events stream of block headers", content_type = "text/event-stream"),
+    ),
+    tag = "blockchain"
+)]
+pub async fn block_headers_stream(
+    State(block_header_tx): State<BlockHeaderBroadcast>,
+) -> Response {
+    use axum::response::sse::Event;
+    
+    let stream = FuturesStreamExt::filter_map(
+        BroadcastStream::new(block_header_tx.subscribe()),
+        |result| async move {
+            match result {
+                Ok(block_header) => {
+                    // Convert to SSE format
+                    let data = serde_json::to_string(&block_header).unwrap_or_default();
+                    Some(Ok::<Event, axum::Error>(Event::default().data(data)))
+                }
+                Err(_) => None,
+            }
+        }
+    );
+
+    Sse::new(stream).into_response()
+}
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -679,19 +713,22 @@ pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) 
         create_contact, get_all_contacts, delete_contact,
         add_contact_to_wallet, remove_contact_from_wallet, get_wallet_contacts,
         save_twilio_config, get_twilio_config,
-        get_all_transaction_events
+        get_all_transaction_events,
+        block_headers_stream
     ),
     components(schemas(
         CreateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactRequest, CreateContactResponse, AddContactToWalletRequest,
         TwilioConfigRequest, TwilioConfigResponse,
-        ContactPerson, TwilioConfig, SmsLog, TransactionEventWithWallet, EventType
+        ContactPerson, TwilioConfig, SmsLog, TransactionEventWithWallet, EventType,
+        BlockHeader
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),
         (name = "contact", description = "Contact management endpoints"),
         (name = "twilio", description = "Twilio configuration endpoints"),
-        (name = "transaction", description = "Transaction events endpoints")
+        (name = "transaction", description = "Transaction events endpoints"),
+        (name = "blockchain", description = "Blockchain information endpoints")
     ),
     info(
         title = "Kanari Wallet API",
@@ -701,28 +738,33 @@ pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) 
 )]
 pub struct ApiDoc;
 
-pub fn create_router(wallet_manager: AppState) -> Router {
-    Router::new()
-        .nest("/api", Router::new()
-            .route("/wallets", post(create_wallet).get(get_all_wallets))
-            .route("/wallets/{id}", get(get_wallet).delete(delete_wallet))
-            .route(
-                "/wallets/{id}/contacts",
-                post(add_contact_to_wallet).get(get_wallet_contacts),
-            )
-            .route(
-                "/wallets/{wallet_id}/contacts/{contact_id}",
-                axum::routing::delete(remove_contact_from_wallet),
-            )
-            .route("/contacts", post(create_contact).get(get_all_contacts))
-            .route("/contacts/{id}", axum::routing::delete(delete_contact))
-            .route(
-                "/twilio/config",
-                post(save_twilio_config).get(get_twilio_config),
-            )
-            .route("/transaction-events", get(get_all_transaction_events))
-            .layer(CorsLayer::permissive())
+pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroadcast) -> Router {
+    let wallet_routes = Router::new()
+        .route("/wallets", post(create_wallet).get(get_all_wallets))
+        .route("/wallets/{id}", get(get_wallet).delete(delete_wallet))
+        .route(
+            "/wallets/{id}/contacts",
+            post(add_contact_to_wallet).get(get_wallet_contacts),
         )
+        .route(
+            "/wallets/{wallet_id}/contacts/{contact_id}",
+            axum::routing::delete(remove_contact_from_wallet),
+        )
+        .route("/contacts", post(create_contact).get(get_all_contacts))
+        .route("/contacts/{id}", axum::routing::delete(delete_contact))
+        .route(
+            "/twilio/config",
+            post(save_twilio_config).get(get_twilio_config),
+        )
+        .route("/transaction-events", get(get_all_transaction_events))
+        .with_state(wallet_manager);
+
+    let block_header_routes = Router::new()
+        .route("/block-headers/stream", get(block_headers_stream))
+        .with_state(block_header_tx);
+
+    Router::new()
+        .nest("/api", wallet_routes.merge(block_header_routes))
+        .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .with_state(wallet_manager)
 }

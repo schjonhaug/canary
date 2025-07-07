@@ -10,7 +10,7 @@ mod sms;
 mod wallet;
 use api::create_router;
 use config::AppConfig;
-use electrum::ElectrumClient;
+use electrum::{ElectrumClient, BlockHeader};
 use metadata::TransactionEvent;
 use sms::SmsService;
 use std::sync::Arc;
@@ -38,8 +38,14 @@ async fn main() -> anyhow::Result<()> {
     // Create broadcast channel for transaction events
     let (event_tx, _event_rx) = broadcast::channel::<TransactionEvent>(1000);
 
+    // Create broadcast channel for block header events
+    let (block_header_tx, _block_header_rx) = broadcast::channel::<BlockHeader>(100);
+
     // Create SMS worker subscriber
     let sms_rx = event_tx.subscribe();
+
+    // Create shared state for current block header
+    let current_block_header = Arc::new(Mutex::new(None::<BlockHeader>));
 
     let wallet_manager = Arc::new(Mutex::new(
         WalletManager::new(
@@ -52,17 +58,53 @@ async fn main() -> anyhow::Result<()> {
         .await,
     ));
 
-    // Spawn background task for wallet syncing
+    // Spawn background task for wallet syncing and block header polling
     let wallet_manager_sync = Arc::clone(&wallet_manager);
+    let current_block_header_sync = Arc::clone(&current_block_header);
+    let block_header_tx_sync = block_header_tx.clone();
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(4));
+        let mut block_header_subscribed = false;
 
         loop {
             interval.tick().await;
 
             let mut manager = wallet_manager_sync.lock().await;
+            
+            // Sync all wallets
             if let Err(e) = manager.sync_all_wallets().await {
                 eprintln!("Error syncing wallets: {}", e);
+            }
+
+            // Initialize block header subscription on first run
+            if !block_header_subscribed {
+                if let Some(ref electrum_client) = manager.electrum_client {
+                    if let Err(e) = electrum_client.block_headers_subscribe() {
+                        eprintln!("Failed to subscribe to block headers: {}", e);
+                    } else {
+                        block_header_subscribed = true;
+                        println!("✅ Subscribed to block headers");
+                    }
+                }
+            }
+
+            // Poll for new block headers
+            if let Some(ref electrum_client) = manager.electrum_client {
+                if let Some(notification) = electrum_client.block_headers_pop() {
+                    println!("📦 New block header: height={}, hash={}", notification.height, notification.header.block_hash());
+                    
+                    // Get full block header details
+                    if let Ok(block_header) = electrum_client.get_block_header(notification.height as u32) {
+                        // Update shared state
+                        let mut current_header = current_block_header_sync.lock().await;
+                        *current_header = Some(block_header.clone());
+                        
+                        // Broadcast to SSE clients
+                        if let Err(e) = block_header_tx_sync.send(block_header) {
+                            eprintln!("Failed to broadcast block header: {}", e);
+                        }
+                    }
+                }
             }
         }
     });
@@ -223,7 +265,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let app = create_router(wallet_manager);
+    let app = create_router(wallet_manager, block_header_tx);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);

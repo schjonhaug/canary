@@ -23,6 +23,9 @@ base64 = "0.22"
 clap = { version = "4.0", features = ["derive"] }
 dotenvy = "0.15"
 phonenumber = "0.3"
+axum-streams = "0.6"
+tokio-stream = { version = "0.1", features = ["sync"] }
+futures-util = "0.3"
 
 [dev-dependencies]
 http-body-util = "0.1"

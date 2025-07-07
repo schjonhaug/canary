@@ -1,10 +1,19 @@
 use anyhow::{Result, anyhow};
 use bdk_electrum::{BdkElectrumClient, electrum_client};
+use bdk_electrum::electrum_client::ElectrumApi;
 use bdk_wallet::KeychainKind;
 use bdk_wallet::PersistedWallet;
 use bdk_wallet::chain::collections::HashSet;
 use bdk_wallet::rusqlite::Connection;
 use std::io::{self, Write};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BlockHeader {
+    pub height: u32,
+    pub hash: String,
+    pub timestamp: u64,
+}
 
 pub const STOP_GAP: usize = 20;
 pub const BATCH_SIZE: usize = 5;
@@ -111,5 +120,32 @@ impl ElectrumClient {
             .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
 
         Ok(())
+    }
+
+    pub fn block_headers_subscribe(&self) -> Result<electrum_client::HeaderNotification> {
+        self.client.inner.block_headers_subscribe()
+            .map_err(|e| anyhow!("Failed to subscribe to block headers: {}", e))
+    }
+
+    pub fn block_headers_pop(&self) -> Option<electrum_client::HeaderNotification> {
+        self.client.inner.block_headers_pop().ok().flatten()
+    }
+
+    pub fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
+        let header = self.client.inner.block_header(height as usize)
+            .map_err(|e| anyhow!("Failed to get block header for height {}: {}", height, e))?;
+        
+        Ok(BlockHeader {
+            height,
+            hash: header.block_hash().to_string(),
+            timestamp: header.time as u64,
+        })
+    }
+
+    pub fn get_current_block_height(&self) -> Result<u32> {
+        let height = self.client.inner.block_headers_subscribe()
+            .map_err(|e| anyhow!("Failed to get current block height: {}", e))?
+            .height;
+        Ok(height as u32)
     }
 }

@@ -5,6 +5,7 @@ import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { SettingsModal } from "@/components/settings-modal"
 import { ContactsModal } from "@/components/contacts-modal"
+import { BlockStatus } from "@/components/block-status"
 import { Button } from "@/components/ui/button"
 import { Settings, Users } from "lucide-react"
 
@@ -40,6 +41,11 @@ export default function Home() {
             Settings
           </Button>
         </div>
+      </div>
+      
+      {/* Block Status Section */}
+      <div className="mb-6">
+        <BlockStatus />
       </div>
       
       <div className="space-y-8">
