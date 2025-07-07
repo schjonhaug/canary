@@ -138,18 +138,21 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
             <TableCaption>A list of all transaction events from the Kanari system.</TableCaption>
             <TableHeader>
               <TableRow>
+                <TableHead>Date/Time</TableHead>
                 <TableHead>Wallet</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Total Balance</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Flags</TableHead>
-                <TableHead>Date/Time</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Total Balance</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredEvents.map((event) => (
                 <TableRow key={event.id}>
+                  <TableCell className="text-sm">
+                    {formatDateTime(event.created_at)}
+                  </TableCell>
                   <TableCell className="font-medium">{event.wallet_name}</TableCell>
                   <TableCell>
                     <Badge 
@@ -168,12 +171,6 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                         </>
                       )}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono">
-                    {formatSats(event.amount_sats)}
-                  </TableCell>
-                  <TableCell className="font-mono">
-                    {event.balance_total ? formatSats(event.balance_total) : "N/A"}
                   </TableCell>
                   <TableCell>
                     <Badge 
@@ -209,8 +206,11 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm">
-                    {formatDateTime(event.created_at)}
+                  <TableCell className="font-mono">
+                    {formatSats(event.amount_sats)}
+                  </TableCell>
+                  <TableCell className="font-mono">
+                    {event.balance_total ? formatSats(event.balance_total) : "N/A"}
                   </TableCell>
                 </TableRow>
               ))}
