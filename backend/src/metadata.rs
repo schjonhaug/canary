@@ -630,8 +630,9 @@ impl MetadataDb {
     pub fn upsert_current_block_header(&self, block_header: &BlockHeader) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "INSERT OR REPLACE INTO current_block_header (height, hash, timestamp, updated_at) 
-             VALUES (?1, ?2, ?3, datetime('now'))"
+            "UPDATE current_block_header 
+             SET height = ?1, hash = ?2, timestamp = ?3, updated_at = datetime('now') 
+             WHERE id = 1"
         )?;
         stmt.execute([
             &block_header.height.to_string(),
@@ -645,7 +646,7 @@ impl MetadataDb {
     pub fn get_current_block_header(&self) -> Result<Option<BlockHeader>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT height, hash, timestamp FROM current_block_header LIMIT 1"
+            "SELECT height, hash, timestamp FROM current_block_header WHERE id = 1"
         )?;
         
         let mut rows = stmt.query_map([], |row| {
@@ -657,7 +658,15 @@ impl MetadataDb {
         })?;
 
         match rows.next() {
-            Some(result) => result.map(Some),
+            Some(result) => {
+                let block_header = result?;
+                // Return None if this is the dummy row (height=0)
+                if block_header.height == 0 {
+                    Ok(None)
+                } else {
+                    Ok(Some(block_header))
+                }
+            }
             None => Ok(None),
         }
     }
