@@ -24,6 +24,22 @@ export function useBlockHeaders(apiUrl: string = 'http://localhost:3000') {
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Fetch initial block header from REST endpoint
+  const fetchInitialBlockHeader = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/api/block-headers/current`);
+      if (response.ok) {
+        const blockHeader: BlockHeader = await response.json();
+        setState(prev => ({ ...prev, blockHeader }));
+      } else if (response.status !== 404) {
+        // 404 is expected if no block header is stored yet
+        console.warn('Failed to fetch initial block header:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching initial block header:', error);
+    }
+  };
+
   const connect = () => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -61,7 +77,10 @@ export function useBlockHeaders(apiUrl: string = 'http://localhost:3000') {
   };
 
   useEffect(() => {
-    connect();
+    // Fetch initial data first, then connect to SSE
+    fetchInitialBlockHeader().then(() => {
+      connect();
+    });
 
     return () => {
       if (eventSourceRef.current) {

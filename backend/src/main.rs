@@ -58,6 +58,66 @@ async fn main() -> anyhow::Result<()> {
         .await,
     ));
 
+    // Fetch and store initial block header
+    {
+        let manager = wallet_manager.lock().await;
+        if let Some(ref electrum_client) = manager.electrum_client {
+            match electrum_client.get_current_block_height() {
+                Ok(height) => {
+                    match electrum_client.get_block_header(height) {
+                        Ok(block_header) => {
+                            println!("📦 Initial block header: height={}, hash={}", 
+                                   block_header.height, block_header.hash);
+                            
+                            // Store in database
+                            if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header) {
+                                eprintln!("Failed to store initial block header: {}", e);
+                            }
+                            
+                            // Update shared state
+                            let mut current_header = current_block_header.lock().await;
+                            *current_header = Some(block_header.clone());
+                            
+                            // Broadcast to SSE clients
+                            if let Err(e) = block_header_tx.send(block_header) {
+                                eprintln!("Failed to broadcast initial block header: {}", e);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to get initial block header: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to get current block height: {}", e);
+                }
+            }
+        } else {
+            // Try to load stored block header from database
+            match manager.metadata_db.get_current_block_header() {
+                Ok(Some(stored_header)) => {
+                    println!("📦 Loaded stored block header: height={}, hash={}", 
+                           stored_header.height, stored_header.hash);
+                    
+                    // Update shared state
+                    let mut current_header = current_block_header.lock().await;
+                    *current_header = Some(stored_header.clone());
+                    
+                    // Broadcast to SSE clients
+                    if let Err(e) = block_header_tx.send(stored_header) {
+                        eprintln!("Failed to broadcast stored block header: {}", e);
+                    }
+                }
+                Ok(None) => {
+                    println!("No stored block header found");
+                }
+                Err(e) => {
+                    eprintln!("Failed to load stored block header: {}", e);
+                }
+            }
+        }
+    }
+
     // Spawn background task for wallet syncing and block header polling
     let wallet_manager_sync = Arc::clone(&wallet_manager);
     let current_block_header_sync = Arc::clone(&current_block_header);
@@ -95,6 +155,11 @@ async fn main() -> anyhow::Result<()> {
                     
                     // Get full block header details
                     if let Ok(block_header) = electrum_client.get_block_header(notification.height as u32) {
+                        // Store in database
+                        if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header) {
+                            eprintln!("Failed to store block header: {}", e);
+                        }
+                        
                         // Update shared state
                         let mut current_header = current_block_header_sync.lock().await;
                         *current_header = Some(block_header.clone());

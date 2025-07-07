@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use utoipa::ToSchema;
 use crate::migrations::MigrationRunner;
+use crate::electrum::BlockHeader;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
 pub enum EventType {
@@ -623,5 +624,41 @@ impl MetadataDb {
         }
 
         Ok(logs)
+    }
+
+    /// Store the current block header (replaces any existing)
+    pub fn upsert_current_block_header(&self, block_header: &BlockHeader) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "INSERT OR REPLACE INTO current_block_header (height, hash, timestamp, updated_at) 
+             VALUES (?1, ?2, ?3, datetime('now'))"
+        )?;
+        stmt.execute([
+            &block_header.height.to_string(),
+            &block_header.hash,
+            &block_header.timestamp.to_string(),
+        ])?;
+        Ok(())
+    }
+
+    /// Get the stored current block header
+    pub fn get_current_block_header(&self) -> Result<Option<BlockHeader>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT height, hash, timestamp FROM current_block_header LIMIT 1"
+        )?;
+        
+        let mut rows = stmt.query_map([], |row| {
+            Ok(BlockHeader {
+                height: row.get::<_, i64>(0)? as u32,
+                hash: row.get(1)?,
+                timestamp: row.get::<_, i64>(2)? as u64,
+            })
+        })?;
+
+        match rows.next() {
+            Some(result) => result.map(Some),
+            None => Ok(None),
+        }
     }
 }

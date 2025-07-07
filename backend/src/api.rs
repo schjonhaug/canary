@@ -678,6 +678,36 @@ pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) 
 
 #[utoipa::path(
     get,
+    path = "/api/block-headers/current",
+    responses(
+        (status = 200, description = "Current block header from database", body = BlockHeader),
+        (status = 404, description = "No block header found", body = ErrorResponse),
+    ),
+    tag = "blockchain"
+)]
+pub async fn get_current_block_header(State(wallet_manager): State<AppState>) -> Response {
+    let manager = wallet_manager.lock().await;
+    match manager.metadata_db.get_current_block_header() {
+        Ok(Some(block_header)) => (StatusCode::OK, Json(block_header)).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "No block header found".to_string(),
+            }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+#[utoipa::path(
+    get,
     path = "/api/block-headers/stream",
     responses(
         (status = 200, description = "Server-sent events stream of block headers", content_type = "text/event-stream"),
@@ -714,7 +744,7 @@ pub async fn block_headers_stream(
         add_contact_to_wallet, remove_contact_from_wallet, get_wallet_contacts,
         save_twilio_config, get_twilio_config,
         get_all_transaction_events,
-        block_headers_stream
+        get_current_block_header, block_headers_stream
     ),
     components(schemas(
         CreateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
@@ -757,6 +787,7 @@ pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroad
             post(save_twilio_config).get(get_twilio_config),
         )
         .route("/transaction-events", get(get_all_transaction_events))
+        .route("/block-headers/current", get(get_current_block_header))
         .with_state(wallet_manager);
 
     let block_header_routes = Router::new()
