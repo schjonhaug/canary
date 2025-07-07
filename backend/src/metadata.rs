@@ -318,63 +318,6 @@ impl MetadataDb {
         Ok(conn.last_insert_rowid())
     }
 
-    pub fn get_events_by_wallet(&self, wallet_id: i64) -> Result<Vec<TransactionEvent>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, created_at 
-             FROM transaction_events WHERE wallet_id = ?1 ORDER BY created_at DESC"
-        )?;
-
-        let event_iter = stmt.query_map([wallet_id], |row| {
-            Ok(TransactionEvent {
-                id: Some(row.get(0)?),
-                wallet_id: row.get(1)?,
-                event_type: EventType::from(row.get::<_, String>(2)?.as_str()),
-                amount_sats: row.get(3)?,
-                is_confirmed: row.get(4)?,
-                is_rbf: row.get(5)?,
-                is_cpfp: row.get(6)?,
-                balance_total: row.get(7).ok(),
-                created_at: row.get(8)?,
-            })
-        })?;
-
-        let mut events = Vec::new();
-        for event in event_iter {
-            events.push(event?);
-        }
-
-        Ok(events)
-    }
-
-    pub fn get_all_events(&self) -> Result<Vec<TransactionEvent>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, created_at 
-             FROM transaction_events ORDER BY created_at DESC"
-        )?;
-
-        let event_iter = stmt.query_map([], |row| {
-            Ok(TransactionEvent {
-                id: Some(row.get(0)?),
-                wallet_id: row.get(1)?,
-                event_type: EventType::from(row.get::<_, String>(2)?.as_str()),
-                amount_sats: row.get(3)?,
-                is_confirmed: row.get(4)?,
-                is_rbf: row.get(5)?,
-                is_cpfp: row.get(6)?,
-                balance_total: row.get(7).ok(),
-                created_at: row.get(8)?,
-            })
-        })?;
-
-        let mut events = Vec::new();
-        for event in event_iter {
-            events.push(event?);
-        }
-
-        Ok(events)
-    }
 
     pub fn get_all_events_with_wallets(&self) -> Result<Vec<TransactionEventWithWallet>> {
         let conn = self.conn.lock().unwrap();
@@ -588,43 +531,6 @@ impl MetadataDb {
         Ok(())
     }
 
-    pub fn get_sms_logs_by_event(&self, event_id: i64) -> Result<Vec<SmsLog>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, event_id, contact_id, twilio_sid, status, error_message, created_at 
-             FROM sms_logs WHERE event_id = ?1 ORDER BY created_at DESC",
-        )?;
-
-        let log_iter = stmt.query_map([event_id], |row| {
-            let twilio_sid: String = row.get(3)?;
-            let error_message: String = row.get(5)?;
-
-            Ok(SmsLog {
-                id: Some(row.get(0)?),
-                event_id: row.get(1)?,
-                contact_id: row.get(2)?,
-                twilio_sid: if twilio_sid.is_empty() {
-                    None
-                } else {
-                    Some(twilio_sid)
-                },
-                status: row.get(4)?,
-                error_message: if error_message.is_empty() {
-                    None
-                } else {
-                    Some(error_message)
-                },
-                created_at: row.get(6)?,
-            })
-        })?;
-
-        let mut logs = Vec::new();
-        for log in log_iter {
-            logs.push(log?);
-        }
-
-        Ok(logs)
-    }
 
     /// Store the current block header (replaces any existing)
     pub fn upsert_current_block_header(&self, block_header: &BlockHeader) -> Result<()> {
