@@ -14,13 +14,15 @@ export function BlockStatus() {
   };
 
   const formatTimeAgo = (timestamp: number) => {
-    const now = Math.floor(Date.now() / 1000);
-    const diff = now - timestamp;
+    const now = Date.now();
+    const diff = now - (timestamp * 1000);
     
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
+    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    
+    if (diff < 60000) return rtf.format(-Math.floor(diff / 1000), 'second');
+    if (diff < 3600000) return rtf.format(-Math.floor(diff / 60000), 'minute');
+    if (diff < 86400000) return rtf.format(-Math.floor(diff / 3600000), 'hour');
+    return rtf.format(-Math.floor(diff / 86400000), 'day');
   };
 
   const truncateHash = (hash: string) => {
