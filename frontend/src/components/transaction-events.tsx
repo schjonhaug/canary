@@ -196,17 +196,12 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                     <Badge 
                       variant={event.is_confirmed ? "default" : "outline"}
                       className="flex items-center gap-1"
+                      title={event.is_confirmed ? "Confirmed" : "Pending"}
                     >
                       {event.is_confirmed ? (
-                        <>
-                          <CheckCircle className="h-3 w-3" />
-                          Confirmed
-                        </>
+                        <CheckCircle className="h-3 w-3" />
                       ) : (
-                        <>
-                          <Clock className="h-3 w-3" />
-                          Pending
-                        </>
+                        <Clock className="h-3 w-3" />
                       )}
                     </Badge>
                   </TableCell>
@@ -234,13 +229,9 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                   </TableCell>
                   <TableCell>
                     {event.sms_recipients && event.sms_recipients.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {event.sms_recipients.map((recipient, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {recipient}
-                          </Badge>
-                        ))}
-                      </div>
+                      <span className="font-medium">
+                        {event.sms_recipients.join(', ')}
+                      </span>
                     ) : (
                       <span className="text-muted-foreground text-xs">No SMS sent</span>
                     )}
