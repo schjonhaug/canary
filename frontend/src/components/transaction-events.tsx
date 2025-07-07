@@ -25,6 +25,7 @@ interface TransactionEvent {
   is_cpfp: boolean
   balance_total?: number
   created_at: string
+  sms_recipients?: string[]
 }
 
 interface TransactionEventsProps {
@@ -47,7 +48,25 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
           throw new Error(`HTTP error! status: ${response.status}`)
         }
         const data = await response.json()
-        setEvents(data)
+        
+        // Fetch SMS recipients for each event
+        const eventsWithRecipients = await Promise.all(
+          data.map(async (event: TransactionEvent) => {
+            try {
+              const recipientsUrl = `${baseUrl}/api/transaction-events/${event.id}/sms-recipients`
+              const recipientsResponse = await fetch(recipientsUrl)
+              if (recipientsResponse.ok) {
+                const recipients = await recipientsResponse.json()
+                return { ...event, sms_recipients: recipients }
+              }
+            } catch (err) {
+              console.warn(`Failed to fetch SMS recipients for event ${event.id}:`, err)
+            }
+            return { ...event, sms_recipients: [] }
+          })
+        )
+        
+        setEvents(eventsWithRecipients)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch events")
       } finally {
@@ -145,6 +164,7 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                 <TableHead>Flags</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Total Balance</TableHead>
+                <TableHead>SMS Recipients</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -211,6 +231,19 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                   </TableCell>
                   <TableCell className="font-mono">
                     {event.balance_total ? formatSats(event.balance_total) : "N/A"}
+                  </TableCell>
+                  <TableCell>
+                    {event.sms_recipients && event.sms_recipients.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {event.sms_recipients.map((recipient, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {recipient}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">No SMS sent</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
