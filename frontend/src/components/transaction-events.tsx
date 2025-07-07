@@ -184,7 +184,10 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                         ) : (
                           <Clock className="h-3 w-3 text-yellow-500" />
                         )}
-                        {event.event_type === "receive" ? "Receive" : "Send"}
+                        {event.is_confirmed 
+                          ? (event.event_type === "receive" ? "Received" : "Sent")
+                          : (event.event_type === "receive" ? "Receiving" : "Sending")
+                        }
                         {event.is_rbf && (
                           <span title="Replace-By-Fee (RBF)">
                             <RefreshCw className="h-2 w-2 ml-1" />
