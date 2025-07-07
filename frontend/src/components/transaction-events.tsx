@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowDown, ArrowUp, CheckCircle, Clock, RefreshCw, Zap } from "lucide-react"
+import { ArrowDownLeft, ArrowUpRight, CheckCircle, Clock, RefreshCw, Zap } from "lucide-react"
 
 interface TransactionEvent {
   id: number
@@ -159,9 +159,7 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
               <TableRow>
                 <TableHead>Date/Time</TableHead>
                 <TableHead>Wallet</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Flags</TableHead>
+                <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Total Balance</TableHead>
                 <TableHead>SMS Recipients</TableHead>
@@ -175,50 +173,29 @@ export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) 
                   </TableCell>
                   <TableCell className="font-medium">{event.wallet_name}</TableCell>
                   <TableCell>
-                    <Badge 
-                      variant={event.event_type === "receive" ? "default" : "secondary"}
-                      className="flex items-center gap-1"
-                    >
-                      {event.event_type === "receive" ? (
-                        <>
-                          <ArrowDown className="h-3 w-3" />
-                          Receive
-                        </>
-                      ) : (
-                        <>
-                          <ArrowUp className="h-3 w-3" />
-                          Send
-                        </>
-                      )}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={event.is_confirmed ? "default" : "outline"}
-                      className="flex items-center gap-1"
-                      title={event.is_confirmed ? "Confirmed" : "Pending"}
-                    >
-                      {event.is_confirmed ? (
-                        <CheckCircle className="h-3 w-3" />
-                      ) : (
-                        <Clock className="h-3 w-3" />
-                      )}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {event.is_rbf && (
-                        <Badge variant="outline" className="text-xs flex items-center gap-1">
-                          <RefreshCw className="h-3 w-3" />
-                          RBF
-                        </Badge>
-                      )}
-                      {event.is_cpfp && (
-                        <Badge variant="outline" className="text-xs flex items-center gap-1">
-                          <Zap className="h-3 w-3" />
-                          CPFP
-                        </Badge>
-                      )}
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline"
+                        className="flex items-center gap-1"
+                        title={`${event.event_type === "receive" ? "Receive" : "Send"} - ${event.is_confirmed ? "Confirmed" : "Pending"}`}
+                      >
+                        {event.is_confirmed ? (
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                        ) : (
+                          <Clock className="h-3 w-3 text-yellow-500" />
+                        )}
+                        {event.event_type === "receive" ? "Receive" : "Send"}
+                        {event.is_rbf && (
+                          <span title="Replace-By-Fee (RBF)">
+                            <RefreshCw className="h-2 w-2 ml-1" />
+                          </span>
+                        )}
+                        {event.is_cpfp && (
+                          <span title="Child-Pays-For-Parent (CPFP)">
+                            <Zap className="h-2 w-2 ml-1" />
+                          </span>
+                        )}
+                      </Badge>
                     </div>
                   </TableCell>
                   <TableCell className="font-mono">
