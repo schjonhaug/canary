@@ -6,7 +6,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Json, Response, Sse},
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use tower_http::cors::CorsLayer;
 use serde::{Deserialize, Serialize};
@@ -30,6 +30,13 @@ pub struct CreateWalletRequest {
         example = "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)"
     )]
     pub descriptor: String,
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+pub struct UpdateWalletRequest {
+    /// The new name for the wallet
+    #[schema(example = "Updated Wallet Name")]
+    pub name: String,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -178,6 +185,49 @@ pub async fn delete_wallet(
             let status_code = match error_msg.as_str() {
                 "Wallet not found" => StatusCode::NOT_FOUND,
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+
+            (status_code, Json(ErrorResponse { error: error_msg })).into_response()
+        }
+    }
+}
+
+#[utoipa::path(
+    put,
+    path = "/api/wallets/{id}",
+    params(
+        ("id" = i64, Path, description = "The wallet ID to update")
+    ),
+    request_body = UpdateWalletRequest,
+    responses(
+        (status = 200, description = "Wallet updated successfully"),
+        (status = 404, description = "Wallet not found", body = ErrorResponse),
+        (status = 400, description = "Invalid request", body = ErrorResponse),
+    ),
+    tag = "wallet"
+)]
+pub async fn update_wallet(
+    State(wallet_manager): State<AppState>,
+    Path(id): Path<i64>,
+    Json(payload): Json<UpdateWalletRequest>,
+) -> Response {
+    if payload.name.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Wallet name cannot be empty".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    match wallet_manager.lock().await.update_wallet(id, &payload.name) {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => {
+            let error_msg = e.to_string();
+            let status_code = match error_msg.as_str() {
+                "Wallet not found" => StatusCode::NOT_FOUND,
+                _ => StatusCode::BAD_REQUEST,
             };
 
             (status_code, Json(ErrorResponse { error: error_msg })).into_response()
@@ -768,7 +818,7 @@ pub async fn block_headers_stream(
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        create_wallet, delete_wallet, get_wallet, get_all_wallets,
+        create_wallet, update_wallet, delete_wallet, get_wallet, get_all_wallets,
         create_contact, get_all_contacts, delete_contact,
         add_contact_to_wallet, remove_contact_from_wallet, get_wallet_contacts,
         save_twilio_config, get_twilio_config,
@@ -776,7 +826,7 @@ pub async fn block_headers_stream(
         get_current_block_header, block_headers_stream
     ),
     components(schemas(
-        CreateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
+        CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactRequest, CreateContactResponse, AddContactToWalletRequest,
         TwilioConfigRequest, TwilioConfigResponse,
         ContactPerson, TwilioConfig, SmsLog, TransactionEventWithWallet, EventType,
@@ -800,7 +850,7 @@ pub struct ApiDoc;
 pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroadcast) -> Router {
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet).get(get_all_wallets))
-        .route("/wallets/{id}", get(get_wallet).delete(delete_wallet))
+        .route("/wallets/{id}", get(get_wallet).put(update_wallet).delete(delete_wallet))
         .route(
             "/wallets/{id}/contacts",
             post(add_contact_to_wallet).get(get_wallet_contacts),

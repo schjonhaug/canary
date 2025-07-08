@@ -4,9 +4,10 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2, Plus, Users } from "lucide-react"
+import { Edit, Plus, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { CreateWalletModal } from "./create-wallet-modal"
+import { EditWalletModal } from "./edit-wallet-modal"
 import { extractChecksum } from "@/lib/utils"
 
 interface Wallet {
@@ -32,6 +33,8 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [walletToEdit, setWalletToEdit] = useState<Wallet | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   // Define fetchWallets function
   const fetchWallets = async () => {
@@ -100,10 +103,10 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
     }
   }
 
-  const handleDeleteClick = (wallet: Wallet, event: React.MouseEvent) => {
-    event.stopPropagation() // Prevent wallet selection when clicking delete
-    setWalletToDelete(wallet)
-    setIsDeleteModalOpen(true)
+  const handleEditClick = (wallet: Wallet, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent wallet selection when clicking edit
+    setWalletToEdit(wallet)
+    setIsEditModalOpen(true)
   }
 
   const handleDeleteConfirm = async (walletId: number) => {
@@ -133,6 +136,19 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
     setWalletToDelete(null)
   }
 
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false)
+    setWalletToEdit(null)
+  }
+
+  const handleDeleteFromEdit = (wallet: Wallet) => {
+    // Close edit modal and open delete modal
+    setIsEditModalOpen(false)
+    setWalletToEdit(null)
+    setWalletToDelete(wallet)
+    setIsDeleteModalOpen(true)
+  }
+
   const handleCreateWallet = () => {
     setIsCreateModalOpen(true)
   }
@@ -143,6 +159,11 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
 
   const handleWalletCreated = () => {
     // Refresh the wallet list after creating a new wallet
+    fetchWallets()
+  }
+
+  const handleWalletUpdated = () => {
+    // Refresh the wallet list after updating a wallet
     fetchWallets()
   }
 
@@ -253,11 +274,11 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                    onClick={(e) => handleDeleteClick(wallet, e)}
-                    title="Delete wallet"
+                    className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                    onClick={(e) => handleEditClick(wallet, e)}
+                    title="Edit wallet"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Edit className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="absolute top-2 right-12 text-xs font-mono text-muted-foreground bg-gray-100 px-2 py-1 rounded">
@@ -307,6 +328,14 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
         isOpen={isCreateModalOpen}
         onClose={handleCreateModalClose}
         onWalletCreated={handleWalletCreated}
+      />
+
+      <EditWalletModal
+        wallet={walletToEdit}
+        isOpen={isEditModalOpen}
+        onClose={handleEditModalClose}
+        onWalletUpdated={handleWalletUpdated}
+        onDeleteWallet={handleDeleteFromEdit}
       />
     </div>
   )

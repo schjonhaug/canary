@@ -955,4 +955,17 @@ impl WalletManager {
         println!("Wallet deletion completed successfully");
         Ok(())
     }
+
+    pub fn update_wallet(&self, id: i64, name: &str) -> Result<()> {
+        println!("Updating wallet with ID: {}", id);
+        
+        // Update wallet name in metadata database
+        let updated = self.metadata_db.update_wallet(id, name)?;
+        if !updated {
+            return Err(anyhow!("Wallet not found"));
+        }
+        
+        println!("  Updated wallet name to: {}", name);
+        Ok(())
+    }
 }

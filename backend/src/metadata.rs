@@ -531,6 +531,13 @@ impl MetadataDb {
         Ok(())
     }
 
+    pub fn update_wallet(&self, wallet_id: i64, name: &str) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("UPDATE wallets SET name = ?1 WHERE id = ?2")?;
+        let changes = stmt.execute([name, &wallet_id.to_string()])?;
+        Ok(changes > 0)
+    }
+
 
     pub fn get_sms_recipients_by_event(&self, event_id: i64) -> Result<Vec<String>> {
         let conn = self.conn.lock().unwrap();
