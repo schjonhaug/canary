@@ -46,6 +46,7 @@ pub struct WalletMetadata {
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct ContactPerson {
     pub id: Option<i64>,
+    pub wallet_id: i64,
     pub name: String,
     pub phone_number: String,
     pub created_at: String,
@@ -360,27 +361,30 @@ impl MetadataDb {
     }
 
     // Contact management functions
-    pub fn insert_contact(&self, name: &str, phone_number: &str) -> Result<i64> {
+    pub fn insert_contact(&self, wallet_id: i64, name: &str, phone_number: &str) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt =
-            conn.prepare("INSERT INTO contact_persons (name, phone_number) VALUES (?1, ?2)")?;
+            conn.prepare("INSERT INTO contact_persons (wallet_id, name, phone_number) VALUES (?1, ?2, ?3)")?;
 
-        stmt.execute([name, phone_number])?;
+        stmt.execute([&wallet_id.to_string(), name, phone_number])?;
         Ok(conn.last_insert_rowid())
     }
 
+    // Global contacts endpoint removed - contacts are now wallet-specific
+    #[allow(dead_code)]
     pub fn get_all_contacts(&self) -> Result<Vec<ContactPerson>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, phone_number, created_at FROM contact_persons ORDER BY name",
+            "SELECT id, wallet_id, name, phone_number, created_at FROM contact_persons ORDER BY name",
         )?;
 
         let contact_iter = stmt.query_map([], |row| {
             Ok(ContactPerson {
                 id: Some(row.get(0)?),
-                name: row.get(1)?,
-                phone_number: row.get(2)?,
-                created_at: row.get(3)?,
+                wallet_id: row.get(1)?,
+                name: row.get(2)?,
+                phone_number: row.get(3)?,
+                created_at: row.get(4)?,
             })
         })?;
 
@@ -394,59 +398,30 @@ impl MetadataDb {
 
     pub fn delete_contact(&self, contact_id: i64) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
-
-        // Start a transaction to ensure atomicity
-        let tx = conn.unchecked_transaction()?;
-
-        // First, delete from sms_logs that reference this contact
-        tx.execute("DELETE FROM sms_logs WHERE contact_id = ?1", [contact_id])?;
-
-        // Then, delete from wallet_contacts that reference this contact
-        tx.execute(
-            "DELETE FROM wallet_contacts WHERE contact_id = ?1",
-            [contact_id],
-        )?;
-
-        // Finally, delete the contact itself
-        let changes = tx.execute("DELETE FROM contact_persons WHERE id = ?1", [contact_id])?;
-
-        tx.commit()?;
+        // With CASCADE delete, we only need to delete the contact - sms_logs will be automatically deleted
+        let mut stmt = conn.prepare("DELETE FROM contact_persons WHERE id = ?1")?;
+        let changes = stmt.execute([contact_id])?;
         Ok(changes > 0)
     }
 
-    // Wallet-contact relationship functions
-    pub fn add_contact_to_wallet(&self, wallet_id: i64, contact_id: i64) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt =
-            conn.prepare("INSERT INTO wallet_contacts (wallet_id, contact_id) VALUES (?1, ?2)")?;
-
-        stmt.execute([wallet_id, contact_id])?;
-        Ok(conn.last_insert_rowid())
-    }
-
-    pub fn remove_contact_from_wallet(&self, wallet_id: i64, contact_id: i64) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt =
-            conn.prepare("DELETE FROM wallet_contacts WHERE wallet_id = ?1 AND contact_id = ?2")?;
-        let changes = stmt.execute([wallet_id, contact_id])?;
-        Ok(changes > 0)
-    }
+    // These functions are no longer needed since contacts are now directly linked to wallets
+    // Keeping them for compatibility during transition, but they should be removed eventually
 
     pub fn get_contacts_for_wallet(&self, wallet_id: i64) -> Result<Vec<ContactPerson>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT cp.id, cp.name, cp.phone_number, cp.created_at 
-             FROM contact_persons cp 
-             JOIN wallet_contacts wc ON cp.id = wc.contact_id 
-             WHERE wc.wallet_id = ?1 ORDER BY cp.name",
+            "SELECT id, wallet_id, name, phone_number, created_at 
+             FROM contact_persons 
+             WHERE wallet_id = ?1 ORDER BY name",
         )?;
 
         let contact_iter = stmt.query_map([wallet_id], |row| {
             Ok(ContactPerson {
                 id: Some(row.get(0)?),
-                name: row.get(1)?,
-                phone_number: row.get(2)?,
-                created_at: row.get(3)?,
+                wallet_id: row.get(1)?,
+                name: row.get(2)?,
+                phone_number: row.get(3)?,
+                created_at: row.get(4)?,
             })
         })?;
 

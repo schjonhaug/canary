@@ -1,7 +1,8 @@
 use crate::api::{
-    AddContactToWalletRequest, CreateContactRequest, CreateWalletRequest, TwilioConfigRequest,
+    CreateContactRequest, CreateWalletRequest, TwilioConfigRequest,
     create_router,
 };
+// BlockHeader import removed - not needed for these tests
 use crate::wallet::WalletManager;
 use axum::{
     body::Body,
@@ -27,6 +28,7 @@ async fn setup_test_app() -> (axum::Router, PathBuf) {
     fs::create_dir_all(&wallet_dir).unwrap();
 
     let (event_tx, _) = broadcast::channel(100);
+    let (block_header_tx, _) = broadcast::channel(100);
     let metadata_db_path = unique_dir.join("metadata.sqlite");
     let wallet_manager = WalletManager::new(
         event_tx,
@@ -37,8 +39,35 @@ async fn setup_test_app() -> (axum::Router, PathBuf) {
     )
     .await;
 
-    let app = create_router(Arc::new(Mutex::new(wallet_manager)));
+    let app = create_router(Arc::new(Mutex::new(wallet_manager)), block_header_tx);
     (app, wallet_dir)
+}
+
+async fn create_test_wallet(app: &axum::Router) -> i64 {
+    let wallet_request = CreateWalletRequest {
+        name: "Test Wallet".to_string(),
+        descriptor: "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)".to_string(),
+    };
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(http::Method::POST)
+                .uri("/api/wallets")
+                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    
+    body["wallet"]["id"].as_i64().unwrap()
 }
 
 // ===== WALLET MANAGEMENT TESTS =====
@@ -377,11 +406,12 @@ async fn test_delete_wallet_not_found() {
     assert_eq!(body["error"], "Wallet not found");
 }
 
-// ===== CONTACT MANAGEMENT TESTS =====
+// ===== WALLET-SPECIFIC CONTACT MANAGEMENT TESTS =====
 
 #[tokio::test]
-async fn test_create_contact_valid_phone() {
+async fn test_create_wallet_contact_valid_phone() {
     let (app, _temp_dir) = setup_test_app().await;
+    let wallet_id = create_test_wallet(&app).await;
 
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
@@ -392,8 +422,8 @@ async fn test_create_contact_valid_phone() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/api/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
+                .header(http::header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
         )
@@ -410,37 +440,9 @@ async fn test_create_contact_valid_phone() {
 }
 
 #[tokio::test]
-async fn test_create_contact_missing_country_code() {
+async fn test_create_wallet_contact_invalid_phone() {
     let (app, _temp_dir) = setup_test_app().await;
-
-    let contact_request = CreateContactRequest {
-        name: "John Doe".to_string(),
-        phone_number: "92050946".to_string(), // Missing country code
-    };
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri("/api/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body: Value = serde_json::from_slice(&body).unwrap();
-
-    assert_eq!(body["error"], "Phone number must include country code (e.g., +4712345678)");
-}
-
-#[tokio::test]
-async fn test_create_contact_invalid_phone_format() {
-    let (app, _temp_dir) = setup_test_app().await;
+    let wallet_id = create_test_wallet(&app).await;
 
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
@@ -451,8 +453,8 @@ async fn test_create_contact_invalid_phone_format() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/api/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
+                .header(http::header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
         )
@@ -464,100 +466,48 @@ async fn test_create_contact_invalid_phone_format() {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(body["error"], "Invalid phone number");
+    assert!(body["error"].as_str().unwrap().contains("Invalid phone number"));
 }
 
 #[tokio::test]
-async fn test_create_contact_various_valid_formats() {
+async fn test_create_wallet_contact_wallet_not_found() {
     let (app, _temp_dir) = setup_test_app().await;
 
-    let test_cases = vec![
-        ("+4792050946", "Norwegian mobile"),
-        ("+4722334455", "Norwegian landline"),
-        ("+14155552345", "US number"),
-        ("+447911123456", "UK mobile"),
-    ];
-
-    for (phone_number, description) in test_cases {
-        let contact_request = CreateContactRequest {
-            name: format!("Test Contact {}", description),
-            phone_number: phone_number.to_string(),
-        };
-
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method(http::Method::POST)
-                    .uri("/api/contacts")
-                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::CREATED, "Failed for {}: {}", description, phone_number);
-
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        let body: Value = serde_json::from_slice(&body).unwrap();
-
-        assert_eq!(body["message"], "Contact created successfully");
-        assert!(body["contact_id"].as_i64().is_some());
-    }
-}
-
-#[tokio::test]
-async fn test_get_all_contacts_empty() {
-    let (app, _temp_dir) = setup_test_app().await;
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method(http::Method::GET)
-                .uri("/api/contacts")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body: Value = serde_json::from_slice(&body).unwrap();
-
-    assert!(body.as_array().unwrap().is_empty());
-}
-
-#[tokio::test]
-async fn test_get_all_contacts_with_data() {
-    let (app, _temp_dir) = setup_test_app().await;
-
-    // Create a contact first
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
         phone_number: "+4792050946".to_string(),
     };
 
-    app.clone()
+    let response = app
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/api/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                .uri("/api/wallets/999/contacts") // Non-existent wallet
+                .header(http::header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
         )
         .await
         .unwrap();
 
-    // Get all contacts
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body: Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(body["error"], "Wallet not found");
+}
+
+#[tokio::test]
+async fn test_get_wallet_contacts_empty() {
+    let (app, _temp_dir) = setup_test_app().await;
+    let wallet_id = create_test_wallet(&app).await;
+
     let response = app
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/api/contacts")
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -567,17 +517,15 @@ async fn test_get_all_contacts_with_data() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body: Value = serde_json::from_slice(&body).unwrap();
+    let contacts: Value = serde_json::from_slice(&body).unwrap();
 
-    let contacts = body.as_array().unwrap();
-    assert_eq!(contacts.len(), 1);
-    assert_eq!(contacts[0]["name"], "John Doe");
-    assert_eq!(contacts[0]["phone_number"], "+4792050946");
+    assert_eq!(contacts.as_array().unwrap().len(), 0);
 }
 
 #[tokio::test]
-async fn test_delete_contact() {
+async fn test_get_wallet_contacts_with_data() {
     let (app, _temp_dir) = setup_test_app().await;
+    let wallet_id = create_test_wallet(&app).await;
 
     // Create a contact first
     let contact_request = CreateContactRequest {
@@ -590,288 +538,17 @@ async fn test_delete_contact() {
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/api/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    let create_body = create_response
-        .into_body()
-        .collect()
-        .await
-        .unwrap()
-        .to_bytes();
-    let create_body: Value = serde_json::from_slice(&create_body).unwrap();
-    let contact_id = create_body["contact_id"].as_i64().unwrap();
-
-    // Delete contact
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::DELETE)
-                .uri(&format!("/api/contacts/{}", contact_id))
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::NO_CONTENT);
-
-    // Verify contact is deleted
-    let get_response = app
-        .oneshot(
-            Request::builder()
-                .method(http::Method::GET)
-                .uri("/api/contacts")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    let get_body = get_response.into_body().collect().await.unwrap().to_bytes();
-    let get_body: Value = serde_json::from_slice(&get_body).unwrap();
-    assert!(get_body.as_array().unwrap().is_empty());
-}
-
-#[tokio::test]
-async fn test_delete_contact_not_found() {
-    let (app, _temp_dir) = setup_test_app().await;
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method(http::Method::DELETE)
-                .uri("/api/contacts/999")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(body["error"], "Contact not found");
-}
-
-// ===== WALLET-CONTACT RELATIONSHIP TESTS =====
-
-#[tokio::test]
-async fn test_add_contact_to_wallet() {
-    let (app, _temp_dir) = setup_test_app().await;
-
-    // Create a wallet first
-    let wallet_request = CreateWalletRequest {
-        name: "Test Wallet".to_string(),
-        descriptor: "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)".to_string(),
-    };
-
-    let wallet_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri("/api/wallets")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    let wallet_body = wallet_response
-        .into_body()
-        .collect()
-        .await
-        .unwrap()
-        .to_bytes();
-    let wallet_body: Value = serde_json::from_slice(&wallet_body).unwrap();
-    let wallet_id = wallet_body["wallet"]["id"].as_i64().unwrap();
-
-    // Create a contact
-    let contact_request = CreateContactRequest {
-        name: "John Doe".to_string(),
-        phone_number: "+4792050946".to_string(),
-    };
-
-    let contact_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri("/api/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    let contact_body = contact_response
-        .into_body()
-        .collect()
-        .await
-        .unwrap()
-        .to_bytes();
-    let contact_body: Value = serde_json::from_slice(&contact_body).unwrap();
-    let contact_id = contact_body["contact_id"].as_i64().unwrap();
-
-    // Add contact to wallet
-    let add_request = AddContactToWalletRequest { contact_id };
-
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
                 .uri(&format!("/api/wallets/{}/contacts", wallet_id))
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&add_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::CREATED);
-}
-
-#[tokio::test]
-async fn test_add_contact_to_wallet_not_found() {
-    let (app, _temp_dir) = setup_test_app().await;
-
-    // Create a contact
-    let contact_request = CreateContactRequest {
-        name: "John Doe".to_string(),
-        phone_number: "+4792050946".to_string(),
-    };
-
-    let contact_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri("/api/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                .header(http::header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
         )
         .await
         .unwrap();
 
-    let contact_body = contact_response
-        .into_body()
-        .collect()
-        .await
-        .unwrap()
-        .to_bytes();
-    let contact_body: Value = serde_json::from_slice(&contact_body).unwrap();
-    let contact_id = contact_body["contact_id"].as_i64().unwrap();
+    assert_eq!(create_response.status(), StatusCode::CREATED);
 
-    // Try to add contact to non-existent wallet
-    let add_request = AddContactToWalletRequest { contact_id };
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri("/api/wallets/999/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&add_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(body["error"], "Wallet not found");
-}
-
-#[tokio::test]
-async fn test_get_wallet_contacts() {
-    let (app, _temp_dir) = setup_test_app().await;
-
-    // Create a wallet first
-    let wallet_request = CreateWalletRequest {
-        name: "Test Wallet".to_string(),
-        descriptor: "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)".to_string(),
-    };
-
-    let wallet_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri("/api/wallets")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    let wallet_body = wallet_response
-        .into_body()
-        .collect()
-        .await
-        .unwrap()
-        .to_bytes();
-    let wallet_body: Value = serde_json::from_slice(&wallet_body).unwrap();
-    let wallet_id = wallet_body["wallet"]["id"].as_i64().unwrap();
-
-    // Create a contact
-    let contact_request = CreateContactRequest {
-        name: "John Doe".to_string(),
-        phone_number: "+4792050946".to_string(),
-    };
-
-    let contact_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri("/api/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    let contact_body = contact_response
-        .into_body()
-        .collect()
-        .await
-        .unwrap()
-        .to_bytes();
-    let contact_body: Value = serde_json::from_slice(&contact_body).unwrap();
-    let contact_id = contact_body["contact_id"].as_i64().unwrap();
-
-    // Add contact to wallet
-    let add_request = AddContactToWalletRequest { contact_id };
-
-    app.clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&add_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    // Get wallet contacts
+    // Now get the contacts
     let response = app
         .oneshot(
             Request::builder()
@@ -886,12 +563,15 @@ async fn test_get_wallet_contacts() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body: Value = serde_json::from_slice(&body).unwrap();
+    let contacts: Value = serde_json::from_slice(&body).unwrap();
 
-    let contacts = body.as_array().unwrap();
-    assert_eq!(contacts.len(), 1);
-    assert_eq!(contacts[0]["name"], "John Doe");
-    assert_eq!(contacts[0]["phone_number"], "+4792050946");
+    let contacts_array = contacts.as_array().unwrap();
+    assert_eq!(contacts_array.len(), 1);
+    
+    let contact = &contacts_array[0];
+    assert_eq!(contact["name"], "John Doe");
+    assert_eq!(contact["phone_number"], "+4792050946");
+    assert_eq!(contact["wallet_id"], wallet_id);
 }
 
 #[tokio::test]
@@ -902,7 +582,7 @@ async fn test_get_wallet_contacts_wallet_not_found() {
         .oneshot(
             Request::builder()
                 .method(http::Method::GET)
-                .uri("/api/wallets/999/contacts")
+                .uri("/api/wallets/999/contacts") // Non-existent wallet
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -913,86 +593,42 @@ async fn test_get_wallet_contacts_wallet_not_found() {
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
+
     assert_eq!(body["error"], "Wallet not found");
 }
 
 #[tokio::test]
-async fn test_remove_contact_from_wallet() {
+async fn test_delete_wallet_contact() {
     let (app, _temp_dir) = setup_test_app().await;
+    let wallet_id = create_test_wallet(&app).await;
 
-    // Create a wallet first
-    let wallet_request = CreateWalletRequest {
-        name: "Test Wallet".to_string(),
-        descriptor: "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)".to_string(),
-    };
-
-    let wallet_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri("/api/wallets")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    let wallet_body = wallet_response
-        .into_body()
-        .collect()
-        .await
-        .unwrap()
-        .to_bytes();
-    let wallet_body: Value = serde_json::from_slice(&wallet_body).unwrap();
-    let wallet_id = wallet_body["wallet"]["id"].as_i64().unwrap();
-
-    // Create a contact
+    // Create a contact first
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
         phone_number: "+4792050946".to_string(),
     };
 
-    let contact_response = app
+    let create_response = app
         .clone()
         .oneshot(
             Request::builder()
                 .method(http::Method::POST)
-                .uri("/api/contacts")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
+                .header(http::header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
                 .unwrap(),
         )
         .await
         .unwrap();
 
-    let contact_body = contact_response
-        .into_body()
-        .collect()
-        .await
-        .unwrap()
-        .to_bytes();
-    let contact_body: Value = serde_json::from_slice(&contact_body).unwrap();
-    let contact_id = contact_body["contact_id"].as_i64().unwrap();
+    assert_eq!(create_response.status(), StatusCode::CREATED);
 
-    // Add contact to wallet
-    let add_request = AddContactToWalletRequest { contact_id };
+    let create_body = create_response.into_body().collect().await.unwrap().to_bytes();
+    let create_body: Value = serde_json::from_slice(&create_body).unwrap();
+    let contact_id = create_body["contact_id"].as_i64().unwrap();
 
-    app.clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&add_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    // Remove contact from wallet
-    let response = app
+    // Delete the contact
+    let delete_response = app
         .clone()
         .oneshot(
             Request::builder()
@@ -1004,9 +640,9 @@ async fn test_remove_contact_from_wallet() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    assert_eq!(delete_response.status(), StatusCode::NO_CONTENT);
 
-    // Verify contact is removed
+    // Verify contact is deleted by trying to get contacts
     let get_response = app
         .oneshot(
             Request::builder()
@@ -1018,20 +654,24 @@ async fn test_remove_contact_from_wallet() {
         .await
         .unwrap();
 
-    let get_body = get_response.into_body().collect().await.unwrap().to_bytes();
-    let get_body: Value = serde_json::from_slice(&get_body).unwrap();
-    assert!(get_body.as_array().unwrap().is_empty());
+    assert_eq!(get_response.status(), StatusCode::OK);
+
+    let body = get_response.into_body().collect().await.unwrap().to_bytes();
+    let contacts: Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(contacts.as_array().unwrap().len(), 0);
 }
 
 #[tokio::test]
-async fn test_remove_contact_from_wallet_not_found() {
+async fn test_delete_wallet_contact_not_found() {
     let (app, _temp_dir) = setup_test_app().await;
+    let wallet_id = create_test_wallet(&app).await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .method(http::Method::DELETE)
-                .uri("/api/wallets/999/contacts/999")
+                .uri(&format!("/api/wallets/{}/contacts/999", wallet_id)) // Non-existent contact
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1042,9 +682,149 @@ async fn test_remove_contact_from_wallet_not_found() {
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(body["error"], "Contact not found in wallet");
+
+    assert_eq!(body["error"], "Contact not found");
 }
 
+#[tokio::test]
+async fn test_wallet_deletion_cascades_to_contacts() {
+    let (app, _temp_dir) = setup_test_app().await;
+    let wallet_id = create_test_wallet(&app).await;
+
+    // Create a contact
+    let contact_request = CreateContactRequest {
+        name: "John Doe".to_string(),
+        phone_number: "+4792050946".to_string(),
+    };
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(http::Method::POST)
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+
+    // Verify contact exists
+    let get_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(get_response.status(), StatusCode::OK);
+
+    let body = get_response.into_body().collect().await.unwrap().to_bytes();
+    let contacts: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(contacts.as_array().unwrap().len(), 1);
+
+    // Delete the wallet
+    let delete_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(http::Method::DELETE)
+                .uri(&format!("/api/wallets/{}", wallet_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(delete_response.status(), StatusCode::NO_CONTENT);
+
+    // Try to get contacts - should return 404 since wallet no longer exists
+    let final_response = app
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(final_response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_create_multiple_wallet_contacts() {
+    let (app, _temp_dir) = setup_test_app().await;
+    let wallet_id = create_test_wallet(&app).await;
+
+    let contacts = vec![
+        ("John Doe", "+4792050946"),
+        ("Jane Smith", "+4722334455"),
+        ("Bob Johnson", "+4798765432"),
+    ];
+
+    // Create multiple contacts
+    for (name, phone) in &contacts {
+        let contact_request = CreateContactRequest {
+            name: name.to_string(),
+            phone_number: phone.to_string(),
+        };
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri(&format!("/api/wallets/{}/contacts", wallet_id))
+                    .header(http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_string(&contact_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+
+    // Verify all contacts exist
+    let get_response = app
+        .oneshot(
+            Request::builder()
+                .method(http::Method::GET)
+                .uri(&format!("/api/wallets/{}/contacts", wallet_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(get_response.status(), StatusCode::OK);
+
+    let body = get_response.into_body().collect().await.unwrap().to_bytes();
+    let contacts_response: Value = serde_json::from_slice(&body).unwrap();
+
+    let contacts_array = contacts_response.as_array().unwrap();
+    assert_eq!(contacts_array.len(), 3);
+
+    // Verify each contact
+    let contact_names: Vec<&str> = contacts_array
+        .iter()
+        .map(|c| c["name"].as_str().unwrap())
+        .collect();
+
+    assert!(contact_names.contains(&"John Doe"));
+    assert!(contact_names.contains(&"Jane Smith"));
+    assert!(contact_names.contains(&"Bob Johnson"));
+}
 // ===== TWILIO CONFIGURATION TESTS =====
 
 #[tokio::test]

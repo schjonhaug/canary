@@ -82,49 +82,50 @@ fn test_wallet_duplicate_descriptor() {
 fn test_contact_operations() {
     let (db, _temp_file) = create_temp_db();
 
+    // First create a wallet for the contact
+    let wallet_id = db.insert_wallet("Test Wallet", "test_descriptor", "test_filename").unwrap();
+    
     // Test insert contact
-    let contact_id = db.insert_contact("John Doe", "12345678").unwrap();
+    let contact_id = db.insert_contact(wallet_id, "John Doe", "12345678").unwrap();
     assert_eq!(contact_id, 1);
 
-    // Test get all contacts
-    let contacts = db.get_all_contacts().unwrap();
+    // Test get contacts for wallet
+    let contacts = db.get_contacts_for_wallet(wallet_id).unwrap();
     assert_eq!(contacts.len(), 1);
     assert_eq!(contacts[0].name, "John Doe");
     assert_eq!(contacts[0].phone_number, "12345678");
+    assert_eq!(contacts[0].wallet_id, wallet_id);
 
     // Test delete contact
     let deleted = db.delete_contact(contact_id).unwrap();
     assert!(deleted);
 
     // Verify contact is deleted
-    let contacts = db.get_all_contacts().unwrap();
+    let contacts = db.get_contacts_for_wallet(wallet_id).unwrap();
     assert_eq!(contacts.len(), 0);
 }
 
 #[test]
-fn test_wallet_contact_operations() {
+fn test_wallet_specific_contact_operations() {
     let (db, _temp_file) = create_temp_db();
 
-    // Create wallet and contact
+    // Create wallet 
     let wallet_id = db
         .insert_wallet("Test Wallet", "test_descriptor", "test.sqlite")
         .unwrap();
-    let contact_id = db.insert_contact("John Doe", "12345678").unwrap();
-
-    // Test add contact to wallet
-    let wallet_contact_id = db.add_contact_to_wallet(wallet_id, contact_id).unwrap();
-    assert_eq!(wallet_contact_id, 1);
+    
+    // Create contact directly for wallet
+    let contact_id = db.insert_contact(wallet_id, "John Doe", "12345678").unwrap();
 
     // Test get contacts for wallet
     let contacts = db.get_contacts_for_wallet(wallet_id).unwrap();
     assert_eq!(contacts.len(), 1);
     assert_eq!(contacts[0].name, "John Doe");
+    assert_eq!(contacts[0].wallet_id, wallet_id);
 
-    // Test remove contact from wallet
-    let removed = db
-        .remove_contact_from_wallet(wallet_id, contact_id)
-        .unwrap();
-    assert!(removed);
+    // Test delete contact
+    let deleted = db.delete_contact(contact_id).unwrap();
+    assert!(deleted);
 
     // Verify contact is removed
     let contacts = db.get_contacts_for_wallet(wallet_id).unwrap();
@@ -185,15 +186,12 @@ fn test_event_operations() {
     let event_id = db.insert_event(&event).unwrap();
     assert_eq!(event_id, 1);
 
-    // Test get events by wallet
-    let events = db.get_events_by_wallet(wallet_id).unwrap();
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0].event_type, EventType::Receive);
-    assert_eq!(events[0].amount_sats, 1000000);
-
-    // Test get all events
-    let all_events = db.get_all_events().unwrap();
+    // Test get all events with wallets
+    let all_events = db.get_all_events_with_wallets().unwrap();
     assert_eq!(all_events.len(), 1);
+    assert_eq!(all_events[0].event_type, EventType::Receive);
+    assert_eq!(all_events[0].amount_sats, 1000000);
+    assert_eq!(all_events[0].wallet_id, wallet_id);
 }
 
 #[test]
@@ -204,7 +202,7 @@ fn test_sms_log_operations() {
     let wallet_id = db
         .insert_wallet("Test Wallet", "test_descriptor", "test.sqlite")
         .unwrap();
-    let contact_id = db.insert_contact("John Doe", "12345678").unwrap();
+    let contact_id = db.insert_contact(wallet_id, "John Doe", "12345678").unwrap();
 
     let event = EventInsert {
         wallet_id,
@@ -223,11 +221,10 @@ fn test_sms_log_operations() {
         .unwrap();
     assert_eq!(log_id, 1);
 
-    // Test get SMS logs by event
-    let logs = db.get_sms_logs_by_event(event_id).unwrap();
-    assert_eq!(logs.len(), 1);
-    assert_eq!(logs[0].status, "sent");
-    assert_eq!(logs[0].twilio_sid, Some("test_sid".to_string()));
+    // Test get SMS recipients by event
+    let recipients = db.get_sms_recipients_by_event(event_id).unwrap();
+    assert_eq!(recipients.len(), 1);
+    assert_eq!(recipients[0], "John Doe");
 }
 
 #[test]
@@ -268,6 +265,7 @@ fn test_wallet_metadata_serialization() {
 fn test_contact_person_serialization() {
     let contact = ContactPerson {
         id: Some(1),
+        wallet_id: 1,
         name: "John Doe".to_string(),
         phone_number: "12345678".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),

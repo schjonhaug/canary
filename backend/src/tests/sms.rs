@@ -213,6 +213,7 @@ fn test_twilio_config_serialization() {
 fn test_contact_person_creation() {
     let contact = ContactPerson {
         id: Some(1),
+        wallet_id: 1,
         name: "John Doe".to_string(),
         phone_number: "12345678".to_string(),
         created_at: "2024-01-01 12:00:00".to_string(),

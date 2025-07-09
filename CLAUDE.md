@@ -129,23 +129,20 @@ kanari/
   - Returns 204 (no content) on success, 404 if not found
   - Uses database ID as path parameter
 
-### Contact Management
-- `POST /contacts`: Create a new contact person
-  - Requires `name` and `phone_number` fields (without country code)
+### Wallet-Specific Contact Management
+- `POST /wallets/{id}/contacts`: Create a new contact for a specific wallet
+  - Requires `name` and `phone_number` fields (with country code, e.g., +4712345678)
+  - Phone number validation with Norwegian locale support using libphonenumber-js
   - Returns 201 (created) with contact ID and metadata
-- `GET /contacts`: List all available contacts
-  - Returns array of contact objects ordered by name
-- `DELETE /contacts/{id}`: Delete a contact person
-  - Returns 204 (no content) on success, 404 if not found
-
-### Wallet-Contact Relationships
-- `POST /wallets/{id}/contacts`: Add a contact to a wallet for SMS notifications
-  - Requires `contact_id` in request body
-  - Enables SMS alerts for that contact when wallet has transactions
-- `GET /wallets/{id}/contacts`: Get all contacts linked to a wallet
-  - Returns array of contact objects for the specified wallet
-- `DELETE /wallets/{wallet_id}/contacts/{contact_id}`: Remove contact from wallet
-  - Stops SMS notifications for that contact on this wallet
+  - Returns 404 if wallet not found, 400 for invalid phone number
+- `GET /wallets/{id}/contacts`: Get all contacts for a specific wallet
+  - Returns array of contact objects for the specified wallet, ordered by name
+  - Each contact includes wallet_id, name, phone_number, and created_at
+  - Returns 404 if wallet not found
+- `DELETE /wallets/{wallet_id}/contacts/{contact_id}`: Delete a wallet-specific contact
+  - Completely removes the contact and stops SMS notifications
+  - Returns 204 (no content) on success, 404 if contact not found
+  - Automatic CASCADE deletion: contact is deleted when wallet is deleted
 
 ### Twilio Configuration
 - `POST /twilio/config`: Configure Twilio SMS settings
@@ -289,11 +286,11 @@ KANARI_METADATA_DB=metadata.sqlite
 ### Wallet Metadata & SMS Storage
 - **Database**: `database/{network}/metadata.sqlite` (completely removed on reset)
 - **Migration System**: Automatic database schema migrations using SQL files in `migrations/` directory
+  - **Latest Migration**: `008_make_contacts_wallet_specific.sql` - Converts global contacts to wallet-specific contacts
 - **Core Tables**:
   - `wallets`: Stores wallet IDs, names, descriptors, filenames, and creation timestamps
   - `transaction_events`: Bitcoin transaction events with type-safe enums and broadcast channels
-  - `contact_persons`: Reusable contact information (name, phone number)
-  - `wallet_contacts`: Junction table linking wallets to contacts (many-to-many)
+  - `contact_persons`: Wallet-specific contact information (wallet_id, name, phone_number) with CASCADE DELETE
   - `twilio_config`: Single Twilio account configuration (account SID, auth token, messaging service SID)
   - `sms_logs`: Complete SMS delivery tracking (event ID, contact ID, Twilio SID, status, errors)
   - `current_block_header`: Current blockchain tip (height, hash, timestamp, updated_at)
@@ -301,8 +298,8 @@ KANARI_METADATA_DB=metadata.sqlite
   - `wallets.id` is PRIMARY KEY AUTOINCREMENT (unique wallet identifier)
   - `wallets.descriptor` has UNIQUE constraint (prevents duplicate wallets)
   - `wallets.name` allows duplicates (multiple wallets can have same name)
-  - `contact_persons` can be reused across multiple wallets via junction table
-  - `wallet_contacts` has UNIQUE constraint on (wallet_id, contact_id) pairs
+  - `contact_persons.wallet_id` has FOREIGN KEY with CASCADE DELETE (contacts deleted when wallet is deleted)
+  - `contact_persons` are wallet-specific (no longer reusable across wallets)
 - **Event System**: Write-through pattern with database persistence + tokio broadcast channels for real-time SMS
 
 ### Reset Behavior
@@ -324,9 +321,9 @@ curl -X POST http://127.0.0.1:3000/twilio/config \
   }'
 ```
 
-### 2. Create Contacts
+### 2. Create Wallet-Specific Contacts
 ```bash
-curl -X POST http://127.0.0.1:3000/contacts \
+curl -X POST http://127.0.0.1:3000/wallets/1/contacts \
   -H "Content-Type: application/json" \
   -d '{
     "name": "John Doe",
@@ -334,17 +331,8 @@ curl -X POST http://127.0.0.1:3000/contacts \
   }'
 ```
 
-### 3. Link Contact to Wallet
-```bash
-curl -X POST http://127.0.0.1:3000/wallets/1/contacts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contact_id": 1
-  }'
-```
-
-### 4. SMS Notifications Active
-Once configured, all Bitcoin transactions will automatically trigger Norwegian SMS notifications to all contacts linked to each wallet.
+### 3. SMS Notifications Active
+Once configured, all Bitcoin transactions will automatically trigger Norwegian SMS notifications to all contacts associated with each wallet. Contacts are now created directly for specific wallets, eliminating the need for separate linking steps.
 
 ## Architecture Notes
 - Uses Rust 2024 edition with comprehensive async/await support
@@ -354,7 +342,7 @@ Once configured, all Bitcoin transactions will automatically trigger Norwegian S
 - **Norwegian Localization**: Custom number formatting (comma decimal, space thousands separator)
 - **Twilio Integration**: Direct HTTP API calls using reqwest with proper authentication
 - **Database-Driven Config**: All settings stored in SQLite for web interface management
-- **Contact Reusability**: Junction table pattern allows sharing contacts across wallets
+- **Wallet-Specific Contacts**: Direct foreign key relationship with CASCADE DELETE for simplified contact management
 - **Complete Logging**: Every SMS attempt tracked with delivery status and Twilio SIDs
 - **Network Isolation**: Complete database separation per Bitcoin network to prevent cross-contamination
 - **Migration System**: Automatic database schema migrations with version tracking

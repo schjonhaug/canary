@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { formatNumber } from "libphonenumber-js"
+import { formatNumber, parsePhoneNumber } from "libphonenumber-js"
 
 interface Wallet {
   id: number
@@ -29,8 +29,10 @@ interface Wallet {
 
 interface Contact {
   id: number
+  wallet_id: number
   name: string
   phone_number: string
+  created_at: string
 }
 
 interface EditWalletModalProps {
@@ -51,9 +53,12 @@ export function EditWalletModal({
   const [walletName, setWalletName] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [contacts, setContacts] = useState<Contact[]>([])
   const [walletContacts, setWalletContacts] = useState<Contact[]>([])
   const [contactsLoading, setContactsLoading] = useState(false)
+  const [isCreatingContact, setIsCreatingContact] = useState(false)
+  const [newContactName, setNewContactName] = useState("")
+  const [newContactPhone, setNewContactPhone] = useState("")
+  const [newContactError, setNewContactError] = useState<string | null>(null)
 
   // Format phone number for display
   const formatPhoneForDisplay = (phoneNumber: string): string => {
@@ -65,17 +70,7 @@ export function EditWalletModal({
     }
   }
 
-  const fetchContacts = useCallback(async () => {
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const response = await fetch(`${baseUrl}/api/contacts`)
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-      const data = await response.json()
-      setContacts(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch contacts")
-    }
-  }, [])
+  // Global contacts endpoint removed - contacts are now wallet-specific
 
   const fetchWalletContacts = useCallback(async (walletId: number) => {
     try {
@@ -98,10 +93,10 @@ export function EditWalletModal({
   useEffect(() => {
     if (isOpen && wallet) {
       setContactsLoading(true)
-      Promise.all([fetchContacts(), fetchWalletContacts(wallet.id)])
+      fetchWalletContacts(wallet.id)
         .finally(() => setContactsLoading(false))
     }
-  }, [isOpen, wallet, fetchContacts, fetchWalletContacts])
+  }, [isOpen, wallet, fetchWalletContacts])
 
   const handleSave = async () => {
     if (!wallet || !walletName.trim()) return
@@ -143,30 +138,48 @@ export function EditWalletModal({
     }
   }
 
-  const handleAddContactToWallet = async (contactId: number) => {
-    if (!wallet) return
+  const handleCreateContact = async () => {
+    if (!wallet || !newContactName.trim() || !newContactPhone.trim()) return
+
+    setIsCreatingContact(true)
+    setNewContactError(null)
 
     try {
+      // Validate phone number
+      const phoneNumber = parsePhoneNumber(newContactPhone, 'NO')
+      if (!phoneNumber || !phoneNumber.isValid()) {
+        throw new Error('Invalid phone number format. Please include country code (e.g., +4712345678)')
+      }
+
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
       const response = await fetch(`${baseUrl}/api/wallets/${wallet.id}/contacts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ contact_id: contactId }),
+        body: JSON.stringify({
+          name: newContactName.trim(),
+          phone_number: phoneNumber.format('E.164'),
+        }),
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || `HTTP error! status: ${response.status}`)
       }
 
+      // Clear form and refresh contacts
+      setNewContactName('')
+      setNewContactPhone('')
       await fetchWalletContacts(wallet.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add contact to wallet")
+      setNewContactError(err instanceof Error ? err.message : "Failed to create contact")
+    } finally {
+      setIsCreatingContact(false)
     }
   }
 
-  const handleRemoveContactFromWallet = async (contactId: number) => {
+  const handleDeleteContact = async (contactId: number) => {
     if (!wallet) return
 
     try {
@@ -181,20 +194,20 @@ export function EditWalletModal({
 
       await fetchWalletContacts(wallet.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove contact from wallet")
+      setError(err instanceof Error ? err.message : "Failed to delete contact")
     }
   }
 
-  const isContactInWallet = (contactId: number) => {
-    return walletContacts.some(wc => wc.id === contactId)
-  }
+  // Helper function removed - contacts are now wallet-specific
 
   const handleClose = () => {
-    if (!isUpdating) {
+    if (!isUpdating && !isCreatingContact) {
       setError(null)
+      setNewContactError(null)
       setWalletName(wallet?.name || "")
-      setContacts([])
       setWalletContacts([])
+      setNewContactName('')
+      setNewContactPhone('')
       onClose()
     }
   }
@@ -258,7 +271,7 @@ export function EditWalletModal({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleRemoveContactFromWallet(contact.id)}
+                          onClick={() => handleDeleteContact(contact.id)}
                           className="text-red-600 hover:text-red-700"
                           disabled={isUpdating}
                         >
@@ -273,33 +286,44 @@ export function EditWalletModal({
                       </div>
                     )}
 
-                    {/* Add Contact Section */}
+                    {/* Create New Contact Section */}
                     <div className="border-t pt-4">
-                      <p className="text-sm font-medium mb-3">Add Contact to Wallet</p>
-                      <div className="space-y-2">
-                        {contacts.filter(c => !isContactInWallet(c.id)).map((contact) => (
-                          <div key={contact.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <Phone className="h-4 w-4 text-muted-foreground" />
-                              <div>
-                                <p className="text-sm font-medium">{contact.name}</p>
-                                <p className="text-xs text-muted-foreground">{formatPhoneForDisplay(contact.phone_number)}</p>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAddContactToWallet(contact.id)}
-                              className="text-green-600 hover:text-green-700"
-                              disabled={isUpdating}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
+                      <p className="text-sm font-medium mb-3">Create New Contact</p>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="contact-name" className="text-xs">Name</Label>
+                            <Input
+                              id="contact-name"
+                              value={newContactName}
+                              onChange={(e) => setNewContactName(e.target.value)}
+                              placeholder="Contact name"
+                              disabled={isCreatingContact}
+                            />
                           </div>
-                        ))}
-                        {contacts.filter(c => !isContactInWallet(c.id)).length === 0 && (
-                          <div className="text-center py-3 text-xs text-muted-foreground">
-                            {contacts.length === 0 ? "No contacts available. Create contacts first." : "All contacts are already added to this wallet."}
+                          <div>
+                            <Label htmlFor="contact-phone" className="text-xs">Phone Number</Label>
+                            <Input
+                              id="contact-phone"
+                              value={newContactPhone}
+                              onChange={(e) => setNewContactPhone(e.target.value)}
+                              placeholder="+4712345678"
+                              disabled={isCreatingContact}
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleCreateContact}
+                          disabled={isCreatingContact || !newContactName.trim() || !newContactPhone.trim()}
+                          className="w-full"
+                          size="sm"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          {isCreatingContact ? "Creating..." : "Create Contact"}
+                        </Button>
+                        {newContactError && (
+                          <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                            {newContactError}
                           </div>
                         )}
                       </div>

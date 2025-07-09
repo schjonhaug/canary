@@ -6,7 +6,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Json, Response, Sse},
-    routing::{get, post, put},
+    routing::{get, post},
 };
 use tower_http::cors::CorsLayer;
 use serde::{Deserialize, Serialize};
@@ -71,11 +71,7 @@ pub struct CreateContactResponse {
     pub contact_id: i64,
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
-pub struct AddContactToWalletRequest {
-    /// The contact ID to add
-    pub contact_id: i64,
-}
+// This struct is no longer needed since contacts are created directly for wallets
 
 #[derive(Deserialize, Serialize, ToSchema)]
 pub struct TwilioConfigRequest {
@@ -288,139 +284,32 @@ pub async fn get_all_wallets(State(wallet_manager): State<AppState>) -> Response
     }
 }
 
-// Contact management endpoints
-
-#[utoipa::path(
-    post,
-    path = "/api/contacts",
-    request_body = CreateContactRequest,
-    responses(
-        (status = 201, description = "Contact created successfully", body = CreateContactResponse),
-        (status = 400, description = "Invalid request", body = ErrorResponse),
-    ),
-    tag = "contact"
-)]
-pub async fn create_contact(
-    State(wallet_manager): State<AppState>,
-    Json(payload): Json<CreateContactRequest>,
-) -> Response {
-    // Validate phone number first
-    let normalized_phone = match validate_phone_number(&payload.phone_number) {
-        Ok(phone) => phone,
-        Err(error) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse { error }),
-            )
-                .into_response();
-        }
-    };
-
-    let manager = wallet_manager.lock().await;
-    match manager
-        .metadata_db
-        .insert_contact(&payload.name, &normalized_phone)
-    {
-        Ok(contact_id) => (
-            StatusCode::CREATED,
-            Json(CreateContactResponse {
-                message: "Contact created successfully".to_string(),
-                contact_id,
-            }),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-            .into_response(),
-    }
-}
-
-#[utoipa::path(
-    get,
-    path = "/api/contacts",
-    responses(
-        (status = 200, description = "List of all contacts", body = Vec<ContactPerson>),
-    ),
-    tag = "contact"
-)]
-pub async fn get_all_contacts(State(wallet_manager): State<AppState>) -> Response {
-    let manager = wallet_manager.lock().await;
-    match manager.metadata_db.get_all_contacts() {
-        Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-            .into_response(),
-    }
-}
-
-#[utoipa::path(
-    delete,
-    path = "/api/contacts/{id}",
-    params(
-        ("id" = i64, Path, description = "The contact ID to delete")
-    ),
-    responses(
-        (status = 204, description = "Contact deleted successfully"),
-        (status = 404, description = "Contact not found", body = ErrorResponse),
-    ),
-    tag = "contact"
-)]
-pub async fn delete_contact(
-    State(wallet_manager): State<AppState>,
-    Path(id): Path<i64>,
-) -> Response {
-    let manager = wallet_manager.lock().await;
-    match manager.metadata_db.delete_contact(id) {
-        Ok(true) => StatusCode::NO_CONTENT.into_response(),
-        Ok(false) => (
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: "Contact not found".to_string(),
-            }),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-            .into_response(),
-    }
-}
+// Wallet-specific contact management endpoints
 
 #[utoipa::path(
     post,
     path = "/api/wallets/{id}/contacts",
+    request_body = CreateContactRequest,
     params(
         ("id" = i64, Path, description = "The wallet ID")
     ),
-    request_body = AddContactToWalletRequest,
     responses(
-        (status = 201, description = "Contact added to wallet successfully"),
-        (status = 400, description = "Invalid request", body = ErrorResponse),
+        (status = 201, description = "Contact created successfully", body = CreateContactResponse),
+        (status = 400, description = "Invalid request or phone number", body = ErrorResponse),
         (status = 404, description = "Wallet not found", body = ErrorResponse),
     ),
-    tag = "wallet"
+    tag = "contact"
 )]
-pub async fn add_contact_to_wallet(
+pub async fn create_wallet_contact(
     State(wallet_manager): State<AppState>,
     Path(wallet_id): Path<i64>,
-    Json(payload): Json<AddContactToWalletRequest>,
+    Json(payload): Json<CreateContactRequest>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
 
     // Check if wallet exists
     match manager.get_wallet_by_id(wallet_id) {
-        Ok(Some(_)) => {}
+        Ok(Some(_)) => {},
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
@@ -441,11 +330,27 @@ pub async fn add_contact_to_wallet(
         }
     }
 
-    match manager
-        .metadata_db
-        .add_contact_to_wallet(wallet_id, payload.contact_id)
-    {
-        Ok(_) => StatusCode::CREATED.into_response(),
+    // Validate phone number first
+    let normalized_phone = match validate_phone_number(&payload.phone_number) {
+        Ok(phone) => phone,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse { error }),
+            )
+                .into_response();
+        }
+    };
+
+    match manager.metadata_db.insert_contact(wallet_id, &payload.name, &normalized_phone) {
+        Ok(contact_id) => (
+            StatusCode::CREATED,
+            Json(CreateContactResponse {
+                message: "Contact created successfully".to_string(),
+                contact_id,
+            }),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
@@ -456,33 +361,32 @@ pub async fn add_contact_to_wallet(
     }
 }
 
+// Global contacts endpoint removed - contacts are now wallet-specific
+
 #[utoipa::path(
     delete,
     path = "/api/wallets/{wallet_id}/contacts/{contact_id}",
     params(
         ("wallet_id" = i64, Path, description = "The wallet ID"),
-        ("contact_id" = i64, Path, description = "The contact ID to remove")
+        ("contact_id" = i64, Path, description = "The contact ID")
     ),
     responses(
-        (status = 204, description = "Contact removed from wallet successfully"),
-        (status = 404, description = "Contact not found in wallet", body = ErrorResponse),
+        (status = 204, description = "Contact deleted successfully"),
+        (status = 404, description = "Contact not found", body = ErrorResponse),
     ),
-    tag = "wallet"
+    tag = "contact"
 )]
-pub async fn remove_contact_from_wallet(
+pub async fn delete_wallet_contact(
     State(wallet_manager): State<AppState>,
-    Path((wallet_id, contact_id)): Path<(i64, i64)>,
+    Path((_wallet_id, contact_id)): Path<(i64, i64)>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
-    match manager
-        .metadata_db
-        .remove_contact_from_wallet(wallet_id, contact_id)
-    {
+    match manager.metadata_db.delete_contact(contact_id) {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
-                error: "Contact not found in wallet".to_string(),
+                error: "Contact not found".to_string(),
             }),
         )
             .into_response(),
@@ -495,6 +399,10 @@ pub async fn remove_contact_from_wallet(
             .into_response(),
     }
 }
+
+// This endpoint is no longer needed since contacts are created directly for wallets
+
+// This function is now handled by delete_wallet_contact above
 
 #[utoipa::path(
     get,
@@ -819,15 +727,14 @@ pub async fn block_headers_stream(
 #[openapi(
     paths(
         create_wallet, update_wallet, delete_wallet, get_wallet, get_all_wallets,
-        create_contact, get_all_contacts, delete_contact,
-        add_contact_to_wallet, remove_contact_from_wallet, get_wallet_contacts,
+        create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
         save_twilio_config, get_twilio_config,
         get_all_transaction_events, get_event_sms_recipients,
         get_current_block_header, block_headers_stream
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
-        CreateContactRequest, CreateContactResponse, AddContactToWalletRequest,
+        CreateContactRequest, CreateContactResponse,
         TwilioConfigRequest, TwilioConfigResponse,
         ContactPerson, TwilioConfig, SmsLog, TransactionEventWithWallet, EventType,
         BlockHeader
@@ -853,14 +760,12 @@ pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroad
         .route("/wallets/{id}", get(get_wallet).put(update_wallet).delete(delete_wallet))
         .route(
             "/wallets/{id}/contacts",
-            post(add_contact_to_wallet).get(get_wallet_contacts),
+            post(create_wallet_contact).get(get_wallet_contacts),
         )
         .route(
             "/wallets/{wallet_id}/contacts/{contact_id}",
-            axum::routing::delete(remove_contact_from_wallet),
+            axum::routing::delete(delete_wallet_contact),
         )
-        .route("/contacts", post(create_contact).get(get_all_contacts))
-        .route("/contacts/{id}", axum::routing::delete(delete_contact))
         .route(
             "/twilio/config",
             post(save_twilio_config).get(get_twilio_config),

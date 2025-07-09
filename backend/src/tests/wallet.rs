@@ -130,11 +130,12 @@ fn test_insert_and_broadcast_event_helper() {
     // Verify event was inserted into database
     let events = wallet_manager
         .metadata_db
-        .get_events_by_wallet(wallet_id)
+        .get_all_events_with_wallets()
         .unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].event_type, EventType::Receive);
     assert_eq!(events[0].amount_sats, 1000000);
+    assert_eq!(events[0].wallet_id, wallet_id);
 }
 
 #[test]
