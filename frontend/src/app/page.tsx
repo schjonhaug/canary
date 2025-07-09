@@ -26,7 +26,7 @@ export default function Home() {
           />
           <div>
             <h1 className="text-3xl font-bold uppercase tracking-wide">KANARI</h1>
-            <p className="text-muted-foreground">Bitcoin Wallet Management System</p>
+            <p className="text-muted-foreground">Bitcoin Wallet Alert System</p>
           </div>
         </div>
         <div className="flex gap-2">
