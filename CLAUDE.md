@@ -334,6 +334,20 @@ curl -X POST http://127.0.0.1:3000/wallets/1/contacts \
 ### 3. SMS Notifications Active
 Once configured, all Bitcoin transactions will automatically trigger Norwegian SMS notifications to all contacts associated with each wallet. Contacts are now created directly for specific wallets, eliminating the need for separate linking steps.
 
+## Code Quality Standards
+### No Commented-Out Code Policy
+**NEVER leave commented-out code in the codebase.** This project maintains strict cleanliness standards:
+- Remove all commented-out code blocks, functions, variables, and imports
+- Use git history if you need to recover deleted code
+- Replace commented-out code with proper documentation comments if explanation is needed
+- Commented-out code is considered noise and reduces code readability
+
+This policy ensures:
+- Clean, maintainable codebase
+- No confusion between active code and dead code
+- Proper focus on current functionality
+- Better code reviews and debugging experience
+
 ## Architecture Notes
 - Uses Rust 2024 edition with comprehensive async/await support
 - **Event-Driven SMS**: tokio broadcast channels for real-time notifications without blocking wallet sync

@@ -4,7 +4,6 @@ import { useState } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { SettingsModal } from "@/components/settings-modal"
-// ContactsModal removed - contacts are now wallet-specific
 import { BlockStatus } from "@/components/block-status"
 import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
@@ -12,7 +11,6 @@ import { Settings } from "lucide-react"
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  // isContactsOpen removed - contacts are now wallet-specific
 
   return (
     <div className="container mx-auto py-8">
@@ -22,7 +20,6 @@ export default function Home() {
           <p className="text-muted-foreground">Bitcoin Wallet Management System</p>
         </div>
         <div className="flex gap-2">
-          {/* Global Contacts button removed - contacts are now wallet-specific */}
           <Button
             variant="outline"
             size="sm"
@@ -78,8 +75,6 @@ export default function Home() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
-      
-      {/* ContactsModal removed - contacts are now wallet-specific */}
     </div>
   )
 }
