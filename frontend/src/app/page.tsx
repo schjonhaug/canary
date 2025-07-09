@@ -7,6 +7,7 @@ import { SettingsModal } from "@/components/settings-modal"
 import { BlockStatus } from "@/components/block-status"
 import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
+import Image from "next/image"
 
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
@@ -15,9 +16,18 @@ export default function Home() {
   return (
     <div className="container mx-auto py-8">
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Kanari</h1>
-          <p className="text-muted-foreground">Bitcoin Wallet Management System</p>
+        <div className="flex items-center gap-4">
+          <Image
+            src="/images/kanari.svg"
+            alt="Kanari Logo"
+            width={48}
+            height={48}
+            className="h-12 w-12"
+          />
+          <div>
+            <h1 className="text-3xl font-bold uppercase tracking-wide">KANARI</h1>
+            <p className="text-muted-foreground">Bitcoin Wallet Management System</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
