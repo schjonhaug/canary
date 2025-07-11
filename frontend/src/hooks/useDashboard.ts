@@ -38,21 +38,30 @@ export function useDashboard() {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    // Use the configured API URL or fallback to current hostname
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    const streamUrl = `${baseUrl}/api/dashboard/stream`;
+    
+    console.log('Connecting to dashboard stream:', streamUrl);
+    
     // Set up Server-Sent Events for real-time dashboard updates
-    const eventSource = new EventSource('/api/dashboard/stream');
+    const eventSource = new EventSource(streamUrl);
     
     eventSource.onopen = () => {
+      console.log('Dashboard stream connected');
       setIsConnected(true);
       setError(null);
     };
 
     eventSource.onmessage = (event) => {
       try {
+        console.log('Received dashboard update:', event.data);
         const update: DashboardUpdate = JSON.parse(event.data);
         setWallets(update.wallets);
         setEvents(update.events);
         setLastUpdate(update.timestamp);
         setError(null);
+        setIsConnected(true);
       } catch (err) {
         console.error('Failed to parse dashboard update:', err);
         setError('Failed to parse dashboard update data');

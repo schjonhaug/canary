@@ -29,9 +29,11 @@ async fn setup_test_app() -> (axum::Router, PathBuf) {
 
     let (event_tx, _) = broadcast::channel(100);
     let (block_header_tx, _) = broadcast::channel(100);
+    let (dashboard_tx, _) = broadcast::channel::<crate::metadata::DashboardUpdate>(100);
     let metadata_db_path = unique_dir.join("metadata.sqlite");
     let wallet_manager = WalletManager::new(
         event_tx,
+        dashboard_tx.clone(),
         wallet_dir.clone(),
         metadata_db_path.to_str().unwrap(),
         Network::Regtest,
@@ -39,7 +41,7 @@ async fn setup_test_app() -> (axum::Router, PathBuf) {
     )
     .await;
 
-    let app = create_router(Arc::new(Mutex::new(wallet_manager)), block_header_tx);
+    let app = create_router(Arc::new(Mutex::new(wallet_manager)), block_header_tx, dashboard_tx);
     (app, wallet_dir)
 }
 
@@ -180,72 +182,7 @@ async fn test_create_wallet_invalid_descriptor() {
     );
 }
 
-#[tokio::test]
-async fn test_get_all_wallets_empty() {
-    let (app, _temp_dir) = setup_test_app().await;
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method(http::Method::GET)
-                .uri("/api/wallets")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body: Value = serde_json::from_slice(&body).unwrap();
-
-    assert!(body.as_array().unwrap().is_empty());
-}
-
-#[tokio::test]
-async fn test_get_all_wallets_with_data() {
-    let (app, _temp_dir) = setup_test_app().await;
-
-    // Create a wallet first
-    let wallet_request = CreateWalletRequest {
-        name: "Test Wallet".to_string(),
-        descriptor: "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)".to_string(),
-    };
-
-    app.clone()
-        .oneshot(
-            Request::builder()
-                .method(http::Method::POST)
-                .uri("/api/wallets")
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(&wallet_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    // Get all wallets
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method(http::Method::GET)
-                .uri("/api/wallets")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body: Value = serde_json::from_slice(&body).unwrap();
-
-    let wallets = body.as_array().unwrap();
-    assert_eq!(wallets.len(), 1);
-    assert_eq!(wallets[0]["name"], "Test Wallet");
-}
+// Removed tests for bulk GET endpoints that were replaced with SSE streams
 
 #[tokio::test]
 async fn test_get_wallet_by_id() {

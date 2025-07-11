@@ -933,11 +933,6 @@ impl WalletManager {
             .map_err(|e| anyhow!("Failed to get wallet by ID: {}", e))
     }
 
-    pub fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
-        self.metadata_db
-            .get_all_wallets()
-            .map_err(|e| anyhow!("Failed to get all wallets: {}", e))
-    }
 
     pub async fn delete_wallet_by_id(&mut self, id: i64) -> Result<()> {
         println!("Deleting wallet with ID: {}", id);

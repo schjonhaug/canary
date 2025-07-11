@@ -221,10 +221,7 @@ fn test_sms_log_operations() {
         .unwrap();
     assert_eq!(log_id, 1);
 
-    // Test get SMS recipients by event
-    let recipients = db.get_sms_recipients_by_event(event_id).unwrap();
-    assert_eq!(recipients.len(), 1);
-    assert_eq!(recipients[0], "John Doe");
+    // SMS recipients functionality has been moved to SSE dashboard updates
 }
 
 #[test]
@@ -248,6 +245,7 @@ fn test_wallet_metadata_serialization() {
         created_at: "2024-01-01 12:00:00".to_string(),
         balance_total: Some(100000000), // 1 BTC in satoshis
         last_activity: Some("2024-01-01 12:30:00".to_string()),
+        contact_count: Some(0),
     };
 
     // Test serialization

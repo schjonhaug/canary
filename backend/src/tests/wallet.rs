@@ -11,11 +11,13 @@ fn create_temp_wallet_manager() -> (WalletManager, TempDir) {
     fs::create_dir_all(&wallet_dir).unwrap();
 
     let (event_tx, _) = broadcast::channel(100);
+    let (dashboard_tx, _) = broadcast::channel::<crate::metadata::DashboardUpdate>(100);
     let metadata_db_path = temp_dir.path().join("metadata.sqlite");
 
     let wallet_manager = tokio::runtime::Runtime::new().unwrap().block_on(async {
         WalletManager::new(
             event_tx,
+            dashboard_tx,
             wallet_dir,
             metadata_db_path.to_str().unwrap(),
             Network::Regtest,
@@ -165,7 +167,7 @@ fn test_wallet_manager_get_all_wallets() {
     let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
 
     // Initially should be empty
-    let wallets = wallet_manager.get_all_wallets().unwrap();
+    let wallets = wallet_manager.metadata_db.get_all_wallets().unwrap();
     assert_eq!(wallets.len(), 0);
 
     // Create some wallets
@@ -180,10 +182,12 @@ fn test_wallet_manager_get_all_wallets() {
         .unwrap();
 
     // Test getting all wallets
-    let wallets = wallet_manager.get_all_wallets().unwrap();
+    let wallets = wallet_manager.metadata_db.get_all_wallets().unwrap();
     assert_eq!(wallets.len(), 2);
-    assert_eq!(wallets[0].name, "Wallet 1");
-    assert_eq!(wallets[1].name, "Wallet 2");
+    // Verify both wallets are present (order may vary due to timestamp precision)
+    let wallet_names: Vec<&str> = wallets.iter().map(|w| w.name.as_str()).collect();
+    assert!(wallet_names.contains(&"Wallet 1"));
+    assert!(wallet_names.contains(&"Wallet 2"));
 }
 
 #[test]

@@ -112,60 +112,73 @@ kanari/
 - `libphonenumber-js = "1.12.9"` (frontend) - Client-side phone number formatting
 
 ## API Endpoints
-### Wallet Management
-- `POST /wallets`: Create a new wallet from multipath descriptor and name
+
+### Real-Time Data Streams (Server-Sent Events)
+- `GET /api/dashboard/stream`: **Primary data endpoint** - Real-time dashboard updates
+  - **Content-Type**: `text/event-stream`
+  - **Data**: Complete dashboard state including all wallets with balances and transaction events
+  - **Format**: JSON objects with `timestamp`, `wallets` array, and `events` array
+  - **Frequency**: Updates sent after every wallet sync cycle (4-second intervals)
+  - **Auto-reconnect**: Frontend handles automatic reconnection on connection loss
+- `GET /api/block-headers/stream`: Real-time Bitcoin block header updates
+  - **Content-Type**: `text/event-stream`
+  - **Data**: New block headers as they arrive from Electrum server
+  - **Format**: JSON objects with `height`, `hash`, and `timestamp`
+
+### Wallet Management (CRUD Operations)
+- `POST /api/wallets`: Create a new wallet from multipath descriptor and name
   - Requires both `name` (user-friendly) and `descriptor` (multipath) fields
   - Validates multipath descriptors and enforces descriptor uniqueness
   - Returns 201 (created) with full wallet metadata including ID, 400 (invalid), or 409 (duplicate descriptor)
   - Allows duplicate wallet names but enforces unique descriptors
-- `GET /wallets`: List all wallets
-  - Returns array of wallet metadata objects ordered by creation date (newest first)
-  - Includes ID, name, descriptor, filename, and created_at for each wallet
-- `GET /wallets/{id}`: Get a specific wallet by ID
+- `GET /api/wallets/{id}`: Get a specific wallet by ID
   - Returns wallet metadata object or 404 if not found
   - Uses database ID as path parameter
-- `DELETE /wallets/{id}`: Delete a wallet by ID
+- `PUT /api/wallets/{id}`: Update wallet name
+  - Allows updating the user-friendly name of an existing wallet
+  - Returns 200 on success, 404 if wallet not found
+- `DELETE /api/wallets/{id}`: Delete a wallet by ID
   - Completely removes wallet: unloads from BDK memory, deletes database file, removes metadata
   - Returns 204 (no content) on success, 404 if not found
   - Uses database ID as path parameter
 
-### Wallet-Specific Contact Management
-- `POST /wallets/{id}/contacts`: Create a new contact for a specific wallet
+### Contact Management
+- `POST /api/wallets/{id}/contacts`: Create a new contact for a specific wallet
   - Requires `name` and `phone_number` fields (with country code, e.g., +4712345678)
   - Phone number validation with Norwegian locale support using libphonenumber-js
   - Returns 201 (created) with contact ID and metadata
   - Returns 404 if wallet not found, 400 for invalid phone number
-- `GET /wallets/{id}/contacts`: Get all contacts for a specific wallet
+- `GET /api/wallets/{id}/contacts`: Get all contacts for a specific wallet
   - Returns array of contact objects for the specified wallet, ordered by name
   - Each contact includes wallet_id, name, phone_number, and created_at
   - Returns 404 if wallet not found
-- `DELETE /wallets/{wallet_id}/contacts/{contact_id}`: Delete a wallet-specific contact
+- `DELETE /api/wallets/{wallet_id}/contacts/{contact_id}`: Delete a wallet-specific contact
   - Completely removes the contact and stops SMS notifications
   - Returns 204 (no content) on success, 404 if contact not found
   - Automatic CASCADE deletion: contact is deleted when wallet is deleted
 
-### Twilio Configuration
-- `POST /twilio/config`: Configure Twilio SMS settings
+### Configuration
+- `POST /api/twilio/config`: Configure Twilio SMS settings
   - Requires `account_sid`, `auth_token`, and `messaging_service_sid`
   - Only one configuration supported (upserts existing)
   - Enables SMS sending for all wallets
-- `GET /twilio/config`: Get current Twilio configuration
+- `GET /api/twilio/config`: Get current Twilio configuration
   - Returns configuration details (auth_token is included but should be secured)
   - Returns 404 if no configuration exists
 
-### Blockchain Information
-- `GET /block-headers/current`: Get current block header from database
+### Utility Endpoints
+- `GET /api/block-headers/current`: Get current block header from database
   - Returns stored block header with height, hash, and Unix timestamp
   - Returns 404 if no block header is stored yet
   - Provides immediate block information on app startup
-- `GET /block-headers/stream`: Server-Sent Events stream of real-time block headers
-  - Streams live block header updates in JSON format
-  - Auto-reconnects on connection loss
-  - Content-Type: text/event-stream
-
-### Documentation
 - `/swagger-ui`: Interactive API documentation
 - `/api-docs/openapi.json`: OpenAPI specification
+
+### ⚠️ Legacy Endpoints (Removed)
+The following bulk data endpoints have been **removed** and replaced with real-time SSE streams:
+- ~~`GET /api/wallets`~~ → Use `GET /api/dashboard/stream` for all wallet data
+- ~~`GET /api/transaction-events`~~ → Use `GET /api/dashboard/stream` for all events
+- ~~`GET /api/transaction-events/{id}/sms-recipients`~~ → SMS data included in dashboard stream
 
 ## Network Configuration
 Kanari supports multiple Bitcoin networks with configurable Electrum servers and network-specific database storage:

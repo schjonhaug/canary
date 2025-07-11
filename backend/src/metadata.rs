@@ -540,26 +540,6 @@ impl MetadataDb {
     }
 
 
-    pub fn get_sms_recipients_by_event(&self, event_id: i64) -> Result<Vec<String>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT DISTINCT cp.name 
-             FROM sms_logs sl 
-             JOIN contact_persons cp ON sl.contact_id = cp.id 
-             WHERE sl.event_id = ?1 ORDER BY cp.name",
-        )?;
-
-        let name_iter = stmt.query_map([event_id], |row| {
-            Ok(row.get::<_, String>(0)?)
-        })?;
-
-        let mut names = Vec::new();
-        for name in name_iter {
-            names.push(name?);
-        }
-
-        Ok(names)
-    }
 
 
     /// Store the current block header (replaces any existing)

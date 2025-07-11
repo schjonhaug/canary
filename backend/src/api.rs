@@ -264,26 +264,6 @@ pub async fn get_wallet(State(wallet_manager): State<AppState>, Path(id): Path<i
     }
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/wallets",
-    responses(
-        (status = 200, description = "List of all wallets", body = Vec<WalletMetadata>),
-    ),
-    tag = "wallet"
-)]
-pub async fn get_all_wallets(State(wallet_manager): State<AppState>) -> Response {
-    match wallet_manager.lock().await.get_all_wallets() {
-        Ok(wallets) => (StatusCode::OK, Json(wallets)).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-            .into_response(),
-    }
-}
 
 // Wallet-specific contact management endpoints
 
@@ -613,56 +593,6 @@ pub async fn get_twilio_config(State(wallet_manager): State<AppState>) -> Respon
     }
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/transaction-events",
-    responses(
-        (status = 200, description = "List of all transaction events with wallet names", body = Vec<TransactionEventWithWallet>),
-    ),
-    tag = "transaction"
-)]
-pub async fn get_all_transaction_events(State(wallet_manager): State<AppState>) -> Response {
-    let manager = wallet_manager.lock().await;
-    match manager.metadata_db.get_all_events_with_wallets() {
-        Ok(events) => (StatusCode::OK, Json(events)).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-            .into_response(),
-    }
-}
-
-#[utoipa::path(
-    get,
-    path = "/api/transaction-events/{id}/sms-recipients",
-    params(
-        ("id" = i64, Path, description = "The transaction event ID")
-    ),
-    responses(
-        (status = 200, description = "List of SMS recipients for the event", body = Vec<String>),
-        (status = 404, description = "Event not found", body = ErrorResponse),
-    ),
-    tag = "transaction"
-)]
-pub async fn get_event_sms_recipients(
-    State(wallet_manager): State<AppState>,
-    Path(event_id): Path<i64>,
-) -> Response {
-    let manager = wallet_manager.lock().await;
-    match manager.metadata_db.get_sms_recipients_by_event(event_id) {
-        Ok(recipients) => (StatusCode::OK, Json(recipients)).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-            .into_response(),
-    }
-}
 
 #[utoipa::path(
     get,
@@ -757,10 +687,9 @@ pub async fn dashboard_stream(
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        create_wallet, update_wallet, delete_wallet, get_wallet, get_all_wallets,
+        create_wallet, update_wallet, delete_wallet, get_wallet,
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
         save_twilio_config, get_twilio_config,
-        get_all_transaction_events, get_event_sms_recipients,
         get_current_block_header, block_headers_stream,
         dashboard_stream
     ),
@@ -789,7 +718,7 @@ pub struct ApiDoc;
 
 pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroadcast, dashboard_tx: DashboardBroadcast) -> Router {
     let wallet_routes = Router::new()
-        .route("/wallets", post(create_wallet).get(get_all_wallets))
+        .route("/wallets", post(create_wallet))
         .route("/wallets/{id}", get(get_wallet).put(update_wallet).delete(delete_wallet))
         .route(
             "/wallets/{id}/contacts",
@@ -803,8 +732,6 @@ pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroad
             "/twilio/config",
             post(save_twilio_config).get(get_twilio_config),
         )
-        .route("/transaction-events", get(get_all_transaction_events))
-        .route("/transaction-events/{id}/sms-recipients", get(get_event_sms_recipients))
         .route("/block-headers/current", get(get_current_block_header))
         .with_state(wallet_manager);
 
