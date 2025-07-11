@@ -1,4 +1,4 @@
-use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata, TransactionEventWithWallet, EventType};
+use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate};
 use crate::wallet::WalletManager;
 use crate::electrum::BlockHeader;
 use axum::{
@@ -94,6 +94,7 @@ pub struct TwilioConfigResponse {
 
 pub type AppState = Arc<Mutex<WalletManager>>;
 pub type BlockHeaderBroadcast = broadcast::Sender<BlockHeader>;
+pub type DashboardBroadcast = broadcast::Sender<DashboardUpdate>;
 
 /// Validates and normalizes a phone number
 fn validate_phone_number(phone_number: &str) -> Result<String, String> {
@@ -723,6 +724,36 @@ pub async fn block_headers_stream(
     Sse::new(stream).into_response()
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/dashboard/stream",
+    responses(
+        (status = 200, description = "Server-sent events stream of dashboard updates", content_type = "text/event-stream"),
+    ),
+    tag = "dashboard"
+)]
+pub async fn dashboard_stream(
+    State(dashboard_tx): State<DashboardBroadcast>,
+) -> Response {
+    use axum::response::sse::Event;
+    
+    let stream = FuturesStreamExt::filter_map(
+        BroadcastStream::new(dashboard_tx.subscribe()),
+        |result| async move {
+            match result {
+                Ok(dashboard_update) => {
+                    // Convert to SSE format
+                    let data = serde_json::to_string(&dashboard_update).unwrap_or_default();
+                    Some(Ok::<Event, axum::Error>(Event::default().data(data)))
+                }
+                Err(_) => None,
+            }
+        }
+    );
+
+    Sse::new(stream).into_response()
+}
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -730,21 +761,23 @@ pub async fn block_headers_stream(
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
         save_twilio_config, get_twilio_config,
         get_all_transaction_events, get_event_sms_recipients,
-        get_current_block_header, block_headers_stream
+        get_current_block_header, block_headers_stream,
+        dashboard_stream
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactRequest, CreateContactResponse,
         TwilioConfigRequest, TwilioConfigResponse,
         ContactPerson, TwilioConfig, SmsLog, TransactionEventWithWallet, EventType,
-        BlockHeader
+        BlockHeader, DashboardUpdate
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),
         (name = "contact", description = "Contact management endpoints"),
         (name = "twilio", description = "Twilio configuration endpoints"),
         (name = "transaction", description = "Transaction events endpoints"),
-        (name = "blockchain", description = "Blockchain information endpoints")
+        (name = "blockchain", description = "Blockchain information endpoints"),
+        (name = "dashboard", description = "Dashboard real-time updates endpoints")
     ),
     info(
         title = "Kanari Wallet API",
@@ -754,7 +787,7 @@ pub async fn block_headers_stream(
 )]
 pub struct ApiDoc;
 
-pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroadcast) -> Router {
+pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroadcast, dashboard_tx: DashboardBroadcast) -> Router {
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet).get(get_all_wallets))
         .route("/wallets/{id}", get(get_wallet).put(update_wallet).delete(delete_wallet))
@@ -779,8 +812,12 @@ pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroad
         .route("/block-headers/stream", get(block_headers_stream))
         .with_state(block_header_tx);
 
+    let dashboard_routes = Router::new()
+        .route("/dashboard/stream", get(dashboard_stream))
+        .with_state(dashboard_tx);
+
     Router::new()
-        .nest("/api", wallet_routes.merge(block_header_routes))
+        .nest("/api", wallet_routes.merge(block_header_routes).merge(dashboard_routes))
         .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
 }

@@ -24,60 +24,23 @@ interface Wallet {
 interface WalletCardsProps {
   selectedWalletId: number | null
   onSelectWallet: (walletId: number | null) => void
+  wallets: Wallet[]
+  isConnected: boolean
+  error: string | null
 }
 
-export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsProps) {
-  const [wallets, setWallets] = useState<Wallet[]>([])
+export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConnected, error }: WalletCardsProps) {
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [walletToEdit, setWalletToEdit] = useState<Wallet | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-  // Define fetchWallets function
-  const fetchWallets = async () => {
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const response = await fetch(`${baseUrl}/api/wallets`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      
-      // Fetch contact count for each wallet
-      const walletsWithContactCount = await Promise.all(
-        data.map(async (wallet: Wallet) => {
-          try {
-            const contactsResponse = await fetch(`${baseUrl}/api/wallets/${wallet.id}/contacts`)
-            if (contactsResponse.ok) {
-              const contacts = await contactsResponse.json()
-              return { ...wallet, contact_count: contacts.length }
-            }
-            return { ...wallet, contact_count: 0 }
-          } catch (err) {
-            console.error(`Failed to fetch contacts for wallet ${wallet.id}:`, err)
-            return { ...wallet, contact_count: 0 }
-          }
-        })
-      )
-      
-      setWallets(walletsWithContactCount)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch wallets")
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Set loading to false once we have data
   useEffect(() => {
-    fetchWallets()
-    
-    // Refresh every 10 seconds (less frequent than transaction events)
-    const interval = setInterval(fetchWallets, 10000)
-    return () => clearInterval(interval)
-  }, [])
+    setLoading(false)
+  }, [wallets])
 
   const formatBalance = (sats?: number) => {
     if (sats === undefined || sats === null) return "0.00000000 BTC"
@@ -158,13 +121,13 @@ export function WalletCards({ selectedWalletId, onSelectWallet }: WalletCardsPro
   }
 
   const handleWalletCreated = () => {
-    // Refresh the wallet list after creating a new wallet
-    fetchWallets()
+    // Wallet list will be updated automatically via SSE
+    setIsCreateModalOpen(false)
   }
 
   const handleWalletUpdated = () => {
-    // Refresh the wallet list after updating a wallet
-    fetchWallets()
+    // Wallet list will be updated automatically via SSE
+    setIsEditModalOpen(false)
   }
 
   if (loading) {

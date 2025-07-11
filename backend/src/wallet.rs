@@ -1,5 +1,5 @@
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventInsert, EventType, MetadataDb, TransactionEvent, WalletMetadata};
+use crate::metadata::{EventInsert, EventType, MetadataDb, TransactionEvent, WalletMetadata, DashboardUpdate};
 use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::secp256k1::Secp256k1;
 use bdk_wallet::rusqlite::Connection;
@@ -15,12 +15,14 @@ pub struct WalletManager {
     pub electrum_client: Option<ElectrumClient>,
     pub metadata_db: MetadataDb,
     pub event_sender: broadcast::Sender<TransactionEvent>,
+    pub dashboard_sender: broadcast::Sender<DashboardUpdate>,
     network: Network,
 }
 
 impl WalletManager {
     pub async fn new(
         event_sender: broadcast::Sender<TransactionEvent>,
+        dashboard_sender: broadcast::Sender<DashboardUpdate>,
         wallet_dir: PathBuf,
         metadata_db_path: &str,
         network: Network,
@@ -48,6 +50,7 @@ impl WalletManager {
             electrum_client,
             metadata_db,
             event_sender,
+            dashboard_sender,
             network,
         };
 
@@ -886,6 +889,39 @@ impl WalletManager {
                     // No electrum client available, skip sync
                 }
             }
+        }
+
+        // Send dashboard update after all wallet syncs are complete
+        if let Err(e) = self.send_dashboard_update().await {
+            eprintln!("Failed to send dashboard update: {}", e);
+        }
+
+        Ok(())
+    }
+
+    pub async fn send_dashboard_update(&self) -> Result<()> {
+        // Get current timestamp
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Get all wallets with current balances
+        let wallets = self.metadata_db.get_all_wallets()?;
+        
+        // Get recent transaction events (last 100 events)
+        let events = self.metadata_db.get_all_events_with_wallets()?;
+        
+        // Create dashboard update
+        let dashboard_update = DashboardUpdate {
+            timestamp,
+            wallets,
+            events,
+        };
+
+        // Send dashboard update to subscribers
+        if let Err(e) = self.dashboard_sender.send(dashboard_update) {
+            eprintln!("Failed to broadcast dashboard update: {}", e);
         }
 
         Ok(())

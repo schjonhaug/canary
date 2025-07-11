@@ -8,10 +8,12 @@ import { BlockStatus } from "@/components/block-status"
 import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
 import Image from "next/image"
+import { useDashboard } from "@/hooks/useDashboard"
 
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const { wallets, events, isConnected, error } = useDashboard()
 
   return (
     <div className="container mx-auto py-8">
@@ -64,6 +66,9 @@ export default function Home() {
           <WalletCards 
             selectedWalletId={selectedWalletId}
             onSelectWallet={setSelectedWalletId}
+            wallets={wallets}
+            isConnected={isConnected}
+            error={error}
           />
         </section>
 
@@ -77,7 +82,12 @@ export default function Home() {
               </span>
             )}
           </h2>
-          <TransactionEvents selectedWalletId={selectedWalletId} />
+          <TransactionEvents 
+            selectedWalletId={selectedWalletId} 
+            events={events}
+            isConnected={isConnected}
+            error={error}
+          />
         </section>
       </div>
       

@@ -30,56 +30,18 @@ interface TransactionEvent {
 
 interface TransactionEventsProps {
   selectedWalletId?: number | null
+  events: TransactionEvent[]
+  isConnected: boolean
+  error: string | null
 }
 
-export function TransactionEvents({ selectedWalletId }: TransactionEventsProps) {
-  const [events, setEvents] = useState<TransactionEvent[]>([])
+export function TransactionEvents({ selectedWalletId, events, isConnected, error }: TransactionEventsProps) {
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
+  // Set loading to false once we have data
   useEffect(() => {
-    async function fetchEvents() {
-      try {
-        // Use the configured API URL or fallback to current hostname
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-        const apiUrl = `${baseUrl}/api/transaction-events`
-        const response = await fetch(apiUrl)
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        const data = await response.json()
-        
-        // Fetch SMS recipients for each event
-        const eventsWithRecipients = await Promise.all(
-          data.map(async (event: TransactionEvent) => {
-            try {
-              const recipientsUrl = `${baseUrl}/api/transaction-events/${event.id}/sms-recipients`
-              const recipientsResponse = await fetch(recipientsUrl)
-              if (recipientsResponse.ok) {
-                const recipients = await recipientsResponse.json()
-                return { ...event, sms_recipients: recipients }
-              }
-            } catch (err) {
-              console.warn(`Failed to fetch SMS recipients for event ${event.id}:`, err)
-            }
-            return { ...event, sms_recipients: [] }
-          })
-        )
-        
-        setEvents(eventsWithRecipients)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch events")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchEvents()
-    
-    // Refresh every 5 seconds
-    const interval = setInterval(fetchEvents, 5000)
-    return () => clearInterval(interval)
-  }, [])
+    setLoading(false)
+  }, [events])
 
   const formatSats = (sats: number) => {
     const btc = sats / 100_000_000

@@ -32,7 +32,7 @@ impl From<&str> for EventType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct WalletMetadata {
     pub id: Option<i64>,
     pub name: String,
@@ -41,6 +41,7 @@ pub struct WalletMetadata {
     pub created_at: String,
     pub balance_total: Option<i64>,
     pub last_activity: Option<String>,
+    pub contact_count: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -105,6 +106,13 @@ pub struct TransactionEventWithWallet {
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
     pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct DashboardUpdate {
+    pub timestamp: u64,
+    pub wallets: Vec<WalletMetadata>,
+    pub events: Vec<TransactionEventWithWallet>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -199,7 +207,12 @@ impl MetadataDb {
     pub fn get_wallet_by_descriptor(&self, descriptor: &str) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, descriptor, wallet_filename, created_at, balance_total, last_activity FROM wallets WHERE descriptor = ?1"
+            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity, 
+                    COUNT(c.id) as contact_count
+             FROM wallets w 
+             LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+             WHERE w.descriptor = ?1 
+             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity"
         )?;
 
         match stmt.query_row([descriptor], |row| {
@@ -211,6 +224,7 @@ impl MetadataDb {
                 created_at: row.get(4)?,
                 balance_total: row.get(5).ok(),
                 last_activity: row.get(6).ok(),
+                contact_count: Some(row.get(7)?),
             })
         }) {
             Ok(metadata) => Ok(Some(metadata)),
@@ -222,7 +236,12 @@ impl MetadataDb {
     pub fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, descriptor, wallet_filename, created_at, balance_total, last_activity FROM wallets WHERE id = ?1",
+            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity, 
+                    COUNT(c.id) as contact_count
+             FROM wallets w 
+             LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+             WHERE w.id = ?1 
+             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity",
         )?;
 
         match stmt.query_row([id], |row| {
@@ -234,6 +253,7 @@ impl MetadataDb {
                 created_at: row.get(4)?,
                 balance_total: row.get(5).ok(),
                 last_activity: row.get(6).ok(),
+                contact_count: Some(row.get(7)?),
             })
         }) {
             Ok(metadata) => Ok(Some(metadata)),
@@ -245,7 +265,12 @@ impl MetadataDb {
     pub fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, descriptor, wallet_filename, created_at, balance_total, last_activity FROM wallets ORDER BY created_at DESC"
+            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity, 
+                    COUNT(c.id) as contact_count
+             FROM wallets w 
+             LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity 
+             ORDER BY w.created_at DESC"
         )?;
 
         let wallet_iter = stmt.query_map([], |row| {
@@ -257,6 +282,7 @@ impl MetadataDb {
                 created_at: row.get(4)?,
                 balance_total: row.get(5).ok(),
                 last_activity: row.get(6).ok(),
+                contact_count: Some(row.get(7)?),
             })
         })?;
 

@@ -11,7 +11,7 @@ mod wallet;
 use api::create_router;
 use config::AppConfig;
 use electrum::{ElectrumClient, BlockHeader};
-use metadata::TransactionEvent;
+use metadata::{TransactionEvent, DashboardUpdate};
 use sms::SmsService;
 use std::sync::Arc;
 use tokio::sync::{Mutex, broadcast};
@@ -41,6 +41,9 @@ async fn main() -> anyhow::Result<()> {
     // Create broadcast channel for block header events
     let (block_header_tx, _block_header_rx) = broadcast::channel::<BlockHeader>(100);
 
+    // Create broadcast channel for dashboard updates
+    let (dashboard_tx, _dashboard_rx) = broadcast::channel::<DashboardUpdate>(100);
+
     // Create SMS worker subscriber
     let sms_rx = event_tx.subscribe();
 
@@ -50,6 +53,7 @@ async fn main() -> anyhow::Result<()> {
     let wallet_manager = Arc::new(Mutex::new(
         WalletManager::new(
             event_tx,
+            dashboard_tx.clone(),
             config.effective_wallet_dir().into(),
             &config.effective_metadata_db(),
             config.network(),
@@ -115,6 +119,14 @@ async fn main() -> anyhow::Result<()> {
                     eprintln!("Failed to load stored block header: {}", e);
                 }
             }
+        }
+    }
+
+    // Send initial dashboard update
+    {
+        let manager = wallet_manager.lock().await;
+        if let Err(e) = manager.send_dashboard_update().await {
+            eprintln!("Failed to send initial dashboard update: {}", e);
         }
     }
 
@@ -330,7 +342,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let app = create_router(wallet_manager, block_header_tx);
+    let app = create_router(wallet_manager, block_header_tx, dashboard_tx);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);
