@@ -730,6 +730,46 @@ if [[ "$1" == "alice" || "$1" == "bob" ]]; then
             echo "💡 Use '$0 mine' to confirm transaction"
             exit 0
             ;;
+        balance)
+            btc loadwallet "$WALLET" 2>/dev/null || true
+            if [ "$WALLET" == "alice" ]; then
+                BALANCE=$(btc_alice getbalance)
+                echo "Alice wallet balance: $BALANCE BTC"
+            else
+                BALANCE=$(btc_bob getbalance)
+                echo "Bob wallet balance: $BALANCE BTC"
+            fi
+            exit 0
+            ;;
+        address)
+            btc loadwallet "$WALLET" 2>/dev/null || true
+            if [ "$WALLET" == "alice" ]; then
+                ADDRESS=$(btc_alice getnewaddress)
+                echo "New Alice address: $ADDRESS"
+            else
+                ADDRESS=$(btc_bob getnewaddress)
+                echo "New Bob address: $ADDRESS"
+            fi
+            exit 0
+            ;;
+        fund)
+            TARGET_ADDRESS="$1"
+            AMOUNT="${2:-1.0}"
+            if [ -z "$TARGET_ADDRESS" ]; then
+                echo "Usage: $0 $WALLET fund <address> [amount=1.0]"
+                exit 1
+            fi
+            btc loadwallet "$WALLET" 2>/dev/null || true
+            echo "Funding address $TARGET_ADDRESS with $AMOUNT BTC from $WALLET..."
+            if [ "$WALLET" == "alice" ]; then
+                TXID=$(btc_alice sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+            else
+                TXID=$(btc_bob sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+            fi
+            echo "Transaction: $TXID"
+            echo "💡 Use '$0 mine' to confirm transaction"
+            exit 0
+            ;;
         rbf)
             TXID="$1"
             FEE_RATE=${2:-10}
@@ -1219,42 +1259,6 @@ case "$1" in
         fi
         ;;
     
-    "alice-balance")
-        btc loadwallet "alice" 2>/dev/null || true
-        BALANCE=$(btc_alice getbalance)
-        echo "Alice wallet balance: $BALANCE BTC"
-        ;;
-    
-    "alice-address")
-        btc loadwallet "alice" 2>/dev/null || true
-        ADDRESS=$(btc_alice getnewaddress)
-        echo "New Alice address: $ADDRESS"
-        ;;
-    
-    "bob-balance")
-        btc loadwallet "bob" 2>/dev/null || true
-        BALANCE=$(btc_bob getbalance)
-        echo "Bob wallet balance: $BALANCE BTC"
-        ;;
-    
-    "bob-address")
-        btc loadwallet "bob" 2>/dev/null || true
-        ADDRESS=$(btc_bob getnewaddress)
-        echo "New Bob address: $ADDRESS"
-        ;;
-    
-    "alice-fund")
-        if [ -z "$2" ]; then
-            echo "Usage: $0 alice-fund <address> [amount=1.0]"
-            exit 1
-        fi
-        AMOUNT=${3:-1.0}
-        echo "Funding address $2 with $AMOUNT BTC from Alice..."
-        btc loadwallet "alice" 2>/dev/null || true
-        TXID=$(btc_alice sendtoaddress "$2" "$AMOUNT")
-        echo "Transaction: $TXID"
-        echo "💡 Use '$0 mine' to confirm transaction"
-        ;;
     
     
     "get-mempool-txid")
