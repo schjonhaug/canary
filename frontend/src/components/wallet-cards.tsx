@@ -4,9 +4,8 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Edit, Plus, Users } from "lucide-react"
+import { Edit, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
-import { CreateWalletModal } from "./create-wallet-modal"
 import { EditWalletModal } from "./edit-wallet-modal"
 import { extractChecksum } from "@/lib/utils"
 
@@ -33,7 +32,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
   const [loading, setLoading] = useState(true)
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [walletToEdit, setWalletToEdit] = useState<Wallet | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
@@ -112,18 +110,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
     setIsDeleteModalOpen(true)
   }
 
-  const handleCreateWallet = () => {
-    setIsCreateModalOpen(true)
-  }
-
-  const handleCreateModalClose = () => {
-    setIsCreateModalOpen(false)
-  }
-
-  const handleWalletCreated = () => {
-    // Wallet list will be updated automatically via SSE
-    setIsCreateModalOpen(false)
-  }
 
   const handleWalletUpdated = () => {
     // Wallet list will be updated automatically via SSE
@@ -163,25 +149,11 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
           <CardHeader>
             <CardTitle>No Wallets</CardTitle>
             <CardDescription>
-              No wallets found. Create your first wallet to get started.
+              No wallets found. Use the "Create Wallet" button in the header to get started.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button
-              onClick={handleCreateWallet}
-              className="bg-orange-600 hover:bg-orange-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Your First Wallet
-            </Button>
-          </CardContent>
         </Card>
 
-        <CreateWalletModal
-          isOpen={isCreateModalOpen}
-          onClose={handleCreateModalClose}
-          onWalletCreated={handleWalletCreated}
-        />
       </div>
     )
   }
@@ -275,12 +247,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
         isOpen={isDeleteModalOpen}
         onClose={handleDeleteModalClose}
         onConfirmDelete={handleDeleteConfirm}
-      />
-
-      <CreateWalletModal
-        isOpen={isCreateModalOpen}
-        onClose={handleCreateModalClose}
-        onWalletCreated={handleWalletCreated}
       />
 
       <EditWalletModal
