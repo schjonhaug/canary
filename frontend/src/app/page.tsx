@@ -47,7 +47,7 @@ export default function Home() {
           />
           <div>
             <h1 className="text-3xl font-bold uppercase tracking-wide">KANARI</h1>
-            <p className="text-muted-foreground">Bitcoin Wallet Alert System</p>
+            <p className="text-muted-foreground hidden sm:block">Bitcoin Wallet Alert System</p>
           </div>
         </div>
         <div className="flex items-center gap-6">
@@ -64,11 +64,11 @@ export default function Home() {
                 <span className="text-muted-foreground">Block:</span>
                 <span className="font-mono font-medium">{blockHeader.height.toLocaleString()}</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 hidden md:flex">
                 <span className="text-muted-foreground">Hash:</span>
                 <span className="font-mono text-xs">{truncateHash(blockHeader.hash)}</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 hidden lg:flex">
                 <span className="text-muted-foreground">Time:</span>
                 <span className="font-mono text-xs">
                   {new Date(blockHeader.timestamp * 1000).toLocaleString()}
