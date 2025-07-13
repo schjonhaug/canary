@@ -5,7 +5,7 @@ import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { SettingsModal } from "@/components/settings-modal"
 import { Button } from "@/components/ui/button"
-import { Settings } from "lucide-react"
+import { Settings, CircleCheckBig, LoaderCircle, CircleOff } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
@@ -23,9 +23,9 @@ export default function Home() {
   }
 
   const getConnectionSymbol = () => {
-    if (reconnecting) return '🟡' // Yellow for connecting/reconnecting
-    if (!connected || blockError) return '🔴' // Red for disconnected
-    return '🟢' // Green for connected
+    if (reconnecting) return <LoaderCircle size={16} className="text-yellow-500 animate-spin" />
+    if (!connected || blockError) return <CircleOff size={16} className="text-red-500" />
+    return <CircleCheckBig size={16} className="text-green-500" />
   }
 
   const getConnectionTooltip = () => {
@@ -55,12 +55,12 @@ export default function Home() {
           {blockHeader && (
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-2">
-                <span 
-                  className="text-lg cursor-help" 
+                <div 
+                  className="cursor-help" 
                   title={getConnectionTooltip()}
                 >
                   {getConnectionSymbol()}
-                </span>
+                </div>
                 <span className="text-muted-foreground">Block:</span>
                 <span className="font-mono font-medium">{blockHeader.height.toLocaleString()}</span>
               </div>
@@ -79,12 +79,12 @@ export default function Home() {
           
           {!blockHeader && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span 
-                className="text-lg cursor-help" 
+              <div 
+                className="cursor-help" 
                 title={getConnectionTooltip()}
               >
                 {getConnectionSymbol()}
-              </span>
+              </div>
               <span>Loading blockchain data...</span>
             </div>
           )}
