@@ -190,10 +190,13 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
     <div className="space-y-4">
       {/* Total Balance Summary Card */}
       <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
-        <CardHeader className="pb-3">
+        <CardHeader className="py-4">
           <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              ₿ Total Balance
+            <div className="flex items-center gap-4">
+              <span>Total Balance</span>
+              <div className="text-2xl font-bold font-mono text-orange-800">
+                {formatBalance(getTotalBalance())}
+              </div>
               <Badge variant="outline" className="text-xs">
                 {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
               </Badge>
@@ -208,11 +211,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
             </Button>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold font-mono text-orange-800">
-            {formatBalance(getTotalBalance())}
-          </div>
-        </CardContent>
       </Card>
 
       {/* Individual Wallet Cards */}
