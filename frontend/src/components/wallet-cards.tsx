@@ -191,7 +191,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
       {/* Total Balance Summary Card */}
       <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
         <CardHeader className="py-4">
-          <CardTitle className="flex items-center justify-between">
+          <CardTitle>
             <div className="flex items-center gap-4">
               <span>Total Balance</span>
               <div className="text-2xl font-bold font-mono text-orange-800">
@@ -201,14 +201,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
                 {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
               </Badge>
             </div>
-            <Button
-              onClick={handleCreateWallet}
-              size="sm"
-              className="bg-orange-600 hover:bg-orange-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Wallet
-            </Button>
           </CardTitle>
         </CardHeader>
       </Card>

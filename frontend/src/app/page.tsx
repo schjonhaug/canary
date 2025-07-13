@@ -4,8 +4,9 @@ import { useState } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { SettingsModal } from "@/components/settings-modal"
+import { CreateWalletModal } from "@/components/create-wallet-modal"
 import { Button } from "@/components/ui/button"
-import { Settings, CircleCheckBig, LoaderCircle, CircleOff } from "lucide-react"
+import { Settings, CircleCheckBig, LoaderCircle, CircleOff, Plus } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
@@ -13,6 +14,7 @@ import { useBlockHeaders } from "@/hooks/useBlockHeaders"
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
   const { wallets, events, isConnected, error } = useDashboard()
   const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders(
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
@@ -32,6 +34,14 @@ export default function Home() {
     if (reconnecting) return 'Reconnecting...'
     if (!connected || blockError) return 'Disconnected'
     return 'Connected'
+  }
+
+  const handleCreateWallet = () => {
+    setIsCreateWalletOpen(true)
+  }
+
+  const handleWalletCreated = () => {
+    setIsCreateWalletOpen(false)
   }
 
   return (
@@ -90,6 +100,15 @@ export default function Home() {
           )}
 
           <Button
+            onClick={handleCreateWallet}
+            size="sm"
+            className="bg-orange-600 hover:bg-orange-700 gap-2"
+          >
+            <Plus size={16} />
+            Create Wallet
+          </Button>
+          
+          <Button
             variant="outline"
             size="sm"
             onClick={() => setIsSettingsOpen(true)}
@@ -146,6 +165,12 @@ export default function Home() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+      
+      <CreateWalletModal
+        isOpen={isCreateWalletOpen}
+        onClose={() => setIsCreateWalletOpen(false)}
+        onWalletCreated={handleWalletCreated}
       />
     </div>
   )
