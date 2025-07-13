@@ -4,16 +4,35 @@ import { useState } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { SettingsModal } from "@/components/settings-modal"
-import { BlockStatus } from "@/components/block-status"
 import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
+import { useBlockHeaders } from "@/hooks/useBlockHeaders"
 
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const { wallets, events, isConnected, error } = useDashboard()
+  const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders(
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+  )
+
+  const truncateHash = (hash: string) => {
+    return `${hash.slice(0, 8)}...${hash.slice(-8)}`
+  }
+
+  const getConnectionSymbol = () => {
+    if (reconnecting) return '🟡' // Yellow for connecting/reconnecting
+    if (!connected || blockError) return '🔴' // Red for disconnected
+    return '🟢' // Green for connected
+  }
+
+  const getConnectionTooltip = () => {
+    if (reconnecting) return 'Reconnecting...'
+    if (!connected || blockError) return 'Disconnected'
+    return 'Connected'
+  }
 
   return (
     <div className="container mx-auto py-8">
@@ -31,7 +50,45 @@ export default function Home() {
             <p className="text-muted-foreground">Bitcoin Wallet Alert System</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-6">
+          {/* Blockchain Status */}
+          {blockHeader && (
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span 
+                  className="text-lg cursor-help" 
+                  title={getConnectionTooltip()}
+                >
+                  {getConnectionSymbol()}
+                </span>
+                <span className="text-muted-foreground">Block:</span>
+                <span className="font-mono font-medium">{blockHeader.height.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Hash:</span>
+                <span className="font-mono text-xs">{truncateHash(blockHeader.hash)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Time:</span>
+                <span className="font-mono text-xs">
+                  {new Date(blockHeader.timestamp * 1000).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+          
+          {!blockHeader && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span 
+                className="text-lg cursor-help" 
+                title={getConnectionTooltip()}
+              >
+                {getConnectionSymbol()}
+              </span>
+              <span>Loading blockchain data...</span>
+            </div>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -44,12 +101,7 @@ export default function Home() {
         </div>
       </div>
       
-      {/* Block Status Section */}
-      <div className="mb-6">
-        <BlockStatus />
-      </div>
-      
-      <div className="space-y-8">
+      <div className="mt-8 space-y-8">
         {/* Wallet Cards Section */}
         <section>
           <div className="flex items-center justify-between mb-4">
