@@ -30,12 +30,43 @@ interface DashboardUpdate {
   events: TransactionEvent[];
 }
 
+const CACHE_KEY = 'kanari-dashboard-cache';
+
+interface CachedData {
+  wallets: WalletMetadata[];
+  events: TransactionEvent[];
+  lastUpdate: number;
+  timestamp: number;
+}
+
 export function useDashboard() {
   const [wallets, setWallets] = useState<WalletMetadata[]>([]);
   const [events, setEvents] = useState<TransactionEvent[]>([]);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isUsingCache, setIsUsingCache] = useState(false);
+
+  // Load cached data on mount
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const cachedData: CachedData = JSON.parse(cached);
+        // Only use cache if it's less than 5 minutes old
+        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+        if (cachedData.timestamp > fiveMinutesAgo) {
+          setWallets(cachedData.wallets);
+          setEvents(cachedData.events);
+          setLastUpdate(cachedData.lastUpdate);
+          setIsUsingCache(true);
+          console.log('Loaded cached dashboard data');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load cached data:', err);
+    }
+  }, []);
 
   useEffect(() => {
     // Use the configured API URL or fallback to current hostname
@@ -62,6 +93,20 @@ export function useDashboard() {
         setLastUpdate(update.timestamp);
         setError(null);
         setIsConnected(true);
+        setIsUsingCache(false);
+        
+        // Cache the data
+        try {
+          const cacheData: CachedData = {
+            wallets: update.wallets,
+            events: update.events,
+            lastUpdate: update.timestamp,
+            timestamp: Date.now()
+          };
+          localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+        } catch (cacheErr) {
+          console.error('Failed to cache dashboard data:', cacheErr);
+        }
       } catch (err) {
         console.error('Failed to parse dashboard update:', err);
         setError('Failed to parse dashboard update data');
@@ -84,6 +129,7 @@ export function useDashboard() {
     events, 
     lastUpdate, 
     error, 
-    isConnected 
+    isConnected,
+    isUsingCache
   };
 }

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ArrowDownLeft, ArrowUpRight, CheckCircle, Clock, RefreshCw, Zap } from "lucide-react"
 
 interface TransactionEvent {
@@ -33,15 +34,18 @@ interface TransactionEventsProps {
   events: TransactionEvent[]
   isConnected: boolean
   error: string | null
+  lastUpdate: number | null
 }
 
-export function TransactionEvents({ selectedWalletId, events, isConnected, error }: TransactionEventsProps) {
-  const [loading, setLoading] = useState(true)
+export function TransactionEvents({ selectedWalletId, events, isConnected, error, lastUpdate }: TransactionEventsProps) {
+  const [hasReceivedData, setHasReceivedData] = useState(false)
 
-  // Set loading to false once we have data
+  // Track when we've received data for the first time
   useEffect(() => {
-    setLoading(false)
-  }, [events])
+    if (lastUpdate !== null) {
+      setHasReceivedData(true)
+    }
+  }, [lastUpdate])
 
   const formatSats = (sats: number) => {
     const btc = sats / 100_000_000
@@ -78,13 +82,51 @@ export function TransactionEvents({ selectedWalletId, events, isConnected, error
     return "Real-time Bitcoin transaction events from all wallets"
   }
 
-  if (loading) {
+  if (!hasReceivedData) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>{getCardTitle()}</CardTitle>
           <CardDescription>Loading transaction events...</CardDescription>
         </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date/Time</TableHead>
+                <TableHead>Wallet</TableHead>
+                <TableHead>Transaction</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Total Balance</TableHead>
+                <TableHead>SMS Recipients</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-6 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-28" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-28" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
       </Card>
     )
   }

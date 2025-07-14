@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Edit, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { EditWalletModal } from "./edit-wallet-modal"
@@ -26,19 +27,22 @@ interface WalletCardsProps {
   wallets: Wallet[]
   isConnected: boolean
   error: string | null
+  lastUpdate: number | null
 }
 
-export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConnected, error }: WalletCardsProps) {
-  const [loading, setLoading] = useState(true)
+export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConnected, error, lastUpdate }: WalletCardsProps) {
+  const [hasReceivedData, setHasReceivedData] = useState(false)
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [walletToEdit, setWalletToEdit] = useState<Wallet | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-  // Set loading to false once we have data
+  // Track when we've received data for the first time
   useEffect(() => {
-    setLoading(false)
-  }, [wallets])
+    if (lastUpdate !== null) {
+      setHasReceivedData(true)
+    }
+  }, [lastUpdate])
 
   const formatBalance = (sats?: number) => {
     if (sats === undefined || sats === null) return "0.00000000 BTC"
@@ -83,8 +87,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
       throw new Error(`Delete failed: ${response.status}`)
     }
 
-    // Remove wallet from local state
-    setWallets(prev => prev.filter(w => w.id !== walletId))
+    // Wallet will be removed from state automatically via SSE
     
     // Clear selection if the deleted wallet was selected
     if (selectedWalletId === walletId) {
@@ -116,15 +119,54 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
     setIsEditModalOpen(false)
   }
 
-  if (loading) {
+  if (!hasReceivedData) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Loading...</CardTitle>
-            <CardDescription>Fetching wallet data...</CardDescription>
+      <div className="space-y-4">
+        {/* Total Balance Skeleton */}
+        <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
+          <CardHeader className="py-4">
+            <CardTitle>
+              <div className="flex items-center gap-4">
+                <span>Total Balance</span>
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-6 w-16" />
+              </div>
+            </CardTitle>
           </CardHeader>
         </Card>
+
+        {/* Individual Wallet Card Skeletons */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="hover:shadow-md hover:bg-gray-50/50">
+              <CardHeader className="pb-3 relative">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-6 w-32" />
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                </div>
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div>
+                    <Skeleton className="h-4 w-16 mb-1" />
+                    <Skeleton className="h-6 w-40" />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-3 w-32" />
+                    <div className="flex items-center gap-1">
+                      <Skeleton className="h-3 w-3" />
+                      <Skeleton className="h-3 w-4" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }

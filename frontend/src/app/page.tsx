@@ -15,7 +15,7 @@ export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
-  const { wallets, events, isConnected, error } = useDashboard()
+  const { wallets, events, isConnected, error, lastUpdate, isUsingCache } = useDashboard()
   const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders(
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
   )
@@ -124,7 +124,14 @@ export default function Home() {
         {/* Wallet Cards Section */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold">Wallets</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-semibold">Wallets</h2>
+              {isUsingCache && (
+                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                  Cached Data
+                </span>
+              )}
+            </div>
             {selectedWalletId && (
               <button
                 onClick={() => setSelectedWalletId(null)}
@@ -140,6 +147,7 @@ export default function Home() {
             wallets={wallets}
             isConnected={isConnected}
             error={error}
+            lastUpdate={lastUpdate}
           />
         </section>
 
@@ -158,6 +166,7 @@ export default function Home() {
             events={events}
             isConnected={isConnected}
             error={error}
+            lastUpdate={lastUpdate}
           />
         </section>
       </div>
