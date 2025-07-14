@@ -70,8 +70,8 @@ export function useDashboard() {
 
     eventSource.onerror = (error) => {
       console.error('Dashboard EventSource failed:', error);
-      setError('Connection to dashboard stream failed');
       setIsConnected(false);
+      setError(null);
     };
 
     return () => {
