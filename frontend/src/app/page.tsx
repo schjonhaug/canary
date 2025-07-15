@@ -137,14 +137,13 @@ export default function Home() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-2xl font-semibold">Wallets</h2>
-              <div className="flex items-center gap-3 text-sm">
-                <div className="font-mono font-bold text-orange-800 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 px-3 py-1 rounded">
-                  {formatBalance(getTotalBalance())}
-                </div>
-                <span className="text-muted-foreground">
-                  {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
-                </span>
+              <div>
+                <h2 className="text-2xl font-semibold">Wallets</h2>
+                {wallets.length > 1 && (
+                  <p className="text-sm text-muted-foreground">
+                    Tracking {wallets.length} wallets with a total balance of {formatBalance(getTotalBalance())}
+                  </p>
+                )}
               </div>
               {isUsingCache && (
                 <span className="text-xs bg-chart-2/20 text-chart-2 border border-chart-2/30 px-2 py-1 rounded-full">
