@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Edit, Users } from "lucide-react"
@@ -51,12 +50,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
       minimumFractionDigits: 8, 
       maximumFractionDigits: 8 
     })} BTC`
-  }
-
-  const getTotalBalance = () => {
-    return wallets.reduce((total, wallet) => {
-      return total + (wallet.balance_total || 0)
-    }, 0)
   }
 
 
@@ -122,19 +115,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
   if (!hasReceivedData) {
     return (
       <div className="space-y-4">
-        {/* Total Balance Skeleton */}
-        <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
-          <CardHeader className="py-4">
-            <CardTitle>
-              <div className="flex items-center gap-4">
-                <span>Total Balance</span>
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-6 w-16" />
-              </div>
-            </CardTitle>
-          </CardHeader>
-        </Card>
-
         {/* Individual Wallet Card Skeletons */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -202,23 +182,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
 
   return (
     <div className="space-y-4">
-      {/* Total Balance Summary Card */}
-      <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
-        <CardHeader className="py-4">
-          <CardTitle>
-            <div className="flex items-center gap-4">
-              <span>Total Balance</span>
-              <div className="text-2xl font-bold font-mono text-orange-800">
-                {formatBalance(getTotalBalance())}
-              </div>
-              <Badge variant="outline" className="text-xs">
-                {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
-              </Badge>
-            </div>
-          </CardTitle>
-        </CardHeader>
-      </Card>
-
       {/* Individual Wallet Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {wallets.map((wallet) => {

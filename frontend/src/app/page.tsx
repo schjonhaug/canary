@@ -44,6 +44,21 @@ export default function Home() {
     setIsCreateWalletOpen(false)
   }
 
+  const formatBalance = (sats?: number) => {
+    if (sats === undefined || sats === null) return "0.00000000 BTC"
+    const btc = sats / 100_000_000
+    return `${btc.toLocaleString(undefined, { 
+      minimumFractionDigits: 8, 
+      maximumFractionDigits: 8 
+    })} BTC`
+  }
+
+  const getTotalBalance = () => {
+    return wallets.reduce((total, wallet) => {
+      return total + (wallet.balance_total || 0)
+    }, 0)
+  }
+
   return (
     <div className="container mx-auto py-8">
       <div className="mb-6 flex items-center justify-between">
@@ -55,7 +70,7 @@ export default function Home() {
             height={48}
             className="h-12 w-12"
           />
-          <h1 className="text-3xl font-bold uppercase tracking-wide">KANARY</h1>
+          <h1 className="text-3xl font-bold uppercase tracking-wide">CANARY</h1>
         </div>
         <div className="flex items-center gap-6">
           {/* Blockchain Status */}
@@ -121,8 +136,16 @@ export default function Home() {
         {/* Wallet Cards Section */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-2xl font-semibold">Wallets</h2>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="font-mono font-bold text-orange-800 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 px-3 py-1 rounded">
+                  {formatBalance(getTotalBalance())}
+                </div>
+                <span className="text-muted-foreground">
+                  {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
+                </span>
+              </div>
               {isUsingCache && (
                 <span className="text-xs bg-chart-2/20 text-chart-2 border border-chart-2/30 px-2 py-1 rounded-full">
                   Cached Data
