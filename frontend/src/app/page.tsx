@@ -99,7 +99,7 @@ export default function Home() {
           <Button
             onClick={handleCreateWallet}
             size="sm"
-            className="bg-orange-600 hover:bg-orange-700 gap-2"
+            className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
           >
             <Plus size={16} />
             Create Wallet
@@ -124,7 +124,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-semibold">Wallets</h2>
               {isUsingCache && (
-                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                <span className="text-xs bg-chart-2/20 text-chart-2 border border-chart-2/30 px-2 py-1 rounded-full">
                   Cached Data
                 </span>
               )}
@@ -180,7 +180,7 @@ export default function Home() {
       />
       
       {/* Footer */}
-      <footer className="mt-16 pt-8 border-t border-gray-200">
+      <footer className="mt-16 pt-8 border-t border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Image
@@ -199,7 +199,7 @@ export default function Home() {
             href="https://github.com/schjonhaug/kanari" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-muted-foreground hover:text-accent transition-colors"
           >
             <Github size={24} />
           </a>
