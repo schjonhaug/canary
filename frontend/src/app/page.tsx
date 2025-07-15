@@ -6,7 +6,7 @@ import { WalletCards } from "@/components/wallet-cards"
 import { SettingsModal } from "@/components/settings-modal"
 import { CreateWalletModal } from "@/components/create-wallet-modal"
 import { Button } from "@/components/ui/button"
-import { Settings, CircleCheckBig, LoaderCircle, CircleOff, Plus } from "lucide-react"
+import { Settings, CircleCheckBig, LoaderCircle, CircleOff, Plus, Github } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
@@ -49,16 +49,13 @@ export default function Home() {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Image
-            src="/images/kanari.svg"
-            alt="Kanari Logo"
+            src="/images/canary.svg"
+            alt="Canary Logo"
             width={48}
             height={48}
             className="h-12 w-12"
           />
-          <div>
-            <h1 className="text-3xl font-bold uppercase tracking-wide">KANARI</h1>
-            <p className="text-muted-foreground hidden sm:block">Bitcoin Wallet Alert System</p>
-          </div>
+          <h1 className="text-3xl font-bold uppercase tracking-wide">KANARY</h1>
         </div>
         <div className="flex items-center gap-6">
           {/* Blockchain Status */}
@@ -181,6 +178,33 @@ export default function Home() {
         onClose={() => setIsCreateWalletOpen(false)}
         onWalletCreated={handleWalletCreated}
       />
+      
+      {/* Footer */}
+      <footer className="mt-16 pt-8 border-t border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Image
+              src="/images/kanari.svg"
+              alt="Kanari Logo"
+              width={48}
+              height={48}
+              className="h-12 w-12"
+            />
+            <div>
+              <h3 className="text-lg font-bold uppercase tracking-wide">KANARI</h3>
+              <p className="text-muted-foreground text-sm">Bitcoin Wallet Alert System</p>
+            </div>
+          </div>
+          <a 
+            href="https://github.com/schjonhaug/kanari" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Github size={24} />
+          </a>
+        </div>
+      </footer>
     </div>
   )
 }
