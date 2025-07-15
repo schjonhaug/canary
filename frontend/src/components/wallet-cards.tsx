@@ -228,8 +228,8 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
               key={wallet.id} 
               className={`cursor-pointer transition-all duration-200 ${
                 isSelected 
-                  ? "ring-2 ring-orange-500 bg-orange-50/50 shadow-lg" 
-                  : "hover:shadow-md hover:bg-gray-50/50"
+                  ? "ring-2 ring-accent bg-accent/5 shadow-lg" 
+                  : "hover:shadow-md hover:bg-muted/50"
               }`}
               onClick={() => handleWalletClick(wallet.id)}
             >
@@ -241,14 +241,14 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                    className="h-8 w-8 p-0 hover:bg-accent/10 hover:text-accent"
                     onClick={(e) => handleEditClick(wallet, e)}
                     title="Edit wallet"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="absolute top-2 right-12 text-xs font-mono text-muted-foreground bg-gray-100 px-2 py-1 rounded">
+                <div className="absolute top-2 right-12 text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
                   #{extractChecksum(wallet.descriptor)}
                 </div>
                 <CardDescription className="text-xs text-muted-foreground">
@@ -260,7 +260,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
                   <div>
                     <div className="text-sm text-muted-foreground">Balance</div>
                     <div className={`text-xl font-bold font-mono ${
-                      isSelected ? "text-orange-700" : ""
+                      isSelected ? "text-accent" : ""
                     }`}>
                       {formatBalance(wallet.balance_total)}
                     </div>
