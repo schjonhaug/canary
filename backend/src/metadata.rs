@@ -224,64 +224,11 @@ impl MetadataDb {
         let conn = migration_runner.get_connection();
 
 
-        let db = MetadataDb {
+        Ok(MetadataDb {
             conn: Mutex::new(conn),
-        };
-        
-        // Populate hex_color for existing wallets that might not have it
-        if let Err(e) = db.populate_missing_hex_colors() {
-            eprintln!("Warning: Failed to populate hex_color for existing wallets: {}", e);
-        }
-        
-        Ok(db)
+        })
     }
 
-    /// Populate hex_color for existing wallets that might not have it
-    fn populate_missing_hex_colors(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        
-        // Check if hex_color column exists (in case this is an old database)
-        let mut column_exists = false;
-        let mut stmt = conn.prepare("PRAGMA table_info(wallets)")?;
-        let rows = stmt.query_map([], |row| {
-            Ok(row.get::<_, String>(1)?) // Get column name
-        })?;
-        
-        for row in rows {
-            if row? == "hex_color" {
-                column_exists = true;
-                break;
-            }
-        }
-        
-        if !column_exists {
-            // Add hex_color column if it doesn't exist
-            conn.execute("ALTER TABLE wallets ADD COLUMN hex_color TEXT", [])?;
-        }
-        
-        // Get all wallets that have missing or empty hex_color
-        let mut stmt = conn.prepare(
-            "SELECT id, descriptor FROM wallets WHERE hex_color IS NULL OR hex_color = ''"
-        )?;
-        let wallet_rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-        })?;
-        
-        let mut wallets_to_update = Vec::new();
-        for row in wallet_rows {
-            wallets_to_update.push(row?);
-        }
-        
-        // Update each wallet with calculated hex_color
-        for (id, descriptor) in wallets_to_update {
-            let hex_color = calculate_wallet_color(&descriptor);
-            let mut update_stmt = conn.prepare("UPDATE wallets SET hex_color = ?1 WHERE id = ?2")?;
-            update_stmt.execute([&hex_color, &id.to_string()])?;
-            println!("Updated wallet {} with color {}", id, hex_color);
-        }
-        
-        Ok(())
-    }
 
     pub fn insert_wallet(
         &self,
