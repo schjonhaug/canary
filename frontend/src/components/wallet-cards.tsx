@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Edit, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { EditWalletModal } from "./edit-wallet-modal"
-import { extractChecksum, loadCanarySvg, formatBitcoinAmount, formatDate } from "@/lib/utils"
+import { loadCanarySvg, formatBitcoinAmount, formatDate } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { Wallet } from "../types"
 
@@ -35,17 +35,17 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
   }, [lastUpdate])
 
   // Component for loading SVG asynchronously
-  const WalletIcon = ({ checksum }: { checksum: string }) => {
+  const WalletIcon = ({ wallet }: { wallet: Wallet }) => {
     const [svgContent, setSvgContent] = useState<string>('')
     
     useEffect(() => {
-      loadCanarySvg(checksum).then(setSvgContent)
-    }, [checksum])
+      loadCanarySvg(wallet.hex_color).then(setSvgContent)
+    }, [wallet.hex_color])
     
     return (
       <div 
         className="w-6 h-6 cursor-help flex-shrink-0"
-        title={`Checksum: #${checksum}`}
+        title={`Wallet: ${wallet.name}`}
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
     )
@@ -186,7 +186,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
             >
               <CardHeader className="pb-3 relative">
                 <div className="flex items-center gap-2">
-                  <WalletIcon checksum={extractChecksum(wallet.descriptor)} />
+                  <WalletIcon wallet={wallet} />
                   <CardTitle className="text-lg truncate pr-16" title={wallet.name}>
                     {wallet.name}
                   </CardTitle>

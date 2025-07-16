@@ -7,6 +7,7 @@ CREATE TABLE wallets (
     name TEXT NOT NULL,
     descriptor TEXT NOT NULL UNIQUE,
     wallet_filename TEXT NOT NULL,
+    hex_color TEXT NOT NULL,
     balance_total INTEGER DEFAULT 0,
     last_activity DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP

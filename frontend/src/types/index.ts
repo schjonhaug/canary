@@ -5,6 +5,7 @@ export interface Wallet {
   name: string
   descriptor: string
   wallet_filename: string
+  hex_color: string
   created_at: string
   balance_total: number
   last_activity: string | null

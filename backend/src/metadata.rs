@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use utoipa::ToSchema;
 use crate::migrations::MigrationRunner;
 use crate::electrum::BlockHeader;
+use std::num::Wrapping;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
 pub enum EventType {
@@ -38,6 +39,7 @@ pub struct WalletMetadata {
     pub name: String,
     pub descriptor: String,
     pub wallet_filename: String,
+    pub hex_color: String,
     pub created_at: String,
     pub balance_total: Option<i64>,
     pub last_activity: Option<String>,
@@ -126,6 +128,65 @@ impl Default for EventType {
     }
 }
 
+/// Extract checksum from a Bitcoin descriptor
+fn extract_checksum(descriptor: &str) -> String {
+    if let Some(start) = descriptor.rfind('#') {
+        descriptor[start + 1..].to_string()
+    } else {
+        "Unknown".to_string()
+    }
+}
+
+/// Convert checksum to hex color using DJB2 hash algorithm
+fn checksum_to_hex_color(checksum: &str) -> String {
+    // DJB2 hash algorithm with position weighting for better distribution
+    let mut hash = Wrapping(5381u32);
+    for (i, ch) in checksum.chars().enumerate() {
+        let char_code = ch as u32;
+        // DJB2: hash = ((hash << 5) + hash) + char
+        // Add position weighting to further improve distribution
+        hash = ((hash << 5) + hash) + Wrapping(char_code * (i as u32 + 1));
+    }
+    
+    // Get hue (0-360 degrees)
+    let hue = (hash.0 % 360) as f64;
+    
+    // Fixed saturation and lightness for consistent appearance
+    let saturation = 70.0; // 70% saturation for vibrant colors
+    let lightness = 50.0;  // 50% lightness for good contrast
+    
+    // Convert HSL to RGB
+    let c = (1.0_f64 - (2.0_f64 * (lightness / 100.0_f64) - 1.0_f64).abs()) * (saturation / 100.0_f64);
+    let x = c * (1.0_f64 - ((hue / 60.0_f64) % 2.0_f64 - 1.0_f64).abs());
+    let m = (lightness / 100.0_f64) - c / 2.0_f64;
+    
+    let (r, g, b) = if hue < 60.0_f64 {
+        (c, x, 0.0_f64)
+    } else if hue < 120.0_f64 {
+        (x, c, 0.0_f64)
+    } else if hue < 180.0_f64 {
+        (0.0_f64, c, x)
+    } else if hue < 240.0_f64 {
+        (0.0_f64, x, c)
+    } else if hue < 300.0_f64 {
+        (x, 0.0_f64, c)
+    } else {
+        (c, 0.0_f64, x)
+    };
+    
+    let r = ((r + m) * 255.0_f64).round() as u8;
+    let g = ((g + m) * 255.0_f64).round() as u8;
+    let b = ((b + m) * 255.0_f64).round() as u8;
+    
+    format!("#{:02x}{:02x}{:02x}", r, g, b)
+}
+
+/// Calculate hex color from descriptor
+pub fn calculate_wallet_color(descriptor: &str) -> String {
+    let checksum = extract_checksum(descriptor);
+    checksum_to_hex_color(&checksum)
+}
+
 pub struct MetadataDb {
     conn: Mutex<Connection>,
 }
@@ -163,9 +224,63 @@ impl MetadataDb {
         let conn = migration_runner.get_connection();
 
 
-        Ok(MetadataDb {
+        let db = MetadataDb {
             conn: Mutex::new(conn),
-        })
+        };
+        
+        // Populate hex_color for existing wallets that might not have it
+        if let Err(e) = db.populate_missing_hex_colors() {
+            eprintln!("Warning: Failed to populate hex_color for existing wallets: {}", e);
+        }
+        
+        Ok(db)
+    }
+
+    /// Populate hex_color for existing wallets that might not have it
+    fn populate_missing_hex_colors(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        
+        // Check if hex_color column exists (in case this is an old database)
+        let mut column_exists = false;
+        let mut stmt = conn.prepare("PRAGMA table_info(wallets)")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(row.get::<_, String>(1)?) // Get column name
+        })?;
+        
+        for row in rows {
+            if row? == "hex_color" {
+                column_exists = true;
+                break;
+            }
+        }
+        
+        if !column_exists {
+            // Add hex_color column if it doesn't exist
+            conn.execute("ALTER TABLE wallets ADD COLUMN hex_color TEXT", [])?;
+        }
+        
+        // Get all wallets that have missing or empty hex_color
+        let mut stmt = conn.prepare(
+            "SELECT id, descriptor FROM wallets WHERE hex_color IS NULL OR hex_color = ''"
+        )?;
+        let wallet_rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+        
+        let mut wallets_to_update = Vec::new();
+        for row in wallet_rows {
+            wallets_to_update.push(row?);
+        }
+        
+        // Update each wallet with calculated hex_color
+        for (id, descriptor) in wallets_to_update {
+            let hex_color = calculate_wallet_color(&descriptor);
+            let mut update_stmt = conn.prepare("UPDATE wallets SET hex_color = ?1 WHERE id = ?2")?;
+            update_stmt.execute([&hex_color, &id.to_string()])?;
+            println!("Updated wallet {} with color {}", id, hex_color);
+        }
+        
+        Ok(())
     }
 
     pub fn insert_wallet(
@@ -175,12 +290,13 @@ impl MetadataDb {
         wallet_filename: &str,
     ) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
+        let hex_color = calculate_wallet_color(descriptor);
         let mut stmt = conn.prepare(
-            "INSERT INTO wallets (name, descriptor, wallet_filename, balance_total, last_activity) VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO wallets (name, descriptor, wallet_filename, hex_color, balance_total, last_activity) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         )?;
 
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        stmt.execute([name, descriptor, wallet_filename, "0", &current_time])?;
+        stmt.execute([name, descriptor, wallet_filename, &hex_color, "0", &current_time])?;
         Ok(conn.last_insert_rowid())
     }
 
@@ -201,12 +317,12 @@ impl MetadataDb {
     pub fn get_wallet_by_descriptor(&self, descriptor: &str) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity, 
+            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity, 
                     COUNT(c.id) as contact_count
              FROM wallets w 
              LEFT JOIN contact_persons c ON w.id = c.wallet_id 
              WHERE w.descriptor = ?1 
-             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity"
+             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity"
         )?;
 
         match stmt.query_row([descriptor], |row| {
@@ -215,10 +331,11 @@ impl MetadataDb {
                 name: row.get(1)?,
                 descriptor: row.get(2)?,
                 wallet_filename: row.get(3)?,
-                created_at: row.get(4)?,
-                balance_total: row.get(5).ok(),
-                last_activity: row.get(6).ok(),
-                contact_count: Some(row.get(7)?),
+                hex_color: row.get(4)?,
+                created_at: row.get(5)?,
+                balance_total: row.get(6).ok(),
+                last_activity: row.get(7).ok(),
+                contact_count: Some(row.get(8)?),
             })
         }) {
             Ok(metadata) => Ok(Some(metadata)),
@@ -230,12 +347,12 @@ impl MetadataDb {
     pub fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity, 
+            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity, 
                     COUNT(c.id) as contact_count
              FROM wallets w 
              LEFT JOIN contact_persons c ON w.id = c.wallet_id 
              WHERE w.id = ?1 
-             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity",
+             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity",
         )?;
 
         match stmt.query_row([id], |row| {
@@ -244,10 +361,11 @@ impl MetadataDb {
                 name: row.get(1)?,
                 descriptor: row.get(2)?,
                 wallet_filename: row.get(3)?,
-                created_at: row.get(4)?,
-                balance_total: row.get(5).ok(),
-                last_activity: row.get(6).ok(),
-                contact_count: Some(row.get(7)?),
+                hex_color: row.get(4)?,
+                created_at: row.get(5)?,
+                balance_total: row.get(6).ok(),
+                last_activity: row.get(7).ok(),
+                contact_count: Some(row.get(8)?),
             })
         }) {
             Ok(metadata) => Ok(Some(metadata)),
@@ -259,11 +377,11 @@ impl MetadataDb {
     pub fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity, 
+            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity, 
                     COUNT(c.id) as contact_count
              FROM wallets w 
              LEFT JOIN contact_persons c ON w.id = c.wallet_id 
-             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.created_at, w.balance_total, w.last_activity 
+             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity 
              ORDER BY w.created_at DESC"
         )?;
 
@@ -273,10 +391,11 @@ impl MetadataDb {
                 name: row.get(1)?,
                 descriptor: row.get(2)?,
                 wallet_filename: row.get(3)?,
-                created_at: row.get(4)?,
-                balance_total: Some(row.get(5).unwrap_or(0)),
-                last_activity: row.get(6).ok(),
-                contact_count: Some(row.get(7)?),
+                hex_color: row.get(4)?,
+                created_at: row.get(5)?,
+                balance_total: Some(row.get(6).unwrap_or(0)),
+                last_activity: row.get(7).ok(),
+                contact_count: Some(row.get(8)?),
             })
         })?;
 

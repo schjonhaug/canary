@@ -23,7 +23,7 @@ class ApiClient {
       ...options,
     })
 
-    return handleApiResponse(response)
+    return handleApiResponse(response) as T
   }
 
   // Wallet API methods

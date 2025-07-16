@@ -16,9 +16,11 @@ const mockWallet = {
   name: 'Test Wallet',
   descriptor: 'test-descriptor',
   wallet_filename: 'test.sqlite',
+  hex_color: '#ff0000',
   created_at: '2024-01-01T00:00:00Z',
   balance_total: 1000000,
   last_activity: '2024-01-01T00:00:00Z',
+  contact_count: 2,
 }
 
 const mockContacts = [
