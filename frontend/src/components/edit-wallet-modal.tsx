@@ -23,8 +23,9 @@ interface Wallet {
   descriptor: string
   wallet_filename: string
   created_at: string
-  balance_total?: number
-  last_activity?: string
+  balance_total: number | null
+  last_activity: string | null
+  contact_count: number | null
 }
 
 interface Contact {

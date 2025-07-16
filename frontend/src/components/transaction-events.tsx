@@ -24,7 +24,7 @@ interface TransactionEvent {
   is_confirmed: boolean
   is_rbf: boolean
   is_cpfp: boolean
-  balance_total?: number
+  balance_total: number | null
   created_at: string
   sms_recipients?: string[]
 }
