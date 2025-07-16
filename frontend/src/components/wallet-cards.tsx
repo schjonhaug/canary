@@ -8,17 +8,7 @@ import { Edit, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { EditWalletModal } from "./edit-wallet-modal"
 import { extractChecksum, loadCanarySvg } from "@/lib/utils"
-
-interface Wallet {
-  id: number
-  name: string
-  descriptor: string
-  wallet_filename: string
-  created_at: string
-  balance_total: number | null
-  last_activity: string | null
-  contact_count: number | null
-}
+import { Wallet } from "../types"
 
 interface WalletCardsProps {
   selectedWalletId: number | null
@@ -29,7 +19,7 @@ interface WalletCardsProps {
   lastUpdate: number | null
 }
 
-export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConnected, error, lastUpdate }: WalletCardsProps) {
+export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, lastUpdate }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -188,7 +178,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, isConne
           <CardHeader>
             <CardTitle>No Wallets</CardTitle>
             <CardDescription>
-              No wallets found. Use the "Create Wallet" button in the header to get started.
+              No wallets found. Use the &quot;Create Wallet&quot; button in the header to get started.
             </CardDescription>
           </CardHeader>
         </Card>

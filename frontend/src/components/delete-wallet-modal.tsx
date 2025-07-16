@@ -11,17 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-
-interface Wallet {
-  id: number
-  name: string
-  descriptor: string
-  wallet_filename: string
-  created_at: string
-  balance_total: number | null
-  last_activity: string | null
-  contact_count: number | null
-}
+import { Wallet } from "../types"
 
 interface DeleteWalletModalProps {
   wallet: Wallet | null

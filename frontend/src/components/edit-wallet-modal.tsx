@@ -16,25 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatNumber, parsePhoneNumber } from "libphonenumber-js"
-
-interface Wallet {
-  id: number
-  name: string
-  descriptor: string
-  wallet_filename: string
-  created_at: string
-  balance_total: number | null
-  last_activity: string | null
-  contact_count: number | null
-}
-
-interface Contact {
-  id: number
-  wallet_id: number
-  name: string
-  phone_number: string
-  created_at: string
-}
+import { Wallet, Contact } from "../types"
 
 interface EditWalletModalProps {
   wallet: Wallet | null

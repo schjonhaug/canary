@@ -1,46 +1,10 @@
 import { useEffect, useState } from 'react';
-
-interface WalletMetadata {
-  id: number;
-  name: string;
-  descriptor: string;
-  wallet_filename: string;
-  created_at: string;
-  balance_total: number | null;
-  last_activity: string | null;
-  contact_count: number | null;
-}
-
-interface TransactionEvent {
-  id: number;
-  wallet_id: number;
-  wallet_name: string;
-  event_type: 'send' | 'receive';
-  amount_sats: number;
-  is_confirmed: boolean;
-  is_rbf: boolean;
-  is_cpfp: boolean;
-  balance_total: number | null;
-  created_at: string;
-}
-
-interface DashboardUpdate {
-  timestamp: number;
-  wallets: WalletMetadata[];
-  events: TransactionEvent[];
-}
+import { Wallet, TransactionEvent, DashboardUpdate, CachedData } from '../types';
 
 const CACHE_KEY = 'kanari-dashboard-cache';
 
-interface CachedData {
-  wallets: WalletMetadata[];
-  events: TransactionEvent[];
-  lastUpdate: number;
-  timestamp: number;
-}
-
 export function useDashboard() {
-  const [wallets, setWallets] = useState<WalletMetadata[]>([]);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [events, setEvents] = useState<TransactionEvent[]>([]);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);

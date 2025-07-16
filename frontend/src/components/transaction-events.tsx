@@ -13,21 +13,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowDownLeft, ArrowUpRight, CheckCircle, Clock, RefreshCw, Zap } from "lucide-react"
-
-interface TransactionEvent {
-  id: number
-  wallet_id: number
-  wallet_name: string
-  event_type: "send" | "receive"
-  amount_sats: number
-  is_confirmed: boolean
-  is_rbf: boolean
-  is_cpfp: boolean
-  balance_total: number | null
-  created_at: string
-  sms_recipients?: string[]
-}
+import { CheckCircle, Clock, RefreshCw, Zap } from "lucide-react"
+import { TransactionEvent } from "../types"
 
 interface TransactionEventsProps {
   selectedWalletId?: number | null
@@ -37,7 +24,7 @@ interface TransactionEventsProps {
   lastUpdate: number | null
 }
 
-export function TransactionEvents({ selectedWalletId, events, isConnected, error, lastUpdate }: TransactionEventsProps) {
+export function TransactionEvents({ selectedWalletId, events, error, lastUpdate }: TransactionEventsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
 
   // Track when we've received data for the first time

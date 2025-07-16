@@ -14,12 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, Loader2, Eye, EyeOff } from "lucide-react"
-
-interface TwilioConfig {
-  account_sid: string
-  auth_token: string
-  messaging_service_sid: string
-}
+import { TwilioConfig } from "../types"
 
 interface SettingsModalProps {
   isOpen: boolean
