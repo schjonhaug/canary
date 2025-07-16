@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -40,22 +40,38 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     }
   }, [lastUpdate])
 
-  // Component for loading SVG asynchronously
-  const WalletIcon = ({ wallet }: { wallet: Wallet }) => {
+  // Component for loading SVG asynchronously with memoization to prevent flickering
+  const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
     const [svgContent, setSvgContent] = useState<string>('')
+    const [isLoading, setIsLoading] = useState(true)
     
     useEffect(() => {
-      loadCanarySvg(wallet.hex_color).then(setSvgContent)
+      let isMounted = true
+      setIsLoading(true)
+      
+      loadCanarySvg(wallet.hex_color).then(content => {
+        if (isMounted) {
+          setSvgContent(content)
+          setIsLoading(false)
+        }
+      })
+      
+      return () => { isMounted = false }
     }, [wallet.hex_color])
+    
+    const checksumTitle = useMemo(() => 
+      `Checksum: #${extractChecksum(wallet.descriptor)}`, 
+      [wallet.descriptor]
+    )
     
     return (
       <div 
         className="w-6 h-6 cursor-help flex-shrink-0"
-        title={`Checksum: #${extractChecksum(wallet.descriptor)}`}
+        title={checksumTitle}
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
     )
-  }
+  })
 
 
 

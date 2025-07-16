@@ -9,7 +9,15 @@ export function cn(...inputs: ClassValue[]) {
 // Cache for the SVG content to avoid re-fetching
 let cachedSvgContent: string | null = null
 
+// Cache for processed SVGs by color to avoid re-processing
+const processedSvgCache = new Map<string, string>()
+
 export async function loadCanarySvg(hexColor: string): Promise<string> {
+  // Return cached processed SVG if available
+  if (processedSvgCache.has(hexColor)) {
+    return processedSvgCache.get(hexColor)!
+  }
+  
   // Load SVG content if not cached
   if (!cachedSvgContent) {
     try {
@@ -20,16 +28,23 @@ export async function loadCanarySvg(hexColor: string): Promise<string> {
       cachedSvgContent = await response.text()
     } catch (error) {
       console.error('Error loading canary SVG:', error)
-      return '<div>⚠️</div>' // Fallback if SVG fails to load
+      const fallback = '<div>⚠️</div>' // Fallback if SVG fails to load
+      processedSvgCache.set(hexColor, fallback)
+      return fallback
     }
   }
   
   // Replace colors in the SVG content
-  return cachedSvgContent
+  const processedSvg = cachedSvgContent
     .replace(/#F6C919/g, hexColor)  // Replace yellow with provided hex color
     .replace(/#73C2DE/g, 'transparent')    // Make blue transparent
     .replace(/width="691"/g, 'width="24"')  // Resize to 24x24
     .replace(/height="595"/g, 'height="24"')
+  
+  // Cache the processed SVG
+  processedSvgCache.set(hexColor, processedSvg)
+  
+  return processedSvg
 }
 
 // Bitcoin amount formatting utility
