@@ -46,3 +46,31 @@ export function checksumToHexColor(checksum: string): string {
   
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
 }
+
+// Cache for the SVG content to avoid re-fetching
+let cachedSvgContent: string | null = null
+
+export async function loadCanarySvg(checksum: string): Promise<string> {
+  const calculatedColor = checksumToHexColor(checksum)
+  
+  // Load SVG content if not cached
+  if (!cachedSvgContent) {
+    try {
+      const response = await fetch('/images/canary.svg')
+      if (!response.ok) {
+        throw new Error('Failed to load SVG')
+      }
+      cachedSvgContent = await response.text()
+    } catch (error) {
+      console.error('Error loading canary SVG:', error)
+      return '<div>⚠️</div>' // Fallback if SVG fails to load
+    }
+  }
+  
+  // Replace colors in the SVG content
+  return cachedSvgContent
+    .replace(/#F6C919/g, calculatedColor)  // Replace yellow with calculated color
+    .replace(/#73C2DE/g, 'transparent')    // Make blue transparent
+    .replace(/width="691"/g, 'width="24"')  // Resize to 24x24
+    .replace(/height="595"/g, 'height="24"')
+}
