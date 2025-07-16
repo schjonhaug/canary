@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useModal } from "@/hooks/useModal"
+import { api } from "@/lib/api"
+import { ErrorDisplay } from "@/components/ui/error-display"
 
 interface CreateWalletModalProps {
   isOpen: boolean
@@ -27,14 +30,13 @@ export function CreateWalletModal({
 }: CreateWalletModalProps) {
   const [name, setName] = useState("")
   const [descriptor, setDescriptor] = useState("")
-  const [isCreating, setIsCreating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const modal = useModal()
 
   const handleClose = () => {
-    if (!isCreating) {
+    if (!modal.isLoading) {
       setName("")
       setDescriptor("")
-      setError(null)
+      modal.reset()
       onClose()
     }
   }
@@ -43,50 +45,26 @@ export function CreateWalletModal({
     e.preventDefault()
     
     if (!name.trim()) {
-      setError("Wallet name is required")
+      modal.setError("Wallet name is required")
       return
     }
     
     if (!descriptor.trim()) {
-      setError("Output descriptor is required")
+      modal.setError("Output descriptor is required")
       return
     }
 
-    setIsCreating(true)
-    setError(null)
+    modal.setLoading(true)
+    modal.clearError()
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const apiUrl = `${baseUrl}/api/wallets`
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          descriptor: descriptor.trim(),
-        }),
-      })
-
-      if (!response.ok) {
-        if (response.status === 400) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Invalid wallet data")
-        }
-        if (response.status === 409) {
-          throw new Error("A wallet with this descriptor already exists")
-        }
-        throw new Error(`Failed to create wallet: ${response.status}`)
-      }
-
-      // Wallet created successfully
+      await api.createWallet(name.trim(), descriptor.trim())
       onWalletCreated()
       handleClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create wallet")
+      modal.setError(err instanceof Error ? err.message : "Failed to create wallet")
     } finally {
-      setIsCreating(false)
+      modal.setLoading(false)
     }
   }
 
@@ -111,7 +89,7 @@ export function CreateWalletModal({
               placeholder="Enter wallet name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              disabled={isCreating}
+              disabled={modal.isLoading}
             />
           </div>
 
@@ -122,7 +100,7 @@ export function CreateWalletModal({
               placeholder="Enter multipath output descriptor (e.g., wpkh([fingerprint/derivation_path]xpub.../0/*)"
               value={descriptor}
               onChange={(e) => setDescriptor(e.target.value)}
-              disabled={isCreating}
+              disabled={modal.isLoading}
               rows={4}
               className="font-mono text-sm"
             />
@@ -131,10 +109,8 @@ export function CreateWalletModal({
             </p>
           </div>
 
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
+          {modal.error && (
+            <ErrorDisplay message={modal.error} variant="inline" />
           )}
 
           <DialogFooter>
@@ -142,15 +118,15 @@ export function CreateWalletModal({
               type="button"
               variant="outline"
               onClick={handleClose}
-              disabled={isCreating}
+              disabled={modal.isLoading}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={isCreating}
+              disabled={modal.isLoading}
             >
-              {isCreating ? "Creating..." : "Create Wallet"}
+              {modal.isLoading ? "Creating..." : "Create Wallet"}
             </Button>
           </DialogFooter>
         </form>

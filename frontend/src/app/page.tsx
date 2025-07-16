@@ -10,6 +10,7 @@ import { Settings, CircleCheckBig, LoaderCircle, CircleOff, Plus, Github } from 
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
+import { formatBitcoinAmount } from "@/lib/utils"
 
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
@@ -42,15 +43,6 @@ export default function Home() {
 
   const handleWalletCreated = () => {
     setIsCreateWalletOpen(false)
-  }
-
-  const formatBalance = (sats?: number) => {
-    if (sats === undefined || sats === null) return "0.00000000 BTC"
-    const btc = sats / 100_000_000
-    return `${btc.toLocaleString(undefined, { 
-      minimumFractionDigits: 8, 
-      maximumFractionDigits: 8 
-    })} BTC`
   }
 
   const getTotalBalance = () => {
@@ -141,7 +133,7 @@ export default function Home() {
                 <h2 className="text-2xl font-semibold">Wallets</h2>
                 {wallets.length > 1 && (
                   <p className="text-sm text-muted-foreground">
-                    Tracking {wallets.length} wallets with a total balance of {formatBalance(getTotalBalance())}
+                    Tracking {wallets.length} wallets with a total balance of {formatBitcoinAmount(getTotalBalance())}
                   </p>
                 )}
               </div>

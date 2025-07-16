@@ -74,3 +74,60 @@ export async function loadCanarySvg(checksum: string): Promise<string> {
     .replace(/width="691"/g, 'width="24"')  // Resize to 24x24
     .replace(/height="595"/g, 'height="24"')
 }
+
+// Bitcoin amount formatting utility
+export function formatBitcoinAmount(sats: number | null | undefined): string {
+  if (sats === null || sats === undefined) return "0.00000000 BTC"
+  const btc = sats / 100_000_000
+  return `${btc.toLocaleString(undefined, { 
+    minimumFractionDigits: 8, 
+    maximumFractionDigits: 8 
+  })} BTC`
+}
+
+// Date formatting utilities
+export function formatDateTime(dateTime: string): string {
+  const date = new Date(dateTime)
+  return date.toLocaleString()
+}
+
+export function formatDate(dateTime: string): string {
+  const date = new Date(dateTime)
+  return date.toLocaleDateString()
+}
+
+// API utilities
+export function getApiBaseUrl(): string {
+  return process.env.NEXT_PUBLIC_API_URL || ''
+}
+
+export async function handleApiResponse(response: Response): Promise<unknown> {
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Resource not found')
+    }
+    if (response.status === 409) {
+      throw new Error('Resource already exists')
+    }
+    
+    // Try to get error message from response
+    try {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    } catch {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+  }
+  
+  // Return JSON if response has content
+  const contentType = response.headers.get('content-type')
+  if (contentType && contentType.includes('application/json')) {
+    return response.json()
+  }
+  
+  return null
+}
+
+// Common error styles
+export const errorStyles = "p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"
+export const successStyles = "p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700"

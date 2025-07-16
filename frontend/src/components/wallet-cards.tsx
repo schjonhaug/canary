@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Edit, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { EditWalletModal } from "./edit-wallet-modal"
-import { extractChecksum, loadCanarySvg } from "@/lib/utils"
+import { extractChecksum, loadCanarySvg, formatBitcoinAmount, formatDate } from "@/lib/utils"
+import { api } from "@/lib/api"
 import { Wallet } from "../types"
 
 interface WalletCardsProps {
@@ -50,14 +51,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     )
   }
 
-  const formatBalance = (sats: number | null) => {
-    if (sats === null) return "0.00000000 BTC"
-    const btc = sats / 100_000_000
-    return `${btc.toLocaleString(undefined, { 
-      minimumFractionDigits: 8, 
-      maximumFractionDigits: 8 
-    })} BTC`
-  }
 
 
   const handleWalletClick = (walletId: number) => {
@@ -75,19 +68,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
   }
 
   const handleDeleteConfirm = async (walletId: number) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-    const response = await fetch(`${baseUrl}/api/wallets/${walletId}`, {
-      method: 'DELETE',
-    })
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error('Wallet not found')
-      }
-      throw new Error(`Delete failed: ${response.status}`)
-    }
-
-    // Wallet will be removed from state automatically via SSE
+    await api.deleteWallet(walletId)
     
     // Clear selection if the deleted wallet was selected
     if (selectedWalletId === walletId) {
@@ -232,13 +213,13 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
                     <div className={`text-xl font-bold font-mono ${
                       isSelected ? "text-accent" : ""
                     }`}>
-                      {formatBalance(wallet.balance_total)}
+                      {formatBitcoinAmount(wallet.balance_total)}
                     </div>
                   </div>
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
                     <span>
                       {wallet.last_activity 
-                        ? `Last activity: ${new Date(wallet.last_activity).toLocaleDateString()}` 
+                        ? `Last activity: ${formatDate(wallet.last_activity)}` 
                         : "No recent activity"
                       }
                     </span>

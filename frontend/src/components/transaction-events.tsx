@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { CheckCircle, Clock, RefreshCw, Zap } from "lucide-react"
 import { TransactionEvent } from "../types"
+import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
 interface TransactionEventsProps {
   selectedWalletId?: number | null
@@ -34,18 +35,6 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
     }
   }, [lastUpdate])
 
-  const formatSats = (sats: number) => {
-    const btc = sats / 100_000_000
-    return `${btc.toLocaleString(undefined, { 
-      minimumFractionDigits: 8, 
-      maximumFractionDigits: 8 
-    })} BTC`
-  }
-
-  const formatDateTime = (dateTime: string) => {
-    const date = new Date(dateTime)
-    return date.toLocaleString()
-  }
 
   // Filter events by selected wallet if one is selected
   const filteredEvents = selectedWalletId 
@@ -193,10 +182,10 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                     </div>
                   </TableCell>
                   <TableCell className="font-mono">
-                    {formatSats(event.amount_sats)}
+                    {formatBitcoinAmount(event.amount_sats)}
                   </TableCell>
                   <TableCell className="font-mono">
-                    {event.balance_total ? formatSats(event.balance_total) : "N/A"}
+                    {event.balance_total ? formatBitcoinAmount(event.balance_total) : "N/A"}
                   </TableCell>
                   <TableCell>
                     {event.sms_recipients && event.sms_recipients.length > 0 ? (
