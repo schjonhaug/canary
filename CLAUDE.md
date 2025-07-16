@@ -6,6 +6,8 @@ This file contains project-specific information and preferences for Claude Code.
 Kanari is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
 
 ## Development Commands
+
+### Backend (Rust)
 ```bash
 # Run the backend server (regtest - default)
 cd backend && cargo run
@@ -33,6 +35,31 @@ cd backend && cargo fmt
 
 # Lint code
 cd backend && cargo clippy
+```
+
+### Frontend (Next.js)
+```bash
+# Run the frontend development server (http://localhost:3001)
+cd frontend && npm run dev
+
+# Build the frontend for production
+cd frontend && npm run build
+
+# Start the frontend production server
+cd frontend && npm start
+
+# Lint frontend code
+cd frontend && npm run lint
+
+# Run frontend tests
+cd frontend && npm test
+
+# Run frontend tests in watch mode
+cd frontend && npm run test:watch
+```
+
+### Docker Environment
+```bash
 
 # Start regtest environment (Bitcoin Core + Fulcrum)
 cd regtest-env && docker-compose up -d
@@ -62,21 +89,56 @@ kanari/
 │   │   ├── electrum.rs        # Electrum client with dual sync modes
 │   │   ├── metadata.rs        # Wallet metadata and contact database operations
 │   │   ├── migrations.rs      # Database migration runner
-│   │   └── sms.rs             # Norwegian SMS notifications via Twilio
+│   │   ├── sms.rs             # Norwegian SMS notifications via Twilio
+│   │   └── tests/             # Test modules
+│   │       ├── mod.rs         # Test module definitions
+│   │       ├── api.rs         # API endpoint tests
+│   │       ├── electrum.rs    # Electrum integration tests
+│   │       ├── metadata.rs    # Database operation tests
+│   │       ├── sms.rs         # SMS notification tests
+│   │       └── wallet.rs      # Wallet management tests
 │   ├── target/                # Build artifacts
 │   ├── database/              # Network-specific database storage
 │   │   ├── regtest/          # Regtest network databases
 │   │   ├── testnet/          # Testnet network databases
 │   │   └── mainnet/          # Mainnet network databases
 │   ├── migrations/           # Database migration files
+│   │   └── 001_initial_schema.sql # Complete initial database schema
 │   ├── Cargo.toml             # Rust dependencies
 │   └── Cargo.lock             # Dependency lock file
 ├── frontend/                  # Next.js frontend application
 │   ├── src/
 │   │   ├── app/               # Next.js app router
-│   │   └── components/        # React components
+│   │   │   ├── layout.tsx     # Root layout component
+│   │   │   ├── page.tsx       # Main dashboard page
+│   │   │   └── globals.css    # Global styles
+│   │   ├── components/        # React components
+│   │   │   ├── ui/            # Reusable UI components (shadcn/ui)
+│   │   │   ├── __tests__/     # Component tests
+│   │   │   ├── wallet-cards.tsx         # Wallet display cards
+│   │   │   ├── transaction-events.tsx   # Transaction event list
+│   │   │   ├── create-wallet-modal.tsx  # New wallet creation
+│   │   │   ├── edit-wallet-modal.tsx    # Wallet editing
+│   │   │   ├── delete-wallet-modal.tsx  # Wallet deletion
+│   │   │   ├── settings-modal.tsx       # App settings
+│   │   │   └── block-status.tsx         # Blockchain status
+│   │   ├── hooks/             # Custom React hooks
+│   │   │   ├── useDashboard.ts    # Dashboard data management
+│   │   │   ├── useBlockHeaders.ts # Block header streaming
+│   │   │   └── useModal.ts        # Modal state management
+│   │   ├── lib/               # Utility libraries
+│   │   │   ├── api.ts         # API client functions
+│   │   │   └── utils.ts       # Utility functions and SVG processing
+│   │   └── types/             # TypeScript type definitions
+│   │       └── index.ts       # Shared type definitions
+│   ├── public/                # Static assets
+│   │   └── images/            # Image assets
+│   │       ├── canary.svg     # Canary icon (used for wallet icons)
+│   │       └── kanari.svg     # Kanari logo
 │   ├── package.json           # Node.js dependencies
-│   └── next.config.ts         # Next.js configuration
+│   ├── next.config.ts         # Next.js configuration
+│   ├── tailwind.config.ts     # Tailwind CSS configuration
+│   └── jest.config.js         # Jest testing configuration
 ├── regtest-env/               # Complete Bitcoin regtest environment
 │   ├── docker-compose.yml     # Bitcoin Core + Fulcrum setup
 │   ├── bitcoin.conf           # Bitcoin Core regtest configuration
@@ -87,8 +149,9 @@ kanari/
 ```
 
 ## Key Dependencies
+
+### Backend Dependencies
 - `bdk_wallet = "2"` with `rusqlite` feature - Bitcoin wallet functionality
-- `rusqlite = "0.31"` - SQLite database operations
 - `bdk_electrum = "0.23"` - Electrum server integration
 - `miniscript = "12.3"` - Bitcoin script processing
 - `axum = "0.8"` - Web framework for REST API
@@ -97,7 +160,6 @@ kanari/
 - `serde_json = "1.0"` - JSON processing
 - `utoipa = "5.4"` with axum_extras - OpenAPI documentation
 - `utoipa-swagger-ui = "9"` with axum - Swagger UI integration
-- `utoipa-axum = "0.2"` - OpenAPI-Axum integration
 - `anyhow = "1.0"` - Error handling
 - `secp256k1 = "0.31"` - Secp256k1 elliptic curve operations
 - `tower-http = "0.6"` with cors features - HTTP middleware for CORS
@@ -109,7 +171,23 @@ kanari/
 - `phonenumber = "0.3"` - International phone number validation and formatting
 - `tokio-stream = "0.1"` with sync features - Async stream processing for SSE
 - `futures-util = "0.3"` - Stream utilities for Server-Sent Events
-- `libphonenumber-js = "1.12.9"` (frontend) - Client-side phone number formatting
+
+### Frontend Dependencies
+- `next = "15.3.5"` - React framework with app router
+- `react = "19.0.0"` - React library
+- `react-dom = "19.0.0"` - React DOM rendering
+- `tailwindcss = "4"` - Utility-first CSS framework
+- `libphonenumber-js = "1.12.9"` - Client-side phone number formatting
+- `lucide-react = "0.525.0"` - Icon library
+- `@radix-ui/react-dialog = "1.1.14"` - Modal components
+- `@radix-ui/react-label = "2.1.7"` - Form label components
+- `class-variance-authority = "0.7.1"` - CSS class variant utilities
+- `clsx = "2.1.1"` - Conditional className utility
+- `tailwind-merge = "3.3.1"` - Tailwind CSS class merging
+- `@testing-library/react = "16.3.0"` - React testing utilities
+- `@testing-library/jest-dom = "6.6.3"` - Jest DOM matchers
+- `jest = "30.0.4"` - JavaScript testing framework
+- `typescript = "5"` - TypeScript language support
 
 ## API Endpoints
 
@@ -235,7 +313,8 @@ KANARI_METADATA_DB=metadata.sqlite
 ### Default Configuration
 - **Bitcoin Network**: Regtest
 - **Electrum Server**: tcp://127.0.0.1:50001
-- **Web Server**: http://127.0.0.1:3000
+- **Backend API Server**: http://127.0.0.1:3000
+- **Frontend Development Server**: http://127.0.0.1:3001
 - **Wallet Directory**: database/{network}/wallets
 - **Metadata Database**: database/{network}/metadata.sqlite
 - **Background Sync**: Every 4 seconds automatic wallet synchronization
