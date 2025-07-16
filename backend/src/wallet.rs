@@ -308,13 +308,17 @@ impl WalletManager {
     }
 
     pub async fn sync_all_wallets(&mut self) -> Result<()> {
-        if self.wallets.is_empty() {
-            return Ok(());
-        }
-
         // Extract needed components to avoid borrowing issues
         let metadata_db = &self.metadata_db;
         let event_sender = &self.event_sender;
+
+        if self.wallets.is_empty() {
+            // Send dashboard update even when no wallets exist to prevent frontend hanging
+            if let Err(e) = self.send_dashboard_update().await {
+                eprintln!("Failed to send dashboard update: {}", e);
+            }
+            return Ok(());
+        }
 
         for (checksum, wallet) in self.wallets.iter_mut() {
             // Get balance before sync

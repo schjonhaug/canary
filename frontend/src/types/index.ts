@@ -6,9 +6,9 @@ export interface Wallet {
   descriptor: string
   wallet_filename: string
   created_at: string
-  balance_total: number | null
+  balance_total: number
   last_activity: string | null
-  contact_count: number | null
+  contact_count: number
 }
 
 export interface TransactionEvent {
@@ -21,8 +21,8 @@ export interface TransactionEvent {
   is_rbf: boolean
   is_cpfp: boolean
   balance_total: number | null
+  sms_recipients: string[]
   created_at: string
-  sms_recipients?: string[]
 }
 
 export interface Contact {

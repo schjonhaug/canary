@@ -96,7 +96,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                     <Skeleton className="h-4 w-28" />
                   </TableCell>
                   <TableCell>
-                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-24" />
                   </TableCell>
                 </TableRow>
               ))}
@@ -187,14 +187,8 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                   <TableCell className="font-mono">
                     {event.balance_total ? formatBitcoinAmount(event.balance_total) : "N/A"}
                   </TableCell>
-                  <TableCell>
-                    {event.sms_recipients && event.sms_recipients.length > 0 ? (
-                      <span className="font-medium">
-                        {event.sms_recipients.join(', ')}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">No SMS sent</span>
-                    )}
+                  <TableCell className="text-sm">
+                    {event.sms_recipients.length > 0 ? event.sms_recipients.join(", ") : "None"}
                   </TableCell>
                 </TableRow>
               ))}

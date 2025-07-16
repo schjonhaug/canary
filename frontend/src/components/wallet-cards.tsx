@@ -225,7 +225,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
                     </span>
                     <div className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
-                      <span>{wallet.contact_count || 0}</span>
+                      <span>{wallet.contact_count}</span>
                     </div>
                   </div>
                 </div>

@@ -47,7 +47,7 @@ export default function Home() {
 
   const getTotalBalance = () => {
     return wallets.reduce((total, wallet) => {
-      return total + (wallet.balance_total || 0)
+      return total + wallet.balance_total
     }, 0)
   }
 

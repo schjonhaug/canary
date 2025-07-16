@@ -31,79 +31,52 @@ impl MigrationRunner {
             return Ok(());
         }
         
+        // Check if initial schema has already been applied
+        let mut stmt = self.conn.prepare(
+            "SELECT COUNT(*) FROM schema_migrations WHERE version = ?1"
+        ).map_err(|e| anyhow::Error::from(e))?;
+        let count: i32 = stmt.query_row(["001"], |row| row.get(0)).map_err(|e| anyhow::Error::from(e))?;
         
-        // Get list of migration files
-        let mut migration_files: Vec<_> = fs::read_dir(migrations_path)?
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                let path = entry.path();
-                if path.extension()? == "sql" {
-                    Some(path)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        if count > 0 {
+            println!("Initial schema already applied, skipping");
+            return Ok(());
+        }
         
-        // Sort migrations by filename (which should start with version number)
-        migration_files.sort();
+        // Apply the single initial schema
+        let schema_file = migrations_path.join("001_initial_schema.sql");
         
-        for migration_file in migration_files {
-            let filename = migration_file
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown");
-            
-            // Extract version from filename (everything before first underscore)
-            let version = filename
-                .split('_')
-                .next()
-                .unwrap_or(filename)
-                .split('.')
-                .next()
-                .unwrap_or(filename);
-            
-            // Check if migration has already been applied
-            let mut stmt = self.conn.prepare(
-                "SELECT COUNT(*) FROM schema_migrations WHERE version = ?1"
-            ).map_err(|e| anyhow::Error::from(e))?;
-            let count: i32 = stmt.query_row([version], |row| row.get(0)).map_err(|e| anyhow::Error::from(e))?;
-            
-            if count > 0 {
-                println!("Migration {} already applied, skipping", filename);
+        if !schema_file.exists() {
+            return Err(anyhow::Error::msg("Initial schema file not found: 001_initial_schema.sql"));
+        }
+        
+        println!("Applying initial schema: 001_initial_schema.sql");
+        let sql = fs::read_to_string(&schema_file)?;
+        
+        // Execute each statement in the schema
+        // SQLite doesn't support multiple statements in execute(), so we split them
+        let statements: Vec<&str> = sql.split(';').collect();
+        
+        for statement in statements.iter() {
+            let trimmed = statement.trim();
+            // Skip empty statements and comments
+            if trimmed.is_empty() || trimmed.lines().all(|line| line.trim().starts_with("--") || line.trim().is_empty()) {
                 continue;
             }
             
-            // Read and execute migration
-            println!("Applying migration: {}", filename);
-            let sql = fs::read_to_string(&migration_file)?;
-            
-            // Execute each statement in the migration
-            // SQLite doesn't support multiple statements in execute(), so we split them
-            let statements: Vec<&str> = sql.split(';').collect();
-            
-            for statement in statements.iter() {
-                let trimmed = statement.trim();
-                // Skip empty statements and comments
-                if trimmed.is_empty() || trimmed.lines().all(|line| line.trim().starts_with("--") || line.trim().is_empty()) {
-                    continue;
-                }
-                
-                if let Err(e) = self.conn.execute(trimmed, []) {
-                    eprintln!("Error executing migration {}: {}", filename, e);
-                    eprintln!("Statement: {}", trimmed);
-                    return Err(e.into());
-                }
+            if let Err(e) = self.conn.execute(trimmed, []) {
+                eprintln!("Error executing initial schema: {}", e);
+                eprintln!("Statement: {}", trimmed);
+                return Err(e.into());
             }
-            
-            // Record that migration has been applied
-            self.conn.execute(
-                "INSERT INTO schema_migrations (version) VALUES (?1)",
-                [version],
-            ).map_err(|e| anyhow::Error::from(e))?;
-            
-            println!("Successfully applied migration: {}", filename);
         }
+        
+        // Record that initial schema has been applied
+        self.conn.execute(
+            "INSERT INTO schema_migrations (version) VALUES (?1)",
+            ["001"],
+        ).map_err(|e| anyhow::Error::from(e))?;
+        
+        println!("Successfully applied initial schema");
         
         Ok(())
     }

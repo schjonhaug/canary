@@ -53,13 +53,6 @@ pub struct ContactPerson {
     pub created_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct WalletContact {
-    pub id: Option<i64>,
-    pub wallet_id: i64,
-    pub contact_id: i64,
-    pub created_at: String,
-}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct TwilioConfig {
@@ -105,6 +98,7 @@ pub struct TransactionEventWithWallet {
     pub is_rbf: bool,
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
+    pub sms_recipients: Vec<String>,
     pub created_at: String,
 }
 
@@ -280,7 +274,7 @@ impl MetadataDb {
                 descriptor: row.get(2)?,
                 wallet_filename: row.get(3)?,
                 created_at: row.get(4)?,
-                balance_total: row.get(5).ok(),
+                balance_total: Some(row.get(5).unwrap_or(0)),
                 last_activity: row.get(6).ok(),
                 contact_count: Some(row.get(7)?),
             })
@@ -374,13 +368,33 @@ impl MetadataDb {
                 is_rbf: row.get(6)?,
                 is_cpfp: row.get(7)?,
                 balance_total: row.get(8).ok(),
+                sms_recipients: Vec::new(), // Will be populated below
                 created_at,
             })
         })?;
 
         let mut events = Vec::new();
         for event in event_iter {
-            events.push(event?);
+            let mut event = event?;
+            
+            // Get SMS recipients for this event
+            if let Some(event_id) = event.id {
+                let mut sms_stmt = conn.prepare(
+                    "SELECT cp.name FROM sms_logs sl 
+                     JOIN contact_persons cp ON sl.contact_id = cp.id 
+                     WHERE sl.event_id = ?1"
+                )?;
+                
+                let recipient_iter = sms_stmt.query_map([event_id], |row| {
+                    Ok(row.get::<_, String>(0)?)
+                })?;
+                
+                for recipient in recipient_iter {
+                    event.sms_recipients.push(recipient?);
+                }
+            }
+            
+            events.push(event);
         }
 
         Ok(events)
@@ -396,31 +410,6 @@ impl MetadataDb {
         Ok(conn.last_insert_rowid())
     }
 
-    // Global contacts endpoint removed - contacts are now wallet-specific
-    #[allow(dead_code)]
-    pub fn get_all_contacts(&self) -> Result<Vec<ContactPerson>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, wallet_id, name, phone_number, created_at FROM contact_persons ORDER BY name",
-        )?;
-
-        let contact_iter = stmt.query_map([], |row| {
-            Ok(ContactPerson {
-                id: Some(row.get(0)?),
-                wallet_id: row.get(1)?,
-                name: row.get(2)?,
-                phone_number: row.get(3)?,
-                created_at: row.get(4)?,
-            })
-        })?;
-
-        let mut contacts = Vec::new();
-        for contact in contact_iter {
-            contacts.push(contact?);
-        }
-
-        Ok(contacts)
-    }
 
     pub fn delete_contact(&self, contact_id: i64) -> Result<bool> {
         let conn = self.conn.lock().unwrap();

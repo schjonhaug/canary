@@ -298,8 +298,7 @@ KANARI_METADATA_DB=metadata.sqlite
 
 ### Wallet Metadata & SMS Storage
 - **Database**: `database/{network}/metadata.sqlite` (completely removed on reset)
-- **Migration System**: Automatic database schema migrations using SQL files in `migrations/` directory
-  - **Latest Migration**: `008_make_contacts_wallet_specific.sql` - Converts global contacts to wallet-specific contacts
+- **Database Schema**: Single initial schema file (`001_initial_schema.sql`) - no incremental migrations needed since app isn't released yet
 - **Core Tables**:
   - `wallets`: Stores wallet IDs, names, descriptors, filenames, and creation timestamps
   - `transaction_events`: Bitcoin transaction events with type-safe enums and broadcast channels
@@ -319,7 +318,7 @@ KANARI_METADATA_DB=metadata.sqlite
 - **Complete Cleanup**: `./docker-utils.sh reset` removes all SQLite databases
 - **BDK Wallets**: Entire `database/{network}/wallets/` directory is deleted (not just individual files)
 - **Metadata**: `database/{network}/metadata.sqlite` file is completely removed (not just table contents)
-- **Fresh Start**: All databases are recreated from scratch on next backend startup with automatic migrations
+- **Fresh Start**: All databases are recreated from scratch on next backend startup with the initial schema
 
 ## SMS Integration Setup
 
