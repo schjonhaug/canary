@@ -8,6 +8,12 @@ import { Edit, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { EditWalletModal } from "./edit-wallet-modal"
 import { loadCanarySvg, formatBitcoinAmount, formatDate } from "@/lib/utils"
+
+// Helper function to extract checksum from descriptor
+function extractChecksum(descriptor: string): string {
+  const checksumMatch = descriptor.match(/#([a-zA-Z0-9]+)$/)
+  return checksumMatch ? checksumMatch[1] : "Unknown"
+}
 import { api } from "@/lib/api"
 import { Wallet } from "../types"
 
@@ -45,7 +51,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     return (
       <div 
         className="w-6 h-6 cursor-help flex-shrink-0"
-        title={`Wallet: ${wallet.name}`}
+        title={`Checksum: #${extractChecksum(wallet.descriptor)}`}
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
     )

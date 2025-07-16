@@ -102,7 +102,7 @@ export function CreateWalletModal({
               onChange={(e) => setDescriptor(e.target.value)}
               disabled={modal.isLoading}
               rows={4}
-              className="font-mono text-sm"
+              className="font-mono text-sm break-all whitespace-pre-wrap resize-none"
             />
             <p className="text-xs text-muted-foreground">
               Must be a valid multipath output descriptor with checksum
