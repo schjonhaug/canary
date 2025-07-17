@@ -297,6 +297,11 @@ async fn main() -> anyhow::Result<()> {
                                             }
                                         }
                                     }
+                                    
+                                    // Send dashboard update after SMS processing to refresh SMS recipients
+                                    if let Err(e) = manager.send_dashboard_update().await {
+                                        eprintln!("Failed to send dashboard update after SMS processing: {}", e);
+                                    }
                                 }
                                 Ok(None) => {
                                     // Get wallet name for message generation
