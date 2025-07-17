@@ -211,14 +211,24 @@ export function EditWalletModal({
         <div className="space-y-6">
           <div>
             <Label htmlFor="wallet-name">Wallet Name</Label>
-            <Input
-              id="wallet-name"
-              type="text"
-              value={walletName}
-              onChange={(e) => setWalletName(e.target.value)}
-              placeholder="Enter wallet name"
-              disabled={isUpdating}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="wallet-name"
+                type="text"
+                value={walletName}
+                onChange={(e) => setWalletName(e.target.value)}
+                placeholder="Enter wallet name"
+                disabled={isUpdating}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleSave}
+                disabled={isUpdating || !walletName.trim()}
+                size="sm"
+              >
+                {isUpdating ? "Updating..." : "Save Name"}
+              </Button>
+            </div>
           </div>
 
           {/* Contact Management Section */}
@@ -263,11 +273,6 @@ export function EditWalletModal({
                       </div>
                     ))}
 
-                    {walletContacts.length === 0 && (
-                      <div className="text-center py-4 text-sm text-muted-foreground">
-                        No contacts are receiving SMS notifications for this wallet.
-                      </div>
-                    )}
 
                     {/* Create New Contact Section */}
                     <div className="border-t pt-4">
@@ -324,7 +329,7 @@ export function EditWalletModal({
           )}
         </div>
 
-        <DialogFooter className="flex justify-between">
+        <DialogFooter className="flex justify-start">
           <Button
             variant="destructive"
             onClick={handleDelete}
@@ -333,13 +338,6 @@ export function EditWalletModal({
           >
             <Trash2 className="h-4 w-4" />
             Delete Wallet
-          </Button>
-          
-          <Button
-            onClick={handleSave}
-            disabled={isUpdating || !walletName.trim()}
-          >
-            {isUpdating ? "Updating..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>
