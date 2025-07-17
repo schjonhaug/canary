@@ -218,7 +218,7 @@ pub async fn update_wallet(
             .into_response();
     }
 
-    match wallet_manager.lock().await.update_wallet(id, &payload.name) {
+    match wallet_manager.lock().await.update_wallet(id, &payload.name).await {
         Ok(()) => StatusCode::OK.into_response(),
         Err(e) => {
             let error_msg = e.to_string();
@@ -684,6 +684,29 @@ pub async fn dashboard_stream(
     Sse::new(stream).into_response()
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/dashboard",
+    responses(
+        (status = 200, description = "Current dashboard state", body = DashboardUpdate),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "dashboard"
+)]
+pub async fn get_dashboard(State(wallet_manager): State<AppState>) -> Response {
+    let manager = wallet_manager.lock().await;
+    match manager.get_current_dashboard_state().await {
+        Ok(dashboard_update) => Json(dashboard_update).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to get dashboard state: {}", e),
+            }),
+        )
+            .into_response(),
+    }
+}
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -691,7 +714,7 @@ pub async fn dashboard_stream(
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
         save_twilio_config, get_twilio_config,
         get_current_block_header, block_headers_stream,
-        dashboard_stream
+        dashboard_stream, get_dashboard
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
@@ -733,18 +756,19 @@ pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroad
             post(save_twilio_config).get(get_twilio_config),
         )
         .route("/block-headers/current", get(get_current_block_header))
+        .route("/dashboard", get(get_dashboard))
         .with_state(wallet_manager);
 
     let block_header_routes = Router::new()
         .route("/block-headers/stream", get(block_headers_stream))
         .with_state(block_header_tx);
 
-    let dashboard_routes = Router::new()
+    let dashboard_stream_routes = Router::new()
         .route("/dashboard/stream", get(dashboard_stream))
         .with_state(dashboard_tx);
 
     Router::new()
-        .nest("/api", wallet_routes.merge(block_header_routes).merge(dashboard_routes))
+        .nest("/api", wallet_routes.merge(block_header_routes).merge(dashboard_stream_routes))
         .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
 }

@@ -11,25 +11,54 @@ export function useDashboard() {
   const [isConnected, setIsConnected] = useState(false);
   const [isUsingCache, setIsUsingCache] = useState(false);
 
-  // Load cached data on mount
+  // Load initial data via REST API on mount
   useEffect(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const cachedData: CachedData = JSON.parse(cached);
-        // Only use cache if it's less than 5 minutes old
-        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-        if (cachedData.timestamp > fiveMinutesAgo) {
-          setWallets(cachedData.wallets);
-          setEvents(cachedData.events);
-          setLastUpdate(cachedData.lastUpdate);
-          setIsUsingCache(true);
-          console.log('Loaded cached dashboard data');
+    const loadInitialData = async () => {
+      try {
+        // First try to load from cache
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const cachedData: CachedData = JSON.parse(cached);
+          // Only use cache if it's less than 5 minutes old
+          const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+          if (cachedData.timestamp > fiveMinutesAgo) {
+            setWallets(cachedData.wallets);
+            setEvents(cachedData.events);
+            setLastUpdate(cachedData.lastUpdate);
+            setIsUsingCache(true);
+            console.log('Loaded cached dashboard data');
+          }
         }
+
+        // Then fetch fresh data from REST API
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+        const response = await fetch(`${baseUrl}/api/dashboard`);
+        if (response.ok) {
+          const data: DashboardUpdate = await response.json();
+          setWallets(data.wallets);
+          setEvents(data.events);
+          setLastUpdate(data.timestamp);
+          setIsUsingCache(false);
+          console.log('Loaded initial dashboard data from API');
+          
+          // Cache the data
+          const cacheData: CachedData = {
+            wallets: data.wallets,
+            events: data.events,
+            lastUpdate: data.timestamp,
+            timestamp: Date.now(),
+          };
+          localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+        } else {
+          console.error('Failed to load initial dashboard data:', response.status);
+        }
+      } catch (err) {
+        console.error('Failed to load initial data:', err);
+        setError('Failed to load dashboard data');
       }
-    } catch (err) {
-      console.error('Failed to load cached data:', err);
-    }
+    };
+
+    loadInitialData();
   }, []);
 
   useEffect(() => {

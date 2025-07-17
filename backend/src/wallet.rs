@@ -304,6 +304,11 @@ impl WalletManager {
             .get_wallet_by_descriptor(descriptor_str)?
             .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
 
+        // Send immediate dashboard update for wallet creation
+        if let Err(e) = self.send_dashboard_update().await {
+            eprintln!("Failed to send dashboard update after wallet creation: {}", e);
+        }
+
         Ok(wallet_metadata)
     }
 
@@ -319,6 +324,9 @@ impl WalletManager {
             }
             return Ok(());
         }
+
+        // Track if any wallet had changes during this sync cycle
+        let mut any_wallet_changed = false;
 
         for (checksum, wallet) in self.wallets.iter_mut() {
             // Get balance before sync
@@ -410,6 +418,8 @@ impl WalletManager {
                         || total_before != total_after;
 
                     if has_changes {
+                        // Mark that at least one wallet had changes
+                        any_wallet_changed = true;
                         // Get the user-friendly wallet name and wallet ID
                         let wallet_filename = format!("{}.sqlite", checksum);
                         let wallet_name = self
@@ -895,15 +905,17 @@ impl WalletManager {
             }
         }
 
-        // Send dashboard update after all wallet syncs are complete
-        if let Err(e) = self.send_dashboard_update().await {
-            eprintln!("Failed to send dashboard update: {}", e);
+        // Send dashboard update only if any wallet had changes
+        if any_wallet_changed {
+            if let Err(e) = self.send_dashboard_update().await {
+                eprintln!("Failed to send dashboard update: {}", e);
+            }
         }
 
         Ok(())
     }
 
-    pub async fn send_dashboard_update(&self) -> Result<()> {
+    pub async fn get_current_dashboard_state(&self) -> Result<DashboardUpdate> {
         // Get current timestamp
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -922,6 +934,12 @@ impl WalletManager {
             wallets,
             events,
         };
+
+        Ok(dashboard_update)
+    }
+
+    pub async fn send_dashboard_update(&self) -> Result<()> {
+        let dashboard_update = self.get_current_dashboard_state().await?;
 
         // Send dashboard update to subscribers
         if let Err(e) = self.dashboard_sender.send(dashboard_update) {
@@ -988,10 +1006,16 @@ impl WalletManager {
         }
 
         println!("Wallet deletion completed successfully");
+        
+        // Send immediate dashboard update for wallet deletion
+        if let Err(e) = self.send_dashboard_update().await {
+            eprintln!("Failed to send dashboard update after wallet deletion: {}", e);
+        }
+        
         Ok(())
     }
 
-    pub fn update_wallet(&self, id: i64, name: &str) -> Result<()> {
+    pub async fn update_wallet(&self, id: i64, name: &str) -> Result<()> {
         println!("Updating wallet with ID: {}", id);
         
         // Update wallet name in metadata database
@@ -1001,6 +1025,12 @@ impl WalletManager {
         }
         
         println!("  Updated wallet name to: {}", name);
+        
+        // Send immediate dashboard update for wallet name change
+        if let Err(e) = self.send_dashboard_update().await {
+            eprintln!("Failed to send dashboard update after wallet update: {}", e);
+        }
+        
         Ok(())
     }
 }
