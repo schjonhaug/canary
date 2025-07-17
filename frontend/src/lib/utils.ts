@@ -12,6 +12,11 @@ let cachedSvgContent: string | null = null
 // Cache for processed SVGs by color to avoid re-processing
 const processedSvgCache = new Map<string, string>()
 
+// Synchronous function to get cached SVG if available
+export function getCachedCanarySvg(hexColor: string): string | null {
+  return processedSvgCache.get(hexColor) || null
+}
+
 export async function loadCanarySvg(hexColor: string): Promise<string> {
   // Return cached processed SVG if available
   if (processedSvgCache.has(hexColor)) {

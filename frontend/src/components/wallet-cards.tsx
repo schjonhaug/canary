@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Edit, Users } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { EditWalletModal } from "./edit-wallet-modal"
-import { loadCanarySvg, formatBitcoinAmount, formatDate } from "@/lib/utils"
+import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount, formatDate } from "@/lib/utils"
 
 // Helper function to extract checksum from descriptor
 function extractChecksum(descriptor: string): string {
@@ -40,24 +40,28 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     }
   }, [lastUpdate])
 
-  // Component for loading SVG asynchronously with memoization to prevent flickering
+  // Component for loading SVG with synchronous cache to prevent flickering
   const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
-    const [svgContent, setSvgContent] = useState<string>('')
-    const [isLoading, setIsLoading] = useState(true)
+    // Try to get cached SVG first (synchronous)
+    const cachedSvg = getCachedCanarySvg(wallet.hex_color)
+    const [svgContent, setSvgContent] = useState<string>(cachedSvg || '')
     
     useEffect(() => {
+      // If we already have cached content, don't reload
+      if (cachedSvg) {
+        return
+      }
+      
       let isMounted = true
-      setIsLoading(true)
       
       loadCanarySvg(wallet.hex_color).then(content => {
         if (isMounted) {
           setSvgContent(content)
-          setIsLoading(false)
         }
       })
       
       return () => { isMounted = false }
-    }, [wallet.hex_color])
+    }, [wallet.hex_color, cachedSvg])
     
     const checksumTitle = useMemo(() => 
       `Checksum: #${extractChecksum(wallet.descriptor)}`, 
