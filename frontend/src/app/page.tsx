@@ -6,7 +6,7 @@ import { WalletCards } from "@/components/wallet-cards"
 import { SettingsModal } from "@/components/settings-modal"
 import { CreateWalletModal } from "@/components/create-wallet-modal"
 import { Button } from "@/components/ui/button"
-import { Settings, CircleCheckBig, LoaderCircle, CircleOff, Plus, Github } from "lucide-react"
+import { Settings, CircleCheckBig, LoaderCircle, CircleOff, Plus } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
@@ -213,9 +213,16 @@ export default function Home() {
             href="https://github.com/schjonhaug/kanari" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-accent transition-colors"
+            className="text-muted-foreground hover:text-accent transition-colors flex items-center gap-2"
           >
-            <Github size={24} />
+            <Image
+              src="/images/github.svg"
+              alt="GitHub"
+              width={20}
+              height={20}
+              className="h-5 w-5"
+            />
+            <span>GitHub</span>
           </a>
         </div>
       </footer>
