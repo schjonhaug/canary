@@ -1,4 +1,4 @@
-use crate::metadata::{ContactPerson, EventInsert, EventType, MetadataDb, WalletMetadata};
+use crate::metadata::{ContactPerson, EventInsert, EventType, Language, MetadataDb, WalletMetadata};
 use tempfile::NamedTempFile;
 
 fn create_temp_db() -> (MetadataDb, NamedTempFile) {
@@ -86,7 +86,7 @@ fn test_contact_operations() {
     let wallet_id = db.insert_wallet("Test Wallet", "test_descriptor", "test_filename").unwrap();
     
     // Test insert contact
-    let contact_id = db.insert_contact(wallet_id, "John Doe", "12345678").unwrap();
+    let contact_id = db.insert_contact(wallet_id, "John Doe", "12345678", &Language::Norwegian).unwrap();
     assert_eq!(contact_id, 1);
 
     // Test get contacts for wallet
@@ -115,7 +115,7 @@ fn test_wallet_specific_contact_operations() {
         .unwrap();
     
     // Create contact directly for wallet
-    let contact_id = db.insert_contact(wallet_id, "John Doe", "12345678").unwrap();
+    let contact_id = db.insert_contact(wallet_id, "John Doe", "12345678", &Language::Norwegian).unwrap();
 
     // Test get contacts for wallet
     let contacts = db.get_contacts_for_wallet(wallet_id).unwrap();
@@ -202,7 +202,7 @@ fn test_sms_log_operations() {
     let wallet_id = db
         .insert_wallet("Test Wallet", "test_descriptor", "test.sqlite")
         .unwrap();
-    let contact_id = db.insert_contact(wallet_id, "John Doe", "12345678").unwrap();
+    let contact_id = db.insert_contact(wallet_id, "John Doe", "12345678", &Language::Norwegian).unwrap();
 
     let event = EventInsert {
         wallet_id,
@@ -267,6 +267,7 @@ fn test_contact_person_serialization() {
         wallet_id: 1,
         name: "John Doe".to_string(),
         phone_number: "12345678".to_string(),
+        language: Language::Norwegian,
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 

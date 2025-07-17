@@ -2,6 +2,7 @@ use crate::api::{
     CreateContactRequest, CreateWalletRequest, TwilioConfigRequest,
     create_router,
 };
+use crate::metadata::Language;
 // BlockHeader import removed - not needed for these tests
 use crate::wallet::WalletManager;
 use axum::{
@@ -353,6 +354,7 @@ async fn test_create_wallet_contact_valid_phone() {
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
         phone_number: "+4792050946".to_string(), // Valid Norwegian mobile
+        language: Language::Norwegian,
     };
 
     let response = app
@@ -384,6 +386,7 @@ async fn test_create_wallet_contact_invalid_phone() {
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
         phone_number: "+47invalid".to_string(), // Invalid format
+        language: Language::Norwegian,
     };
 
     let response = app
@@ -413,6 +416,7 @@ async fn test_create_wallet_contact_wallet_not_found() {
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
         phone_number: "+4792050946".to_string(),
+        language: Language::Norwegian,
     };
 
     let response = app
@@ -468,6 +472,7 @@ async fn test_get_wallet_contacts_with_data() {
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
         phone_number: "+4792050946".to_string(),
+        language: Language::Norwegian,
     };
 
     let create_response = app
@@ -543,6 +548,7 @@ async fn test_delete_wallet_contact() {
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
         phone_number: "+4792050946".to_string(),
+        language: Language::Norwegian,
     };
 
     let create_response = app
@@ -632,6 +638,7 @@ async fn test_wallet_deletion_cascades_to_contacts() {
     let contact_request = CreateContactRequest {
         name: "John Doe".to_string(),
         phone_number: "+4792050946".to_string(),
+        language: Language::Norwegian,
     };
 
     let create_response = app
@@ -714,6 +721,7 @@ async fn test_create_multiple_wallet_contacts() {
         let contact_request = CreateContactRequest {
             name: name.to_string(),
             phone_number: phone.to_string(),
+            language: Language::Norwegian,
         };
 
         let response = app

@@ -1,39 +1,70 @@
-use crate::metadata::{ContactPerson, EventType, TransactionEvent, TwilioConfig};
+use crate::metadata::{ContactPerson, EventType, Language, TransactionEvent, TwilioConfig};
 use crate::sms::{SmsResponse, SmsService};
 
 #[test]
-fn test_format_btc_amount_small() {
-    // Test small amounts (less than 1 BTC)
+fn test_format_btc_amount_small_norwegian() {
+    // Test small amounts (less than 1 BTC) in Norwegian
     let amount_1000_sats = 1000; // 0.00001 BTC
-    let formatted = SmsService::format_btc_amount(amount_1000_sats);
+    let formatted = SmsService::format_btc_amount(amount_1000_sats, &Language::Norwegian);
     assert_eq!(formatted, "0,00001000");
 
     let amount_100000_sats = 100000; // 0.001 BTC
-    let formatted = SmsService::format_btc_amount(amount_100000_sats);
+    let formatted = SmsService::format_btc_amount(amount_100000_sats, &Language::Norwegian);
     assert_eq!(formatted, "0,00100000");
 }
 
 #[test]
-fn test_format_btc_amount_large() {
-    // Test large amounts (1 BTC or more)
+fn test_format_btc_amount_small_english() {
+    // Test small amounts (less than 1 BTC) in English
+    let amount_1000_sats = 1000; // 0.00001 BTC
+    let formatted = SmsService::format_btc_amount(amount_1000_sats, &Language::English);
+    assert_eq!(formatted, "0.00001000");
+
+    let amount_100000_sats = 100000; // 0.001 BTC
+    let formatted = SmsService::format_btc_amount(amount_100000_sats, &Language::English);
+    assert_eq!(formatted, "0.00100000");
+}
+
+#[test]
+fn test_format_btc_amount_large_norwegian() {
+    // Test large amounts (1 BTC or more) in Norwegian
     let amount_1_btc = 100_000_000; // 1 BTC
-    let formatted = SmsService::format_btc_amount(amount_1_btc);
+    let formatted = SmsService::format_btc_amount(amount_1_btc, &Language::Norwegian);
     assert_eq!(formatted, "1,00000000");
 
     let amount_1000_btc = 100_000_000_000; // 1000 BTC
-    let formatted = SmsService::format_btc_amount(amount_1000_btc);
+    let formatted = SmsService::format_btc_amount(amount_1000_btc, &Language::Norwegian);
     assert_eq!(formatted, "1 000,00000000");
 
     let amount_1234567_btc = 123_456_700_000_000; // 1,234,567 BTC
-    let formatted = SmsService::format_btc_amount(amount_1234567_btc);
+    let formatted = SmsService::format_btc_amount(amount_1234567_btc, &Language::Norwegian);
     assert_eq!(formatted, "1 234 567,00000000");
+}
+
+#[test]
+fn test_format_btc_amount_large_english() {
+    // Test large amounts (1 BTC or more) in English
+    let amount_1_btc = 100_000_000; // 1 BTC
+    let formatted = SmsService::format_btc_amount(amount_1_btc, &Language::English);
+    assert_eq!(formatted, "1.00000000");
+
+    let amount_1000_btc = 100_000_000_000; // 1000 BTC
+    let formatted = SmsService::format_btc_amount(amount_1000_btc, &Language::English);
+    assert_eq!(formatted, "1,000.00000000");
+
+    let amount_1234567_btc = 123_456_700_000_000; // 1,234,567 BTC
+    let formatted = SmsService::format_btc_amount(amount_1234567_btc, &Language::English);
+    assert_eq!(formatted, "1,234,567.00000000");
 }
 
 #[test]
 fn test_format_btc_amount_zero() {
     let amount_0_sats = 0;
-    let formatted = SmsService::format_btc_amount(amount_0_sats);
-    assert_eq!(formatted, "0,00000000");
+    let formatted_no = SmsService::format_btc_amount(amount_0_sats, &Language::Norwegian);
+    assert_eq!(formatted_no, "0,00000000");
+    
+    let formatted_en = SmsService::format_btc_amount(amount_0_sats, &Language::English);
+    assert_eq!(formatted_en, "0.00000000");
 }
 
 #[test]
@@ -50,7 +81,7 @@ fn test_create_norwegian_message_receive_confirmed() {
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
     assert_eq!(
         message,
         "✅ Mottak bekreftet: 1,00000000 BTC til Test Wallet. Total balanse: 1,50000000 BTC"
@@ -71,7 +102,7 @@ fn test_create_norwegian_message_receive_unconfirmed() {
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
     assert_eq!(message, "📥 Mottar 0,50000000 BTC til Test Wallet. Total balanse: 0,75000000 BTC");
 }
 
@@ -89,7 +120,7 @@ fn test_create_norwegian_message_send_confirmed() {
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
     assert_eq!(
         message,
         "✅ Sending bekreftet: 0,25000000 BTC fra Test Wallet. Total balanse: 0,75000000 BTC"
@@ -110,7 +141,7 @@ fn test_create_norwegian_message_send_unconfirmed() {
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
     assert_eq!(message, "📤 Sender 0,10000000 BTC fra Test Wallet. Total balanse: 0,75000000 BTC");
 }
 
@@ -128,7 +159,7 @@ fn test_create_norwegian_message_rbf() {
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
     assert_eq!(
         message,
         "📤 RBF gebyrøkning: +0,00005000 BTC for Test Wallet. Total balanse: 0,75000000 BTC"
@@ -149,7 +180,7 @@ fn test_create_norwegian_message_cpfp() {
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
-    let message = SmsService::create_norwegian_message(&event, "Test Wallet");
+    let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
     assert_eq!(message, "🚀 CPFP gebyr: 0,00010000 BTC for Test Wallet. Total balanse: 0,75000000 BTC");
 }
 
@@ -216,6 +247,7 @@ fn test_contact_person_creation() {
         wallet_id: 1,
         name: "John Doe".to_string(),
         phone_number: "12345678".to_string(),
+        language: Language::Norwegian,
         created_at: "2024-01-01 12:00:00".to_string(),
     };
 
@@ -259,19 +291,25 @@ fn test_event_type_enum() {
 fn test_format_btc_amount_edge_cases() {
     // Test very small amounts
     let amount_1_sat = 1;
-    let formatted = SmsService::format_btc_amount(amount_1_sat);
-    assert_eq!(formatted, "0,00000001");
+    let formatted_no = SmsService::format_btc_amount(amount_1_sat, &Language::Norwegian);
+    assert_eq!(formatted_no, "0,00000001");
+    let formatted_en = SmsService::format_btc_amount(amount_1_sat, &Language::English);
+    assert_eq!(formatted_en, "0.00000001");
 
     // Test amounts with many digits
     let amount_large = 123_456_789_123_456_789;
-    let formatted = SmsService::format_btc_amount(amount_large);
+    let formatted_no = SmsService::format_btc_amount(amount_large, &Language::Norwegian);
     // Accept both possible rounding results due to floating-point
-    assert!(formatted == "1 234 567 891,23456788" || formatted == "1 234 567 891,23456789");
+    assert!(formatted_no == "1 234 567 891,23456788" || formatted_no == "1 234 567 891,23456789");
+    let formatted_en = SmsService::format_btc_amount(amount_large, &Language::English);
+    assert!(formatted_en == "1,234,567,891.23456788" || formatted_en == "1,234,567,891.23456789");
 
     // Test negative amounts (should handle gracefully)
     let amount_negative = -100_000_000;
-    let formatted = SmsService::format_btc_amount(amount_negative);
-    assert_eq!(formatted, "-1,00000000");
+    let formatted_no = SmsService::format_btc_amount(amount_negative, &Language::Norwegian);
+    assert_eq!(formatted_no, "-1,00000000");
+    let formatted_en = SmsService::format_btc_amount(amount_negative, &Language::English);
+    assert_eq!(formatted_en, "-1.00000000");
 }
 
 #[test]
@@ -292,6 +330,7 @@ fn test_sms_service_multiple_recipients() {
             wallet_id: 1,
             name: "John Doe".to_string(),
             phone_number: "+4712345678".to_string(),
+            language: Language::Norwegian,
             created_at: "2024-01-01 12:00:00".to_string(),
         },
         ContactPerson {
@@ -299,6 +338,7 @@ fn test_sms_service_multiple_recipients() {
             wallet_id: 1,
             name: "Jane Smith".to_string(),
             phone_number: "+4787654321".to_string(),
+            language: Language::Norwegian,
             created_at: "2024-01-01 12:05:00".to_string(),
         },
     ];
@@ -328,7 +368,7 @@ fn test_sms_message_templates_norwegian() {
         balance_total: Some(900_000),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
-    let send_message = SmsService::create_norwegian_message(&send_event, wallet_name);
+    let send_message = SmsService::create_localized_message(&send_event, wallet_name, &Language::Norwegian);
     assert!(send_message.contains("Sender"));
     assert!(send_message.contains("Min Wallet"));
     
@@ -344,7 +384,7 @@ fn test_sms_message_templates_norwegian() {
         balance_total: Some(1_100_000),
         created_at: "2024-01-01 12:00:00".to_string(),
     };
-    let receive_message = SmsService::create_norwegian_message(&receive_event, wallet_name);
+    let receive_message = SmsService::create_localized_message(&receive_event, wallet_name, &Language::Norwegian);
     assert!(receive_message.contains("Mottar"));
     assert!(receive_message.contains("Min Wallet"));
 }
@@ -366,6 +406,7 @@ fn test_sms_service_phone_number_validation() {
             wallet_id: 1,
             name: "Test User".to_string(),
             phone_number: number.to_string(),
+            language: Language::Norwegian,
             created_at: "2024-01-01 12:00:00".to_string(),
         };
         
@@ -428,6 +469,7 @@ fn test_sms_service_wallet_integration() {
         wallet_id: 1,
         name: "John Doe".to_string(),
         phone_number: "+4712345678".to_string(),
+        language: Language::Norwegian,
         created_at: "2024-01-01 12:00:00".to_string(),
     };
     

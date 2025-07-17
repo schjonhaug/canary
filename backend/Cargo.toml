@@ -24,6 +24,7 @@ dotenvy = "0.15"
 phonenumber = "0.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
 futures-util = "0.3"
+num-format = "0.4"
 
 [dev-dependencies]
 http-body-util = "0.1"

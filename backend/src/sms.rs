@@ -3,6 +3,7 @@ use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
 use reqwest::Client;
 use serde::Serialize;
+use num_format::{Locale, ToFormattedString};
 
 #[derive(Debug, Serialize)]
 struct TwilioSmsRequest {
@@ -32,65 +33,42 @@ impl SmsService {
         }
     }
 
-    /// Format Bitcoin amount based on language preference
+    /// Format Bitcoin amount based on language preference using num-format
     pub fn format_btc_amount(amount_sats: i64, language: &Language) -> String {
         let btc_amount = amount_sats as f64 / 100_000_000.0;
 
-        match language {
-            Language::Norwegian => Self::format_btc_amount_norwegian(btc_amount),
-            Language::English => Self::format_btc_amount_english(btc_amount),
-        }
-    }
+        // Get the appropriate locale for thousands separator
+        // num-format uses different locale codes, let's try some common ones
+        let locale = match language {
+            Language::Norwegian => Locale::fr, // French uses space as thousands separator like Norwegian
+            Language::English => Locale::en,
+        };
 
-    /// Format Bitcoin amount in Norwegian style (comma decimal, space thousands)
-    fn format_btc_amount_norwegian(btc_amount: f64) -> String {
-        if btc_amount < 1.0 {
-            // For small amounts, show all decimal places
-            format!("{:.8}", btc_amount).replace('.', ",")
-        } else {
-            // For larger amounts, format with thousands separator
-            let formatted = format!("{:.8}", btc_amount);
-            let parts: Vec<&str> = formatted.split('.').collect();
-            let integer_part = parts[0];
-            let decimal_part = parts.get(1).unwrap_or(&"00000000");
+        // For Bitcoin amounts, we always want to show 8 decimal places
+        // but num-format doesn't directly support custom decimal places for floats
+        // So we'll format the integer part and manually add the decimal part
+        let integer_part = btc_amount.trunc() as i64;
+        let decimal_part = ((btc_amount - integer_part as f64) * 100_000_000.0).round() as i64;
 
-            // Add space thousands separator
-            let mut result = String::new();
-            for (i, c) in integer_part.chars().rev().enumerate() {
-                if i > 0 && i % 3 == 0 {
-                    result.push(' ');
-                }
-                result.push(c);
+        if integer_part == 0 {
+            // For amounts less than 1 BTC, show as 0.xxxxxxxx
+            let decimal_str = format!("{:08}", decimal_part);
+            match language {
+                Language::Norwegian => format!("0,{}", decimal_str),
+                Language::English => format!("0.{}", decimal_str),
             }
-            let integer_formatted: String = result.chars().rev().collect();
-
-            format!("{},{}", integer_formatted, decimal_part)
-        }
-    }
-
-    /// Format Bitcoin amount in English style (period decimal, comma thousands)
-    fn format_btc_amount_english(btc_amount: f64) -> String {
-        if btc_amount < 1.0 {
-            // For small amounts, show all decimal places
-            format!("{:.8}", btc_amount)
         } else {
-            // For larger amounts, format with thousands separator
-            let formatted = format!("{:.8}", btc_amount);
-            let parts: Vec<&str> = formatted.split('.').collect();
-            let integer_part = parts[0];
-            let decimal_part = parts.get(1).unwrap_or(&"00000000");
-
-            // Add comma thousands separator
-            let mut result = String::new();
-            for (i, c) in integer_part.chars().rev().enumerate() {
-                if i > 0 && i % 3 == 0 {
-                    result.push(',');
-                }
-                result.push(c);
+            // For amounts >= 1 BTC, format the integer part with locale-specific thousands separator
+            let formatted_integer = integer_part.to_formatted_string(&locale);
+            let decimal_str = format!("{:08}", decimal_part);
+            match language {
+                Language::Norwegian => {
+                    // Replace any non-breaking space or other space characters with regular space
+                    let normalized = formatted_integer.replace('\u{202f}', " ").replace('\u{00a0}', " ");
+                    format!("{},{}", normalized, decimal_str)
+                },
+                Language::English => format!("{}.{}", formatted_integer, decimal_str),
             }
-            let integer_formatted: String = result.chars().rev().collect();
-
-            format!("{}.{}", integer_formatted, decimal_part)
         }
     }
 
