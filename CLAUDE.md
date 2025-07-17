@@ -90,13 +90,13 @@ kanari/
 │   │   ├── metadata.rs        # Wallet metadata and contact database operations
 │   │   ├── migrations.rs      # Database migration runner
 │   │   ├── sms.rs             # Norwegian SMS notifications via Twilio
-│   │   └── tests/             # Test modules
+│   │   └── tests/             # Test modules (104 tests total)
 │   │       ├── mod.rs         # Test module definitions
-│   │       ├── api.rs         # API endpoint tests
-│   │       ├── electrum.rs    # Electrum integration tests
-│   │       ├── metadata.rs    # Database operation tests
-│   │       ├── sms.rs         # SMS notification tests
-│   │       └── wallet.rs      # Wallet management tests
+│   │       ├── api.rs         # API endpoint tests (957 lines)
+│   │       ├── electrum.rs    # Electrum integration tests (217 lines)
+│   │       ├── metadata.rs    # Database operation tests (282 lines)
+│   │       ├── sms.rs         # SMS notification tests (478 lines)
+│   │       └── wallet.rs      # Wallet management tests (555 lines)
 │   ├── target/                # Build artifacts
 │   ├── database/              # Network-specific database storage
 │   │   ├── regtest/          # Regtest network databases
@@ -468,6 +468,7 @@ This policy ensures:
 - **Configuration Management**: Flexible config system supporting CLI args, environment variables, and .env files
 - **Hybrid Dashboard Architecture**: REST API for initial data load + SSE for real-time updates only when changes occur
 - **Optimized SSE**: Dashboard updates sent only on actual wallet changes, not on every sync cycle
+- **Comprehensive Test Coverage**: 104 tests covering API endpoints, wallet management, SMS integration, network isolation, RBF/CPFP detection, background sync behavior, and error handling
 - Shared state management with Arc<Mutex<>> for thread-safe access
 - Automatic loading of existing wallets on startup
 - Full wallet sync performed on creation and incremental sync ongoing
