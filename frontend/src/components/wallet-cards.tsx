@@ -77,8 +77,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     )
   })
 
-
-
   const handleWalletClick = (walletId: number) => {
     if (selectedWalletId === walletId) {
       onSelectWallet(null) // Deselect if already selected
@@ -118,12 +116,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     setWalletToEdit(null)
     setWalletToDelete(wallet)
     setIsDeleteModalOpen(true)
-  }
-
-
-  const handleWalletUpdated = () => {
-    // Wallet list will be updated automatically via SSE
-    setIsEditModalOpen(false)
   }
 
   if (!hasReceivedData) {
@@ -272,7 +264,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
         wallet={walletToEdit}
         isOpen={isEditModalOpen}
         onClose={handleEditModalClose}
-        onWalletUpdated={handleWalletUpdated}
         onDeleteWallet={handleDeleteFromEdit}
       />
     </div>

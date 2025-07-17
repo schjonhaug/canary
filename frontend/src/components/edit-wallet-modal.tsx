@@ -27,7 +27,6 @@ interface EditWalletModalProps {
   wallet: Wallet | null
   isOpen: boolean
   onClose: () => void
-  onWalletUpdated: () => void
   onDeleteWallet: (wallet: Wallet) => void
 }
 
@@ -35,7 +34,6 @@ export function EditWalletModal({
   wallet,
   isOpen,
   onClose,
-  onWalletUpdated,
   onDeleteWallet,
 }: EditWalletModalProps) {
   const [walletName, setWalletName] = useState("")
@@ -72,15 +70,12 @@ export function EditWalletModal({
     return 'en' // Default to English
   }
 
-  // Update language when phone number changes
   useEffect(() => {
     if (newContactPhone.trim()) {
       const detectedLanguage = detectLanguageFromPhone(newContactPhone)
       setNewContactLanguage(detectedLanguage)
     }
   }, [newContactPhone])
-
-  // Global contacts endpoint removed - contacts are now wallet-specific
 
   const fetchWalletContacts = useCallback(async (walletId: number) => {
     try {
@@ -133,8 +128,6 @@ export function EditWalletModal({
         throw new Error(`Update failed: ${response.status}`)
       }
 
-      onWalletUpdated()
-      onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update wallet")
     } finally {
@@ -155,7 +148,6 @@ export function EditWalletModal({
     setNewContactError(null)
 
     try {
-      // Validate phone number
       const phoneNumber = parsePhoneNumber(newContactPhone, 'NO')
       if (!phoneNumber || !phoneNumber.isValid()) {
         throw new Error('Invalid phone number format. Please include country code (e.g., +4712345678)')
@@ -179,7 +171,6 @@ export function EditWalletModal({
         throw new Error(errorData?.error || `HTTP error! status: ${response.status}`)
       }
 
-      // Clear form and refresh contacts
       setNewContactName('')
       setNewContactPhone('')
       setNewContactLanguage('en')
@@ -209,8 +200,6 @@ export function EditWalletModal({
       setError(err instanceof Error ? err.message : "Failed to delete contact")
     }
   }
-
-  // Helper function removed - contacts are now wallet-specific
 
   const handleClose = () => {
     if (!isUpdating && !isCreatingContact) {

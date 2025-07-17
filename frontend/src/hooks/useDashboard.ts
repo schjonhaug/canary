@@ -9,28 +9,12 @@ export function useDashboard() {
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [isUsingCache, setIsUsingCache] = useState(false);
 
   // Load initial data via REST API on mount
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // First try to load from cache
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const cachedData: CachedData = JSON.parse(cached);
-          // Only use cache if it's less than 5 minutes old
-          const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-          if (cachedData.timestamp > fiveMinutesAgo) {
-            setWallets(cachedData.wallets);
-            setEvents(cachedData.events);
-            setLastUpdate(cachedData.lastUpdate);
-            setIsUsingCache(true);
-            console.log('Loaded cached dashboard data');
-          }
-        }
-
-        // Then fetch fresh data from REST API
+        // Fetch fresh data from REST API
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
         const response = await fetch(`${baseUrl}/api/dashboard`);
         if (response.ok) {
@@ -38,7 +22,6 @@ export function useDashboard() {
           setWallets(data.wallets);
           setEvents(data.events);
           setLastUpdate(data.timestamp);
-          setIsUsingCache(false);
           console.log('Loaded initial dashboard data from API');
           
           // Cache the data
@@ -86,7 +69,6 @@ export function useDashboard() {
         setLastUpdate(update.timestamp);
         setError(null);
         setIsConnected(true);
-        setIsUsingCache(false);
         
         // Cache the data
         try {
@@ -123,6 +105,5 @@ export function useDashboard() {
     lastUpdate, 
     error, 
     isConnected,
-    isUsingCache
   };
 }

@@ -16,7 +16,7 @@ export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
-  const { wallets, events, isConnected, error, lastUpdate, isUsingCache } = useDashboard()
+  const { wallets, events, isConnected, error, lastUpdate } = useDashboard()
   const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders(
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
   )
@@ -137,11 +137,6 @@ export default function Home() {
                   </p>
                 )}
               </div>
-              {isUsingCache && (
-                <span className="text-xs bg-chart-2/20 text-chart-2 border border-chart-2/30 px-2 py-1 rounded-full">
-                  Cached Data
-                </span>
-              )}
             </div>
             {selectedWalletId && (
               <button

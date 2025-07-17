@@ -327,14 +327,21 @@ pub async fn create_wallet_contact(
     };
 
     match manager.metadata_db.insert_contact(wallet_id, &payload.name, &normalized_phone, &payload.language) {
-        Ok(contact_id) => (
-            StatusCode::CREATED,
-            Json(CreateContactResponse {
-                message: "Contact created successfully".to_string(),
-                contact_id,
-            }),
-        )
-            .into_response(),
+        Ok(contact_id) => {
+            // Send dashboard update to notify clients of contact count change
+            if let Err(e) = manager.send_dashboard_update().await {
+                eprintln!("Failed to send dashboard update after contact creation: {}", e);
+            }
+            
+            (
+                StatusCode::CREATED,
+                Json(CreateContactResponse {
+                    message: "Contact created successfully".to_string(),
+                    contact_id,
+                }),
+            )
+                .into_response()
+        }
         Err(e) => (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
@@ -366,7 +373,14 @@ pub async fn delete_wallet_contact(
 ) -> Response {
     let manager = wallet_manager.lock().await;
     match manager.metadata_db.delete_contact(contact_id) {
-        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        Ok(true) => {
+            // Send dashboard update to notify clients of contact count change
+            if let Err(e) = manager.send_dashboard_update().await {
+                eprintln!("Failed to send dashboard update after contact deletion: {}", e);
+            }
+            
+            StatusCode::NO_CONTENT.into_response()
+        }
         Ok(false) => (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
