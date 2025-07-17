@@ -1,4 +1,4 @@
-use crate::metadata::{ContactPerson, SmsLog, TwilioConfig, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate};
+use crate::metadata::{ContactPerson, Language, SmsLog, TwilioConfig, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate};
 use crate::wallet::WalletManager;
 use crate::electrum::BlockHeader;
 use axum::{
@@ -61,6 +61,9 @@ pub struct CreateContactRequest {
     /// The phone number (must include country code)
     #[schema(example = "+4712345678")]
     pub phone_number: String,
+    /// The language preference for SMS notifications
+    #[schema(example = "en")]
+    pub language: Language,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -323,7 +326,7 @@ pub async fn create_wallet_contact(
         }
     };
 
-    match manager.metadata_db.insert_contact(wallet_id, &payload.name, &normalized_phone) {
+    match manager.metadata_db.insert_contact(wallet_id, &payload.name, &normalized_phone, &payload.language) {
         Ok(contact_id) => (
             StatusCode::CREATED,
             Json(CreateContactResponse {
@@ -720,7 +723,7 @@ pub async fn get_dashboard(State(wallet_manager): State<AppState>) -> Response {
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactRequest, CreateContactResponse,
         TwilioConfigRequest, TwilioConfigResponse,
-        ContactPerson, TwilioConfig, SmsLog, TransactionEventWithWallet, EventType,
+        ContactPerson, TwilioConfig, SmsLog, TransactionEventWithWallet, EventType, Language,
         BlockHeader, DashboardUpdate
     )),
     tags(

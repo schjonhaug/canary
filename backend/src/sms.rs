@@ -1,4 +1,4 @@
-use crate::metadata::{ContactPerson, EventType, TransactionEvent, TwilioConfig};
+use crate::metadata::{ContactPerson, EventType, Language, TransactionEvent, TwilioConfig};
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
 use reqwest::Client;
@@ -32,11 +32,18 @@ impl SmsService {
         }
     }
 
-    /// Format Bitcoin amount in Norwegian style
-    pub fn format_btc_amount(amount_sats: i64) -> String {
+    /// Format Bitcoin amount based on language preference
+    pub fn format_btc_amount(amount_sats: i64, language: &Language) -> String {
         let btc_amount = amount_sats as f64 / 100_000_000.0;
 
-        // Format manually for Norwegian locale (comma as decimal separator, space as thousands separator)
+        match language {
+            Language::Norwegian => Self::format_btc_amount_norwegian(btc_amount),
+            Language::English => Self::format_btc_amount_english(btc_amount),
+        }
+    }
+
+    /// Format Bitcoin amount in Norwegian style (comma decimal, space thousands)
+    fn format_btc_amount_norwegian(btc_amount: f64) -> String {
         if btc_amount < 1.0 {
             // For small amounts, show all decimal places
             format!("{:.8}", btc_amount).replace('.', ",")
@@ -61,14 +68,52 @@ impl SmsService {
         }
     }
 
+    /// Format Bitcoin amount in English style (period decimal, comma thousands)
+    fn format_btc_amount_english(btc_amount: f64) -> String {
+        if btc_amount < 1.0 {
+            // For small amounts, show all decimal places
+            format!("{:.8}", btc_amount)
+        } else {
+            // For larger amounts, format with thousands separator
+            let formatted = format!("{:.8}", btc_amount);
+            let parts: Vec<&str> = formatted.split('.').collect();
+            let integer_part = parts[0];
+            let decimal_part = parts.get(1).unwrap_or(&"00000000");
+
+            // Add comma thousands separator
+            let mut result = String::new();
+            for (i, c) in integer_part.chars().rev().enumerate() {
+                if i > 0 && i % 3 == 0 {
+                    result.push(',');
+                }
+                result.push(c);
+            }
+            let integer_formatted: String = result.chars().rev().collect();
+
+            format!("{}.{}", integer_formatted, decimal_part)
+        }
+    }
+
+    /// Generate localized SMS message for transaction event
+    pub fn create_localized_message(
+        event: &TransactionEvent,
+        wallet_name: &str,
+        language: &Language,
+    ) -> String {
+        match language {
+            Language::Norwegian => Self::create_norwegian_message(event, wallet_name),
+            Language::English => Self::create_english_message(event, wallet_name),
+        }
+    }
+
     /// Generate Norwegian SMS message for transaction event
-    pub fn create_norwegian_message(
+    fn create_norwegian_message(
         event: &TransactionEvent,
         wallet_name: &str,
     ) -> String {
         // Always include total balance if available
         let balance_text = if let Some(balance_sats) = event.balance_total {
-            let balance_btc = Self::format_btc_amount(balance_sats);
+            let balance_btc = Self::format_btc_amount(balance_sats, &Language::Norwegian);
             format!(" Total balanse: {} BTC", balance_btc)
         } else {
             String::new()
@@ -78,29 +123,74 @@ impl SmsService {
             EventType::Send => {
                 if event.is_confirmed {
                     if event.amount_sats > 0 {
-                        let amount_btc = Self::format_btc_amount(event.amount_sats);
+                        let amount_btc = Self::format_btc_amount(event.amount_sats, &Language::Norwegian);
                         format!("✅ Sending bekreftet: {} BTC fra {}.{}", amount_btc, wallet_name, balance_text)
                     } else {
                         format!("✅ Sending bekreftet for {}.{}", wallet_name, balance_text)
                     }
                 } else if event.is_rbf {
-                    let fee_btc = Self::format_btc_amount(event.amount_sats);
+                    let fee_btc = Self::format_btc_amount(event.amount_sats, &Language::Norwegian);
                     format!("📤 RBF gebyrøkning: +{} BTC for {}.{}", fee_btc, wallet_name, balance_text)
                 } else if event.is_cpfp {
-                    let fee_btc = Self::format_btc_amount(event.amount_sats);
+                    let fee_btc = Self::format_btc_amount(event.amount_sats, &Language::Norwegian);
                     format!("🚀 CPFP gebyr: {} BTC for {}.{}", fee_btc, wallet_name, balance_text)
                 } else {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats);
+                    let amount_btc = Self::format_btc_amount(event.amount_sats, &Language::Norwegian);
                     format!("📤 Sender {} BTC fra {}.{}", amount_btc, wallet_name, balance_text)
                 }
             }
             EventType::Receive => {
                 if event.is_confirmed {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats);
+                    let amount_btc = Self::format_btc_amount(event.amount_sats, &Language::Norwegian);
                     format!("✅ Mottak bekreftet: {} BTC til {}.{}", amount_btc, wallet_name, balance_text)
                 } else {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats);
+                    let amount_btc = Self::format_btc_amount(event.amount_sats, &Language::Norwegian);
                     format!("📥 Mottar {} BTC til {}.{}", amount_btc, wallet_name, balance_text)
+                }
+            }
+        }
+    }
+
+    /// Generate English SMS message for transaction event
+    fn create_english_message(
+        event: &TransactionEvent,
+        wallet_name: &str,
+    ) -> String {
+        // Always include total balance if available
+        let balance_text = if let Some(balance_sats) = event.balance_total {
+            let balance_btc = Self::format_btc_amount(balance_sats, &Language::English);
+            format!(" Total balance: {} BTC", balance_btc)
+        } else {
+            String::new()
+        };
+
+        match event.event_type {
+            EventType::Send => {
+                if event.is_confirmed {
+                    if event.amount_sats > 0 {
+                        let amount_btc = Self::format_btc_amount(event.amount_sats, &Language::English);
+                        format!("✅ Send confirmed: {} BTC from {}.{}", amount_btc, wallet_name, balance_text)
+                    } else {
+                        format!("✅ Send confirmed for {}.{}", wallet_name, balance_text)
+                    }
+                } else if event.is_rbf {
+                    let fee_btc = Self::format_btc_amount(event.amount_sats, &Language::English);
+                    format!("📤 RBF fee increase: +{} BTC for {}.{}", fee_btc, wallet_name, balance_text)
+                } else if event.is_cpfp {
+                    let fee_btc = Self::format_btc_amount(event.amount_sats, &Language::English);
+                    format!("🚀 CPFP fee: {} BTC for {}.{}", fee_btc, wallet_name, balance_text)
+                } else {
+                    let amount_btc = Self::format_btc_amount(event.amount_sats, &Language::English);
+                    format!("📤 Sending {} BTC from {}.{}", amount_btc, wallet_name, balance_text)
+                }
+            }
+            EventType::Receive => {
+                if event.is_confirmed {
+                    let amount_btc = Self::format_btc_amount(event.amount_sats, &Language::English);
+                    format!("✅ Receive confirmed: {} BTC to {}.{}", amount_btc, wallet_name, balance_text)
+                } else {
+                    let amount_btc = Self::format_btc_amount(event.amount_sats, &Language::English);
+                    format!("📥 Receiving {} BTC to {}.{}", amount_btc, wallet_name, balance_text)
                 }
             }
         }
@@ -188,10 +278,10 @@ impl SmsService {
         contacts: Vec<ContactPerson>,
         twilio_config: &TwilioConfig,
     ) -> Vec<(ContactPerson, SmsResponse)> {
-        let message = Self::create_norwegian_message(event, wallet_name);
         let mut results = Vec::new();
 
         for contact in contacts {
+            let message = Self::create_localized_message(event, wallet_name, &contact.language);
             let response = match self.send_sms(twilio_config, &contact, &message).await {
                 Ok(response) => response,
                 Err(e) => SmsResponse {

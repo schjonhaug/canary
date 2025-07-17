@@ -29,6 +29,7 @@ const mockContacts = [
     wallet_id: 1,
     name: 'John Doe',
     phone_number: '+4792050946',
+    language: 'no' as const,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -36,6 +37,7 @@ const mockContacts = [
     wallet_id: 1,
     name: 'Jane Smith',
     phone_number: '+4722334455',
+    language: 'no' as const,
     created_at: '2024-01-01T00:00:00Z',
   },
 ]
@@ -122,6 +124,7 @@ describe('EditWalletModal - Contact Management', () => {
             wallet_id: 1,
             name: 'New Contact',
             phone_number: '+4798765432',
+            language: 'no' as const,
             created_at: '2024-01-01T00:00:00Z',
           },
         ],
@@ -159,6 +162,7 @@ describe('EditWalletModal - Contact Management', () => {
         body: JSON.stringify({
           name: 'New Contact',
           phone_number: '+4798765432',
+          language: 'no',
         }),
       })
     )
@@ -340,6 +344,7 @@ describe('EditWalletModal - Contact Management', () => {
             wallet_id: 1,
             name: 'Test Contact',
             phone_number: '+4798765432',
+            language: 'no' as const,
             created_at: '2024-01-01T00:00:00Z',
           },
         ],
@@ -391,7 +396,7 @@ describe('EditWalletModal - Contact Management', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/wallets/1/contacts')
     
     // Verify formatNumber was called
-    const { formatNumber } = require('libphonenumber-js')
+    const { formatNumber } = await import('libphonenumber-js')
     expect(formatNumber).toHaveBeenCalledWith('+4792050946', 'INTERNATIONAL')
   })
 })

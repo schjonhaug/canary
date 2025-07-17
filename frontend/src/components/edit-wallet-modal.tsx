@@ -18,6 +18,11 @@ import { Badge } from "@/components/ui/badge"
 import { formatNumber, parsePhoneNumber } from "libphonenumber-js"
 import { Wallet, Contact } from "../types"
 
+const LANGUAGES = [
+  { value: 'en', label: 'English' },
+  { value: 'no', label: 'Norwegian' },
+] as const
+
 interface EditWalletModalProps {
   wallet: Wallet | null
   isOpen: boolean
@@ -41,6 +46,7 @@ export function EditWalletModal({
   const [isCreatingContact, setIsCreatingContact] = useState(false)
   const [newContactName, setNewContactName] = useState("")
   const [newContactPhone, setNewContactPhone] = useState("")
+  const [newContactLanguage, setNewContactLanguage] = useState<'en' | 'no'>('en')
   const [newContactError, setNewContactError] = useState<string | null>(null)
 
   // Format phone number for display
@@ -52,6 +58,27 @@ export function EditWalletModal({
       return phoneNumber
     }
   }
+
+  // Detect language based on phone number
+  const detectLanguageFromPhone = (phoneNumber: string): 'en' | 'no' => {
+    try {
+      const parsed = parsePhoneNumber(phoneNumber, 'NO')
+      if (parsed && parsed.country === 'NO') {
+        return 'no'
+      }
+    } catch {
+      // If parsing fails, keep current language
+    }
+    return 'en' // Default to English
+  }
+
+  // Update language when phone number changes
+  useEffect(() => {
+    if (newContactPhone.trim()) {
+      const detectedLanguage = detectLanguageFromPhone(newContactPhone)
+      setNewContactLanguage(detectedLanguage)
+    }
+  }, [newContactPhone])
 
   // Global contacts endpoint removed - contacts are now wallet-specific
 
@@ -143,6 +170,7 @@ export function EditWalletModal({
         body: JSON.stringify({
           name: newContactName.trim(),
           phone_number: phoneNumber.format('E.164'),
+          language: newContactLanguage,
         }),
       })
 
@@ -154,6 +182,7 @@ export function EditWalletModal({
       // Clear form and refresh contacts
       setNewContactName('')
       setNewContactPhone('')
+      setNewContactLanguage('en')
       await fetchWalletContacts(wallet.id)
     } catch (err) {
       setNewContactError(err instanceof Error ? err.message : "Failed to create contact")
@@ -191,6 +220,7 @@ export function EditWalletModal({
       setWalletContacts([])
       setNewContactName('')
       setNewContactPhone('')
+      setNewContactLanguage('en')
       onClose()
     }
   }
@@ -257,7 +287,12 @@ export function EditWalletModal({
                         <div className="flex items-center gap-3">
                           <Phone className="h-4 w-4 text-green-600" />
                           <div>
-                            <p className="text-sm font-medium">{contact.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">{contact.name}</p>
+                              <Badge variant="outline" className="text-xs">
+                                {contact.language === 'no' ? 'Norwegian' : 'English'}
+                              </Badge>
+                            </div>
                             <p className="text-xs text-muted-foreground">{formatPhoneForDisplay(contact.phone_number)}</p>
                           </div>
                         </div>
@@ -299,6 +334,22 @@ export function EditWalletModal({
                               disabled={isCreatingContact}
                             />
                           </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="contact-language" className="text-xs">SMS Language</Label>
+                          <select
+                            id="contact-language"
+                            value={newContactLanguage}
+                            onChange={(e) => setNewContactLanguage(e.target.value as 'en' | 'no')}
+                            disabled={isCreatingContact}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            {LANGUAGES.map((lang) => (
+                              <option key={lang.value} value={lang.value}>
+                                {lang.label}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                         <Button
                           onClick={handleCreateContact}

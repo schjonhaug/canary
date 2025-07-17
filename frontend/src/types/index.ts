@@ -31,6 +31,7 @@ export interface Contact {
   wallet_id: number
   name: string
   phone_number: string
+  language: 'en' | 'no'
   created_at: string
 }
 

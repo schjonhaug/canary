@@ -14,11 +14,28 @@ pub enum EventType {
     Receive,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
+pub enum Language {
+    #[serde(rename = "en")]
+    English,
+    #[serde(rename = "no")]
+    Norwegian,
+}
+
 impl EventType {
     pub fn as_str(&self) -> &'static str {
         match self {
             EventType::Send => "send",
             EventType::Receive => "receive",
+        }
+    }
+}
+
+impl Language {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Language::English => "en",
+            Language::Norwegian => "no",
         }
     }
 }
@@ -29,6 +46,16 @@ impl From<&str> for EventType {
             "send" => EventType::Send,
             "receive" => EventType::Receive,
             _ => panic!("Invalid event type: {}", s),
+        }
+    }
+}
+
+impl From<&str> for Language {
+    fn from(s: &str) -> Self {
+        match s {
+            "en" => Language::English,
+            "no" => Language::Norwegian,
+            _ => panic!("Invalid language: {}", s),
         }
     }
 }
@@ -52,6 +79,7 @@ pub struct ContactPerson {
     pub wallet_id: i64,
     pub name: String,
     pub phone_number: String,
+    pub language: Language,
     pub created_at: String,
 }
 
@@ -470,12 +498,12 @@ impl MetadataDb {
     }
 
     // Contact management functions
-    pub fn insert_contact(&self, wallet_id: i64, name: &str, phone_number: &str) -> Result<i64> {
+    pub fn insert_contact(&self, wallet_id: i64, name: &str, phone_number: &str, language: &Language) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt =
-            conn.prepare("INSERT INTO contact_persons (wallet_id, name, phone_number) VALUES (?1, ?2, ?3)")?;
+            conn.prepare("INSERT INTO contact_persons (wallet_id, name, phone_number, language) VALUES (?1, ?2, ?3, ?4)")?;
 
-        stmt.execute([&wallet_id.to_string(), name, phone_number])?;
+        stmt.execute([&wallet_id.to_string(), name, phone_number, language.as_str()])?;
         Ok(conn.last_insert_rowid())
     }
 
@@ -494,18 +522,20 @@ impl MetadataDb {
     pub fn get_contacts_for_wallet(&self, wallet_id: i64) -> Result<Vec<ContactPerson>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, wallet_id, name, phone_number, created_at 
+            "SELECT id, wallet_id, name, phone_number, language, created_at 
              FROM contact_persons 
              WHERE wallet_id = ?1 ORDER BY name",
         )?;
 
         let contact_iter = stmt.query_map([wallet_id], |row| {
+            let language_str: String = row.get(4)?;
             Ok(ContactPerson {
                 id: Some(row.get(0)?),
                 wallet_id: row.get(1)?,
                 name: row.get(2)?,
                 phone_number: row.get(3)?,
-                created_at: row.get(4)?,
+                language: Language::from(language_str.as_str()),
+                created_at: row.get(5)?,
             })
         })?;
 

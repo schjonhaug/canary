@@ -33,6 +33,7 @@ CREATE TABLE contact_persons (
     wallet_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     phone_number TEXT NOT NULL,
+    language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no')),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (wallet_id) REFERENCES wallets (id) ON DELETE CASCADE
 );

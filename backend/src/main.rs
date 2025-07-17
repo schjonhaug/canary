@@ -206,9 +206,10 @@ async fn main() -> anyhow::Result<()> {
                                 // Get wallet name for message generation
                                 match manager.metadata_db.get_wallet_by_id(event.wallet_id) {
                                     Ok(Some(wallet_metadata)) => {
-                                        let message = sms::SmsService::create_norwegian_message(
+                                        let message = sms::SmsService::create_localized_message(
                                             &event,
                                             &wallet_metadata.name,
+                                            &crate::metadata::Language::Norwegian,
                                         );
                                         println!("📱 SMS Alert (no contacts): {}", message);
                                     }
@@ -300,9 +301,10 @@ async fn main() -> anyhow::Result<()> {
                                     // Get wallet name for message generation
                                     match manager.metadata_db.get_wallet_by_id(event.wallet_id) {
                                         Ok(Some(wallet_metadata)) => {
-                                            let message = sms::SmsService::create_norwegian_message(
+                                            let message = sms::SmsService::create_localized_message(
                                                 &event,
                                                 &wallet_metadata.name,
+                                                &crate::metadata::Language::Norwegian,
                                             );
                                             println!(
                                                 "📱 SMS Alert (Twilio not configured): {}",
