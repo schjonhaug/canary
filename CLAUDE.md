@@ -364,6 +364,7 @@ CANARY_METADATA_DB=metadata.sqlite
 - **Real-time Updates**: SSE stream sends updates when wallet data actually changes
 - **Change Detection**: Leverages existing wallet sync logic to detect balance and transaction changes
 - **Contact Management Integration**: Adding/deleting contacts triggers immediate dashboard updates via SSE
+- **SMS Processing Updates**: Automatic dashboard refresh after SMS processing completes to display recipient names
 - **Performance**: ~98% reduction in SSE traffic (from every 4 seconds to only on changes)
 
 ### Sync Capabilities
@@ -470,6 +471,7 @@ This policy ensures:
 - **Configuration Management**: Flexible config system supporting CLI args, environment variables, and .env files
 - **Hybrid Dashboard Architecture**: REST API for initial data load + SSE for real-time updates only when changes occur
 - **Optimized SSE**: Dashboard updates sent only on actual wallet changes, not on every sync cycle
+- **SMS Recipients Real-Time Updates**: Dual dashboard updates ensure SMS recipient data appears immediately without manual refresh
 - **Comprehensive Test Coverage**: 104 tests covering API endpoints, wallet management, SMS integration, network isolation, RBF/CPFP detection, background sync behavior, and error handling
 - Shared state management with Arc<Mutex<>> for thread-safe access
 - Automatic loading of existing wallets on startup
