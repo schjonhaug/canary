@@ -255,7 +255,7 @@ async fn main() -> anyhow::Result<()> {
                                         .await;
 
                                     // Log results to database
-                                    for (contact, sms_response) in results {
+                                    for (contact, sms_response, message_content) in results {
                                         if let Some(event_id) = event.id {
                                             if let Some(contact_id) = contact.id {
                                                 let status = if sms_response.success {
@@ -267,6 +267,7 @@ async fn main() -> anyhow::Result<()> {
                                                 if let Err(e) = manager.metadata_db.insert_sms_log(
                                                     event_id,
                                                     contact_id,
+                                                    &message_content,
                                                     status,
                                                     sms_response.twilio_sid.as_deref(),
                                                     sms_response.error_message.as_deref(),

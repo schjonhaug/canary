@@ -348,7 +348,7 @@ CANARY_METADATA_DB=metadata.sqlite
   - **🚀 CPFP**: "CPFP gebyr: 0,00001000 BTC for Min Wallet"
 - **Norwegian Number Formatting**: Comma (,) as decimal separator, space ( ) as thousands separator
 - **Multi-recipient**: Each wallet can have multiple contacts for SMS notifications
-- **Delivery Tracking**: Complete SMS logs with Twilio SIDs and delivery status
+- **Delivery Tracking**: Complete SMS logs with message content, Twilio SIDs and delivery status
 
 ### Real-Time Blockchain Integration
 - **Block Header Subscription**: Real-time monitoring of new Bitcoin blocks via Electrum protocol
@@ -399,7 +399,7 @@ CANARY_METADATA_DB=metadata.sqlite
   - `transaction_events`: Bitcoin transaction events with type-safe enums and broadcast channels
   - `contact_persons`: Wallet-specific contact information (wallet_id, name, phone_number) with CASCADE DELETE
   - `twilio_config`: Single Twilio account configuration (account SID, auth token, messaging service SID)
-  - `sms_logs`: Complete SMS delivery tracking (event ID, contact ID, Twilio SID, status, errors)
+  - `sms_logs`: Complete SMS delivery tracking (event ID, contact ID, message content, Twilio SID, status, errors)
   - `current_block_header`: Current blockchain tip (height, hash, timestamp, updated_at)
 - **Constraints**: 
   - `wallets.id` is PRIMARY KEY AUTOINCREMENT (unique wallet identifier)
@@ -464,7 +464,7 @@ This policy ensures:
 - **Twilio Integration**: Direct HTTP API calls using reqwest with proper authentication
 - **Database-Driven Config**: All settings stored in SQLite for web interface management
 - **Wallet-Specific Contacts**: Direct foreign key relationship with CASCADE DELETE for simplified contact management
-- **Complete Logging**: Every SMS attempt tracked with delivery status and Twilio SIDs
+- **Complete Logging**: Every SMS attempt tracked with full message content, delivery status and Twilio SIDs
 - **Network Isolation**: Complete database separation per Bitcoin network to prevent cross-contamination
 - **Migration System**: Automatic database schema migrations with version tracking
 - **Configuration Management**: Flexible config system supporting CLI args, environment variables, and .env files

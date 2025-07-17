@@ -52,6 +52,7 @@ CREATE TABLE sms_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id INTEGER NOT NULL,
     contact_id INTEGER NOT NULL,
+    message_content TEXT NOT NULL,
     twilio_sid TEXT,
     status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'pending')),
     error_message TEXT,

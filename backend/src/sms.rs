@@ -198,6 +198,7 @@ impl SmsService {
             contact.phone_number,
             from_number
         );
+        println!("   📄 Message Content: {}", message);
 
         let sms_request = TwilioSmsRequest {
             to: contact.phone_number.clone(),
@@ -255,21 +256,40 @@ impl SmsService {
         wallet_name: &str,
         contacts: Vec<ContactPerson>,
         twilio_config: &TwilioConfig,
-    ) -> Vec<(ContactPerson, SmsResponse)> {
+    ) -> Vec<(ContactPerson, SmsResponse, String)> {
         let mut results = Vec::new();
+
+        println!("🔔 SMS Notifications for Transaction Event:");
+        println!("   Event Type: {:?}", event.event_type);
+        println!("   Amount: {} sats", event.amount_sats);
+        println!("   Confirmed: {}", event.is_confirmed);
+        println!("   RBF: {}, CPFP: {}", event.is_rbf, event.is_cpfp);
+        println!("   Wallet: {}", wallet_name);
+        println!("   Contacts: {}", contacts.len());
 
         for contact in contacts {
             let message = Self::create_localized_message(event, wallet_name, &contact.language);
+            
+            println!("📱 SMS to {} ({}): Language: {:?}", 
+                contact.name, contact.phone_number, contact.language);
+            println!("   Message: {}", message);
+            
             let response = match self.send_sms(twilio_config, &contact, &message).await {
-                Ok(response) => response,
-                Err(e) => SmsResponse {
-                    success: false,
-                    twilio_sid: None,
-                    error_message: Some(e.to_string()),
+                Ok(response) => {
+                    println!("   ✅ SMS sent successfully");
+                    response
+                },
+                Err(e) => {
+                    println!("   ❌ SMS failed: {}", e);
+                    SmsResponse {
+                        success: false,
+                        twilio_sid: None,
+                        error_message: Some(e.to_string()),
+                    }
                 },
             };
 
-            results.push((contact, response));
+            results.push((contact, response, message));
         }
 
         results

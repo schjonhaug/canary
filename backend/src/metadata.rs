@@ -594,18 +594,20 @@ impl MetadataDb {
         &self,
         event_id: i64,
         contact_id: i64,
+        message_content: &str,
         status: &str,
         twilio_sid: Option<&str>,
         error_message: Option<&str>,
     ) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "INSERT INTO sms_logs (event_id, contact_id, status, twilio_sid, error_message) VALUES (?1, ?2, ?3, ?4, ?5)"
+            "INSERT INTO sms_logs (event_id, contact_id, message_content, status, twilio_sid, error_message) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
         )?;
 
         stmt.execute([
             &event_id.to_string(),
             &contact_id.to_string(),
+            message_content,
             status,
             &twilio_sid.unwrap_or(""),
             &error_message.unwrap_or(""),
