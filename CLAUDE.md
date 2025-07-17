@@ -232,6 +232,7 @@ kanari/
   - Phone number validation with Norwegian locale support using libphonenumber-js
   - Returns 201 (created) with contact ID and metadata
   - Returns 404 if wallet not found, 400 for invalid phone number
+  - **Triggers dashboard SSE update** to immediately reflect contact count changes
 - `GET /api/wallets/{id}/contacts`: Get all contacts for a specific wallet
   - Returns array of contact objects for the specified wallet, ordered by name
   - Each contact includes wallet_id, name, phone_number, and created_at
@@ -240,6 +241,7 @@ kanari/
   - Completely removes the contact and stops SMS notifications
   - Returns 204 (no content) on success, 404 if contact not found
   - Automatic CASCADE deletion: contact is deleted when wallet is deleted
+  - **Triggers dashboard SSE update** to immediately reflect contact count changes
 
 ### Configuration
 - `POST /api/twilio/config`: Configure Twilio SMS settings
@@ -359,10 +361,10 @@ KANARI_METADATA_DB=metadata.sqlite
 ### Optimized Dashboard Data Flow
 - **Hybrid REST + SSE Architecture**: Eliminates loading states and reduces network traffic
 - **Initial Load**: REST endpoint (`GET /api/dashboard`) provides immediate data on page load
-- **Real-time Updates**: SSE stream only sends updates when wallet data actually changes
+- **Real-time Updates**: SSE stream sends updates when wallet data actually changes
 - **Change Detection**: Leverages existing wallet sync logic to detect balance and transaction changes
+- **Contact Management Integration**: Adding/deleting contacts triggers immediate dashboard updates via SSE
 - **Performance**: ~98% reduction in SSE traffic (from every 4 seconds to only on changes)
-- **Frontend Caching**: LocalStorage cache with 5-minute TTL for offline capability
 
 ### Sync Capabilities
 - **Full Scan**: Initial comprehensive sync with address revelation (up to 50 addresses)
