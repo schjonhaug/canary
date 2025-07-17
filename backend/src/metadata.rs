@@ -264,12 +264,13 @@ impl MetadataDb {
     pub fn get_wallet_by_descriptor(&self, descriptor: &str) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity, 
+            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                    (SELECT MAX(te.created_at) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                     COUNT(c.id) as contact_count
              FROM wallets w 
              LEFT JOIN contact_persons c ON w.id = c.wallet_id 
              WHERE w.descriptor = ?1 
-             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity"
+             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total"
         )?;
 
         match stmt.query_row([descriptor], |row| {
@@ -294,12 +295,13 @@ impl MetadataDb {
     pub fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity, 
+            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                    (SELECT MAX(te.created_at) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                     COUNT(c.id) as contact_count
              FROM wallets w 
              LEFT JOIN contact_persons c ON w.id = c.wallet_id 
              WHERE w.id = ?1 
-             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity",
+             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
         )?;
 
         match stmt.query_row([id], |row| {
@@ -324,11 +326,12 @@ impl MetadataDb {
     pub fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity, 
+            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                    (SELECT MAX(te.created_at) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                     COUNT(c.id) as contact_count
              FROM wallets w 
              LEFT JOIN contact_persons c ON w.id = c.wallet_id 
-             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, w.last_activity 
+             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
              ORDER BY w.created_at DESC"
         )?;
 
@@ -582,7 +585,7 @@ impl MetadataDb {
 
     pub fn update_wallet_balance(&self, wallet_id: i64, balance_total: i64) -> Result<()> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare("UPDATE wallets SET balance_total = ?1, last_activity = CURRENT_TIMESTAMP WHERE id = ?2")?;
+        let mut stmt = conn.prepare("UPDATE wallets SET balance_total = ?1 WHERE id = ?2")?;
         stmt.execute([balance_total, wallet_id])?;
         Ok(())
     }
