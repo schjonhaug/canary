@@ -3,7 +3,7 @@
 This file contains project-specific information and preferences for Claude Code.
 
 ## Project Overview
-Kanari is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). The service supports multipath output descriptors, syncs with Electrum servers, includes advanced transaction analysis capabilities with automatic background synchronization, and real-time SMS notifications in Norwegian for all Bitcoin transaction events.
 
 ## Development Commands
 
@@ -79,7 +79,7 @@ cd regtest-env && ./docker-utils.sh get-mempool-txid 0          # Get mempool TX
 
 ## Project Structure
 ```
-kanari/
+canary/
 ├── backend/                    # Rust backend service
 │   ├── src/
 │   │   ├── main.rs            # Application entry point with background sync and SMS worker
@@ -133,8 +133,8 @@ kanari/
 │   │       └── index.ts       # Shared type definitions
 │   ├── public/                # Static assets
 │   │   └── images/            # Image assets
-│   │       ├── canary.svg     # Canary icon (used for wallet icons)
-│   │       └── kanari.svg     # Kanari logo
+│   │       ├── canary.svg     # Canary logo (also used for wallet icons)
+│   │       └── canary-in-a-coalmine.svg     # Canary in a coalmine logo
 │   ├── package.json           # Node.js dependencies
 │   ├── next.config.ts         # Next.js configuration
 │   ├── tailwind.config.ts     # Tailwind CSS configuration
@@ -267,7 +267,7 @@ The following bulk data endpoints have been **removed** and replaced with real-t
 - ~~`GET /api/transaction-events/{id}/sms-recipients`~~ → SMS data included in dashboard stream
 
 ## Network Configuration
-Kanari supports multiple Bitcoin networks with configurable Electrum servers and network-specific database storage:
+Canary supports multiple Bitcoin networks with configurable Electrum servers and network-specific database storage:
 
 ### Supported Networks
 - **Regtest** (default): For development and testing
@@ -293,11 +293,11 @@ cargo run -- --bind-address 0.0.0.0:8080 --wallet-dir /custom/wallets --metadata
 #### Environment Variables
 ```bash
 # Network configuration
-export KANARI_NETWORK=mainnet
-export KANARI_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
-export KANARI_BIND_ADDRESS=0.0.0.0:3000
-export KANARI_WALLET_DIR=/app/wallets
-export KANARI_METADATA_DB=/app/metadata.sqlite
+export CANARY_NETWORK=mainnet
+export CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
+export CANARY_BIND_ADDRESS=0.0.0.0:3000
+export CANARY_WALLET_DIR=/app/wallets
+export CANARY_METADATA_DB=/app/metadata.sqlite
 
 # Run with environment configuration
 cargo run
@@ -306,11 +306,11 @@ cargo run
 #### Environment File (.env)
 Create a `.env` file in the backend directory:
 ```env
-KANARI_NETWORK=mainnet
-KANARI_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
-KANARI_BIND_ADDRESS=127.0.0.1:3000
-KANARI_WALLET_DIR=./wallets
-KANARI_METADATA_DB=metadata.sqlite
+CANARY_NETWORK=mainnet
+CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
+CANARY_BIND_ADDRESS=127.0.0.1:3000
+CANARY_WALLET_DIR=./wallets
+CANARY_METADATA_DB=metadata.sqlite
 ```
 
 ### Default Electrum Servers

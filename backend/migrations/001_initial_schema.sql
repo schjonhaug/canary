@@ -1,4 +1,4 @@
--- Kanari Bitcoin Wallet Management Database Schema
+-- Canary Bitcoin Wallet Management Database Schema
 -- This is the complete initial schema that replaces all incremental migrations
 
 -- Wallets table: Core wallet metadata with balance tracking

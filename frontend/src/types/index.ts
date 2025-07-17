@@ -1,4 +1,4 @@
-// Shared type definitions for the Kanari frontend application
+// Shared type definitions for the Canary frontend application
 
 export interface Wallet {
   id: number

@@ -562,7 +562,7 @@ reorg() {
 run_tests() {
     local WALLET_ADDRESS=${1:-}
     
-    echo "🧪 Kanari - Comprehensive Bitcoin Test Suite"
+    echo "🧪 Canary - Comprehensive Bitcoin Test Suite"
     echo "=========================================="
     
     if [ -z "$WALLET_ADDRESS" ]; then
@@ -1475,8 +1475,8 @@ case "$1" in
         echo "🗑️  Wiping SQLite database..."
         
         # Remove SQLite metadata database
-        if [ -f "../backend/kanari.sqlite" ]; then
-            rm -f ../backend/kanari.sqlite
+        if [ -f "../backend/canary.sqlite" ]; then
+            rm -f ../backend/canary.sqlite
             echo "✅ SQLite metadata database removed"
             echo "💡 The database will be recreated when the backend starts"
         else

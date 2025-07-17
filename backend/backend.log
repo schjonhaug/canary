@@ -15,10 +15,10 @@ warning: methods `get_events_by_wallet`, `get_all_events`, and `get_sms_logs_by_
     |
     = note: `#[warn(dead_code)]` on by default
 
-warning: `kanari` (bin "kanari") generated 1 warning
+warning: `canary` (bin "canary") generated 1 warning
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
-     Running `target/debug/kanari`
-Starting Kanari with configuration:
+     Running `target/debug/canary`
+Starting Canary with configuration:
   Network: Regtest
   Electrum URL: tcp://127.0.0.1:50001
   Bind address: 127.0.0.1:3000

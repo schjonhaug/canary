@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the binary from builder stage
-COPY --from=builder /app/target/release/kanari /app/kanari
+COPY --from=builder /app/target/release/canary /app/canary
 
 # Copy migrations
 COPY --from=builder /app/migrations /app/migrations
@@ -44,4 +44,4 @@ RUN mkdir -p /app/data
 EXPOSE 3000
 
 # Run the application
-CMD ["./kanari"]
+CMD ["./canary"]

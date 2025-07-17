@@ -134,7 +134,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
           </p>
         ) : (
           <Table>
-            <TableCaption>A list of all transaction events from the Kanari system.</TableCaption>
+            <TableCaption>A list of all transaction events from the Canary system.</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>Date/Time</TableHead>

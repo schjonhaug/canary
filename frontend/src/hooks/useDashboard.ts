@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Wallet, TransactionEvent, DashboardUpdate, CachedData } from '../types';
 
-const CACHE_KEY = 'kanari-dashboard-cache';
+const CACHE_KEY = 'canary-dashboard-cache';
 
 export function useDashboard() {
   const [wallets, setWallets] = useState<Wallet[]>([]);

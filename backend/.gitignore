@@ -13,7 +13,7 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
-# Kanari database files
+# Canary database files
 database/
 wallets/
 *.sqlite

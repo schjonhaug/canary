@@ -749,7 +749,7 @@ pub async fn get_dashboard(State(wallet_manager): State<AppState>) -> Response {
         (name = "dashboard", description = "Dashboard real-time updates endpoints")
     ),
     info(
-        title = "Kanari Wallet API",
+        title = "Canary Wallet API",
         version = "0.1.0",
         description = "REST API for creating Bitcoin wallets from multipath descriptors",
     )

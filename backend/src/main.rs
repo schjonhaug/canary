@@ -23,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
     // Load configuration
     let config = AppConfig::load()?;
 
-    println!("Starting Kanari with configuration:");
+    println!("Starting Canary with configuration:");
     println!("  Network: {:?}", config.network);
     println!("  Electrum URL: {}", config.electrum_url());
     println!("  Bind address: {}", config.bind_address);

@@ -193,19 +193,19 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Image
-              src="/images/kanari.svg"
-              alt="Kanari Logo"
+              src="/images/canary-in-a-coalmine.svg"
+              alt="Canary Logo"
               width={48}
               height={48}
               className="h-12 w-12"
             />
             <div>
-              <h3 className="text-lg font-bold uppercase tracking-wide">KANARI</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide">CANARY</h3>
               <p className="text-muted-foreground text-sm">Bitcoin Wallet Alert System</p>
             </div>
           </div>
           <a 
-            href="https://github.com/schjonhaug/kanari" 
+            href="https://github.com/schjonhaug/canary" 
             target="_blank" 
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-accent transition-colors flex items-center gap-2"
