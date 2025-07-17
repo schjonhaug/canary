@@ -243,7 +243,7 @@ export function EditWalletModal({
                 <CardContent>
                   <div className="space-y-3">
                     {walletContacts.map((contact) => (
-                      <div key={contact.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                      <div key={contact.id} data-testid="contact-item" className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                         <div className="flex items-center gap-3">
                           <Phone className="h-4 w-4 text-green-600" />
                           <div>
