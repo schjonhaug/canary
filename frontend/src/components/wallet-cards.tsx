@@ -189,7 +189,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     <div className="space-y-4">
       {/* Individual Wallet Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {wallets.map((wallet) => {
+        {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
           const isSelected = selectedWalletId === wallet.id
           return (
             <Card 
