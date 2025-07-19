@@ -196,11 +196,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                             className="inline-flex items-center gap-1"
                             title={recipient.error_message || `SMS ${recipient.status}`}
                           >
-                            <span>
-                              {recipient.status === 'sent' ? '✅' : 
-                               recipient.status === 'failed' ? '❌' : 
-                               '⏳'}
-                            </span>
+                            {recipient.status === 'failed' && <span>❌</span>}
                             <span>{recipient.name}</span>
                             {index < event.sms_recipients_status.length - 1 && <span>,</span>}
                           </span>

@@ -14,7 +14,7 @@ export interface Wallet {
 
 export interface SmsRecipientStatus {
   name: string
-  status: string // "sent", "failed", "pending"
+  status: string // "sent", "failed"
   error_message?: string
 }
 

@@ -25,7 +25,7 @@ pub enum Language {
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct SmsRecipientStatus {
     pub name: String,
-    pub status: String, // "sent", "failed", "pending"
+    pub status: String, // "sent", "failed"
     pub error_message: Option<String>,
 }
 
