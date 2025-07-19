@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Edit, Users } from "lucide-react"
+import { Edit, Users, Filter } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { EditWalletModal } from "./edit-wallet-modal"
 import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount, formatDate } from "@/lib/utils"
@@ -77,7 +77,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     )
   })
 
-  const handleWalletClick = (walletId: number) => {
+  const handleFilterClick = (walletId: number) => {
     if (selectedWalletId === walletId) {
       onSelectWallet(null) // Deselect if already selected
     } else {
@@ -85,8 +85,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     }
   }
 
-  const handleEditClick = (wallet: Wallet, event: React.MouseEvent) => {
-    event.stopPropagation() // Prevent wallet selection when clicking edit
+  const handleEditClick = (wallet: Wallet) => {
     setWalletToEdit(wallet)
     setIsEditModalOpen(true)
   }
@@ -195,33 +194,45 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
           return (
             <Card 
               key={wallet.id} 
-              className={`cursor-pointer transition-all duration-200 ${
+              className={`transition-all duration-200 ${
                 isSelected 
                   ? "ring-2 ring-accent bg-accent/5 shadow-lg" 
                   : "hover:shadow-md hover:bg-muted/50"
               }`}
-              onClick={() => handleWalletClick(wallet.id)}
             >
               <CardHeader className="pb-3 relative">
                 <div className="flex items-center gap-2">
                   <WalletIcon wallet={wallet} />
-                  <CardTitle className="text-lg truncate pr-16" title={wallet.name}>
+                  <CardTitle className="text-lg truncate pr-20" title={wallet.name}>
                     {wallet.name}
                   </CardTitle>
                 </div>
-                <div className="absolute top-2 right-2 flex items-center gap-2">
+                <div className="absolute top-2 right-2 flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`h-8 w-8 p-0 transition-colors ${
+                      isSelected 
+                        ? "bg-accent/20 text-accent hover:bg-accent/30" 
+                        : "hover:bg-accent/10 hover:text-accent"
+                    }`}
+                    onClick={() => handleFilterClick(wallet.id)}
+                    title={isSelected ? "Remove filter" : "Filter transactions"}
+                  >
+                    <Filter className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0 hover:bg-accent/10 hover:text-accent"
-                    onClick={(e) => handleEditClick(wallet, e)}
+                    onClick={() => handleEditClick(wallet)}
                     title="Edit wallet"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>
                 <CardDescription className="text-xs text-muted-foreground">
-                  Click to {isSelected ? 'deselect' : 'view transactions'}
+                  {isSelected ? 'Filtering transactions below' : 'Use filter icon to view transactions'}
                 </CardDescription>
               </CardHeader>
               <CardContent>

@@ -138,14 +138,6 @@ export default function Home() {
                 )}
               </div>
             </div>
-            {selectedWalletId && (
-              <button
-                onClick={() => setSelectedWalletId(null)}
-                className="text-sm text-muted-foreground hover:text-foreground underline"
-              >
-                Clear selection
-              </button>
-            )}
           </div>
           <WalletCards 
             selectedWalletId={selectedWalletId}
