@@ -961,5 +961,5 @@ async fn test_openapi_spec_endpoint() {
 
     // Verify it's a valid OpenAPI spec
     assert_eq!(body["info"]["title"], "Canary Wallet API");
-    assert_eq!(body["info"]["version"], "0.1.0");
+    assert_eq!(body["info"]["version"], "0.2.0");
 }

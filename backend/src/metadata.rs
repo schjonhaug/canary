@@ -148,6 +148,7 @@ pub struct EventInsert {
     pub is_rbf: bool,
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
+    pub txid: Option<String>,
 }
 
 impl Default for EventType {
@@ -417,8 +418,8 @@ impl MetadataDb {
     pub fn insert_event(&self, event: &EventInsert) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+            "INSERT OR IGNORE INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, txid) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
         )?;
 
         stmt.execute([
@@ -432,6 +433,7 @@ impl MetadataDb {
                 .balance_total
                 .map(|v| v.to_string())
                 .unwrap_or_default(),
+            &event.txid.as_deref().unwrap_or(""),
         ])?;
         Ok(conn.last_insert_rowid())
     }

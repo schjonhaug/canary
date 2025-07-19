@@ -23,6 +23,7 @@ CREATE TABLE transaction_events (
     is_rbf BOOLEAN DEFAULT FALSE,
     is_cpfp BOOLEAN DEFAULT FALSE,
     balance_total INTEGER,
+    txid TEXT UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (wallet_id) REFERENCES wallets (id)
 );

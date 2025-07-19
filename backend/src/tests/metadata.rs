@@ -181,6 +181,7 @@ fn test_event_operations() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1000000),
+        txid: Some("test_txid_1".to_string()),
     };
 
     let event_id = db.insert_event(&event).unwrap();
@@ -212,12 +213,13 @@ fn test_sms_log_operations() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1000000),
+        txid: Some("test_txid_2".to_string()),
     };
     let event_id = db.insert_event(&event).unwrap();
 
     // Test insert SMS log
     let log_id = db
-        .insert_sms_log(event_id, contact_id, "sent", Some("test_sid"), None)
+        .insert_sms_log(event_id, contact_id, "Test message", "sent", Some("test_sid"), None)
         .unwrap();
     assert_eq!(log_id, 1);
 

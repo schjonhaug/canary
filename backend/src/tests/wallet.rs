@@ -118,6 +118,7 @@ fn test_insert_and_broadcast_event_helper() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1000000),
+        txid: Some("test_txid".to_string()),
     };
 
     // Test the helper function
@@ -200,6 +201,7 @@ fn test_event_insert_creation() {
         is_rbf: true,
         is_cpfp: false,
         balance_total: None,
+        txid: Some("test_rbf_txid".to_string()),
     };
 
     assert_eq!(event_insert.wallet_id, 1);
@@ -287,6 +289,7 @@ fn test_rbf_transaction_detection() {
         is_rbf: true,
         is_cpfp: false,
         balance_total: Some(950000),
+        txid: Some("rbf_txid".to_string()),
     };
 
     assert_eq!(rbf_event_insert.wallet_id, 1);
@@ -309,6 +312,7 @@ fn test_cpfp_transaction_detection() {
         is_rbf: false,
         is_cpfp: true,
         balance_total: Some(975000),
+        txid: Some("cpfp_txid".to_string()),
     };
 
     assert_eq!(cpfp_event_insert.wallet_id, 1);
@@ -361,6 +365,7 @@ fn test_rbf_vs_cpfp_transaction_differences() {
         is_rbf: true,
         is_cpfp: false,
         balance_total: Some(900000),
+        txid: Some("rbf_tx_id".to_string()),
     };
 
     let cpfp_transaction = EventInsert {
@@ -371,6 +376,7 @@ fn test_rbf_vs_cpfp_transaction_differences() {
         is_rbf: false,
         is_cpfp: true,
         balance_total: Some(890000),
+        txid: Some("cpfp_tx_id".to_string()),
     };
 
     // RBF: Replace existing transaction with higher fee

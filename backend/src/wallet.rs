@@ -97,6 +97,100 @@ impl WalletManager {
         Ok(())
     }
 
+    /// Helper function to insert historical event without broadcasting (no SMS notifications)
+    pub fn insert_historical_event_helper(
+        metadata_db: &MetadataDb,
+        event_insert: &EventInsert,
+    ) -> Result<()> {
+        // Insert to database only, no broadcasting for historical events
+        metadata_db.insert_event(event_insert)?;
+        Ok(())
+    }
+
+    /// Extract and process all historical transactions from a wallet
+    pub fn extract_historical_transactions(
+        &self,
+        wallet: &PersistedWallet<Connection>,
+        wallet_id: i64,
+    ) -> Result<()> {
+        println!("Extracting historical transactions for wallet ID: {}", wallet_id);
+
+        // Collect all transactions and sort them chronologically
+        let mut all_transactions: Vec<_> = wallet.transactions().collect();
+        
+        // Sort transactions chronologically
+        all_transactions.sort_by(|a, b| {
+            match (&a.chain_position, &b.chain_position) {
+                // Both confirmed: sort by block height
+                (bdk_wallet::chain::ChainPosition::Confirmed { anchor: anchor_a, .. }, 
+                 bdk_wallet::chain::ChainPosition::Confirmed { anchor: anchor_b, .. }) => {
+                    anchor_a.block_id.height.cmp(&anchor_b.block_id.height)
+                },
+                // Both unconfirmed: sort by first_seen timestamp if available
+                (bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen: first_a, .. }, 
+                 bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen: first_b, .. }) => {
+                    first_a.unwrap_or(0).cmp(&first_b.unwrap_or(0))
+                },
+                // Confirmed comes before unconfirmed
+                (bdk_wallet::chain::ChainPosition::Confirmed { .. }, 
+                 bdk_wallet::chain::ChainPosition::Unconfirmed { .. }) => std::cmp::Ordering::Less,
+                // Unconfirmed comes after confirmed
+                (bdk_wallet::chain::ChainPosition::Unconfirmed { .. }, 
+                 bdk_wallet::chain::ChainPosition::Confirmed { .. }) => std::cmp::Ordering::Greater,
+            }
+        });
+
+        println!("Found {} historical transactions to process", all_transactions.len());
+
+        // Process each transaction chronologically
+        for tx in all_transactions {
+            let txid = tx.tx_node.txid.to_string();
+            let sent = wallet.sent_and_received(&tx.tx_node).0;
+            let received = wallet.sent_and_received(&tx.tx_node).1;
+            let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+            let is_confirmed = tx.chain_position.is_confirmed();
+
+            // Skip transactions with zero net amount (likely internal or dust)
+            if net_amount == 0 {
+                continue;
+            }
+
+            let (event_type, amount_sats) = if net_amount > 0 {
+                // Receiving transaction
+                (EventType::Receive, net_amount)
+            } else {
+                // Sending transaction - use absolute value
+                (EventType::Send, net_amount.abs())
+            };
+
+            // Create historical event (no RBF/CPFP analysis for simplicity in historical data)
+            let event_insert = EventInsert {
+                wallet_id,
+                event_type: event_type.clone(),
+                amount_sats,
+                is_confirmed,
+                is_rbf: false,
+                is_cpfp: false,
+                balance_total: None, // Historical balance reconstruction would be complex
+                txid: Some(txid.clone()),
+            };
+
+            // Insert historical event (no SMS broadcasting)
+            if let Err(e) = Self::insert_historical_event_helper(&self.metadata_db, &event_insert) {
+                eprintln!("Failed to insert historical event for txid {}: {}", txid, e);
+            } else {
+                println!("  ✅ Processed {}: {} {:.8} BTC", 
+                    if event_type == EventType::Receive { "Receive" } else { "Send" },
+                    if is_confirmed { "Confirmed" } else { "Unconfirmed" },
+                    amount_sats as f64 / 100_000_000.0
+                );
+            }
+        }
+
+        println!("Historical transaction extraction completed");
+        Ok(())
+    }
+
     /// Create or load a SQLite connection for a wallet
     pub fn create_sqlite_connection(&self, wallet_path: &PathBuf) -> Result<Connection> {
         let conn = Connection::open(wallet_path)
@@ -284,7 +378,14 @@ impl WalletManager {
             .insert_wallet(name, descriptor_str, &wallet_filename_with_ext)?;
         println!("  Metadata saved to file: {}", wallet_filename_with_ext);
 
-        // Set initial balance in metadata database (after full scan)
+        // Extract historical transactions BEFORE enabling real-time tracking
+        // This ensures chronological order: historical events → real-time events
+        println!("  Extracting historical transactions...");
+        if let Err(e) = self.extract_historical_transactions(&wallet, wallet_id) {
+            eprintln!("Warning: Failed to extract historical transactions: {}", e);
+        }
+
+        // Set initial balance in metadata database (after full scan and historical extraction)
         let initial_balance = wallet.balance().total().to_sat() as i64;
         let initial_balance_btc = initial_balance as f64 / 100_000_000.0;
         println!("  Initial balance: {:.8} BTC ({} sats)", initial_balance_btc, initial_balance);
@@ -565,6 +666,7 @@ impl WalletManager {
                                         amount_sats: fee_paid as i64,
                                         is_cpfp: true,
                                         balance_total: Some(total_after.to_sat() as i64),
+                                        txid: None, // Real-time CPFP event
                                         ..Default::default()
                                     },
                                 ) {
@@ -604,6 +706,7 @@ impl WalletManager {
                                         amount_sats: fee_increase as i64,
                                         is_rbf: true,
                                         balance_total: Some(total_after.to_sat() as i64),
+                                        txid: None, // Real-time RBF event
                                         ..Default::default()
                                     },
                                 ) {
@@ -632,6 +735,7 @@ impl WalletManager {
                                             event_type: EventType::Send,
                                             amount_sats: sending_amount as i64,
                                             balance_total: Some(total_after.to_sat() as i64),
+                                            txid: None, // Real-time send event
                                             ..Default::default()
                                         },
                                     ) {
@@ -659,6 +763,7 @@ impl WalletManager {
                                             event_type: EventType::Send,
                                             amount_sats: total_spent as i64,
                                             balance_total: Some(total_after.to_sat() as i64),
+                                            txid: None, // Real-time send event
                                             ..Default::default()
                                         },
                                     ) {
@@ -712,6 +817,7 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: sending_amount as i64,
                                         balance_total: Some(total_after.to_sat() as i64),
+                                        txid: None, // Real-time send event
                                         ..Default::default()
                                     },
                                 ) {
@@ -742,6 +848,7 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: total_spent as i64,
                                         balance_total: Some(total_after.to_sat() as i64),
+                                        txid: None, // Real-time send event
                                         ..Default::default()
                                     },
                                 ) {
@@ -768,6 +875,7 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: trusted_spent as i64,
                                         balance_total: Some(total_after.to_sat() as i64),
+                                        txid: None, // Real-time send event
                                         ..Default::default()
                                     },
                                 ) {
@@ -799,6 +907,7 @@ impl WalletManager {
                                     event_type: EventType::Receive,
                                     amount_sats: receiving_amount as i64,
                                     balance_total: Some(total_after.to_sat() as i64),
+                                    txid: None, // Real-time receive event
                                     ..Default::default()
                                 },
                             ) {
@@ -832,6 +941,7 @@ impl WalletManager {
                                         amount_sats: total_confirmed_send_amount,
                                         is_confirmed: true,
                                         balance_total: Some(total_after.to_sat() as i64),
+                                        txid: None, // Real-time send confirmation
                                         ..Default::default()
                                     },
                                 ) {
@@ -852,6 +962,7 @@ impl WalletManager {
                                         amount_sats: 0,
                                         is_confirmed: true,
                                         balance_total: Some(total_after.to_sat() as i64),
+                                        txid: None, // Real-time send confirmation fallback
                                         ..Default::default()
                                     },
                                 ) {
@@ -886,6 +997,7 @@ impl WalletManager {
                                     amount_sats: confirmed_amount as i64,
                                     is_confirmed: true,
                                     balance_total: Some(total_after.to_sat() as i64),
+                                    txid: None, // Real-time receive confirmation
                                     ..Default::default()
                                 },
                             ) {

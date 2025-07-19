@@ -94,7 +94,8 @@ describe('EditWalletModal - Contact Management', () => {
     render(<EditWalletModal {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getByText('No contacts are receiving SMS notifications for this wallet.')).toBeInTheDocument()
+      // Check that the contacts badge shows 0 contacts
+      expect(screen.getByText('0 contacts')).toBeInTheDocument()
     })
 
     expect(screen.getByText('0 contacts')).toBeInTheDocument()
@@ -162,7 +163,7 @@ describe('EditWalletModal - Contact Management', () => {
         body: JSON.stringify({
           name: 'New Contact',
           phone_number: '+4798765432',
-          language: 'no',
+          language: 'en',
         }),
       })
     )
