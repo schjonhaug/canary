@@ -142,6 +142,9 @@ impl WalletManager {
 
         println!("Found {} historical transactions to process", all_transactions.len());
 
+        // Track running balance for historical reconstruction
+        let mut running_balance: i64 = 0;
+
         // Process each transaction chronologically
         for tx in all_transactions {
             let sent = wallet.sent_and_received(&tx.tx_node).0;
@@ -154,6 +157,9 @@ impl WalletManager {
                 continue;
             }
 
+            // Update running balance
+            running_balance += net_amount;
+
             let (event_type, amount_sats) = if net_amount > 0 {
                 // Receiving transaction
                 (EventType::Receive, net_amount)
@@ -162,7 +168,7 @@ impl WalletManager {
                 (EventType::Send, net_amount.abs())
             };
 
-            // Create historical event (no RBF/CPFP analysis for simplicity in historical data)
+            // Create historical event with balance_total
             let event_insert = EventInsert {
                 wallet_id,
                 event_type: event_type.clone(),
@@ -170,17 +176,18 @@ impl WalletManager {
                 is_confirmed,
                 is_rbf: false,
                 is_cpfp: false,
-                balance_total: None, // Historical balance reconstruction would be complex
+                balance_total: Some(running_balance),
             };
 
             // Insert historical event (no SMS broadcasting)
             if let Err(e) = Self::insert_historical_event_helper(&self.metadata_db, &event_insert) {
                 eprintln!("Failed to insert historical event: {}", e);
             } else {
-                println!("  ✅ Processed {}: {} {:.8} BTC", 
+                println!("  ✅ Processed {}: {} {:.8} BTC (Balance: {:.8} BTC)", 
                     if event_type == EventType::Receive { "Receive" } else { "Send" },
                     if is_confirmed { "Confirmed" } else { "Unconfirmed" },
-                    amount_sats as f64 / 100_000_000.0
+                    amount_sats as f64 / 100_000_000.0,
+                    running_balance as f64 / 100_000_000.0
                 );
             }
         }
