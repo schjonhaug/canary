@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, Clock, RefreshCw, Zap } from "lucide-react"
+import { CheckCircle, Clock, HandCoins, Baby } from "lucide-react"
 import { TransactionEvent } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
@@ -168,17 +168,19 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                           ? (event.event_type === "receive" ? "Received" : "Sent")
                           : (event.event_type === "receive" ? "Receiving" : "Sending")
                         }
-                        {event.is_rbf && (
-                          <span title="Replace-By-Fee (RBF)">
-                            <RefreshCw className="h-2 w-2 ml-1" />
-                          </span>
-                        )}
-                        {event.is_cpfp && (
-                          <span title="Child-Pays-For-Parent (CPFP)">
-                            <Zap className="h-2 w-2 ml-1" />
-                          </span>
-                        )}
+                       
+                        
                       </Badge>
+                      {event.is_cpfp && (
+                          <span title="Child-Pays-For-Parent (CPFP)">
+                            <Baby className="h-2 w-2 ml-1" />
+                          </span>
+                        )}
+                      {event.is_rbf && (
+                          <span title="Replace-By-Fee (RBF)">
+                            <HandCoins className="h-4 w-4 ml-1" />
+                          </span>
+                        )}
                     </div>
                   </TableCell>
                   <TableCell className="font-mono">
