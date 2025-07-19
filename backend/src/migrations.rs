@@ -11,6 +11,9 @@ impl MigrationRunner {
     pub fn new(db_path: &str) -> SqliteResult<Self> {
         let conn = Connection::open(db_path)?;
         
+        // Enable foreign key constraints
+        conn.execute("PRAGMA foreign_keys = ON", [])?;
+        
         // Create migrations table to track applied migrations
         conn.execute(
             "CREATE TABLE IF NOT EXISTS schema_migrations (

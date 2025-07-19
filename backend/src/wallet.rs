@@ -20,6 +20,14 @@ pub struct WalletManager {
 }
 
 impl WalletManager {
+    /// Get current Unix timestamp
+    fn get_current_timestamp() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
+
     pub async fn new(
         event_sender: broadcast::Sender<TransactionEvent>,
         dashboard_sender: broadcast::Sender<DashboardUpdate>,
@@ -86,7 +94,7 @@ impl WalletManager {
             is_rbf: event_insert.is_rbf,
             is_cpfp: event_insert.is_cpfp,
             balance_total: event_insert.balance_total,
-            created_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            transaction_time: event_insert.transaction_time,
         };
 
         // Broadcast to SMS worker (non-blocking)
@@ -168,7 +176,42 @@ impl WalletManager {
                 (EventType::Send, net_amount.abs())
             };
 
-            // Create historical event with balance_total
+            // Determine transaction timestamp
+            let transaction_time = match &tx.chain_position {
+                bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                    // For confirmed transactions, fetch block timestamp from Electrum
+                    if let Some(electrum_client) = &self.electrum_client {
+                        match electrum_client.get_block_header(anchor.block_id.height) {
+                            Ok(header) => header.timestamp,
+                            Err(e) => {
+                                eprintln!("Failed to fetch block header for height {}: {}. Using current time.", 
+                                    anchor.block_id.height, e);
+                                std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs()
+                            }
+                        }
+                    } else {
+                        // No Electrum client, use current time as fallback
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs()
+                    }
+                },
+                bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => {
+                    // For unconfirmed transactions, use first_seen if available
+                    first_seen.unwrap_or_else(|| {
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs()
+                    })
+                }
+            };
+
+            // Create historical event with balance_total and transaction_time
             let event_insert = EventInsert {
                 wallet_id,
                 event_type: event_type.clone(),
@@ -177,6 +220,7 @@ impl WalletManager {
                 is_rbf: false,
                 is_cpfp: false,
                 balance_total: Some(running_balance),
+                transaction_time,
             };
 
             // Insert historical event (no SMS broadcasting)
@@ -669,9 +713,11 @@ impl WalletManager {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: fee_paid as i64,
+                                        is_confirmed: false,
+                                        is_rbf: false,
                                         is_cpfp: true,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        ..Default::default()
+                                        transaction_time: Self::get_current_timestamp(),
                                     },
                                 ) {
                                     eprintln!("Failed to insert CPFP event: {}", e);
@@ -708,9 +754,11 @@ impl WalletManager {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: fee_increase as i64,
+                                        is_confirmed: false,
                                         is_rbf: true,
+                                        is_cpfp: false,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        ..Default::default()
+                                        transaction_time: Self::get_current_timestamp(),
                                     },
                                 ) {
                                     eprintln!("Failed to insert RBF event: {}", e);
@@ -737,8 +785,11 @@ impl WalletManager {
                                             wallet_id,
                                             event_type: EventType::Send,
                                             amount_sats: sending_amount as i64,
+                                            is_confirmed: false,
+                                            is_rbf: false,
+                                            is_cpfp: false,
                                             balance_total: Some(total_after.to_sat() as i64),
-                                            ..Default::default()
+                                            transaction_time: Self::get_current_timestamp(),
                                         },
                                     ) {
                                         eprintln!("Failed to insert sending event: {}", e);
@@ -764,8 +815,11 @@ impl WalletManager {
                                             wallet_id,
                                             event_type: EventType::Send,
                                             amount_sats: total_spent as i64,
+                                            is_confirmed: false,
+                                            is_rbf: false,
+                                            is_cpfp: false,
                                             balance_total: Some(total_after.to_sat() as i64),
-                                            ..Default::default()
+                                            transaction_time: Self::get_current_timestamp(),
                                         },
                                     ) {
                                         eprintln!("Failed to insert sending event: {}", e);
@@ -787,8 +841,11 @@ impl WalletManager {
                                             wallet_id,
                                             event_type: EventType::Send,
                                             amount_sats: trusted_spent as i64,
+                                            is_confirmed: false,
+                                            is_rbf: false,
+                                            is_cpfp: false,
                                             balance_total: Some(total_after.to_sat() as i64),
-                                            ..Default::default()
+                                            transaction_time: Self::get_current_timestamp(),
                                         },
                                     ) {
                                         eprintln!("Failed to insert sending event: {}", e);
@@ -817,8 +874,11 @@ impl WalletManager {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: sending_amount as i64,
+                                        is_confirmed: false,
+                                        is_rbf: false,
+                                        is_cpfp: false,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        ..Default::default()
+                                        transaction_time: Self::get_current_timestamp(),
                                     },
                                 ) {
                                     eprintln!("Failed to insert sending event: {}", e);
@@ -847,8 +907,11 @@ impl WalletManager {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: total_spent as i64,
+                                        is_confirmed: false,
+                                        is_rbf: false,
+                                        is_cpfp: false,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        ..Default::default()
+                                        transaction_time: Self::get_current_timestamp(),
                                     },
                                 ) {
                                     eprintln!("Failed to insert sending event: {}", e);
@@ -873,8 +936,11 @@ impl WalletManager {
                                         wallet_id,
                                         event_type: EventType::Send,
                                         amount_sats: trusted_spent as i64,
+                                        is_confirmed: false,
+                                        is_rbf: false,
+                                        is_cpfp: false,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        ..Default::default()
+                                        transaction_time: Self::get_current_timestamp(),
                                     },
                                 ) {
                                     eprintln!("Failed to insert sending event: {}", e);
@@ -904,8 +970,11 @@ impl WalletManager {
                                     wallet_id,
                                     event_type: EventType::Receive,
                                     amount_sats: receiving_amount as i64,
+                                    is_confirmed: false,
+                                    is_rbf: false,
+                                    is_cpfp: false,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    ..Default::default()
+                                    transaction_time: Self::get_current_timestamp(),
                                 },
                             ) {
                                 eprintln!("Failed to insert receiving event: {}", e);
@@ -937,8 +1006,10 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: total_confirmed_send_amount,
                                         is_confirmed: true,
+                                        is_rbf: false,
+                                        is_cpfp: false,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        ..Default::default()
+                                        transaction_time: Self::get_current_timestamp(),
                                     },
                                 ) {
                                     eprintln!("Failed to insert sent confirmation event: {}", e);
@@ -957,8 +1028,10 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: 0,
                                         is_confirmed: true,
+                                        is_rbf: false,
+                                        is_cpfp: false,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        ..Default::default()
+                                        transaction_time: Self::get_current_timestamp(),
                                     },
                                 ) {
                                     eprintln!("Failed to insert sent confirmation event: {}", e);
@@ -991,8 +1064,10 @@ impl WalletManager {
                                     event_type: EventType::Receive,
                                     amount_sats: confirmed_amount as i64,
                                     is_confirmed: true,
+                                    is_rbf: false,
+                                    is_cpfp: false,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    ..Default::default()
+                                    transaction_time: Self::get_current_timestamp(),
                                 },
                             ) {
                                 eprintln!("Failed to insert received confirmation event: {}", e);

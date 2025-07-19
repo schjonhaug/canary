@@ -63,8 +63,10 @@ export function formatBitcoinAmount(sats: number | null | undefined): string {
 }
 
 // Date formatting utilities
-export function formatDateTime(dateTime: string): string {
-  const date = new Date(dateTime)
+export function formatDateTime(dateTime: string | number): string {
+  const date = typeof dateTime === 'number' 
+    ? new Date(dateTime * 1000) // Convert Unix timestamp to milliseconds
+    : new Date(dateTime)
   return date.toLocaleString()
 }
 

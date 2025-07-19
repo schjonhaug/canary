@@ -114,7 +114,7 @@ pub struct TransactionEvent {
     pub is_rbf: bool,
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
-    pub created_at: String,
+    pub transaction_time: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -129,7 +129,7 @@ pub struct TransactionEventWithWallet {
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
     pub sms_recipients: Vec<String>,
-    pub created_at: String,
+    pub transaction_time: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -148,6 +148,7 @@ pub struct EventInsert {
     pub is_rbf: bool,
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
+    pub transaction_time: u64,
 }
 
 impl Default for EventType {
@@ -293,7 +294,7 @@ impl MetadataDb {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                    (SELECT MAX(te.created_at) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                    (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                     COUNT(c.id) as contact_count
              FROM wallets w 
              LEFT JOIN contact_persons c ON w.id = c.wallet_id 
@@ -324,7 +325,7 @@ impl MetadataDb {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                    (SELECT MAX(te.created_at) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                    (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                     COUNT(c.id) as contact_count
              FROM wallets w 
              LEFT JOIN contact_persons c ON w.id = c.wallet_id 
@@ -355,7 +356,7 @@ impl MetadataDb {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                    (SELECT MAX(te.created_at) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                    (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                     COUNT(c.id) as contact_count
              FROM wallets w 
              LEFT JOIN contact_persons c ON w.id = c.wallet_id 
@@ -417,8 +418,8 @@ impl MetadataDb {
     pub fn insert_event(&self, event: &EventInsert) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
         )?;
 
         stmt.execute([
@@ -432,6 +433,7 @@ impl MetadataDb {
                 .balance_total
                 .map(|v| v.to_string())
                 .unwrap_or_default(),
+            &event.transaction_time.to_string(),
         ])?;
         Ok(conn.last_insert_rowid())
     }
@@ -440,21 +442,13 @@ impl MetadataDb {
     pub fn get_all_events_with_wallets(&self) -> Result<Vec<TransactionEventWithWallet>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT te.id, te.wallet_id, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.created_at 
+            "SELECT te.id, te.wallet_id, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.transaction_time 
              FROM transaction_events te 
              JOIN wallets w ON te.wallet_id = w.id 
-             ORDER BY te.created_at DESC"
+             ORDER BY te.transaction_time DESC"
         )?;
 
         let event_iter = stmt.query_map([], |row| {
-            let sqlite_timestamp: String = row.get(9)?;
-            // Convert SQLite timestamp to RFC3339 (ISO 8601 with timezone)
-            let created_at = if sqlite_timestamp.ends_with('Z') {
-                sqlite_timestamp
-            } else {
-                format!("{}Z", sqlite_timestamp.replace(' ', "T"))
-            };
-            
             Ok(TransactionEventWithWallet {
                 id: Some(row.get(0)?),
                 wallet_id: row.get(1)?,
@@ -466,7 +460,7 @@ impl MetadataDb {
                 is_cpfp: row.get(7)?,
                 balance_total: row.get(8).ok(),
                 sms_recipients: Vec::new(), // Will be populated below
-                created_at,
+                transaction_time: row.get(9)?,
             })
         })?;
 

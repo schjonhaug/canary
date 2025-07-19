@@ -23,7 +23,7 @@ export interface TransactionEvent {
   is_cpfp: boolean
   balance_total: number | null
   sms_recipients: string[]
-  created_at: string
+  transaction_time: number
 }
 
 export interface Contact {

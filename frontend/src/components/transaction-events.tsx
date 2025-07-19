@@ -149,7 +149,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
               {filteredEvents.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell className="text-sm">
-                    {formatDateTime(event.created_at)}
+                    {formatDateTime(event.transaction_time)}
                   </TableCell>
                   <TableCell className="font-medium">{event.wallet_name}</TableCell>
                   <TableCell>

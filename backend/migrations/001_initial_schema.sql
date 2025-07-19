@@ -23,8 +23,8 @@ CREATE TABLE transaction_events (
     is_rbf BOOLEAN DEFAULT FALSE,
     is_cpfp BOOLEAN DEFAULT FALSE,
     balance_total INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (wallet_id) REFERENCES wallets (id)
+    transaction_time INTEGER NOT NULL,
+    FOREIGN KEY (wallet_id) REFERENCES wallets (id) ON DELETE CASCADE
 );
 
 -- Contact persons table: Wallet-specific contacts for SMS notifications
