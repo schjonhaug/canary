@@ -445,7 +445,7 @@ impl MetadataDb {
             "SELECT te.id, te.wallet_id, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.transaction_time 
              FROM transaction_events te 
              JOIN wallets w ON te.wallet_id = w.id 
-             ORDER BY te.transaction_time DESC"
+             ORDER BY te.transaction_time DESC, te.id DESC"
         )?;
 
         let event_iter = stmt.query_map([], |row| {

@@ -150,11 +150,29 @@ impl WalletManager {
 
         println!("Found {} historical transactions to process", all_transactions.len());
 
-        // Track running balance for historical reconstruction
-        let mut running_balance: i64 = 0;
+        // Get current wallet balance and calculate initial balance
+        let current_balance = wallet.balance().total().to_sat() as i64;
+        
+        // Calculate what the initial balance was by working backwards from current balance
+        let total_net_change: i64 = all_transactions.iter()
+            .map(|tx| {
+                let sent = wallet.sent_and_received(&tx.tx_node).0;
+                let received = wallet.sent_and_received(&tx.tx_node).1;
+                received.to_sat() as i64 - sent.to_sat() as i64
+            })
+            .filter(|&net| net != 0) // Skip zero net amount transactions
+            .sum();
+        
+        let initial_balance = current_balance - total_net_change;
+        let mut running_balance = initial_balance;
+
+        println!("Current balance: {:.8} BTC, Initial balance: {:.8} BTC", 
+            current_balance as f64 / 100_000_000.0,
+            initial_balance as f64 / 100_000_000.0);
 
         // Process each transaction chronologically
-        for tx in all_transactions {
+        for (idx, tx) in all_transactions.iter().enumerate() {
+            println!("Transaction {}: {:?}", idx + 1, tx.chain_position);
             let sent = wallet.sent_and_received(&tx.tx_node).0;
             let received = wallet.sent_and_received(&tx.tx_node).1;
             let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
@@ -175,6 +193,10 @@ impl WalletManager {
                 // Sending transaction - use absolute value
                 (EventType::Send, net_amount.abs())
             };
+
+            // Debug logging
+            println!("  Processing TX: {:?} -> net: {:.8} BTC, running balance: {:.8} BTC", 
+                event_type, net_amount as f64 / 100_000_000.0, running_balance as f64 / 100_000_000.0);
 
             // Determine transaction timestamp
             let transaction_time = match &tx.chain_position {
