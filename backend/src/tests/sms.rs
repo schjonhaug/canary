@@ -78,7 +78,7 @@ fn test_create_norwegian_message_receive_confirmed() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(150_000_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -99,7 +99,7 @@ fn test_create_norwegian_message_receive_unconfirmed() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(75_000_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -117,7 +117,7 @@ fn test_create_norwegian_message_send_confirmed() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(75_000_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -138,7 +138,7 @@ fn test_create_norwegian_message_send_unconfirmed() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(75_000_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -156,7 +156,7 @@ fn test_create_norwegian_message_rbf() {
         is_rbf: true,
         is_cpfp: false,
         balance_total: Some(75_000_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -177,7 +177,7 @@ fn test_create_norwegian_message_cpfp() {
         is_rbf: false,
         is_cpfp: true,
         balance_total: Some(75_000_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -221,7 +221,7 @@ fn test_twilio_config_serialization() {
         account_sid: "AC1234567890abcdef".to_string(),
         auth_token: "test_auth_token".to_string(),
         messaging_service_sid: "MG1234567890abcdef".to_string(),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        created_at: "2024-01-01 12:00:00".to_string()
     };
 
     // Test serialization
@@ -248,7 +248,7 @@ fn test_contact_person_creation() {
         name: "John Doe".to_string(),
         phone_number: "12345678".to_string(),
         language: Language::Norwegian,
-        created_at: "2024-01-01 12:00:00".to_string(),
+        created_at: "2024-01-01 12:00:00".to_string()
     };
 
     assert_eq!(contact.name, "John Doe");
@@ -267,7 +267,7 @@ fn test_transaction_event_creation() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(150_000_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     assert_eq!(event.wallet_id, 1);
@@ -331,7 +331,7 @@ fn test_sms_service_multiple_recipients() {
             name: "John Doe".to_string(),
             phone_number: "+4712345678".to_string(),
             language: Language::Norwegian,
-            created_at: "2024-01-01 12:00:00".to_string(),
+            created_at: "2024-01-01 12:00:00".to_string()
         },
         ContactPerson {
             id: Some(2),
@@ -366,7 +366,7 @@ fn test_sms_message_templates_norwegian() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(900_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
     let send_message = SmsService::create_localized_message(&send_event, wallet_name, &Language::Norwegian);
     assert!(send_message.contains("Sender"));
@@ -382,7 +382,7 @@ fn test_sms_message_templates_norwegian() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1_100_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
     let receive_message = SmsService::create_localized_message(&receive_event, wallet_name, &Language::Norwegian);
     assert!(receive_message.contains("Mottar"));
@@ -407,7 +407,7 @@ fn test_sms_service_phone_number_validation() {
             name: "Test User".to_string(),
             phone_number: number.to_string(),
             language: Language::Norwegian,
-            created_at: "2024-01-01 12:00:00".to_string(),
+            created_at: "2024-01-01 12:00:00".to_string()
         };
         
         // Test that phone number format is preserved
@@ -434,7 +434,7 @@ fn test_sms_service_configuration_validation() {
         account_sid: "AC1234567890abcdef".to_string(),
         auth_token: "auth_token_123".to_string(),
         messaging_service_sid: "MG1234567890abcdef".to_string(),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        created_at: "2024-01-01 12:00:00".to_string()
     };
     
     // Test account SID format
@@ -461,7 +461,7 @@ fn test_sms_service_wallet_integration() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(950_000_000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
     
     let contact = ContactPerson {
@@ -470,7 +470,7 @@ fn test_sms_service_wallet_integration() {
         name: "John Doe".to_string(),
         phone_number: "+4712345678".to_string(),
         language: Language::Norwegian,
-        created_at: "2024-01-01 12:00:00".to_string(),
+        created_at: "2024-01-01 12:00:00".to_string()
     };
     
     // Test that event and contact are properly linked

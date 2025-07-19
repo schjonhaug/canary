@@ -181,6 +181,7 @@ fn test_event_operations() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1000000),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     let event_id = db.insert_event(&event).unwrap();
@@ -212,6 +213,7 @@ fn test_sms_log_operations() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1000000),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
     let event_id = db.insert_event(&event).unwrap();
 

@@ -118,6 +118,7 @@ fn test_insert_and_broadcast_event_helper() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1000000),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     // Test the helper function
@@ -200,6 +201,7 @@ fn test_event_insert_creation() {
         is_rbf: true,
         is_cpfp: false,
         balance_total: None,
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     assert_eq!(event_insert.wallet_id, 1);
@@ -221,7 +223,7 @@ fn test_transaction_event_creation() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1000000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     assert_eq!(event.id, Some(1));
@@ -231,7 +233,7 @@ fn test_transaction_event_creation() {
     assert!(event.is_confirmed);
     assert!(!event.is_rbf);
     assert!(!event.is_cpfp);
-    assert_eq!(event.created_at, "2024-01-01 12:00:00");
+    assert_eq!(event.transaction_time, 1672574400);
 }
 
 #[test]
@@ -287,6 +289,7 @@ fn test_rbf_transaction_detection() {
         is_rbf: true,
         is_cpfp: false,
         balance_total: Some(950000),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     assert_eq!(rbf_event_insert.wallet_id, 1);
@@ -309,6 +312,7 @@ fn test_cpfp_transaction_detection() {
         is_rbf: false,
         is_cpfp: true,
         balance_total: Some(975000),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     assert_eq!(cpfp_event_insert.wallet_id, 1);
@@ -340,7 +344,7 @@ fn test_transaction_event_flags_combinations() {
             is_rbf,
             is_cpfp,
             balance_total: Some(900000),
-            created_at: "2024-01-01 12:00:00".to_string(),
+            transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
         };
 
         assert_eq!(event.is_rbf, is_rbf);
@@ -361,6 +365,7 @@ fn test_rbf_vs_cpfp_transaction_differences() {
         is_rbf: true,
         is_cpfp: false,
         balance_total: Some(900000),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     let cpfp_transaction = EventInsert {
@@ -371,6 +376,7 @@ fn test_rbf_vs_cpfp_transaction_differences() {
         is_rbf: false,
         is_cpfp: true,
         balance_total: Some(890000),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     // RBF: Replace existing transaction with higher fee
@@ -400,7 +406,7 @@ fn test_transaction_confirmation_state_transitions() {
         is_rbf: true,
         is_cpfp: false,
         balance_total: Some(900000),
-        created_at: "2024-01-01 12:00:00".to_string(),
+        transaction_time: 1672574400, // 2023-01-01 12:00:00 UTC
     };
 
     let confirmed_event = TransactionEvent {
@@ -412,7 +418,7 @@ fn test_transaction_confirmation_state_transitions() {
         is_rbf: false, // RBF flag typically cleared on confirmation
         is_cpfp: false,
         balance_total: Some(900000),
-        created_at: "2024-01-01 12:05:00".to_string(),
+        transaction_time: 1672574700, // 2023-01-01 12:05:00 UTC
     };
 
     // Initial state: unconfirmed with RBF
