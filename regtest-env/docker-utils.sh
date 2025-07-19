@@ -772,18 +772,21 @@ if [[ "$1" == "alice" || "$1" == "bob" ]]; then
             ;;
         rbf)
             TXID="$1"
-            FEE_RATE=${2:-10}
             if [ -z "$TXID" ]; then
-                echo "Usage: $0 $WALLET rbf <txid> [fee_rate_sat_per_byte]"
+                echo "Usage: $0 $WALLET rbf <txid>"
                 exit 1
             fi
-            echo "🔄 Bumping fee for transaction $TXID to $FEE_RATE sat/byte..."
+            echo "🔄 Bumping fee for transaction $TXID (automatic fee calculation)..."
             btc loadwallet "$WALLET" 2>/dev/null || true
+            
+            # Use bumpfee without explicit fee_rate to let Bitcoin Core automatically calculate
+            # This will increase the fee by the minimum required increment
             if [ "$WALLET" == "alice" ]; then
-                RESULT=$(btc_alice bumpfee "$TXID" "{\"fee_rate\": $FEE_RATE}" 2>&1)
+                RESULT=$(btc_alice bumpfee "$TXID" 2>&1)
             else
-                RESULT=$(btc_bob bumpfee "$TXID" "{\"fee_rate\": $FEE_RATE}" 2>&1)
+                RESULT=$(btc_bob bumpfee "$TXID" 2>&1)
             fi
+            
             if echo "$RESULT" | jq -e '.txid' > /dev/null 2>&1; then
                 NEW_TXID=$(echo "$RESULT" | jq -r '.txid')
                 OLD_FEE=$(echo "$RESULT" | jq -r '.origfee')
@@ -1512,7 +1515,7 @@ case "$1" in
         echo "  alice address             Generate new Alice address"
         echo "  alice send <amt>          Send Bitcoin from Alice to Bob (RBF-enabled)"
         echo "  alice fund <addr> [amt]   Fund address from Alice (default: 1.0)"
-        echo "  alice rbf <txid> [rate]   Replace transaction with higher fee (default: 10 sat/byte)"
+        echo "  alice rbf <txid>          Replace transaction with automatically calculated higher fee"
         echo "  alice cpfp <txid>         Create CPFP child transaction for Alice's unconfirmed output"
         echo "  alice consolidate         Consolidate 2 smallest UTXOs to new receive address"
         echo ""
@@ -1520,7 +1523,7 @@ case "$1" in
         echo "  bob balance               Show Bob wallet balance"
         echo "  bob address               Generate new Bob address"
         echo "  bob send <amt>            Send Bitcoin from Bob to Alice (RBF-enabled)"
-        echo "  bob rbf <txid> [rate]     Replace transaction with higher fee (default: 10 sat/byte)"
+        echo "  bob rbf <txid>            Replace transaction with automatically calculated higher fee"
         echo "  bob cpfp <txid>           Create CPFP child transaction for Bob's unconfirmed output"
         echo "  bob consolidate           Consolidate 2 smallest UTXOs to new receive address"
         echo ""
@@ -1545,7 +1548,7 @@ case "$1" in
         echo "  $0 add-wallets-to-backend            # Add Alice/Bob to your backend"
         echo "  $0 mine 6                            # Mine 6 blocks"
         echo "  $0 alice send 0.5                    # Send 0.5 BTC from Alice to Bob (RBF-enabled)"
-        echo "  $0 alice rbf <txid> 15               # Replace transaction with 15 sat/byte fee (Alice)"
+        echo "  $0 alice rbf <txid>                  # Replace transaction with automatic fee bump (Alice)"
         echo "  $0 bob send 0.01                     # Send 0.01 BTC from Bob to Alice"
         echo "  $0 alice cpfp <txid>                 # Alice creates CPFP child for parent transaction"
         echo "  $0 alice consolidate                 # Consolidate Alice's 2 smallest UTXOs"
