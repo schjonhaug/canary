@@ -345,7 +345,7 @@ CANARY_METADATA_DB=metadata.sqlite
   - **📤 Sending**: "Sender 0,00012345 BTC fra Min Wallet"
   - **📥 Receiving**: "Mottar 0,00012345 BTC til Min Wallet"
   - **✅ Confirmations**: "Sending bekreftet for Min Wallet" / "Mottak bekreftet: 0,00012345 BTC til Min Wallet"
-  - **📤 RBF**: "RBF gebyr økning: +0,00001000 BTC for Min Wallet"
+  - **📤 RBF**: "RBF gebyrøkning: +0,00001000 BTC for Min Wallet"
   - **🚀 CPFP**: "CPFP gebyr: 0,00001000 BTC for Min Wallet"
 - **Norwegian Number Formatting**: Comma (,) as decimal separator, space ( ) as thousands separator
 - **Multi-recipient**: Each wallet can have multiple contacts for SMS notifications

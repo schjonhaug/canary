@@ -111,7 +111,7 @@ impl SmsService {
                     format!("📤 RBF gebyrøkning: +{} BTC for {}.{}", fee_btc, wallet_name, balance_text)
                 } else if event.is_cpfp {
                     let fee_btc = Self::format_btc_amount(event.amount_sats, &Language::Norwegian);
-                    format!("🚀 CPFP gebyr: {} BTC for {}.{}", fee_btc, wallet_name, balance_text)
+                    format!("🚀 CPFP-gebyr: {} BTC for {}.{}", fee_btc, wallet_name, balance_text)
                 } else {
                     let amount_btc = Self::format_btc_amount(event.amount_sats, &Language::Norwegian);
                     format!("📤 Sender {} BTC fra {}.{}", amount_btc, wallet_name, balance_text)

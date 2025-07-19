@@ -181,7 +181,7 @@ fn test_create_norwegian_message_cpfp() {
     };
 
     let message = SmsService::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
-    assert_eq!(message, "🚀 CPFP gebyr: 0,00010000 BTC for Test Wallet. Total balanse: 0,75000000 BTC");
+    assert_eq!(message, "🚀 CPFP-gebyr: 0,00010000 BTC for Test Wallet. Total balanse: 0,75000000 BTC");
 }
 
 #[test]

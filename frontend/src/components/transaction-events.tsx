@@ -173,7 +173,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                       </Badge>
                       {event.is_cpfp && (
                           <span title="Child-Pays-For-Parent (CPFP)">
-                            <Baby className="h-2 w-2 ml-1" />
+                            <Baby className="h-4 w-4 ml-1" />
                           </span>
                         )}
                       {event.is_rbf && (

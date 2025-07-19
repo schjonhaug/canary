@@ -118,15 +118,26 @@ cpfp_for_wallet() {
     else
         DYNAMIC_FEE=$HALF_AMOUNT
     fi
-    # Ensure minimum fee of 0.0001 BTC
-    if [ "$(echo "$DYNAMIC_FEE < 0.0001" | bc -l)" -eq 1 ]; then
-        DYNAMIC_FEE=0.0001
+    # For small amounts, use a more flexible minimum fee
+    # Minimum of 0.00001 BTC (1000 sats) or 80% of available amount, whichever is smaller
+    MIN_FEE_FLEXIBLE=$(echo "scale=8; $TOTAL_WALLET_AMOUNT * 0.8" | bc -l)
+    MIN_FEE_ABSOLUTE=0.00001
+    if [ "$(echo "$MIN_FEE_FLEXIBLE < $MIN_FEE_ABSOLUTE" | bc -l)" -eq 1 ]; then
+        MIN_FEE=$MIN_FEE_FLEXIBLE
+    else
+        MIN_FEE=$MIN_FEE_ABSOLUTE
+    fi
+    # Apply the flexible minimum fee
+    if [ "$(echo "$DYNAMIC_FEE < $MIN_FEE" | bc -l)" -eq 1 ]; then
+        DYNAMIC_FEE=$MIN_FEE
     fi
     CHILD_AMOUNT_RAW=$(echo "scale=8; $TOTAL_WALLET_AMOUNT - $DYNAMIC_FEE" | bc -l)
     # Ensure proper decimal formatting for JSON (must start with 0. not .)
     CHILD_AMOUNT=$(echo "$CHILD_AMOUNT_RAW" | sed 's/^\./0./')
-    if [ "$(echo "$CHILD_AMOUNT < 0.0001" | bc -l)" -eq 1 ]; then
-        echo "❌ Child amount too small: $CHILD_AMOUNT BTC (need at least 0.0001 BTC after fees)"
+    # Flexible minimum child amount - 0.00001 BTC (1000 sats) for small transactions
+    MIN_CHILD_AMOUNT=0.00001
+    if [ "$(echo "$CHILD_AMOUNT < $MIN_CHILD_AMOUNT" | bc -l)" -eq 1 ]; then
+        echo "❌ Child amount too small: $CHILD_AMOUNT BTC (need at least $MIN_CHILD_AMOUNT BTC after fees)"
         echo "   Available: $TOTAL_WALLET_AMOUNT BTC, Required fee: $DYNAMIC_FEE BTC"
         exit 1
     fi
