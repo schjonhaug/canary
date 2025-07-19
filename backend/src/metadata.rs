@@ -22,6 +22,13 @@ pub enum Language {
     Norwegian,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct SmsRecipientStatus {
+    pub name: String,
+    pub status: String, // "sent", "failed", "pending"
+    pub error_message: Option<String>,
+}
+
 impl EventType {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -129,6 +136,7 @@ pub struct TransactionEventWithWallet {
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
     pub sms_recipients: Vec<String>,
+    pub sms_recipients_status: Vec<SmsRecipientStatus>,
     pub transaction_time: u64,
 }
 
@@ -460,6 +468,7 @@ impl MetadataDb {
                 is_cpfp: row.get(7)?,
                 balance_total: row.get(8).ok(),
                 sms_recipients: Vec::new(), // Will be populated below
+                sms_recipients_status: Vec::new(), // Will be populated below
                 transaction_time: row.get(9)?,
             })
         })?;
@@ -468,20 +477,34 @@ impl MetadataDb {
         for event in event_iter {
             let mut event = event?;
             
-            // Get SMS recipients for this event
+            // Get SMS recipients and their status for this event
             if let Some(event_id) = event.id {
                 let mut sms_stmt = conn.prepare(
-                    "SELECT cp.name FROM sms_logs sl 
+                    "SELECT cp.name, sl.status, sl.error_message FROM sms_logs sl 
                      JOIN contact_persons cp ON sl.contact_id = cp.id 
                      WHERE sl.event_id = ?1"
                 )?;
                 
                 let recipient_iter = sms_stmt.query_map([event_id], |row| {
-                    Ok(row.get::<_, String>(0)?)
+                    let name: String = row.get(0)?;
+                    let status: String = row.get(1)?;
+                    let error_message: Option<String> = row.get(2).ok();
+                    
+                    Ok((name, status, error_message))
                 })?;
                 
-                for recipient in recipient_iter {
-                    event.sms_recipients.push(recipient?);
+                for recipient_result in recipient_iter {
+                    let (name, status, error_message) = recipient_result?;
+                    
+                    // Add to simple recipients list for backward compatibility
+                    event.sms_recipients.push(name.clone());
+                    
+                    // Add to detailed status list
+                    event.sms_recipients_status.push(SmsRecipientStatus {
+                        name,
+                        status,
+                        error_message,
+                    });
                 }
             }
             

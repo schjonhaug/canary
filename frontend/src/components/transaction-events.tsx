@@ -188,7 +188,29 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                     {event.balance_total ? formatBitcoinAmount(event.balance_total) : "N/A"}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {event.sms_recipients.length > 0 ? event.sms_recipients.join(", ") : "None"}
+                    {event.sms_recipients_status && event.sms_recipients_status.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {event.sms_recipients_status.map((recipient, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1"
+                            title={recipient.error_message || `SMS ${recipient.status}`}
+                          >
+                            <span>
+                              {recipient.status === 'sent' ? '✅' : 
+                               recipient.status === 'failed' ? '❌' : 
+                               '⏳'}
+                            </span>
+                            <span>{recipient.name}</span>
+                            {index < event.sms_recipients_status.length - 1 && <span>,</span>}
+                          </span>
+                        ))}
+                      </div>
+                    ) : event.sms_recipients.length > 0 ? (
+                      event.sms_recipients.join(", ")
+                    ) : (
+                      "None"
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

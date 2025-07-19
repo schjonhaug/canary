@@ -12,6 +12,12 @@ export interface Wallet {
   contact_count: number
 }
 
+export interface SmsRecipientStatus {
+  name: string
+  status: string // "sent", "failed", "pending"
+  error_message?: string
+}
+
 export interface TransactionEvent {
   id: number
   wallet_id: number
@@ -23,6 +29,7 @@ export interface TransactionEvent {
   is_cpfp: boolean
   balance_total: number | null
   sms_recipients: string[]
+  sms_recipients_status: SmsRecipientStatus[]
   transaction_time: number
 }
 
