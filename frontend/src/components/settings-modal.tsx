@@ -11,8 +11,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, Loader2, Eye, EyeOff } from "lucide-react"
 import { TwilioConfig } from "../types"
 
@@ -22,7 +20,6 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const [config, setConfig] = useState<TwilioConfig | null>(null)
   const [formData, setFormData] = useState({
     account_sid: "",
     auth_token: "",
@@ -49,14 +46,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       const response = await fetch(`${baseUrl}/api/twilio/config`)
       if (response.ok) {
         const data = await response.json()
-        setConfig(data)
         setFormData({
           account_sid: data.account_sid || "",
           auth_token: data.auth_token || "",
           messaging_service_sid: data.messaging_service_sid || "",
         })
       } else if (response.status === 404) {
-        setConfig(null)
         setFormData({
           account_sid: "",
           auth_token: "",
@@ -92,8 +87,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
       if (response.ok) {
         const result = await response.json()
-        // Refresh the config from the backend
-        await fetchConfig()
         setValidationResult({
           isValid: true,
           message: result.message || "Configuration saved successfully!",
@@ -140,65 +133,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Current Configuration Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Current Configuration
-                  {config ? (
-                    <Badge variant="default" className="gap-1">
-                      <CheckCircle size={12} />
-                      Configured
-                    </Badge>
-                  ) : (
-                    <Badge variant="destructive" className="gap-1">
-                      <XCircle size={12} />
-                      Not Configured
-                    </Badge>
-                  )}
-                </CardTitle>
-                <CardDescription>
-                  {config 
-                    ? "Twilio is configured and ready to send SMS notifications"
-                    : "Configure Twilio to enable SMS notifications for wallet transactions"
-                  }
-                </CardDescription>
-              </CardHeader>
-              {config && (
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <strong>Account SID:</strong> {config.account_sid}
-                    </div>
-                    <div>
-                      <strong>Auth Token:</strong> {showAuthToken ? config.auth_token : "••••••••••••••••"}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowAuthToken(!showAuthToken)}
-                        className="ml-2 h-6 px-2"
-                      >
-                        {showAuthToken ? <EyeOff size={12} /> : <Eye size={12} />}
-                      </Button>
-                    </div>
-                    <div>
-                      <strong>Messaging Service SID:</strong> {config.messaging_service_sid}
-                    </div>
-                  </div>
-                </CardContent>
-              )}
-            </Card>
-
-            {/* Configuration Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Twilio Configuration</CardTitle>
-                <CardDescription>
-                  Enter your Twilio credentials to enable SMS notifications
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="account_sid">Account SID</Label>
                   <Input
@@ -243,35 +178,33 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
                 </div>
 
-                {/* Validation Result */}
-                {validationResult && (
-                  <div className={`p-3 rounded-lg flex items-center gap-2 ${
-                    validationResult.isValid 
-                      ? "bg-green-50 text-green-800 border border-green-200" 
-                      : "bg-red-50 text-red-800 border border-red-200"
-                  }`}>
-                    {validationResult.isValid ? (
-                      <CheckCircle size={16} />
-                    ) : (
-                      <XCircle size={16} />
-                    )}
-                    <span className="text-sm">{validationResult.message}</span>
-                  </div>
+            {/* Validation Result */}
+            {validationResult && (
+              <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                validationResult.isValid 
+                  ? "bg-green-50 text-green-800 border border-green-200" 
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}>
+                {validationResult.isValid ? (
+                  <CheckCircle size={16} />
+                ) : (
+                  <XCircle size={16} />
                 )}
+                <span className="text-sm">{validationResult.message}</span>
+              </div>
+            )}
 
-                {/* Action Button */}
-                <div className="flex justify-end pt-4">
-                  <Button
-                    onClick={handleSave}
-                    disabled={!isFormValid || isSaving}
-                    className="gap-2"
-                  >
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Save Configuration
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Action Button */}
+            <div className="flex justify-end pt-4">
+              <Button
+                onClick={handleSave}
+                disabled={!isFormValid || isSaving}
+                className="gap-2"
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Save Configuration
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>
