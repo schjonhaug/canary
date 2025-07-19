@@ -144,7 +144,6 @@ impl WalletManager {
 
         // Process each transaction chronologically
         for tx in all_transactions {
-            let txid = tx.tx_node.txid.to_string();
             let sent = wallet.sent_and_received(&tx.tx_node).0;
             let received = wallet.sent_and_received(&tx.tx_node).1;
             let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
@@ -172,12 +171,11 @@ impl WalletManager {
                 is_rbf: false,
                 is_cpfp: false,
                 balance_total: None, // Historical balance reconstruction would be complex
-                txid: Some(txid.clone()),
             };
 
             // Insert historical event (no SMS broadcasting)
             if let Err(e) = Self::insert_historical_event_helper(&self.metadata_db, &event_insert) {
-                eprintln!("Failed to insert historical event for txid {}: {}", txid, e);
+                eprintln!("Failed to insert historical event: {}", e);
             } else {
                 println!("  ✅ Processed {}: {} {:.8} BTC", 
                     if event_type == EventType::Receive { "Receive" } else { "Send" },
@@ -666,7 +664,6 @@ impl WalletManager {
                                         amount_sats: fee_paid as i64,
                                         is_cpfp: true,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        txid: None, // Real-time CPFP event
                                         ..Default::default()
                                     },
                                 ) {
@@ -706,7 +703,6 @@ impl WalletManager {
                                         amount_sats: fee_increase as i64,
                                         is_rbf: true,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        txid: None, // Real-time RBF event
                                         ..Default::default()
                                     },
                                 ) {
@@ -735,7 +731,6 @@ impl WalletManager {
                                             event_type: EventType::Send,
                                             amount_sats: sending_amount as i64,
                                             balance_total: Some(total_after.to_sat() as i64),
-                                            txid: None, // Real-time send event
                                             ..Default::default()
                                         },
                                     ) {
@@ -763,7 +758,6 @@ impl WalletManager {
                                             event_type: EventType::Send,
                                             amount_sats: total_spent as i64,
                                             balance_total: Some(total_after.to_sat() as i64),
-                                            txid: None, // Real-time send event
                                             ..Default::default()
                                         },
                                     ) {
@@ -817,7 +811,6 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: sending_amount as i64,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        txid: None, // Real-time send event
                                         ..Default::default()
                                     },
                                 ) {
@@ -848,7 +841,6 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: total_spent as i64,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        txid: None, // Real-time send event
                                         ..Default::default()
                                     },
                                 ) {
@@ -875,7 +867,6 @@ impl WalletManager {
                                         event_type: EventType::Send,
                                         amount_sats: trusted_spent as i64,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        txid: None, // Real-time send event
                                         ..Default::default()
                                     },
                                 ) {
@@ -907,7 +898,6 @@ impl WalletManager {
                                     event_type: EventType::Receive,
                                     amount_sats: receiving_amount as i64,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    txid: None, // Real-time receive event
                                     ..Default::default()
                                 },
                             ) {
@@ -941,7 +931,6 @@ impl WalletManager {
                                         amount_sats: total_confirmed_send_amount,
                                         is_confirmed: true,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        txid: None, // Real-time send confirmation
                                         ..Default::default()
                                     },
                                 ) {
@@ -962,7 +951,6 @@ impl WalletManager {
                                         amount_sats: 0,
                                         is_confirmed: true,
                                         balance_total: Some(total_after.to_sat() as i64),
-                                        txid: None, // Real-time send confirmation fallback
                                         ..Default::default()
                                     },
                                 ) {
@@ -997,7 +985,6 @@ impl WalletManager {
                                     amount_sats: confirmed_amount as i64,
                                     is_confirmed: true,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    txid: None, // Real-time receive confirmation
                                     ..Default::default()
                                 },
                             ) {

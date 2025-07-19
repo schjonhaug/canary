@@ -181,7 +181,6 @@ fn test_event_operations() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1000000),
-        txid: Some("test_txid_1".to_string()),
     };
 
     let event_id = db.insert_event(&event).unwrap();
@@ -213,7 +212,6 @@ fn test_sms_log_operations() {
         is_rbf: false,
         is_cpfp: false,
         balance_total: Some(1000000),
-        txid: Some("test_txid_2".to_string()),
     };
     let event_id = db.insert_event(&event).unwrap();
 
