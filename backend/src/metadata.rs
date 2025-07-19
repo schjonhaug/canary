@@ -418,7 +418,7 @@ impl MetadataDb {
     pub fn insert_event(&self, event: &EventInsert) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "INSERT OR IGNORE INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, txid) 
+            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, txid) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
         )?;
 
