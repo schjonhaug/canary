@@ -471,8 +471,8 @@ pub async fn save_twilio_config(
     State(wallet_manager): State<AppState>,
     Json(payload): Json<TwilioConfigRequest>,
 ) -> Response {
-    // Skip validation if messaging_service_sid is 'TEST' (for test mode)
-    if payload.messaging_service_sid == "TEST" {
+    // Skip validation if using test phone numbers or 'TEST' (for test mode)
+    if matches!(payload.messaging_service_sid.as_str(), "TEST" | "+15005550000" | "+15005550001" | "+15005550006") {
         // Save directly to database without validation
         let manager = wallet_manager.lock().await;
         match manager.metadata_db.upsert_twilio_config(

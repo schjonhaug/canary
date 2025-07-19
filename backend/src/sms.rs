@@ -186,10 +186,11 @@ impl SmsService {
             twilio_config.account_sid
         );
 
-        let (from_number, is_test_mode) = if twilio_config.messaging_service_sid == "TEST" {
-            ("+15005550006".to_string(), true)
-        } else {
-            (twilio_config.messaging_service_sid.clone(), false)
+        let (from_number, is_test_mode) = match twilio_config.messaging_service_sid.as_str() {
+            "+15005550000" | "+15005550001" | "+15005550006" => {
+                (twilio_config.messaging_service_sid.clone(), true)
+            }
+            _ => (twilio_config.messaging_service_sid.clone(), false)
         };
 
         println!(
@@ -199,6 +200,28 @@ impl SmsService {
             from_number
         );
         println!("   📄 Message Content: {}", message);
+
+        if is_test_mode {
+            // Return mock response for test phone numbers without making API call
+            return match twilio_config.messaging_service_sid.as_str() {
+                "+15005550000" => Ok(SmsResponse {
+                    success: false,
+                    twilio_sid: None,
+                    error_message: Some("Error 21422: This phone number is unavailable.".to_string()),
+                }),
+                "+15005550001" => Ok(SmsResponse {
+                    success: false,
+                    twilio_sid: None,
+                    error_message: Some("Error 21421: This phone number is invalid.".to_string()),
+                }),
+                "+15005550006" => Ok(SmsResponse {
+                    success: true,
+                    twilio_sid: Some("SMtest123456789".to_string()),
+                    error_message: None,
+                }),
+                _ => unreachable!()
+            };
+        }
 
         let sms_request = TwilioSmsRequest {
             to: contact.phone_number.clone(),
