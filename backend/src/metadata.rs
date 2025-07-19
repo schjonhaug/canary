@@ -311,7 +311,7 @@ impl MetadataDb {
                 hex_color: row.get(4)?,
                 created_at: row.get(5)?,
                 balance_total: row.get(6).ok(),
-                last_activity: row.get(7).ok(),
+                last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
                 contact_count: Some(row.get(8)?),
             })
         }) {
@@ -342,7 +342,7 @@ impl MetadataDb {
                 hex_color: row.get(4)?,
                 created_at: row.get(5)?,
                 balance_total: row.get(6).ok(),
-                last_activity: row.get(7).ok(),
+                last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
                 contact_count: Some(row.get(8)?),
             })
         }) {
@@ -373,7 +373,7 @@ impl MetadataDb {
                 hex_color: row.get(4)?,
                 created_at: row.get(5)?,
                 balance_total: Some(row.get(6).unwrap_or(0)),
-                last_activity: row.get(7).ok(),
+                last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
                 contact_count: Some(row.get(8)?),
             })
         })?;

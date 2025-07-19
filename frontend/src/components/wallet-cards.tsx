@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Edit, Users, Filter } from "lucide-react"
 import { DeleteWalletModal } from "./delete-wallet-modal"
 import { EditWalletModal } from "./edit-wallet-modal"
-import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount, formatDate } from "@/lib/utils"
+import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
 // Helper function to extract checksum from descriptor
 function extractChecksum(descriptor: string): string {
@@ -248,7 +248,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
                     <span>
                       {wallet.last_activity 
-                        ? `Last activity: ${formatDate(wallet.last_activity)}` 
+                        ? `Last activity: ${formatDateTime(parseInt(wallet.last_activity))}` 
                         : "No recent activity"
                       }
                     </span>
