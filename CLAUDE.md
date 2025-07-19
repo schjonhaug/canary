@@ -340,6 +340,7 @@ CANARY_METADATA_DB=metadata.sqlite
 - CPFP (Child-Pays-For-Parent) detection
 - Detailed Bitcoin amount formatting in Norwegian locale
 - Balance change notifications display wallet names instead of technical IDs
+- **Accurate Transaction Timestamps**: Historical transactions use actual block timestamps from Electrum, unconfirmed transactions use mempool `first_seen` timestamps
 - **Norwegian SMS Alerts**: Instant SMS notifications for all transaction events
   - **📤 Sending**: "Sender 0,00012345 BTC fra Min Wallet"
   - **📥 Receiving**: "Mottar 0,00012345 BTC til Min Wallet"
@@ -397,7 +398,7 @@ CANARY_METADATA_DB=metadata.sqlite
 - **Database Schema**: Single initial schema file (`001_initial_schema.sql`) - no incremental migrations needed since app isn't released yet
 - **Core Tables**:
   - `wallets`: Stores wallet IDs, names, descriptors, filenames, and creation timestamps
-  - `transaction_events`: Bitcoin transaction events with type-safe enums and broadcast channels
+  - `transaction_events`: Bitcoin transaction events with accurate timestamps (block time for confirmed, first_seen for unconfirmed) and type-safe enums
   - `contact_persons`: Wallet-specific contact information (wallet_id, name, phone_number) with CASCADE DELETE
   - `twilio_config`: Single Twilio account configuration (account SID, auth token, messaging service SID)
   - `sms_logs`: Complete SMS delivery tracking (event ID, contact ID, message content, Twilio SID, status, errors)
@@ -472,6 +473,7 @@ This policy ensures:
 - **Hybrid Dashboard Architecture**: REST API for initial data load + SSE for real-time updates only when changes occur
 - **Optimized SSE**: Dashboard updates sent only on actual wallet changes, not on every sync cycle
 - **SMS Recipients Real-Time Updates**: Dual dashboard updates ensure SMS recipient data appears immediately without manual refresh
+- **Accurate Transaction Timestamps**: Historical transactions fetch actual block timestamps from Electrum servers, unconfirmed transactions use BDK's `first_seen` mempool timestamps, no caching needed as timestamps are stored permanently in database
 - **Comprehensive Test Coverage**: 104 tests covering API endpoints, wallet management, SMS integration, network isolation, RBF/CPFP detection, background sync behavior, and error handling
 - Shared state management with Arc<Mutex<>> for thread-safe access
 - Automatic loading of existing wallets on startup

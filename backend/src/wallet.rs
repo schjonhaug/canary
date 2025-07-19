@@ -171,8 +171,7 @@ impl WalletManager {
             initial_balance as f64 / 100_000_000.0);
 
         // Process each transaction chronologically
-        for (idx, tx) in all_transactions.iter().enumerate() {
-            println!("Transaction {}: {:?}", idx + 1, tx.chain_position);
+        for tx in all_transactions {
             let sent = wallet.sent_and_received(&tx.tx_node).0;
             let received = wallet.sent_and_received(&tx.tx_node).1;
             let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
@@ -194,9 +193,6 @@ impl WalletManager {
                 (EventType::Send, net_amount.abs())
             };
 
-            // Debug logging
-            println!("  Processing TX: {:?} -> net: {:.8} BTC, running balance: {:.8} BTC", 
-                event_type, net_amount as f64 / 100_000_000.0, running_balance as f64 / 100_000_000.0);
 
             // Determine transaction timestamp
             let transaction_time = match &tx.chain_position {
