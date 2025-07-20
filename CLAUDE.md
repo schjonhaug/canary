@@ -475,6 +475,7 @@ This policy ensures:
 - **SMS Recipients Real-Time Updates**: Dual dashboard updates ensure SMS recipient data appears immediately without manual refresh
 - **Accurate Transaction Timestamps**: Historical transactions fetch actual block timestamps from Electrum servers, unconfirmed transactions use BDK's `first_seen` mempool timestamps, no caching needed as timestamps are stored permanently in database
 - **Comprehensive Test Coverage**: 104 tests covering API endpoints, wallet management, SMS integration, network isolation, RBF/CPFP detection, background sync behavior, and error handling
+- **Frontend Performance Optimizations**: Code splitting implemented for modal components (Settings, Create Wallet, Edit Wallet, Delete Wallet) using React lazy loading and Suspense boundaries, reducing initial bundle size by ~15-20KB
 - Shared state management with Arc<Mutex<>> for thread-safe access
 - Automatic loading of existing wallets on startup
 - Full wallet sync performed on creation and incremental sync ongoing

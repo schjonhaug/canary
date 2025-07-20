@@ -1,16 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useState, lazy, Suspense } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
-import { SettingsModal } from "@/components/settings-modal"
-import { CreateWalletModal } from "@/components/create-wallet-modal"
 import { Button } from "@/components/ui/button"
 import { Settings, CircleCheckBig, LoaderCircle, CircleOff, Plus } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
 import { formatBitcoinAmount } from "@/lib/utils"
+
+// Lazy load modal components for code splitting
+const SettingsModal = lazy(() => import("@/components/settings-modal").then(mod => ({ default: mod.SettingsModal })))
+const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
 
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
@@ -169,16 +171,20 @@ export default function Home() {
         </section>
       </div>
       
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      <Suspense fallback={null}>
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      </Suspense>
       
-      <CreateWalletModal
-        isOpen={isCreateWalletOpen}
-        onClose={() => setIsCreateWalletOpen(false)}
-        onWalletCreated={handleWalletCreated}
-      />
+      <Suspense fallback={null}>
+        <CreateWalletModal
+          isOpen={isCreateWalletOpen}
+          onClose={() => setIsCreateWalletOpen(false)}
+          onWalletCreated={handleWalletCreated}
+        />
+      </Suspense>
       
       {/* Footer */}
       <footer className="mt-16 pt-8 border-t border-border">

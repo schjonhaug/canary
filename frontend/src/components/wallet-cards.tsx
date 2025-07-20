@@ -1,13 +1,15 @@
 "use client"
 
-import { useEffect, useState, useMemo, memo } from "react"
+import { useEffect, useState, useMemo, memo, lazy, Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Edit, Users, Filter } from "lucide-react"
-import { DeleteWalletModal } from "./delete-wallet-modal"
-import { EditWalletModal } from "./edit-wallet-modal"
 import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount, formatDateTime } from "@/lib/utils"
+
+// Lazy load modal components for code splitting
+const DeleteWalletModal = lazy(() => import("./delete-wallet-modal").then(mod => ({ default: mod.DeleteWalletModal })))
+const EditWalletModal = lazy(() => import("./edit-wallet-modal").then(mod => ({ default: mod.EditWalletModal })))
 
 // Helper function to extract checksum from descriptor
 function extractChecksum(descriptor: string): string {
@@ -76,6 +78,8 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
       />
     )
   })
+  
+  WalletIcon.displayName = 'WalletIcon'
 
   const handleFilterClick = (walletId: number) => {
     if (selectedWalletId === walletId) {
@@ -264,19 +268,23 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
         })}
       </div>
 
-      <DeleteWalletModal
-        wallet={walletToDelete}
-        isOpen={isDeleteModalOpen}
-        onClose={handleDeleteModalClose}
-        onConfirmDelete={handleDeleteConfirm}
-      />
+      <Suspense fallback={null}>
+        <DeleteWalletModal
+          wallet={walletToDelete}
+          isOpen={isDeleteModalOpen}
+          onClose={handleDeleteModalClose}
+          onConfirmDelete={handleDeleteConfirm}
+        />
+      </Suspense>
 
-      <EditWalletModal
-        wallet={walletToEdit}
-        isOpen={isEditModalOpen}
-        onClose={handleEditModalClose}
-        onDeleteWallet={handleDeleteFromEdit}
-      />
+      <Suspense fallback={null}>
+        <EditWalletModal
+          wallet={walletToEdit}
+          isOpen={isEditModalOpen}
+          onClose={handleEditModalClose}
+          onDeleteWallet={handleDeleteFromEdit}
+        />
+      </Suspense>
     </div>
   )
 }
