@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export function BlockStatus() {
   const { blockHeader, connected, reconnecting, error } = useBlockHeaders(
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    process.env.NEXT_PUBLIC_API_URL || ''
   );
 
   const formatTimestamp = (timestamp: number) => {

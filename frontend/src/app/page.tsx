@@ -20,7 +20,7 @@ export default function Home() {
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
   const { wallets, events, isConnected, error, lastUpdate } = useDashboard()
   const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders(
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    process.env.NEXT_PUBLIC_API_URL || ''
   )
 
   const truncateHash = (hash: string) => {

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { BlockHeader, BlockHeaderState } from '../types';
 
-export function useBlockHeaders(apiUrl: string = 'http://localhost:3000') {
+export function useBlockHeaders(apiUrl: string = '') {
   const [state, setState] = useState<BlockHeaderState>({
     blockHeader: null,
     connected: false,
