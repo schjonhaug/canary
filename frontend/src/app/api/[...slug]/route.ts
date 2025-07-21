@@ -2,30 +2,34 @@ import { NextRequest } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string[] } }
+  { params }: { params: Promise<{ slug: string[] }> }
 ) {
-  return proxyToBackend(request, params.slug);
+  const { slug } = await params;
+  return proxyToBackend(request, slug);
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { slug: string[] } }
+  { params }: { params: Promise<{ slug: string[] }> }
 ) {
-  return proxyToBackend(request, params.slug);
+  const { slug } = await params;
+  return proxyToBackend(request, slug);
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { slug: string[] } }
+  { params }: { params: Promise<{ slug: string[] }> }
 ) {
-  return proxyToBackend(request, params.slug);
+  const { slug } = await params;
+  return proxyToBackend(request, slug);
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { slug: string[] } }
+  { params }: { params: Promise<{ slug: string[] }> }
 ) {
-  return proxyToBackend(request, params.slug);
+  const { slug } = await params;
+  return proxyToBackend(request, slug);
 }
 
 async function proxyToBackend(request: NextRequest, slug: string[]) {
