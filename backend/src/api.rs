@@ -650,16 +650,28 @@ pub async fn get_current_block_header(State(wallet_manager): State<AppState>) ->
     tag = "blockchain"
 )]
 pub async fn block_headers_stream(
-    State(block_header_tx): State<BlockHeaderBroadcast>,
+    State((wallet_manager, block_header_tx)): State<(AppState, BlockHeaderBroadcast)>,
 ) -> Response {
     use axum::response::sse::Event;
+    use tokio_stream::wrappers::BroadcastStream;
+    use futures_util::{StreamExt as FuturesStreamExt};
     
+    // Send current header immediately, then stream future updates
+    let initial_event = {
+        let manager = wallet_manager.lock().await;
+        if let Ok(Some(header)) = manager.metadata_db.get_current_block_header().await {
+            let data = serde_json::to_string(&header).unwrap_or_default();
+            Some(Event::default().data(data))
+        } else {
+            None
+        }
+    };
+
     let stream = FuturesStreamExt::filter_map(
         BroadcastStream::new(block_header_tx.subscribe()),
         |result| async move {
             match result {
                 Ok(block_header) => {
-                    // Convert to SSE format
                     let data = serde_json::to_string(&block_header).unwrap_or_default();
                     Some(Ok::<Event, axum::Error>(Event::default().data(data)))
                 }
@@ -667,6 +679,13 @@ pub async fn block_headers_stream(
             }
         }
     );
+
+    // If we have an initial header, prepend it to the stream
+    let stream = if let Some(initial) = initial_event {
+        futures_util::stream::once(async { Ok(initial) }).chain(stream).boxed()
+    } else {
+        stream.boxed()
+    };
 
     Sse::new(stream).into_response()
 }
@@ -774,11 +793,11 @@ pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroad
         )
         .route("/block-headers/current", get(get_current_block_header))
         .route("/dashboard", get(get_dashboard))
-        .with_state(wallet_manager);
+        .with_state(wallet_manager.clone());
 
     let block_header_routes = Router::new()
         .route("/block-headers/stream", get(block_headers_stream))
-        .with_state(block_header_tx);
+        .with_state((wallet_manager.clone(), block_header_tx));
 
     let dashboard_stream_routes = Router::new()
         .route("/dashboard/stream", get(dashboard_stream))

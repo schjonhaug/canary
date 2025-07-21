@@ -59,8 +59,9 @@ cd frontend && npm run test:watch
 ```
 
 ### Docker Environment
-```bash
 
+#### Regtest Environment (Bitcoin Core + Fulcrum)
+```bash
 # Start regtest environment (Bitcoin Core + Fulcrum)
 cd regtest-env && docker-compose up -d
 
@@ -109,6 +110,10 @@ canary/
 ├── frontend/                  # Next.js frontend application
 │   ├── src/
 │   │   ├── app/               # Next.js app router
+│   │   │   ├── api/           # Next.js API routes (SSE proxying)
+│   │   │   │   ├── [...slug]/ # Catch-all API proxy to backend
+│   │   │   │   ├── block-headers/stream/ # Block header SSE proxy
+│   │   │   │   └── dashboard/stream/     # Dashboard SSE proxy
 │   │   │   ├── layout.tsx     # Root layout component
 │   │   │   ├── page.tsx       # Main dashboard page
 │   │   │   └── globals.css    # Global styles
@@ -136,7 +141,8 @@ canary/
 │   │       ├── canary.svg     # Canary logo (also used for wallet icons)
 │   │       └── canary-in-a-coalmine.svg     # Canary in a coalmine logo
 │   ├── package.json           # Node.js dependencies
-│   ├── next.config.ts         # Next.js configuration
+│   ├── next.config.js         # Next.js configuration (API routing)
+│   ├── next.config.ts         # Next.js TypeScript configuration
 │   ├── tailwind.config.ts     # Tailwind CSS configuration
 │   └── jest.config.js         # Jest testing configuration
 ├── regtest-env/               # Complete Bitcoin regtest environment
@@ -145,6 +151,7 @@ canary/
 │   ├── fulcrum.conf          # Fulcrum Electrum server configuration
 │   ├── docker-utils.sh       # Comprehensive development and testing utilities
 │   └── README.md             # Regtest environment documentation
+├── README.md                  # Project overview and future improvements
 └── CLAUDE.md                  # This file
 ```
 
@@ -472,7 +479,8 @@ This policy ensures:
 - **Async Database Architecture**: All SQLite operations use async/await with tokio::task::spawn_blocking for non-blocking database access
 - **Connection Pool Management**: r2d2 connection pooling with 16 concurrent connections eliminates database contention and serialized access
 - **Event-Driven SMS**: tokio broadcast channels for real-time notifications without blocking wallet sync
-- **Real-Time Blockchain Streaming**: Server-Sent Events (SSE) for live block header updates with tokio streams
+- **Real-Time Blockchain Streaming**: Server-Sent Events (SSE) for live block header updates with tokio streams and immediate connection status indication
+- **Block Header SSE Optimization**: Block header stream sends current stored header immediately on client connection, then streams future updates as they arrive
 - **Block Header Caching**: Persistent storage of current blockchain tip for immediate UI display
 - **Norwegian Localization**: Custom number formatting (comma decimal, space thousands separator)
 - **Twilio Integration**: Direct HTTP API calls using reqwest with proper authentication
@@ -485,6 +493,8 @@ This policy ensures:
 - **Hybrid Dashboard Architecture**: REST API for initial data load + SSE for real-time updates only when changes occur
 - **Optimized SSE**: Dashboard updates sent only on actual wallet changes, not on every sync cycle
 - **Smart API URL Resolution**: Centralized `getApiBaseUrl()` function that only uses `NEXT_PUBLIC_API_URL` when explicitly set, allowing Next.js proxy to work correctly in production deployments
+- **Umbrel SSE Architecture**: Next.js API routes proxy Server-Sent Events from backend, eliminating EventSource proxy limitations in containerized deployments
+- **SSE Connection Health**: Separate connection status from data arrival - shows "Connected" when SSE opens, not when first message arrives
 - **SMS Recipients Real-Time Updates**: Dual dashboard updates ensure SMS recipient data appears immediately without manual refresh
 - **Accurate Transaction Timestamps**: Historical transactions fetch actual block timestamps from Electrum servers, unconfirmed transactions use BDK's `first_seen` mempool timestamps, no caching needed as timestamps are stored permanently in database
 - **Comprehensive Test Coverage**: 104 tests covering API endpoints, wallet management, SMS integration, network isolation, RBF/CPFP detection, background sync behavior, and error handling with full async/await support
