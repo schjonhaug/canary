@@ -27,8 +27,8 @@ cd backend && cargo build
 # Check code
 cd backend && cargo check
 
-# Run tests
-cd backend && cargo test
+# Run tests (single-threaded to avoid file handle issues)
+cd backend && cargo test -- --test-threads=1
 
 # Format code
 cd backend && cargo fmt

@@ -315,7 +315,7 @@ fn test_format_btc_amount_edge_cases() {
 #[test]
 fn test_sms_service_creation_basic() {
     // Test SMS service creation
-    let sms_service = SmsService::new();
+    let _sms_service = SmsService::new();
     
     // Test that SMS service can be created (has HTTP client)
     // Client exists (no specific method to test, but it's created)
@@ -420,7 +420,7 @@ fn test_sms_service_phone_number_validation() {
 #[test]
 fn test_sms_service_error_handling() {
     // Test SMS service error handling scenarios
-    let sms_service = SmsService::new();
+    let _sms_service = SmsService::new();
     
     // Test that SMS service can be created without errors
     // SMS service created successfully
@@ -510,10 +510,10 @@ fn test_sms_service_delivery_tracking() {
 #[test]
 fn test_sms_service_concurrent_sending() {
     // Test SMS service concurrent sending capabilities
-    let sms_service = SmsService::new();
+    let _sms_service = SmsService::new();
     
     // Test multiple SMS services can be created (for concurrent sending)
-    let sms_service2 = SmsService::new();
+    let _sms_service2 = SmsService::new();
     
     // Test that both services have HTTP clients
     // Both services created successfully
