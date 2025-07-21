@@ -74,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
                                    block_header.height, block_header.hash);
                             
                             // Store in database
-                            if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header) {
+                            if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header).await {
                                 eprintln!("Failed to store initial block header: {}", e);
                             }
                             
@@ -98,7 +98,7 @@ async fn main() -> anyhow::Result<()> {
             }
         } else {
             // Try to load stored block header from database
-            match manager.metadata_db.get_current_block_header() {
+            match manager.metadata_db.get_current_block_header().await {
                 Ok(Some(stored_header)) => {
                     println!("📦 Loaded stored block header: height={}, hash={}", 
                            stored_header.height, stored_header.hash);
@@ -168,7 +168,7 @@ async fn main() -> anyhow::Result<()> {
                     // Get full block header details
                     if let Ok(block_header) = electrum_client.get_block_header(notification.height as u32) {
                         // Store in database
-                        if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header) {
+                        if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header).await {
                             eprintln!("Failed to store block header: {}", e);
                         }
                         
@@ -200,11 +200,11 @@ async fn main() -> anyhow::Result<()> {
 
 
                     // Get contacts for the wallet
-                    match manager.metadata_db.get_contacts_for_wallet(event.wallet_id) {
+                    match manager.metadata_db.get_contacts_for_wallet(event.wallet_id).await {
                         Ok(contacts) => {
                             if contacts.is_empty() {
                                 // Get wallet name for message generation
-                                match manager.metadata_db.get_wallet_by_id(event.wallet_id) {
+                                match manager.metadata_db.get_wallet_by_id(event.wallet_id).await {
                                     Ok(Some(wallet_metadata)) => {
                                         let message = sms::SmsService::create_localized_message(
                                             &event,
@@ -224,7 +224,7 @@ async fn main() -> anyhow::Result<()> {
                             }
 
                             // Check if Twilio is configured
-                            match manager.metadata_db.get_twilio_config() {
+                            match manager.metadata_db.get_twilio_config().await {
                                 Ok(Some(twilio_config)) => {
                                     println!(
                                         "📱 Sending SMS to {} contacts for wallet {}",
@@ -233,7 +233,7 @@ async fn main() -> anyhow::Result<()> {
                                     );
 
                                     // Get wallet name for message
-                                    let wallet_name = match manager.metadata_db.get_all_wallets() {
+                                    let wallet_name = match manager.metadata_db.get_all_wallets().await {
                                         Ok(wallets) => wallets
                                             .into_iter()
                                             .find(|w| w.id == Some(event.wallet_id))
@@ -249,7 +249,7 @@ async fn main() -> anyhow::Result<()> {
                                         .send_event_notifications(
                                             &event,
                                             &wallet_name,
-                                            contacts.clone(),
+                                            &contacts,
                                             &twilio_config,
                                         )
                                         .await;
@@ -271,7 +271,7 @@ async fn main() -> anyhow::Result<()> {
                                                     status,
                                                     sms_response.twilio_sid.as_deref(),
                                                     sms_response.error_message.as_deref(),
-                                                ) {
+                                                ).await {
                                                     eprintln!("Failed to log SMS result: {}", e);
                                                 }
 
@@ -305,7 +305,7 @@ async fn main() -> anyhow::Result<()> {
                                 }
                                 Ok(None) => {
                                     // Get wallet name for message generation
-                                    match manager.metadata_db.get_wallet_by_id(event.wallet_id) {
+                                    match manager.metadata_db.get_wallet_by_id(event.wallet_id).await {
                                         Ok(Some(wallet_metadata)) => {
                                             let message = sms::SmsService::create_localized_message(
                                                 &event,

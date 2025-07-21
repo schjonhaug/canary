@@ -171,6 +171,8 @@ canary/
 - `phonenumber = "0.3"` - International phone number validation and formatting
 - `tokio-stream = "0.1"` with sync features - Async stream processing for SSE
 - `futures-util = "0.3"` - Stream utilities for Server-Sent Events
+- `r2d2 = "0.8"` - Database connection pooling
+- `r2d2_sqlite = "0.24"` - SQLite connection pool manager (compatible with BDK's rusqlite version)
 
 ### Frontend Dependencies
 - `next = "15.3.5"` - React framework with app router
@@ -333,6 +335,14 @@ CANARY_METADATA_DB=metadata.sqlite
 - **Metadata Isolation**: Each network has its own metadata database for contacts, events, and SMS logs
 
 ## Advanced Features
+### Database Performance Optimizations
+- **Async Database Operations**: All SQLite operations use async/await patterns with `tokio::task::spawn_blocking`
+- **Connection Pooling**: r2d2 connection pool with up to 16 concurrent connections eliminates database contention
+- **Non-blocking Operations**: Replaced synchronized `conn.lock().unwrap()` calls with concurrent database access
+- **Performance Impact**: Eliminated serialized database access that was blocking the entire application
+- **Thread Safety**: Uses `Arc<Pool<SqliteConnectionManager>>` for safe concurrent access across async tasks
+- **Compatible Dependencies**: Uses r2d2_sqlite 0.24 for compatibility with BDK's rusqlite version requirements
+
 ### Transaction Analysis & SMS Notifications
 - Real-time balance change detection and reporting with user-friendly wallet names
 - Transaction type classification (send, receive, confirmation)
@@ -459,6 +469,8 @@ This policy ensures:
 
 ## Architecture Notes
 - Uses Rust 2024 edition with comprehensive async/await support
+- **Async Database Architecture**: All SQLite operations use async/await with tokio::task::spawn_blocking for non-blocking database access
+- **Connection Pool Management**: r2d2 connection pooling with 16 concurrent connections eliminates database contention and serialized access
 - **Event-Driven SMS**: tokio broadcast channels for real-time notifications without blocking wallet sync
 - **Real-Time Blockchain Streaming**: Server-Sent Events (SSE) for live block header updates with tokio streams
 - **Block Header Caching**: Persistent storage of current blockchain tip for immediate UI display
@@ -474,9 +486,9 @@ This policy ensures:
 - **Optimized SSE**: Dashboard updates sent only on actual wallet changes, not on every sync cycle
 - **SMS Recipients Real-Time Updates**: Dual dashboard updates ensure SMS recipient data appears immediately without manual refresh
 - **Accurate Transaction Timestamps**: Historical transactions fetch actual block timestamps from Electrum servers, unconfirmed transactions use BDK's `first_seen` mempool timestamps, no caching needed as timestamps are stored permanently in database
-- **Comprehensive Test Coverage**: 104 tests covering API endpoints, wallet management, SMS integration, network isolation, RBF/CPFP detection, background sync behavior, and error handling
+- **Comprehensive Test Coverage**: 104 tests covering API endpoints, wallet management, SMS integration, network isolation, RBF/CPFP detection, background sync behavior, and error handling with full async/await support
 - **Frontend Performance Optimizations**: Code splitting implemented for modal components (Settings, Create Wallet, Edit Wallet, Delete Wallet) using React lazy loading and Suspense boundaries, reducing initial bundle size by ~15-20KB
-- Shared state management with Arc<Mutex<>> for thread-safe access
+- **Thread-Safe Concurrency**: Uses Arc<Pool<SqliteConnectionManager>> for safe concurrent database access across async tasks
 - Automatic loading of existing wallets on startup
 - Full wallet sync performed on creation and incremental sync ongoing
 - RESTful API design: uses proper HTTP methods and status codes

@@ -248,7 +248,7 @@ pub async fn update_wallet(
     tag = "wallet"
 )]
 pub async fn get_wallet(State(wallet_manager): State<AppState>, Path(id): Path<i64>) -> Response {
-    match wallet_manager.lock().await.get_wallet_by_id(id) {
+    match wallet_manager.lock().await.get_wallet_by_id(id).await {
         Ok(Some(wallet)) => (StatusCode::OK, Json(wallet)).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -292,7 +292,7 @@ pub async fn create_wallet_contact(
     let manager = wallet_manager.lock().await;
 
     // Check if wallet exists
-    match manager.get_wallet_by_id(wallet_id) {
+    match manager.get_wallet_by_id(wallet_id).await {
         Ok(Some(_)) => {},
         Ok(None) => {
             return (
@@ -326,7 +326,7 @@ pub async fn create_wallet_contact(
         }
     };
 
-    match manager.metadata_db.insert_contact(wallet_id, &payload.name, &normalized_phone, &payload.language) {
+    match manager.metadata_db.insert_contact(wallet_id, &payload.name, &normalized_phone, &payload.language).await {
         Ok(contact_id) => {
             // Send dashboard update to notify clients of contact count change
             if let Err(e) = manager.send_dashboard_update().await {
@@ -372,7 +372,7 @@ pub async fn delete_wallet_contact(
     Path((_wallet_id, contact_id)): Path<(i64, i64)>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
-    match manager.metadata_db.delete_contact(contact_id) {
+    match manager.metadata_db.delete_contact(contact_id).await {
         Ok(true) => {
             // Send dashboard update to notify clients of contact count change
             if let Err(e) = manager.send_dashboard_update().await {
@@ -421,7 +421,7 @@ pub async fn get_wallet_contacts(
     let manager = wallet_manager.lock().await;
 
     // Check if wallet exists
-    match manager.get_wallet_by_id(wallet_id) {
+    match manager.get_wallet_by_id(wallet_id).await {
         Ok(Some(_)) => {}
         Ok(None) => {
             return (
@@ -443,7 +443,7 @@ pub async fn get_wallet_contacts(
         }
     }
 
-    match manager.metadata_db.get_contacts_for_wallet(wallet_id) {
+    match manager.metadata_db.get_contacts_for_wallet(wallet_id).await {
         Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -479,7 +479,7 @@ pub async fn save_twilio_config(
             &payload.account_sid,
             &payload.auth_token,
             &payload.messaging_service_sid,
-        ) {
+        ).await {
             Ok(_) => (
                 StatusCode::CREATED,
                 Json(TwilioConfigResponse {
@@ -561,7 +561,7 @@ pub async fn save_twilio_config(
             &payload.account_sid,
             &payload.auth_token,
             &payload.messaging_service_sid,
-        ) {
+        ).await {
             Ok(_) => (
                 StatusCode::CREATED,
                 Json(TwilioConfigResponse {
@@ -591,7 +591,7 @@ pub async fn save_twilio_config(
 )]
 pub async fn get_twilio_config(State(wallet_manager): State<AppState>) -> Response {
     let manager = wallet_manager.lock().await;
-    match manager.metadata_db.get_twilio_config() {
+    match manager.metadata_db.get_twilio_config().await {
         Ok(Some(config)) => (StatusCode::OK, Json(config)).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -622,7 +622,7 @@ pub async fn get_twilio_config(State(wallet_manager): State<AppState>) -> Respon
 )]
 pub async fn get_current_block_header(State(wallet_manager): State<AppState>) -> Response {
     let manager = wallet_manager.lock().await;
-    match manager.metadata_db.get_current_block_header() {
+    match manager.metadata_db.get_current_block_header().await {
         Ok(Some(block_header)) => (StatusCode::OK, Json(block_header)).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,

@@ -188,9 +188,9 @@ impl SmsService {
 
         let (from_number, is_test_mode) = match twilio_config.messaging_service_sid.as_str() {
             "+15005550000" | "+15005550001" | "+15005550006" => {
-                (twilio_config.messaging_service_sid.clone(), true)
+                (&twilio_config.messaging_service_sid, true)
             }
-            _ => (twilio_config.messaging_service_sid.clone(), false)
+            _ => (&twilio_config.messaging_service_sid, false)
         };
 
         println!(
@@ -225,7 +225,7 @@ impl SmsService {
 
         let sms_request = TwilioSmsRequest {
             to: contact.phone_number.clone(),
-            from: from_number,
+            from: from_number.to_string(),
             body: message.to_string(),
         };
 
@@ -277,7 +277,7 @@ impl SmsService {
         &self,
         event: &TransactionEvent,
         wallet_name: &str,
-        contacts: Vec<ContactPerson>,
+        contacts: &[ContactPerson],
         twilio_config: &TwilioConfig,
     ) -> Vec<(ContactPerson, SmsResponse, String)> {
         let mut results = Vec::new();
@@ -312,7 +312,7 @@ impl SmsService {
                 },
             };
 
-            results.push((contact, response, message));
+            results.push((contact.clone(), response, message));
         }
 
         results

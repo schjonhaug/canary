@@ -1,12 +1,16 @@
-use bdk_wallet::rusqlite::{Connection, Result};
-use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
-use utoipa::ToSchema;
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
+use bdk_wallet::rusqlite::params;
+use std::sync::Arc;
+use tokio::task::spawn_blocking;
 use crate::migrations::MigrationRunner;
 use crate::electrum::BlockHeader;
+use anyhow::{Result, Context};
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use std::num::Wrapping;
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
 pub enum EventType {
     #[serde(rename = "send")]
     Send,
@@ -14,7 +18,7 @@ pub enum EventType {
     Receive,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
 pub enum Language {
     #[serde(rename = "en")]
     English,
@@ -90,7 +94,6 @@ pub struct ContactPerson {
     pub created_at: String,
 }
 
-
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct TwilioConfig {
     pub id: Option<i64>,
@@ -147,7 +150,7 @@ pub struct DashboardUpdate {
     pub events: Vec<TransactionEventWithWallet>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct EventInsert {
     pub wallet_id: i64,
     pub event_type: EventType,
@@ -224,8 +227,11 @@ pub fn calculate_wallet_color(descriptor: &str) -> String {
     checksum_to_hex_color(&checksum)
 }
 
+type DbPool = Pool<SqliteConnectionManager>;
+
+#[derive(Clone)]
 pub struct MetadataDb {
-    conn: Mutex<Connection>,
+    pool: Arc<DbPool>,
 }
 
 impl MetadataDb {
@@ -254,360 +260,421 @@ impl MetadataDb {
         }
         if !migrations_run {
             eprintln!("Warning: No migrations directory found in any of: {:?}", migration_paths);
-            // Continue anyway - we'll create tables manually as fallback
         }
         
-        // Get the connection back from the migration runner
+        // Get the connection back from the migration runner and close it
         let conn = migration_runner.get_connection();
-
+        drop(conn);
+        
+        // Create connection pool
+        let manager = SqliteConnectionManager::file(db_path);
+        let pool = Pool::builder()
+            .max_size(16)
+            .build(manager)
+            .context("Failed to create database pool")?;
 
         Ok(MetadataDb {
-            conn: Mutex::new(conn),
+            pool: Arc::new(pool),
         })
     }
 
-
-    pub fn insert_wallet(
+    pub async fn insert_wallet(
         &self,
         name: &str,
         descriptor: &str,
         wallet_filename: &str,
     ) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let hex_color = calculate_wallet_color(descriptor);
-        let mut stmt = conn.prepare(
-            "INSERT INTO wallets (name, descriptor, wallet_filename, hex_color, balance_total, last_activity) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        )?;
-
-        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        stmt.execute([name, descriptor, wallet_filename, &hex_color, "0", &current_time])?;
-        Ok(conn.last_insert_rowid())
+        let pool = self.pool.clone();
+        let name = name.to_string();
+        let descriptor = descriptor.to_string();
+        let wallet_filename = wallet_filename.to_string();
+        
+        spawn_blocking(move || -> Result<i64> {
+            let conn = pool.get()?;
+            let hex_color = calculate_wallet_color(&descriptor);
+            let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            
+            conn.execute(
+                "INSERT INTO wallets (name, descriptor, wallet_filename, hex_color, balance_total, last_activity) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![&name, &descriptor, &wallet_filename, &hex_color, "0", &current_time],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
     }
 
-    pub fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare("SELECT COUNT(*) FROM wallets WHERE descriptor = ?1")?;
-        let count: i64 = stmt.query_row([descriptor], |row| row.get(0))?;
-        Ok(count > 0)
+    pub async fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let descriptor = descriptor.to_string();
+        
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM wallets WHERE descriptor = ?1",
+                params![descriptor],
+                |row| row.get(0),
+            )?;
+            Ok(count > 0)
+        }).await?
     }
 
-    pub fn get_wallet_name_by_filename(&self, wallet_filename: &str) -> Result<String> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare("SELECT name FROM wallets WHERE wallet_filename = ?1")?;
-        let name: String = stmt.query_row([wallet_filename], |row| row.get(0))?;
-        Ok(name)
+    pub async fn get_wallet_name_by_filename(&self, wallet_filename: &str) -> Result<String> {
+        let pool = self.pool.clone();
+        let wallet_filename = wallet_filename.to_string();
+        
+        spawn_blocking(move || -> Result<String> {
+            let conn = pool.get()?;
+            let name: String = conn.query_row(
+                "SELECT name FROM wallets WHERE wallet_filename = ?1",
+                params![wallet_filename],
+                |row| row.get(0),
+            )?;
+            Ok(name)
+        }).await?
     }
 
-    pub fn get_wallet_by_descriptor(&self, descriptor: &str) -> Result<Option<WalletMetadata>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                    (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
-                    COUNT(c.id) as contact_count
-             FROM wallets w 
-             LEFT JOIN contact_persons c ON w.id = c.wallet_id 
-             WHERE w.descriptor = ?1 
-             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total"
-        )?;
-
-        match stmt.query_row([descriptor], |row| {
-            Ok(WalletMetadata {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                descriptor: row.get(2)?,
-                wallet_filename: row.get(3)?,
-                hex_color: row.get(4)?,
-                created_at: row.get(5)?,
-                balance_total: row.get(6).ok(),
-                last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
-                contact_count: Some(row.get(8)?),
-            })
-        }) {
-            Ok(metadata) => Ok(Some(metadata)),
-            Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e),
-        }
+    pub async fn get_wallet_by_descriptor(&self, descriptor: &str) -> Result<Option<WalletMetadata>> {
+        let pool = self.pool.clone();
+        let descriptor = descriptor.to_string();
+        
+        spawn_blocking(move || -> Result<Option<WalletMetadata>> {
+            let conn = pool.get()?;
+            match conn.query_row(
+                "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                        COUNT(c.id) as contact_count
+                 FROM wallets w 
+                 LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+                 WHERE w.descriptor = ?1 
+                 GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
+                params![descriptor],
+                |row| {
+                    Ok(WalletMetadata {
+                        id: Some(row.get(0)?),
+                        name: row.get(1)?,
+                        descriptor: row.get(2)?,
+                        wallet_filename: row.get(3)?,
+                        hex_color: row.get(4)?,
+                        created_at: row.get(5)?,
+                        balance_total: row.get(6).ok(),
+                        last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
+                        contact_count: Some(row.get(8)?),
+                    })
+                },
+            ) {
+                Ok(metadata) => Ok(Some(metadata)),
+                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
+        }).await?
     }
 
-    pub fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                    (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
-                    COUNT(c.id) as contact_count
-             FROM wallets w 
-             LEFT JOIN contact_persons c ON w.id = c.wallet_id 
-             WHERE w.id = ?1 
-             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
-        )?;
-
-        match stmt.query_row([id], |row| {
-            Ok(WalletMetadata {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                descriptor: row.get(2)?,
-                wallet_filename: row.get(3)?,
-                hex_color: row.get(4)?,
-                created_at: row.get(5)?,
-                balance_total: row.get(6).ok(),
-                last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
-                contact_count: Some(row.get(8)?),
-            })
-        }) {
-            Ok(metadata) => Ok(Some(metadata)),
-            Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e),
-        }
+    pub async fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Option<WalletMetadata>> {
+            let conn = pool.get()?;
+            match conn.query_row(
+                "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                        COUNT(c.id) as contact_count
+                 FROM wallets w 
+                 LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+                 WHERE w.id = ?1 
+                 GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
+                params![id],
+                |row| {
+                    Ok(WalletMetadata {
+                        id: Some(row.get(0)?),
+                        name: row.get(1)?,
+                        descriptor: row.get(2)?,
+                        wallet_filename: row.get(3)?,
+                        hex_color: row.get(4)?,
+                        created_at: row.get(5)?,
+                        balance_total: row.get(6).ok(),
+                        last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
+                        contact_count: Some(row.get(8)?),
+                    })
+                },
+            ) {
+                Ok(metadata) => Ok(Some(metadata)),
+                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
+        }).await?
     }
 
-    pub fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                    (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
-                    COUNT(c.id) as contact_count
-             FROM wallets w 
-             LEFT JOIN contact_persons c ON w.id = c.wallet_id 
-             GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
-             ORDER BY w.created_at DESC"
-        )?;
+    pub async fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                        COUNT(c.id) as contact_count
+                 FROM wallets w 
+                 LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+                 GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
+                 ORDER BY w.created_at DESC"
+            )?;
 
-        let wallet_iter = stmt.query_map([], |row| {
-            Ok(WalletMetadata {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                descriptor: row.get(2)?,
-                wallet_filename: row.get(3)?,
-                hex_color: row.get(4)?,
-                created_at: row.get(5)?,
-                balance_total: Some(row.get(6).unwrap_or(0)),
-                last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
-                contact_count: Some(row.get(8)?),
-            })
-        })?;
+            let wallet_iter = stmt.query_map([], |row| {
+                Ok(WalletMetadata {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    descriptor: row.get(2)?,
+                    wallet_filename: row.get(3)?,
+                    hex_color: row.get(4)?,
+                    created_at: row.get(5)?,
+                    balance_total: Some(row.get(6).unwrap_or(0)),
+                    last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
+                    contact_count: Some(row.get(8)?),
+                })
+            })?;
 
-        let mut wallets = Vec::new();
-        for wallet in wallet_iter {
-            wallets.push(wallet?);
-        }
+            let mut wallets = Vec::new();
+            for wallet in wallet_iter {
+                wallets.push(wallet?);
+            }
 
-        Ok(wallets)
+            Ok(wallets)
+        }).await?
     }
 
-    pub fn delete_wallet_by_id(&self, id: i64) -> Result<Option<(String, String)>> {
-        let conn = self.conn.lock().unwrap();
+    pub async fn delete_wallet_by_id(&self, id: i64) -> Result<Option<(String, String)>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Option<(String, String)>> {
+            let conn = pool.get()?;
 
-        // First get the descriptor and filename before deleting
-        let mut stmt =
-            conn.prepare("SELECT descriptor, wallet_filename FROM wallets WHERE id = ?1")?;
-        let wallet_info = match stmt.query_row([id], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        }) {
-            Ok((desc, filename)) => Some((desc, filename)),
-            Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => None,
-            Err(e) => return Err(e),
-        };
+            // First get the descriptor and filename before deleting
+            let wallet_info = match conn.query_row(
+                "SELECT descriptor, wallet_filename FROM wallets WHERE id = ?1",
+                params![id],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+            ) {
+                Ok((desc, filename)) => Some((desc, filename)),
+                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => None,
+                Err(e) => return Err(e.into()),
+            };
 
-        if let Some((descriptor, filename)) = wallet_info {
-            // Delete the wallet
-            let mut delete_stmt = conn.prepare("DELETE FROM wallets WHERE id = ?1")?;
-            let changes = delete_stmt.execute([id])?;
+            if let Some((descriptor, filename)) = wallet_info {
+                // Delete the wallet
+                let changes = conn.execute("DELETE FROM wallets WHERE id = ?1", params![id])?;
 
-            if changes > 0 {
-                Ok(Some((descriptor, filename)))
+                if changes > 0 {
+                    Ok(Some((descriptor, filename)))
+                } else {
+                    Ok(None)
+                }
             } else {
                 Ok(None)
             }
-        } else {
-            Ok(None)
-        }
+        }).await?
     }
 
-    pub fn insert_event(&self, event: &EventInsert) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
-        )?;
-
-        stmt.execute([
-            &event.wallet_id.to_string(),
-            event.event_type.as_str(),
-            &event.amount_sats.to_string(),
-            &(event.is_confirmed as i32).to_string(),
-            &(event.is_rbf as i32).to_string(),
-            &(event.is_cpfp as i32).to_string(),
-            &event
-                .balance_total
-                .map(|v| v.to_string())
-                .unwrap_or_default(),
-            &event.transaction_time.to_string(),
-        ])?;
-        Ok(conn.last_insert_rowid())
+    pub async fn insert_event(&self, event: &EventInsert) -> Result<i64> {
+        let pool = self.pool.clone();
+        let event = *event;
+        
+        spawn_blocking(move || -> Result<i64> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![
+                    event.wallet_id,
+                    event.event_type.as_str(),
+                    event.amount_sats,
+                    event.is_confirmed as i32,
+                    event.is_rbf as i32,
+                    event.is_cpfp as i32,
+                    event.balance_total,
+                    event.transaction_time,
+                ],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
     }
 
+    pub async fn get_all_events_with_wallets(&self) -> Result<Vec<TransactionEventWithWallet>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Vec<TransactionEventWithWallet>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT te.id, te.wallet_id, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.transaction_time 
+                 FROM transaction_events te 
+                 JOIN wallets w ON te.wallet_id = w.id 
+                 ORDER BY te.transaction_time DESC, te.id DESC"
+            )?;
 
-    pub fn get_all_events_with_wallets(&self) -> Result<Vec<TransactionEventWithWallet>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT te.id, te.wallet_id, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.transaction_time 
-             FROM transaction_events te 
-             JOIN wallets w ON te.wallet_id = w.id 
-             ORDER BY te.transaction_time DESC, te.id DESC"
-        )?;
+            let event_iter = stmt.query_map([], |row| {
+                Ok(TransactionEventWithWallet {
+                    id: Some(row.get(0)?),
+                    wallet_id: row.get(1)?,
+                    wallet_name: row.get(2)?,
+                    event_type: EventType::from(row.get::<_, String>(3)?.as_str()),
+                    amount_sats: row.get(4)?,
+                    is_confirmed: row.get(5)?,
+                    is_rbf: row.get(6)?,
+                    is_cpfp: row.get(7)?,
+                    balance_total: row.get(8).ok(),
+                    sms_recipients: Vec::new(),
+                    sms_recipients_status: Vec::new(),
+                    transaction_time: row.get(9)?,
+                })
+            })?;
 
-        let event_iter = stmt.query_map([], |row| {
-            Ok(TransactionEventWithWallet {
-                id: Some(row.get(0)?),
-                wallet_id: row.get(1)?,
-                wallet_name: row.get(2)?,
-                event_type: EventType::from(row.get::<_, String>(3)?.as_str()),
-                amount_sats: row.get(4)?,
-                is_confirmed: row.get(5)?,
-                is_rbf: row.get(6)?,
-                is_cpfp: row.get(7)?,
-                balance_total: row.get(8).ok(),
-                sms_recipients: Vec::new(), // Will be populated below
-                sms_recipients_status: Vec::new(), // Will be populated below
-                transaction_time: row.get(9)?,
-            })
-        })?;
-
-        let mut events = Vec::new();
-        for event in event_iter {
-            let mut event = event?;
-            
-            // Get SMS recipients and their status for this event
-            if let Some(event_id) = event.id {
-                let mut sms_stmt = conn.prepare(
-                    "SELECT cp.name, sl.status, sl.error_message FROM sms_logs sl 
-                     JOIN contact_persons cp ON sl.contact_id = cp.id 
-                     WHERE sl.event_id = ?1"
-                )?;
+            let mut events = Vec::new();
+            for event in event_iter {
+                let mut event = event?;
                 
-                let recipient_iter = sms_stmt.query_map([event_id], |row| {
-                    let name: String = row.get(0)?;
-                    let status: String = row.get(1)?;
-                    let error_message: Option<String> = row.get(2).ok();
+                // Get SMS recipients and their status for this event
+                if let Some(event_id) = event.id {
+                    let mut sms_stmt = conn.prepare(
+                        "SELECT cp.name, sl.status, sl.error_message FROM sms_logs sl 
+                         JOIN contact_persons cp ON sl.contact_id = cp.id 
+                         WHERE sl.event_id = ?1"
+                    )?;
                     
-                    Ok((name, status, error_message))
-                })?;
-                
-                for recipient_result in recipient_iter {
-                    let (name, status, error_message) = recipient_result?;
+                    let recipient_iter = sms_stmt.query_map(params![event_id], |row| {
+                        let name: String = row.get(0)?;
+                        let status: String = row.get(1)?;
+                        let error_message: Option<String> = row.get(2).ok();
+                        
+                        Ok((name, status, error_message))
+                    })?;
                     
-                    // Add to simple recipients list for backward compatibility
-                    event.sms_recipients.push(name.clone());
-                    
-                    // Add to detailed status list
-                    event.sms_recipients_status.push(SmsRecipientStatus {
-                        name,
-                        status,
-                        error_message,
-                    });
+                    for recipient_result in recipient_iter {
+                        let (name, status, error_message) = recipient_result?;
+                        
+                        event.sms_recipients_status.push(SmsRecipientStatus {
+                            name: name.clone(),
+                            status,
+                            error_message,
+                        });
+                        event.sms_recipients.push(name);
+                    }
                 }
+                
+                events.push(event);
             }
-            
-            events.push(event);
-        }
 
-        Ok(events)
+            Ok(events)
+        }).await?
     }
 
-    // Contact management functions
-    pub fn insert_contact(&self, wallet_id: i64, name: &str, phone_number: &str, language: &Language) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt =
-            conn.prepare("INSERT INTO contact_persons (wallet_id, name, phone_number, language) VALUES (?1, ?2, ?3, ?4)")?;
-
-        stmt.execute([&wallet_id.to_string(), name, phone_number, language.as_str()])?;
-        Ok(conn.last_insert_rowid())
+    pub async fn insert_contact(&self, wallet_id: i64, name: &str, phone_number: &str, language: &Language) -> Result<i64> {
+        let pool = self.pool.clone();
+        let name = name.to_string();
+        let phone_number = phone_number.to_string();
+        let language = *language;
+        
+        spawn_blocking(move || -> Result<i64> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO contact_persons (wallet_id, name, phone_number, language) VALUES (?1, ?2, ?3, ?4)",
+                params![wallet_id, &name, &phone_number, language.as_str()],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
     }
 
-
-    pub fn delete_contact(&self, contact_id: i64) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
-        // With CASCADE delete, we only need to delete the contact - sms_logs will be automatically deleted
-        let mut stmt = conn.prepare("DELETE FROM contact_persons WHERE id = ?1")?;
-        let changes = stmt.execute([contact_id])?;
-        Ok(changes > 0)
+    pub async fn delete_contact(&self, contact_id: i64) -> Result<bool> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let changes = conn.execute("DELETE FROM contact_persons WHERE id = ?1", params![contact_id])?;
+            Ok(changes > 0)
+        }).await?
     }
 
-    // These functions are no longer needed since contacts are now directly linked to wallets
-    // Keeping them for compatibility during transition, but they should be removed eventually
+    pub async fn get_contacts_for_wallet(&self, wallet_id: i64) -> Result<Vec<ContactPerson>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Vec<ContactPerson>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT id, wallet_id, name, phone_number, language, created_at 
+                 FROM contact_persons 
+                 WHERE wallet_id = ?1 ORDER BY name",
+            )?;
 
-    pub fn get_contacts_for_wallet(&self, wallet_id: i64) -> Result<Vec<ContactPerson>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, wallet_id, name, phone_number, language, created_at 
-             FROM contact_persons 
-             WHERE wallet_id = ?1 ORDER BY name",
-        )?;
+            let contact_iter = stmt.query_map(params![wallet_id], |row| {
+                let language_str: String = row.get(4)?;
+                Ok(ContactPerson {
+                    id: Some(row.get(0)?),
+                    wallet_id: row.get(1)?,
+                    name: row.get(2)?,
+                    phone_number: row.get(3)?,
+                    language: Language::from(language_str.as_str()),
+                    created_at: row.get(5)?,
+                })
+            })?;
 
-        let contact_iter = stmt.query_map([wallet_id], |row| {
-            let language_str: String = row.get(4)?;
-            Ok(ContactPerson {
-                id: Some(row.get(0)?),
-                wallet_id: row.get(1)?,
-                name: row.get(2)?,
-                phone_number: row.get(3)?,
-                language: Language::from(language_str.as_str()),
-                created_at: row.get(5)?,
-            })
-        })?;
+            let mut contacts = Vec::new();
+            for contact in contact_iter {
+                contacts.push(contact?);
+            }
 
-        let mut contacts = Vec::new();
-        for contact in contact_iter {
-            contacts.push(contact?);
-        }
-
-        Ok(contacts)
+            Ok(contacts)
+        }).await?
     }
 
-    // Twilio configuration functions
-    pub fn upsert_twilio_config(
+    pub async fn upsert_twilio_config(
         &self,
         account_sid: &str,
         auth_token: &str,
         messaging_service_sid: &str,
     ) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
+        let pool = self.pool.clone();
+        let account_sid = account_sid.to_string();
+        let auth_token = auth_token.to_string();
+        let messaging_service_sid = messaging_service_sid.to_string();
+        
+        spawn_blocking(move || -> Result<i64> {
+            let conn = pool.get()?;
 
-        // Delete existing config (we only want one)
-        conn.execute("DELETE FROM twilio_config", [])?;
+            // Delete existing config (we only want one)
+            conn.execute("DELETE FROM twilio_config", [])?;
 
-        // Insert new config
-        let mut stmt = conn.prepare(
-            "INSERT INTO twilio_config (account_sid, auth_token, messaging_service_sid) VALUES (?1, ?2, ?3)"
-        )?;
-
-        stmt.execute([account_sid, auth_token, messaging_service_sid])?;
-        Ok(conn.last_insert_rowid())
+            // Insert new config
+            conn.execute(
+                "INSERT INTO twilio_config (account_sid, auth_token, messaging_service_sid) VALUES (?1, ?2, ?3)",
+                params![&account_sid, &auth_token, &messaging_service_sid],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
     }
 
-    pub fn get_twilio_config(&self) -> Result<Option<TwilioConfig>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, account_sid, auth_token, messaging_service_sid, created_at FROM twilio_config LIMIT 1"
-        )?;
-
-        match stmt.query_row([], |row| {
-            Ok(TwilioConfig {
-                id: Some(row.get(0)?),
-                account_sid: row.get(1)?,
-                auth_token: row.get(2)?,
-                messaging_service_sid: row.get(3)?,
-                created_at: row.get(4)?,
-            })
-        }) {
-            Ok(config) => Ok(Some(config)),
-            Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e),
-        }
+    pub async fn get_twilio_config(&self) -> Result<Option<TwilioConfig>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Option<TwilioConfig>> {
+            let conn = pool.get()?;
+            match conn.query_row(
+                "SELECT id, account_sid, auth_token, messaging_service_sid, created_at FROM twilio_config LIMIT 1",
+                [],
+                |row| {
+                    Ok(TwilioConfig {
+                        id: Some(row.get(0)?),
+                        account_sid: row.get(1)?,
+                        auth_token: row.get(2)?,
+                        messaging_service_sid: row.get(3)?,
+                        created_at: row.get(4)?,
+                    })
+                },
+            ) {
+                Ok(config) => Ok(Some(config)),
+                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
+        }).await?
     }
 
-    // SMS logging functions
-    pub fn insert_sms_log(
+    pub async fn insert_sms_log(
         &self,
         event_id: i64,
         contact_id: i64,
@@ -616,81 +683,103 @@ impl MetadataDb {
         twilio_sid: Option<&str>,
         error_message: Option<&str>,
     ) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "INSERT INTO sms_logs (event_id, contact_id, message_content, status, twilio_sid, error_message) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
-        )?;
-
-        stmt.execute([
-            &event_id.to_string(),
-            &contact_id.to_string(),
-            message_content,
-            status,
-            &twilio_sid.unwrap_or(""),
-            &error_message.unwrap_or(""),
-        ])?;
-        Ok(conn.last_insert_rowid())
-    }
-
-    pub fn update_wallet_balance(&self, wallet_id: i64, balance_total: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare("UPDATE wallets SET balance_total = ?1 WHERE id = ?2")?;
-        stmt.execute([balance_total, wallet_id])?;
-        Ok(())
-    }
-
-    pub fn update_wallet(&self, wallet_id: i64, name: &str) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare("UPDATE wallets SET name = ?1 WHERE id = ?2")?;
-        let changes = stmt.execute([name, &wallet_id.to_string()])?;
-        Ok(changes > 0)
-    }
-
-
-
-
-    /// Store the current block header (replaces any existing)
-    pub fn upsert_current_block_header(&self, block_header: &BlockHeader) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "UPDATE current_block_header 
-             SET height = ?1, hash = ?2, timestamp = ?3, updated_at = datetime('now') 
-             WHERE id = 1"
-        )?;
-        stmt.execute([
-            &block_header.height.to_string(),
-            &block_header.hash,
-            &block_header.timestamp.to_string(),
-        ])?;
-        Ok(())
-    }
-
-    /// Get the stored current block header
-    pub fn get_current_block_header(&self) -> Result<Option<BlockHeader>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT height, hash, timestamp FROM current_block_header WHERE id = 1"
-        )?;
+        let pool = self.pool.clone();
+        let message_content = message_content.to_string();
+        let status = status.to_string();
+        let twilio_sid = twilio_sid.map(|s| s.to_string());
+        let error_message = error_message.map(|s| s.to_string());
         
-        let mut rows = stmt.query_map([], |row| {
-            Ok(BlockHeader {
-                height: row.get::<_, i64>(0)? as u32,
-                hash: row.get(1)?,
-                timestamp: row.get::<_, i64>(2)? as u64,
-            })
-        })?;
+        spawn_blocking(move || -> Result<i64> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO sms_logs (event_id, contact_id, message_content, status, twilio_sid, error_message) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    event_id,
+                    contact_id,
+                    &message_content,
+                    &status,
+                    twilio_sid.as_deref().unwrap_or(""),
+                    error_message.as_deref().unwrap_or(""),
+                ],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
+    }
 
-        match rows.next() {
-            Some(result) => {
-                let block_header = result?;
-                // Return None if this is the dummy row (height=0)
-                if block_header.height == 0 {
-                    Ok(None)
-                } else {
-                    Ok(Some(block_header))
+    pub async fn update_wallet_balance(&self, wallet_id: i64, balance_total: i64) -> Result<()> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE wallets SET balance_total = ?1 WHERE id = ?2",
+                params![balance_total, wallet_id],
+            )?;
+            Ok(())
+        }).await?
+    }
+
+    pub async fn update_wallet(&self, wallet_id: i64, name: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let name = name.to_string();
+        
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let changes = conn.execute(
+                "UPDATE wallets SET name = ?1 WHERE id = ?2",
+                params![&name, wallet_id],
+            )?;
+            Ok(changes > 0)
+        }).await?
+    }
+
+    pub async fn upsert_current_block_header(&self, block_header: &BlockHeader) -> Result<()> {
+        let pool = self.pool.clone();
+        let block_header = block_header.clone();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE current_block_header 
+                 SET height = ?1, hash = ?2, timestamp = ?3, updated_at = datetime('now') 
+                 WHERE id = 1",
+                params![
+                    block_header.height,
+                    &block_header.hash,
+                    block_header.timestamp,
+                ],
+            )?;
+            Ok(())
+        }).await?
+    }
+
+    pub async fn get_current_block_header(&self) -> Result<Option<BlockHeader>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Option<BlockHeader>> {
+            let conn = pool.get()?;
+            match conn.query_row(
+                "SELECT height, hash, timestamp FROM current_block_header WHERE id = 1",
+                [],
+                |row| {
+                    Ok(BlockHeader {
+                        height: row.get::<_, i64>(0)? as u32,
+                        hash: row.get(1)?,
+                        timestamp: row.get::<_, i64>(2)? as u64,
+                    })
+                },
+            ) {
+                Ok(block_header) => {
+                    // Return None if this is the dummy row (height=0)
+                    if block_header.height == 0 {
+                        Ok(None)
+                    } else {
+                        Ok(Some(block_header))
+                    }
                 }
+                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
             }
-            None => Ok(None),
-        }
+        }).await?
     }
 }

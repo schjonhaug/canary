@@ -5,7 +5,7 @@ use std::fs;
 use tempfile::TempDir;
 use tokio::sync::broadcast;
 
-fn create_temp_wallet_manager() -> (WalletManager, TempDir) {
+async fn create_temp_wallet_manager() -> (WalletManager, TempDir) {
     let temp_dir = TempDir::new().unwrap();
     let wallet_dir = temp_dir.path().join("wallets");
     fs::create_dir_all(&wallet_dir).unwrap();
@@ -14,24 +14,22 @@ fn create_temp_wallet_manager() -> (WalletManager, TempDir) {
     let (dashboard_tx, _) = broadcast::channel::<crate::metadata::DashboardUpdate>(100);
     let metadata_db_path = temp_dir.path().join("metadata.sqlite");
 
-    let wallet_manager = tokio::runtime::Runtime::new().unwrap().block_on(async {
-        WalletManager::new(
-            event_tx,
-            dashboard_tx,
-            wallet_dir,
-            metadata_db_path.to_str().unwrap(),
-            Network::Regtest,
-            "tcp://127.0.0.1:50001",
-        )
-        .await
-    });
+    let wallet_manager = WalletManager::new(
+        event_tx,
+        dashboard_tx,
+        wallet_dir,
+        metadata_db_path.to_str().unwrap(),
+        Network::Regtest,
+        "tcp://127.0.0.1:50001",
+    )
+    .await;
 
     (wallet_manager, temp_dir)
 }
 
-#[test]
-fn test_parse_multipath_descriptor_valid() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_parse_multipath_descriptor_valid() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
 
     let descriptor = "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)";
 
@@ -45,9 +43,9 @@ fn test_parse_multipath_descriptor_valid() {
     assert_ne!(receive_desc, change_desc);
 }
 
-#[test]
-fn test_parse_multipath_descriptor_invalid() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_parse_multipath_descriptor_invalid() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
 
     // Test invalid descriptor
     let invalid_descriptor = "invalid_descriptor";
@@ -61,9 +59,9 @@ fn test_parse_multipath_descriptor_invalid() {
     );
 }
 
-#[test]
-fn test_parse_multipath_descriptor_not_multipath() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_parse_multipath_descriptor_not_multipath() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
 
     // Test single path descriptor
     let single_path_descriptor = "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/*)";
@@ -77,16 +75,16 @@ fn test_parse_multipath_descriptor_not_multipath() {
     );
 }
 
-#[test]
-fn test_get_network() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_get_network() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
     let network = wallet_manager.get_network();
     assert_eq!(network, bdk_wallet::bitcoin::Network::Regtest);
 }
 
-#[test]
-fn test_wallet_manager_creation() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_wallet_manager_creation() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
 
     // Verify wallet manager is created with empty wallet list
     assert_eq!(wallet_manager.wallets.len(), 0);
@@ -95,19 +93,19 @@ fn test_wallet_manager_creation() {
     assert!(wallet_manager.wallet_dir.exists());
 
     // Verify metadata database is initialized
-    let wallets = wallet_manager.metadata_db.get_all_wallets().unwrap();
+    let wallets = wallet_manager.metadata_db.get_all_wallets().await.unwrap();
     assert_eq!(wallets.len(), 0);
 }
 
-#[test]
-fn test_insert_and_broadcast_event_helper() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_insert_and_broadcast_event_helper() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
 
     // Create a wallet first
     let wallet_id = wallet_manager
         .metadata_db
         .insert_wallet("Test Wallet", "test_descriptor", "test.sqlite")
-        .unwrap();
+        .await.unwrap();
 
     // Create event insert
     let event_insert = EventInsert {
@@ -126,7 +124,7 @@ fn test_insert_and_broadcast_event_helper() {
         &wallet_manager.metadata_db,
         &wallet_manager.event_sender,
         &event_insert,
-    );
+    ).await;
 
     assert!(result.is_ok());
 
@@ -134,56 +132,56 @@ fn test_insert_and_broadcast_event_helper() {
     let events = wallet_manager
         .metadata_db
         .get_all_events_with_wallets()
-        .unwrap();
+        .await.unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].event_type, EventType::Receive);
     assert_eq!(events[0].amount_sats, 1000000);
     assert_eq!(events[0].wallet_id, wallet_id);
 }
 
-#[test]
-fn test_wallet_manager_get_wallet_by_id() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_wallet_manager_get_wallet_by_id() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
 
     // Create a wallet in metadata
     let wallet_id = wallet_manager
         .metadata_db
         .insert_wallet("Test Wallet", "test_descriptor", "test.sqlite")
-        .unwrap();
+        .await.unwrap();
 
     // Test getting wallet by ID
-    let wallet = wallet_manager.get_wallet_by_id(wallet_id).unwrap();
+    let wallet = wallet_manager.get_wallet_by_id(wallet_id).await.unwrap();
     assert!(wallet.is_some());
     let wallet = wallet.unwrap();
     assert_eq!(wallet.name, "Test Wallet");
     assert_eq!(wallet.descriptor, "test_descriptor");
 
     // Test getting non-existent wallet
-    let wallet = wallet_manager.get_wallet_by_id(999).unwrap();
+    let wallet = wallet_manager.get_wallet_by_id(999).await.unwrap();
     assert!(wallet.is_none());
 }
 
-#[test]
-fn test_wallet_manager_get_all_wallets() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_wallet_manager_get_all_wallets() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
 
     // Initially should be empty
-    let wallets = wallet_manager.metadata_db.get_all_wallets().unwrap();
+    let wallets = wallet_manager.metadata_db.get_all_wallets().await.unwrap();
     assert_eq!(wallets.len(), 0);
 
     // Create some wallets
     wallet_manager
         .metadata_db
         .insert_wallet("Wallet 1", "descriptor1", "wallet1.sqlite")
-        .unwrap();
+        .await.unwrap();
 
     wallet_manager
         .metadata_db
         .insert_wallet("Wallet 2", "descriptor2", "wallet2.sqlite")
-        .unwrap();
+        .await.unwrap();
 
     // Test getting all wallets
-    let wallets = wallet_manager.metadata_db.get_all_wallets().unwrap();
+    let wallets = wallet_manager.metadata_db.get_all_wallets().await.unwrap();
     assert_eq!(wallets.len(), 2);
     // Verify both wallets are present (order may vary due to timestamp precision)
     let wallet_names: Vec<&str> = wallets.iter().map(|w| w.name.as_str()).collect();
@@ -191,8 +189,8 @@ fn test_wallet_manager_get_all_wallets() {
     assert!(wallet_names.contains(&"Wallet 2"));
 }
 
-#[test]
-fn test_event_insert_creation() {
+#[tokio::test]
+async fn test_event_insert_creation() {
     let event_insert = EventInsert {
         wallet_id: 1,
         event_type: EventType::Send,
@@ -212,8 +210,8 @@ fn test_event_insert_creation() {
     assert!(!event_insert.is_cpfp);
 }
 
-#[test]
-fn test_transaction_event_creation() {
+#[tokio::test]
+async fn test_transaction_event_creation() {
     let event = TransactionEvent {
         id: Some(1),
         wallet_id: 1,
@@ -236,9 +234,9 @@ fn test_transaction_event_creation() {
     assert_eq!(event.transaction_time, 1672574400);
 }
 
-#[test]
-fn test_wallet_manager_wallet_dir_operations() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_wallet_manager_wallet_dir_operations() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
 
     // Test wallet directory path operations
     let wallet_dir = &wallet_manager.wallet_dir;
@@ -251,15 +249,15 @@ fn test_wallet_manager_wallet_dir_operations() {
     assert_eq!(wallet_path.file_name().unwrap(), wallet_filename);
 }
 
-#[test]
-fn test_event_type_default() {
+#[tokio::test]
+async fn test_event_type_default() {
     let default_event_type = EventType::default();
     assert_eq!(default_event_type, EventType::Send);
 }
 
-#[test]
-fn test_multipath_descriptor_variations() {
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+#[tokio::test]
+async fn test_multipath_descriptor_variations() {
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
 
     // Test different multipath descriptor formats
     let descriptors = vec![
@@ -278,8 +276,8 @@ fn test_multipath_descriptor_variations() {
     }
 }
 
-#[test]
-fn test_rbf_transaction_detection() {
+#[tokio::test]
+async fn test_rbf_transaction_detection() {
     // Test RBF (Replace-By-Fee) transaction characteristics
     let rbf_event_insert = EventInsert {
         wallet_id: 1,
@@ -301,8 +299,8 @@ fn test_rbf_transaction_detection() {
     assert_eq!(rbf_event_insert.balance_total, Some(950000));
 }
 
-#[test]
-fn test_cpfp_transaction_detection() {
+#[tokio::test]
+async fn test_cpfp_transaction_detection() {
     // Test CPFP (Child-Pays-For-Parent) transaction characteristics
     let cpfp_event_insert = EventInsert {
         wallet_id: 1,
@@ -324,8 +322,8 @@ fn test_cpfp_transaction_detection() {
     assert_eq!(cpfp_event_insert.balance_total, Some(975000));
 }
 
-#[test]
-fn test_transaction_event_flags_combinations() {
+#[tokio::test]
+async fn test_transaction_event_flags_combinations() {
     // Test various combinations of RBF and CPFP flags
     let test_cases = vec![
         (false, false), // Normal transaction
@@ -354,8 +352,8 @@ fn test_transaction_event_flags_combinations() {
     }
 }
 
-#[test]
-fn test_rbf_vs_cpfp_transaction_differences() {
+#[tokio::test]
+async fn test_rbf_vs_cpfp_transaction_differences() {
     // Test the conceptual differences between RBF and CPFP
     let rbf_transaction = EventInsert {
         wallet_id: 1,
@@ -394,8 +392,8 @@ fn test_rbf_vs_cpfp_transaction_differences() {
     assert!(!cpfp_transaction.is_confirmed);
 }
 
-#[test]
-fn test_transaction_confirmation_state_transitions() {
+#[tokio::test]
+async fn test_transaction_confirmation_state_transitions() {
     // Test transaction state transitions from unconfirmed to confirmed
     let unconfirmed_event = TransactionEvent {
         id: Some(1),
@@ -434,10 +432,10 @@ fn test_transaction_confirmation_state_transitions() {
     assert_eq!(unconfirmed_event.wallet_id, confirmed_event.wallet_id);
 }
 
-#[test]
-fn test_sync_wallet_manager_creation() {
+#[tokio::test]
+async fn test_sync_wallet_manager_creation() {
     // Test that wallet manager can be created for sync operations
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
     
     // Verify sync-related properties
     assert!(wallet_manager.wallets.is_empty()); // No wallets initially
@@ -448,8 +446,8 @@ fn test_sync_wallet_manager_creation() {
     assert_eq!(wallet_manager.get_network(), Network::Regtest);
 }
 
-#[test]
-fn test_background_sync_interval_concept() {
+#[tokio::test]
+async fn test_background_sync_interval_concept() {
     // Test concepts related to background sync timing
     use std::time::Duration;
     
@@ -463,25 +461,22 @@ fn test_background_sync_interval_concept() {
     assert!(sync_interval.as_secs() < 60); // Not too infrequent for user experience
 }
 
-#[test]
-fn test_wallet_sync_error_handling() {
+#[tokio::test]
+async fn test_wallet_sync_error_handling() {
     // Test error handling during wallet sync operations
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+    let (mut wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
     
     // Test empty wallet list sync (should not error)
-    let result = tokio::runtime::Runtime::new().unwrap().block_on(async {
-        let mut manager = wallet_manager;
-        manager.sync_all_wallets().await
-    });
+    let result = wallet_manager.sync_all_wallets().await;
     
     // Should succeed even with no wallets
     assert!(result.is_ok());
 }
 
-#[test]
-fn test_sync_wallet_state_management() {
+#[tokio::test]
+async fn test_sync_wallet_state_management() {
     // Test wallet state management during sync operations
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
     
     // Test initial wallet state
     assert_eq!(wallet_manager.wallets.len(), 0);
@@ -496,10 +491,10 @@ fn test_sync_wallet_state_management() {
     assert!(metadata.is_dir());
 }
 
-#[test]
-fn test_sync_concurrency_safety() {
+#[tokio::test]
+async fn test_sync_concurrency_safety() {
     // Test that sync operations can handle concurrent access
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+    let (wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
     
     // Test that wallet manager can be wrapped in Arc<Mutex<>> for concurrent access
     use std::sync::Arc;
@@ -509,28 +504,20 @@ fn test_sync_concurrency_safety() {
     let wallet_manager_clone = Arc::clone(&wallet_manager_arc);
     
     // Test concurrent access pattern (similar to background sync implementation)
-    let result = tokio::runtime::Runtime::new().unwrap().block_on(async {
-        let manager = wallet_manager_clone.lock().await;
-        // Test that we can obtain the lock (simulating background sync access)
-        assert_eq!(manager.wallets.len(), 0);
-        Ok::<(), anyhow::Error>(())
-    });
-    
-    assert!(result.is_ok());
+    let manager = wallet_manager_clone.lock().await;
+    // Test that we can obtain the lock (simulating background sync access)
+    assert_eq!(manager.wallets.len(), 0);
 }
 
-#[test]
-fn test_sync_performance_considerations() {
+#[tokio::test]
+async fn test_sync_performance_considerations() {
     // Test performance-related aspects of sync operations
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+    let (mut wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
     
     // Test that sync operations are designed to be efficient
     let start_time = std::time::Instant::now();
     
-    let result = tokio::runtime::Runtime::new().unwrap().block_on(async {
-        let mut manager = wallet_manager;
-        manager.sync_all_wallets().await
-    });
+    let result = wallet_manager.sync_all_wallets().await;
     
     let duration = start_time.elapsed();
     
@@ -539,23 +526,16 @@ fn test_sync_performance_considerations() {
     assert!(duration.as_secs() < 1); // Should complete within 1 second for empty set
 }
 
-#[test]
-fn test_sync_all_wallets_empty_set() {
+#[tokio::test]
+async fn test_sync_all_wallets_empty_set() {
     // Test sync_all_wallets with empty wallet set
-    let (wallet_manager, _temp_dir) = create_temp_wallet_manager();
+    let (mut wallet_manager, _temp_dir) = create_temp_wallet_manager().await;
     
-    let result = tokio::runtime::Runtime::new().unwrap().block_on(async {
-        let mut manager = wallet_manager;
-        let sync_result = manager.sync_all_wallets().await;
-        
-        // Test that sync succeeds with empty wallet set
-        assert!(sync_result.is_ok());
-        
-        // Test that wallet count remains zero
-        assert_eq!(manager.wallets.len(), 0);
-        
-        sync_result
-    });
+    let sync_result = wallet_manager.sync_all_wallets().await;
     
-    assert!(result.is_ok());
+    // Test that sync succeeds with empty wallet set
+    assert!(sync_result.is_ok());
+    
+    // Test that wallet count remains zero
+    assert_eq!(wallet_manager.wallets.len(), 0);
 }

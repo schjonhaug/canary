@@ -1,5 +1,5 @@
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventInsert, EventType, MetadataDb, TransactionEvent, WalletMetadata, DashboardUpdate};
+use crate::metadata::{EventInsert, EventType, TransactionEvent, WalletMetadata, DashboardUpdate, MetadataDb};
 use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::secp256k1::Secp256k1;
 use bdk_wallet::rusqlite::Connection;
@@ -76,19 +76,19 @@ impl WalletManager {
     }
 
     /// Helper function to insert event and broadcast using extracted components
-    pub fn insert_and_broadcast_event_helper(
+    pub async fn insert_and_broadcast_event_helper(
         metadata_db: &MetadataDb,
         event_sender: &broadcast::Sender<TransactionEvent>,
         event_insert: &EventInsert,
     ) -> Result<()> {
         // First, insert to database (write-through pattern)
-        let event_id = metadata_db.insert_event(event_insert)?;
+        let event_id = metadata_db.insert_event(event_insert).await?;
 
         // Create TransactionEvent for broadcasting
         let event = TransactionEvent {
             id: Some(event_id),
             wallet_id: event_insert.wallet_id,
-            event_type: event_insert.event_type.clone(),
+            event_type: event_insert.event_type,
             amount_sats: event_insert.amount_sats,
             is_confirmed: event_insert.is_confirmed,
             is_rbf: event_insert.is_rbf,
@@ -106,17 +106,17 @@ impl WalletManager {
     }
 
     /// Helper function to insert historical event without broadcasting (no SMS notifications)
-    pub fn insert_historical_event_helper(
+    pub async fn insert_historical_event_helper(
         metadata_db: &MetadataDb,
         event_insert: &EventInsert,
     ) -> Result<()> {
         // Insert to database only, no broadcasting for historical events
-        metadata_db.insert_event(event_insert)?;
+        metadata_db.insert_event(event_insert).await?;
         Ok(())
     }
 
     /// Extract and process all historical transactions from a wallet
-    pub fn extract_historical_transactions(
+    pub async fn extract_historical_transactions(
         &self,
         wallet: &PersistedWallet<Connection>,
         wallet_id: i64,
@@ -232,7 +232,7 @@ impl WalletManager {
             // Create historical event with balance_total and transaction_time
             let event_insert = EventInsert {
                 wallet_id,
-                event_type: event_type.clone(),
+                event_type,
                 amount_sats,
                 is_confirmed,
                 is_rbf: false,
@@ -242,7 +242,7 @@ impl WalletManager {
             };
 
             // Insert historical event (no SMS broadcasting)
-            if let Err(e) = Self::insert_historical_event_helper(&self.metadata_db, &event_insert) {
+            if let Err(e) = Self::insert_historical_event_helper(&self.metadata_db, &event_insert).await {
                 eprintln!("Failed to insert historical event: {}", e);
             } else {
                 println!("  ✅ Processed {}: {} {:.8} BTC (Balance: {:.8} BTC)", 
@@ -396,7 +396,7 @@ impl WalletManager {
         println!("  Input descriptor: {}", descriptor_str);
 
         // Check if descriptor already exists
-        if self.metadata_db.descriptor_exists(descriptor_str)? {
+        if self.metadata_db.descriptor_exists(descriptor_str).await? {
             return Err(anyhow!("Descriptor already exists"));
         }
 
@@ -442,13 +442,13 @@ impl WalletManager {
 
         // Save wallet metadata
         let wallet_id = self.metadata_db
-            .insert_wallet(name, descriptor_str, &wallet_filename_with_ext)?;
+            .insert_wallet(name, descriptor_str, &wallet_filename_with_ext).await?;
         println!("  Metadata saved to file: {}", wallet_filename_with_ext);
 
         // Extract historical transactions BEFORE enabling real-time tracking
         // This ensures chronological order: historical events → real-time events
         println!("  Extracting historical transactions...");
-        if let Err(e) = self.extract_historical_transactions(&wallet, wallet_id) {
+        if let Err(e) = self.extract_historical_transactions(&wallet, wallet_id).await {
             eprintln!("Warning: Failed to extract historical transactions: {}", e);
         }
 
@@ -457,7 +457,7 @@ impl WalletManager {
         let initial_balance_btc = initial_balance as f64 / 100_000_000.0;
         println!("  Initial balance: {:.8} BTC ({} sats)", initial_balance_btc, initial_balance);
         
-        if let Err(e) = self.metadata_db.update_wallet_balance(wallet_id, initial_balance) {
+        if let Err(e) = self.metadata_db.update_wallet_balance(wallet_id, initial_balance).await {
             eprintln!("Warning: Failed to set initial wallet balance: {}", e);
         } else {
             println!("  Balance saved to metadata database");
@@ -469,7 +469,7 @@ impl WalletManager {
         // Retrieve and return the created wallet metadata
         let wallet_metadata = self
             .metadata_db
-            .get_wallet_by_descriptor(descriptor_str)?
+            .get_wallet_by_descriptor(descriptor_str).await?
             .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
 
         // Send immediate dashboard update for wallet creation
@@ -592,7 +592,7 @@ impl WalletManager {
                         let wallet_filename = format!("{}.sqlite", checksum);
                         let wallet_name = self
                             .metadata_db
-                            .get_wallet_name_by_filename(&wallet_filename)
+                            .get_wallet_name_by_filename(&wallet_filename).await
                             .expect(&format!(
                                 "Wallet name for filename '{}' should exist in metadata database",
                                 wallet_filename
@@ -601,7 +601,7 @@ impl WalletManager {
                         // Get wallet ID for database events
                         let wallet_metadata = self
                             .metadata_db
-                            .get_all_wallets()
+                            .get_all_wallets().await
                             .expect("Failed to get wallets")
                             .into_iter()
                             .find(|w| w.wallet_filename == wallet_filename)
@@ -609,7 +609,7 @@ impl WalletManager {
                         let wallet_id = wallet_metadata.id.expect("Wallet should have ID");
 
                         // Update the wallet balance in the metadata database
-                        if let Err(e) = self.metadata_db.update_wallet_balance(wallet_id, total_after.to_sat() as i64) {
+                        if let Err(e) = self.metadata_db.update_wallet_balance(wallet_id, total_after.to_sat() as i64).await {
                             eprintln!("Failed to update wallet balance in metadata: {}", e);
                         }
 
@@ -737,7 +737,7 @@ impl WalletManager {
                                         balance_total: Some(total_after.to_sat() as i64),
                                         transaction_time: Self::get_current_timestamp(),
                                     },
-                                ) {
+                                ).await {
                                     eprintln!("Failed to insert CPFP event: {}", e);
                                 }
 
@@ -778,7 +778,7 @@ impl WalletManager {
                                         balance_total: Some(total_after.to_sat() as i64),
                                         transaction_time: Self::get_current_timestamp(),
                                     },
-                                ) {
+                                ).await {
                                     eprintln!("Failed to insert RBF event: {}", e);
                                 }
                             } else {
@@ -809,7 +809,7 @@ impl WalletManager {
                                             balance_total: Some(total_after.to_sat() as i64),
                                             transaction_time: Self::get_current_timestamp(),
                                         },
-                                    ) {
+                                    ).await {
                                         eprintln!("Failed to insert sending event: {}", e);
                                     }
                                 }
@@ -839,7 +839,7 @@ impl WalletManager {
                                             balance_total: Some(total_after.to_sat() as i64),
                                             transaction_time: Self::get_current_timestamp(),
                                         },
-                                    ) {
+                                    ).await {
                                         eprintln!("Failed to insert sending event: {}", e);
                                     }
                                 }
@@ -865,7 +865,7 @@ impl WalletManager {
                                             balance_total: Some(total_after.to_sat() as i64),
                                             transaction_time: Self::get_current_timestamp(),
                                         },
-                                    ) {
+                                    ).await {
                                         eprintln!("Failed to insert sending event: {}", e);
                                     }
                                 }
@@ -898,7 +898,7 @@ impl WalletManager {
                                         balance_total: Some(total_after.to_sat() as i64),
                                         transaction_time: Self::get_current_timestamp(),
                                     },
-                                ) {
+                                ).await {
                                     eprintln!("Failed to insert sending event: {}", e);
                                 }
                             }
@@ -931,7 +931,7 @@ impl WalletManager {
                                         balance_total: Some(total_after.to_sat() as i64),
                                         transaction_time: Self::get_current_timestamp(),
                                     },
-                                ) {
+                                ).await {
                                     eprintln!("Failed to insert sending event: {}", e);
                                 }
                             }
@@ -960,7 +960,7 @@ impl WalletManager {
                                         balance_total: Some(total_after.to_sat() as i64),
                                         transaction_time: Self::get_current_timestamp(),
                                     },
-                                ) {
+                                ).await {
                                     eprintln!("Failed to insert sending event: {}", e);
                                 }
                             }
@@ -994,7 +994,7 @@ impl WalletManager {
                                     balance_total: Some(total_after.to_sat() as i64),
                                     transaction_time: Self::get_current_timestamp(),
                                 },
-                            ) {
+                            ).await {
                                 eprintln!("Failed to insert receiving event: {}", e);
                             }
                         }
@@ -1029,7 +1029,7 @@ impl WalletManager {
                                         balance_total: Some(total_after.to_sat() as i64),
                                         transaction_time: Self::get_current_timestamp(),
                                     },
-                                ) {
+                                ).await {
                                     eprintln!("Failed to insert sent confirmation event: {}", e);
                                 }
                             } else {
@@ -1051,7 +1051,7 @@ impl WalletManager {
                                         balance_total: Some(total_after.to_sat() as i64),
                                         transaction_time: Self::get_current_timestamp(),
                                     },
-                                ) {
+                                ).await {
                                     eprintln!("Failed to insert sent confirmation event: {}", e);
                                 }
                             }
@@ -1087,7 +1087,7 @@ impl WalletManager {
                                     balance_total: Some(total_after.to_sat() as i64),
                                     transaction_time: Self::get_current_timestamp(),
                                 },
-                            ) {
+                            ).await {
                                 eprintln!("Failed to insert received confirmation event: {}", e);
                             }
                         }
@@ -1122,10 +1122,10 @@ impl WalletManager {
             .as_secs();
 
         // Get all wallets with current balances
-        let wallets = self.metadata_db.get_all_wallets()?;
+        let wallets = self.metadata_db.get_all_wallets().await?;
         
         // Get recent transaction events (last 100 events)
-        let events = self.metadata_db.get_all_events_with_wallets()?;
+        let events = self.metadata_db.get_all_events_with_wallets().await?;
         
         // Create dashboard update
         let dashboard_update = DashboardUpdate {
@@ -1148,9 +1148,9 @@ impl WalletManager {
         Ok(())
     }
 
-    pub fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
+    pub async fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
         self.metadata_db
-            .get_wallet_by_id(id)
+            .get_wallet_by_id(id).await
             .map_err(|e| anyhow!("Failed to get wallet by ID: {}", e))
     }
 
@@ -1159,7 +1159,7 @@ impl WalletManager {
         println!("Deleting wallet with ID: {}", id);
 
         // Get the descriptor and filename for this wallet ID and delete from metadata
-        let (descriptor, wallet_filename) = match self.metadata_db.delete_wallet_by_id(id)? {
+        let (descriptor, wallet_filename) = match self.metadata_db.delete_wallet_by_id(id).await? {
             Some((desc, filename)) => (desc, filename),
             None => return Err(anyhow!("Wallet not found")),
         };
@@ -1218,7 +1218,7 @@ impl WalletManager {
         println!("Updating wallet with ID: {}", id);
         
         // Update wallet name in metadata database
-        let updated = self.metadata_db.update_wallet(id, name)?;
+        let updated = self.metadata_db.update_wallet(id, name).await?;
         if !updated {
             return Err(anyhow!("Wallet not found"));
         }
