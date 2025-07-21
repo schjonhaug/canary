@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Wallet, TransactionEvent, DashboardUpdate, CachedData } from '../types';
-
-const CACHE_KEY = 'canary-dashboard-cache';
+import { Wallet, TransactionEvent, DashboardUpdate } from '../types';
 
 export function useDashboard() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -23,15 +21,6 @@ export function useDashboard() {
           setEvents(data.events);
           setLastUpdate(data.timestamp);
           console.log('Loaded initial dashboard data from API');
-          
-          // Cache the data
-          const cacheData: CachedData = {
-            wallets: data.wallets,
-            events: data.events,
-            lastUpdate: data.timestamp,
-            timestamp: Date.now(),
-          };
-          localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
         } else {
           console.error('Failed to load initial dashboard data:', response.status);
         }
@@ -45,7 +34,7 @@ export function useDashboard() {
   }, []);
 
   useEffect(() => {
-    // Use the configured API URL or fallback to current hostname
+    // Use the configured API URL or empty string for relative URLs
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
     const streamUrl = `${baseUrl}/api/dashboard/stream`;
     
@@ -69,19 +58,6 @@ export function useDashboard() {
         setLastUpdate(update.timestamp);
         setError(null);
         setIsConnected(true);
-        
-        // Cache the data
-        try {
-          const cacheData: CachedData = {
-            wallets: update.wallets,
-            events: update.events,
-            lastUpdate: update.timestamp,
-            timestamp: Date.now()
-          };
-          localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-        } catch (cacheErr) {
-          console.error('Failed to cache dashboard data:', cacheErr);
-        }
       } catch (err) {
         console.error('Failed to parse dashboard update:', err);
         setError('Failed to parse dashboard update data');

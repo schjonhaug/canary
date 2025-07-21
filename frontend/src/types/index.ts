@@ -66,10 +66,3 @@ export interface DashboardUpdate {
   wallets: Wallet[]
   events: TransactionEvent[]
 }
-
-export interface CachedData {
-  wallets: Wallet[]
-  events: TransactionEvent[]
-  lastUpdate: number
-  timestamp: number
-}
