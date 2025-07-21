@@ -1,8 +1,5 @@
-import { getApiBaseUrl } from '@/lib/utils';
-
 export async function GET() {
-  const apiBaseUrl = getApiBaseUrl();
-  const backendUrl = `${apiBaseUrl}/api/block-headers/stream`;
+  const backendUrl = `http://backend:3001/api/block-headers/stream`;
 
   try {
     const response = await fetch(backendUrl, {

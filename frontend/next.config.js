@@ -1,10 +1,3 @@
 module.exports = {
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://backend:3001/api/:path*',
-      },
-    ];
-  },
+  // All API calls now handled by Next.js API routes for proper SSE support
 }; 
