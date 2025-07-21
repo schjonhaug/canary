@@ -1,30 +1,27 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useBlockHeaders } from '@/hooks/useBlockHeaders';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDistanceToNow } from 'date-fns';
 
 export function BlockStatus() {
   const { blockHeader, connected, reconnecting, error } = useBlockHeaders();
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleString();
-  };
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   const formatTimeAgo = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - (timestamp * 1000);
-    
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-    
-    if (diff < 60000) return rtf.format(-Math.floor(diff / 1000), 'second');
-    if (diff < 3600000) return rtf.format(-Math.floor(diff / 60000), 'minute');
-    if (diff < 86400000) return rtf.format(-Math.floor(diff / 3600000), 'hour');
-    return rtf.format(-Math.floor(diff / 86400000), 'day');
-  };
-
-  const truncateHash = (hash: string) => {
-    return `${hash.slice(0, 8)}...${hash.slice(-8)}`;
+    // Force re-render every minute by including currentTime in calculation
+    currentTime; // This ensures the component re-renders when currentTime updates
+    return formatDistanceToNow(new Date(timestamp * 1000), { addSuffix: true });
   };
 
   const getConnectionStatus = () => {
@@ -52,16 +49,12 @@ export function BlockStatus() {
                 <div className="h-4 w-px bg-border" />
                 <div className="flex items-center space-x-4 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Block:</span>{' '}
+                    <span className="text-muted-foreground">Block height:</span>{' '}
                     <span className="font-mono">{blockHeader.height.toLocaleString()}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Hash:</span>{' '}
-                    <span className="font-mono">{truncateHash(blockHeader.hash)}</span>
-                  </div>
-                  <div>
                     <span className="text-muted-foreground">Time:</span>{' '}
-                    <span className="font-mono">{formatTimeAgo(blockHeader.timestamp)}</span>
+                    <span>{formatTimeAgo(blockHeader.timestamp)}</span>
                   </div>
                 </div>
               </>
@@ -75,11 +68,6 @@ export function BlockStatus() {
           )}
         </div>
 
-        {blockHeader && (
-          <div className="mt-2 text-xs text-muted-foreground">
-            Last updated: {formatTimestamp(blockHeader.timestamp)}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

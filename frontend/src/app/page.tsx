@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, lazy, Suspense } from "react"
+import { useState, useEffect, lazy, Suspense } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
 import { formatBitcoinAmount } from "@/lib/utils"
+import { formatDistanceToNow } from 'date-fns'
 
 // Lazy load modal components for code splitting
 const SettingsModal = lazy(() => import("@/components/settings-modal").then(mod => ({ default: mod.SettingsModal })))
@@ -18,12 +19,24 @@ export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
+  const [currentTime, setCurrentTime] = useState(Date.now())
   const { wallets, events, isConnected, error, lastUpdate } = useDashboard()
   const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders()
 
-  const truncateHash = (hash: string) => {
-    return `${hash.slice(0, 8)}...${hash.slice(-8)}`
-  }
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTimeAgo = (timestamp: number) => {
+    // Force re-render every minute by including currentTime in calculation
+    currentTime; // This ensures the component re-renders when currentTime updates
+    return formatDistanceToNow(new Date(timestamp * 1000), { addSuffix: true });
+  };
+
 
   const getConnectionSymbol = () => {
     if (reconnecting) return <LoaderCircle size={16} className="text-yellow-500 animate-spin" />
@@ -75,17 +88,13 @@ export default function Home() {
                 >
                   {getConnectionSymbol()}
                 </div>
-                <span className="text-muted-foreground">Block:</span>
+                <span className="text-muted-foreground">Block height:</span>
                 <span className="font-mono font-medium">{blockHeader.height.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center gap-2 hidden md:flex">
-                <span className="text-muted-foreground">Hash:</span>
-                <span className="font-mono text-xs">{truncateHash(blockHeader.hash)}</span>
               </div>
               <div className="flex items-center gap-2 hidden lg:flex">
                 <span className="text-muted-foreground">Time:</span>
-                <span className="font-mono text-xs">
-                  {new Date(blockHeader.timestamp * 1000).toLocaleString()}
+                <span>
+                  {formatTimeAgo(blockHeader.timestamp)}
                 </span>
               </div>
             </div>

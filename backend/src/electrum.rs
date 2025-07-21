@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BlockHeader {
     pub height: u32,
-    pub hash: String,
     pub timestamp: u64,
 }
 
@@ -137,7 +136,6 @@ impl ElectrumClient {
         
         Ok(BlockHeader {
             height,
-            hash: header.block_hash().to_string(),
             timestamp: header.time as u64,
         })
     }

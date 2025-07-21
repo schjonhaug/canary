@@ -65,11 +65,10 @@ CREATE TABLE sms_logs (
 CREATE TABLE current_block_header (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     height INTEGER NOT NULL,
-    hash TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Initialize the singleton block header row
-INSERT INTO current_block_header (id, height, hash, timestamp) 
-VALUES (1, 0, '0000000000000000000000000000000000000000000000000000000000000000', 0);
+INSERT INTO current_block_header (id, height, timestamp) 
+VALUES (1, 0, 0);

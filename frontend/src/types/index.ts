@@ -50,7 +50,6 @@ export interface TwilioConfig {
 
 export interface BlockHeader {
   height: number
-  hash: string
   timestamp: number
 }
 

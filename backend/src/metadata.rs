@@ -741,11 +741,10 @@ impl MetadataDb {
             let conn = pool.get()?;
             conn.execute(
                 "UPDATE current_block_header 
-                 SET height = ?1, hash = ?2, timestamp = ?3, updated_at = datetime('now') 
+                 SET height = ?1, timestamp = ?2, updated_at = datetime('now') 
                  WHERE id = 1",
                 params![
                     block_header.height,
-                    &block_header.hash,
                     block_header.timestamp,
                 ],
             )?;
@@ -759,13 +758,12 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<BlockHeader>> {
             let conn = pool.get()?;
             match conn.query_row(
-                "SELECT height, hash, timestamp FROM current_block_header WHERE id = 1",
+                "SELECT height, timestamp FROM current_block_header WHERE id = 1",
                 [],
                 |row| {
                     Ok(BlockHeader {
                         height: row.get::<_, i64>(0)? as u32,
-                        hash: row.get(1)?,
-                        timestamp: row.get::<_, i64>(2)? as u64,
+                        timestamp: row.get::<_, i64>(1)? as u64,
                     })
                 },
             ) {

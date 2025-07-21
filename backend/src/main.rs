@@ -70,8 +70,8 @@ async fn main() -> anyhow::Result<()> {
                 Ok(height) => {
                     match electrum_client.get_block_header(height) {
                         Ok(block_header) => {
-                            println!("📦 Initial block header: height={}, hash={}", 
-                                   block_header.height, block_header.hash);
+                            println!("📦 Initial block header: height={}", 
+                                   block_header.height);
                             
                             // Store in database
                             if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header).await {
@@ -100,8 +100,8 @@ async fn main() -> anyhow::Result<()> {
             // Try to load stored block header from database
             match manager.metadata_db.get_current_block_header().await {
                 Ok(Some(stored_header)) => {
-                    println!("📦 Loaded stored block header: height={}, hash={}", 
-                           stored_header.height, stored_header.hash);
+                    println!("📦 Loaded stored block header: height={}", 
+                           stored_header.height);
                     
                     // Update shared state
                     let mut current_header = current_block_header.lock().await;
