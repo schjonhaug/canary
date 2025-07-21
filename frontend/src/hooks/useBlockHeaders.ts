@@ -32,46 +32,32 @@ export function useBlockHeaders(apiUrl?: string) {
       }
     };
 
-    const connect = () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
+    // Load initial data first
+    fetchInitialBlockHeader();
 
-      setState(prev => ({ ...prev, reconnecting: true, error: null }));
+    // Set up SSE connection (simplified to match working dashboard pattern)
+    const eventSource = new EventSource(`${baseUrl}/api/block-headers/stream`);
+    eventSourceRef.current = eventSource;
 
-      const eventSource = new EventSource(`${baseUrl}/api/block-headers/stream`);
-      eventSourceRef.current = eventSource;
-
-      eventSource.onopen = () => {
-        setState(prev => ({ ...prev, connected: true, reconnecting: false, error: null }));
-      };
-
-      eventSource.onmessage = (event) => {
-        try {
-          const blockHeader: BlockHeader = JSON.parse(event.data);
-          setState(prev => ({ ...prev, blockHeader, connected: true, reconnecting: false, error: null }));
-        } catch (error) {
-          console.error('Failed to parse block header:', error);
-          setState(prev => ({ ...prev, error: 'Failed to parse block header data' }));
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('EventSource error:', error);
-        setState(prev => ({ ...prev, connected: false, error: 'Connection lost' }));
-        
-        // Close the connection and attempt to reconnect after 5 seconds
-        eventSource.close();
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 5000);
-      };
+    eventSource.onopen = () => {
+      console.log('Block header stream connected');
+      setState(prev => ({ ...prev, connected: true, reconnecting: false, error: null }));
     };
 
-    // Fetch initial data first, then connect to SSE
-    fetchInitialBlockHeader().then(() => {
-      connect();
-    });
+    eventSource.onmessage = (event) => {
+      try {
+        const blockHeader: BlockHeader = JSON.parse(event.data);
+        setState(prev => ({ ...prev, blockHeader }));
+      } catch (error) {
+        console.error('Failed to parse block header:', error);
+        setState(prev => ({ ...prev, error: 'Failed to parse block header data' }));
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('Block header EventSource failed:', error);
+      setState(prev => ({ ...prev, connected: false, error: 'Connection lost' }));
+    };
 
     return () => {
       if (eventSourceRef.current) {
