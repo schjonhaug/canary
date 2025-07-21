@@ -128,7 +128,7 @@ canary/
 │   │   │   └── useModal.ts        # Modal state management
 │   │   ├── lib/               # Utility libraries
 │   │   │   ├── api.ts         # API client functions
-│   │   │   └── utils.ts       # Utility functions and SVG processing
+│   │   │   └── utils.ts       # Utility functions, SVG processing, and centralized API URL resolution
 │   │   └── types/             # TypeScript type definitions
 │   │       └── index.ts       # Shared type definitions
 │   ├── public/                # Static assets
@@ -484,6 +484,7 @@ This policy ensures:
 - **Configuration Management**: Flexible config system supporting CLI args, environment variables, and .env files
 - **Hybrid Dashboard Architecture**: REST API for initial data load + SSE for real-time updates only when changes occur
 - **Optimized SSE**: Dashboard updates sent only on actual wallet changes, not on every sync cycle
+- **Smart API URL Resolution**: Centralized `getApiBaseUrl()` function that only uses `NEXT_PUBLIC_API_URL` when explicitly set, allowing Next.js proxy to work correctly in production deployments
 - **SMS Recipients Real-Time Updates**: Dual dashboard updates ensure SMS recipient data appears immediately without manual refresh
 - **Accurate Transaction Timestamps**: Historical transactions fetch actual block timestamps from Electrum servers, unconfirmed transactions use BDK's `first_seen` mempool timestamps, no caching needed as timestamps are stored permanently in database
 - **Comprehensive Test Coverage**: 104 tests covering API endpoints, wallet management, SMS integration, network isolation, RBF/CPFP detection, background sync behavior, and error handling with full async/await support

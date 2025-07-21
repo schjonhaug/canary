@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatNumber, parsePhoneNumber } from "libphonenumber-js"
 import { Wallet, Contact } from "../types"
+import { getApiBaseUrl } from "../lib/utils"
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -79,7 +80,7 @@ export function EditWalletModal({
 
   const fetchWalletContacts = useCallback(async (walletId: number) => {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
+      const baseUrl = getApiBaseUrl()
       const response = await fetch(`${baseUrl}/api/wallets/${walletId}/contacts`)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
@@ -110,7 +111,7 @@ export function EditWalletModal({
     setError(null)
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
+      const baseUrl = getApiBaseUrl()
       const response = await fetch(`${baseUrl}/api/wallets/${wallet.id}`, {
         method: 'PUT',
         headers: {
@@ -153,7 +154,7 @@ export function EditWalletModal({
         throw new Error('Invalid phone number format. Please include country code (e.g., +4712345678)')
       }
 
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
+      const baseUrl = getApiBaseUrl()
       const response = await fetch(`${baseUrl}/api/wallets/${wallet.id}/contacts`, {
         method: 'POST',
         headers: {
@@ -186,7 +187,7 @@ export function EditWalletModal({
     if (!wallet) return
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
+      const baseUrl = getApiBaseUrl()
       const response = await fetch(`${baseUrl}/api/wallets/${wallet.id}/contacts/${contactId}`, {
         method: 'DELETE',
       })

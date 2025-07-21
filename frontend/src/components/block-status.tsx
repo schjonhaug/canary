@@ -5,9 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 
 export function BlockStatus() {
-  const { blockHeader, connected, reconnecting, error } = useBlockHeaders(
-    process.env.NEXT_PUBLIC_API_URL || ''
-  );
+  const { blockHeader, connected, reconnecting, error } = useBlockHeaders();
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString();

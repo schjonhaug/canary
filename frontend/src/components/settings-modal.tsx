@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CheckCircle, XCircle, Loader2, Eye, EyeOff } from "lucide-react"
 import { TwilioConfig } from "../types"
+import { getApiBaseUrl } from "../lib/utils"
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -42,7 +43,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const fetchConfig = async () => {
     setIsLoading(true)
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
+      const baseUrl = getApiBaseUrl()
       const response = await fetch(`${baseUrl}/api/twilio/config`)
       if (response.ok) {
         const data = await response.json()
@@ -76,7 +77,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         skip_validation: process.env.NODE_ENV === "development"
       }
 
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
+      const baseUrl = getApiBaseUrl()
       const response = await fetch(`${baseUrl}/api/twilio/config`, {
         method: "POST",
         headers: {

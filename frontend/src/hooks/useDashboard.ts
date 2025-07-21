@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Wallet, TransactionEvent, DashboardUpdate } from '../types';
+import { getApiBaseUrl } from '../lib/utils';
 
 export function useDashboard() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -13,7 +14,7 @@ export function useDashboard() {
     const loadInitialData = async () => {
       try {
         // Fetch fresh data from REST API
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+        const baseUrl = getApiBaseUrl();
         const response = await fetch(`${baseUrl}/api/dashboard`);
         if (response.ok) {
           const data: DashboardUpdate = await response.json();
@@ -35,7 +36,7 @@ export function useDashboard() {
 
   useEffect(() => {
     // Use the configured API URL or empty string for relative URLs
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    const baseUrl = getApiBaseUrl();
     const streamUrl = `${baseUrl}/api/dashboard/stream`;
     
     console.log('Connecting to dashboard stream:', streamUrl);

@@ -77,7 +77,11 @@ export function formatDate(dateTime: string): string {
 
 // API utilities
 export function getApiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL || ''
+  // Only use NEXT_PUBLIC_API_URL if it's actually set to a non-empty value
+  // This allows the Next.js proxy to work when the env var is not set
+  return process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim() !== '' 
+    ? process.env.NEXT_PUBLIC_API_URL 
+    : ''
 }
 
 export async function handleApiResponse(response: Response): Promise<unknown> {
