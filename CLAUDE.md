@@ -3,7 +3,7 @@
 **Development Status**: This project is in unreleased developer mode. Backwards compatibility is not a priority at this stage.
 
 ## Project Overview
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features multipath descriptors, Electrum sync, transaction analysis, background sync, and Norwegian SMS notifications.
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features multipath descriptors, Electrum sync, transaction analysis, background sync, and multi-language SMS notifications (Norwegian and English).
 
 ## Development Commands
 
@@ -90,7 +90,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Mainnet: ssl://electrum.blockstream.info:50002
 
 ## Key Features
-- **Norwegian SMS**: Real-time transaction notifications via Twilio
+- **Multi-language SMS**: Real-time transaction notifications in Norwegian and English via Twilio
 - **Performance**: Async SQLite with r2d2 connection pooling
 - **Real-time**: Hybrid REST + SSE architecture, block header streaming
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
