@@ -233,14 +233,9 @@ async fn main() -> anyhow::Result<()> {
                                     );
 
                                     // Get wallet name for message
-                                    let wallet_name = match manager.metadata_db.get_all_wallets().await {
-                                        Ok(wallets) => wallets
-                                            .into_iter()
-                                            .find(|w| w.id == Some(event.wallet_id))
-                                            .map(|w| w.name)
-                                            .unwrap_or_else(|| {
-                                                format!("Wallet {}", event.wallet_id)
-                                            }),
+                                    let wallet_name = match manager.metadata_db.get_wallet_by_id(event.wallet_id).await {
+                                        Ok(Some(wallet)) => wallet.name,
+                                        Ok(None) => format!("Wallet {}", event.wallet_id),
                                         Err(_) => format!("Wallet {}", event.wallet_id),
                                     };
 

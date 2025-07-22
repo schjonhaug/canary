@@ -403,6 +403,42 @@ impl MetadataDb {
         }).await?
     }
 
+    pub async fn get_wallet_by_filename(&self, wallet_filename: &str) -> Result<Option<WalletMetadata>> {
+        let pool = self.pool.clone();
+        let wallet_filename = wallet_filename.to_string();
+        
+        spawn_blocking(move || -> Result<Option<WalletMetadata>> {
+            let conn = pool.get()?;
+            match conn.query_row(
+                "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                        COUNT(c.id) as contact_count
+                 FROM wallets w 
+                 LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+                 WHERE w.wallet_filename = ?1 
+                 GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
+                params![wallet_filename],
+                |row| {
+                    Ok(WalletMetadata {
+                        id: Some(row.get(0)?),
+                        name: row.get(1)?,
+                        descriptor: row.get(2)?,
+                        wallet_filename: row.get(3)?,
+                        hex_color: row.get(4)?,
+                        created_at: row.get(5)?,
+                        balance_total: Some(row.get(6).unwrap_or(0)),
+                        last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
+                        contact_count: Some(row.get(8)?),
+                    })
+                },
+            ) {
+                Ok(wallet) => Ok(Some(wallet)),
+                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
+        }).await?
+    }
+
     pub async fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
         

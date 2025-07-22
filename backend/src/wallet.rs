@@ -601,10 +601,8 @@ impl WalletManager {
                         // Get wallet ID for database events
                         let wallet_metadata = self
                             .metadata_db
-                            .get_all_wallets().await
-                            .expect("Failed to get wallets")
-                            .into_iter()
-                            .find(|w| w.wallet_filename == wallet_filename)
+                            .get_wallet_by_filename(&wallet_filename).await
+                            .expect("Failed to get wallet")
                             .expect("Wallet should exist in metadata database");
                         let wallet_id = wallet_metadata.id.expect("Wallet should have ID");
 
