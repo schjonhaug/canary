@@ -13,6 +13,7 @@ use config::AppConfig;
 use electrum::{ElectrumClient, BlockHeader};
 use metadata::{TransactionEvent, DashboardUpdate};
 use sms::SmsService;
+use std::io::{self, Write};
 use std::sync::Arc;
 use tokio::sync::{Mutex, broadcast};
 use tokio::time::{Duration, interval};
@@ -163,7 +164,8 @@ async fn main() -> anyhow::Result<()> {
             // Poll for new block headers
             if let Some(ref electrum_client) = manager.electrum_client {
                 if let Some(notification) = electrum_client.block_headers_pop() {
-                    println!("📦 New block header: height={}, hash={}", notification.height, notification.header.block_hash());
+                    print!("📦 {} ", notification.height);
+                    let _ = io::stdout().flush();
                     
                     // Get full block header details
                     if let Ok(block_header) = electrum_client.get_block_header(notification.height as u32) {

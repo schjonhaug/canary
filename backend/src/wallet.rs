@@ -612,6 +612,8 @@ impl WalletManager {
                         }
 
                         // 22 for label, 18 for each value, 3 for separators
+                        println!(); // Add blank line before wallet output
+                        println!("{:-<85}", "");
                         println!(
                             "{:>22} | {:<18} | {:<18} | {:<18}",
                             format!("Wallet {}", wallet_name),
@@ -619,7 +621,7 @@ impl WalletManager {
                             "After",
                             "Diff"
                         );
-                        println!("{:-<79}", "");
+                        println!("{:-<85}", "");
                         let fmt = |amt: bdk_wallet::bitcoin::Amount| {
                             let btc = amt.to_sat() as f64 / 100_000_000.0;
                             if btc == 0.0 {
@@ -685,7 +687,7 @@ impl WalletManager {
                         }
 
                         // Add separator before Total
-                        println!("{:-<79}", "");
+                        println!("{:-<85}", "");
                         println!(
                             "{:>22} | {:<18} | {:<18} | {:<18}",
                             "Total",
@@ -693,7 +695,7 @@ impl WalletManager {
                             fmt(total_after),
                             fmt_diff(total_before, total_after)
                         );
-                        println!("{:-<79}", "");
+                        println!("{:-<85}", "");
 
                         // Detect if this is a sending transaction
                         let trusted_pending_increase =
