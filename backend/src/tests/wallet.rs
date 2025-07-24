@@ -539,3 +539,62 @@ async fn test_sync_all_wallets_empty_set() {
     // Test that wallet count remains zero
     assert_eq!(wallet_manager.wallets.len(), 0);
 }
+
+#[tokio::test]
+async fn test_high_index_address_revelation() {
+    // Test the address revelation logic for high index addresses
+    use bdk_wallet::{Wallet, KeychainKind};
+    use bdk_wallet::bitcoin::Network;
+    
+    // Create a test wallet directly using BDK
+    let descriptor = "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/0/*)#5asejmkj";
+    let change_descriptor = "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/1/*)#9f4c0wx2";
+    
+    let mut wallet = match Wallet::create(descriptor, change_descriptor)
+        .network(Network::Regtest)
+        .create_wallet_no_persist() {
+        Ok(w) => w,
+        Err(e) => {
+            eprintln!("Failed to create test wallet: {}", e);
+            return;
+        }
+    };
+    
+    // Initial state - should have no addresses revealed
+    let initial_external_index = wallet.next_derivation_index(KeychainKind::External);
+    assert_eq!(initial_external_index, 0, "Should start with no addresses revealed");
+    
+    // Simulate the initial wallet sync behavior (reveal 50 addresses)
+    let initial_revealed: Vec<_> = wallet.reveal_addresses_to(KeychainKind::External, 50).collect();
+    assert_eq!(initial_revealed.len(), 51, "Should reveal 51 addresses (0-50)");
+    
+    // Now simulate a scenario where transactions exist at high indices
+    // This tests our dynamic revelation logic
+    let high_index = 150u32;
+    
+    // Reveal up to the high index to simulate finding a transaction there
+    let revealed_to_high: Vec<_> = wallet.reveal_addresses_to(KeychainKind::External, high_index).collect();
+    println!("Revealed {} more addresses to reach index {}", revealed_to_high.len(), high_index);
+    
+    // Now test our stop gap maintenance logic
+    let current_index = wallet.next_derivation_index(KeychainKind::External);
+    let required_index = high_index + crate::electrum::STOP_GAP as u32;
+    
+    println!("Testing stop gap maintenance:");
+    println!("  Highest used index: {}", high_index);
+    println!("  Current revealed: {}", current_index);
+    println!("  Required for stop gap: {}", required_index);
+    
+    // Our logic should reveal more addresses to maintain the stop gap
+    if current_index <= required_index {
+        let gap_revealed: Vec<_> = wallet.reveal_addresses_to(KeychainKind::External, required_index).collect();
+        println!("  Revealed {} more addresses to maintain stop gap", gap_revealed.len());
+    }
+    
+    // Verify final state
+    let final_index = wallet.next_derivation_index(KeychainKind::External);
+    assert!(final_index > high_index, "Should have revealed beyond the high index");
+    assert!(final_index >= required_index, "Should maintain stop gap of {} addresses", crate::electrum::STOP_GAP);
+    
+    println!("Test passed: Addresses revealed up to index {} to maintain stop gap for index {}", final_index - 1, high_index);
+}

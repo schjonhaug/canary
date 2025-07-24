@@ -96,6 +96,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
 - **Network Isolation**: Separate databases per Bitcoin network
 - **Background Sync**: 4-second wallet sync intervals
+- **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
 
 ## SMS Setup
 1. Configure Twilio: `POST /api/twilio/config`
@@ -107,7 +108,14 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Metadata**: `database/{network}/metadata.sqlite` (contacts, events, SMS logs)
 - **Reset**: `./docker-utils.sh reset` removes all databases
 
+## Address Management
+The service uses BDK's address revelation mechanism with a stop gap of 20:
+- **Initial Sync**: Starts with 50 addresses, dynamically reveals more until finding 20 consecutive unused addresses
+- **Incremental Sync**: After each sync, checks the highest used address index and ensures 20+ unused addresses are revealed beyond it
+- **No Address Limits**: Automatically adapts to any wallet usage pattern, detecting transactions at any index (e.g., index 150, 200+)
+- **Stop Gap**: Always maintains 20 consecutive unused addresses to prevent missing transactions
+
 ## Code Standards
 - No commented-out code (use git history)
 - Clean, maintainable codebase
-- 104 comprehensive tests
+- 110 comprehensive tests including address revelation tests

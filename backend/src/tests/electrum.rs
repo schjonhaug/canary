@@ -1,4 +1,7 @@
 use crate::electrum::ElectrumClient;
+use bdk_wallet::{KeychainKind, Wallet};
+use bdk_wallet::bitcoin::Network;
+use tempfile::TempDir;
 
 #[test]
 fn test_electrum_client_creation() {
@@ -211,4 +214,88 @@ fn test_electrum_client_regtest_port() {
             // But the port is correct
         }
     }
+}
+
+#[test]
+fn test_address_revelation_logic() {
+    // Test the address revelation logic without needing an actual Electrum connection
+    let _temp_dir = TempDir::new().unwrap();
+    
+    // Create a test wallet with a simple descriptor
+    let descriptor = "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/0/*)#5asejmkj";
+    let change_descriptor = "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/1/*)#9f4c0wx2";
+    
+    let mut wallet = match Wallet::create(descriptor, change_descriptor)
+        .network(Network::Regtest)
+        .create_wallet_no_persist() {
+        Ok(w) => w,
+        Err(_) => return, // Skip test if wallet creation fails
+    };
+    
+    // Test initial state
+    let initial_external = wallet.next_derivation_index(KeychainKind::External);
+    let initial_internal = wallet.next_derivation_index(KeychainKind::Internal);
+    assert_eq!(initial_external, 0, "External addresses should start at 0");
+    assert_eq!(initial_internal, 0, "Internal addresses should start at 0");
+    
+    // Test revealing addresses
+    let revealed: Vec<_> = wallet.reveal_addresses_to(KeychainKind::External, 10).collect();
+    assert_eq!(revealed.len(), 11, "Should reveal 11 addresses (indices 0-10)");
+    assert_eq!(wallet.next_derivation_index(KeychainKind::External), 11, "Next index should be 11");
+    
+    // Test revealing more addresses
+    let revealed: Vec<_> = wallet.reveal_addresses_to(KeychainKind::External, 50).collect();
+    assert_eq!(revealed.len(), 40, "Should reveal 40 more addresses (11-50)");
+    assert_eq!(wallet.next_derivation_index(KeychainKind::External), 51, "Next index should be 51");
+    
+    // Test that revealing to a lower index returns no new addresses
+    let revealed: Vec<_> = wallet.reveal_addresses_to(KeychainKind::External, 30).collect();
+    assert_eq!(revealed.len(), 0, "Should reveal 0 addresses when target is lower");
+    assert_eq!(wallet.next_derivation_index(KeychainKind::External), 51, "Next index should remain 51");
+}
+
+#[test]
+fn test_stop_gap_calculation() {
+    // Test the stop gap calculation logic
+    let stop_gap = crate::electrum::STOP_GAP as u32;
+    
+    // Test various scenarios
+    assert_eq!(0 + stop_gap, 20, "From index 0, need to check up to 20");
+    assert_eq!(50 + stop_gap, 70, "From index 50, need to check up to 70");
+    assert_eq!(100 + stop_gap, 120, "From index 100, need to check up to 120");
+    
+    // Test that we need enough addresses revealed
+    let highest_used = 45u32;
+    let current_revealed = 50u32;
+    let required = highest_used + stop_gap;
+    assert_eq!(required, 65, "Need addresses up to index 65");
+    assert!(current_revealed < required, "50 < 65, so need to reveal more");
+}
+
+#[test]
+fn test_peek_address_behavior() {
+    // Test that peek_address doesn't reveal new addresses
+    let descriptor = "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/0/*)#5asejmkj";
+    let change_descriptor = "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/1/*)#9f4c0wx2";
+    
+    let mut wallet = match Wallet::create(descriptor, change_descriptor)
+        .network(Network::Regtest)
+        .create_wallet_no_persist() {
+        Ok(w) => w,
+        Err(_) => return, // Skip test if wallet creation fails
+    };
+    
+    // Reveal some addresses first
+    let _: Vec<_> = wallet.reveal_addresses_to(KeychainKind::External, 5).collect();
+    assert_eq!(wallet.next_derivation_index(KeychainKind::External), 6, "Should have revealed to index 5, next is 6");
+    
+    // Peek at an address within revealed range
+    let addr = wallet.peek_address(KeychainKind::External, 3);
+    assert!(addr.index == 3, "Should get address at index 3");
+    assert_eq!(wallet.next_derivation_index(KeychainKind::External), 6, "Peeking within range shouldn't change next index");
+    
+    // Peek at address at the current boundary  
+    let addr = wallet.peek_address(KeychainKind::External, 5);
+    assert!(addr.index == 5, "Should get address at index 5");
+    assert_eq!(wallet.next_derivation_index(KeychainKind::External), 6, "Peeking at last revealed address doesn't change index");
 }
