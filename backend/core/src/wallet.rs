@@ -97,7 +97,7 @@ impl WalletManager {
             transaction_time: event_insert.transaction_time,
         };
 
-        // Broadcast to SMS worker (non-blocking)
+        // Broadcast to notification worker (non-blocking)
         if let Err(e) = event_sender.send(event) {
             eprintln!("Failed to broadcast event: {}", e);
         }
@@ -105,7 +105,7 @@ impl WalletManager {
         Ok(())
     }
 
-    /// Helper function to insert historical event without broadcasting (no SMS notifications)
+    /// Helper function to insert historical event without broadcasting (no notifications)
     pub async fn insert_historical_event_helper(
         metadata_db: &MetadataDb,
         event_insert: &EventInsert,
@@ -241,7 +241,7 @@ impl WalletManager {
                 transaction_time,
             };
 
-            // Insert historical event (no SMS broadcasting)
+            // Insert historical event (no notification broadcasting)
             if let Err(e) = Self::insert_historical_event_helper(&self.metadata_db, &event_insert).await {
                 eprintln!("Failed to insert historical event: {}", e);
             } else {

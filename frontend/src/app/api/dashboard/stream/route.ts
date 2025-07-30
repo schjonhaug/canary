@@ -1,5 +1,7 @@
 export async function GET() {
-  const backendUrl = `http://backend:3001/api/dashboard/stream`;
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL 
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/stream`
+    : `http://localhost:3000/api/dashboard/stream`;
 
   try {
     const response = await fetch(backendUrl, {

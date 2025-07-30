@@ -74,7 +74,6 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Total Balance</TableHead>
-                <TableHead>SMS Recipients</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -84,9 +83,6 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                     <Skeleton className="h-4 w-32" />
                   </TableCell>
                   <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  <TableCell>
                     <Skeleton className="h-6 w-20" />
                   </TableCell>
                   <TableCell>
@@ -94,9 +90,6 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                   </TableCell>
                   <TableCell>
                     <Skeleton className="h-4 w-28" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
                   </TableCell>
                 </TableRow>
               ))}
@@ -142,7 +135,6 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Total Balance</TableHead>
-                <TableHead>SMS Recipients</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -188,27 +180,6 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                   </TableCell>
                   <TableCell className="font-mono">
                     {event.balance_total ? formatBitcoinAmount(event.balance_total) : "N/A"}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {event.sms_recipients_status && event.sms_recipients_status.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {event.sms_recipients_status.map((recipient, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center gap-1"
-                            title={recipient.error_message || `SMS ${recipient.status}`}
-                          >
-                            {recipient.status === 'failed' && <span>❌</span>}
-                            <span>{recipient.name}</span>
-                            {index < event.sms_recipients_status.length - 1 && <span>,</span>}
-                          </span>
-                        ))}
-                      </div>
-                    ) : event.sms_recipients.length > 0 ? (
-                      event.sms_recipients.join(", ")
-                    ) : (
-                      "None"
-                    )}
                   </TableCell>
                 </TableRow>
               ))}

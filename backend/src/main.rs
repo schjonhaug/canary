@@ -1,23 +1,11 @@
-#[cfg(test)]
-mod tests;
 
 mod api;
-mod config;
-mod electrum;
-mod metadata;
-mod migrations;
-mod sms;
-mod wallet;
+
 use api::create_router;
-use config::AppConfig;
-use electrum::{ElectrumClient, BlockHeader};
-use metadata::{TransactionEvent, DashboardUpdate};
-use sms::SmsService;
-use std::io::{self, Write};
+use canary_core::{AppConfig, BlockHeader, TransactionEvent, DashboardUpdate, NotificationManager, NtfyProvider, WalletManager};
 use std::sync::Arc;
 use tokio::sync::{Mutex, broadcast};
 use tokio::time::{Duration, interval};
-use wallet::WalletManager;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -29,31 +17,25 @@ async fn main() -> anyhow::Result<()> {
     println!("  Electrum URL: {}", config.electrum_url());
     println!("  Bind address: {}", config.bind_address);
     println!("  Wallet directory: {}", config.effective_wallet_dir());
-    println!("  Metadata database: {}", config.effective_metadata_db());
+    println!("  Metadata DB: {}", config.effective_metadata_db());
 
-    // Test Electrum connection
-    let electrum_client = ElectrumClient::new(&config.electrum_url())?;
-    let features = electrum_client.server_features()?;
-    println!("Connected to Electrum server: {}", features);
+    // Create wallet manager with sync worker
+    println!("Creating wallet sync worker...");
+    
+    let (event_tx, _event_rx) = broadcast::channel::<TransactionEvent>(100);
 
-    // Create broadcast channel for transaction events
-    let (event_tx, _event_rx) = broadcast::channel::<TransactionEvent>(1000);
-
-    // Create broadcast channel for block header events
-    let (block_header_tx, _block_header_rx) = broadcast::channel::<BlockHeader>(100);
+    // Create broadcast channel for block headers
+    let (block_header_tx, _block_header_rx) = broadcast::channel::<BlockHeader>(10);
 
     // Create broadcast channel for dashboard updates
     let (dashboard_tx, _dashboard_rx) = broadcast::channel::<DashboardUpdate>(100);
-
-    // Create SMS worker subscriber
-    let sms_rx = event_tx.subscribe();
 
     // Create shared state for current block header
     let current_block_header = Arc::new(Mutex::new(None::<BlockHeader>));
 
     let wallet_manager = Arc::new(Mutex::new(
         WalletManager::new(
-            event_tx,
+            event_tx.clone(),
             dashboard_tx.clone(),
             config.effective_wallet_dir().into(),
             &config.effective_metadata_db(),
@@ -62,6 +44,11 @@ async fn main() -> anyhow::Result<()> {
         )
         .await,
     ));
+
+    // Create notification manager and register ntfy provider
+    let mut notification_manager = NotificationManager::new();
+    notification_manager.register_provider(Arc::new(NtfyProvider::new()));
+    let notification_manager = Arc::new(Mutex::new(notification_manager));
 
     // Fetch and store initial block header
     {
@@ -97,257 +84,125 @@ async fn main() -> anyhow::Result<()> {
                     eprintln!("Failed to get current block height: {}", e);
                 }
             }
-        } else {
-            // Try to load stored block header from database
-            match manager.metadata_db.get_current_block_header().await {
-                Ok(Some(stored_header)) => {
-                    println!("📦 Loaded stored block header: height={}", 
-                           stored_header.height);
-                    
-                    // Update shared state
-                    let mut current_header = current_block_header.lock().await;
-                    *current_header = Some(stored_header.clone());
-                    
-                    // Broadcast to SSE clients
-                    if let Err(e) = block_header_tx.send(stored_header) {
-                        eprintln!("Failed to broadcast stored block header: {}", e);
-                    }
-                }
-                Ok(None) => {
-                    println!("No stored block header found");
-                }
-                Err(e) => {
-                    eprintln!("Failed to load stored block header: {}", e);
-                }
-            }
         }
     }
 
-    // Send initial dashboard update
-    {
-        let manager = wallet_manager.lock().await;
-        if let Err(e) = manager.send_dashboard_update().await {
-            eprintln!("Failed to send initial dashboard update: {}", e);
-        }
-    }
-
-    // Spawn background task for wallet syncing and block header polling
-    let wallet_manager_sync = Arc::clone(&wallet_manager);
-    let current_block_header_sync = Arc::clone(&current_block_header);
+    // Spawn wallet sync worker
+    let sync_wallet_manager = Arc::clone(&wallet_manager);
+    let sync_current_block_header = Arc::clone(&current_block_header);
+    let sync_dashboard_tx = dashboard_tx.clone();
     let block_header_tx_sync = block_header_tx.clone();
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(4));
-        let mut block_header_subscribed = false;
-
+        
         loop {
             interval.tick().await;
-
-            let mut manager = wallet_manager_sync.lock().await;
             
-            // Sync all wallets
+            let mut manager = sync_wallet_manager.lock().await;
             if let Err(e) = manager.sync_all_wallets().await {
-                eprintln!("Error syncing wallets: {}", e);
+                eprintln!("Sync failed: {}", e);
             }
 
-            // Initialize block header subscription on first run
-            if !block_header_subscribed {
-                if let Some(ref electrum_client) = manager.electrum_client {
-                    if let Err(e) = electrum_client.block_headers_subscribe() {
-                        eprintln!("Failed to subscribe to block headers: {}", e);
-                    } else {
-                        block_header_subscribed = true;
-                        println!("✅ Subscribed to block headers");
+            // Broadcast dashboard update after sync
+            match manager.get_current_dashboard_state().await {
+                Ok(dashboard_update) => {
+                    if let Err(e) = sync_dashboard_tx.send(dashboard_update) {
+                        eprintln!("Failed to send dashboard update: {}", e);
                     }
+                }
+                Err(e) => {
+                    eprintln!("Failed to get dashboard state for broadcast: {}", e);
                 }
             }
 
-            // Poll for new block headers
+            // Check for new block headers
             if let Some(ref electrum_client) = manager.electrum_client {
-                if let Some(notification) = electrum_client.block_headers_pop() {
-                    print!("📦 {} ", notification.height);
-                    let _ = io::stdout().flush();
-                    
-                    // Get full block header details
-                    if let Ok(block_header) = electrum_client.get_block_header(notification.height as u32) {
-                        // Store in database
-                        if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header).await {
-                            eprintln!("Failed to store block header: {}", e);
-                        }
+                match electrum_client.get_current_block_height() {
+                    Ok(current_height) => {
+                        let stored_header = sync_current_block_header.lock().await;
+                        let stored_height = stored_header.as_ref().map(|h| h.height).unwrap_or(0);
                         
-                        // Update shared state
-                        let mut current_header = current_block_header_sync.lock().await;
-                        *current_header = Some(block_header.clone());
-                        
-                        // Broadcast to SSE clients
-                        if let Err(e) = block_header_tx_sync.send(block_header) {
-                            eprintln!("Failed to broadcast block header: {}", e);
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // Spawn SMS worker task
-    let sms_wallet_manager = Arc::clone(&wallet_manager);
-    tokio::spawn(async move {
-        let mut receiver = sms_rx;
-        let sms_service = SmsService::new();
-
-        loop {
-            match receiver.recv().await {
-                Ok(event) => {
-                    // Get contacts for this wallet and send SMS notifications
-                    let manager = sms_wallet_manager.lock().await;
-
-
-                    // Get contacts for the wallet
-                    match manager.metadata_db.get_contacts_for_wallet(event.wallet_id).await {
-                        Ok(contacts) => {
-                            if contacts.is_empty() {
-                                // Get wallet name for message generation
-                                match manager.metadata_db.get_wallet_by_id(event.wallet_id).await {
-                                    Ok(Some(wallet_metadata)) => {
-                                        let message = sms::SmsService::create_localized_message(
-                                            &event,
-                                            &wallet_metadata.name,
-                                            &crate::metadata::Language::Norwegian,
-                                        );
-                                        println!("📱 SMS Alert (no contacts): {}", message);
-                                    }
-                                    _ => {
-                                        println!(
-                                            "📱 SMS Alert (no contacts): Event for wallet {}",
-                                            event.wallet_id
-                                        );
-                                    }
-                                }
-                                continue;
-                            }
-
-                            // Check if Twilio is configured
-                            match manager.metadata_db.get_twilio_config().await {
-                                Ok(Some(twilio_config)) => {
-                                    println!(
-                                        "📱 Sending SMS to {} contacts for wallet {}",
-                                        contacts.len(),
-                                        event.wallet_id
-                                    );
-
-                                    // Get wallet name for message
-                                    let wallet_name = match manager.metadata_db.get_wallet_by_id(event.wallet_id).await {
-                                        Ok(Some(wallet)) => wallet.name,
-                                        Ok(None) => format!("Wallet {}", event.wallet_id),
-                                        Err(_) => format!("Wallet {}", event.wallet_id),
-                                    };
-
-                                    // Send SMS to all contacts
-                                    let results = sms_service
-                                        .send_event_notifications(
-                                            &event,
-                                            &wallet_name,
-                                            &contacts,
-                                            &twilio_config,
-                                        )
-                                        .await;
-
-                                    // Log results to database
-                                    for (contact, sms_response, message_content) in results {
-                                        if let Some(event_id) = event.id {
-                                            if let Some(contact_id) = contact.id {
-                                                let status = if sms_response.success {
-                                                    "sent"
-                                                } else {
-                                                    "failed"
-                                                };
-
-                                                if let Err(e) = manager.metadata_db.insert_sms_log(
-                                                    event_id,
-                                                    contact_id,
-                                                    &message_content,
-                                                    status,
-                                                    sms_response.twilio_sid.as_deref(),
-                                                    sms_response.error_message.as_deref(),
-                                                ).await {
-                                                    eprintln!("Failed to log SMS result: {}", e);
-                                                }
-
-                                                // Log to console
-                                                if sms_response.success {
-                                                    println!(
-                                                        "  ✅ SMS sent to {} ({})",
-                                                        contact.name, contact.phone_number
-                                                    );
-                                                    if let Some(sid) = &sms_response.twilio_sid {
-                                                        println!("     Twilio SID: {}", sid);
-                                                    }
-                                                } else {
-                                                    println!(
-                                                        "  ❌ SMS failed to {} ({}): {}",
-                                                        contact.name,
-                                                        contact.phone_number,
-                                                        sms_response.error_message.unwrap_or_else(
-                                                            || "Unknown error".to_string()
-                                                        )
-                                                    );
-                                                }
-                                            }
-                                        }
+                        if current_height > stored_height {
+                            drop(stored_header); // Release the lock before the blocking operation
+                            
+                            match electrum_client.get_block_header(current_height) {
+                                Ok(block_header) => {
+                                    println!("📦 New block header: height={} (was {})", 
+                                           block_header.height, stored_height);
+                                    
+                                    // Store in database
+                                    if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header).await {
+                                        eprintln!("Failed to store block header: {}", e);
                                     }
                                     
-                                    // Send dashboard update after SMS processing to refresh SMS recipients
-                                    if let Err(e) = manager.send_dashboard_update().await {
-                                        eprintln!("Failed to send dashboard update after SMS processing: {}", e);
-                                    }
-                                }
-                                Ok(None) => {
-                                    // Get wallet name for message generation
-                                    match manager.metadata_db.get_wallet_by_id(event.wallet_id).await {
-                                        Ok(Some(wallet_metadata)) => {
-                                            let message = sms::SmsService::create_localized_message(
-                                                &event,
-                                                &wallet_metadata.name,
-                                                &crate::metadata::Language::Norwegian,
-                                            );
-                                            println!(
-                                                "📱 SMS Alert (Twilio not configured): {}",
-                                                message
-                                            );
-                                        }
-                                        _ => {
-                                            println!(
-                                                "📱 SMS Alert (Twilio not configured): Event for wallet {}",
-                                                event.wallet_id
-                                            );
-                                        }
+                                    // Update shared state
+                                    let mut current_header = sync_current_block_header.lock().await;
+                                    *current_header = Some(block_header.clone());
+                                    drop(current_header);
+                                    
+                                    // Broadcast to SSE clients
+                                    if let Err(e) = block_header_tx_sync.send(block_header) {
+                                        eprintln!("Failed to broadcast block header: {}", e);
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("Failed to get Twilio config: {}", e);
+                                    eprintln!("Failed to get block header for height {}: {}", current_height, e);
                                 }
                             }
                         }
-                        Err(e) => {
-                            eprintln!(
-                                "Failed to get contacts for wallet {}: {}",
-                                event.wallet_id, e
-                            );
-                        }
                     }
-                }
-                Err(broadcast::error::RecvError::Closed) => {
-                    println!("Event channel closed, SMS worker shutting down");
-                    break;
-                }
-                Err(broadcast::error::RecvError::Lagged(skipped)) => {
-                    eprintln!("SMS worker lagged, skipped {} events", skipped);
-                    // Continue processing new events
+                    Err(e) => {
+                        eprintln!("Failed to get current block height: {}", e);
+                    }
                 }
             }
         }
     });
 
-    let app = create_router(wallet_manager, block_header_tx, dashboard_tx);
+    // Create notification worker task
+    let notification_worker_manager = notification_manager.clone();
+    let notification_wallet_manager = wallet_manager.clone();
+    let notification_event_rx = event_tx.subscribe();
+    tokio::spawn(async move {
+        let mut rx = notification_event_rx;
+        
+        while let Ok(event) = rx.recv().await {
+            let manager = notification_worker_manager.lock().await;
+            
+            // Get wallet information for the event
+            let wallet_manager_lock = notification_wallet_manager.lock().await;
+            if let Ok(Some(wallet_info)) = wallet_manager_lock.get_wallet_by_id(event.wallet_id).await {
+                // Get contacts for this wallet
+                if let Ok(contacts) = wallet_manager_lock.metadata_db.get_contacts_for_wallet(event.wallet_id).await {
+                    if !contacts.is_empty() {
+                        println!("🔔 Triggering notifications for {} contacts on wallet '{}'", contacts.len(), wallet_info.name);
+                        
+                        // Try to send notifications using available providers
+                        for provider_name in ["ntfy"] {
+                            if let Ok(results) = manager.send_notifications(
+                                provider_name,
+                                &event,
+                                &wallet_info.name,
+                                &contacts,
+                            ).await {
+                                for (contact, result, _message) in results {
+                                    if result.success {
+                                        println!("✅ Notification sent to {} via {}", contact.name, provider_name);
+                                    } else {
+                                        println!("❌ Failed to notify {} via {}: {}", 
+                                            contact.name, provider_name, 
+                                            result.error_message.unwrap_or_else(|| "Unknown error".to_string()));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    let app = create_router(wallet_manager, notification_manager, block_header_tx, dashboard_tx);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);

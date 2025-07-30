@@ -12,11 +12,6 @@ export interface Wallet {
   contact_count: number
 }
 
-export interface SmsRecipientStatus {
-  name: string
-  status: string // "sent", "failed"
-  error_message?: string
-}
 
 export interface TransactionEvent {
   id: number
@@ -28,8 +23,6 @@ export interface TransactionEvent {
   is_rbf: boolean
   is_cpfp: boolean
   balance_total: number | null
-  sms_recipients: string[]
-  sms_recipients_status: SmsRecipientStatus[]
   transaction_time: number
 }
 
@@ -37,16 +30,11 @@ export interface Contact {
   id: number
   wallet_id: number
   name: string
-  phone_number: string
+  contact_address: string
   language: 'en' | 'no'
   created_at: string
 }
 
-export interface TwilioConfig {
-  account_sid: string
-  auth_token: string
-  messaging_service_sid: string
-}
 
 export interface BlockHeader {
   height: number

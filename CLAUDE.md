@@ -3,7 +3,7 @@
 **Development Status**: This project is in unreleased developer mode. Backwards compatibility is not a priority at this stage.
 
 ## Project Overview
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features multipath descriptors, Electrum sync, transaction analysis, background sync, and multi-language SMS notifications (Norwegian and English).
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features multipath descriptors, Electrum sync, transaction analysis, background sync, and multi-language notifications (Norwegian and English) via ntfy.sh.
 
 ## Development Commands
 
@@ -41,7 +41,7 @@ cd regtest-env && ./docker-utils.sh run-tests <wallet_address>
 ```
 canary/
 ├── backend/           # Rust service with BDK wallet management
-│   ├── src/          # Source files (api.rs, wallet.rs, electrum.rs, sms.rs, etc.)
+│   ├── src/          # Source files (api.rs, wallet.rs, electrum.rs, ntfy_provider.rs, etc.)
 │   ├── database/     # Network-specific SQLite databases  
 │   └── migrations/   # Database schema
 ├── frontend/         # Next.js app with React components
@@ -50,7 +50,7 @@ canary/
 ```
 
 ## Key Dependencies
-- **Backend**: BDK wallet v2, Axum, Tokio, SQLite with r2d2 pooling, Twilio SMS
+- **Backend**: BDK wallet v2, Axum, Tokio, SQLite with r2d2 pooling, ntfy.sh notifications
 - **Frontend**: Next.js 15.3.5, React 19, Tailwind CSS 4, shadcn/ui components
 
 ## API Endpoints
@@ -67,13 +67,12 @@ canary/
 - `DELETE /api/wallets/{id}` - Delete wallet
 
 ### Contact Management  
-- `POST /api/wallets/{id}/contacts` - Add contact (name + phone)
+- `POST /api/wallets/{id}/contacts` - Add contact (name + ntfy topic)
 - `GET /api/wallets/{id}/contacts` - List contacts
 - `DELETE /api/wallets/{wallet_id}/contacts/{contact_id}` - Remove contact
 
 ### Configuration
-- `POST /api/twilio/config` - Configure SMS (account_sid, auth_token, messaging_service_sid)
-- `GET /api/twilio/config` - Get SMS config
+- `GET /api/providers` - List available notification providers
 - `/swagger-ui` - API documentation
 
 ## Network Configuration
@@ -90,7 +89,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Mainnet: ssl://electrum.blockstream.info:50002
 
 ## Key Features
-- **Multi-language SMS**: Real-time transaction notifications in Norwegian and English via Twilio
+- **Multi-language notifications**: Real-time transaction notifications in Norwegian and English via ntfy.sh
 - **Performance**: Async SQLite with r2d2 connection pooling
 - **Real-time**: Hybrid REST + SSE architecture, block header streaming
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
@@ -98,14 +97,14 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Background Sync**: 4-second wallet sync intervals
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
 
-## SMS Setup
-1. Configure Twilio: `POST /api/twilio/config`
-2. Add contacts: `POST /api/wallets/{id}/contacts` 
-3. Automatic notifications for all transactions
+## Notification Setup
+1. Add contacts with ntfy topics: `POST /api/wallets/{id}/contacts` 
+2. Topics are auto-generated from contact name and wallet checksum
+3. Automatic notifications for all transactions via ntfy.sh
 
 ## Storage
 - **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage)
-- **Metadata**: `database/{network}/metadata.sqlite` (contacts, events, SMS logs)
+- **Metadata**: `database/{network}/metadata.sqlite` (contacts, events, notification logs)
 - **Reset**: `./docker-utils.sh reset` removes all databases
 
 ## Address Management

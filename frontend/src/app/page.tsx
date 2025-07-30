@@ -4,7 +4,7 @@ import { useState, useEffect, lazy, Suspense } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { Button } from "@/components/ui/button"
-import { Settings, CircleCheckBig, LoaderCircle, CircleOff, Plus } from "lucide-react"
+import { CircleCheckBig, LoaderCircle, CircleOff, Plus } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
@@ -12,12 +12,10 @@ import { formatBitcoinAmount } from "@/lib/utils"
 import { formatDistanceToNow } from 'date-fns'
 
 // Lazy load modal components for code splitting
-const SettingsModal = lazy(() => import("@/components/settings-modal").then(mod => ({ default: mod.SettingsModal })))
 const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
 
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
   const [currentTime, setCurrentTime] = useState(Date.now())
   const { wallets, events, isConnected, error, lastUpdate } = useDashboard()
@@ -121,15 +119,6 @@ export default function Home() {
             Create Wallet
           </Button>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSettingsOpen(true)}
-            className="gap-2"
-          >
-            <Settings size={16} />
-            Settings
-          </Button>
         </div>
       </div>
       
@@ -178,12 +167,6 @@ export default function Home() {
         </section>
       </div>
       
-      <Suspense fallback={null}>
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-        />
-      </Suspense>
       
       <Suspense fallback={null}>
         <CreateWalletModal

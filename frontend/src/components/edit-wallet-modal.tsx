@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Edit, Trash2, Plus, X, Phone, Users } from "lucide-react"
+import { Edit, Trash2, Plus, X, Bell, Users } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { formatNumber, parsePhoneNumber } from "libphonenumber-js"
 import { Wallet, Contact } from "../types"
 import { getApiBaseUrl } from "../lib/utils"
 
@@ -44,39 +43,32 @@ export function EditWalletModal({
   const [contactsLoading, setContactsLoading] = useState(false)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
   const [newContactName, setNewContactName] = useState("")
-  const [newContactPhone, setNewContactPhone] = useState("")
+  const [newContactAddress, setNewContactAddress] = useState("")
+  const [autoGenerateTopic, setAutoGenerateTopic] = useState(true)
   const [newContactLanguage, setNewContactLanguage] = useState<'en' | 'no'>('en')
   const [newContactError, setNewContactError] = useState<string | null>(null)
 
-  // Format phone number for display
-  const formatPhoneForDisplay = (phoneNumber: string): string => {
-    try {
-      const formatted = formatNumber(phoneNumber, 'INTERNATIONAL')
-      return formatted || phoneNumber
-    } catch {
-      return phoneNumber
+  // Extract checksum from Bitcoin descriptor
+  const extractChecksum = (descriptor: string): string => {
+    const hashIndex = descriptor.lastIndexOf('#')
+    if (hashIndex !== -1) {
+      return descriptor.substring(hashIndex + 1)
     }
+    return 'unknown'
   }
 
-  // Detect language based on phone number
-  const detectLanguageFromPhone = (phoneNumber: string): 'en' | 'no' => {
-    try {
-      const parsed = parsePhoneNumber(phoneNumber, 'NO')
-      if (parsed && parsed.country === 'NO') {
-        return 'no'
-      }
-    } catch {
-      // If parsing fails, keep current language
-    }
-    return 'en' // Default to English
+  // Generate ntfy topic from contact name and wallet checksum
+  const generateNtfyTopic = (contactName: string, descriptor: string): string => {
+    const sanitizedName = contactName.toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+    const checksum = extractChecksum(descriptor)
+    return `${sanitizedName}-${checksum}`.substring(0, 64) // Max 64 chars
   }
 
-  useEffect(() => {
-    if (newContactPhone.trim()) {
-      const detectedLanguage = detectLanguageFromPhone(newContactPhone)
-      setNewContactLanguage(detectedLanguage)
-    }
-  }, [newContactPhone])
+
+
 
   const fetchWalletContacts = useCallback(async (walletId: number) => {
     try {
@@ -103,6 +95,14 @@ export function EditWalletModal({
         .finally(() => setContactsLoading(false))
     }
   }, [isOpen, wallet, fetchWalletContacts])
+
+  // Auto-generate topic when contact name changes
+  useEffect(() => {
+    if (autoGenerateTopic && newContactName && wallet) {
+      const generatedTopic = generateNtfyTopic(newContactName, wallet.descriptor)
+      setNewContactAddress(generatedTopic)
+    }
+  }, [newContactName, autoGenerateTopic, wallet])
 
   const handleSave = async () => {
     if (!wallet || !walletName.trim()) return
@@ -143,16 +143,12 @@ export function EditWalletModal({
   }
 
   const handleCreateContact = async () => {
-    if (!wallet || !newContactName.trim() || !newContactPhone.trim()) return
+    if (!wallet || !newContactName.trim() || !newContactAddress.trim()) return
 
     setIsCreatingContact(true)
     setNewContactError(null)
 
     try {
-      const phoneNumber = parsePhoneNumber(newContactPhone, 'NO')
-      if (!phoneNumber || !phoneNumber.isValid()) {
-        throw new Error('Invalid phone number format. Please include country code (e.g., +4712345678)')
-      }
 
       const baseUrl = getApiBaseUrl()
       const response = await fetch(`${baseUrl}/api/wallets/${wallet.id}/contacts`, {
@@ -162,7 +158,7 @@ export function EditWalletModal({
         },
         body: JSON.stringify({
           name: newContactName.trim(),
-          phone_number: phoneNumber.format('E.164'),
+          contact_address: newContactAddress.trim(),
           language: newContactLanguage,
         }),
       })
@@ -173,8 +169,9 @@ export function EditWalletModal({
       }
 
       setNewContactName('')
-      setNewContactPhone('')
+      setNewContactAddress('')
       setNewContactLanguage('en')
+      setAutoGenerateTopic(true)
       await fetchWalletContacts(wallet.id)
     } catch (err) {
       setNewContactError(err instanceof Error ? err.message : "Failed to create contact")
@@ -209,8 +206,9 @@ export function EditWalletModal({
       setWalletName(wallet?.name || "")
       setWalletContacts([])
       setNewContactName('')
-      setNewContactPhone('')
+      setNewContactAddress('')
       setNewContactLanguage('en')
+      setAutoGenerateTopic(true)
       onClose()
     }
   }
@@ -224,7 +222,7 @@ export function EditWalletModal({
             Edit Wallet
           </DialogTitle>
           <DialogDescription>
-            Edit the wallet name and manage SMS notification contacts.
+            Edit the wallet name and manage notification contacts.
           </DialogDescription>
         </DialogHeader>
 
@@ -255,7 +253,7 @@ export function EditWalletModal({
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Users className="h-4 w-4" />
-              <h3 className="text-lg font-semibold">SMS Notifications</h3>
+              <h3 className="text-lg font-semibold">Notifications</h3>
             </div>
             
             {contactsLoading ? (
@@ -275,7 +273,7 @@ export function EditWalletModal({
                     {walletContacts.map((contact) => (
                       <div key={contact.id} data-testid="contact-item" className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                         <div className="flex items-center gap-3">
-                          <Phone className="h-4 w-4 text-green-600" />
+                          <Bell className="h-4 w-4 text-green-600" />
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-medium">{contact.name}</p>
@@ -283,7 +281,7 @@ export function EditWalletModal({
                                 {contact.language === 'no' ? 'Norwegian' : 'English'}
                               </Badge>
                             </div>
-                            <p className="text-xs text-muted-foreground">{formatPhoneForDisplay(contact.phone_number)}</p>
+                            <p className="text-xs text-muted-foreground">{contact.contact_address}</p>
                           </div>
                         </div>
                         <Button
@@ -315,18 +313,33 @@ export function EditWalletModal({
                             />
                           </div>
                           <div>
-                            <Label htmlFor="contact-phone" className="text-xs">Phone Number</Label>
+                            <div className="flex items-center justify-between mb-1">
+                              <Label htmlFor="contact-address" className="text-xs">ntfy Topic</Label>
+                              <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <input
+                                  type="checkbox"
+                                  checked={autoGenerateTopic}
+                                  onChange={(e) => setAutoGenerateTopic(e.target.checked)}
+                                  className="h-3 w-3"
+                                />
+                                Auto-generate
+                              </label>
+                            </div>
                             <Input
-                              id="contact-phone"
-                              value={newContactPhone}
-                              onChange={(e) => setNewContactPhone(e.target.value)}
-                              placeholder="+4712345678"
-                              disabled={isCreatingContact}
+                              id="contact-address"
+                              value={newContactAddress}
+                              onChange={(e) => {
+                                setNewContactAddress(e.target.value)
+                                setAutoGenerateTopic(false)
+                              }}
+                              placeholder={autoGenerateTopic ? "Will be auto-generated" : "my-bitcoin-alerts"}
+                              disabled={isCreatingContact || (autoGenerateTopic && !newContactName)}
+                              className={autoGenerateTopic ? "bg-muted" : ""}
                             />
                           </div>
                         </div>
                         <div>
-                          <Label htmlFor="contact-language" className="text-xs">SMS Language</Label>
+                          <Label htmlFor="contact-language" className="text-xs">Language</Label>
                           <select
                             id="contact-language"
                             value={newContactLanguage}
@@ -343,7 +356,7 @@ export function EditWalletModal({
                         </div>
                         <Button
                           onClick={handleCreateContact}
-                          disabled={isCreatingContact || !newContactName.trim() || !newContactPhone.trim()}
+                          disabled={isCreatingContact || !newContactName.trim() || !newContactAddress.trim()}
                           className="w-full"
                           size="sm"
                         >

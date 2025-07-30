@@ -125,6 +125,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
+name = "async-trait"
+version = "0.1.88"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -430,22 +441,11 @@ version = "0.2.3"
 dependencies = [
  "anyhow",
  "axum",
- "base64 0.22.1",
- "bdk_electrum",
- "bdk_wallet",
- "chrono",
- "clap",
- "dotenvy",
+ "canary-core",
  "futures-util",
  "http-body-util",
  "mime",
- "miniscript",
- "num-format",
  "phonenumber",
- "r2d2",
- "r2d2_sqlite",
- "reqwest",
- "secp256k1 0.31.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -456,6 +456,35 @@ dependencies = [
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",
+]
+
+[[package]]
+name = "canary-core"
+version = "0.2.3"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "bdk_electrum",
+ "bdk_wallet",
+ "chrono",
+ "clap",
+ "dotenvy",
+ "futures-util",
+ "miniscript",
+ "num-format",
+ "phonenumber",
+ "r2d2",
+ "r2d2_sqlite",
+ "reqwest",
+ "secp256k1 0.31.1",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tower-http",
+ "utoipa",
+ "utoipa-swagger-ui",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 import { getApiBaseUrl, handleApiResponse } from './utils'
-import { Wallet, Contact, TwilioConfig } from '../types'
+import { Wallet, Contact } from '../types'
 
 // Base API client
 class ApiClient {
@@ -52,12 +52,13 @@ class ApiClient {
     return this.request<Contact[]>(`/api/wallets/${walletId}/contacts`)
   }
 
-  async createContact(walletId: number, name: string, phoneNumber: string): Promise<Contact> {
+  async createContact(walletId: number, name: string, contactAddress: string): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletId}/contacts`, {
       method: 'POST',
       body: JSON.stringify({
         name,
-        phone_number: phoneNumber,
+        contact_address: contactAddress,
+        language: 'en',
       }),
     })
   }
@@ -68,17 +69,6 @@ class ApiClient {
     })
   }
 
-  // Twilio API methods
-  async getTwilioConfig(): Promise<TwilioConfig> {
-    return this.request<TwilioConfig>('/api/twilio/config')
-  }
-
-  async saveTwilioConfig(config: TwilioConfig & { skip_validation?: boolean }): Promise<{ message: string }> {
-    return this.request<{ message: string }>('/api/twilio/config', {
-      method: 'POST',
-      body: JSON.stringify(config),
-    })
-  }
 
   // Block header API methods
   async getCurrentBlockHeader(): Promise<unknown> {

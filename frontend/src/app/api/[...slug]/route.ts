@@ -38,7 +38,9 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
     return new Response('Use dedicated SSE endpoints', { status: 400 });
   }
 
-  const backendUrl = `http://backend:3001/api/${slug.join('/')}`;
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL 
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api/${slug.join('/')}`
+    : `http://localhost:3000/api/${slug.join('/')}`;
   const url = new URL(backendUrl);
 
   // Copy query parameters

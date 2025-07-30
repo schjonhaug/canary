@@ -1,6 +1,4 @@
-use crate::metadata::{ContactPerson, Language, SmsLog, TwilioConfig, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate};
-use crate::wallet::WalletManager;
-use crate::electrum::BlockHeader;
+use canary_core::{ContactPerson, Language, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate, NotificationManager, ProviderInfo, WalletManager, BlockHeader};
 use axum::{
     Router,
     extract::{Path, State},
@@ -16,7 +14,6 @@ use tokio_stream::wrappers::BroadcastStream;
 use futures_util::StreamExt as FuturesStreamExt;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
-use base64::{Engine as _, engine::general_purpose};
 use phonenumber::PhoneNumber;
 use std::str::FromStr;
 
@@ -58,10 +55,10 @@ pub struct CreateContactRequest {
     /// The name of the contact person
     #[schema(example = "John Doe")]
     pub name: String,
-    /// The phone number (must include country code)
-    #[schema(example = "+4712345678")]
-    pub phone_number: String,
-    /// The language preference for SMS notifications
+    /// The contact address (phone number or ntfy topic)
+    #[schema(example = "my-bitcoin-alerts")]
+    pub contact_address: String,
+    /// The language preference for notifications
     #[schema(example = "en")]
     pub language: Language,
 }
@@ -74,40 +71,37 @@ pub struct CreateContactResponse {
     pub contact_id: i64,
 }
 
-// This struct is no longer needed since contacts are created directly for wallets
-
-#[derive(Deserialize, Serialize, ToSchema)]
-pub struct TwilioConfigRequest {
-    /// Twilio Account SID
-    #[schema(example = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
-    pub account_sid: String,
-    /// Twilio Auth Token
-    #[schema(example = "your_auth_token")]
-    pub auth_token: String,
-    /// Twilio Messaging Service SID (use 'TEST' for test mode)
-    #[schema(example = "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
-    pub messaging_service_sid: String,
-}
 
 #[derive(Serialize, ToSchema)]
-pub struct TwilioConfigResponse {
-    /// Success message
-    pub message: String,
+pub struct ProvidersResponse {
+    /// Available notification providers
+    pub providers: Vec<ProviderInfo>,
 }
 
 pub type AppState = Arc<Mutex<WalletManager>>;
+pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type BlockHeaderBroadcast = broadcast::Sender<BlockHeader>;
 pub type DashboardBroadcast = broadcast::Sender<DashboardUpdate>;
 
-/// Validates and normalizes a phone number
-fn validate_phone_number(phone_number: &str) -> Result<String, String> {
+/// Validates and normalizes a phone number or ntfy topic
+fn validate_contact_address(contact_address: &str) -> Result<String, String> {
+    // If it looks like an ntfy topic (alphanumeric, hyphens, underscores), accept it as-is
+    if contact_address.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        if contact_address.len() >= 2 && contact_address.len() <= 64 {
+            return Ok(contact_address.to_string());
+        } else {
+            return Err("ntfy topic must be 2-64 characters long".to_string());
+        }
+    }
+    
+    // Otherwise, validate as phone number
     // Check if phone number starts with country code
-    if !phone_number.starts_with('+') {
-        return Err("Phone number must include country code (e.g., +4712345678)".to_string());
+    if !contact_address.starts_with('+') {
+        return Err("Phone number must include country code (e.g., +4712345678) or be a valid ntfy topic".to_string());
     }
 
     // Parse phone number
-    let parsed_number = PhoneNumber::from_str(phone_number)
+    let parsed_number = PhoneNumber::from_str(contact_address)
         .map_err(|_| "Invalid phone number format".to_string())?;
 
     // Check if it's a valid number
@@ -315,7 +309,7 @@ pub async fn create_wallet_contact(
     }
 
     // Validate phone number first
-    let normalized_phone = match validate_phone_number(&payload.phone_number) {
+    let normalized_contact = match validate_contact_address(&payload.contact_address) {
         Ok(phone) => phone,
         Err(error) => {
             return (
@@ -326,7 +320,7 @@ pub async fn create_wallet_contact(
         }
     };
 
-    match manager.metadata_db.insert_contact(wallet_id, &payload.name, &normalized_phone, &payload.language).await {
+    match manager.metadata_db.insert_contact(wallet_id, &payload.name, &normalized_contact, &payload.language).await {
         Ok(contact_id) => {
             // Send dashboard update to notify clients of contact count change
             if let Err(e) = manager.send_dashboard_update().await {
@@ -445,161 +439,6 @@ pub async fn get_wallet_contacts(
 
     match manager.metadata_db.get_contacts_for_wallet(wallet_id).await {
         Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-            .into_response(),
-    }
-}
-
-// Twilio configuration endpoints
-
-#[utoipa::path(
-    post,
-    path = "/api/twilio/config",
-    request_body = TwilioConfigRequest,
-    responses(
-        (status = 201, description = "Twilio configuration saved successfully", body = TwilioConfigResponse),
-        (status = 400, description = "Invalid request", body = ErrorResponse),
-    ),
-    tag = "twilio"
-)]
-pub async fn save_twilio_config(
-    State(wallet_manager): State<AppState>,
-    Json(payload): Json<TwilioConfigRequest>,
-) -> Response {
-    // Skip validation if using test phone numbers or 'TEST' (for test mode)
-    if matches!(payload.messaging_service_sid.as_str(), "TEST" | "+15005550000" | "+15005550001" | "+15005550006") {
-        // Save directly to database without validation
-        let manager = wallet_manager.lock().await;
-        match manager.metadata_db.upsert_twilio_config(
-            &payload.account_sid,
-            &payload.auth_token,
-            &payload.messaging_service_sid,
-        ).await {
-            Ok(_) => (
-                StatusCode::CREATED,
-                Json(TwilioConfigResponse {
-                    message: "Twilio configuration saved successfully (TEST mode - validation skipped)".to_string(),
-                }),
-            )
-                .into_response(),
-            Err(e) => (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
-            )
-                .into_response(),
-        }
-    } else {
-        // Validate credentials with Twilio
-        let client = reqwest::Client::new();
-        let auth_header = general_purpose::STANDARD.encode(format!("{}:{}", payload.account_sid, payload.auth_token));
-        
-        let validation_response = client
-            .get("https://api.twilio.com/2010-04-01/Accounts.json")
-            .header("Authorization", format!("Basic {}", auth_header))
-            .send()
-            .await;
-
-        match validation_response {
-            Ok(response) => {
-                if !response.status().is_success() {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse {
-                            error: "Invalid Twilio credentials. Please check your Account SID and Auth Token.".to_string(),
-                        }),
-                    ).into_response();
-                }
-
-                // Parse response to verify account SID matches
-                match response.json::<serde_json::Value>().await {
-                    Ok(data) => {
-                        if let Some(accounts) = data.get("accounts").and_then(|a| a.as_array()) {
-                            if let Some(account) = accounts.first() {
-                                if let Some(account_sid) = account.get("sid").and_then(|s| s.as_str()) {
-                                    if account_sid != payload.account_sid {
-                                        return (
-                                            StatusCode::BAD_REQUEST,
-                                            Json(ErrorResponse {
-                                                error: "Account SID mismatch in Twilio response.".to_string(),
-                                            }),
-                                        ).into_response();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse {
-                                error: "Failed to parse Twilio response.".to_string(),
-                            }),
-                        ).into_response();
-                    }
-                }
-            }
-            Err(_) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse {
-                        error: "Failed to validate credentials with Twilio.".to_string(),
-                    }),
-                ).into_response();
-            }
-        }
-
-        // If validation passed, save to database
-        let manager = wallet_manager.lock().await;
-        match manager.metadata_db.upsert_twilio_config(
-            &payload.account_sid,
-            &payload.auth_token,
-            &payload.messaging_service_sid,
-        ).await {
-            Ok(_) => (
-                StatusCode::CREATED,
-                Json(TwilioConfigResponse {
-                    message: "Twilio configuration validated and saved successfully".to_string(),
-                }),
-            )
-                .into_response(),
-            Err(e) => (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
-            )
-                .into_response(),
-        }
-    }
-}
-
-#[utoipa::path(
-    get,
-    path = "/api/twilio/config",
-    responses(
-        (status = 200, description = "Twilio configuration", body = TwilioConfig),
-        (status = 404, description = "No Twilio configuration found", body = ErrorResponse),
-    ),
-    tag = "twilio"
-)]
-pub async fn get_twilio_config(State(wallet_manager): State<AppState>) -> Response {
-    let manager = wallet_manager.lock().await;
-    match manager.metadata_db.get_twilio_config().await {
-        Ok(Some(config)) => (StatusCode::OK, Json(config)).into_response(),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: "No Twilio configuration found".to_string(),
-            }),
-        )
-            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -743,26 +582,40 @@ pub async fn get_dashboard(State(wallet_manager): State<AppState>) -> Response {
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/providers",
+    responses(
+        (status = 200, description = "Available notification providers", body = ProvidersResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    tag = "providers"
+)]
+pub async fn get_providers(State(notification_manager): State<NotificationManagerState>) -> Response {
+    let manager = notification_manager.lock().await;
+    let providers = manager.list_providers();
+    (StatusCode::OK, Json(ProvidersResponse { providers })).into_response()
+}
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
         create_wallet, update_wallet, delete_wallet, get_wallet,
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
-        save_twilio_config, get_twilio_config,
         get_current_block_header, block_headers_stream,
-        dashboard_stream, get_dashboard
+        dashboard_stream, get_dashboard,
+        get_providers
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
-        CreateContactRequest, CreateContactResponse,
-        TwilioConfigRequest, TwilioConfigResponse,
-        ContactPerson, TwilioConfig, SmsLog, TransactionEventWithWallet, EventType, Language,
-        BlockHeader, DashboardUpdate
+        CreateContactRequest, CreateContactResponse, ProvidersResponse,
+        ContactPerson, TransactionEventWithWallet, EventType, Language,
+        BlockHeader, DashboardUpdate, ProviderInfo
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),
         (name = "contact", description = "Contact management endpoints"),
-        (name = "twilio", description = "Twilio configuration endpoints"),
+        (name = "providers", description = "Notification provider endpoints"),
         (name = "transaction", description = "Transaction events endpoints"),
         (name = "blockchain", description = "Blockchain information endpoints"),
         (name = "dashboard", description = "Dashboard real-time updates endpoints")
@@ -775,7 +628,7 @@ pub async fn get_dashboard(State(wallet_manager): State<AppState>) -> Response {
 )]
 pub struct ApiDoc;
 
-pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroadcast, dashboard_tx: DashboardBroadcast) -> Router {
+pub fn create_router(wallet_manager: AppState, notification_manager: NotificationManagerState, block_header_tx: BlockHeaderBroadcast, dashboard_tx: DashboardBroadcast) -> Router {
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet))
         .route("/wallets/{id}", get(get_wallet).put(update_wallet).delete(delete_wallet))
@@ -787,13 +640,13 @@ pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroad
             "/wallets/{wallet_id}/contacts/{contact_id}",
             axum::routing::delete(delete_wallet_contact),
         )
-        .route(
-            "/twilio/config",
-            post(save_twilio_config).get(get_twilio_config),
-        )
         .route("/block-headers/current", get(get_current_block_header))
         .route("/dashboard", get(get_dashboard))
         .with_state(wallet_manager.clone());
+
+    let provider_routes = Router::new()
+        .route("/providers", get(get_providers))
+        .with_state(notification_manager);
 
     let block_header_routes = Router::new()
         .route("/block-headers/stream", get(block_headers_stream))
@@ -804,7 +657,7 @@ pub fn create_router(wallet_manager: AppState, block_header_tx: BlockHeaderBroad
         .with_state(dashboard_tx);
 
     Router::new()
-        .nest("/api", wallet_routes.merge(block_header_routes).merge(dashboard_stream_routes))
+        .nest("/api", wallet_routes.merge(provider_routes).merge(block_header_routes).merge(dashboard_stream_routes))
         .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
 }

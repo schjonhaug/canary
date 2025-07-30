@@ -26,12 +26,6 @@ pub enum Language {
     Norwegian,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
-pub struct SmsRecipientStatus {
-    pub name: String,
-    pub status: String, // "sent", "failed"
-    pub error_message: Option<String>,
-}
 
 impl EventType {
     pub fn as_str(&self) -> &'static str {
@@ -89,30 +83,11 @@ pub struct ContactPerson {
     pub id: Option<i64>,
     pub wallet_id: i64,
     pub name: String,
-    pub phone_number: String,
+    pub contact_address: String,
     pub language: Language,
     pub created_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct TwilioConfig {
-    pub id: Option<i64>,
-    pub account_sid: String,
-    pub auth_token: String,
-    pub messaging_service_sid: String,
-    pub created_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct SmsLog {
-    pub id: Option<i64>,
-    pub event_id: i64,
-    pub contact_id: i64,
-    pub twilio_sid: Option<String>,
-    pub status: String,
-    pub error_message: Option<String>,
-    pub created_at: String,
-}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEvent {
@@ -138,8 +113,6 @@ pub struct TransactionEventWithWallet {
     pub is_rbf: bool,
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
-    pub sms_recipients: Vec<String>,
-    pub sms_recipients_status: Vec<SmsRecipientStatus>,
     pub transaction_time: u64,
 }
 
@@ -556,43 +529,14 @@ impl MetadataDb {
                     is_rbf: row.get(6)?,
                     is_cpfp: row.get(7)?,
                     balance_total: row.get(8).ok(),
-                    sms_recipients: Vec::new(),
-                    sms_recipients_status: Vec::new(),
                     transaction_time: row.get(9)?,
                 })
             })?;
 
             let mut events = Vec::new();
             for event in event_iter {
-                let mut event = event?;
+                let event = event?;
                 
-                // Get SMS recipients and their status for this event
-                if let Some(event_id) = event.id {
-                    let mut sms_stmt = conn.prepare(
-                        "SELECT cp.name, sl.status, sl.error_message FROM sms_logs sl 
-                         JOIN contact_persons cp ON sl.contact_id = cp.id 
-                         WHERE sl.event_id = ?1"
-                    )?;
-                    
-                    let recipient_iter = sms_stmt.query_map(params![event_id], |row| {
-                        let name: String = row.get(0)?;
-                        let status: String = row.get(1)?;
-                        let error_message: Option<String> = row.get(2).ok();
-                        
-                        Ok((name, status, error_message))
-                    })?;
-                    
-                    for recipient_result in recipient_iter {
-                        let (name, status, error_message) = recipient_result?;
-                        
-                        event.sms_recipients_status.push(SmsRecipientStatus {
-                            name: name.clone(),
-                            status,
-                            error_message,
-                        });
-                        event.sms_recipients.push(name);
-                    }
-                }
                 
                 events.push(event);
             }
@@ -601,17 +545,17 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn insert_contact(&self, wallet_id: i64, name: &str, phone_number: &str, language: &Language) -> Result<i64> {
+    pub async fn insert_contact(&self, wallet_id: i64, name: &str, contact_address: &str, language: &Language) -> Result<i64> {
         let pool = self.pool.clone();
         let name = name.to_string();
-        let phone_number = phone_number.to_string();
+        let contact_address = contact_address.to_string();
         let language = *language;
         
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT INTO contact_persons (wallet_id, name, phone_number, language) VALUES (?1, ?2, ?3, ?4)",
-                params![wallet_id, &name, &phone_number, language.as_str()],
+                "INSERT INTO contact_persons (wallet_id, name, contact_address, language) VALUES (?1, ?2, ?3, ?4)",
+                params![wallet_id, &name, &contact_address, language.as_str()],
             )?;
             Ok(conn.last_insert_rowid())
         }).await?
@@ -633,7 +577,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<ContactPerson>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_id, name, phone_number, language, created_at 
+                "SELECT id, wallet_id, name, contact_address, language, created_at 
                  FROM contact_persons 
                  WHERE wallet_id = ?1 ORDER BY name",
             )?;
@@ -644,7 +588,7 @@ impl MetadataDb {
                     id: Some(row.get(0)?),
                     wallet_id: row.get(1)?,
                     name: row.get(2)?,
-                    phone_number: row.get(3)?,
+                    contact_address: row.get(3)?,
                     language: Language::from(language_str.as_str()),
                     created_at: row.get(5)?,
                 })
@@ -656,89 +600,6 @@ impl MetadataDb {
             }
 
             Ok(contacts)
-        }).await?
-    }
-
-    pub async fn upsert_twilio_config(
-        &self,
-        account_sid: &str,
-        auth_token: &str,
-        messaging_service_sid: &str,
-    ) -> Result<i64> {
-        let pool = self.pool.clone();
-        let account_sid = account_sid.to_string();
-        let auth_token = auth_token.to_string();
-        let messaging_service_sid = messaging_service_sid.to_string();
-        
-        spawn_blocking(move || -> Result<i64> {
-            let conn = pool.get()?;
-
-            // Delete existing config (we only want one)
-            conn.execute("DELETE FROM twilio_config", [])?;
-
-            // Insert new config
-            conn.execute(
-                "INSERT INTO twilio_config (account_sid, auth_token, messaging_service_sid) VALUES (?1, ?2, ?3)",
-                params![&account_sid, &auth_token, &messaging_service_sid],
-            )?;
-            Ok(conn.last_insert_rowid())
-        }).await?
-    }
-
-    pub async fn get_twilio_config(&self) -> Result<Option<TwilioConfig>> {
-        let pool = self.pool.clone();
-        
-        spawn_blocking(move || -> Result<Option<TwilioConfig>> {
-            let conn = pool.get()?;
-            match conn.query_row(
-                "SELECT id, account_sid, auth_token, messaging_service_sid, created_at FROM twilio_config LIMIT 1",
-                [],
-                |row| {
-                    Ok(TwilioConfig {
-                        id: Some(row.get(0)?),
-                        account_sid: row.get(1)?,
-                        auth_token: row.get(2)?,
-                        messaging_service_sid: row.get(3)?,
-                        created_at: row.get(4)?,
-                    })
-                },
-            ) {
-                Ok(config) => Ok(Some(config)),
-                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-                Err(e) => Err(e.into()),
-            }
-        }).await?
-    }
-
-    pub async fn insert_sms_log(
-        &self,
-        event_id: i64,
-        contact_id: i64,
-        message_content: &str,
-        status: &str,
-        twilio_sid: Option<&str>,
-        error_message: Option<&str>,
-    ) -> Result<i64> {
-        let pool = self.pool.clone();
-        let message_content = message_content.to_string();
-        let status = status.to_string();
-        let twilio_sid = twilio_sid.map(|s| s.to_string());
-        let error_message = error_message.map(|s| s.to_string());
-        
-        spawn_blocking(move || -> Result<i64> {
-            let conn = pool.get()?;
-            conn.execute(
-                "INSERT INTO sms_logs (event_id, contact_id, message_content, status, twilio_sid, error_message) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![
-                    event_id,
-                    contact_id,
-                    &message_content,
-                    &status,
-                    twilio_sid.as_deref().unwrap_or(""),
-                    error_message.as_deref().unwrap_or(""),
-                ],
-            )?;
-            Ok(conn.last_insert_rowid())
         }).await?
     }
 

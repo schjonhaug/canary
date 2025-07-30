@@ -689,7 +689,7 @@ run_tests() {
     echo "   - Transaction state changes"
     echo "   - RBF and CPFP relationships"
     echo "   - Proper balance calculations"
-    echo "   - Real-time SMS updates"
+    echo "   - Real-time notification updates"
     echo ""
     
     # Show final blockchain and mempool state
