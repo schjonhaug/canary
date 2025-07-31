@@ -8,6 +8,7 @@ mod migrations;
 mod notifications;
 mod wallet;
 mod ntfy_provider;
+mod twilio_provider;
 
 use api::create_router;
 use config::AppConfig;
@@ -16,6 +17,7 @@ use metadata::{TransactionEvent, DashboardUpdate};
 use notifications::{NotificationManager};
 use wallet::WalletManager;
 use ntfy_provider::NtfyProvider;
+use twilio_provider::TwilioProvider;
 use std::sync::Arc;
 use tokio::sync::{Mutex, broadcast};
 use tokio::time::{Duration, interval};
@@ -58,9 +60,31 @@ async fn main() -> anyhow::Result<()> {
         .await,
     ));
 
-    // Create notification manager and register ntfy provider
+    // Create notification manager and register providers based on configuration
     let mut notification_manager = NotificationManager::new();
-    notification_manager.register_provider(Arc::new(NtfyProvider::new()));
+    
+    // Register ntfy provider if enabled
+    if config.is_ntfy_enabled() {
+        println!("🔔 Registering ntfy notification provider");
+        notification_manager.register_provider(Arc::new(NtfyProvider::new()));
+    }
+    
+    // Register Twilio SMS provider if enabled and configured
+    if config.is_twilio_enabled() {
+        match TwilioProvider::from_env() {
+            Some(twilio_provider) => {
+                println!("📱 Registering Twilio SMS notification provider");
+                notification_manager.register_provider(Arc::new(twilio_provider));
+            }
+            None => {
+                println!("⚠️  Twilio provider enabled but missing environment variables:");
+                println!("    - TWILIO_ACCOUNT_SID");
+                println!("    - TWILIO_AUTH_TOKEN");
+                println!("    - TWILIO_MESSAGING_SERVICE_SID");
+            }
+        }
+    }
+    
     let notification_manager = Arc::new(Mutex::new(notification_manager));
 
     // Fetch and store initial block header
@@ -186,26 +210,28 @@ async fn main() -> anyhow::Result<()> {
             let wallet_manager_lock = notification_wallet_manager.lock().await;
             if let Ok(Some(wallet_info)) = wallet_manager_lock.get_wallet_by_id(event.wallet_id).await {
                 // Get contacts for this wallet
-                if let Ok(contacts) = wallet_manager_lock.metadata_db.get_contacts_for_wallet(event.wallet_id).await {
+                if let Ok(contacts) = wallet_manager_lock.metadata_db.get_contacts_with_notification_methods(event.wallet_id).await {
                     if !contacts.is_empty() {
                         println!("🔔 Triggering notifications for {} contacts on wallet '{}'", contacts.len(), wallet_info.name);
                         
-                        // Try to send notifications using available providers
-                        for provider_name in ["ntfy"] {
+                        // Try to send notifications using all available providers
+                        let available_providers = manager.list_providers();
+                        for provider_info in available_providers {
+                            let provider_name = &provider_info.name;
                             if let Ok(results) = manager.send_notifications(
                                 provider_name,
                                 &event,
                                 &wallet_info.name,
                                 &contacts,
                             ).await {
-                                for (contact, result, message) in results {
+                                for (notification_method, result, message) in results {
                                     // Log the notification attempt to database
-                                    if let Some(contact_id) = contact.id {
+                                    if let Some(method_id) = notification_method.id {
                                         if let Some(event_id) = event.id {
                                             let status = if result.success { "sent" } else { "failed" };
-                                            let _ = wallet_manager_lock.metadata_db.insert_notification_log(
+                                            let _ = wallet_manager_lock.metadata_db.insert_notification_log_for_method(
                                                 event_id,
-                                                contact_id,
+                                                method_id,
                                                 provider_name,
                                                 result.provider_id.as_deref(),
                                                 status,
@@ -215,11 +241,17 @@ async fn main() -> anyhow::Result<()> {
                                         }
                                     }
                                     
+                                    // Find the contact name for logging (need to find the contact that owns this method)
+                                    let contact_name = contacts.iter()
+                                        .find(|c| c.notification_methods.iter().any(|m| m.id == notification_method.id))
+                                        .map(|c| c.name.as_str())
+                                        .unwrap_or("Unknown");
+                                    
                                     if result.success {
-                                        println!("✅ Notification sent to {} via {}", contact.name, provider_name);
+                                        println!("✅ Notification sent to {} via {} ({})", contact_name, provider_name, notification_method.notification_target);
                                     } else {
-                                        println!("❌ Failed to notify {} via {}: {}", 
-                                            contact.name, provider_name, 
+                                        println!("❌ Failed to notify {} via {} ({}): {}", 
+                                            contact_name, provider_name, notification_method.notification_target,
                                             result.error_message.unwrap_or_else(|| "Unknown error".to_string()));
                                     }
                                 }

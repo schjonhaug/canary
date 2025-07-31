@@ -1,4 +1,4 @@
-use crate::metadata::{ContactPerson, Language, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate};
+use crate::metadata::{Contact, NotificationMethod, ProviderType, Language, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate};
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::wallet::WalletManager;
 use crate::electrum::BlockHeader;
@@ -64,6 +64,28 @@ pub struct CreateContactRequest {
     /// The language preference for notifications
     #[schema(example = "en")]
     pub language: Language,
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+pub struct NotificationMethodRequest {
+    /// The provider type (sms or ntfy)
+    #[schema(example = "sms")]
+    pub provider_type: ProviderType,
+    /// The notification target (phone number or ntfy topic)
+    #[schema(example = "+4712345678")]
+    pub notification_target: String,
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+pub struct CreateContactWithMethodsRequest {
+    /// The name of the contact person
+    #[schema(example = "John Doe")]
+    pub name: String,
+    /// The language preference for notifications
+    #[schema(example = "en")]
+    pub language: Language,
+    /// List of notification methods for this contact
+    pub notification_methods: Vec<NotificationMethodRequest>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -311,19 +333,32 @@ pub async fn create_wallet_contact(
         }
     }
 
-    // Validate phone number first
-    let normalized_contact = match validate_contact_address(&payload.contact_address) {
-        Ok(phone) => phone,
-        Err(error) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse { error }),
-            )
-                .into_response();
+    // Auto-detect provider type and create notification method
+    let (provider_type, normalized_target) = if payload.contact_address.starts_with('+') {
+        // Phone number - validate it
+        match validate_contact_address(&payload.contact_address) {
+            Ok(phone) => (ProviderType::Sms, phone),
+            Err(error) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse { error }),
+                )
+                    .into_response();
+            }
         }
+    } else {
+        // Assume ntfy topic
+        (ProviderType::Ntfy, payload.contact_address.clone())
     };
 
-    match manager.metadata_db.insert_contact(wallet_id, &payload.name, &normalized_contact, &payload.language).await {
+    let notification_methods = vec![(provider_type, normalized_target)];
+
+    match manager.metadata_db.insert_contact_with_notification_methods(
+        wallet_id, 
+        &payload.name, 
+        &payload.language,
+        notification_methods
+    ).await {
         Ok(contact_id) => {
             // Send dashboard update to notify clients of contact count change
             if let Err(e) = manager.send_dashboard_update().await {
@@ -369,7 +404,7 @@ pub async fn delete_wallet_contact(
     Path((_wallet_id, contact_id)): Path<(i64, i64)>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
-    match manager.metadata_db.delete_contact(contact_id).await {
+    match manager.metadata_db.delete_contact_with_methods(contact_id).await {
         Ok(true) => {
             // Send dashboard update to notify clients of contact count change
             if let Err(e) = manager.send_dashboard_update().await {
@@ -406,7 +441,7 @@ pub async fn delete_wallet_contact(
         ("id" = i64, Path, description = "The wallet ID")
     ),
     responses(
-        (status = 200, description = "List of contacts for wallet", body = Vec<ContactPerson>),
+        (status = 200, description = "List of contacts for wallet", body = Vec<Contact>),
         (status = 404, description = "Wallet not found", body = ErrorResponse),
     ),
     tag = "wallet"
@@ -440,7 +475,7 @@ pub async fn get_wallet_contacts(
         }
     }
 
-    match manager.metadata_db.get_contacts_for_wallet(wallet_id).await {
+    match manager.metadata_db.get_contacts_with_notification_methods(wallet_id).await {
         Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -611,8 +646,8 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
-        CreateContactRequest, CreateContactResponse, ProvidersResponse,
-        ContactPerson, TransactionEventWithWallet, EventType, Language,
+        CreateContactRequest, CreateContactWithMethodsRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
+        Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, DashboardUpdate, ProviderInfo
     )),
     tags(

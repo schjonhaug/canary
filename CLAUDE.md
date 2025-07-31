@@ -5,10 +5,10 @@
 **License**: Open Source (FOSS)
 
 ## Project Overview
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, and multi-language push notifications (Norwegian and English) via ntfy.sh.
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, and multi-language notifications (Norwegian and English) via configurable providers.
 
 ## Architecture
-Built with a plugin-based notification system that allows extensible notification providers. The system uses ntfy.sh for push notifications with support for message formatting and notification logging across providers.
+Built with a plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality.
 
 ## Development Commands
 
@@ -55,7 +55,7 @@ canary/
 ```
 
 ## Key Dependencies
-- **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh notifications
+- **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio notifications
 - **Frontend**: Next.js 15.3.5, React 19, Tailwind CSS 4, shadcn/ui components
 
 ## API Endpoints
@@ -72,14 +72,16 @@ canary/
 - `DELETE /api/wallets/{id}` - Delete wallet
 
 ### Contact Management  
-- `POST /api/wallets/{id}/contacts` - Add contact (name + contact_address + language)
-- `GET /api/wallets/{id}/contacts` - List contacts
-- `DELETE /api/wallets/{wallet_id}/contacts/{contact_id}` - Remove contact
+- `POST /api/wallets/{id}/contacts` - Add contact with automatic provider detection (name + contact_address + language)
+- `GET /api/wallets/{id}/contacts` - List contacts with notification methods
+- `DELETE /api/wallets/{wallet_id}/contacts/{contact_id}` - Remove contact and all notification methods
 
 ### Notification System
-- `GET /api/providers` - List available notification providers and capabilities
-- Auto-generated ntfy topics: `contactname-language-checksum`
-- Generic notification logs with delivery status tracking
+- `GET /api/providers` - List available and configured notification providers
+- **Multiple Notification Methods**: Contacts can receive notifications through multiple providers simultaneously
+- **Auto-detection**: Phone numbers (starting with +) → SMS, topics → ntfy
+- **Normalized Database**: Separate tables for contacts and notification methods for extensibility
+- Generic notification logs with delivery status tracking for all providers
 - `/swagger-ui` - API documentation
 
 ## Network Configuration
@@ -96,9 +98,13 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Mainnet: ssl://electrum.blockstream.info:50002
 
 ## Key Features
-- **Plugin-based Notifications**: Extensible provider system using ntfy.sh
+- **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh and Twilio SMS
+- **Multiple Notification Methods**: Each contact can have multiple notification methods (future: SMS + email + ntfy + telegram + webhooks)
 - **Multi-language Support**: Norwegian and English with proper Bitcoin amount formatting  
-- **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators
+- **Auto-detection**: Automatically detects provider type from contact address format
+- **Normalized Database**: Clean separation of contacts and notification methods for future extensibility
+- **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
+- **Environment Configuration**: Provider selection via .env variables, no database config needed
 - **Performance**: Async SQLite with r2d2 connection pooling
 - **Real-time**: Hybrid REST + SSE architecture, block header streaming
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
@@ -107,14 +113,36 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
 
 ## Notification Setup
-1. Add contacts: `POST /api/wallets/{id}/contacts` (name + language + optional topic)
-2. Auto-generated ntfy topics: `contactname-language-checksum` (e.g., `john-en-8nt3y08q`)
+
+### ntfy.sh (Default, always enabled)
+1. Add contacts with ntfy topics: `POST /api/wallets/{id}/contacts` (name + language + topic)
+2. Auto-generated topics: `contactname-language-checksum` (e.g., `john-en-8nt3y08q`)
 3. Subscribe to topics at https://ntfy.sh/your-topic
-4. Automatic real-time notifications for all transactions
+4. Automatic push notifications for all transactions
+
+### Twilio SMS (Optional)
+1. Set environment variables in `.env`:
+   ```
+   CANARY_ENABLE_TWILIO=true
+   TWILIO_ACCOUNT_SID=your_account_sid
+   TWILIO_AUTH_TOKEN=your_auth_token
+   TWILIO_MESSAGING_SERVICE_SID=your_service_sid_or_phone
+   ```
+2. Add contacts with phone numbers: `POST /api/wallets/{id}/contacts` (name + language + phone)
+3. Phone numbers must include country code (e.g., `+4712345678`)
+4. Automatic SMS notifications for all transactions
+
+### Multiple Notification Methods (New Architecture)
+- **Current Implementation**: Contacts have single notification method per contact (auto-detected from address format)
+- **Database Schema**: Normalized design with separate `contacts` and `contact_notification_methods` tables
+- **Future Extensibility**: Architecture supports multiple methods per contact (same person can have SMS + ntfy + email)
+- **Auto-routing**: System automatically routes to appropriate provider(s) based on available methods
+- **Provider Independence**: All providers process all contacts, notification methods determine delivery targets
 
 ## Storage
 - **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage)
-- **Metadata**: `database/{network}/metadata.sqlite` (contacts, events, notification_logs)
+- **Metadata**: `database/{network}/metadata.sqlite` (normalized schema with contacts, contact_notification_methods, events, notification_logs)
+- **Schema**: Single migration file with normalized design for extensible notification methods
 - **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
 
 ## Address Management

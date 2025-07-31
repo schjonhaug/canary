@@ -102,6 +102,20 @@ impl AppConfig {
         Ok(config)
     }
 
+    /// Check if ntfy provider should be enabled
+    pub fn is_ntfy_enabled(&self) -> bool {
+        std::env::var("CANARY_ENABLE_NTFY")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(true) // Default to enabled
+    }
+
+    /// Check if Twilio SMS provider should be enabled
+    pub fn is_twilio_enabled(&self) -> bool {
+        std::env::var("CANARY_ENABLE_TWILIO")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(false) // Default to disabled unless explicitly enabled
+    }
+
     pub fn electrum_url(&self) -> String {
         self.electrum_url
             .clone()

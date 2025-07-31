@@ -1,0 +1,97 @@
+warning: associated function `is_phone_number` is never used
+   --> src/twilio_provider.rs:169:8
+    |
+45  | impl TwilioProvider {
+    | ------------------- associated function in this implementation
+...
+169 |     fn is_phone_number(contact_address: &str) -> bool {
+    |        ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `canary` (lib) generated 1 warning
+warning: methods `server_features`, `block_headers_subscribe`, and `block_headers_pop` are never used
+   --> src/electrum.rs:86:12
+    |
+23  | impl ElectrumClient {
+    | ------------------- methods in this implementation
+...
+86  |     pub fn server_features(&self) -> Result<String> {
+    |            ^^^^^^^^^^^^^^^
+...
+214 |     pub fn block_headers_subscribe(&self) -> Result<electrum_client::HeaderNotification> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+219 |     pub fn block_headers_pop(&self) -> Option<electrum_client::HeaderNotification> {
+    |            ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: methods `insert_contact`, `delete_contact`, `get_contacts_for_wallet`, `insert_notification_log`, and `get_notification_logs_for_event` are never used
+   --> src/metadata.rs:647:18
+    |
+280 | impl MetadataDb {
+    | --------------- methods in this implementation
+...
+647 |     pub async fn insert_contact(&self, wallet_id: i64, name: &str, contact_address: &str, language: &Language) -> Result<i64> {
+    |                  ^^^^^^^^^^^^^^
+...
+663 |     pub async fn delete_contact(&self, contact_id: i64) -> Result<bool> {
+    |                  ^^^^^^^^^^^^^^
+...
+673 |     pub async fn get_contacts_for_wallet(&self, wallet_id: i64) -> Result<Vec<ContactPerson>> {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^
+...
+901 |     pub async fn insert_notification_log(
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^
+...
+973 |     pub async fn get_notification_logs_for_event(&self, event_id: i64) -> Result<Vec<NotificationLog>> {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `get_provider` is never used
+  --> src/notifications.rs:52:12
+   |
+40 | impl NotificationManager {
+   | ------------------------ method in this implementation
+...
+52 |     pub fn get_provider(&self, name: &str) -> Option<Arc<dyn NotificationProvider>> {
+   |            ^^^^^^^^^^^^
+
+warning: associated function `is_phone_number` is never used
+   --> src/twilio_provider.rs:169:8
+    |
+45  | impl TwilioProvider {
+    | ------------------- associated function in this implementation
+...
+169 |     fn is_phone_number(contact_address: &str) -> bool {
+    |        ^^^^^^^^^^^^^^^
+
+warning: `canary` (bin "canary") generated 4 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running `target/debug/canary`
+Starting Canary with configuration:
+  Network: Regtest
+  Electrum URL: tcp://127.0.0.1:50001
+  Bind address: 127.0.0.1:3000
+  Wallet directory: database/regtest/wallets
+  Metadata DB: database/regtest/metadata.sqlite
+Creating wallet sync worker...
+Initial schema already applied, skipping
+Loaded 0 wallets from disk
+🔔 Registering ntfy notification provider
+Server running on http://127.0.0.1:3000
+Creating wallet from multipath descriptor:
+  Name: Test Wallet
+  Input descriptor: wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)
+  Receive descriptor: wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/0/*)#qvnrzae8
+  Change descriptor: wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/1/*)#3ckzlgfl
+  Wallet filename: qvnrzae83ckzlgfl.sqlite
+  Wallet file path: database/regtest/wallets/qvnrzae83ckzlgfl.sqlite
+  Metadata saved to file: qvnrzae83ckzlgfl.sqlite
+  Extracting historical transactions...
+Extracting historical transactions for wallet ID: 1
+Found 0 historical transactions to process
+Current balance: 0.00000000 BTC, Initial balance: 0.00000000 BTC
+Historical transaction extraction completed
+  Initial balance: 0.00000000 BTC (0 sats)
+  Balance saved to metadata database

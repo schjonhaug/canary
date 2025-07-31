@@ -9,6 +9,7 @@ pub mod migrations;
 pub mod notifications;
 pub mod wallet;
 pub mod ntfy_provider;
+pub mod twilio_provider;
 
 // API module
 pub mod api;
@@ -18,10 +19,11 @@ pub use config::AppConfig;
 pub use electrum::{ElectrumClient, BlockHeader};
 pub use message_formatter::MessageFormatter;
 pub use metadata::{
-    ContactPerson, EventType, Language, TransactionEvent, TransactionEventWithWallet, 
-    WalletMetadata, DashboardUpdate, NotificationLog, NotificationStatus, MetadataDb
+    Contact, NotificationMethod, ProviderType, EventType, Language, TransactionEvent, TransactionEventWithWallet, 
+    WalletMetadata, DashboardUpdate, NotificationStatus, MetadataDb
 };
 pub use migrations::MigrationRunner;
 pub use notifications::{NotificationManager, NotificationProvider, NotificationResult, ProviderInfo};
 pub use wallet::WalletManager;
 pub use ntfy_provider::NtfyProvider;
+pub use twilio_provider::TwilioProvider;

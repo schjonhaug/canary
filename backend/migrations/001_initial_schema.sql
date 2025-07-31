@@ -27,22 +27,32 @@ CREATE TABLE transaction_events (
     FOREIGN KEY (wallet_id) REFERENCES wallets (id) ON DELETE CASCADE
 );
 
--- Contact persons table: Wallet-specific contacts for notifications
-CREATE TABLE contact_persons (
+-- Contacts table: Basic contact info
+CREATE TABLE contacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     wallet_id INTEGER NOT NULL,
     name TEXT NOT NULL,
-    contact_address TEXT NOT NULL, -- Generic field for ntfy topics, phone numbers, emails, etc.
     language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no')),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (wallet_id) REFERENCES wallets (id) ON DELETE CASCADE
+);
+
+-- Contact notification methods: Multiple notification methods per contact  
+CREATE TABLE contact_notification_methods (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contact_id INTEGER NOT NULL,
+    provider_type TEXT NOT NULL CHECK (provider_type IN ('sms', 'ntfy')),
+    notification_target TEXT NOT NULL,  -- phone number or ntfy topic
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE,
+    UNIQUE(contact_id, provider_type, notification_target)
 );
 
 -- Notification logs table: Generic notification tracking for all providers
 CREATE TABLE notification_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id INTEGER NOT NULL,
-    contact_id INTEGER NOT NULL,
+    notification_method_id INTEGER NOT NULL,
     provider_name TEXT NOT NULL,
     provider_message_id TEXT,         -- Twilio SID, ntfy response ID, etc.
     status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'delivered')),
@@ -50,7 +60,7 @@ CREATE TABLE notification_logs (
     message_content TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (event_id) REFERENCES transaction_events (id),
-    FOREIGN KEY (contact_id) REFERENCES contact_persons (id) ON DELETE CASCADE
+    FOREIGN KEY (notification_method_id) REFERENCES contact_notification_methods (id) ON DELETE CASCADE
 );
 
 -- Current block header table: Blockchain state tracking (singleton)
@@ -67,7 +77,9 @@ VALUES (1, 0, 0);
 
 -- Indexes for performance
 CREATE INDEX idx_notification_logs_event_id ON notification_logs (event_id);
-CREATE INDEX idx_notification_logs_contact_id ON notification_logs (contact_id);
+CREATE INDEX idx_notification_logs_notification_method_id ON notification_logs (notification_method_id);
 CREATE INDEX idx_notification_logs_provider ON notification_logs (provider_name);
 CREATE INDEX idx_transaction_events_wallet_id ON transaction_events (wallet_id);
-CREATE INDEX idx_contact_persons_wallet_id ON contact_persons (wallet_id);
+CREATE INDEX idx_contacts_wallet_id ON contacts (wallet_id);
+CREATE INDEX idx_contact_notification_methods_contact_id ON contact_notification_methods (contact_id);
+CREATE INDEX idx_contact_notification_methods_provider_type ON contact_notification_methods (provider_type);

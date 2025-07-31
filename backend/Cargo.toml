@@ -31,6 +31,7 @@ r2d2 = "0.8"
 r2d2_sqlite = "0.24"
 async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json"] }
+base64 = "0.22"
 
 [dev-dependencies]
 http-body-util = "0.1"

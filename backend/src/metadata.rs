@@ -1,6 +1,6 @@
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use bdk_wallet::rusqlite::params;
+use bdk_wallet::rusqlite::{params, ToSql};
 use std::sync::Arc;
 use tokio::task::spawn_blocking;
 use crate::migrations::MigrationRunner;
@@ -79,13 +79,49 @@ pub struct WalletMetadata {
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
-pub struct ContactPerson {
+pub struct Contact {
     pub id: Option<i64>,
     pub wallet_id: i64,
     pub name: String,
-    pub contact_address: String,
     pub language: Language,
+    pub notification_methods: Vec<NotificationMethod>,
     pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct NotificationMethod {
+    pub id: Option<i64>,
+    pub contact_id: i64,
+    pub provider_type: ProviderType,
+    pub notification_target: String,  // phone number or ntfy topic
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub enum ProviderType {
+    #[serde(rename = "sms")]
+    Sms,
+    #[serde(rename = "ntfy")]
+    Ntfy,
+}
+
+impl ProviderType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ProviderType::Sms => "sms",
+            ProviderType::Ntfy => "ntfy",
+        }
+    }
+}
+
+impl From<&str> for ProviderType {
+    fn from(s: &str) -> Self {
+        match s {
+            "sms" => ProviderType::Sms,
+            "ntfy" => ProviderType::Ntfy,
+            _ => ProviderType::Ntfy, // Default fallback
+        }
+    }
 }
 
 
@@ -118,18 +154,6 @@ pub struct TransactionEventWithWallet {
     pub notification_status: Vec<NotificationStatus>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
-pub struct NotificationLog {
-    pub id: Option<i64>,
-    pub event_id: i64,
-    pub contact_id: i64,
-    pub provider_name: String,
-    pub provider_message_id: Option<String>,
-    pub status: String,
-    pub error_message: Option<String>,
-    pub message_content: String,
-    pub created_at: String,
-}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct NotificationStatus {
@@ -339,7 +363,7 @@ impl MetadataDb {
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                         COUNT(c.id) as contact_count
                  FROM wallets w 
-                 LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+                 LEFT JOIN contacts c ON w.id = c.wallet_id 
                  WHERE w.descriptor = ?1 
                  GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
                 params![descriptor],
@@ -374,7 +398,7 @@ impl MetadataDb {
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                         COUNT(c.id) as contact_count
                  FROM wallets w 
-                 LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+                 LEFT JOIN contacts c ON w.id = c.wallet_id 
                  WHERE w.id = ?1 
                  GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
                 params![id],
@@ -410,7 +434,7 @@ impl MetadataDb {
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                         COUNT(c.id) as contact_count
                  FROM wallets w 
-                 LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+                 LEFT JOIN contacts c ON w.id = c.wallet_id 
                  WHERE w.wallet_filename = ?1 
                  GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
                 params![wallet_filename],
@@ -445,7 +469,7 @@ impl MetadataDb {
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
                         COUNT(c.id) as contact_count
                  FROM wallets w 
-                 LEFT JOIN contact_persons c ON w.id = c.wallet_id 
+                 LEFT JOIN contacts c ON w.id = c.wallet_id 
                  GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
                  ORDER BY w.created_at DESC"
             )?;
@@ -568,7 +592,8 @@ impl MetadataDb {
                     let mut log_stmt = conn.prepare(
                         "SELECT nl.provider_name, nl.status, nl.error_message, cp.name as contact_name
                          FROM notification_logs nl
-                         JOIN contact_persons cp ON nl.contact_id = cp.id
+                         JOIN contact_notification_methods cnm ON nl.notification_method_id = cnm.id
+                         JOIN contacts cp ON cnm.contact_id = cp.id
                          WHERE nl.event_id = ?1
                          ORDER BY nl.created_at DESC"
                     )?;
@@ -596,61 +621,124 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn insert_contact(&self, wallet_id: i64, name: &str, contact_address: &str, language: &Language) -> Result<i64> {
+    // Normalized contact methods
+    pub async fn insert_contact_with_notification_methods(
+        &self, 
+        wallet_id: i64, 
+        name: &str, 
+        language: &Language,
+        notification_methods: Vec<(ProviderType, String)>
+    ) -> Result<i64> {
         let pool = self.pool.clone();
         let name = name.to_string();
-        let contact_address = contact_address.to_string();
         let language = *language;
         
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
-            conn.execute(
-                "INSERT INTO contact_persons (wallet_id, name, contact_address, language) VALUES (?1, ?2, ?3, ?4)",
-                params![wallet_id, &name, &contact_address, language.as_str()],
+            let tx = conn.unchecked_transaction()?;
+            
+            // Insert contact
+            tx.execute(
+                "INSERT INTO contacts (wallet_id, name, language) VALUES (?1, ?2, ?3)",
+                params![wallet_id, &name, language.as_str()],
             )?;
-            Ok(conn.last_insert_rowid())
+            let contact_id = tx.last_insert_rowid();
+            
+            // Insert notification methods
+            for (provider_type, notification_target) in notification_methods {
+                tx.execute(
+                    "INSERT INTO contact_notification_methods (contact_id, provider_type, notification_target) VALUES (?1, ?2, ?3)",
+                    params![contact_id, provider_type.as_str(), &notification_target],
+                )?;
+            }
+            
+            tx.commit()?;
+            Ok(contact_id)
         }).await?
     }
 
-    pub async fn delete_contact(&self, contact_id: i64) -> Result<bool> {
+    pub async fn get_contacts_with_notification_methods(&self, wallet_id: i64) -> Result<Vec<Contact>> {
         let pool = self.pool.clone();
         
-        spawn_blocking(move || -> Result<bool> {
+        spawn_blocking(move || -> Result<Vec<Contact>> {
             let conn = pool.get()?;
-            let changes = conn.execute("DELETE FROM contact_persons WHERE id = ?1", params![contact_id])?;
-            Ok(changes > 0)
-        }).await?
-    }
-
-    pub async fn get_contacts_for_wallet(&self, wallet_id: i64) -> Result<Vec<ContactPerson>> {
-        let pool = self.pool.clone();
-        
-        spawn_blocking(move || -> Result<Vec<ContactPerson>> {
-            let conn = pool.get()?;
+            
+            // First get all contacts for the wallet
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_id, name, contact_address, language, created_at 
-                 FROM contact_persons 
+                "SELECT id, wallet_id, name, language, created_at 
+                 FROM contacts 
                  WHERE wallet_id = ?1 ORDER BY name",
             )?;
 
             let contact_iter = stmt.query_map(params![wallet_id], |row| {
-                let language_str: String = row.get(4)?;
-                Ok(ContactPerson {
-                    id: Some(row.get(0)?),
-                    wallet_id: row.get(1)?,
-                    name: row.get(2)?,
-                    contact_address: row.get(3)?,
-                    language: Language::from(language_str.as_str()),
-                    created_at: row.get(5)?,
-                })
+                let language_str: String = row.get(3)?;
+                Ok((
+                    row.get::<_, i64>(0)?, // id
+                    Contact {
+                        id: Some(row.get(0)?),
+                        wallet_id: row.get(1)?,
+                        name: row.get(2)?,
+                        language: Language::from(language_str.as_str()),
+                        notification_methods: Vec::new(), // Will be populated below
+                        created_at: row.get(4)?,
+                    }
+                ))
             })?;
 
-            let mut contacts = Vec::new();
-            for contact in contact_iter {
-                contacts.push(contact?);
+            let mut contacts: std::collections::HashMap<i64, Contact> = std::collections::HashMap::new();
+            for contact_result in contact_iter {
+                let (contact_id, contact) = contact_result?;
+                contacts.insert(contact_id, contact);
             }
+            
+            // Now get all notification methods for these contacts
+            let contact_ids: Vec<i64> = contacts.keys().cloned().collect();
+            if !contact_ids.is_empty() {
+                let placeholders = contact_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let query = format!(
+                    "SELECT id, contact_id, provider_type, notification_target, created_at 
+                     FROM contact_notification_methods 
+                     WHERE contact_id IN ({}) ORDER BY contact_id, provider_type",
+                    placeholders
+                );
+                
+                let mut method_stmt = conn.prepare(&query)?;
+                let method_params: Vec<&dyn ToSql> = contact_ids.iter().map(|id| id as &dyn ToSql).collect();
+                
+                let method_iter = method_stmt.query_map(method_params.as_slice(), |row| {
+                    let provider_type_str: String = row.get(2)?;
+                    Ok(NotificationMethod {
+                        id: Some(row.get(0)?),
+                        contact_id: row.get(1)?,
+                        provider_type: ProviderType::from(provider_type_str.as_str()),
+                        notification_target: row.get(3)?,
+                        created_at: row.get(4)?,
+                    })
+                })?;
+                
+                // Add notification methods to their corresponding contacts
+                for method_result in method_iter {
+                    let method = method_result?;
+                    if let Some(contact) = contacts.get_mut(&method.contact_id) {
+                        contact.notification_methods.push(method);
+                    }
+                }
+            }
+            
+            Ok(contacts.into_values().collect())
+        }).await?
+    }
 
-            Ok(contacts)
+    pub async fn delete_contact_with_methods(&self, contact_id: i64) -> Result<bool> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let rows_affected = conn.execute(
+                "DELETE FROM contacts WHERE id = ?1",
+                params![contact_id],
+            )?;
+            Ok(rows_affected > 0)
         }).await?
     }
 
@@ -729,10 +817,11 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn insert_notification_log(
+
+    pub async fn insert_notification_log_for_method(
         &self,
         event_id: i64,
-        contact_id: i64,
+        notification_method_id: i64,
         provider_name: &str,
         provider_message_id: Option<&str>,
         status: &str,
@@ -749,11 +838,11 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT INTO notification_logs (event_id, contact_id, provider_name, provider_message_id, status, error_message, message_content) 
+                "INSERT INTO notification_logs (event_id, notification_method_id, provider_name, provider_message_id, status, error_message, message_content) 
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     event_id,
-                    contact_id,
+                    notification_method_id,
                     provider_name,
                     provider_message_id,
                     status,
@@ -765,38 +854,4 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_notification_logs_for_event(&self, event_id: i64) -> Result<Vec<NotificationLog>> {
-        let pool = self.pool.clone();
-        
-        spawn_blocking(move || -> Result<Vec<NotificationLog>> {
-            let conn = pool.get()?;
-            let mut stmt = conn.prepare(
-                "SELECT id, event_id, contact_id, provider_name, provider_message_id, status, error_message, message_content, created_at 
-                 FROM notification_logs 
-                 WHERE event_id = ?1 
-                 ORDER BY created_at DESC"
-            )?;
-            
-            let log_iter = stmt.query_map([event_id], |row| {
-                Ok(NotificationLog {
-                    id: Some(row.get(0)?),
-                    event_id: row.get(1)?,
-                    contact_id: row.get(2)?,
-                    provider_name: row.get(3)?,
-                    provider_message_id: row.get(4)?,
-                    status: row.get(5)?,
-                    error_message: row.get(6)?,
-                    message_content: row.get(7)?,
-                    created_at: row.get(8)?,
-                })
-            })?;
-            
-            let mut logs = Vec::new();
-            for log in log_iter {
-                logs.push(log?);
-            }
-            
-            Ok(logs)
-        }).await?
-    }
 }
