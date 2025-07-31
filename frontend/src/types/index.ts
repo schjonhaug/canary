@@ -13,6 +13,13 @@ export interface Wallet {
 }
 
 
+export interface NotificationStatus {
+  contact_name: string
+  provider_name: string
+  status: string
+  error_message: string | null
+}
+
 export interface TransactionEvent {
   id: number
   wallet_id: number
@@ -24,6 +31,7 @@ export interface TransactionEvent {
   is_cpfp: boolean
   balance_total: number | null
   transaction_time: number
+  notification_status: NotificationStatus[]
 }
 
 export interface Contact {

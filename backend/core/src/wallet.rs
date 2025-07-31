@@ -95,6 +95,7 @@ impl WalletManager {
             is_cpfp: event_insert.is_cpfp,
             balance_total: event_insert.balance_total,
             transaction_time: event_insert.transaction_time,
+            notification_status: Vec::new(), // Will be populated by notification worker
         };
 
         // Broadcast to notification worker (non-blocking)

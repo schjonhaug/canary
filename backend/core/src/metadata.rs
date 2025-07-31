@@ -100,6 +100,7 @@ pub struct TransactionEvent {
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
     pub transaction_time: u64,
+    pub notification_status: Vec<NotificationStatus>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -114,6 +115,28 @@ pub struct TransactionEventWithWallet {
     pub is_cpfp: bool,
     pub balance_total: Option<i64>,
     pub transaction_time: u64,
+    pub notification_status: Vec<NotificationStatus>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct NotificationLog {
+    pub id: Option<i64>,
+    pub event_id: i64,
+    pub contact_id: i64,
+    pub provider_name: String,
+    pub provider_message_id: Option<String>,
+    pub status: String,
+    pub error_message: Option<String>,
+    pub message_content: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct NotificationStatus {
+    pub contact_name: String,
+    pub provider_name: String,
+    pub status: String,
+    pub error_message: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -530,13 +553,41 @@ impl MetadataDb {
                     is_cpfp: row.get(7)?,
                     balance_total: row.get(8).ok(),
                     transaction_time: row.get(9)?,
+                    notification_status: Vec::new(), // Will be populated later
                 })
             })?;
 
             let mut events = Vec::new();
             for event in event_iter {
-                let event = event?;
+                let mut event = event?;
                 
+                // Get notification logs for this event
+                if let Some(event_id) = event.id {
+                    let mut notification_status = Vec::new();
+                    
+                    let mut log_stmt = conn.prepare(
+                        "SELECT nl.provider_name, nl.status, nl.error_message, cp.name as contact_name
+                         FROM notification_logs nl
+                         JOIN contact_persons cp ON nl.contact_id = cp.id
+                         WHERE nl.event_id = ?1
+                         ORDER BY nl.created_at DESC"
+                    )?;
+                    
+                    let log_iter = log_stmt.query_map([event_id], |row| {
+                        Ok(NotificationStatus {
+                            contact_name: row.get(3)?,
+                            provider_name: row.get(0)?,
+                            status: row.get(1)?,
+                            error_message: row.get(2)?,
+                        })
+                    })?;
+                    
+                    for log in log_iter {
+                        notification_status.push(log?);
+                    }
+                    
+                    event.notification_status = notification_status;
+                }
                 
                 events.push(event);
             }
@@ -675,6 +726,77 @@ impl MetadataDb {
                 Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
                 Err(e) => Err(e.into()),
             }
+        }).await?
+    }
+
+    pub async fn insert_notification_log(
+        &self,
+        event_id: i64,
+        contact_id: i64,
+        provider_name: &str,
+        provider_message_id: Option<&str>,
+        status: &str,
+        error_message: Option<&str>,
+        message_content: &str,
+    ) -> Result<i64> {
+        let pool = self.pool.clone();
+        let provider_name = provider_name.to_string();
+        let provider_message_id = provider_message_id.map(|s| s.to_string());
+        let status = status.to_string();
+        let error_message = error_message.map(|s| s.to_string());
+        let message_content = message_content.to_string();
+        
+        spawn_blocking(move || -> Result<i64> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO notification_logs (event_id, contact_id, provider_name, provider_message_id, status, error_message, message_content) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    event_id,
+                    contact_id,
+                    provider_name,
+                    provider_message_id,
+                    status,
+                    error_message,
+                    message_content,
+                ],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
+    }
+
+    pub async fn get_notification_logs_for_event(&self, event_id: i64) -> Result<Vec<NotificationLog>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Vec<NotificationLog>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT id, event_id, contact_id, provider_name, provider_message_id, status, error_message, message_content, created_at 
+                 FROM notification_logs 
+                 WHERE event_id = ?1 
+                 ORDER BY created_at DESC"
+            )?;
+            
+            let log_iter = stmt.query_map([event_id], |row| {
+                Ok(NotificationLog {
+                    id: Some(row.get(0)?),
+                    event_id: row.get(1)?,
+                    contact_id: row.get(2)?,
+                    provider_name: row.get(3)?,
+                    provider_message_id: row.get(4)?,
+                    status: row.get(5)?,
+                    error_message: row.get(6)?,
+                    message_content: row.get(7)?,
+                    created_at: row.get(8)?,
+                })
+            })?;
+            
+            let mut logs = Vec::new();
+            for log in log_iter {
+                logs.push(log?);
+            }
+            
+            Ok(logs)
         }).await?
     }
 }

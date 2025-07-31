@@ -1,4 +1,5 @@
-use crate::metadata::{ContactPerson, TransactionEvent, EventType, Language};
+use crate::metadata::{ContactPerson, TransactionEvent, EventType};
+use crate::message_formatter::MessageFormatter;
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
 use serde_json::json;
@@ -13,96 +14,6 @@ impl NtfyProvider {
             client: reqwest::Client::new(),
         }
     }
-
-    fn format_btc_amount(amount_sats: i64, language: &Language) -> String {
-        let btc_amount = amount_sats as f64 / 100_000_000.0;
-        
-        match language {
-            Language::Norwegian => {
-                if btc_amount.fract() == 0.0 {
-                    format!("{:.0}", btc_amount).replace('.', ",")
-                } else {
-                    format!("{:.8}", btc_amount).trim_end_matches('0').replace('.', ",").to_string()
-                }
-            }
-            Language::English => {
-                if btc_amount.fract() == 0.0 {
-                    format!("{:.0}", btc_amount)
-                } else {
-                    format!("{:.8}", btc_amount).trim_end_matches('0').to_string()
-                }
-            }
-        }
-    }
-
-    fn create_localized_message(
-        event: &TransactionEvent,
-        wallet_name: &str,
-        language: &Language,
-    ) -> String {
-        let balance_text = if let Some(balance_sats) = event.balance_total {
-            let balance_btc = Self::format_btc_amount(balance_sats, language);
-            match language {
-                Language::Norwegian => format!(" Total balanse: {} BTC", balance_btc),
-                Language::English => format!(" Total balance: {} BTC", balance_btc),
-            }
-        } else {
-            String::new()
-        };
-
-        match event.event_type {
-            EventType::Send => {
-                if event.is_confirmed {
-                    if event.amount_sats > 0 {
-                        let amount_btc = Self::format_btc_amount(event.amount_sats, language);
-                        match language {
-                            Language::Norwegian => format!("✅ Sending bekreftet: {} BTC fra {}.{}", amount_btc, wallet_name, balance_text),
-                            Language::English => format!("✅ Send confirmed: {} BTC from {}.{}", amount_btc, wallet_name, balance_text),
-                        }
-                    } else {
-                        match language {
-                            Language::Norwegian => format!("✅ Sending bekreftet for {}.{}", wallet_name, balance_text),
-                            Language::English => format!("✅ Send confirmed for {}.{}", wallet_name, balance_text),
-                        }
-                    }
-                } else if event.is_rbf {
-                    let fee_btc = Self::format_btc_amount(event.amount_sats, language);
-                    match language {
-                        Language::Norwegian => format!("📤 RBF gebyrøkning: +{} BTC for {}.{}", fee_btc, wallet_name, balance_text),
-                        Language::English => format!("📤 RBF fee increase: +{} BTC for {}.{}", fee_btc, wallet_name, balance_text),
-                    }
-                } else if event.is_cpfp {
-                    let fee_btc = Self::format_btc_amount(event.amount_sats, language);
-                    match language {
-                        Language::Norwegian => format!("🚀 CPFP-gebyr: {} BTC for {}.{}", fee_btc, wallet_name, balance_text),
-                        Language::English => format!("🚀 CPFP fee: {} BTC for {}.{}", fee_btc, wallet_name, balance_text),
-                    }
-                } else {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats, language);
-                    match language {
-                        Language::Norwegian => format!("📤 Sender {} BTC fra {}.{}", amount_btc, wallet_name, balance_text),
-                        Language::English => format!("📤 Sending {} BTC from {}.{}", amount_btc, wallet_name, balance_text),
-                    }
-                }
-            }
-            EventType::Receive => {
-                if event.is_confirmed {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats, language);
-                    match language {
-                        Language::Norwegian => format!("✅ Mottak bekreftet: {} BTC til {}.{}", amount_btc, wallet_name, balance_text),
-                        Language::English => format!("✅ Receive confirmed: {} BTC to {}.{}", amount_btc, wallet_name, balance_text),
-                    }
-                } else {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats, language);
-                    match language {
-                        Language::Norwegian => format!("📥 Mottar {} BTC til {}.{}", amount_btc, wallet_name, balance_text),
-                        Language::English => format!("📥 Receiving {} BTC to {}.{}", amount_btc, wallet_name, balance_text),
-                    }
-                }
-            }
-        }
-    }
-
 }
 
 #[async_trait]
@@ -116,7 +27,7 @@ impl NotificationProvider for NtfyProvider {
         let mut results = Vec::new();
         
         for contact in contacts {
-            let message = Self::create_localized_message(event, wallet_name, &contact.language);
+            let message = MessageFormatter::create_localized_message(event, wallet_name, &contact.language);
             
             // For ntfy.sh, we expect the contact's contact_address field to contain the ntfy topic name
             let topic = &contact.contact_address;

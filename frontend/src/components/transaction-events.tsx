@@ -91,6 +91,9 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                   <TableCell>
                     <Skeleton className="h-4 w-28" />
                   </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -135,6 +138,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Total Balance</TableHead>
+                <TableHead>Notifications</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -180,6 +184,26 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                   </TableCell>
                   <TableCell className="font-mono">
                     {event.balance_total ? formatBitcoinAmount(event.balance_total) : "N/A"}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {event.notification_status && event.notification_status.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {event.notification_status.map((notification, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1"
+                            title={notification.error_message || `${notification.provider_name} ${notification.status}`}
+                          >
+                            {notification.status === 'failed' && <span>❌</span>}
+                            {notification.status === 'sent' && <span>✅</span>}
+                            <span>{notification.contact_name}</span>
+                            {index < event.notification_status.length - 1 && <span>,</span>}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      "None"
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

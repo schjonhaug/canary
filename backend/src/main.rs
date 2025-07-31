@@ -185,7 +185,23 @@ async fn main() -> anyhow::Result<()> {
                                 &wallet_info.name,
                                 &contacts,
                             ).await {
-                                for (contact, result, _message) in results {
+                                for (contact, result, message) in results {
+                                    // Log the notification attempt to database
+                                    if let Some(contact_id) = contact.id {
+                                        if let Some(event_id) = event.id {
+                                            let status = if result.success { "sent" } else { "failed" };
+                                            let _ = wallet_manager_lock.metadata_db.insert_notification_log(
+                                                event_id,
+                                                contact_id,
+                                                provider_name,
+                                                result.provider_id.as_deref(),
+                                                status,
+                                                result.error_message.as_deref(),
+                                                &message,
+                                            ).await;
+                                        }
+                                    }
+                                    
                                     if result.success {
                                         println!("✅ Notification sent to {} via {}", contact.name, provider_name);
                                     } else {
