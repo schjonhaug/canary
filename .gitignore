@@ -23,3 +23,8 @@ Icon[
 Network Trash Folder
 Temporary Items
 .apdisk
+
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env*.example
