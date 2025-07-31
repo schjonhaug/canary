@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Edit, Trash2, Plus, X, Bell, Users } from "lucide-react"
+import { Edit, Trash2, Plus, X, Bell, Users, Smartphone } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -278,7 +278,6 @@ export function EditWalletModal({
                     {walletContacts.map((contact) => (
                       <div key={contact.id} data-testid="contact-item" className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                         <div className="flex items-center gap-3">
-                          <Bell className="h-4 w-4 text-green-600" />
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-medium">{contact.name}</p>
@@ -289,7 +288,11 @@ export function EditWalletModal({
                             <div className="text-xs text-muted-foreground space-y-1">
                               {contact.notification_methods?.map((method) => (
                                 <div key={method.id} className="flex items-center gap-1">
-                                  {method.provider_type === 'sms' ? '📱' : '🔔'}
+                                  {method.provider_type === 'sms' ? (
+                                    <Smartphone className="h-3 w-3 text-muted-foreground" />
+                                  ) : (
+                                    <Bell className="h-3 w-3 text-muted-foreground" />
+                                  )}
                                   <span>{method.display_target || method.notification_target}</span>
                                 </div>
                               ))}
@@ -367,7 +370,11 @@ export function EditWalletModal({
                                     />
                                     <div className="flex-1">
                                       <div className="flex items-center gap-2">
-                                        {provider.name === 'twilio' ? '📱' : '🔔'}
+                                        {provider.name === 'twilio' ? (
+                                          <Smartphone className="h-4 w-4" />
+                                        ) : (
+                                          <Bell className="h-4 w-4" />
+                                        )}
                                         <span className="text-sm font-medium">{provider.display_name}</span>
                                       </div>
                                       {enabledProviders[provider.name] && provider.name === 'twilio' && (
