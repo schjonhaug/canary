@@ -2,8 +2,16 @@
 
 **Development Status**: This project is in unreleased developer mode. Backwards compatibility is not a priority at this stage.
 
+**License**: Open Source (FOSS) - This repository contains the free and open source version of Canary.
+
 ## Project Overview
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features multipath descriptors, Electrum sync, transaction analysis, background sync, and multi-language notifications (Norwegian and English) via ntfy.sh.
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). This FOSS version features multipath descriptors, Electrum sync, transaction analysis, background sync, and multi-language push notifications (Norwegian and English) via ntfy.sh.
+
+## Architecture
+Built with a plugin-based notification system that allows extensible notification providers:
+- **FOSS Version**: Uses ntfy.sh for push notifications
+- **Commercial Version**: Available separately with SMS notifications via Twilio
+- **Shared Core**: Message formatting and notification logging work across all providers
 
 ## Development Commands
 
@@ -41,16 +49,18 @@ cd regtest-env && ./docker-utils.sh run-tests <wallet_address>
 ```
 canary/
 ├── backend/           # Rust service with BDK wallet management
-│   ├── src/          # Source files (api.rs, wallet.rs, electrum.rs, ntfy_provider.rs, etc.)
+│   ├── core/         # Shared library (message formatting, notifications, database)
+│   ├── src/          # API layer (api.rs, main.rs)
 │   ├── database/     # Network-specific SQLite databases  
-│   └── migrations/   # Database schema
-├── frontend/         # Next.js app with React components
+│   └── migrations/   # Single initial database schema
+├── frontend/         # Next.js app with React components (provider-agnostic)
 ├── regtest-env/     # Docker Bitcoin + Fulcrum setup
 └── CLAUDE.md        # This file
 ```
 
 ## Key Dependencies
-- **Backend**: BDK wallet v2, Axum, Tokio, SQLite with r2d2 pooling, ntfy.sh notifications
+- **Core Library**: BDK wallet v2, SQLite with r2d2 pooling, notification system, message formatting
+- **Backend**: Axum web framework, ntfy.sh provider
 - **Frontend**: Next.js 15.3.5, React 19, Tailwind CSS 4, shadcn/ui components
 
 ## API Endpoints
@@ -67,12 +77,14 @@ canary/
 - `DELETE /api/wallets/{id}` - Delete wallet
 
 ### Contact Management  
-- `POST /api/wallets/{id}/contacts` - Add contact (name + ntfy topic)
+- `POST /api/wallets/{id}/contacts` - Add contact (name + contact_address + language)
 - `GET /api/wallets/{id}/contacts` - List contacts
 - `DELETE /api/wallets/{wallet_id}/contacts/{contact_id}` - Remove contact
 
-### Configuration
-- `GET /api/providers` - List available notification providers
+### Notification System
+- `GET /api/providers` - List available notification providers and capabilities
+- Auto-generated ntfy topics: `contactname-language-checksum`
+- Generic notification logs with delivery status tracking
 - `/swagger-ui` - API documentation
 
 ## Network Configuration
@@ -89,7 +101,9 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Mainnet: ssl://electrum.blockstream.info:50002
 
 ## Key Features
-- **Multi-language notifications**: Real-time transaction notifications in Norwegian and English via ntfy.sh
+- **Plugin-based Notifications**: Extensible provider system (FOSS: ntfy.sh, Commercial: SMS)
+- **Multi-language Support**: Norwegian and English with proper Bitcoin amount formatting  
+- **Generic Notification Tracking**: Delivery status for all providers with ✅/❌ UI indicators
 - **Performance**: Async SQLite with r2d2 connection pooling
 - **Real-time**: Hybrid REST + SSE architecture, block header streaming
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
@@ -97,15 +111,16 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Background Sync**: 4-second wallet sync intervals
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
 
-## Notification Setup
-1. Add contacts with ntfy topics: `POST /api/wallets/{id}/contacts` 
-2. Topics are auto-generated from contact name and wallet checksum
-3. Automatic notifications for all transactions via ntfy.sh
+## Notification Setup (FOSS)
+1. Add contacts: `POST /api/wallets/{id}/contacts` (name + language + optional topic)
+2. Auto-generated ntfy topics: `contactname-language-checksum` (e.g., `john-en-8nt3y08q`)
+3. Subscribe to topics at https://ntfy.sh/your-topic
+4. Automatic real-time notifications for all transactions
 
 ## Storage
 - **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage)
-- **Metadata**: `database/{network}/metadata.sqlite` (contacts, events, notification logs)
-- **Reset**: `./docker-utils.sh reset` removes all databases
+- **Metadata**: `database/{network}/metadata.sqlite` (contacts, events, notification_logs)
+- **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
 
 ## Address Management
 The service uses BDK's address revelation mechanism with a stop gap of 20:
@@ -114,7 +129,21 @@ The service uses BDK's address revelation mechanism with a stop gap of 20:
 - **No Address Limits**: Automatically adapts to any wallet usage pattern, detecting transactions at any index (e.g., index 150, 200+)
 - **Stop Gap**: Always maintains 20 consecutive unused addresses to prevent missing transactions
 
+## Development Workflow
+- **FOSS Development**: This repository for open source features and core architecture
+- **Commercial Development**: Separate private repository extends this codebase with SMS provider
+- **Testing**: `./regtest-env/docker-utils.sh` provides complete Bitcoin regtest environment
+- **Database Management**: Single migration file for clean schema initialization
+
 ## Code Standards
 - No commented-out code (use git history)
-- Clean, maintainable codebase
-- 110 comprehensive tests including address revelation tests
+- Clean, maintainable codebase  
+- Plugin architecture for extensibility
+- Generic database design supporting multiple notification providers
+
+## Commercial Version
+A separate repository extends this FOSS base with:
+- SMS notifications via Twilio (replaces ntfy.sh)
+- Environment-based configuration (no UI config)
+- Same frontend with automatic provider detection
+- Proprietary license for commercial features
