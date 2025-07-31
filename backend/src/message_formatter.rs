@@ -1,4 +1,5 @@
 use crate::metadata::{TransactionEvent, EventType, Language};
+use num_format::{Locale, ToFormattedString};
 
 pub struct MessageFormatter;
 
@@ -7,21 +8,34 @@ impl MessageFormatter {
     pub fn format_btc_amount(amount_sats: i64, language: &Language) -> String {
         let btc_amount = amount_sats as f64 / 100_000_000.0;
         
-        match language {
+        // Always format with 8 decimal places
+        let formatted_with_decimals = format!("{:.8}", btc_amount);
+        
+        // Split into integer and decimal parts
+        let parts: Vec<&str> = formatted_with_decimals.split('.').collect();
+        let integer_part = parts[0];
+        let decimal_part = parts.get(1).unwrap_or(&"00000000");
+        
+        // Parse integer part for locale formatting
+        let integer_value: i64 = integer_part.parse().unwrap_or(0);
+        
+        // Format integer part with locale-specific thousands separators
+        let formatted_integer = match language {
             Language::Norwegian => {
-                if btc_amount.fract() == 0.0 {
-                    format!("{:.0}", btc_amount).replace('.', ",")
-                } else {
-                    format!("{:.8}", btc_amount).trim_end_matches('0').replace('.', ",").to_string()
-                }
+                // Norwegian uses space as thousands separator
+                // Replace non-breaking space with regular space
+                integer_value.to_formatted_string(&Locale::nb).replace('\u{a0}', " ")
             }
             Language::English => {
-                if btc_amount.fract() == 0.0 {
-                    format!("{:.0}", btc_amount)
-                } else {
-                    format!("{:.8}", btc_amount).trim_end_matches('0').to_string()
-                }
+                // English uses comma as thousands separator
+                integer_value.to_formatted_string(&Locale::en)
             }
+        };
+        
+        // Combine with decimal separator based on language
+        match language {
+            Language::Norwegian => format!("{},{}", formatted_integer, decimal_part),
+            Language::English => format!("{}.{}", formatted_integer, decimal_part),
         }
     }
 
@@ -71,8 +85,8 @@ impl MessageFormatter {
                 } else {
                     let amount_btc = Self::format_btc_amount(event.amount_sats, language);
                     match language {
-                        Language::Norwegian => format!("📤 Sender {} BTC fra {}.{}", amount_btc, wallet_name, balance_text),
-                        Language::English => format!("📤 Sending {} BTC from {}.{}", amount_btc, wallet_name, balance_text),
+                        Language::Norwegian => format!("📤 Sending kringkastet: {} BTC fra {}.{}", amount_btc, wallet_name, balance_text),
+                        Language::English => format!("📤 Send broadcast: {} BTC from {}.{}", amount_btc, wallet_name, balance_text),
                     }
                 }
             }
@@ -86,8 +100,8 @@ impl MessageFormatter {
                 } else {
                     let amount_btc = Self::format_btc_amount(event.amount_sats, language);
                     match language {
-                        Language::Norwegian => format!("📥 Mottar {} BTC til {}.{}", amount_btc, wallet_name, balance_text),
-                        Language::English => format!("📥 Receiving {} BTC to {}.{}", amount_btc, wallet_name, balance_text),
+                        Language::Norwegian => format!("💸 Nye bitcoins oppdaget: {} BTC til {} (ubekreftet).{}", amount_btc, wallet_name, balance_text),
+                        Language::English => format!("💸 New bitcoins detected: {} BTC to {} (unconfirmed).{}", amount_btc, wallet_name, balance_text),
                     }
                 }
             }

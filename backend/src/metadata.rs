@@ -97,7 +97,7 @@ pub struct NotificationMethod {
     pub created_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
 pub enum ProviderType {
     #[serde(rename = "sms")]
     Sms,

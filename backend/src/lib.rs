@@ -27,3 +27,7 @@ pub use notifications::{NotificationManager, NotificationProvider, NotificationR
 pub use wallet::WalletManager;
 pub use ntfy_provider::NtfyProvider;
 pub use twilio_provider::TwilioProvider;
+
+// Test modules
+#[cfg(test)]
+mod tests;

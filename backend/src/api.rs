@@ -103,47 +103,13 @@ fn validate_phone_number(phone: &str) -> Result<String, String> {
         return Err("Phone number must include country code (e.g., +1 for US, +44 for UK, +47 for Norway)".to_string());
     }
 
-    // First extract and validate country code
-    if phone.len() < 3 {
-        return Err("Phone number is too short".to_string());
-    }
-    
-    // Extract country code to provide specific feedback
-    let country_part = phone.chars()
-        .skip(1)
-        .take_while(|c| c.is_numeric())
-        .collect::<String>();
-    
-    if country_part.is_empty() {
-        return Err("Invalid phone number: No digits after '+'".to_string());
-    }
-    
-    // Check some common invalid country codes
-    match country_part.as_str() {
-        "0" => return Err("Invalid phone number: Country code cannot start with 0".to_string()),
-        "42" => return Err("Invalid phone number: Country code '+42' is not recognized (Czechoslovakia no longer exists, use +420 for Czech Republic or +421 for Slovakia)".to_string()),
-        code if code.len() > 3 => return Err("Invalid phone number: Country code is too long".to_string()),
-        _ => {}
-    }
-
-    // Parse phone number
-    let parsed_number = match PhoneNumber::from_str(phone) {
-        Ok(num) => num,
-        Err(_e) => {
-            // Provide helpful error based on what we can detect
-            if country_part.len() == 1 {
-                return Err(format!("Invalid phone number: Country code '+{}' is not recognized (country codes are 1-3 digits)", country_part));
-            } else if phone.len() - country_part.len() - 1 < 4 {
-                return Err("Invalid phone number: Number is too short after the country code".to_string());
-            } else {
-                return Err(format!("Invalid phone number: Country code '+{}' is not recognized or the number format is incorrect", country_part));
-            }
-        }
-    };
+    // Parse phone number using the phonenumber crate
+    let parsed_number = PhoneNumber::from_str(phone)
+        .map_err(|_| "Invalid phone number format".to_string())?;
 
     // Check if it's a valid number
     if !parsed_number.is_valid() {
-        return Err("Invalid phone number: The number format is incorrect".to_string());
+        return Err("Invalid phone number".to_string());
     }
 
     // Return normalized E.164 format

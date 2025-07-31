@@ -1,0 +1,18 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.39s
+     Running `target/debug/canary`
+Starting Canary with configuration:
+  Network: Regtest
+  Electrum URL: tcp://127.0.0.1:50001
+  Bind address: 127.0.0.1:3000
+  Wallet directory: database/regtest/wallets
+  Metadata DB: database/regtest/metadata.sqlite
+Creating wallet sync worker...
+Initial schema already applied, skipping
+Loading wallet from file: fezxetxxcd88y7k7.sqlite
+    - Network: Regtest
+    - Loaded from disk (sync will happen in background loop)
+Loaded 1 wallets from disk
+🔔 Registering ntfy notification provider
+📱 Registering Twilio SMS notification provider
+📦 Initial block header: height=104
+Server running on http://127.0.0.1:3000
