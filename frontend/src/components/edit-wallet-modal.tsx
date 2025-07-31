@@ -290,7 +290,7 @@ export function EditWalletModal({
                               {contact.notification_methods?.map((method) => (
                                 <div key={method.id} className="flex items-center gap-1">
                                   {method.provider_type === 'sms' ? '📱' : '🔔'}
-                                  <span>{method.notification_target}</span>
+                                  <span>{method.display_target || method.notification_target}</span>
                                 </div>
                               ))}
                             </div>

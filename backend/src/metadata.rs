@@ -9,6 +9,8 @@ use anyhow::{Result, Context};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use std::num::Wrapping;
+use phonenumber::PhoneNumber;
+use std::str::FromStr;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
 pub enum EventType {
@@ -94,6 +96,8 @@ pub struct NotificationMethod {
     pub contact_id: i64,
     pub provider_type: ProviderType,
     pub notification_target: String,  // phone number or ntfy topic
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_target: Option<String>,  // formatted version for display
     pub created_at: String,
 }
 
@@ -707,11 +711,24 @@ impl MetadataDb {
                 
                 let method_iter = method_stmt.query_map(method_params.as_slice(), |row| {
                     let provider_type_str: String = row.get(2)?;
+                    let provider_type = ProviderType::from(provider_type_str.as_str());
+                    let notification_target: String = row.get(3)?;
+                    
+                    // Format phone numbers for display
+                    let display_target = if provider_type == ProviderType::Sms {
+                        PhoneNumber::from_str(&notification_target)
+                            .ok()
+                            .map(|phone| phone.format().mode(phonenumber::Mode::International).to_string())
+                    } else {
+                        None
+                    };
+                    
                     Ok(NotificationMethod {
                         id: Some(row.get(0)?),
                         contact_id: row.get(1)?,
-                        provider_type: ProviderType::from(provider_type_str.as_str()),
-                        notification_target: row.get(3)?,
+                        provider_type,
+                        notification_target,
+                        display_target,
                         created_at: row.get(4)?,
                     })
                 })?;

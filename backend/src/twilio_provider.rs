@@ -68,14 +68,6 @@ impl TwilioProvider {
             _ => (&self.config.messaging_service_sid, false)
         };
 
-        println!(
-            "📱 SMS Mode: {} - Sending to {} using from: {}",
-            if is_test_mode { "TEST" } else { "LIVE" },
-            phone_number,
-            from_number
-        );
-        println!("   📄 Message Content: {}", message);
-
         if is_test_mode {
             // Return mock response for test phone numbers without making API call
             return match self.config.messaging_service_sid.as_str() {
@@ -187,18 +179,7 @@ impl NotificationProvider for TwilioProvider {
 
             for method in sms_methods {
                 let message = MessageFormatter::create_localized_message(event, wallet_name, &contact.language);
-                
-                println!("📱 SMS to {} ({}): Language: {:?}", 
-                    contact.name, method.notification_target, contact.language);
-                
                 let result = self.send_sms(&method.notification_target, &message).await;
-                
-                if result.success {
-                    println!("   ✅ SMS sent successfully");
-                } else {
-                    println!("   ❌ SMS failed: {:?}", result.error_message);
-                }
-
                 results.push((method.clone(), result, message));
             }
         }

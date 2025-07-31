@@ -37,6 +37,7 @@ fn create_notification_method(provider_type: ProviderType, target: &str) -> Noti
         contact_id: 1,
         provider_type,
         notification_target: target.to_string(),
+        display_target: None,
         created_at: "2023-01-01 12:00:00".to_string(),
     }
 }

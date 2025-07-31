@@ -214,6 +214,9 @@ async fn main() -> anyhow::Result<()> {
                     if !contacts.is_empty() {
                         println!("🔔 Triggering notifications for {} contacts on wallet '{}'", contacts.len(), wallet_info.name);
                         
+                        // Generate message content once (same for all providers)
+                        let mut message_printed = false;
+                        
                         // Try to send notifications using all available providers
                         let available_providers = manager.list_providers();
                         for provider_info in available_providers {
@@ -225,6 +228,12 @@ async fn main() -> anyhow::Result<()> {
                                 &contacts,
                             ).await {
                                 for (notification_method, result, message) in results {
+                                    // Print message content only once
+                                    if !message_printed {
+                                        println!("   📄 Message: {}", message);
+                                        message_printed = true;
+                                    }
+                                    
                                     // Log the notification attempt to database
                                     if let Some(method_id) = notification_method.id {
                                         if let Some(event_id) = event.id {
@@ -248,10 +257,14 @@ async fn main() -> anyhow::Result<()> {
                                         .unwrap_or("Unknown");
                                     
                                     if result.success {
-                                        println!("✅ Notification sent to {} via {} ({})", contact_name, provider_name, notification_method.notification_target);
+                                        let display_target = notification_method.display_target.as_ref()
+                                            .unwrap_or(&notification_method.notification_target);
+                                        println!("   ✅ {} → {} via {}", contact_name, display_target, provider_name);
                                     } else {
-                                        println!("❌ Failed to notify {} via {} ({}): {}", 
-                                            contact_name, provider_name, notification_method.notification_target,
+                                        let display_target = notification_method.display_target.as_ref()
+                                            .unwrap_or(&notification_method.notification_target);
+                                        println!("   ❌ {} → {} via {} - {}", 
+                                            contact_name, display_target, provider_name,
                                             result.error_message.unwrap_or_else(|| "Unknown error".to_string()));
                                     }
                                 }

@@ -39,6 +39,7 @@ export interface NotificationMethod {
   contact_id: number
   provider_type: 'sms' | 'ntfy'
   notification_target: string
+  display_target?: string
   created_at: string
 }
 
