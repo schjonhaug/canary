@@ -1,6 +1,12 @@
 import { getApiBaseUrl, handleApiResponse } from './utils'
 import { Wallet, Contact } from '../types'
 
+export interface ProviderInfo {
+  name: string
+  display_name: string
+  config_schema: Record<string, unknown>
+}
+
 // Base API client
 class ApiClient {
   private baseUrl: string
@@ -52,13 +58,18 @@ class ApiClient {
     return this.request<Contact[]>(`/api/wallets/${walletId}/contacts`)
   }
 
-  async createContact(walletId: number, name: string, contactAddress: string): Promise<Contact> {
+  async createContact(
+    walletId: number, 
+    name: string,
+    language: 'en' | 'no',
+    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy', notification_target: string }>
+  ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletId}/contacts`, {
       method: 'POST',
       body: JSON.stringify({
         name,
-        contact_address: contactAddress,
-        language: 'en',
+        language,
+        notification_methods: notificationMethods,
       }),
     })
   }
@@ -69,6 +80,11 @@ class ApiClient {
     })
   }
 
+
+  // Provider API methods
+  async getProviders(): Promise<{ providers: ProviderInfo[] }> {
+    return this.request<{ providers: ProviderInfo[] }>('/api/providers')
+  }
 
   // Block header API methods
   async getCurrentBlockHeader(): Promise<unknown> {

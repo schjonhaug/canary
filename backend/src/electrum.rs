@@ -83,9 +83,6 @@ impl ElectrumClient {
         }
     }
 
-    pub fn server_features(&self) -> Result<String> {
-        Ok("Connected to Electrum via BDK".to_string())
-    }
 
     pub fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
         println!("Syncing with electrum...");
@@ -211,14 +208,6 @@ impl ElectrumClient {
         Ok(())
     }
 
-    pub fn block_headers_subscribe(&self) -> Result<electrum_client::HeaderNotification> {
-        self.client.inner.block_headers_subscribe()
-            .map_err(|e| anyhow!("Failed to subscribe to block headers: {}", e))
-    }
-
-    pub fn block_headers_pop(&self) -> Option<electrum_client::HeaderNotification> {
-        self.client.inner.block_headers_pop().ok().flatten()
-    }
 
     pub fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
         let header = self.client.inner.block_header(height as usize)

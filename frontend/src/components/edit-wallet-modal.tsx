@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Wallet, Contact } from "../types"
 import { getApiBaseUrl } from "../lib/utils"
+import { api, ProviderInfo } from "../lib/api"
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -43,28 +44,24 @@ export function EditWalletModal({
   const [contactsLoading, setContactsLoading] = useState(false)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
   const [newContactName, setNewContactName] = useState("")
-  const [newContactAddress, setNewContactAddress] = useState("")
-  const [autoGenerateTopic, setAutoGenerateTopic] = useState(true)
   const [newContactLanguage, setNewContactLanguage] = useState<'en' | 'no'>('en')
   const [newContactError, setNewContactError] = useState<string | null>(null)
+  const [providers, setProviders] = useState<ProviderInfo[]>([])
+  const [providersLoading, setProvidersLoading] = useState(false)
+  const [enabledProviders, setEnabledProviders] = useState<Record<string, boolean>>({})
+  const [providerValues, setProviderValues] = useState<Record<string, string>>({})
 
-  // Extract checksum from Bitcoin descriptor
-  const extractChecksum = (descriptor: string): string => {
-    const hashIndex = descriptor.lastIndexOf('#')
-    if (hashIndex !== -1) {
-      return descriptor.substring(hashIndex + 1)
+  // Fetch available providers
+  const fetchProviders = useCallback(async () => {
+    try {
+      setProvidersLoading(true)
+      const response = await api.getProviders()
+      setProviders(response.providers)
+    } catch (err) {
+      console.error('Failed to fetch providers:', err)
+    } finally {
+      setProvidersLoading(false)
     }
-    return 'unknown'
-  }
-
-  // Generate ntfy topic from contact name, language, and wallet checksum
-  const generateNtfyTopic = useCallback((contactName: string, language: string, descriptor: string): string => {
-    const sanitizedName = contactName.toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
-    const checksum = extractChecksum(descriptor)
-    return `${sanitizedName}-${language}-${checksum}`.substring(0, 64) // Max 64 chars
   }, [])
 
 
@@ -96,13 +93,12 @@ export function EditWalletModal({
     }
   }, [isOpen, wallet, fetchWalletContacts])
 
-  // Auto-generate topic when contact name changes
+  // Fetch providers when modal opens
   useEffect(() => {
-    if (autoGenerateTopic && newContactName && wallet) {
-      const generatedTopic = generateNtfyTopic(newContactName, newContactLanguage, wallet.descriptor)
-      setNewContactAddress(generatedTopic)
+    if (isOpen) {
+      fetchProviders()
     }
-  }, [newContactName, newContactLanguage, autoGenerateTopic, wallet, generateNtfyTopic])
+  }, [isOpen, fetchProviders])
 
   const handleSave = async () => {
     if (!wallet || !walletName.trim()) return
@@ -143,35 +139,44 @@ export function EditWalletModal({
   }
 
   const handleCreateContact = async () => {
-    if (!wallet || !newContactName.trim() || !newContactAddress.trim()) return
+    if (!wallet || !newContactName.trim()) return
+
+    // Build notification methods array
+    const notificationMethods: Array<{ provider_type: 'sms' | 'ntfy', notification_target: string }> = []
+
+    for (const [providerName, enabled] of Object.entries(enabledProviders)) {
+      if (enabled) {
+        if (providerName === 'ntfy') {
+          // For ntfy, send empty string - backend will auto-generate
+          notificationMethods.push({ provider_type: 'ntfy', notification_target: '' })
+        } else if (providerName === 'twilio' && providerValues[providerName]?.trim()) {
+          // For SMS, require phone number
+          notificationMethods.push({ provider_type: 'sms', notification_target: providerValues[providerName].trim() })
+        }
+      }
+    }
+
+    if (notificationMethods.length === 0) {
+      setNewContactError("Please enable at least one notification method")
+      return
+    }
 
     setIsCreatingContact(true)
     setNewContactError(null)
 
     try {
+      await api.createContact(
+        wallet.id,
+        newContactName.trim(),
+        newContactLanguage,
+        notificationMethods
+      )
 
-      const baseUrl = getApiBaseUrl()
-      const response = await fetch(`${baseUrl}/api/wallets/${wallet.id}/contacts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newContactName.trim(),
-          contact_address: newContactAddress.trim(),
-          language: newContactLanguage,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null)
-        throw new Error(errorData?.error || `HTTP error! status: ${response.status}`)
-      }
-
+      // Reset form
       setNewContactName('')
-      setNewContactAddress('')
       setNewContactLanguage('en')
-      setAutoGenerateTopic(true)
+      setEnabledProviders({})
+      setProviderValues({})
       await fetchWalletContacts(wallet.id)
     } catch (err) {
       setNewContactError(err instanceof Error ? err.message : "Failed to create contact")
@@ -206,9 +211,9 @@ export function EditWalletModal({
       setWalletName(wallet?.name || "")
       setWalletContacts([])
       setNewContactName('')
-      setNewContactAddress('')
       setNewContactLanguage('en')
-      setAutoGenerateTopic(true)
+      setEnabledProviders({})
+      setProviderValues({})
       onClose()
     }
   }
@@ -281,7 +286,14 @@ export function EditWalletModal({
                                 {contact.language === 'no' ? 'Norwegian' : 'English'}
                               </Badge>
                             </div>
-                            <p className="text-xs text-muted-foreground">{contact.contact_address}</p>
+                            <div className="text-xs text-muted-foreground space-y-1">
+                              {contact.notification_methods?.map((method) => (
+                                <div key={method.id} className="flex items-center gap-1">
+                                  {method.provider_type === 'sms' ? '📱' : '🔔'}
+                                  <span>{method.notification_target}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
                         <Button
@@ -301,6 +313,7 @@ export function EditWalletModal({
                     <div className="border-t pt-4">
                       <p className="text-sm font-medium mb-3">Create New Contact</p>
                       <div className="space-y-3">
+                        {/* Name and Language */}
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="contact-name" className="text-xs">Name</Label>
@@ -313,50 +326,85 @@ export function EditWalletModal({
                             />
                           </div>
                           <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <Label htmlFor="contact-address" className="text-xs">ntfy Topic</Label>
-                              <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <input
-                                  type="checkbox"
-                                  checked={autoGenerateTopic}
-                                  onChange={(e) => setAutoGenerateTopic(e.target.checked)}
-                                  className="h-3 w-3"
-                                />
-                                Auto-generate
-                              </label>
-                            </div>
-                            <Input
-                              id="contact-address"
-                              value={newContactAddress}
-                              onChange={(e) => {
-                                setNewContactAddress(e.target.value)
-                                setAutoGenerateTopic(false)
-                              }}
-                              placeholder={autoGenerateTopic ? "Will be auto-generated" : "my-bitcoin-alerts"}
-                              disabled={isCreatingContact || (autoGenerateTopic && !newContactName)}
-                              className={autoGenerateTopic ? "bg-muted" : ""}
-                            />
+                            <Label htmlFor="contact-language" className="text-xs">Language</Label>
+                            <select
+                              id="contact-language"
+                              value={newContactLanguage}
+                              onChange={(e) => setNewContactLanguage(e.target.value as 'en' | 'no')}
+                              disabled={isCreatingContact}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                              {LANGUAGES.map((lang) => (
+                                <option key={lang.value} value={lang.value}>
+                                  {lang.label}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </div>
-                        <div>
-                          <Label htmlFor="contact-language" className="text-xs">Language</Label>
-                          <select
-                            id="contact-language"
-                            value={newContactLanguage}
-                            onChange={(e) => setNewContactLanguage(e.target.value as 'en' | 'no')}
-                            disabled={isCreatingContact}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          >
-                            {LANGUAGES.map((lang) => (
-                              <option key={lang.value} value={lang.value}>
-                                {lang.label}
-                              </option>
-                            ))}
-                          </select>
+
+                        {/* Notification Methods */}
+                        <div className="space-y-2">
+                          <Label className="text-xs">Notification Methods</Label>
+                          {providersLoading ? (
+                            <p className="text-xs text-muted-foreground">Loading providers...</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {providers.map((provider) => (
+                                <div key={provider.name} className="p-3 border rounded-lg">
+                                  <label className="flex items-start gap-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={enabledProviders[provider.name] || false}
+                                      onChange={(e) => {
+                                        setEnabledProviders(prev => ({
+                                          ...prev,
+                                          [provider.name]: e.target.checked
+                                        }))
+                                      }}
+                                      disabled={isCreatingContact}
+                                      className="mt-1"
+                                    />
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        {provider.name === 'twilio' ? '📱' : '🔔'}
+                                        <span className="text-sm font-medium">{provider.display_name}</span>
+                                      </div>
+                                      {enabledProviders[provider.name] && provider.name === 'twilio' && (
+                                        <div className="mt-2">
+                                          <Input
+                                            value={providerValues[provider.name] || ''}
+                                            onChange={(e) => {
+                                              setProviderValues(prev => ({
+                                                ...prev,
+                                                [provider.name]: e.target.value
+                                              }))
+                                            }}
+                                            placeholder="+1234567890"
+                                            disabled={isCreatingContact}
+                                            className="text-sm"
+                                          />
+                                          <p className="text-xs text-muted-foreground mt-1">
+                                            Include country code (e.g., +1 for US, +47 for Norway)
+                                          </p>
+                                        </div>
+                                      )}
+                                      {enabledProviders[provider.name] && provider.name === 'ntfy' && (
+                                        <p className="text-xs text-muted-foreground mt-2">
+                                          Topic will be auto-generated based on contact name
+                                        </p>
+                                      )}
+                                    </div>
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
+
                         <Button
                           onClick={handleCreateContact}
-                          disabled={isCreatingContact || !newContactName.trim() || !newContactAddress.trim()}
+                          disabled={isCreatingContact || !newContactName.trim()}
                           className="w-full"
                           size="sm"
                         >

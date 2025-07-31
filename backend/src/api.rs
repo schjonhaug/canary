@@ -53,18 +53,6 @@ pub struct ErrorResponse {
     pub error: String,
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
-pub struct CreateContactRequest {
-    /// The name of the contact person
-    #[schema(example = "John Doe")]
-    pub name: String,
-    /// The contact address (phone number or ntfy topic)
-    #[schema(example = "my-bitcoin-alerts")]
-    pub contact_address: String,
-    /// The language preference for notifications
-    #[schema(example = "en")]
-    pub language: Language,
-}
 
 #[derive(Deserialize, Serialize, ToSchema)]
 pub struct NotificationMethodRequest {
@@ -108,34 +96,84 @@ pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type BlockHeaderBroadcast = broadcast::Sender<BlockHeader>;
 pub type DashboardBroadcast = broadcast::Sender<DashboardUpdate>;
 
-/// Validates and normalizes a phone number or ntfy topic
-fn validate_contact_address(contact_address: &str) -> Result<String, String> {
-    // If it looks like an ntfy topic (alphanumeric, hyphens, underscores), accept it as-is
-    if contact_address.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-        if contact_address.len() >= 2 && contact_address.len() <= 64 {
-            return Ok(contact_address.to_string());
-        } else {
-            return Err("ntfy topic must be 2-64 characters long".to_string());
-        }
+/// Validates and normalizes a phone number
+fn validate_phone_number(phone: &str) -> Result<String, String> {
+    // Check if phone number starts with country code
+    if !phone.starts_with('+') {
+        return Err("Phone number must include country code (e.g., +1 for US, +44 for UK, +47 for Norway)".to_string());
+    }
+
+    // First extract and validate country code
+    if phone.len() < 3 {
+        return Err("Phone number is too short".to_string());
     }
     
-    // Otherwise, validate as phone number
-    // Check if phone number starts with country code
-    if !contact_address.starts_with('+') {
-        return Err("Phone number must include country code (e.g., +4712345678) or be a valid ntfy topic".to_string());
+    // Extract country code to provide specific feedback
+    let country_part = phone.chars()
+        .skip(1)
+        .take_while(|c| c.is_numeric())
+        .collect::<String>();
+    
+    if country_part.is_empty() {
+        return Err("Invalid phone number: No digits after '+'".to_string());
+    }
+    
+    // Check some common invalid country codes
+    match country_part.as_str() {
+        "0" => return Err("Invalid phone number: Country code cannot start with 0".to_string()),
+        "42" => return Err("Invalid phone number: Country code '+42' is not recognized (Czechoslovakia no longer exists, use +420 for Czech Republic or +421 for Slovakia)".to_string()),
+        code if code.len() > 3 => return Err("Invalid phone number: Country code is too long".to_string()),
+        _ => {}
     }
 
     // Parse phone number
-    let parsed_number = PhoneNumber::from_str(contact_address)
-        .map_err(|_| "Invalid phone number format".to_string())?;
+    let parsed_number = match PhoneNumber::from_str(phone) {
+        Ok(num) => num,
+        Err(_e) => {
+            // Provide helpful error based on what we can detect
+            if country_part.len() == 1 {
+                return Err(format!("Invalid phone number: Country code '+{}' is not recognized (country codes are 1-3 digits)", country_part));
+            } else if phone.len() - country_part.len() - 1 < 4 {
+                return Err("Invalid phone number: Number is too short after the country code".to_string());
+            } else {
+                return Err(format!("Invalid phone number: Country code '+{}' is not recognized or the number format is incorrect", country_part));
+            }
+        }
+    };
 
     // Check if it's a valid number
     if !parsed_number.is_valid() {
-        return Err("Invalid phone number".to_string());
+        return Err("Invalid phone number: The number format is incorrect".to_string());
     }
 
     // Return normalized E.164 format
     Ok(parsed_number.format().mode(phonenumber::Mode::E164).to_string())
+}
+
+/// Generates an ntfy topic from contact name, language, and wallet descriptor
+fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> String {
+    // Extract checksum from descriptor
+    let checksum = descriptor
+        .rfind('#')
+        .map(|i| &descriptor[i + 1..])
+        .unwrap_or("unknown");
+    
+    // Sanitize name for topic
+    let sanitized_name = name
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    
+    // Combine into topic (max 64 chars)
+    let topic = format!("{}-{}-{}", sanitized_name, language.as_str(), checksum);
+    if topic.len() > 64 {
+        topic[..64].to_string()
+    } else {
+        topic
+    }
 }
 
 #[utoipa::path(
@@ -292,7 +330,7 @@ pub async fn get_wallet(State(wallet_manager): State<AppState>, Path(id): Path<i
 #[utoipa::path(
     post,
     path = "/api/wallets/{id}/contacts",
-    request_body = CreateContactRequest,
+    request_body = CreateContactWithMethodsRequest,
     params(
         ("id" = i64, Path, description = "The wallet ID")
     ),
@@ -306,13 +344,13 @@ pub async fn get_wallet(State(wallet_manager): State<AppState>, Path(id): Path<i
 pub async fn create_wallet_contact(
     State(wallet_manager): State<AppState>,
     Path(wallet_id): Path<i64>,
-    Json(payload): Json<CreateContactRequest>,
+    Json(payload): Json<CreateContactWithMethodsRequest>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
 
-    // Check if wallet exists
-    match manager.get_wallet_by_id(wallet_id).await {
-        Ok(Some(_)) => {},
+    // Check if wallet exists and get descriptor for ntfy topic generation
+    let wallet = match manager.get_wallet_by_id(wallet_id).await {
+        Ok(Some(wallet)) => wallet,
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
@@ -331,33 +369,52 @@ pub async fn create_wallet_contact(
             )
                 .into_response();
         }
-    }
-
-    // Auto-detect provider type and create notification method
-    let (provider_type, normalized_target) = if payload.contact_address.starts_with('+') {
-        // Phone number - validate it
-        match validate_contact_address(&payload.contact_address) {
-            Ok(phone) => (ProviderType::Sms, phone),
-            Err(error) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse { error }),
-                )
-                    .into_response();
-            }
-        }
-    } else {
-        // Assume ntfy topic
-        (ProviderType::Ntfy, payload.contact_address.clone())
     };
 
-    let notification_methods = vec![(provider_type, normalized_target)];
+    // Process notification methods
+    let mut processed_methods = Vec::new();
+    
+    for method in &payload.notification_methods {
+        match method.provider_type {
+            ProviderType::Sms => {
+                // Validate phone number
+                match validate_phone_number(&method.notification_target) {
+                    Ok(normalized_phone) => {
+                        processed_methods.push((ProviderType::Sms, normalized_phone));
+                    }
+                    Err(error) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse { error }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            ProviderType::Ntfy => {
+                // Auto-generate ntfy topic
+                let topic = generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
+                processed_methods.push((ProviderType::Ntfy, topic));
+            }
+        }
+    }
+
+    // Ensure at least one method was provided
+    if processed_methods.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "At least one notification method must be provided".to_string(),
+            }),
+        )
+            .into_response();
+    }
 
     match manager.metadata_db.insert_contact_with_notification_methods(
         wallet_id, 
         &payload.name, 
         &payload.language,
-        notification_methods
+        processed_methods
     ).await {
         Ok(contact_id) => {
             // Send dashboard update to notify clients of contact count change
@@ -646,7 +703,7 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
-        CreateContactRequest, CreateContactWithMethodsRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
+        CreateContactWithMethodsRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, DashboardUpdate, ProviderInfo
     )),

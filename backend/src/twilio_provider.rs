@@ -209,7 +209,7 @@ impl NotificationProvider for TwilioProvider {
     fn provider_info(&self) -> ProviderInfo {
         ProviderInfo {
             name: "twilio".to_string(),
-            display_name: "Twilio SMS".to_string(),
+            display_name: "SMS".to_string(),
             config_schema: json!({
                 "type": "object",
                 "properties": {

@@ -34,12 +34,20 @@ export interface TransactionEvent {
   notification_status: NotificationStatus[]
 }
 
+export interface NotificationMethod {
+  id: number
+  contact_id: number
+  provider_type: 'sms' | 'ntfy'
+  notification_target: string
+  created_at: string
+}
+
 export interface Contact {
   id: number
   wallet_id: number
   name: string
-  contact_address: string
   language: 'en' | 'no'
+  notification_methods: NotificationMethod[]
   created_at: string
 }
 

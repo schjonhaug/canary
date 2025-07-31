@@ -49,9 +49,6 @@ impl NotificationManager {
         self.providers.insert(name, provider);
     }
 
-    pub fn get_provider(&self, name: &str) -> Option<Arc<dyn NotificationProvider>> {
-        self.providers.get(name).cloned()
-    }
 
     pub fn list_providers(&self) -> Vec<ProviderInfo> {
         self.providers
