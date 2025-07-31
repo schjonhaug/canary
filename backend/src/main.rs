@@ -1,8 +1,21 @@
 
 mod api;
+mod config;
+mod electrum;
+mod message_formatter;
+mod metadata;
+mod migrations;
+mod notifications;
+mod wallet;
+mod ntfy_provider;
 
 use api::create_router;
-use canary_core::{AppConfig, BlockHeader, TransactionEvent, DashboardUpdate, NotificationManager, NtfyProvider, WalletManager};
+use config::AppConfig;
+use electrum::BlockHeader;
+use metadata::{TransactionEvent, DashboardUpdate};
+use notifications::{NotificationManager};
+use wallet::WalletManager;
+use ntfy_provider::NtfyProvider;
 use std::sync::Arc;
 use tokio::sync::{Mutex, broadcast};
 use tokio::time::{Duration, interval};

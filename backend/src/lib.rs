@@ -1,5 +1,5 @@
-// Canary Core Library
-// This library contains the core Bitcoin wallet functionality
+// Canary Backend Library
+// Core Bitcoin wallet functionality
 
 pub mod config;
 pub mod electrum;
@@ -9,6 +9,9 @@ pub mod migrations;
 pub mod notifications;
 pub mod wallet;
 pub mod ntfy_provider;
+
+// API module
+pub mod api;
 
 // Re-export commonly used types
 pub use config::AppConfig;

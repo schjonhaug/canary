@@ -1,16 +1,16 @@
-[workspace]
-members = [
-    "core",
-    "."
-]
-
 [package]
 name = "canary"
 version = "0.2.3"
 edition = "2021"
 
+[lib]
+name = "canary"
+path = "src/lib.rs"
+
 [dependencies]
-canary-core = { path = "core" }
+bdk_wallet = { version = "2", features = ["rusqlite"] }
+bdk_electrum = "0.23"
+miniscript = "12.3"
 axum = "0.8"
 tower-http = { version = "0.6", features = ["cors"] }
 tokio = { version = "1.46", features = ["full"] }
@@ -19,9 +19,18 @@ serde_json = "1.0"
 utoipa = { version = "5.4", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
 anyhow = "1.0"
+secp256k1 = "0.31"
+chrono = "0.4"
+clap = { version = "4.0", features = ["derive"] }
+dotenvy = "0.15"
 phonenumber = "0.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
 futures-util = "0.3"
+num-format = "0.4"
+r2d2 = "0.8"
+r2d2_sqlite = "0.24"
+async-trait = "0.1"
+reqwest = { version = "0.12", features = ["json"] }
 
 [dev-dependencies]
 http-body-util = "0.1"

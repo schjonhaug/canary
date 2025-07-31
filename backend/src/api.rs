@@ -1,4 +1,7 @@
-use canary_core::{ContactPerson, Language, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate, NotificationManager, ProviderInfo, WalletManager, BlockHeader};
+use crate::metadata::{ContactPerson, Language, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate};
+use crate::notifications::{NotificationManager, ProviderInfo};
+use crate::wallet::WalletManager;
+use crate::electrum::BlockHeader;
 use axum::{
     Router,
     extract::{Path, State},

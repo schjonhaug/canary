@@ -440,12 +440,23 @@ name = "canary"
 version = "0.2.3"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
- "canary-core",
+ "bdk_electrum",
+ "bdk_wallet",
+ "chrono",
+ "clap",
+ "dotenvy",
  "futures-util",
  "http-body-util",
  "mime",
+ "miniscript",
+ "num-format",
  "phonenumber",
+ "r2d2",
+ "r2d2_sqlite",
+ "reqwest",
+ "secp256k1 0.31.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -456,35 +467,6 @@ dependencies = [
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",
-]
-
-[[package]]
-name = "canary-core"
-version = "0.2.3"
-dependencies = [
- "anyhow",
- "async-trait",
- "axum",
- "bdk_electrum",
- "bdk_wallet",
- "chrono",
- "clap",
- "dotenvy",
- "futures-util",
- "miniscript",
- "num-format",
- "phonenumber",
- "r2d2",
- "r2d2_sqlite",
- "reqwest",
- "secp256k1 0.31.1",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tower-http",
- "utoipa",
- "utoipa-swagger-ui",
 ]
 
 [[package]]
