@@ -57,15 +57,15 @@ export function EditWalletModal({
     return 'unknown'
   }
 
-  // Generate ntfy topic from contact name and wallet checksum
-  const generateNtfyTopic = (contactName: string, descriptor: string): string => {
+  // Generate ntfy topic from contact name, language, and wallet checksum
+  const generateNtfyTopic = useCallback((contactName: string, language: string, descriptor: string): string => {
     const sanitizedName = contactName.toLowerCase()
       .replace(/[^a-z0-9]/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
     const checksum = extractChecksum(descriptor)
-    return `${sanitizedName}-${checksum}`.substring(0, 64) // Max 64 chars
-  }
+    return `${sanitizedName}-${language}-${checksum}`.substring(0, 64) // Max 64 chars
+  }, [])
 
 
 
@@ -99,10 +99,10 @@ export function EditWalletModal({
   // Auto-generate topic when contact name changes
   useEffect(() => {
     if (autoGenerateTopic && newContactName && wallet) {
-      const generatedTopic = generateNtfyTopic(newContactName, wallet.descriptor)
+      const generatedTopic = generateNtfyTopic(newContactName, newContactLanguage, wallet.descriptor)
       setNewContactAddress(generatedTopic)
     }
-  }, [newContactName, autoGenerateTopic, wallet])
+  }, [newContactName, newContactLanguage, autoGenerateTopic, wallet, generateNtfyTopic])
 
   const handleSave = async () => {
     if (!wallet || !walletName.trim()) return
