@@ -1,14 +1,21 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { EditWalletModal } from '../edit-wallet-modal'
+import { Contact } from '../../types'
 
-// Mock libphonenumber-js
-jest.mock('libphonenumber-js', () => ({
-  formatNumber: jest.fn((number) => number),
-  parsePhoneNumber: jest.fn((number) => ({
-    isValid: () => number.startsWith('+47') && number.length >= 11,
-    format: (format: string) => format === 'E.164' ? number : number,
-  })),
+// Mock the api module
+jest.mock('../../lib/api', () => ({
+  api: {
+    getProviders: jest.fn(),
+    createContact: jest.fn(),
+  },
+  ProviderInfo: {} as unknown,
+}))
+
+// Mock the utils module
+jest.mock('../../lib/utils', () => ({
+  getApiBaseUrl: jest.fn(() => ''),
+  cn: jest.fn((...classes: unknown[]) => classes.filter(Boolean).join(' ')),
 }))
 
 const mockWallet = {
@@ -23,22 +30,19 @@ const mockWallet = {
   contact_count: 2,
 }
 
-const mockContacts = [
+// Mock providers
+const mockProviders = [
   {
-    id: 1,
-    wallet_id: 1,
-    name: 'John Doe',
-    phone_number: '+4792050946',
-    language: 'no' as const,
-    created_at: '2024-01-01T00:00:00Z',
+    name: 'ntfy',
+    display_name: 'ntfy.sh',
+    enabled: true,
+    configured: true,
   },
   {
-    id: 2,
-    wallet_id: 1,
-    name: 'Jane Smith',
-    phone_number: '+4722334455',
-    language: 'no' as const,
-    created_at: '2024-01-01T00:00:00Z',
+    name: 'twilio',
+    display_name: 'SMS Notifications',
+    enabled: true,
+    configured: true,
   },
 ]
 
@@ -48,9 +52,11 @@ global.fetch = jest.fn()
 const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
 
 describe('EditWalletModal - Contact Management', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockFetch.mockClear()
     mockFetch.mockReset()
+    const apiModule = await import('../../lib/api')
+    apiModule.api.getProviders.mockResolvedValue({ providers: mockProviders })
   })
 
   afterEach(() => {
@@ -61,11 +67,47 @@ describe('EditWalletModal - Contact Management', () => {
     wallet: mockWallet,
     isOpen: true,
     onClose: jest.fn(),
-    onWalletUpdated: jest.fn(),
     onDeleteWallet: jest.fn(),
   }
 
   it('displays existing wallet contacts', async () => {
+    const mockContacts: Contact[] = [
+      {
+        id: 1,
+        wallet_id: 1,
+        name: 'John Doe',
+        language: 'en',
+        notification_methods: [
+          {
+            id: 1,
+            contact_id: 1,
+            provider_type: 'sms',
+            notification_target: '+4792050946',
+            display_target: '+4792050946',
+            created_at: '2024-01-01T00:00:00Z',
+          }
+        ],
+        created_at: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 2,
+        wallet_id: 1,
+        name: 'Jane Smith',
+        language: 'no',
+        notification_methods: [
+          {
+            id: 2,
+            contact_id: 2,
+            provider_type: 'ntfy',
+            notification_target: 'jane-no-8nt3y08q',
+            display_target: 'jane-no-8nt3y08q',
+            created_at: '2024-01-02T00:00:00Z',
+          }
+        ],
+        created_at: '2024-01-02T00:00:00Z',
+      },
+    ]
+
     // Mock the fetch for getting wallet contacts
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -78,7 +120,7 @@ describe('EditWalletModal - Contact Management', () => {
       expect(screen.getByText('John Doe')).toBeInTheDocument()
       expect(screen.getByText('Jane Smith')).toBeInTheDocument()
       expect(screen.getByText('+4792050946')).toBeInTheDocument()
-      expect(screen.getByText('+4722334455')).toBeInTheDocument()
+      expect(screen.getByText('jane-no-8nt3y08q')).toBeInTheDocument()
     })
 
     expect(screen.getByText('2 contacts')).toBeInTheDocument()
@@ -102,19 +144,13 @@ describe('EditWalletModal - Contact Management', () => {
   })
 
   it('allows creating a new contact with valid phone number', async () => {
+    const apiModule = await import('../../lib/api')
+    
     // Mock the fetch for getting wallet contacts (empty initially)
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [],
-      } as Response)
-      // Mock the fetch for creating contact
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          message: 'Contact created successfully',
-          contact_id: 3,
-        }),
       } as Response)
       // Mock the fetch for refreshing contacts after creation
       .mockResolvedValueOnce({
@@ -124,8 +160,17 @@ describe('EditWalletModal - Contact Management', () => {
             id: 3,
             wallet_id: 1,
             name: 'New Contact',
-            phone_number: '+4798765432',
-            language: 'no' as const,
+            language: 'en',
+            notification_methods: [
+              {
+                id: 3,
+                contact_id: 3,
+                provider_type: 'sms',
+                notification_target: '+4712345678',
+                display_target: '+4712345678',
+                created_at: '2024-01-01T00:00:00Z',
+              }
+            ],
             created_at: '2024-01-01T00:00:00Z',
           },
         ],
@@ -140,33 +185,35 @@ describe('EditWalletModal - Contact Management', () => {
 
     // Fill in the contact form
     const nameInput = screen.getByLabelText('Name')
-    const phoneInput = screen.getByLabelText('Phone Number')
+    
+    // First enable SMS provider
+    const twilioCheckbox = screen.getByRole('checkbox', { name: /sms notifications/i })
+    fireEvent.click(twilioCheckbox)
+    
+    // Now the phone input should appear
+    const phoneInput = screen.getByPlaceholderText('+1234567890')
     const createButton = screen.getByRole('button', { name: /create contact/i })
 
     fireEvent.change(nameInput, { target: { value: 'New Contact' } })
-    fireEvent.change(phoneInput, { target: { value: '+4798765432' } })
-
-    // Create the contact
+    fireEvent.change(phoneInput, { target: { value: '+4712345678' } })
     fireEvent.click(createButton)
 
+    // Verify API call
     await waitFor(() => {
-      expect(screen.getByText('New Contact')).toBeInTheDocument()
-      expect(screen.getByText('+4798765432')).toBeInTheDocument()
+      expect(apiModule.api.createContact).toHaveBeenCalledWith(
+        1,
+        'New Contact',
+        'en',
+        [{ provider_type: 'sms', notification_target: '+4712345678' }]
+      )
     })
 
-    // Verify the API calls
-    expect(mockFetch).toHaveBeenCalledWith(
-      '/api/wallets/1/contacts',
-      expect.objectContaining({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'New Contact',
-          phone_number: '+4798765432',
-          language: 'en',
-        }),
-      })
-    )
+    await waitFor(() => {
+      // New contact should be added
+      expect(screen.getByText('New Contact')).toBeInTheDocument()
+      expect(screen.getByText('+4712345678')).toBeInTheDocument()
+      expect(screen.getByText('1 contact')).toBeInTheDocument()
+    })
   })
 
   it('shows error for invalid phone number', async () => {
@@ -182,39 +229,29 @@ describe('EditWalletModal - Contact Management', () => {
       expect(screen.getByText('0 contacts')).toBeInTheDocument()
     })
 
-    // Fill in the contact form with invalid phone
+    // Fill in the contact form
     const nameInput = screen.getByLabelText('Name')
-    const phoneInput = screen.getByLabelText('Phone Number')
     const createButton = screen.getByRole('button', { name: /create contact/i })
 
+    // Fill in name but don't enable any notification method
     fireEvent.change(nameInput, { target: { value: 'Invalid Contact' } })
-    fireEvent.change(phoneInput, { target: { value: '12345' } }) // Invalid phone
-
-    // Try to create the contact
     fireEvent.click(createButton)
 
+    // Verify error message
     await waitFor(() => {
-      expect(screen.getByText(/Invalid phone number format/)).toBeInTheDocument()
+      expect(screen.getByText(/please enable at least one notification method/i)).toBeInTheDocument()
     })
-
-    // Verify no API call was made for creation
-    expect(mockFetch).toHaveBeenCalledTimes(1) // Only the initial fetch
   })
 
   it('handles API error when creating contact', async () => {
+    const apiModule = await import('../../lib/api')
+    apiModule.api.createContact.mockRejectedValueOnce(new Error('Phone number already exists'))
+    
     // Mock the fetch for getting wallet contacts (empty initially)
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [],
-      } as Response)
-      // Mock the fetch for creating contact (error)
-      .mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({
-          error: 'Phone number already exists',
-        }),
-      } as Response)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    } as Response)
 
     render(<EditWalletModal {...defaultProps} />)
 
@@ -224,13 +261,16 @@ describe('EditWalletModal - Contact Management', () => {
 
     // Fill in the contact form
     const nameInput = screen.getByLabelText('Name')
-    const phoneInput = screen.getByLabelText('Phone Number')
+    
+    // Enable SMS provider
+    const twilioCheckbox = screen.getByRole('checkbox', { name: /sms notifications/i })
+    fireEvent.click(twilioCheckbox)
+    
+    const phoneInput = screen.getByPlaceholderText('+1234567890')
     const createButton = screen.getByRole('button', { name: /create contact/i })
 
     fireEvent.change(nameInput, { target: { value: 'Test Contact' } })
-    fireEvent.change(phoneInput, { target: { value: '+4798765432' } })
-
-    // Create the contact
+    fireEvent.change(phoneInput, { target: { value: '+4712345678' } })
     fireEvent.click(createButton)
 
     await waitFor(() => {
@@ -239,6 +279,43 @@ describe('EditWalletModal - Contact Management', () => {
   })
 
   it('allows deleting a contact', async () => {
+    const mockContacts: Contact[] = [
+      {
+        id: 1,
+        wallet_id: 1,
+        name: 'John Doe',
+        language: 'en',
+        notification_methods: [
+          {
+            id: 1,
+            contact_id: 1,
+            provider_type: 'sms',
+            notification_target: '+4792050946',
+            display_target: '+4792050946',
+            created_at: '2024-01-01T00:00:00Z',
+          }
+        ],
+        created_at: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 2,
+        wallet_id: 1,
+        name: 'Jane Smith',
+        language: 'no',
+        notification_methods: [
+          {
+            id: 2,
+            contact_id: 2,
+            provider_type: 'ntfy',
+            notification_target: 'jane-no-8nt3y08q',
+            display_target: 'jane-no-8nt3y08q',
+            created_at: '2024-01-02T00:00:00Z',
+          }
+        ],
+        created_at: '2024-01-02T00:00:00Z',
+      },
+    ]
+
     // Mock the fetch for getting wallet contacts
     mockFetch
       .mockResolvedValueOnce({
@@ -263,15 +340,11 @@ describe('EditWalletModal - Contact Management', () => {
       expect(screen.getByText('Jane Smith')).toBeInTheDocument()
     })
 
-    // Find and click the delete button for John Doe
-    const deleteButtons = screen.getAllByRole('button', { name: '' }) // X buttons have no text
-    const johnDeleteButton = deleteButtons.find(button => 
-      button.closest('[data-testid="contact-item"]')?.textContent?.includes('John Doe')
-    )
+    // Find delete buttons (X icons)
+    const johnDoeContainer = screen.getByText('John Doe').closest('[data-testid="contact-item"]')
+    const deleteButton = johnDoeContainer?.querySelector('button[class*="text-red"]')
 
-    if (johnDeleteButton) {
-      fireEvent.click(johnDeleteButton)
-    }
+    fireEvent.click(deleteButton!)
 
     await waitFor(() => {
       expect(screen.queryByText('John Doe')).not.toBeInTheDocument()
@@ -296,46 +369,36 @@ describe('EditWalletModal - Contact Management', () => {
 
     render(<EditWalletModal {...defaultProps} />)
 
+    // Wait for contacts to load
     await waitFor(() => {
       expect(screen.getByText('0 contacts')).toBeInTheDocument()
     })
 
-    const createButton = screen.getByRole('button', { name: /create contact/i })
-    
-    // Button should be disabled initially
-    expect(createButton).toBeDisabled()
-
-    // Fill in only name
+    // Initially empty
     const nameInput = screen.getByLabelText('Name')
-    fireEvent.change(nameInput, { target: { value: 'Test' } })
-    
-    // Button should still be disabled
+    const createButton = screen.getByRole('button', { name: /create contact/i })
+
     expect(createButton).toBeDisabled()
 
-    // Fill in phone number
-    const phoneInput = screen.getByLabelText('Phone Number')
-    fireEvent.change(phoneInput, { target: { value: '+4798765432' } })
-    
-    // Button should now be enabled
+    // Fill only name
+    fireEvent.change(nameInput, { target: { value: 'Test' } })
+
+    // Button should be enabled now (but will show error if clicked without notification method)
     expect(createButton).not.toBeDisabled()
   })
 
   it('shows loading state while creating contact', async () => {
+    const apiModule = await import('../../lib/api')
+    apiModule.api.createContact.mockImplementation(() => 
+      new Promise(resolve => setTimeout(resolve, 100))
+    )
+    
     // Mock the fetch for getting wallet contacts
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [],
       } as Response)
-      // Mock a slow response for creating contact
-      .mockImplementationOnce(() => 
-        new Promise(resolve => 
-          setTimeout(() => resolve({
-            ok: true,
-            json: async () => ({ message: 'Contact created successfully', contact_id: 3 }),
-          } as Response), 100)
-        )
-      )
       // Mock the fetch for refreshing contacts after creation
       .mockResolvedValueOnce({
         ok: true,
@@ -344,8 +407,17 @@ describe('EditWalletModal - Contact Management', () => {
             id: 3,
             wallet_id: 1,
             name: 'Test Contact',
-            phone_number: '+4798765432',
-            language: 'no' as const,
+            language: 'en',
+            notification_methods: [
+              {
+                id: 3,
+                contact_id: 3,
+                provider_type: 'sms',
+                notification_target: '+4712345678',
+                display_target: '+4712345678',
+                created_at: '2024-01-01T00:00:00Z',
+              }
+            ],
             created_at: '2024-01-01T00:00:00Z',
           },
         ],
@@ -353,18 +425,23 @@ describe('EditWalletModal - Contact Management', () => {
 
     render(<EditWalletModal {...defaultProps} />)
 
-    // Wait for initial load and empty state
+    // Wait for initial load
     await waitFor(() => {
       expect(screen.queryByText('Loading contacts...')).not.toBeInTheDocument()
     })
 
     // Fill in the form
     const nameInput = screen.getByLabelText('Name')
-    const phoneInput = screen.getByLabelText('Phone Number')
+    
+    // Enable SMS provider
+    const twilioCheckbox = screen.getByRole('checkbox', { name: /sms notifications/i })
+    fireEvent.click(twilioCheckbox)
+    
+    const phoneInput = screen.getByPlaceholderText('+1234567890')
     const createButton = screen.getByRole('button', { name: /create contact/i })
 
     fireEvent.change(nameInput, { target: { value: 'Test Contact' } })
-    fireEvent.change(phoneInput, { target: { value: '+4798765432' } })
+    fireEvent.change(phoneInput, { target: { value: '+4712345678' } })
 
     // Click create
     fireEvent.click(createButton)
@@ -375,18 +452,38 @@ describe('EditWalletModal - Contact Management', () => {
   })
 
   it('formats phone numbers for display', async () => {
+    const mockContacts: Contact[] = [
+      {
+        id: 1,
+        wallet_id: 1,
+        name: 'John Doe',
+        language: 'en',
+        notification_methods: [
+          {
+            id: 1,
+            contact_id: 1,
+            provider_type: 'sms',
+            notification_target: '+4792050946',
+            display_target: '+4792050946',
+            created_at: '2024-01-01T00:00:00Z',
+          }
+        ],
+        created_at: '2024-01-01T00:00:00Z',
+      }
+    ]
+
     // Mock the fetch for getting wallet contacts
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => [mockContacts[0]],
+      json: async () => mockContacts,
     } as Response)
 
     render(<EditWalletModal {...defaultProps} />)
 
-    // Wait for contacts to load - first make sure loading is finished
+    // Wait for contacts to load
     await waitFor(() => {
       expect(screen.queryByText('Loading contacts...')).not.toBeInTheDocument()
-    }, { timeout: 3000 })
+    })
 
     // Check that we have the contact count and details
     expect(screen.getByText('1 contact')).toBeInTheDocument()
@@ -395,9 +492,5 @@ describe('EditWalletModal - Contact Management', () => {
 
     // Verify the fetch was called with correct URL
     expect(mockFetch).toHaveBeenCalledWith('/api/wallets/1/contacts')
-    
-    // Verify formatNumber was called
-    const { formatNumber } = await import('libphonenumber-js')
-    expect(formatNumber).toHaveBeenCalledWith('+4792050946', 'INTERNATIONAL')
   })
 })
