@@ -16,7 +16,6 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Wallet, Contact } from "../types"
-import { getApiBaseUrl } from "../lib/utils"
 import { api, ProviderInfo } from "../lib/api"
 
 const LANGUAGES = [
@@ -69,10 +68,7 @@ export function EditWalletModal({
 
   const fetchWalletContacts = useCallback(async (walletId: number) => {
     try {
-      const baseUrl = getApiBaseUrl()
-      const response = await fetch(`${baseUrl}/api/wallets/${walletId}/contacts`)
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-      const data = await response.json()
+      const data = await api.getWalletContacts(walletId)
       setWalletContacts(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch wallet contacts")
@@ -107,24 +103,8 @@ export function EditWalletModal({
     setError(null)
 
     try {
-      const baseUrl = getApiBaseUrl()
-      const response = await fetch(`${baseUrl}/api/wallets/${wallet.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: walletName.trim(),
-        }),
-      })
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Wallet not found')
-        }
-        throw new Error(`Update failed: ${response.status}`)
-      }
-
+      await api.updateWallet(wallet.id, walletName.trim())
+      onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update wallet")
     } finally {
@@ -189,15 +169,7 @@ export function EditWalletModal({
     if (!wallet) return
 
     try {
-      const baseUrl = getApiBaseUrl()
-      const response = await fetch(`${baseUrl}/api/wallets/${wallet.id}/contacts/${contactId}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
+      await api.deleteContact(wallet.id, contactId)
       await fetchWalletContacts(wallet.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete contact")
