@@ -116,6 +116,13 @@ impl AppConfig {
             .unwrap_or(false) // Default to disabled unless explicitly enabled
     }
 
+    /// Check if authentication is enabled (SAAS mode)
+    pub fn is_auth_enabled(&self) -> bool {
+        std::env::var("CANARY_ENABLE_AUTH")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(false) // Default to disabled (self-hosted mode)
+    }
+
     pub fn electrum_url(&self) -> String {
         self.electrum_url
             .clone()

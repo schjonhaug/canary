@@ -391,6 +391,7 @@ impl WalletManager {
         &mut self,
         name: &str,
         descriptor_str: &str,
+        user_id: i64,
     ) -> Result<WalletMetadata> {
         println!("Creating wallet from multipath descriptor:");
         println!("  Name: {}", name);
@@ -443,7 +444,7 @@ impl WalletManager {
 
         // Save wallet metadata
         let wallet_id = self.metadata_db
-            .insert_wallet(name, descriptor_str, &wallet_filename_with_ext).await?;
+            .insert_wallet(name, descriptor_str, &wallet_filename_with_ext, user_id).await?;
         println!("  Metadata saved to file: {}", wallet_filename_with_ext);
 
         // Extract historical transactions BEFORE enabling real-time tracking
@@ -1116,14 +1117,22 @@ impl WalletManager {
     }
 
     pub async fn get_current_dashboard_state(&self) -> Result<DashboardUpdate> {
+        self.get_current_dashboard_state_for_user(1, true).await
+    }
+
+    pub async fn get_current_dashboard_state_for_user(&self, user_id: i64, is_admin: bool) -> Result<DashboardUpdate> {
         // Get current timestamp
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
 
-        // Get all wallets with current balances
-        let wallets = self.metadata_db.get_all_wallets().await?;
+        // Get wallets based on user permissions
+        let wallets = if is_admin {
+            self.metadata_db.get_all_wallets().await?
+        } else {
+            self.metadata_db.get_wallets_for_user(Some(user_id)).await?
+        };
         
         // Get recent transaction events (last 100 events)
         let events = self.metadata_db.get_all_events_with_wallets().await?;

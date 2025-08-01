@@ -32,6 +32,10 @@ r2d2_sqlite = "0.24"
 async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json"] }
 base64 = "0.22"
+jsonwebtoken = "9.3"
+rand = "0.8"
+sha2 = "0.10"
+urlencoding = "2.1"
 
 [dev-dependencies]
 http-body-util = "0.1"

@@ -11,6 +11,7 @@ use utoipa::ToSchema;
 use std::num::Wrapping;
 use phonenumber::PhoneNumber;
 use std::str::FromStr;
+use chrono;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
 pub enum EventType {
@@ -26,6 +27,23 @@ pub enum Language {
     English,
     #[serde(rename = "no")]
     Norwegian,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserRecord {
+    pub id: i64,
+    pub phone_number: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct TwilioConfig {
+    pub id: Option<i64>,
+    pub account_sid: String,
+    pub auth_token: String,
+    pub messaging_service_sid: String,
+    pub verify_service_sid: Option<String>,
+    pub created_at: String,
 }
 
 
@@ -307,6 +325,7 @@ impl MetadataDb {
         name: &str,
         descriptor: &str,
         wallet_filename: &str,
+        user_id: i64,
     ) -> Result<i64> {
         let pool = self.pool.clone();
         let name = name.to_string();
@@ -319,8 +338,8 @@ impl MetadataDb {
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
             
             conn.execute(
-                "INSERT INTO wallets (name, descriptor, wallet_filename, hex_color, balance_total, last_activity) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![&name, &descriptor, &wallet_filename, &hex_color, "0", &current_time],
+                "INSERT INTO wallets (name, descriptor, wallet_filename, hex_color, balance_total, last_activity, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![&name, &descriptor, &wallet_filename, &hex_color, "0", &current_time, user_id],
             )?;
             Ok(conn.last_insert_rowid())
         }).await?
@@ -464,21 +483,45 @@ impl MetadataDb {
     }
 
     pub async fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
+        self.get_wallets_for_user(None).await
+    }
+
+    pub async fn get_wallets_for_user(&self, user_id: Option<i64>) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
         
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
-            let mut stmt = conn.prepare(
-                "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
-                        COUNT(c.id) as contact_count
-                 FROM wallets w 
-                 LEFT JOIN contacts c ON w.id = c.wallet_id 
-                 GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
-                 ORDER BY w.created_at DESC"
-            )?;
+            
+            let query = match user_id {
+                Some(_) => {
+                    "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                            (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                            COUNT(c.id) as contact_count
+                     FROM wallets w 
+                     LEFT JOIN contacts c ON w.id = c.wallet_id 
+                     WHERE w.user_id = ?1
+                     GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
+                     ORDER BY w.created_at DESC"
+                }
+                None => {
+                    "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                            (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                            COUNT(c.id) as contact_count
+                     FROM wallets w 
+                     LEFT JOIN contacts c ON w.id = c.wallet_id 
+                     GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
+                     ORDER BY w.created_at DESC"
+                }
+            };
+            
+            let mut stmt = conn.prepare(query)?;
 
-            let wallet_iter = stmt.query_map([], |row| {
+            let params: Vec<&dyn ToSql> = match user_id {
+                Some(ref uid) => vec![uid],
+                None => vec![],
+            };
+            
+            let wallet_iter = stmt.query_map(&params[..], |row| {
                 Ok(WalletMetadata {
                     id: Some(row.get(0)?),
                     name: row.get(1)?,
@@ -498,6 +541,18 @@ impl MetadataDb {
             }
 
             Ok(wallets)
+        }).await?
+    }
+
+    pub async fn is_wallet_owned_by_user(&self, wallet_id: i64, user_id: i64) -> Result<bool> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let exists: bool = conn
+                .prepare("SELECT 1 FROM wallets WHERE id = ?1 AND user_id = ?2")?
+                .exists(params![wallet_id, user_id])?;
+            Ok(exists)
         }).await?
     }
 
@@ -868,6 +923,223 @@ impl MetadataDb {
                 ],
             )?;
             Ok(conn.last_insert_rowid())
+        }).await?
+    }
+
+    // User management methods
+    pub async fn create_user(&self, phone_number: &str) -> Result<i64> {
+        let pool = self.pool.clone();
+        let phone_number = phone_number.to_string();
+        let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
+        let is_admin = admin_phone.map_or(false, |phone| phone == phone_number);
+        
+        spawn_blocking(move || -> Result<i64> {
+            let conn = pool.get()?;
+            
+            // Try to get existing user first
+            let existing: Option<i64> = conn
+                .prepare("SELECT id FROM users WHERE phone_number = ?1")?
+                .query_row(params![&phone_number], |row| row.get(0))
+                .ok();
+            
+            if let Some(id) = existing {
+                return Ok(id);
+            }
+            
+            // Create new user
+            conn.execute(
+                "INSERT INTO users (phone_number, is_admin) VALUES (?1, ?2)",
+                params![&phone_number, is_admin],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
+    }
+
+    pub async fn get_user_by_phone(&self, phone_number: &str) -> Result<Option<(i64, String)>> {
+        let pool = self.pool.clone();
+        let phone_number = phone_number.to_string();
+        
+        spawn_blocking(move || -> Result<Option<(i64, String)>> {
+            let conn = pool.get()?;
+            let result = conn
+                .prepare("SELECT id, created_at FROM users WHERE phone_number = ?1")?
+                .query_row(params![&phone_number], |row| {
+                    Ok((row.get(0)?, row.get(1)?))
+                })
+                .ok();
+            Ok(result)
+        }).await?
+    }
+
+    pub async fn get_user_by_id(&self, user_id: i64) -> Result<Option<UserRecord>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Option<UserRecord>> {
+            let conn = pool.get()?;
+            let result = conn
+                .prepare("SELECT id, phone_number, created_at FROM users WHERE id = ?1")?
+                .query_row(params![user_id], |row| {
+                    Ok(UserRecord {
+                        id: row.get(0)?,
+                        phone_number: row.get(1)?,
+                        created_at: row.get(2)?,
+                    })
+                })
+                .ok();
+            Ok(result)
+        }).await?
+    }
+
+    pub async fn update_last_login(&self, user_id: i64) -> Result<()> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            conn.execute(
+                "UPDATE users SET last_login = ?1 WHERE id = ?2",
+                params![&current_time, user_id],
+            )?;
+            Ok(())
+        }).await?
+    }
+
+    // Session management
+    pub async fn create_session(&self, user_id: i64, token_hash: &str, expires_at: chrono::DateTime<chrono::Utc>) -> Result<i64> {
+        let pool = self.pool.clone();
+        let token_hash = token_hash.to_string();
+        let expires_at = expires_at.format("%Y-%m-%d %H:%M:%S").to_string();
+        
+        spawn_blocking(move || -> Result<i64> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?1, ?2, ?3)",
+                params![user_id, &token_hash, &expires_at],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
+    }
+
+    pub async fn get_session(&self, token_hash: &str) -> Result<Option<(i64, String)>> {
+        let pool = self.pool.clone();
+        let token_hash = token_hash.to_string();
+        
+        spawn_blocking(move || -> Result<Option<(i64, String)>> {
+            let conn = pool.get()?;
+            let result = conn
+                .prepare("SELECT user_id, expires_at FROM sessions WHERE token_hash = ?1")?
+                .query_row(params![&token_hash], |row| {
+                    Ok((row.get(0)?, row.get(1)?))
+                })
+                .ok();
+            Ok(result)
+        }).await?
+    }
+
+    pub async fn delete_session(&self, token_hash: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let token_hash = token_hash.to_string();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "DELETE FROM sessions WHERE token_hash = ?1",
+                params![&token_hash],
+            )?;
+            Ok(())
+        }).await?
+    }
+
+    pub async fn cleanup_expired_sessions(&self) -> Result<u64> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<u64> {
+            let conn = pool.get()?;
+            let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            let rows_deleted = conn.execute(
+                "DELETE FROM sessions WHERE expires_at < ?1",
+                params![&current_time],
+            )?;
+            Ok(rows_deleted as u64)
+        }).await?
+    }
+
+    // Rate limiting for OTP
+    pub async fn check_rate_limit(&self, phone_number: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let phone_number = phone_number.to_string();
+        
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let current_time = chrono::Utc::now();
+            let current_time_str = current_time.format("%Y-%m-%d %H:%M:%S").to_string();
+            
+            // Check if blocked
+            let blocked: Option<String> = conn
+                .prepare("SELECT blocked_until FROM otp_attempts WHERE phone_number = ?1")?
+                .query_row(params![&phone_number], |row| row.get(0))
+                .ok();
+            
+            if let Some(blocked_until) = blocked {
+                if blocked_until > current_time_str {
+                    return Ok(false); // Still blocked
+                }
+            }
+            
+            // Check recent attempts (last 15 minutes)
+            let fifteen_minutes_ago = (current_time - chrono::Duration::minutes(15))
+                .format("%Y-%m-%d %H:%M:%S").to_string();
+            
+            let recent_attempts: i32 = conn
+                .prepare("SELECT attempt_count FROM otp_attempts WHERE phone_number = ?1 AND last_attempt > ?2")?
+                .query_row(params![&phone_number, &fifteen_minutes_ago], |row| row.get(0))
+                .unwrap_or(0);
+            
+            if recent_attempts >= 5 {
+                // Block for 30 minutes
+                let blocked_until = (current_time + chrono::Duration::minutes(30))
+                    .format("%Y-%m-%d %H:%M:%S").to_string();
+                
+                conn.execute(
+                    "UPDATE otp_attempts SET blocked_until = ?1 WHERE phone_number = ?2",
+                    params![&blocked_until, &phone_number],
+                )?;
+                
+                return Ok(false);
+            }
+            
+            // Update attempt count
+            let exists: bool = conn
+                .prepare("SELECT 1 FROM otp_attempts WHERE phone_number = ?1")?
+                .exists(params![&phone_number])?;
+            
+            if exists {
+                conn.execute(
+                    "UPDATE otp_attempts SET attempt_count = attempt_count + 1, last_attempt = ?1 WHERE phone_number = ?2",
+                    params![&current_time_str, &phone_number],
+                )?;
+            } else {
+                conn.execute(
+                    "INSERT INTO otp_attempts (phone_number, attempt_count, last_attempt) VALUES (?1, 1, ?2)",
+                    params![&phone_number, &current_time_str],
+                )?;
+            }
+            
+            Ok(true)
+        }).await?
+    }
+
+    pub async fn clear_rate_limit(&self, phone_number: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let phone_number = phone_number.to_string();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "DELETE FROM otp_attempts WHERE phone_number = ?1",
+                params![&phone_number],
+            )?;
+            Ok(())
         }).await?
     }
 

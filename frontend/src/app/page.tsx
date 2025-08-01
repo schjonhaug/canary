@@ -4,12 +4,14 @@ import { useState, useEffect, lazy, Suspense } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { Button } from "@/components/ui/button"
-import { CircleCheckBig, LoaderCircle, CircleOff, Plus } from "lucide-react"
+import { CircleCheckBig, LoaderCircle, CircleOff, Plus, LogOut } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { formatDistanceToNow } from 'date-fns'
+import { ProtectedRoute } from "@/components/protected-route"
+import { useAuth } from "@/contexts/auth-context"
 
 // Lazy load modal components for code splitting
 const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
@@ -20,6 +22,7 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(Date.now())
   const { wallets, events, isConnected, error, lastUpdate } = useDashboard()
   const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders()
+  const { logout, user } = useAuth()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -63,7 +66,8 @@ export default function Home() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <ProtectedRoute>
+      <div className="container mx-auto py-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Image
@@ -119,6 +123,15 @@ export default function Home() {
             Create Wallet
           </Button>
           
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={logout}
+            className="gap-2 text-red-600 hover:text-red-700"
+          >
+            <LogOut size={16} />
+            Logout
+          </Button>
         </div>
       </div>
       
@@ -210,5 +223,6 @@ export default function Home() {
         </div>
       </footer>
     </div>
+    </ProtectedRoute>
   )
 }

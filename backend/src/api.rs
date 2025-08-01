@@ -2,10 +2,11 @@ use crate::metadata::{Contact, NotificationMethod, ProviderType, Language, Walle
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::wallet::WalletManager;
 use crate::electrum::BlockHeader;
+use crate::auth::{AuthService, SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse, authenticate_user};
 use axum::{
     Router,
     extract::{Path, State},
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
     response::{IntoResponse, Json, Response, Sse},
     routing::{get, post},
 };
@@ -149,18 +150,37 @@ fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> Str
     responses(
         (status = 201, description = "Wallet created successfully", body = CreateWalletResponse),
         (status = 400, description = "Invalid request", body = ErrorResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 409, description = "Descriptor already exists", body = ErrorResponse),
     ),
-    tag = "wallet"
+    tag = "wallet",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn create_wallet(
     State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<CreateWalletRequest>,
 ) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
     match wallet_manager
         .lock()
         .await
-        .create_from_multipath(&payload.name, &payload.descriptor)
+        .create_from_multipath(&payload.name, &payload.descriptor, user.user_id)
         .await
     {
         Ok(wallet_metadata) => (
@@ -629,9 +649,26 @@ pub async fn dashboard_stream(
     ),
     tag = "dashboard"
 )]
-pub async fn get_dashboard(State(wallet_manager): State<AppState>) -> Response {
+pub async fn get_dashboard(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
     let manager = wallet_manager.lock().await;
-    match manager.get_current_dashboard_state().await {
+    match manager.get_current_dashboard_state_for_user(user.user_id, user.is_admin).await {
         Ok(dashboard_update) => Json(dashboard_update).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -641,6 +678,383 @@ pub async fn get_dashboard(State(wallet_manager): State<AppState>) -> Response {
         )
             .into_response(),
     }
+}
+
+// Auth endpoints
+#[utoipa::path(
+    post,
+    path = "/api/auth/send-otp",
+    request_body = SendOtpRequest,
+    responses(
+        (status = 200, description = "OTP sent successfully", body = serde_json::Value),
+        (status = 400, description = "Invalid phone number or bad request", body = ErrorResponse),
+        (status = 429, description = "Rate limit exceeded", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "auth"
+)]
+pub async fn send_otp(
+    State(wallet_manager): State<AppState>,
+    Json(request): Json<SendOtpRequest>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    
+    // Check rate limit
+    match manager.metadata_db.check_rate_limit(&request.phone_number).await {
+        Ok(true) => {} // Allowed
+        Ok(false) => {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(ErrorResponse {
+                    error: "Too many OTP attempts. Please try again later.".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to check rate limit: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+    
+    // Check if Twilio is enabled
+    let twilio_enabled = std::env::var("CANARY_ENABLE_TWILIO")
+        .map(|v| v.to_lowercase() == "true" || v == "1")
+        .unwrap_or(false);
+    
+    if !twilio_enabled {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Twilio SMS is not enabled".to_string(),
+            }),
+        )
+            .into_response();
+    }
+    
+    // Load Twilio config from environment
+    let twilio_config = match crate::auth::load_twilio_config_from_env() {
+        Ok(config) => config,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Twilio configuration error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    // Check that Verify service is configured for auth
+    if twilio_config.verify_service_sid.is_none() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "TWILIO_VERIFY_SERVICE_SID must be set for SMS authentication".to_string(),
+            }),
+        )
+            .into_response();
+    }
+    
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let auth_service = AuthService::new(jwt_secret);
+    
+    match auth_service.send_otp(&twilio_config, &request.phone_number).await {
+        Ok(_) => {
+            Json(serde_json::json!({
+                "message": "OTP sent successfully"
+            }))
+            .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!("Failed to send OTP: {}", e),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/auth/verify-otp",
+    request_body = VerifyOtpRequest,
+    responses(
+        (status = 200, description = "OTP verified successfully", body = AuthResponse),
+        (status = 400, description = "Invalid OTP or bad request", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "auth"
+)]
+pub async fn verify_otp(
+    State(wallet_manager): State<AppState>,
+    Json(request): Json<VerifyOtpRequest>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    
+    // Check if Twilio is enabled
+    let twilio_enabled = std::env::var("CANARY_ENABLE_TWILIO")
+        .map(|v| v.to_lowercase() == "true" || v == "1")
+        .unwrap_or(false);
+    
+    if !twilio_enabled {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Twilio SMS is not enabled".to_string(),
+            }),
+        )
+            .into_response();
+    }
+    
+    // Load Twilio config from environment
+    let twilio_config = match crate::auth::load_twilio_config_from_env() {
+        Ok(config) => config,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Twilio configuration error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    // Check that Verify service is configured for auth
+    if twilio_config.verify_service_sid.is_none() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "TWILIO_VERIFY_SERVICE_SID must be set for SMS authentication".to_string(),
+            }),
+        )
+            .into_response();
+    }
+    
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let auth_service = AuthService::new(jwt_secret.clone());
+    
+    // Verify OTP
+    match auth_service.verify_otp(&twilio_config, &request.phone_number, &request.code).await {
+        Ok(true) => {
+            // Clear rate limit on successful verification
+            let _ = manager.metadata_db.clear_rate_limit(&request.phone_number).await;
+            
+            // Create or get user
+            let user_id = match manager.metadata_db.create_user(&request.phone_number).await {
+                Ok(id) => id,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Failed to create user: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
+            };
+            
+            // Update last login
+            let _ = manager.metadata_db.update_last_login(user_id).await;
+            
+            // Check if user is admin
+            let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
+            let is_admin = admin_phone.map_or(false, |phone| phone == request.phone_number);
+            
+            // Generate JWT token
+            let token = match auth_service.generate_token(user_id, &request.phone_number, is_admin) {
+                Ok(t) => t,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Failed to generate token: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
+            };
+            
+            // Create session
+            let token_hash = AuthService::hash_token(&token);
+            let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
+            
+            if let Err(e) = manager.metadata_db.create_session(user_id, &token_hash, expires_at).await {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to create session: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+            
+            // Get user info
+            let created_at = match manager.metadata_db.get_user_by_phone(&request.phone_number).await {
+                Ok(Some((_, created))) => created,
+                _ => chrono::Utc::now().to_rfc3339(),
+            };
+            
+            Json(AuthResponse {
+                token,
+                user: AuthUserResponse {
+                    id: user_id,
+                    phone_number: request.phone_number.clone(),
+                    created_at,
+                },
+            })
+            .into_response()
+        }
+        Ok(false) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Invalid OTP code".to_string(),
+            }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!("Failed to verify OTP: {}", e),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/auth/logout",
+    responses(
+        (status = 200, description = "Logged out successfully", body = serde_json::Value),
+        (status = 401, description = "Unauthorized", body = ErrorResponse)
+    ),
+    tag = "auth",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn logout(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    // Get the token from the Authorization header
+    let auth_header = match headers.get("authorization").and_then(|h| h.to_str().ok()) {
+        Some(header) => header,
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    if !auth_header.starts_with("Bearer ") {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "Invalid authorization header".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    let token = &auth_header[7..]; // Skip "Bearer "
+    
+    // Hash the token to find it in the database
+    let token_hash = AuthService::hash_token(token);
+    
+    let manager = wallet_manager.lock().await;
+    
+    // Delete the session from the database
+    if let Err(e) = manager.metadata_db.delete_session(&token_hash).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to delete session: {}", e),
+            }),
+        )
+            .into_response();
+    }
+    
+    Json(serde_json::json!({
+        "message": "Logged out successfully"
+    }))
+    .into_response()
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/auth/me",
+    responses(
+        (status = 200, description = "Current user info", body = AuthUserResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse)
+    ),
+    tag = "auth",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn me(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    // Get user info from database
+    let wallet_manager = wallet_manager.lock().await;
+    let user_info = match wallet_manager.metadata_db.get_user_by_id(user.user_id).await {
+        Ok(Some(db_user)) => AuthUserResponse {
+            id: db_user.id,
+            phone_number: db_user.phone_number,
+            created_at: db_user.created_at,
+        },
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "User not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "Failed to get user info".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    Json(user_info).into_response()
 }
 
 #[utoipa::path(
@@ -665,13 +1079,15 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
         get_current_block_header, block_headers_stream,
         dashboard_stream, get_dashboard,
-        get_providers
+        get_providers,
+        send_otp, verify_otp, logout, me
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactWithMethodsRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
-        BlockHeader, DashboardUpdate, ProviderInfo
+        BlockHeader, DashboardUpdate, ProviderInfo,
+        SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),
@@ -679,7 +1095,8 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
         (name = "providers", description = "Notification provider endpoints"),
         (name = "transaction", description = "Transaction events endpoints"),
         (name = "blockchain", description = "Blockchain information endpoints"),
-        (name = "dashboard", description = "Dashboard real-time updates endpoints")
+        (name = "dashboard", description = "Dashboard real-time updates endpoints"),
+        (name = "auth", description = "Authentication endpoints")
     ),
     info(
         title = "Canary Wallet API",
@@ -690,6 +1107,14 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
 pub struct ApiDoc;
 
 pub fn create_router(wallet_manager: AppState, notification_manager: NotificationManagerState, block_header_tx: BlockHeaderBroadcast, dashboard_tx: DashboardBroadcast) -> Router {
+    // Auth routes (public)
+    let auth_routes = Router::new()
+        .route("/auth/send-otp", post(send_otp))
+        .route("/auth/verify-otp", post(verify_otp))
+        .route("/auth/logout", post(logout))
+        .route("/auth/me", get(me))
+        .with_state(wallet_manager.clone());
+    
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet))
         .route("/wallets/{id}", get(get_wallet).put(update_wallet).delete(delete_wallet))
@@ -718,7 +1143,7 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
         .with_state(dashboard_tx);
 
     Router::new()
-        .nest("/api", wallet_routes.merge(provider_routes).merge(block_header_routes).merge(dashboard_stream_routes))
+        .nest("/api", auth_routes.merge(wallet_routes).merge(provider_routes).merge(block_header_routes).merge(dashboard_stream_routes))
         .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
 }

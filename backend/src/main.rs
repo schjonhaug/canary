@@ -1,5 +1,6 @@
 
 mod api;
+mod auth;
 mod config;
 mod electrum;
 mod message_formatter;

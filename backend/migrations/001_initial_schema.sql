@@ -1,6 +1,37 @@
 -- Canary Bitcoin Wallet Management Database Schema
 -- This is the complete initial schema for the application
 
+-- Users table: Store authenticated users
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone_number TEXT NOT NULL UNIQUE,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_login DATETIME
+);
+
+-- Initialize admin user (id=1) for self-hosted mode
+INSERT INTO users (id, phone_number, is_admin) VALUES (1, 'admin', TRUE);
+
+-- Sessions table: JWT/session management
+CREATE TABLE sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- OTP attempts tracking for rate limiting
+CREATE TABLE otp_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone_number TEXT NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 1,
+    last_attempt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    blocked_until DATETIME
+);
+
 -- Wallets table: Core wallet metadata with balance tracking
 CREATE TABLE wallets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -10,7 +41,9 @@ CREATE TABLE wallets (
     hex_color TEXT NOT NULL,
     balance_total INTEGER DEFAULT 0,
     last_activity DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    user_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
 -- Transaction events table: Bitcoin transaction tracking with comprehensive metadata
@@ -76,6 +109,10 @@ INSERT INTO current_block_header (id, height, timestamp)
 VALUES (1, 0, 0);
 
 -- Indexes for performance
+CREATE INDEX idx_sessions_token ON sessions(token_hash);
+CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX idx_wallets_user ON wallets(user_id);
+CREATE INDEX idx_otp_attempts_phone ON otp_attempts(phone_number);
 CREATE INDEX idx_notification_logs_event_id ON notification_logs (event_id);
 CREATE INDEX idx_notification_logs_notification_method_id ON notification_logs (notification_method_id);
 CREATE INDEX idx_notification_logs_provider ON notification_logs (provider_name);

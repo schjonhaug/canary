@@ -10,9 +10,18 @@ export interface ProviderInfo {
 // Base API client
 class ApiClient {
   private baseUrl: string
+  private authToken: string | null = null
 
   constructor() {
     this.baseUrl = getApiBaseUrl()
+    // Check for stored token on initialization
+    if (typeof window !== 'undefined') {
+      this.authToken = localStorage.getItem('auth_token')
+    }
+  }
+
+  setAuthToken(token: string | null) {
+    this.authToken = token
   }
 
   private async request<T>(
@@ -21,11 +30,18 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
     
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    }
+
+    // Add auth token if available
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`
+    }
+    
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     })
 
@@ -89,6 +105,31 @@ class ApiClient {
   // Block header API methods
   async getCurrentBlockHeader(): Promise<unknown> {
     return this.request<unknown>('/api/block-headers/current')
+  }
+
+  // Auth API methods
+  async sendOtp(phoneNumber: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/api/auth/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone_number: phoneNumber }),
+    })
+  }
+
+  async verifyOtp(phoneNumber: string, code: string): Promise<{ token: string, user: { id: number, phone_number: string, is_admin: boolean } }> {
+    return this.request<{ token: string, user: { id: number, phone_number: string, is_admin: boolean } }>('/api/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone_number: phoneNumber, code }),
+    })
+  }
+
+  async logout(): Promise<void> {
+    return this.request<void>('/api/auth/logout', {
+      method: 'POST',
+    })
+  }
+
+  async getMe(): Promise<{ user: { id: number, phone_number: string, is_admin: boolean } }> {
+    return this.request<{ user: { id: number, phone_number: string, is_admin: boolean } }>('/api/auth/me')
   }
 }
 
