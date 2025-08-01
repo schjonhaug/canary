@@ -176,6 +176,7 @@ export default function Home() {
             isConnected={isConnected}
             error={error}
             lastUpdate={lastUpdate}
+            walletsCount={wallets.length}
           />
         </section>
       </div>

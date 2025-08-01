@@ -23,9 +23,10 @@ interface TransactionEventsProps {
   isConnected: boolean
   error: string | null
   lastUpdate: number | null
+  walletsCount?: number
 }
 
-export function TransactionEvents({ selectedWalletId, events, error, lastUpdate }: TransactionEventsProps) {
+export function TransactionEvents({ selectedWalletId, events, error, lastUpdate, walletsCount = 0 }: TransactionEventsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
 
   // Track when we've received data for the first time
@@ -70,7 +71,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
             <TableHeader>
               <TableRow>
                 <TableHead>Date/Time</TableHead>
-                <TableHead>Wallet</TableHead>
+                {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Total Balance</TableHead>
@@ -82,9 +83,11 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                   <TableCell>
                     <Skeleton className="h-4 w-32" />
                   </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-6 w-20" />
-                  </TableCell>
+                  {walletsCount > 1 && (
+                    <TableCell>
+                      <Skeleton className="h-6 w-20" />
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Skeleton className="h-4 w-28" />
                   </TableCell>
@@ -134,7 +137,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
             <TableHeader>
               <TableRow>
                 <TableHead>Date/Time</TableHead>
-                <TableHead>Wallet</TableHead>
+                {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Total Balance</TableHead>
@@ -147,7 +150,9 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate 
                   <TableCell className="text-sm">
                     {formatDateTime(event.transaction_time)}
                   </TableCell>
-                  <TableCell className="font-medium">{event.wallet_name}</TableCell>
+                  {walletsCount > 1 && (
+                    <TableCell className="font-medium">{event.wallet_name}</TableCell>
+                  )}
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Badge 

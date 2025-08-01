@@ -212,19 +212,21 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
                   </CardTitle>
                 </div>
                 <div className="absolute top-2 right-2 flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`h-8 w-8 p-0 transition-colors ${
-                      isSelected 
-                        ? "bg-accent/20 text-accent hover:bg-accent/30" 
-                        : "hover:bg-accent/10 hover:text-accent"
-                    }`}
-                    onClick={() => handleFilterClick(wallet.id)}
-                    title={isSelected ? "Remove filter" : "Filter transactions"}
-                  >
-                    <Filter className="h-4 w-4" />
-                  </Button>
+                  {wallets.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-8 w-8 p-0 transition-colors ${
+                        isSelected 
+                          ? "bg-accent/20 text-accent hover:bg-accent/30" 
+                          : "hover:bg-accent/10 hover:text-accent"
+                      }`}
+                      onClick={() => handleFilterClick(wallet.id)}
+                      title={isSelected ? "Remove filter" : "Filter transactions"}
+                    >
+                      <Filter className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -235,9 +237,11 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>
-                <CardDescription className="text-xs text-muted-foreground">
-                  {isSelected ? 'Filtering transactions below' : 'Use filter icon to view transactions'}
-                </CardDescription>
+                {wallets.length > 1 && (
+                  <CardDescription className="text-xs text-muted-foreground">
+                    {isSelected ? 'Filtering transactions below' : 'Use filter icon to view transactions'}
+                  </CardDescription>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
