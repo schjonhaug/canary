@@ -945,7 +945,8 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let phone_number = phone_number.to_string();
         let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
-        let is_admin = admin_phone.map_or(false, |phone| phone == phone_number);
+        let is_admin = admin_phone.map_or(false, |phone| phone == phone_number)
+            || (cfg!(debug_assertions) && phone_number == crate::auth::DEV_ADMIN_PHONE);
         
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;

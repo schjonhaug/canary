@@ -1299,7 +1299,8 @@ pub async fn verify_otp(
             
             // Check if user is admin
             let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
-            let is_admin = admin_phone.map_or(false, |phone| phone == request.phone_number);
+            let is_admin = admin_phone.map_or(false, |phone| phone == request.phone_number) 
+                || (cfg!(debug_assertions) && request.phone_number == crate::auth::DEV_ADMIN_PHONE);
             
             // Generate JWT token
             let token = match auth_service.generate_token(user_id, &request.phone_number, is_admin) {

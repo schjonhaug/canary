@@ -74,7 +74,7 @@ pub struct AuthUserResponse {
 // NOTE: This is a custom dev mode implementation, NOT Twilio's official test patterns.
 // These phone numbers bypass Twilio entirely when in debug mode.
 const DEV_MODE: bool = cfg!(debug_assertions);
-const DEV_ADMIN_PHONE: &str = "+4799999900"; // Custom admin number for dev mode (Norway)
+pub const DEV_ADMIN_PHONE: &str = "+4799999900"; // Custom admin number for dev mode (Norway)
 
 // Dev mode test phone numbers - these bypass Twilio Verify in development
 // Using clearly non-standard numbers with different country codes to avoid confusion
@@ -256,7 +256,9 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
 
     // Check if user is admin
     let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
-    let is_admin = admin_phone.map_or(false, |phone| phone == claims.phone) || claims.is_admin;
+    let is_admin = admin_phone.map_or(false, |phone| phone == claims.phone) 
+        || claims.is_admin
+        || (DEV_MODE && claims.phone == DEV_ADMIN_PHONE);
 
     Ok(AuthUser {
         user_id: claims.sub,
