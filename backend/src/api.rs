@@ -241,6 +241,7 @@ pub async fn delete_wallet(
         }
     };
 
+    #[allow(unused_mut)]
     let mut manager = wallet_manager.lock().await;
     
     // Check if wallet exists and belongs to user (or user is admin)
@@ -354,7 +355,8 @@ pub async fn update_wallet(
             .into_response();
     }
 
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
     
     // Check if wallet exists and belongs to user (or user is admin)
     match manager.metadata_db.get_wallet_by_id(id).await {
@@ -454,7 +456,8 @@ pub async fn get_wallet(
         }
     };
     
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
     match manager.get_wallet_by_id(id).await {
         Ok(Some(wallet)) => {
             // Check if user has access to this wallet
@@ -542,7 +545,8 @@ pub async fn create_wallet_contact(
         }
     };
     
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
     let wallet = match manager.get_wallet_by_id(wallet_id).await {
@@ -701,7 +705,8 @@ pub async fn delete_wallet_contact(
         }
     };
     
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
     
     // Check if wallet exists and user has access
     match manager.metadata_db.get_wallet_by_id(wallet_id).await {
@@ -816,7 +821,8 @@ pub async fn get_wallet_contacts(
         }
     };
     
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
     match manager.get_wallet_by_id(wallet_id).await {
@@ -888,7 +894,8 @@ pub async fn get_wallet_contacts(
     tag = "blockchain"
 )]
 pub async fn get_current_block_header(State(wallet_manager): State<AppState>) -> Response {
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
     match manager.metadata_db.get_current_block_header().await {
         Ok(Some(block_header)) => (StatusCode::OK, Json(block_header)).into_response(),
         Ok(None) => (
@@ -922,10 +929,12 @@ pub async fn block_headers_stream(
     use axum::response::sse::Event;
     use tokio_stream::wrappers::BroadcastStream;
     use futures_util::{StreamExt as FuturesStreamExt};
+    use tokio::time::{interval, Duration};
     
     // Send current header immediately, then stream future updates
     let initial_event = {
-        let manager = wallet_manager.lock().await;
+        #[allow(unused_mut)]
+        let mut manager = wallet_manager.lock().await;
         if let Ok(Some(header)) = manager.metadata_db.get_current_block_header().await {
             let data = serde_json::to_string(&header).unwrap_or_default();
             Some(Event::default().data(data))
@@ -934,7 +943,7 @@ pub async fn block_headers_stream(
         }
     };
 
-    let stream = FuturesStreamExt::filter_map(
+    let block_header_stream = FuturesStreamExt::filter_map(
         BroadcastStream::new(block_header_tx.subscribe()),
         |result| async move {
             match result {
@@ -947,11 +956,23 @@ pub async fn block_headers_stream(
         }
     );
 
-    // If we have an initial header, prepend it to the stream
+    // Create keep-alive stream that sends ping messages every 30 seconds
+    let keep_alive_stream = {
+        let interval = interval(Duration::from_secs(30));
+        tokio_stream::wrappers::IntervalStream::new(interval)
+            .map(|_| Ok::<Event, axum::Error>(Event::default().comment("ping")))
+    };
+
+    // Combine the streams: initial event + block header updates + keep-alive pings
     let stream = if let Some(initial) = initial_event {
-        futures_util::stream::once(async { Ok(initial) }).chain(stream).boxed()
+        futures_util::stream::once(async { Ok(initial) })
+            .chain(block_header_stream)
+            .chain(keep_alive_stream)
+            .boxed()
     } else {
-        stream.boxed()
+        block_header_stream
+            .chain(keep_alive_stream)
+            .boxed()
     };
 
     Sse::new(stream).into_response()
@@ -987,13 +1008,16 @@ pub async fn dashboard_stream(
         }
     };
     use axum::response::sse::Event;
+    use tokio::time::{interval, Duration};
     
     let user_id = user.user_id;
     let is_admin = user.is_admin;
     
     // Get list of wallet IDs the user owns (for filtering)
     let user_wallet_ids = if !is_admin {
-        match wallet_manager.lock().await.metadata_db.get_wallet_ids_for_user(user_id).await {
+        #[allow(unused_mut)]
+        let mut manager = wallet_manager.lock().await;
+        match manager.metadata_db.get_wallet_ids_for_user(user_id).await {
             Ok(ids) => ids,
             Err(_) => vec![], // If error, show no wallets
         }
@@ -1001,7 +1025,7 @@ pub async fn dashboard_stream(
         vec![] // Admin sees all, no filtering needed
     };
     
-    let stream = FuturesStreamExt::filter_map(
+    let dashboard_stream = FuturesStreamExt::filter_map(
         BroadcastStream::new(dashboard_tx.subscribe()),
         move |result| {
             let wallet_ids = user_wallet_ids.clone();
@@ -1027,6 +1051,18 @@ pub async fn dashboard_stream(
             }
         }
     );
+
+    // Create keep-alive stream that sends ping messages every 30 seconds
+    let keep_alive_stream = {
+        let interval = interval(Duration::from_secs(30));
+        tokio_stream::wrappers::IntervalStream::new(interval)
+            .map(|_| Ok::<Event, axum::Error>(Event::default().comment("ping")))
+    };
+
+    // Combine the streams: dashboard updates + keep-alive pings
+    let stream = dashboard_stream
+        .chain(keep_alive_stream)
+        .boxed();
 
     Sse::new(stream).into_response()
 }
@@ -1058,7 +1094,8 @@ pub async fn get_dashboard(
         }
     };
     
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
     match manager.get_current_dashboard_state_for_user(user.user_id, user.is_admin).await {
         Ok(dashboard_update) => Json(dashboard_update).into_response(),
         Err(e) => (
@@ -1088,7 +1125,8 @@ pub async fn send_otp(
     State(wallet_manager): State<AppState>,
     Json(request): Json<SendOtpRequest>,
 ) -> Response {
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
     
     // Check rate limit
     match manager.metadata_db.check_rate_limit(&request.phone_number).await {
@@ -1189,7 +1227,8 @@ pub async fn verify_otp(
     State(wallet_manager): State<AppState>,
     Json(request): Json<VerifyOtpRequest>,
 ) -> Response {
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
     
     // Check if Twilio is enabled
     let twilio_enabled = std::env::var("CANARY_ENABLE_TWILIO")
@@ -1368,7 +1407,8 @@ pub async fn logout(
     // Hash the token to find it in the database
     let token_hash = AuthService::hash_token(token);
     
-    let manager = wallet_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
     
     // Delete the session from the database
     if let Err(e) = manager.metadata_db.delete_session(&token_hash).await {
@@ -1418,8 +1458,9 @@ pub async fn me(
     };
     
     // Get user info from database
-    let wallet_manager = wallet_manager.lock().await;
-    let user_info = match wallet_manager.metadata_db.get_user_by_id(user.user_id).await {
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
+    let user_info = match manager.metadata_db.get_user_by_id(user.user_id).await {
         Ok(Some(db_user)) => AuthUserResponse {
             id: db_user.id,
             phone_number: db_user.phone_number,
@@ -1458,7 +1499,8 @@ pub async fn me(
     tag = "providers"
 )]
 pub async fn get_providers(State(notification_manager): State<NotificationManagerState>) -> Response {
-    let manager = notification_manager.lock().await;
+    #[allow(unused_mut)]
+    let mut manager = notification_manager.lock().await;
     let providers = manager.list_providers();
     (StatusCode::OK, Json(ProvidersResponse { providers })).into_response()
 }

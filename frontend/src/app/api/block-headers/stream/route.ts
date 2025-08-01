@@ -31,10 +31,21 @@ export async function GET() {
               controller.close();
               return;
             }
+            
+            // Check if controller is still open before enqueueing
+            if (!controller.desiredSize) {
+              // Controller is closed, stop pumping
+              return;
+            }
+            
             controller.enqueue(value);
             pump();
           } catch (error) {
-            controller.error(error);
+            console.error('SSE stream error:', error);
+            // Only error if controller is still open
+            if (controller.desiredSize !== null) {
+              controller.error(error);
+            }
           }
         };
 
@@ -49,6 +60,7 @@ export async function GET() {
         'Connection': 'keep-alive',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Cache-Control',
+        'X-Accel-Buffering': 'no', // Disable nginx buffering
       },
     });
   } catch (error) {

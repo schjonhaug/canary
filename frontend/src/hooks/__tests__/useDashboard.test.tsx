@@ -35,7 +35,7 @@ describe('useDashboard', () => {
       stream: jest.fn(),
       close: jest.fn(),
     };
-    mockSSE.mockImplementation(() => mockSSEInstance as any);
+    mockSSE.mockImplementation(() => mockSSEInstance as unknown as SSE);
     
     // Mock fetch to return successful response
     mockFetch.mockResolvedValue({
@@ -138,5 +138,50 @@ describe('useDashboard', () => {
         }
       );
     });
+  });
+
+  it('should handle reconnection logic when connection fails', () => {
+    const mockToken = 'test-token';
+    mockUseAuth.mockReturnValue({
+      token: mockToken,
+      user: { id: 1, phone_number: '+1234567890', is_admin: false },
+      isLoading: false,
+      isAuthenticated: true,
+      login: jest.fn(),
+      sendOtp: jest.fn(),
+      logout: jest.fn(),
+    });
+
+    // Mock setTimeout to control reconnection timing
+    jest.useFakeTimers();
+
+    act(() => {
+      renderHook(() => useDashboard());
+    });
+
+    // Verify initial connection attempt
+    expect(mockSSE).toHaveBeenCalledTimes(1);
+
+    // Simulate connection error
+    const mockSSEInstance = mockSSE.mock.results[0].value;
+    const errorListener = mockSSEInstance.addEventListener.mock.calls.find(
+      call => call[0] === 'error'
+    );
+    
+    if (errorListener) {
+      act(() => {
+        errorListener[1](new Event('error'));
+      });
+    }
+
+    // Fast-forward time to trigger reconnection
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    // Verify reconnection attempt
+    expect(mockSSE).toHaveBeenCalledTimes(2);
+
+    jest.useRealTimers();
   });
 }); 

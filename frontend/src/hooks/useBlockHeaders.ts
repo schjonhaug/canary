@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { BlockHeader, BlockHeaderState } from '../types';
 import { getApiBaseUrl } from '../lib/utils';
 
@@ -12,13 +12,100 @@ export function useBlockHeaders(apiUrl?: string) {
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+  const baseReconnectDelay = 1000; // 1 second
+
+  const connect = useCallback(() => {
+    const baseUrl = apiUrl ?? getApiBaseUrl();
+    
+    // Close existing connection if any
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    // Clear any existing reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    console.log('Connecting to block header stream...');
+    setState(prev => ({ ...prev, reconnecting: true, error: null }));
+
+    const eventSource = new EventSource(`${baseUrl}/api/block-headers/stream`);
+    eventSourceRef.current = eventSource;
+
+    // Set connection timeout
+    const connectionTimeout = setTimeout(() => {
+      console.warn('Block header stream connection timeout');
+      eventSource.close();
+      setState(prev => ({ 
+        ...prev, 
+        connected: false, 
+        reconnecting: false, 
+        error: 'Connection timeout' 
+      }));
+      
+      // Attempt reconnection
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        const delay = baseReconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectAttemptsRef.current++;
+          connect();
+        }, delay);
+      }
+    }, 10000); // 10 second timeout
+
+    eventSource.onopen = () => {
+      console.log('Block header stream connected');
+      clearTimeout(connectionTimeout);
+      reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
+      setState(prev => ({ 
+        ...prev, 
+        connected: true, 
+        reconnecting: false, 
+        error: null 
+      }));
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        // Ignore ping messages (comments)
+        if (event.data.startsWith(':') || event.data.trim() === '') {
+          return;
+        }
+        
+        const blockHeader: BlockHeader = JSON.parse(event.data);
+        setState(prev => ({ ...prev, blockHeader }));
+      } catch (error) {
+        console.error('Failed to parse block header:', error);
+        setState(prev => ({ ...prev, error: 'Failed to parse block header data' }));
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('Block header EventSource failed:', error);
+      clearTimeout(connectionTimeout);
+      setState(prev => ({ ...prev, connected: false, reconnecting: false }));
+      
+      // Attempt reconnection
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        const delay = baseReconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectAttemptsRef.current++;
+          connect();
+        }, delay);
+      } else {
+        setState(prev => ({ ...prev, error: 'Failed to reconnect after multiple attempts' }));
+      }
+    };
+  }, [apiUrl]);
 
   useEffect(() => {
-    const baseUrl = apiUrl ?? getApiBaseUrl();
-
     // Fetch initial block header from REST endpoint
     const fetchInitialBlockHeader = async () => {
       try {
+        const baseUrl = apiUrl ?? getApiBaseUrl();
         const response = await fetch(`${baseUrl}/api/block-headers/current`);
         if (response.ok) {
           const blockHeader: BlockHeader = await response.json();
@@ -35,29 +122,8 @@ export function useBlockHeaders(apiUrl?: string) {
     // Load initial data first
     fetchInitialBlockHeader();
 
-    // Set up SSE connection (simplified to match working dashboard pattern)
-    const eventSource = new EventSource(`${baseUrl}/api/block-headers/stream`);
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      console.log('Block header stream connected');
-      setState(prev => ({ ...prev, connected: true, reconnecting: false, error: null }));
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const blockHeader: BlockHeader = JSON.parse(event.data);
-        setState(prev => ({ ...prev, blockHeader }));
-      } catch (error) {
-        console.error('Failed to parse block header:', error);
-        setState(prev => ({ ...prev, error: 'Failed to parse block header data' }));
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error('Block header EventSource failed:', error);
-      setState(prev => ({ ...prev, connected: false, error: 'Connection lost' }));
-    };
+    // Connect to SSE stream
+    connect();
 
     return () => {
       if (eventSourceRef.current) {
@@ -67,7 +133,7 @@ export function useBlockHeaders(apiUrl?: string) {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [apiUrl]);
+  }, [connect, apiUrl]);
 
   return state;
 }

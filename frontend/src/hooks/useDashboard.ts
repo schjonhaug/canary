@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Wallet, TransactionEvent, DashboardUpdate } from '../types';
 import { getApiBaseUrl } from '../lib/utils';
 import { SSE } from 'sse.js';
@@ -11,6 +11,12 @@ export function useDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const { token, isAuthenticated } = useAuth();
+
+  const eventSourceRef = useRef<SSE | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+  const baseReconnectDelay = 1000; // 1 second
 
   // Load initial data via REST API on mount
   useEffect(() => {
@@ -52,11 +58,21 @@ export function useDashboard() {
     loadInitialData();
   }, [token, isAuthenticated]);
 
-  useEffect(() => {
+  const connect = useCallback(() => {
     // Don't connect if no token is available or user is not authenticated
     if (!isAuthenticated || !token) {
       console.log('User not authenticated or no token available, skipping SSE connection');
       return;
+    }
+
+    // Close existing connection if any
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    // Clear any existing reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
     }
 
     // Use the configured API URL or empty string for relative URLs
@@ -64,6 +80,7 @@ export function useDashboard() {
     const streamUrl = `${baseUrl}/api/dashboard/stream`;
     
     console.log('Connecting to dashboard stream:', streamUrl);
+    setError(null);
     
     // Set up Server-Sent Events for real-time dashboard updates using sse.js library
     const eventSource = new SSE(streamUrl, {
@@ -72,14 +89,40 @@ export function useDashboard() {
       },
     });
     
+    eventSourceRef.current = eventSource;
+
+    // Set connection timeout
+    const connectionTimeout = setTimeout(() => {
+      console.warn('Dashboard stream connection timeout');
+      eventSource.close();
+      setIsConnected(false);
+      setError('Connection timeout');
+      
+      // Attempt reconnection
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        const delay = baseReconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectAttemptsRef.current++;
+          connect();
+        }, delay);
+      }
+    }, 10000); // 10 second timeout
+    
     eventSource.addEventListener('open', () => {
       console.log('Dashboard stream connected');
+      clearTimeout(connectionTimeout);
+      reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
       setIsConnected(true);
       setError(null);
     });
 
     eventSource.addEventListener('message', (event: MessageEvent) => {
       try {
+        // Ignore ping messages (comments)
+        if (event.data.startsWith(':') || event.data.trim() === '') {
+          return;
+        }
+        
         console.log('Received dashboard update:', event.data);
         const update: DashboardUpdate = JSON.parse(event.data);
         setWallets(update.wallets);
@@ -95,16 +138,36 @@ export function useDashboard() {
 
     eventSource.addEventListener('error', (error: Event) => {
       console.error('Dashboard SSE failed:', error);
+      clearTimeout(connectionTimeout);
       setIsConnected(false);
-      setError(null);
+      
+      // Attempt reconnection
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        const delay = baseReconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectAttemptsRef.current++;
+          connect();
+        }, delay);
+      } else {
+        setError('Failed to reconnect after multiple attempts');
+      }
     });
 
     eventSource.stream();
+  }, [token, isAuthenticated]);
+
+  useEffect(() => {
+    connect();
 
     return () => {
-      eventSource.close();
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
-  }, [token, isAuthenticated]);
+  }, [connect]);
 
   return { 
     wallets, 
