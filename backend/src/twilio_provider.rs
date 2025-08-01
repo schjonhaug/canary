@@ -61,34 +61,7 @@ impl TwilioProvider {
             self.config.account_sid
         );
 
-        let (from_number, is_test_mode) = match self.config.messaging_service_sid.as_str() {
-            "+15005550000" | "+15005550001" | "+15005550006" => {
-                (&self.config.messaging_service_sid, true)
-            }
-            _ => (&self.config.messaging_service_sid, false)
-        };
-
-        if is_test_mode {
-            // Return mock response for test phone numbers without making API call
-            return match self.config.messaging_service_sid.as_str() {
-                "+15005550000" => NotificationResult {
-                    success: false,
-                    provider_id: None,
-                    error_message: Some("Error 21422: This phone number is unavailable.".to_string()),
-                },
-                "+15005550001" => NotificationResult {
-                    success: false,
-                    provider_id: None,
-                    error_message: Some("Error 21421: This phone number is invalid.".to_string()),
-                },
-                "+15005550006" => NotificationResult {
-                    success: true,
-                    provider_id: Some("SMtest123456789".to_string()),
-                    error_message: None,
-                },
-                _ => unreachable!()
-            };
-        }
+        let from_number = &self.config.messaging_service_sid;
 
         let sms_request = TwilioSmsRequest {
             to: phone_number.to_string(),

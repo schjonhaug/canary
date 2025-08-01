@@ -97,7 +97,7 @@ fn test_twilio_provider_creation() {
     // Test with test credentials
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
-    std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15005550006");
+    std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15551234567");
     
     let provider = TwilioProvider::from_env();
     assert!(provider.is_some());
@@ -129,7 +129,7 @@ async fn test_twilio_send_notification() {
     // Test with test credentials
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
-    std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15005550006");
+    std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15551234567");
     
     let provider = TwilioProvider::from_env().unwrap();
     let event = create_test_event(EventType::Receive, 100_000_000, true);
@@ -156,7 +156,7 @@ async fn test_twilio_send_notification() {
 async fn test_twilio_filters_only_sms_methods() {
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
-    std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15005550006");
+    std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15551234567");
     
     let provider = TwilioProvider::from_env().unwrap();
     let event = create_test_event(EventType::Send, 50_000_000, false);

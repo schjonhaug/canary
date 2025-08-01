@@ -12,6 +12,7 @@ import { formatBitcoinAmount } from "@/lib/utils"
 import { formatDistanceToNow } from 'date-fns'
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
+import { DevUserSwitcher } from "@/components/dev-user-switcher"
 
 // Lazy load modal components for code splitting
 const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
@@ -67,6 +68,7 @@ export default function Home() {
 
   return (
     <ProtectedRoute>
+      <DevUserSwitcher />
       <div className="container mx-auto py-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">

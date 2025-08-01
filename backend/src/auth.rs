@@ -70,6 +70,20 @@ pub struct AuthUserResponse {
     pub created_at: String,
 }
 
+// Development mode configuration
+// NOTE: This is a custom dev mode implementation, NOT Twilio's official test patterns.
+// These phone numbers bypass Twilio entirely when in debug mode.
+const DEV_MODE: bool = cfg!(debug_assertions);
+const DEV_ADMIN_PHONE: &str = "+4799999900"; // Custom admin number for dev mode (Norway)
+
+// Dev mode test phone numbers - these bypass Twilio Verify in development
+// Using clearly non-standard numbers with different country codes to avoid confusion
+const DEV_TEST_PHONES: [&str; 3] = [
+    "+4799999901", // Norway country code
+    "+4699999902", // Sweden country code
+    "+3399999903"  // France country code
+];
+
 pub struct AuthService {
     jwt_secret: String,
     client: Client,
@@ -84,6 +98,11 @@ impl AuthService {
     }
 
     pub async fn send_otp(&self, twilio_config: &TwilioConfig, phone_number: &str) -> Result<()> {
+        // Development mode: bypass Twilio for dev test phones
+        if DEV_MODE && (DEV_TEST_PHONES.contains(&phone_number) || phone_number == DEV_ADMIN_PHONE) {
+            return Ok(());
+        }
+
         let verify_service_sid = twilio_config.verify_service_sid
             .as_ref()
             .ok_or_else(|| anyhow!("Twilio Verify service SID not configured"))?;
@@ -117,6 +136,11 @@ impl AuthService {
     }
 
     pub async fn verify_otp(&self, twilio_config: &TwilioConfig, phone_number: &str, code: &str) -> Result<bool> {
+        // Development mode: accept any code for dev test phones
+        if DEV_MODE && (DEV_TEST_PHONES.contains(&phone_number) || phone_number == DEV_ADMIN_PHONE) {
+            return Ok(true);
+        }
+
         let verify_service_sid = twilio_config.verify_service_sid
             .as_ref()
             .ok_or_else(|| anyhow!("Twilio Verify service SID not configured"))?;
@@ -188,6 +212,16 @@ impl AuthService {
         hasher.update(token.as_bytes());
         format!("{:x}", hasher.finalize())
     }
+
+    // Generate deterministic user ID from phone number
+    pub fn generate_user_id(phone: &str) -> i64 {
+        let mut hash = 0;
+        for byte in phone.as_bytes() {
+            hash = ((hash << 5) - hash) + (*byte as i64);
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        hash.abs() % 1000 + 2
+    }
 }
 
 pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
@@ -212,6 +246,8 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     }
 
     let token = &auth_header[7..];
+    
+    // Regular JWT token validation
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
     

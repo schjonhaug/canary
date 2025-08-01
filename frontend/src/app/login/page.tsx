@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Phone, ArrowRight, Loader2 } from 'lucide-react'
+import { Phone, ArrowRight, Loader2, User, Shield } from 'lucide-react'
 import Image from 'next/image'
 
 export default function LoginPage() {
@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { sendOtp, login } = useAuth()
+  const { sendOtp, login, devLogin, isDevMode } = useAuth()
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,6 +42,19 @@ export default function LoginPage() {
       await login(phone, otp)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid OTP')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDevLogin = async (phoneNumber: string) => {
+    setError('')
+    setIsLoading(true)
+
+    try {
+      await devLogin(phoneNumber)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to login')
     } finally {
       setIsLoading(false)
     }
@@ -75,6 +88,48 @@ export default function LoginPage() {
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
+          )}
+
+          {/* Development Mode Quick Login */}
+          {isDevMode && step === 'phone' && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">Development Mode</span>
+              </div>
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => handleDevLogin('+4799999900')}
+                  disabled={isLoading}
+                >
+                  <Shield className="mr-2 h-4 w-4" />
+                  Admin Account
+                </Button>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { phone: '+4799999901', label: '+47 999 99 901 (Norway)' },
+                    { phone: '+4699999902', label: '+46 999 99 902 (Sweden)' },
+                    { phone: '+3399999903', label: '+33 999 99 903 (France)' }
+                  ].map(({ phone, label }) => (
+                    <Button
+                      key={phone}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDevLogin(phone)}
+                      disabled={isLoading}
+                    >
+                      <User className="mr-2 h-3 w-3" />
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {step === 'phone' ? (
