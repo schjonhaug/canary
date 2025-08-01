@@ -16,8 +16,7 @@ export async function GET() {
             'Accept': 'text/event-stream',
             'Cache-Control': 'no-cache',
           },
-          // Add timeout configuration
-          signal: AbortSignal.timeout(300000), // 5 minutes timeout
+          // Remove timeout - let the connection stay open indefinitely
         });
 
         if (response.ok) {

@@ -18,6 +18,8 @@ module.exports = {
   // Configure server options for long-running connections
   serverRuntimeConfig: {
     // Increase timeout for API routes
-    apiTimeout: 300000, // 5 minutes
+    apiTimeout: 0, // No timeout
   },
+  // Disable any built-in timeouts
+  poweredByHeader: false,
 }; 

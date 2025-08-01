@@ -17,8 +17,6 @@ export function useBlockHeaders(apiUrl?: string) {
   const baseReconnectDelay = 1000; // 1 second
 
   const connect = useCallback(() => {
-    const baseUrl = apiUrl ?? getApiBaseUrl();
-    
     // Close existing connection if any
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -32,7 +30,9 @@ export function useBlockHeaders(apiUrl?: string) {
     console.log('Connecting to block header stream...');
     setState(prev => ({ ...prev, reconnecting: true, error: null }));
 
-    const eventSource = new EventSource(`${baseUrl}/api/block-headers/stream`);
+    // Connect directly to backend, bypassing Next.js API routes
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const eventSource = new EventSource(`${backendUrl}/api/block-headers/stream`);
     eventSourceRef.current = eventSource;
 
     // Set connection timeout

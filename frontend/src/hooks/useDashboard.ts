@@ -82,11 +82,13 @@ export function useDashboard() {
     console.log('Connecting to dashboard stream:', streamUrl);
     setError(null);
     
+    // Connect directly to backend, bypassing Next.js API routes
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const authHeaders: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
     // Set up Server-Sent Events for real-time dashboard updates using sse.js library
-    const eventSource = new SSE(streamUrl, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+    const eventSource = new SSE(`${backendUrl}/api/dashboard/stream`, {
+      headers: authHeaders,
     });
     
     eventSourceRef.current = eventSource;

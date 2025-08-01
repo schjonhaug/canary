@@ -26,8 +26,7 @@ export async function GET(request: Request) {
       try {
         response = await fetch(backendUrl, {
           headers,
-          // Add timeout configuration
-          signal: AbortSignal.timeout(300000), // 5 minutes timeout
+          // Remove timeout - let the connection stay open indefinitely
         });
 
         if (response.ok) {
