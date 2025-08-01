@@ -317,6 +317,19 @@ impl WalletManager {
         }
 
         println!("Loaded {} wallets from disk", self.wallets.len());
+        
+        // Clean up expired sessions on startup
+        match self.metadata_db.cleanup_expired_sessions().await {
+            Ok(deleted) => {
+                if deleted > 0 {
+                    println!("Cleaned up {} expired sessions on startup", deleted);
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to cleanup expired sessions on startup: {}", e);
+            }
+        }
+        
         Ok(())
     }
 

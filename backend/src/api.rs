@@ -212,16 +212,86 @@ pub async fn create_wallet(
     ),
     responses(
         (status = 204, description = "Wallet deleted successfully"),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
         (status = 404, description = "Wallet not found", body = ErrorResponse),
         (status = 500, description = "Internal server error", body = ErrorResponse),
     ),
-    tag = "wallet"
+    tag = "wallet",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn delete_wallet(
     State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
     Path(id): Path<i64>,
 ) -> Response {
-    match wallet_manager.lock().await.delete_wallet_by_id(id).await {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let mut manager = wallet_manager.lock().await;
+    
+    // Check if wallet exists and belongs to user (or user is admin)
+    match manager.metadata_db.get_wallet_by_id(id).await {
+        Ok(Some(_)) => {
+            // Check ownership
+            if !user.is_admin {
+                match manager.metadata_db.is_wallet_owned_by_user(id, user.user_id).await {
+                    Ok(true) => {} // User owns the wallet
+                    Ok(false) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: "Access denied".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Database error: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+        }
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+    
+    match manager.delete_wallet_by_id(id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
             let error_msg = e.to_string();
@@ -244,16 +314,36 @@ pub async fn delete_wallet(
     request_body = UpdateWalletRequest,
     responses(
         (status = 200, description = "Wallet updated successfully"),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
         (status = 404, description = "Wallet not found", body = ErrorResponse),
         (status = 400, description = "Invalid request", body = ErrorResponse),
     ),
-    tag = "wallet"
+    tag = "wallet",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn update_wallet(
     State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
     Path(id): Path<i64>,
     Json(payload): Json<UpdateWalletRequest>,
 ) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
     if payload.name.trim().is_empty() {
         return (
             StatusCode::BAD_REQUEST,
@@ -264,7 +354,57 @@ pub async fn update_wallet(
             .into_response();
     }
 
-    match wallet_manager.lock().await.update_wallet(id, &payload.name).await {
+    let manager = wallet_manager.lock().await;
+    
+    // Check if wallet exists and belongs to user (or user is admin)
+    match manager.metadata_db.get_wallet_by_id(id).await {
+        Ok(Some(_)) => {
+            // Check ownership
+            if !user.is_admin {
+                match manager.metadata_db.is_wallet_owned_by_user(id, user.user_id).await {
+                    Ok(true) => {} // User owns the wallet
+                    Ok(false) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: "Access denied".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Database error: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+        }
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    match manager.update_wallet(id, &payload.name).await {
         Ok(()) => StatusCode::OK.into_response(),
         Err(e) => {
             let error_msg = e.to_string();
@@ -286,13 +426,63 @@ pub async fn update_wallet(
     ),
     responses(
         (status = 200, description = "Wallet found", body = WalletMetadata),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
         (status = 404, description = "Wallet not found", body = ErrorResponse),
     ),
-    tag = "wallet"
+    tag = "wallet",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
-pub async fn get_wallet(State(wallet_manager): State<AppState>, Path(id): Path<i64>) -> Response {
-    match wallet_manager.lock().await.get_wallet_by_id(id).await {
-        Ok(Some(wallet)) => (StatusCode::OK, Json(wallet)).into_response(),
+pub async fn get_wallet(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<i64>
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    let manager = wallet_manager.lock().await;
+    match manager.get_wallet_by_id(id).await {
+        Ok(Some(wallet)) => {
+            // Check if user has access to this wallet
+            if !user.is_admin {
+                match manager.metadata_db.is_wallet_owned_by_user(id, user.user_id).await {
+                    Ok(true) => {} // User owns the wallet
+                    Ok(false) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: "Access denied".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Database error: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            (StatusCode::OK, Json(wallet)).into_response()
+        }
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
@@ -322,21 +512,66 @@ pub async fn get_wallet(State(wallet_manager): State<AppState>, Path(id): Path<i
     ),
     responses(
         (status = 201, description = "Contact created successfully", body = CreateContactResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
         (status = 400, description = "Invalid request or phone number", body = ErrorResponse),
         (status = 404, description = "Wallet not found", body = ErrorResponse),
     ),
-    tag = "contact"
+    tag = "contact",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn create_wallet_contact(
     State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
     Path(wallet_id): Path<i64>,
     Json(payload): Json<CreateContactWithMethodsRequest>,
 ) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
     let manager = wallet_manager.lock().await;
 
-    // Check if wallet exists and get descriptor for ntfy topic generation
+    // Check if wallet exists and user has access
     let wallet = match manager.get_wallet_by_id(wallet_id).await {
-        Ok(Some(wallet)) => wallet,
+        Ok(Some(wallet)) => {
+            if !user.is_admin {
+                match manager.metadata_db.is_wallet_owned_by_user(wallet_id, user.user_id).await {
+                    Ok(true) => {} // User owns the wallet
+                    Ok(false) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: "Access denied".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Database error: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            wallet
+        }
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
@@ -438,15 +673,83 @@ pub async fn create_wallet_contact(
     ),
     responses(
         (status = 204, description = "Contact deleted successfully"),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
         (status = 404, description = "Contact not found", body = ErrorResponse),
     ),
-    tag = "contact"
+    tag = "contact",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn delete_wallet_contact(
     State(wallet_manager): State<AppState>,
-    Path((_wallet_id, contact_id)): Path<(i64, i64)>,
+    headers: HeaderMap,
+    Path((wallet_id, contact_id)): Path<(i64, i64)>,
 ) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
     let manager = wallet_manager.lock().await;
+    
+    // Check if wallet exists and user has access
+    match manager.metadata_db.get_wallet_by_id(wallet_id).await {
+        Ok(Some(_)) => {
+            if !user.is_admin {
+                match manager.metadata_db.is_wallet_owned_by_user(wallet_id, user.user_id).await {
+                    Ok(true) => {} // User owns the wallet
+                    Ok(false) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: "Access denied".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Database error: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+        }
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+    
     match manager.metadata_db.delete_contact_with_methods(contact_id).await {
         Ok(true) => {
             // Send dashboard update to notify clients of contact count change
@@ -485,19 +788,63 @@ pub async fn delete_wallet_contact(
     ),
     responses(
         (status = 200, description = "List of contacts for wallet", body = Vec<Contact>),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
         (status = 404, description = "Wallet not found", body = ErrorResponse),
     ),
-    tag = "wallet"
+    tag = "wallet",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn get_wallet_contacts(
     State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
     Path(wallet_id): Path<i64>,
 ) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
     let manager = wallet_manager.lock().await;
 
-    // Check if wallet exists
+    // Check if wallet exists and user has access
     match manager.get_wallet_by_id(wallet_id).await {
-        Ok(Some(_)) => {}
+        Ok(Some(_)) => {
+            if !user.is_admin {
+                match manager.metadata_db.is_wallet_owned_by_user(wallet_id, user.user_id).await {
+                    Ok(true) => {} // User owns the wallet
+                    Ok(false) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: "Access denied".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Database error: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+        }
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
@@ -615,24 +962,68 @@ pub async fn block_headers_stream(
     path = "/api/dashboard/stream",
     responses(
         (status = 200, description = "Server-sent events stream of dashboard updates", content_type = "text/event-stream"),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
     ),
-    tag = "dashboard"
+    tag = "dashboard",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn dashboard_stream(
-    State(dashboard_tx): State<DashboardBroadcast>,
+    State((dashboard_tx, wallet_manager)): State<(DashboardBroadcast, AppState)>,
+    headers: HeaderMap,
 ) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
     use axum::response::sse::Event;
+    
+    let user_id = user.user_id;
+    let is_admin = user.is_admin;
+    
+    // Get list of wallet IDs the user owns (for filtering)
+    let user_wallet_ids = if !is_admin {
+        match wallet_manager.lock().await.metadata_db.get_wallet_ids_for_user(user_id).await {
+            Ok(ids) => ids,
+            Err(_) => vec![], // If error, show no wallets
+        }
+    } else {
+        vec![] // Admin sees all, no filtering needed
+    };
     
     let stream = FuturesStreamExt::filter_map(
         BroadcastStream::new(dashboard_tx.subscribe()),
-        |result| async move {
-            match result {
-                Ok(dashboard_update) => {
-                    // Convert to SSE format
-                    let data = serde_json::to_string(&dashboard_update).unwrap_or_default();
-                    Some(Ok::<Event, axum::Error>(Event::default().data(data)))
+        move |result| {
+            let wallet_ids = user_wallet_ids.clone();
+            async move {
+                match result {
+                    Ok(mut dashboard_update) => {
+                        // Filter wallets based on user access
+                        if !is_admin {
+                            dashboard_update.wallets.retain(|wallet| {
+                                wallet.id.map_or(false, |id| wallet_ids.contains(&id))
+                            });
+                            dashboard_update.events.retain(|event| {
+                                wallet_ids.contains(&event.wallet_id)
+                            });
+                        }
+                        
+                        // Convert to SSE format
+                        let data = serde_json::to_string(&dashboard_update).unwrap_or_default();
+                        Some(Ok::<Event, axum::Error>(Event::default().data(data)))
+                    }
+                    Err(_) => None,
                 }
-                Err(_) => None,
             }
         }
     );
@@ -1140,7 +1531,7 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
 
     let dashboard_stream_routes = Router::new()
         .route("/dashboard/stream", get(dashboard_stream))
-        .with_state(dashboard_tx);
+        .with_state((dashboard_tx, wallet_manager.clone()));
 
     Router::new()
         .nest("/api", auth_routes.merge(wallet_routes).merge(provider_routes).merge(block_header_routes).merge(dashboard_stream_routes))

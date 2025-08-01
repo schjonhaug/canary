@@ -197,6 +197,28 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    // Create session cleanup task (runs every hour)
+    let session_cleanup_manager = wallet_manager.clone();
+    tokio::spawn(async move {
+        let mut interval = interval(Duration::from_secs(3600)); // Run every hour
+        
+        loop {
+            interval.tick().await;
+            
+            let manager = session_cleanup_manager.lock().await;
+            match manager.metadata_db.cleanup_expired_sessions().await {
+                Ok(deleted) => {
+                    if deleted > 0 {
+                        println!("Cleaned up {} expired sessions", deleted);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to cleanup expired sessions: {}", e);
+                }
+            }
+        }
+    });
+
     // Create notification worker task
     let notification_worker_manager = notification_manager.clone();
     let notification_wallet_manager = wallet_manager.clone();

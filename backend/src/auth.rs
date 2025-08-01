@@ -43,7 +43,6 @@ pub struct Claims {
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub user_id: i64,
-    pub phone_number: String,
     pub is_admin: bool,
 }
 
@@ -201,7 +200,6 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
         // Self-hosted mode: always return admin user
         return Ok(AuthUser {
             user_id: 1,
-            phone_number: "admin".to_string(),
             is_admin: true,
         });
     }
@@ -226,7 +224,6 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
 
     Ok(AuthUser {
         user_id: claims.sub,
-        phone_number: claims.phone,
         is_admin,
     })
 }
