@@ -956,9 +956,9 @@ pub async fn block_headers_stream(
         }
     );
 
-    // Create keep-alive stream that sends ping messages every 30 seconds
+    // Create keep-alive stream that sends ping messages every 15 seconds
     let keep_alive_stream = {
-        let interval = interval(Duration::from_secs(30));
+        let interval = interval(Duration::from_secs(15));
         tokio_stream::wrappers::IntervalStream::new(interval)
             .map(|_| Ok::<Event, axum::Error>(Event::default().comment("ping")))
     };
@@ -1052,9 +1052,9 @@ pub async fn dashboard_stream(
         }
     );
 
-    // Create keep-alive stream that sends ping messages every 30 seconds
+    // Create keep-alive stream that sends ping messages every 15 seconds
     let keep_alive_stream = {
-        let interval = interval(Duration::from_secs(30));
+        let interval = interval(Duration::from_secs(15));
         tokio_stream::wrappers::IntervalStream::new(interval)
             .map(|_| Ok::<Event, axum::Error>(Event::default().comment("ping")))
     };

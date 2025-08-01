@@ -17,34 +17,67 @@ export async function GET(request: Request) {
       headers['Authorization'] = authHeader;
     }
 
-    const response = await fetch(backendUrl, {
-      headers,
-    });
+    // Create a more robust connection with retry logic
+    let response: Response;
+    let retryCount = 0;
+    const maxRetries = 3;
 
-    if (!response.ok) {
-      throw new Error(`Backend SSE failed: ${response.status}`);
+    while (retryCount < maxRetries) {
+      try {
+        response = await fetch(backendUrl, {
+          headers,
+          // Add timeout configuration
+          signal: AbortSignal.timeout(300000), // 5 minutes timeout
+        });
+
+        if (response.ok) {
+          break;
+        } else {
+          throw new Error(`Backend SSE failed: ${response.status}`);
+        }
+      } catch (error) {
+        retryCount++;
+        console.error(`SSE connection attempt ${retryCount} failed:`, error);
+        
+        if (retryCount >= maxRetries) {
+          throw error;
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
+
+    if (!response!.ok) {
+      throw new Error(`Backend SSE failed: ${response!.status}`);
     }
 
     // Create a readable stream that forwards the SSE data
     const readable = new ReadableStream({
       start(controller) {
-        const reader = response.body?.getReader();
+        const reader = response!.body?.getReader();
         if (!reader) {
           controller.error(new Error('No response body'));
           return;
         }
 
+        let isClosed = false;
+
         const pump = async () => {
           try {
             const { done, value } = await reader.read();
-            if (done) {
-              controller.close();
+            if (done || isClosed) {
+              if (!isClosed) {
+                controller.close();
+                isClosed = true;
+              }
               return;
             }
             
             // Check if controller is still open before enqueueing
             if (!controller.desiredSize) {
               // Controller is closed, stop pumping
+              isClosed = true;
               return;
             }
             
@@ -52,14 +85,30 @@ export async function GET(request: Request) {
             pump();
           } catch (error) {
             console.error('SSE stream error:', error);
-            // Only error if controller is still open
-            if (controller.desiredSize !== null) {
+            if (!isClosed && controller.desiredSize !== null) {
               controller.error(error);
+              isClosed = true;
             }
           }
         };
 
+        // Start the pump
         pump();
+
+        // Handle client disconnect
+        request.signal.addEventListener('abort', () => {
+          console.log('Client disconnected from SSE');
+          isClosed = true;
+          reader.cancel();
+        });
+
+        // Cleanup on stream end
+        const cleanup = () => {
+          isClosed = true;
+        };
+
+        // Set up cleanup
+        request.signal.addEventListener('abort', cleanup);
       },
     });
 
