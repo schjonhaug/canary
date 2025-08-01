@@ -1,14 +1,24 @@
-export async function GET() {
+export async function GET(request: Request) {
   const backendUrl = process.env.NEXT_PUBLIC_API_URL 
     ? `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/stream`
     : `http://localhost:3000/api/dashboard/stream`;
 
   try {
+    // Get the Authorization header from the incoming request
+    const authHeader = request.headers.get('authorization');
+    
+    const headers: HeadersInit = {
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    };
+
+    // Add Authorization header if present
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+    }
+
     const response = await fetch(backendUrl, {
-      headers: {
-        'Accept': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -48,7 +58,7 @@ export async function GET() {
         'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control',
+        'Access-Control-Allow-Headers': 'Cache-Control, Authorization',
       },
     });
   } catch (error) {
