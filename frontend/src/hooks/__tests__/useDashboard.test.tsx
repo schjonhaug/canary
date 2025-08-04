@@ -104,7 +104,7 @@ describe('useDashboard', () => {
 
     await waitFor(() => {
       expect(mockSSE).toHaveBeenCalledWith(
-        'http://localhost:3000/api/dashboard/stream',
+        'http://localhost/api/dashboard/stream',
         {
           headers: {
             'Authorization': `Bearer ${mockToken}`,
@@ -132,7 +132,7 @@ describe('useDashboard', () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/dashboard',
+        '/api/dashboard',
         {
           headers: {
             'Authorization': `Bearer ${mockToken}`,

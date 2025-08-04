@@ -128,7 +128,6 @@ async fn main() -> anyhow::Result<()> {
     // Spawn wallet sync worker
     let sync_wallet_manager = Arc::clone(&wallet_manager);
     let sync_current_block_header = Arc::clone(&current_block_header);
-    let sync_dashboard_tx = dashboard_tx.clone();
     let block_header_tx_sync = block_header_tx.clone();
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(4));
