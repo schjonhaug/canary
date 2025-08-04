@@ -91,6 +91,11 @@ impl AppConfig {
             config.bind_address = bind_address_env;
         }
 
+        // Special handling for Railway - use PORT env var if available
+        if let Ok(port) = std::env::var("PORT") {
+            config.bind_address = format!("0.0.0.0:{}", port);
+        }
+
         if let Ok(wallet_dir_env) = std::env::var("CANARY_WALLET_DIR") {
             config.wallet_dir = wallet_dir_env;
         }
