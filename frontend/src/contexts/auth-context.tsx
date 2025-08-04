@@ -30,8 +30,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
+  // Check if auth is enabled
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false'
+
   // Check for existing session on mount
   useEffect(() => {
+    // In FOSS mode, set a default user and skip auth
+    if (!authEnabled) {
+      setUser({
+        id: 1,
+        phone_number: 'FOSS',
+        name: 'Admin',
+        is_admin: true
+      })
+      setToken('foss-mode')
+      setIsLoading(false)
+      return
+    }
+
     const storedToken = localStorage.getItem('auth_token')
     if (storedToken) {
       setToken(storedToken)

@@ -16,7 +16,13 @@ export function UserDropdown() {
   const { user, logout } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
 
-  if (!user) return null
+  // Check if auth is enabled
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false'
+  
+  // In FOSS mode or if no user, don't show anything
+  if (!authEnabled || !user) {
+    return null
+  }
 
   const displayName = user.name || user.phone_number
 
