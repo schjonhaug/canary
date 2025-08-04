@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,8 +15,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [name, setName] = useState('')
-  const [isNewUser, setIsNewUser] = useState(false)
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
+  const [step, setStep] = useState<'phone' | 'otp' | 'name'>('phone')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const { sendOtp, login } = useAuth()
@@ -41,9 +41,37 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await login(phone, otp, isNewUser ? name : undefined)
-    } catch (err) {
+      // Try to verify OTP without name first
+      const response = await api.verifyOtp(phone, otp)
+      
+      // Check if name is required
+      if ('requires_name' in response && response.requires_name) {
+        setStep('name')
+        setIsLoading(false)
+        return
+      }
+      
+      // Otherwise, we have a successful login response, use it directly
+      const { token, user } = response
+      localStorage.setItem('auth_token', token)
+      api.setAuthToken(token)
+      window.location.href = '/' // Use window.location to ensure full page reload
+    } catch (err: any) {
       setError(err instanceof Error ? err.message : 'Invalid OTP')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSubmitName = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
+    try {
+      await login(phone, otp, name)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create account')
     } finally {
       setIsLoading(false)
     }
@@ -85,7 +113,9 @@ export default function LoginPage() {
           <CardDescription className="text-center">
             {step === 'phone' 
               ? 'Enter your phone number to get started'
-              : 'Enter the verification code sent to your phone'
+              : step === 'otp'
+              ? 'Enter the verification code sent to your phone'
+              : 'Welcome! Please enter your name to complete registration'
             }
           </CardDescription>
         </CardHeader>
@@ -174,7 +204,7 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-          ) : (
+          ) : step === 'otp' ? (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="otp">Verification Code</Label>
@@ -190,35 +220,6 @@ export default function LoginPage() {
                   autoFocus
                   maxLength={6}
                 />
-              </div>
-              
-              {/* Name field for new users */}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="newUser"
-                    checked={isNewUser}
-                    onChange={(e) => setIsNewUser(e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="newUser" className="text-sm">I'm a new user</Label>
-                </div>
-                
-                {isNewUser && (
-                  <div className="space-y-2 mt-3">
-                    <Label htmlFor="name">Your Name</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="Enter your name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required={isNewUser}
-                      disabled={isLoading}
-                    />
-                  </div>
-                )}
               </div>
               <Button 
                 type="submit" 
@@ -246,6 +247,50 @@ export default function LoginPage() {
                 disabled={isLoading}
               >
                 Use a different number
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmitName} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Your Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Enter your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  autoFocus
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={isLoading || !name.trim()}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setStep('phone')
+                  setOtp('')
+                  setName('')
+                  setError('')
+                }}
+                disabled={isLoading}
+              >
+                Start over
               </Button>
             </form>
           )}

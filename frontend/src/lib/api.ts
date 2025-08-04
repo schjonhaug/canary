@@ -115,8 +115,8 @@ class ApiClient {
     })
   }
 
-  async verifyOtp(phoneNumber: string, code: string, name?: string): Promise<{ token: string, user: { id: number, phone_number: string, name?: string, is_admin: boolean } }> {
-    return this.request<{ token: string, user: { id: number, phone_number: string, name?: string, is_admin: boolean } }>('/api/auth/verify-otp', {
+  async verifyOtp(phoneNumber: string, code: string, name?: string): Promise<any> {
+    return this.request<any>('/api/auth/verify-otp', {
       method: 'POST',
       body: JSON.stringify({ phone_number: phoneNumber, code, name }),
     })

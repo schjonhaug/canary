@@ -966,12 +966,12 @@ impl MetadataDb {
             // Determine the name to use
             let user_name = if is_admin {
                 Some("Admin".to_string())
-            } else if cfg!(debug_assertions) {
-                // Dev mode: use hardcoded names for test users
+            } else if cfg!(debug_assertions) && name.is_none() {
+                // Dev mode: use hardcoded names for test users only if no name provided
                 match phone_number.as_str() {
                     "+4799999901" => Some("Alice".to_string()),
                     "+4699999902" => Some("Bob".to_string()),
-                    "+3399999903" => Some("Charlie".to_string()),
+                    // Charlie (+3399999903) is a new user, so they provide their own name
                     _ => name,
                 }
             } else {
@@ -987,16 +987,21 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_user_by_phone(&self, phone_number: &str) -> Result<Option<(i64, String)>> {
+    pub async fn get_user_by_phone(&self, phone_number: &str) -> Result<Option<UserRecord>> {
         let pool = self.pool.clone();
         let phone_number = phone_number.to_string();
         
-        spawn_blocking(move || -> Result<Option<(i64, String)>> {
+        spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, created_at FROM users WHERE phone_number = ?1")?
+                .prepare("SELECT id, phone_number, name, created_at FROM users WHERE phone_number = ?1")?
                 .query_row(params![&phone_number], |row| {
-                    Ok((row.get(0)?, row.get(1)?))
+                    Ok(UserRecord {
+                        id: row.get(0)?,
+                        phone_number: row.get(1)?,
+                        name: row.get(2)?,
+                        created_at: row.get(3)?,
+                    })
                 })
                 .ok();
             Ok(result)

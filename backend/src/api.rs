@@ -1316,6 +1316,31 @@ pub async fn verify_otp(
             // Clear rate limit on successful verification
             let _ = manager.metadata_db.clear_rate_limit(&request.phone_number).await;
             
+            // Check if user exists first
+            let existing_user = match manager.metadata_db.get_user_by_phone(&request.phone_number).await {
+                Ok(user) => user,
+                Err(e) => {
+                    eprintln!("Error checking user existence: {:?}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Failed to check user: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
+            };
+            
+            // If user doesn't exist and no name provided, return a special response
+            if existing_user.is_none() && request.name.is_none() {
+                return Json(serde_json::json!({
+                    "requires_name": true,
+                    "message": "New user registration requires a name"
+                })).into_response();
+            }
+            
+            eprintln!("User exists: {:?}, Name provided: {:?}", existing_user.is_some(), request.name);
+            
             // Create or get user
             let user_id = match manager.metadata_db.create_user(&request.phone_number, request.name.as_deref()).await {
                 Ok(id) => id,
@@ -1331,7 +1356,9 @@ pub async fn verify_otp(
             };
             
             // Update last login
-            let _ = manager.metadata_db.update_last_login(user_id).await;
+            if let Err(e) = manager.metadata_db.update_last_login(user_id).await {
+                eprintln!("Failed to update last login for user {}: {:?}", user_id, e);
+            }
             
             // Check if user is admin
             let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
@@ -1367,21 +1394,39 @@ pub async fn verify_otp(
             }
             
             // Get user info
+            eprintln!("Getting user info for user_id: {}", user_id);
             let user_info = match manager.metadata_db.get_user_by_id(user_id).await {
-                Ok(Some(db_user)) => AuthUserResponse {
-                    id: db_user.id,
-                    phone_number: db_user.phone_number,
-                    name: db_user.name,
-                    created_at: db_user.created_at,
+                Ok(Some(db_user)) => {
+                    eprintln!("Found user in DB: {:?}", db_user.name);
+                    AuthUserResponse {
+                        id: db_user.id,
+                        phone_number: db_user.phone_number,
+                        name: db_user.name,
+                        created_at: db_user.created_at,
+                    }
                 },
-                _ => AuthUserResponse {
-                    id: user_id,
-                    phone_number: request.phone_number.clone(),
-                    name: request.name.clone(),
-                    created_at: chrono::Utc::now().to_rfc3339(),
+                Ok(None) => {
+                    eprintln!("User not found in DB, creating response from request");
+                    AuthUserResponse {
+                        id: user_id,
+                        phone_number: request.phone_number.clone(),
+                        name: request.name.clone(),
+                        created_at: chrono::Utc::now().to_rfc3339(),
+                    }
                 },
+                Err(e) => {
+                    eprintln!("Error getting user by ID: {:?}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Failed to get user info: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
             };
             
+            eprintln!("Sending successful response for user: {:?}", user_info.name);
             Json(AuthResponse {
                 token,
                 user: user_info,
