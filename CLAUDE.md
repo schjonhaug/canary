@@ -96,13 +96,14 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 
 **Configuration methods:**
 - CLI: `cargo run -- --network mainnet --electrum-url ssl://electrum.blockstream.info:50002`
-- Environment: `CANARY_NETWORK=mainnet`, `CANARY_ELECTRUM_URL=...`
+- Environment: `CANARY_NETWORK=mainnet`, `CANARY_ELECTRUM_URL=...`, `CANARY_SYNC_INTERVAL=60`
 - `.env` file in backend directory
 
 **Defaults:**
 - Regtest: tcp://127.0.0.1:50001
 - Testnet: ssl://electrum.blockstream.info:60002  
 - Mainnet: ssl://electrum.blockstream.info:50002
+- Sync interval: 60 seconds (configurable via CANARY_SYNC_INTERVAL)
 
 ## Key Features
 - **Optional Authentication**: Phone-based authentication with OTP via Twilio Verify

@@ -34,6 +34,7 @@ async fn main() -> anyhow::Result<()> {
     println!("  Bind address: {}", config.bind_address);
     println!("  Wallet directory: {}", config.effective_wallet_dir());
     println!("  Metadata DB: {}", config.effective_metadata_db());
+    println!("  Sync interval: {} seconds", config.sync_interval_secs());
 
     // Create wallet manager with sync worker
     println!("Creating wallet sync worker...");
@@ -129,8 +130,9 @@ async fn main() -> anyhow::Result<()> {
     let sync_wallet_manager = Arc::clone(&wallet_manager);
     let sync_current_block_header = Arc::clone(&current_block_header);
     let block_header_tx_sync = block_header_tx.clone();
+    let sync_interval_secs = config.sync_interval_secs();
     tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(4));
+        let mut interval = interval(Duration::from_secs(sync_interval_secs));
         
         loop {
             interval.tick().await;

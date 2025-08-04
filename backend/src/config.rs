@@ -116,6 +116,14 @@ impl AppConfig {
             .unwrap_or(false) // Default to disabled unless explicitly enabled
     }
 
+    /// Get wallet sync interval in seconds
+    pub fn sync_interval_secs(&self) -> u64 {
+        std::env::var("CANARY_SYNC_INTERVAL")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(60) // Default to 60 seconds for public servers
+    }
+
 
     pub fn electrum_url(&self) -> String {
         self.electrum_url
