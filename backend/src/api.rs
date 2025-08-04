@@ -1013,32 +1013,35 @@ pub async fn dashboard_stream(
     let user_id = user.user_id;
     let is_admin = user.is_admin;
     
-    // Get list of wallet IDs the user owns (for filtering)
-    let user_wallet_ids = if !is_admin {
-        #[allow(unused_mut)]
-        let mut manager = wallet_manager.lock().await;
-        match manager.metadata_db.get_wallet_ids_for_user(user_id).await {
-            Ok(ids) => ids,
-            Err(_) => vec![], // If error, show no wallets
-        }
-    } else {
-        vec![] // Admin sees all, no filtering needed
-    };
+    // Clone wallet_manager for use in the stream
+    let stream_wallet_manager = wallet_manager.clone();
     
     let dashboard_stream = FuturesStreamExt::filter_map(
         BroadcastStream::new(dashboard_tx.subscribe()),
         move |result| {
-            let wallet_ids = user_wallet_ids.clone();
+            let manager = stream_wallet_manager.clone();
+            let user_id = user_id;
+            let is_admin = is_admin;
             async move {
                 match result {
                     Ok(mut dashboard_update) => {
                         // Filter wallets based on user access
                         if !is_admin {
+                            // Get fresh list of wallet IDs the user owns
+                            let user_wallet_ids = {
+                                #[allow(unused_mut)]
+                                let mut mgr = manager.lock().await;
+                                match mgr.metadata_db.get_wallet_ids_for_user(user_id).await {
+                                    Ok(ids) => ids,
+                                    Err(_) => vec![], // If error, show no wallets
+                                }
+                            };
+                            
                             dashboard_update.wallets.retain(|wallet| {
-                                wallet.id.map_or(false, |id| wallet_ids.contains(&id))
+                                wallet.id.map_or(false, |id| user_wallet_ids.contains(&id))
                             });
                             dashboard_update.events.retain(|event| {
-                                wallet_ids.contains(&event.wallet_id)
+                                user_wallet_ids.contains(&event.wallet_id)
                             });
                         }
                         

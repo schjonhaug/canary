@@ -27,8 +27,7 @@ export function useDashboard() {
 
     const loadInitialData = async () => {
       try {
-        // Fetch fresh data from REST API
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        // Fetch fresh data from REST API through Next.js proxy
         const headers: HeadersInit = {};
         
         // Add Authorization header if token is available
@@ -36,7 +35,7 @@ export function useDashboard() {
           headers['Authorization'] = `Bearer ${token}`;
         }
         
-        const response = await fetch(`${baseUrl}/api/dashboard`, {
+        const response = await fetch('/api/dashboard', {
           headers,
         });
         if (response.ok) {
@@ -74,9 +73,9 @@ export function useDashboard() {
       clearTimeout(reconnectTimeoutRef.current);
     }
 
-    // Use the configured API URL or default to localhost:3001 for backend
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    const streamUrl = `${baseUrl}/api/dashboard/stream`;
+    // Connect to dashboard stream through Next.js proxy
+    // SSE.js requires absolute URLs
+    const streamUrl = `${window.location.origin}/api/dashboard/stream`;
     
     console.log('Connecting to dashboard stream:', streamUrl);
     setError(null);
@@ -108,7 +107,7 @@ export function useDashboard() {
     }, 10000); // 10 second timeout
     
     eventSource.addEventListener('open', () => {
-      console.log('Dashboard stream connected');
+      console.log('Dashboard stream connected successfully');
       clearTimeout(connectionTimeout);
       reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
       setIsConnected(true);
@@ -119,11 +118,13 @@ export function useDashboard() {
       try {
         // Ignore ping messages (comments)
         if (event.data.startsWith(':') || event.data.trim() === '') {
+          console.log('Received ping/keep-alive');
           return;
         }
         
         console.log('Received dashboard update:', event.data);
         const update: DashboardUpdate = JSON.parse(event.data);
+        console.log('Parsed update - wallets:', update.wallets.length, 'events:', update.events.length);
         setWallets(update.wallets);
         setEvents(update.events);
         setLastUpdate(update.timestamp);
