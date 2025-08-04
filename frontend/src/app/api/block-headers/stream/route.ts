@@ -1,28 +1,51 @@
-export async function GET() {
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 minutes max duration for Vercel
+
+// Handle unhandled rejections for SSE streams
+if (typeof process !== 'undefined' && !process.listenerCount('unhandledRejection')) {
+  process.on('unhandledRejection', (reason: any) => {
+    if (
+      reason?.name === 'ResponseAborted' ||
+      reason?.name === 'AbortError' ||
+      reason?.code === 'UND_ERR_BODY_TIMEOUT' ||
+      reason?.message?.includes('aborted') ||
+      reason?.message?.includes('terminated')
+    ) {
+      // These are expected when SSE connections close
+      return;
+    }
+    // Re-throw other unhandled rejections
+    throw reason;
+  });
+}
+
+export async function GET(request: Request) {
   const backendUrl = process.env.NEXT_PUBLIC_API_URL 
     ? `${process.env.NEXT_PUBLIC_API_URL}/api/block-headers/stream`
     : `http://localhost:3000/api/block-headers/stream`;
 
   try {
     // Create a more robust connection with retry logic
-    let response: Response;
+    let backendResponse: Response;
     let retryCount = 0;
     const maxRetries = 3;
 
     while (retryCount < maxRetries) {
       try {
-        response = await fetch(backendUrl, {
+        backendResponse = await fetch(backendUrl, {
           headers: {
             'Accept': 'text/event-stream',
             'Cache-Control': 'no-cache',
           },
-          // Remove timeout - let the connection stay open indefinitely
+          // Add signal from request to properly handle aborts
+          signal: request.signal,
         });
 
-        if (response.ok) {
+        if (backendResponse.ok) {
           break;
         } else {
-          throw new Error(`Backend SSE failed: ${response.status}`);
+          throw new Error(`Backend SSE failed: ${backendResponse.status}`);
         }
       } catch (error) {
         retryCount++;
@@ -37,14 +60,14 @@ export async function GET() {
       }
     }
 
-    if (!response!.ok) {
-      throw new Error(`Backend SSE failed: ${response!.status}`);
+    if (!backendResponse!.ok) {
+      throw new Error(`Backend SSE failed: ${backendResponse!.status}`);
     }
 
     // Create a readable stream that forwards the SSE data
     const readable = new ReadableStream({
       start(controller) {
-        const reader = response!.body?.getReader();
+        const reader = backendResponse!.body?.getReader();
         if (!reader) {
           controller.error(new Error('No response body'));
           return;
@@ -64,29 +87,81 @@ export async function GET() {
             }
             
             // Check if controller is still open before enqueueing
-            if (!controller.desiredSize) {
+            if (!controller.desiredSize || controller.desiredSize === null) {
               // Controller is closed, stop pumping
               isClosed = true;
+              reader.cancel();
               return;
             }
             
             controller.enqueue(value);
-            pump();
-          } catch (error) {
-            console.error('SSE stream error:', error);
-            if (!isClosed && controller.desiredSize !== null) {
-              controller.error(error);
+            // Use setTimeout to avoid stack overflow and give event loop time to process
+            setTimeout(() => {
+              if (!isClosed) {
+                pump();
+              }
+            }, 0);
+          } catch (error: any) {
+            // Ignore timeout errors, abort errors, and response aborted errors
+            const isExpectedError = 
+              error?.code === 'UND_ERR_BODY_TIMEOUT' || 
+              error?.name === 'AbortError' ||
+              error?.name === 'ResponseAborted' ||
+              error?.message?.includes('terminated') ||
+              error?.message?.includes('aborted');
+              
+            if (!isExpectedError) {
+              console.error('SSE stream error:', error);
+            }
+            
+            if (!isClosed) {
+              try {
+                controller.close();
+              } catch (e) {
+                // Controller already closed
+              }
               isClosed = true;
+            }
+            reader.cancel().catch(() => {});
+          }
+        };
+
+        // Handle client disconnect
+        request.signal.addEventListener('abort', () => {
+          console.log('Client disconnected from SSE');
+          isClosed = true;
+          reader.cancel().catch(() => {});
+        });
+
+        // Cleanup function
+        const cleanup = () => {
+          if (!isClosed) {
+            isClosed = true;
+            reader.cancel().catch(() => {});
+            try {
+              controller.close();
+            } catch (e) {
+              // Controller already closed
             }
           }
         };
 
         // Start the pump
-        pump();
+        pump().catch((error: any) => {
+          // Handle pump errors
+          if (
+            error?.name !== 'ResponseAborted' &&
+            error?.name !== 'AbortError' &&
+            !error?.message?.includes('aborted')
+          ) {
+            console.error('Pump error:', error);
+          }
+        });
       },
     });
 
-    return new Response(readable, {
+    // Wrap the response to handle aborts gracefully
+    const response = new Response(readable, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
@@ -96,8 +171,18 @@ export async function GET() {
         'X-Accel-Buffering': 'no', // Disable nginx buffering
       },
     });
-  } catch (error) {
-    console.error('SSE Proxy Error:', error);
+
+    // Handle response abort to prevent unhandled rejections
+    request.signal.addEventListener('abort', () => {
+      // Response will be aborted automatically
+    });
+
+    return response;
+  } catch (error: any) {
+    // Don't log abort errors as they're expected
+    if (error?.name !== 'AbortError' && !error?.message?.includes('aborted')) {
+      console.error('SSE Proxy Error:', error);
+    }
     return new Response('SSE proxy failed', { status: 500 });
   }
 }
