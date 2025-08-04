@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, lazy, Suspense } from "react"
+import { useState, lazy, Suspense } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { Button } from "@/components/ui/button"
@@ -9,10 +9,10 @@ import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
 import { formatBitcoinAmount } from "@/lib/utils"
-import { formatDistanceToNow } from 'date-fns'
 import { useAuth } from "@/contexts/auth-context"
 import { UserDropdown } from "@/components/user-dropdown"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
+import { useRelativeTime } from "@/hooks/useRelativeTime"
 
 // Lazy load modal components for code splitting
 const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
@@ -20,24 +20,10 @@ const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
-  const [currentTime, setCurrentTime] = useState(Date.now())
   const { wallets, events, isConnected, error, lastUpdate } = useDashboard()
   const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders()
   const { isAuthenticated, isLoading } = useAuth()
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 60000); // Update every minute
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const formatTimeAgo = (timestamp: number) => {
-    // Force re-render every minute by including currentTime in calculation
-    currentTime; // This ensures the component re-renders when currentTime updates
-    return formatDistanceToNow(new Date(timestamp * 1000), { addSuffix: true });
-  };
+  const blockHeaderTime = useRelativeTime(blockHeader?.timestamp)
 
 
   const getConnectionSymbol = () => {
@@ -127,7 +113,7 @@ export default function Home() {
               <div className="flex items-center gap-2 hidden lg:flex">
                 <span className="text-muted-foreground">Time:</span>
                 <span>
-                  {formatTimeAgo(blockHeader.timestamp)}
+                  {blockHeaderTime}
                 </span>
               </div>
             </div>

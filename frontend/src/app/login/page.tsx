@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { api } from '@/lib/api'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,7 +19,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const { sendOtp, login, setAuth } = useAuth()
-  const router = useRouter()
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,7 +54,7 @@ export default function LoginPage() {
       // Otherwise, we already have a successful login response
       // Use setAuth to avoid making another API call
       await setAuth(response.token, response.user)
-    } catch (err: any) {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid OTP')
     } finally {
       setIsLoading(false)

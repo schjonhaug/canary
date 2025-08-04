@@ -1,28 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useBlockHeaders } from '@/hooks/useBlockHeaders';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { formatDistanceToNow } from 'date-fns';
+import { useRelativeTime } from '@/hooks/useRelativeTime';
 
 export function BlockStatus() {
   const { blockHeader, connected, reconnecting, error } = useBlockHeaders();
-  const [currentTime, setCurrentTime] = useState(Date.now());
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 60000); // Update every minute
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const formatTimeAgo = (timestamp: number) => {
-    // Force re-render every minute by including currentTime in calculation
-    currentTime; // This ensures the component re-renders when currentTime updates
-    return formatDistanceToNow(new Date(timestamp * 1000), { addSuffix: true });
-  };
+  const blockHeaderTime = useRelativeTime(blockHeader?.timestamp);
 
   const getConnectionStatus = () => {
     if (reconnecting) return { text: 'Reconnecting...', variant: 'secondary' as const };
@@ -54,7 +39,7 @@ export function BlockStatus() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Time:</span>{' '}
-                    <span>{formatTimeAgo(blockHeader.timestamp)}</span>
+                    <span>{blockHeaderTime}</span>
                   </div>
                 </div>
               </>

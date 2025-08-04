@@ -38,13 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Set token in API client
       api.setAuthToken(storedToken)
       // Fetch user info
-      fetchUser(storedToken)
+      fetchUser()
     } else {
       setIsLoading(false)
     }
   }, [])
 
-  const fetchUser = async (authToken: string) => {
+  const fetchUser = async () => {
     try {
       const { user: userData } = await api.getMe()
       setUser(userData)

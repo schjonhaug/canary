@@ -97,7 +97,7 @@ export function useBlockHeaders(apiUrl?: string) {
         setState(prev => ({ ...prev, error: 'Failed to reconnect after multiple attempts' }));
       }
     };
-  }, [apiUrl]);
+  }, []);
 
   useEffect(() => {
     // Fetch initial block header from REST endpoint

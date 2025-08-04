@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Shield } from 'lucide-react'
 
 export function DevIndicator() {
-  const { isDevMode, user } = useAuth()
+  const { user } = useAuth()
+  const isDevMode = process.env.NODE_ENV === 'development'
 
   if (!isDevMode) {
     return null
