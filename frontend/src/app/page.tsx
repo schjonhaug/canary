@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
 import { UserDropdown } from "@/components/user-dropdown"
+import { WalletOnboarding } from "@/components/wallet-onboarding"
 
 // Lazy load modal components for code splitting
 const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
@@ -115,64 +116,70 @@ export default function Home() {
             </div>
           )}
 
-          <Button
-            onClick={handleCreateWallet}
-            size="sm"
-            className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
-          >
-            <Plus size={16} />
-            Create Wallet
-          </Button>
+          {wallets.length > 0 && (
+            <Button
+              onClick={handleCreateWallet}
+              size="sm"
+              className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
+            >
+              <Plus size={16} />
+              Create Wallet
+            </Button>
+          )}
           
           <UserDropdown />
         </div>
       </div>
       
-      <div className="mt-8 space-y-8">
-        {/* Wallet Cards Section */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div>
-                <h2 className="text-2xl font-semibold">Wallets</h2>
-                {wallets.length > 1 && (
-                  <p className="text-sm text-muted-foreground">
-                    Tracking {wallets.length} wallets with a total balance of {formatBitcoinAmount(getTotalBalance())}
-                  </p>
-                )}
+      {wallets.length === 0 ? (
+        <WalletOnboarding onCreateWallet={handleCreateWallet} />
+      ) : (
+        <div className="mt-8 space-y-8">
+          {/* Wallet Cards Section */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div>
+                  <h2 className="text-2xl font-semibold">Wallets</h2>
+                  {wallets.length > 1 && (
+                    <p className="text-sm text-muted-foreground">
+                      Tracking {wallets.length} wallets with a total balance of {formatBitcoinAmount(getTotalBalance())}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <WalletCards 
-            selectedWalletId={selectedWalletId}
-            onSelectWallet={setSelectedWalletId}
-            wallets={wallets}
-            isConnected={isConnected}
-            error={error}
-            lastUpdate={lastUpdate}
-          />
-        </section>
+            <WalletCards 
+              selectedWalletId={selectedWalletId}
+              onSelectWallet={setSelectedWalletId}
+              wallets={wallets}
+              isConnected={isConnected}
+              error={error}
+              lastUpdate={lastUpdate}
+            />
+          </section>
 
-        {/* Transaction Events Section */}
-        <section>
-          <h2 className="text-2xl font-semibold mb-4">
-            Transaction Events
-            {selectedWalletId && (
-              <span className="text-lg text-muted-foreground ml-2">
-                (filtered)
-              </span>
-            )}
-          </h2>
-          <TransactionEvents 
-            selectedWalletId={selectedWalletId} 
-            events={events}
-            isConnected={isConnected}
-            error={error}
-            lastUpdate={lastUpdate}
-            walletsCount={wallets.length}
-          />
-        </section>
-      </div>
+          {/* Transaction Events Section */}
+          <section>
+            <h2 className="text-2xl font-semibold mb-4">
+              Transaction Events
+              {selectedWalletId && (
+                <span className="text-lg text-muted-foreground ml-2">
+                  (filtered)
+                </span>
+              )}
+            </h2>
+            <TransactionEvents 
+              selectedWalletId={selectedWalletId} 
+              events={events}
+              isConnected={isConnected}
+              error={error}
+              lastUpdate={lastUpdate}
+              walletsCount={wallets.length}
+            />
+          </section>
+        </div>
+      )}
       
       
       <Suspense fallback={null}>
