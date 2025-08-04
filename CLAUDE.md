@@ -5,10 +5,10 @@
 **License**: Open Source (FOSS)
 
 ## Project Overview
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, and multi-language notifications (Norwegian and English) via configurable providers.
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, and optional phone-based authentication using Twilio Verify.
 
 ## Architecture
-Built with a plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality.
+Built with a plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with phone number verification via Twilio Verify for multi-user support.
 
 ## Development Commands
 
@@ -56,14 +56,21 @@ canary/
 
 ## Key Dependencies
 - **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio notifications
-- **Frontend**: Next.js 15.3.5, React 19, Tailwind CSS 4, shadcn/ui components
+- **Frontend**: Next.js 15.3.5, React 19, Tailwind CSS 4, shadcn/ui components, JWT authentication support
 
 ## API Endpoints
+
+### Authentication (Optional)
+- `POST /api/auth/send-otp` - Send OTP to phone number
+- `POST /api/auth/verify-otp` - Verify OTP and login/register
+- `POST /api/auth/logout` - Logout current user
+- `GET /api/auth/me` - Get current user info
 
 ### Dashboard (Hybrid REST + SSE)
 - `GET /api/dashboard` - Initial state (REST)
 - `GET /api/dashboard/stream` - Real-time updates (SSE)
 - `GET /api/block-headers/stream` - Block header updates (SSE)
+- `GET /api/block-headers/current` - Current block header
 
 ### Wallet Management
 - `POST /api/wallets` - Create wallet (name + descriptor)
@@ -98,6 +105,8 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Mainnet: ssl://electrum.blockstream.info:50002
 
 ## Key Features
+- **Optional Authentication**: Phone-based authentication with OTP via Twilio Verify
+- **Multi-user Support**: JWT-based sessions with user isolation when auth is enabled
 - **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh and Twilio SMS
 - **Multiple Notification Methods**: Each contact can have multiple notification methods (future: SMS + email + ntfy + telegram + webhooks)
 - **Multi-language Support**: Norwegian and English with proper Bitcoin amount formatting  
@@ -111,6 +120,8 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Network Isolation**: Separate databases per Bitcoin network
 - **Background Sync**: 4-second wallet sync intervals
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
+- **User Onboarding**: Guided wallet creation with BIP39 mnemonic generation
+- **Development Mode**: Quick login options for testing with pre-configured test accounts
 
 ## Notification Setup
 
@@ -139,10 +150,24 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Auto-routing**: System automatically routes to appropriate provider(s) based on available methods
 - **Provider Independence**: All providers process all contacts, notification methods determine delivery targets
 
+### Authentication (Optional)
+Enable phone-based authentication for multi-user support:
+1. Set environment variables in `.env`:
+   ```
+   CANARY_ENABLE_AUTH=true
+   JWT_SECRET=your_secure_jwt_secret_here
+   TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+2. Frontend automatically shows login page when auth is enabled
+3. Users authenticate via phone number + OTP (6-digit code)
+4. New users provide name on first login
+5. JWT tokens stored in httpOnly cookies for security
+6. All wallet data isolated per user when auth is enabled
+
 ## Storage
-- **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage)
-- **Metadata**: `database/{network}/metadata.sqlite` (normalized schema with contacts, contact_notification_methods, events, notification_logs)
-- **Schema**: Single migration file with normalized design for extensible notification methods
+- **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
+- **Metadata**: `database/{network}/metadata.sqlite` (normalized schema with users, contacts, contact_notification_methods, events, notification_logs)
+- **Schema**: Single migration file with normalized design for extensible notification methods and multi-user support
 - **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
 
 ## Address Management
@@ -161,3 +186,5 @@ The service uses BDK's address revelation mechanism with a stop gap of 20:
 - Clean, maintainable codebase
 - Plugin architecture for extensibility
 - Generic database design supporting multiple notification providers
+- Proper error handling with user-friendly messages
+- Type-safe API contracts between frontend and backend
