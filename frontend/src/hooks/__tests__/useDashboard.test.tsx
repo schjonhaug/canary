@@ -48,7 +48,7 @@ describe('useDashboard', () => {
     } as Response);
   });
 
-  it('should not connect to SSE when user is not authenticated', () => {
+  it('should not connect to SSE when user is not authenticated', async () => {
     mockUseAuth.mockReturnValue({
       token: null,
       user: null,
@@ -59,7 +59,7 @@ describe('useDashboard', () => {
       logout: jest.fn(),
     });
 
-    act(() => {
+    await act(async () => {
       renderHook(() => useDashboard());
     });
 
@@ -67,7 +67,7 @@ describe('useDashboard', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('should not connect to SSE when no token is available', () => {
+  it('should not connect to SSE when no token is available', async () => {
     mockUseAuth.mockReturnValue({
       token: null,
       user: null,
@@ -78,7 +78,7 @@ describe('useDashboard', () => {
       logout: jest.fn(),
     });
 
-    act(() => {
+    await act(async () => {
       renderHook(() => useDashboard());
     });
 
@@ -86,7 +86,7 @@ describe('useDashboard', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('should connect to SSE with Authorization header when user is authenticated and has token', () => {
+  it('should connect to SSE with Authorization header when user is authenticated and has token', async () => {
     const mockToken = 'test-token';
     mockUseAuth.mockReturnValue({
       token: mockToken,
@@ -98,18 +98,20 @@ describe('useDashboard', () => {
       logout: jest.fn(),
     });
 
-    act(() => {
+    await act(async () => {
       renderHook(() => useDashboard());
     });
 
-    expect(mockSSE).toHaveBeenCalledWith(
-      'http://localhost:3000/api/dashboard/stream',
-      {
-        headers: {
-          'Authorization': `Bearer ${mockToken}`,
-        },
-      }
-    );
+    await waitFor(() => {
+      expect(mockSSE).toHaveBeenCalledWith(
+        'http://localhost:3000/api/dashboard/stream',
+        {
+          headers: {
+            'Authorization': `Bearer ${mockToken}`,
+          },
+        }
+      );
+    });
   });
 
   it('should include Authorization header in initial data fetch when user is authenticated and has token', async () => {
@@ -124,7 +126,7 @@ describe('useDashboard', () => {
       logout: jest.fn(),
     });
 
-    act(() => {
+    await act(async () => {
       renderHook(() => useDashboard());
     });
 
@@ -140,7 +142,7 @@ describe('useDashboard', () => {
     });
   });
 
-  it('should handle reconnection logic when connection fails', () => {
+  it('should handle reconnection logic when connection fails', async () => {
     const mockToken = 'test-token';
     mockUseAuth.mockReturnValue({
       token: mockToken,
@@ -155,12 +157,14 @@ describe('useDashboard', () => {
     // Mock setTimeout to control reconnection timing
     jest.useFakeTimers();
 
-    act(() => {
+    await act(async () => {
       renderHook(() => useDashboard());
     });
 
-    // Verify initial connection attempt
-    expect(mockSSE).toHaveBeenCalledTimes(1);
+    // Wait for initial connection
+    await waitFor(() => {
+      expect(mockSSE).toHaveBeenCalledTimes(1);
+    });
 
     // Simulate connection error
     const mockSSEInstance = mockSSE.mock.results[0].value;
@@ -169,18 +173,20 @@ describe('useDashboard', () => {
     );
     
     if (errorListener) {
-      act(() => {
+      await act(async () => {
         errorListener[1](new Event('error'));
       });
     }
 
     // Fast-forward time to trigger reconnection
-    act(() => {
+    await act(async () => {
       jest.advanceTimersByTime(1000);
     });
 
     // Verify reconnection attempt
-    expect(mockSSE).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(mockSSE).toHaveBeenCalledTimes(2);
+    });
 
     jest.useRealTimers();
   });

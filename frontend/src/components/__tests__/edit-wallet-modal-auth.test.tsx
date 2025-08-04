@@ -74,7 +74,18 @@ describe('EditWalletModal - Authentication', () => {
         id: 1,
         name: 'Test Contact',
         language: 'en',
-        notification_methods: [],
+        notification_methods: [
+          {
+            id: 1,
+            contact_id: 1,
+            provider_type: 'sms',
+            notification_target: '+1234567890',
+            display_target: '+1234567890',
+            created_at: '2024-01-01T00:00:00Z',
+          }
+        ],
+        wallet_id: 1,
+        created_at: '2024-01-01T00:00:00Z',
       },
     ])
 
@@ -86,10 +97,14 @@ describe('EditWalletModal - Authentication', () => {
       expect(screen.getByText('Test Contact')).toBeInTheDocument()
     })
 
-    // Find and click delete button (if it exists)
-    const deleteButtons = screen.queryAllByRole('button', { name: /delete/i })
-    if (deleteButtons.length > 0) {
-      await user.click(deleteButtons[0])
+    // Find delete button using the X icon within the contact item
+    const contactItem = screen.getByTestId('contact-item')
+    const deleteButton = contactItem.querySelector('button.text-red-600')
+    
+    expect(deleteButton).toBeInTheDocument()
+    
+    if (deleteButton) {
+      await user.click(deleteButton)
       
       await waitFor(() => {
         expect(mockApi.deleteContact).toHaveBeenCalledWith(1, 1)

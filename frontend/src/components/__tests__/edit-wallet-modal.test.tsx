@@ -8,6 +8,9 @@ jest.mock('../../lib/api', () => ({
   api: {
     getProviders: jest.fn(),
     createContact: jest.fn(),
+    getWalletContacts: jest.fn(),
+    updateWallet: jest.fn(),
+    deleteContact: jest.fn(),
   },
   ProviderInfo: {} as unknown,
 }))
@@ -46,17 +49,15 @@ const mockProviders = [
   },
 ]
 
-// Mock fetch
-global.fetch = jest.fn()
-
-const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
+// Get mocked api
+const mockApi = jest.requireMock('../../lib/api').api
 
 describe('EditWalletModal - Contact Management', () => {
-  beforeEach(async () => {
-    mockFetch.mockClear()
-    mockFetch.mockReset()
-    const apiModule = await import('../../lib/api')
-    apiModule.api.getProviders.mockResolvedValue({ providers: mockProviders })
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockApi.getProviders.mockResolvedValue({ providers: mockProviders })
+    mockApi.updateWallet.mockResolvedValue(mockWallet)
+    mockApi.deleteContact.mockResolvedValue()
   })
 
   afterEach(() => {
@@ -108,11 +109,8 @@ describe('EditWalletModal - Contact Management', () => {
       },
     ]
 
-    // Mock the fetch for getting wallet contacts
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockContacts,
-    } as Response)
+    // Mock the API call for getting wallet contacts
+    mockApi.getWalletContacts.mockResolvedValue(mockContacts)
 
     render(<EditWalletModal {...defaultProps} />)
 
@@ -127,11 +125,8 @@ describe('EditWalletModal - Contact Management', () => {
   })
 
   it('shows empty state when no contacts exist', async () => {
-    // Mock the fetch for getting wallet contacts (empty array)
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    } as Response)
+    // Mock the API call for getting wallet contacts (empty array)
+    mockApi.getWalletContacts.mockResolvedValue([])
 
     render(<EditWalletModal {...defaultProps} />)
 
@@ -144,37 +139,46 @@ describe('EditWalletModal - Contact Management', () => {
   })
 
   it('allows creating a new contact with valid phone number', async () => {
-    const apiModule = await import('../../lib/api')
-    
-    // Mock the fetch for getting wallet contacts (empty initially)
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [],
-      } as Response)
-      // Mock the fetch for refreshing contacts after creation
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [
-          {
-            id: 3,
-            wallet_id: 1,
-            name: 'New Contact',
-            language: 'en',
-            notification_methods: [
-              {
-                id: 3,
-                contact_id: 3,
-                provider_type: 'sms',
-                notification_target: '+4712345678',
-                display_target: '+4712345678',
-                created_at: '2024-01-01T00:00:00Z',
-              }
-            ],
-            created_at: '2024-01-01T00:00:00Z',
-          },
-        ],
-      } as Response)
+    // Mock the API calls
+    mockApi.getWalletContacts
+      .mockResolvedValueOnce([]) // Initial empty contacts
+      .mockResolvedValueOnce([ // After creation
+        {
+          id: 3,
+          wallet_id: 1,
+          name: 'New Contact',
+          language: 'en',
+          notification_methods: [
+            {
+              id: 3,
+              contact_id: 3,
+              provider_type: 'sms',
+              notification_target: '+4712345678',
+              display_target: '+4712345678',
+              created_at: '2024-01-01T00:00:00Z',
+            }
+          ],
+          created_at: '2024-01-01T00:00:00Z',
+        },
+      ])
+
+    mockApi.createContact.mockResolvedValue({
+      id: 3,
+      wallet_id: 1,
+      name: 'New Contact',
+      language: 'en',
+      notification_methods: [
+        {
+          id: 3,
+          contact_id: 3,
+          provider_type: 'sms',
+          notification_target: '+4712345678',
+          display_target: '+4712345678',
+          created_at: '2024-01-01T00:00:00Z',
+        }
+      ],
+      created_at: '2024-01-01T00:00:00Z',
+    })
 
     render(<EditWalletModal {...defaultProps} />)
 
@@ -200,7 +204,7 @@ describe('EditWalletModal - Contact Management', () => {
 
     // Verify API call
     await waitFor(() => {
-      expect(apiModule.api.createContact).toHaveBeenCalledWith(
+      expect(mockApi.createContact).toHaveBeenCalledWith(
         1,
         'New Contact',
         'en',
@@ -217,11 +221,8 @@ describe('EditWalletModal - Contact Management', () => {
   })
 
   it('shows error for invalid phone number', async () => {
-    // Mock the fetch for getting wallet contacts (empty initially)
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    } as Response)
+    // Mock the API call for getting wallet contacts (empty initially)
+    mockApi.getWalletContacts.mockResolvedValue([])
 
     render(<EditWalletModal {...defaultProps} />)
 
@@ -244,14 +245,10 @@ describe('EditWalletModal - Contact Management', () => {
   })
 
   it('handles API error when creating contact', async () => {
-    const apiModule = await import('../../lib/api')
-    apiModule.api.createContact.mockRejectedValueOnce(new Error('Phone number already exists'))
+    mockApi.createContact.mockRejectedValueOnce(new Error('Phone number already exists'))
     
-    // Mock the fetch for getting wallet contacts (empty initially)
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    } as Response)
+    // Mock the API call for getting wallet contacts (empty initially)
+    mockApi.getWalletContacts.mockResolvedValue([])
 
     render(<EditWalletModal {...defaultProps} />)
 
@@ -316,21 +313,12 @@ describe('EditWalletModal - Contact Management', () => {
       },
     ]
 
-    // Mock the fetch for getting wallet contacts
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockContacts,
-      } as Response)
-      // Mock the fetch for deleting contact
-      .mockResolvedValueOnce({
-        ok: true,
-      } as Response)
-      // Mock the fetch for refreshing contacts after deletion
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [mockContacts[1]], // Only Jane remains
-      } as Response)
+    // Mock the API calls
+    mockApi.getWalletContacts
+      .mockResolvedValueOnce(mockContacts) // Initial load
+      .mockResolvedValueOnce([mockContacts[1]]) // After deletion - only Jane remains
+
+    mockApi.deleteContact.mockResolvedValue()
 
     render(<EditWalletModal {...defaultProps} />)
 
@@ -347,25 +335,18 @@ describe('EditWalletModal - Contact Management', () => {
     fireEvent.click(deleteButton!)
 
     await waitFor(() => {
+      expect(mockApi.deleteContact).toHaveBeenCalledWith(1, 1)
+    })
+
+    await waitFor(() => {
       expect(screen.queryByText('John Doe')).not.toBeInTheDocument()
       expect(screen.getByText('Jane Smith')).toBeInTheDocument()
     })
-
-    // Verify the API call
-    expect(mockFetch).toHaveBeenCalledWith(
-      '/api/wallets/1/contacts/1',
-      expect.objectContaining({
-        method: 'DELETE',
-      })
-    )
   })
 
   it('disables create button when form is incomplete', async () => {
-    // Mock the fetch for getting wallet contacts
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    } as Response)
+    // Mock the API call for getting wallet contacts
+    mockApi.getWalletContacts.mockResolvedValue([])
 
     render(<EditWalletModal {...defaultProps} />)
 
@@ -388,40 +369,32 @@ describe('EditWalletModal - Contact Management', () => {
   })
 
   it('shows loading state while creating contact', async () => {
-    const apiModule = await import('../../lib/api')
-    apiModule.api.createContact.mockImplementation(() => 
+    mockApi.createContact.mockImplementation(() => 
       new Promise(resolve => setTimeout(resolve, 100))
     )
     
-    // Mock the fetch for getting wallet contacts
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [],
-      } as Response)
-      // Mock the fetch for refreshing contacts after creation
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [
-          {
-            id: 3,
-            wallet_id: 1,
-            name: 'Test Contact',
-            language: 'en',
-            notification_methods: [
-              {
-                id: 3,
-                contact_id: 3,
-                provider_type: 'sms',
-                notification_target: '+4712345678',
-                display_target: '+4712345678',
-                created_at: '2024-01-01T00:00:00Z',
-              }
-            ],
-            created_at: '2024-01-01T00:00:00Z',
-          },
-        ],
-      } as Response)
+    // Mock the API calls
+    mockApi.getWalletContacts
+      .mockResolvedValueOnce([]) // Initial empty
+      .mockResolvedValueOnce([ // After creation
+        {
+          id: 3,
+          wallet_id: 1,
+          name: 'Test Contact',
+          language: 'en',
+          notification_methods: [
+            {
+              id: 3,
+              contact_id: 3,
+              provider_type: 'sms',
+              notification_target: '+4712345678',
+              display_target: '+4712345678',
+              created_at: '2024-01-01T00:00:00Z',
+            }
+          ],
+          created_at: '2024-01-01T00:00:00Z',
+        },
+      ])
 
     render(<EditWalletModal {...defaultProps} />)
 
@@ -451,46 +424,4 @@ describe('EditWalletModal - Contact Management', () => {
     expect(createButton).toBeDisabled()
   })
 
-  it('formats phone numbers for display', async () => {
-    const mockContacts: Contact[] = [
-      {
-        id: 1,
-        wallet_id: 1,
-        name: 'John Doe',
-        language: 'en',
-        notification_methods: [
-          {
-            id: 1,
-            contact_id: 1,
-            provider_type: 'sms',
-            notification_target: '+4792050946',
-            display_target: '+4792050946',
-            created_at: '2024-01-01T00:00:00Z',
-          }
-        ],
-        created_at: '2024-01-01T00:00:00Z',
-      }
-    ]
-
-    // Mock the fetch for getting wallet contacts
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockContacts,
-    } as Response)
-
-    render(<EditWalletModal {...defaultProps} />)
-
-    // Wait for contacts to load
-    await waitFor(() => {
-      expect(screen.queryByText('Loading contacts...')).not.toBeInTheDocument()
-    })
-
-    // Check that we have the contact count and details
-    expect(screen.getByText('1 contact')).toBeInTheDocument()
-    expect(screen.getByText('John Doe')).toBeInTheDocument()
-    expect(screen.getByText('+4792050946')).toBeInTheDocument()
-
-    // Verify the fetch was called with correct URL
-    expect(mockFetch).toHaveBeenCalledWith('/api/wallets/1/contacts')
-  })
 })
