@@ -3,6 +3,12 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Accept build arguments
+ARG NEXT_PUBLIC_AUTH_ENABLED
+
+# Set environment variables for build
+ENV NEXT_PUBLIC_AUTH_ENABLED=$NEXT_PUBLIC_AUTH_ENABLED
+
 # Copy package files
 COPY package*.json ./
 

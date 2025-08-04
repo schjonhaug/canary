@@ -38,8 +38,10 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
     return new Response('Use dedicated SSE endpoints', { status: 400 });
   }
 
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL 
-    ? `${process.env.NEXT_PUBLIC_API_URL}/api/${slug.join('/')}`
+  // Use API_URL for server-side, fallback to NEXT_PUBLIC_API_URL for compatibility
+  const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
+  const backendUrl = apiUrl 
+    ? `${apiUrl}/api/${slug.join('/')}`
     : `http://localhost:3000/api/${slug.join('/')}`;
   const url = new URL(backendUrl);
 
@@ -86,6 +88,17 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
     });
   } catch (error) {
     console.error('API Proxy Error:', error);
-    return new Response('Backend request failed', { status: 500 });
+    console.error('Backend URL:', url.toString());
+    
+    // Return more detailed error information
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ 
+      error: 'Backend request failed',
+      details: errorMessage,
+      backendUrl: url.toString()
+    }), { 
+      status: 502,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
