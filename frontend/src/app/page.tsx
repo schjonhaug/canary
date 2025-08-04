@@ -10,7 +10,6 @@ import { useDashboard } from "@/hooks/useDashboard"
 import { useBlockHeaders } from "@/hooks/useBlockHeaders"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { formatDistanceToNow } from 'date-fns'
-import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
 import { UserDropdown } from "@/components/user-dropdown"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
@@ -24,7 +23,7 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(Date.now())
   const { wallets, events, isConnected, error, lastUpdate } = useDashboard()
   const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders()
-  const { user } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -67,9 +66,39 @@ export default function Home() {
     }, 0)
   }
 
+  // Show landing page for logged out users
+  if (!isLoading && !isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <Image
+            src="/images/canary.svg"
+            alt="Canary Logo"
+            width={120}
+            height={120}
+            className="mx-auto mb-6"
+          />
+          <h1 className="text-4xl font-bold tracking-wide">Canary</h1>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading state while auth is loading
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show dashboard for authenticated users
   return (
-    <ProtectedRoute>
-      <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Image
@@ -79,7 +108,7 @@ export default function Home() {
             height={48}
             className="h-12 w-12"
           />
-          <h1 className="text-3xl font-bold uppercase tracking-wide">CANARY</h1>
+          <h1 className="text-3xl font-bold tracking-wide">Canary</h1>
         </div>
         <div className="flex items-center gap-6">
           {/* Blockchain Status */}
@@ -202,7 +231,7 @@ export default function Home() {
               className="h-12 w-12"
             />
             <div>
-              <h3 className="text-lg font-bold uppercase tracking-wide">CANARY</h3>
+              <h3 className="text-lg font-bold tracking-wide">Canary</h3>
               <p className="text-muted-foreground text-sm">Bitcoin Wallet Alert System</p>
             </div>
           </div>
@@ -224,6 +253,5 @@ export default function Home() {
         </div>
       </footer>
     </div>
-    </ProtectedRoute>
   )
 }
