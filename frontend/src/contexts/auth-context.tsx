@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 interface User {
   id: number
   phone_number: string
+  name?: string
   is_admin: boolean
 }
 
@@ -15,29 +16,14 @@ interface AuthContextType {
   token: string | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (phone: string, code: string) => Promise<void>
-  sendOtp: (phone: string) => Promise<void>
-  logout: () => void
-  // Development mode functions
-  devLogin: (phone: string) => Promise<void>
   isDevMode: boolean
+  login: (phone: string, code: string, name?: string) => Promise<void>
+  sendOtp: (phone: string) => Promise<void>
+  devLogin: (phone: string) => Promise<void>
+  logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// Development mode configuration
-// NOTE: This is a custom dev mode implementation, NOT Twilio's official test patterns.
-// These phone numbers bypass our backend's Twilio Verify integration in development.
-const DEV_MODE = process.env.NODE_ENV === 'development'
-const DEV_ADMIN_PHONE = '+4799999900' // Custom admin number for dev mode (Norway)
-
-// Dev mode test phone numbers - these bypass Twilio Verify in development
-// Using clearly non-standard numbers with different country codes to avoid confusion
-const DEV_TEST_PHONES = [
-  '+4799999901', // Norway country code
-  '+4699999902', // Sweden country code
-  '+3399999903'  // France country code
-]
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -82,9 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const login = async (phone: string, code: string) => {
+  const login = async (phone: string, code: string, name?: string) => {
     try {
-      const data = await api.verifyOtp(phone, code)
+      const data = await api.verifyOtp(phone, code, name)
       setToken(data.token)
       setUser(data.user)
       localStorage.setItem('auth_token', data.token)
@@ -95,27 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Development mode login - bypasses Twilio Verify using hardcoded test code
   const devLogin = async (phone: string) => {
-    if (!DEV_MODE) {
-      throw new Error('Development mode login only available in development')
-    }
-
-    try {
-      // For dev test phones, backend will bypass Twilio and accept any code
-      await sendOtp(phone)
-      
-      // Use "123456" as the hardcoded dev verification code
-      const data = await api.verifyOtp(phone, '123456')
-      
-      setToken(data.token)
-      setUser(data.user)
-      localStorage.setItem('auth_token', data.token)
-      api.setAuthToken(data.token)
-      router.push('/')
-    } catch (error) {
-      throw error
-    }
+    // In dev mode, use predefined code
+    const code = '123456'
+    await login(phone, code)
   }
 
   const logout = async () => {
@@ -141,11 +110,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isLoading,
         isAuthenticated: !!token,
+        isDevMode: process.env.NODE_ENV === 'development',
         login,
         sendOtp,
-        logout,
         devLogin,
-        isDevMode: DEV_MODE,
+        logout,
       }}
     >
       {children}

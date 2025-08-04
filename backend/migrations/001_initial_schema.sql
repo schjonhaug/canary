@@ -5,13 +5,14 @@
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone_number TEXT NOT NULL UNIQUE,
+    name TEXT,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME
 );
 
 -- Initialize admin user (id=1) for self-hosted mode
-INSERT INTO users (id, phone_number, is_admin) VALUES (1, 'admin', TRUE);
+INSERT INTO users (id, phone_number, name, is_admin) VALUES (1, 'admin', 'Admin', TRUE);
 
 -- Sessions table: JWT/session management
 CREATE TABLE sessions (

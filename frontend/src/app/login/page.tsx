@@ -13,10 +13,12 @@ import Image from 'next/image'
 export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
+  const [name, setName] = useState('')
+  const [isNewUser, setIsNewUser] = useState(false)
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { sendOtp, login, devLogin, isDevMode } = useAuth()
+  const { sendOtp, login } = useAuth()
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,7 +41,7 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await login(phone, otp)
+      await login(phone, otp, isNewUser ? name : undefined)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid OTP')
     } finally {
@@ -52,7 +54,11 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await devLogin(phoneNumber)
+      await sendOtp(phoneNumber)
+      setPhone(phoneNumber)
+      setStep('otp')
+      // For dev mode, auto-fill the OTP
+      setOtp('123456')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login')
     } finally {
@@ -91,7 +97,7 @@ export default function LoginPage() {
           )}
 
           {/* Development Mode Quick Login */}
-          {isDevMode && step === 'phone' && (
+          {process.env.NODE_ENV === 'development' && step === 'phone' && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Shield className="h-4 w-4 text-blue-600" />
@@ -184,6 +190,35 @@ export default function LoginPage() {
                   autoFocus
                   maxLength={6}
                 />
+              </div>
+              
+              {/* Name field for new users */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="newUser"
+                    checked={isNewUser}
+                    onChange={(e) => setIsNewUser(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="newUser" className="text-sm">I'm a new user</Label>
+                </div>
+                
+                {isNewUser && (
+                  <div className="space-y-2 mt-3">
+                    <Label htmlFor="name">Your Name</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Enter your name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required={isNewUser}
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
               </div>
               <Button 
                 type="submit" 

@@ -55,6 +55,7 @@ pub struct SendOtpRequest {
 pub struct VerifyOtpRequest {
     pub phone_number: String,
     pub code: String,
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -67,21 +68,19 @@ pub struct AuthResponse {
 pub struct AuthUserResponse {
     pub id: i64,
     pub phone_number: String,
+    pub name: Option<String>,
     pub created_at: String,
 }
 
 // Development mode configuration
-// NOTE: This is a custom dev mode implementation, NOT Twilio's official test patterns.
-// These phone numbers bypass Twilio entirely when in debug mode.
 const DEV_MODE: bool = cfg!(debug_assertions);
-pub const DEV_ADMIN_PHONE: &str = "+4799999900"; // Custom admin number for dev mode (Norway)
+pub const DEV_ADMIN_PHONE: &str = "+4799999900";
 
-// Dev mode test phone numbers - these bypass Twilio Verify in development
-// Using clearly non-standard numbers with different country codes to avoid confusion
+// Dev mode test phone numbers
 const DEV_TEST_PHONES: [&str; 3] = [
-    "+4799999901", // Norway country code
-    "+4699999902", // Sweden country code
-    "+3399999903"  // France country code
+    "+4799999901",
+    "+4699999902", 
+    "+3399999903"
 ];
 
 pub struct AuthService {
@@ -212,16 +211,6 @@ impl AuthService {
         hasher.update(token.as_bytes());
         format!("{:x}", hasher.finalize())
     }
-
-    // Generate deterministic user ID from phone number
-    pub fn generate_user_id(phone: &str) -> i64 {
-        let mut hash = 0;
-        for byte in phone.as_bytes() {
-            hash = ((hash << 5) - hash) + (*byte as i64);
-            hash = hash & hash; // Convert to 32-bit integer
-        }
-        hash.abs() % 1000 + 2
-    }
 }
 
 pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
@@ -246,8 +235,6 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     }
 
     let token = &auth_header[7..];
-    
-    // Regular JWT token validation
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
     

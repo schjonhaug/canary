@@ -33,6 +33,7 @@ pub enum Language {
 pub struct UserRecord {
     pub id: i64,
     pub phone_number: String,
+    pub name: Option<String>,
     pub created_at: String,
 }
 
@@ -941,9 +942,10 @@ impl MetadataDb {
     }
 
     // User management methods
-    pub async fn create_user(&self, phone_number: &str) -> Result<i64> {
+    pub async fn create_user(&self, phone_number: &str, name: Option<&str>) -> Result<i64> {
         let pool = self.pool.clone();
         let phone_number = phone_number.to_string();
+        let name = name.map(|n| n.to_string());
         let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
         let is_admin = admin_phone.map_or(false, |phone| phone == phone_number)
             || (cfg!(debug_assertions) && phone_number == crate::auth::DEV_ADMIN_PHONE);
@@ -961,10 +963,25 @@ impl MetadataDb {
                 return Ok(id);
             }
             
+            // Determine the name to use
+            let user_name = if is_admin {
+                Some("Admin".to_string())
+            } else if cfg!(debug_assertions) {
+                // Dev mode: use hardcoded names for test users
+                match phone_number.as_str() {
+                    "+4799999901" => Some("Alice".to_string()),
+                    "+4699999902" => Some("Bob".to_string()),
+                    "+3399999903" => Some("Charlie".to_string()),
+                    _ => name,
+                }
+            } else {
+                name
+            };
+            
             // Create new user
             conn.execute(
-                "INSERT INTO users (phone_number, is_admin) VALUES (?1, ?2)",
-                params![&phone_number, is_admin],
+                "INSERT INTO users (phone_number, is_admin, name) VALUES (?1, ?2, ?3)",
+                params![&phone_number, is_admin, user_name],
             )?;
             Ok(conn.last_insert_rowid())
         }).await?
@@ -992,12 +1009,13 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, phone_number, created_at FROM users WHERE id = ?1")?
+                .prepare("SELECT id, phone_number, name, created_at FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
                         phone_number: row.get(1)?,
-                        created_at: row.get(2)?,
+                        name: row.get(2)?,
+                        created_at: row.get(3)?,
                     })
                 })
                 .ok();

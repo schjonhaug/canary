@@ -115,10 +115,10 @@ class ApiClient {
     })
   }
 
-  async verifyOtp(phoneNumber: string, code: string): Promise<{ token: string, user: { id: number, phone_number: string, is_admin: boolean } }> {
-    return this.request<{ token: string, user: { id: number, phone_number: string, is_admin: boolean } }>('/api/auth/verify-otp', {
+  async verifyOtp(phoneNumber: string, code: string, name?: string): Promise<{ token: string, user: { id: number, phone_number: string, name?: string, is_admin: boolean } }> {
+    return this.request<{ token: string, user: { id: number, phone_number: string, name?: string, is_admin: boolean } }>('/api/auth/verify-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone_number: phoneNumber, code }),
+      body: JSON.stringify({ phone_number: phoneNumber, code, name }),
     })
   }
 
@@ -128,8 +128,8 @@ class ApiClient {
     })
   }
 
-  async getMe(): Promise<{ user: { id: number, phone_number: string, is_admin: boolean } }> {
-    return this.request<{ user: { id: number, phone_number: string, is_admin: boolean } }>('/api/auth/me')
+  async getMe(): Promise<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }> {
+    return this.request<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }>('/api/auth/me')
   }
 }
 

@@ -1128,35 +1128,42 @@ pub async fn send_otp(
     #[allow(unused_mut)]
     let mut manager = wallet_manager.lock().await;
     
-    // Check rate limit
-    match manager.metadata_db.check_rate_limit(&request.phone_number).await {
-        Ok(true) => {} // Allowed
-        Ok(false) => {
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(ErrorResponse {
-                    error: "Too many OTP attempts. Please try again later.".to_string(),
-                }),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to check rate limit: {}", e),
-                }),
-            )
-                .into_response();
+    // Check if this is a dev test phone
+    let is_dev_phone = cfg!(debug_assertions) && 
+        (request.phone_number == crate::auth::DEV_ADMIN_PHONE || 
+         ["+4799999901", "+4699999902", "+3399999903"].contains(&request.phone_number.as_str()));
+    
+    // Check rate limit (skip for dev phones)
+    if !is_dev_phone {
+        match manager.metadata_db.check_rate_limit(&request.phone_number).await {
+            Ok(true) => {} // Allowed
+            Ok(false) => {
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    Json(ErrorResponse {
+                        error: "Too many OTP attempts. Please try again later.".to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to check rate limit: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
         }
     }
     
-    // Check if Twilio is enabled
+    // Check if Twilio is enabled (skip for dev phones in dev mode)
     let twilio_enabled = std::env::var("CANARY_ENABLE_TWILIO")
         .map(|v| v.to_lowercase() == "true" || v == "1")
         .unwrap_or(false);
     
-    if !twilio_enabled {
+    if !twilio_enabled && !is_dev_phone {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
@@ -1166,22 +1173,34 @@ pub async fn send_otp(
             .into_response();
     }
     
-    // Load Twilio config from environment
-    let twilio_config = match crate::auth::load_twilio_config_from_env() {
-        Ok(config) => config,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Twilio configuration error: {}", e),
-                }),
-            )
-                .into_response();
+    // Load Twilio config from environment (create dummy config for dev phones)
+    let twilio_config = if is_dev_phone {
+        // Create a dummy config for dev phones
+        crate::metadata::TwilioConfig {
+            id: None,
+            account_sid: "dummy".to_string(),
+            auth_token: "dummy".to_string(),
+            messaging_service_sid: "dummy".to_string(),
+            verify_service_sid: Some("dummy".to_string()),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        }
+    } else {
+        match crate::auth::load_twilio_config_from_env() {
+            Ok(config) => config,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Twilio configuration error: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
         }
     };
     
-    // Check that Verify service is configured for auth
-    if twilio_config.verify_service_sid.is_none() {
+    // Check that Verify service is configured for auth (skip for dev phones)
+    if !is_dev_phone && twilio_config.verify_service_sid.is_none() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -1230,12 +1249,17 @@ pub async fn verify_otp(
     #[allow(unused_mut)]
     let mut manager = wallet_manager.lock().await;
     
-    // Check if Twilio is enabled
+    // Check if this is a dev test phone
+    let is_dev_phone = cfg!(debug_assertions) && 
+        (request.phone_number == crate::auth::DEV_ADMIN_PHONE || 
+         ["+4799999901", "+4699999902", "+3399999903"].contains(&request.phone_number.as_str()));
+    
+    // Check if Twilio is enabled (skip for dev phones in dev mode)
     let twilio_enabled = std::env::var("CANARY_ENABLE_TWILIO")
         .map(|v| v.to_lowercase() == "true" || v == "1")
         .unwrap_or(false);
     
-    if !twilio_enabled {
+    if !twilio_enabled && !is_dev_phone {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
@@ -1245,22 +1269,34 @@ pub async fn verify_otp(
             .into_response();
     }
     
-    // Load Twilio config from environment
-    let twilio_config = match crate::auth::load_twilio_config_from_env() {
-        Ok(config) => config,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Twilio configuration error: {}", e),
-                }),
-            )
-                .into_response();
+    // Load Twilio config from environment (create dummy config for dev phones)
+    let twilio_config = if is_dev_phone {
+        // Create a dummy config for dev phones
+        crate::metadata::TwilioConfig {
+            id: None,
+            account_sid: "dummy".to_string(),
+            auth_token: "dummy".to_string(),
+            messaging_service_sid: "dummy".to_string(),
+            verify_service_sid: Some("dummy".to_string()),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        }
+    } else {
+        match crate::auth::load_twilio_config_from_env() {
+            Ok(config) => config,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Twilio configuration error: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
         }
     };
     
-    // Check that Verify service is configured for auth
-    if twilio_config.verify_service_sid.is_none() {
+    // Check that Verify service is configured for auth (skip for dev phones)
+    if !is_dev_phone && twilio_config.verify_service_sid.is_none() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -1281,7 +1317,7 @@ pub async fn verify_otp(
             let _ = manager.metadata_db.clear_rate_limit(&request.phone_number).await;
             
             // Create or get user
-            let user_id = match manager.metadata_db.create_user(&request.phone_number).await {
+            let user_id = match manager.metadata_db.create_user(&request.phone_number, request.name.as_deref()).await {
                 Ok(id) => id,
                 Err(e) => {
                     return (
@@ -1331,18 +1367,24 @@ pub async fn verify_otp(
             }
             
             // Get user info
-            let created_at = match manager.metadata_db.get_user_by_phone(&request.phone_number).await {
-                Ok(Some((_, created))) => created,
-                _ => chrono::Utc::now().to_rfc3339(),
+            let user_info = match manager.metadata_db.get_user_by_id(user_id).await {
+                Ok(Some(db_user)) => AuthUserResponse {
+                    id: db_user.id,
+                    phone_number: db_user.phone_number,
+                    name: db_user.name,
+                    created_at: db_user.created_at,
+                },
+                _ => AuthUserResponse {
+                    id: user_id,
+                    phone_number: request.phone_number.clone(),
+                    name: request.name.clone(),
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
             };
             
             Json(AuthResponse {
                 token,
-                user: AuthUserResponse {
-                    id: user_id,
-                    phone_number: request.phone_number.clone(),
-                    created_at,
-                },
+                user: user_info,
             })
             .into_response()
         }
@@ -1465,6 +1507,7 @@ pub async fn me(
         Ok(Some(db_user)) => AuthUserResponse {
             id: db_user.id,
             phone_number: db_user.phone_number,
+            name: db_user.name,
             created_at: db_user.created_at,
         },
         Ok(None) => {
@@ -1487,7 +1530,7 @@ pub async fn me(
         }
     };
     
-    Json(user_info).into_response()
+    Json(serde_json::json!({ "user": user_info })).into_response()
 }
 
 #[utoipa::path(
