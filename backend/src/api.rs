@@ -956,21 +956,29 @@ pub async fn block_headers_stream(
         }
     );
 
-    // Create keep-alive stream that sends ping messages every 15 seconds
+    // Send immediate ping to establish connection
+    let immediate_ping = futures_util::stream::once(async {
+        Ok::<Event, axum::Error>(Event::default().comment("ping"))
+    });
+    
+    // Create keep-alive stream that sends ping messages every 30 seconds
     let keep_alive_stream = {
-        let interval = interval(Duration::from_secs(15));
+        let mut interval = interval(Duration::from_secs(30));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         tokio_stream::wrappers::IntervalStream::new(interval)
             .map(|_| Ok::<Event, axum::Error>(Event::default().comment("ping")))
     };
 
-    // Combine the streams: initial event + block header updates + keep-alive pings
+    // Combine the streams: immediate ping + optional initial event + block header updates + periodic keep-alive pings
     let stream = if let Some(initial) = initial_event {
-        futures_util::stream::once(async { Ok(initial) })
+        immediate_ping
+            .chain(futures_util::stream::once(async { Ok(initial) }))
             .chain(block_header_stream)
             .chain(keep_alive_stream)
             .boxed()
     } else {
-        block_header_stream
+        immediate_ping
+            .chain(block_header_stream)
             .chain(keep_alive_stream)
             .boxed()
     };
@@ -1055,15 +1063,22 @@ pub async fn dashboard_stream(
         }
     );
 
-    // Create keep-alive stream that sends ping messages every 15 seconds
+    // Send immediate ping to establish connection, then periodic pings
+    let immediate_ping = futures_util::stream::once(async {
+        Ok::<Event, axum::Error>(Event::default().comment("ping"))
+    });
+    
+    // Create keep-alive stream that sends ping messages every 30 seconds
     let keep_alive_stream = {
-        let interval = interval(Duration::from_secs(15));
+        let mut interval = interval(Duration::from_secs(30));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         tokio_stream::wrappers::IntervalStream::new(interval)
             .map(|_| Ok::<Event, axum::Error>(Event::default().comment("ping")))
     };
 
-    // Combine the streams: dashboard updates + keep-alive pings
-    let stream = dashboard_stream
+    // Combine the streams: immediate ping + dashboard updates + periodic keep-alive pings
+    let stream = immediate_ping
+        .chain(dashboard_stream)
         .chain(keep_alive_stream)
         .boxed();
 
