@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { api } from '@/lib/api'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,7 +19,8 @@ export default function LoginPage() {
   const [step, setStep] = useState<'phone' | 'otp' | 'name'>('phone')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { sendOtp, login } = useAuth()
+  const { sendOtp, login, setAuth } = useAuth()
+  const router = useRouter()
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,11 +53,9 @@ export default function LoginPage() {
         return
       }
       
-      // Otherwise, we have a successful login response, use it directly
-      const { token, user } = response
-      localStorage.setItem('auth_token', token)
-      api.setAuthToken(token)
-      window.location.href = '/' // Use window.location to ensure full page reload
+      // Otherwise, we already have a successful login response
+      // Use setAuth to avoid making another API call
+      await setAuth(response.token, response.user)
     } catch (err: any) {
       setError(err instanceof Error ? err.message : 'Invalid OTP')
     } finally {
@@ -147,9 +147,9 @@ export default function LoginPage() {
                 </Button>
                 <div className="grid grid-cols-1 gap-2">
                   {[
-                    { phone: '+4799999901', label: '+47 999 99 901 (Norway)' },
-                    { phone: '+4699999902', label: '+46 999 99 902 (Sweden)' },
-                    { phone: '+3399999903', label: '+33 999 99 903 (France)' }
+                    { phone: '+4799999901', label: '+47 999 99 901 (Alice)' },
+                    { phone: '+4699999902', label: '+46 999 99 902 (Bob)' },
+                    { phone: '+3399999903', label: '+33 999 99 903 (New user)' }
                   ].map(({ phone, label }) => (
                     <Button
                       key={phone}

@@ -12,7 +12,6 @@ import { formatBitcoinAmount } from "@/lib/utils"
 import { formatDistanceToNow } from 'date-fns'
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
-import { DevUserSwitcher } from "@/components/dev-user-switcher"
 import { UserDropdown } from "@/components/user-dropdown"
 
 // Lazy load modal components for code splitting
@@ -69,7 +68,6 @@ export default function Home() {
 
   return (
     <ProtectedRoute>
-      <DevUserSwitcher />
       <div className="container mx-auto py-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">

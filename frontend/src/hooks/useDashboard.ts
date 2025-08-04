@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Wallet, TransactionEvent, DashboardUpdate } from '../types';
-import { getApiBaseUrl } from '../lib/utils';
 import { SSE } from 'sse.js';
 import { useAuth } from '../contexts/auth-context';
 
@@ -29,7 +28,7 @@ export function useDashboard() {
     const loadInitialData = async () => {
       try {
         // Fetch fresh data from REST API
-        const baseUrl = getApiBaseUrl();
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
         const headers: HeadersInit = {};
         
         // Add Authorization header if token is available
@@ -75,19 +74,17 @@ export function useDashboard() {
       clearTimeout(reconnectTimeoutRef.current);
     }
 
-    // Use the configured API URL or empty string for relative URLs
-    const baseUrl = getApiBaseUrl();
+    // Use the configured API URL or default to localhost:3001 for backend
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     const streamUrl = `${baseUrl}/api/dashboard/stream`;
     
     console.log('Connecting to dashboard stream:', streamUrl);
     setError(null);
     
-    // Connect directly to backend, bypassing Next.js API routes
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const authHeaders: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
     
     // Set up Server-Sent Events for real-time dashboard updates using sse.js library
-    const eventSource = new SSE(`${backendUrl}/api/dashboard/stream`, {
+    const eventSource = new SSE(streamUrl, {
       headers: authHeaders,
     });
     

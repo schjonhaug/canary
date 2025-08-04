@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { BlockHeader, BlockHeaderState } from '../types';
-import { getApiBaseUrl } from '../lib/utils';
 
 export function useBlockHeaders(apiUrl?: string) {
   const [state, setState] = useState<BlockHeaderState>({
@@ -31,7 +30,7 @@ export function useBlockHeaders(apiUrl?: string) {
     setState(prev => ({ ...prev, reconnecting: true, error: null }));
 
     // Connect directly to backend, bypassing Next.js API routes
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     const eventSource = new EventSource(`${backendUrl}/api/block-headers/stream`);
     eventSourceRef.current = eventSource;
 
@@ -105,7 +104,7 @@ export function useBlockHeaders(apiUrl?: string) {
     // Fetch initial block header from REST endpoint
     const fetchInitialBlockHeader = async () => {
       try {
-        const baseUrl = apiUrl ?? getApiBaseUrl();
+        const baseUrl = apiUrl ?? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
         const response = await fetch(`${baseUrl}/api/block-headers/current`);
         if (response.ok) {
           const blockHeader: BlockHeader = await response.json();

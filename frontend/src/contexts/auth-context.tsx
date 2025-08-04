@@ -16,10 +16,9 @@ interface AuthContextType {
   token: string | null
   isLoading: boolean
   isAuthenticated: boolean
-  isDevMode: boolean
   login: (phone: string, code: string, name?: string) => Promise<void>
+  setAuth: (token: string, user: User) => Promise<void>
   sendOtp: (phone: string) => Promise<void>
-  devLogin: (phone: string) => Promise<void>
   logout: () => void
 }
 
@@ -81,10 +80,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const devLogin = async (phone: string) => {
-    // In dev mode, use predefined code
-    const code = '123456'
-    await login(phone, code)
+  const setAuth = async (token: string, user: User) => {
+    setToken(token)
+    setUser(user)
+    localStorage.setItem('auth_token', token)
+    api.setAuthToken(token)
+    // Small delay to ensure state is propagated before navigation
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await router.push('/')
   }
 
   const logout = async () => {
@@ -110,10 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isLoading,
         isAuthenticated: !!token,
-        isDevMode: process.env.NODE_ENV === 'development',
         login,
+        setAuth,
         sendOtp,
-        devLogin,
         logout,
       }}
     >
