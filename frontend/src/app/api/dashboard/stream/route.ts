@@ -4,13 +4,14 @@ export const maxDuration = 300; // 5 minutes max duration for Vercel
 
 // Handle unhandled rejections for SSE streams
 if (typeof process !== 'undefined' && !process.listenerCount('unhandledRejection')) {
-  process.on('unhandledRejection', (reason: any) => {
+  process.on('unhandledRejection', (reason: unknown) => {
+    const error = reason as Error & { code?: string };
     if (
-      reason?.name === 'ResponseAborted' ||
-      reason?.name === 'AbortError' ||
-      reason?.code === 'UND_ERR_BODY_TIMEOUT' ||
-      reason?.message?.includes('aborted') ||
-      reason?.message?.includes('terminated')
+      error?.name === 'ResponseAborted' ||
+      error?.name === 'AbortError' ||
+      error?.code === 'UND_ERR_BODY_TIMEOUT' ||
+      error?.message?.includes('aborted') ||
+      error?.message?.includes('terminated')
     ) {
       // These are expected when SSE connections close
       return;
@@ -111,14 +112,15 @@ export async function GET(request: Request) {
                 pump();
               }
             }, 0);
-          } catch (error: any) {
+          } catch (error) {
             // Ignore timeout errors, abort errors, and response aborted errors
+            const err = error as Error & { code?: string };
             const isExpectedError = 
-              error?.code === 'UND_ERR_BODY_TIMEOUT' || 
-              error?.name === 'AbortError' ||
-              error?.name === 'ResponseAborted' ||
-              error?.message?.includes('terminated') ||
-              error?.message?.includes('aborted');
+              err?.code === 'UND_ERR_BODY_TIMEOUT' || 
+              err?.name === 'AbortError' ||
+              err?.name === 'ResponseAborted' ||
+              err?.message?.includes('terminated') ||
+              err?.message?.includes('aborted');
               
             if (!isExpectedError) {
               console.error('SSE stream error:', error);
@@ -127,7 +129,7 @@ export async function GET(request: Request) {
             if (!isClosed) {
               try {
                 controller.close();
-              } catch (e) {
+              } catch {
                 // Controller already closed
               }
               isClosed = true;
@@ -137,12 +139,13 @@ export async function GET(request: Request) {
         };
 
         // Start the pump
-        pump().catch((error: any) => {
+        pump().catch((error) => {
           // Handle pump errors
+          const err = error as Error;
           if (
-            error?.name !== 'ResponseAborted' &&
-            error?.name !== 'AbortError' &&
-            !error?.message?.includes('aborted')
+            err?.name !== 'ResponseAborted' &&
+            err?.name !== 'AbortError' &&
+            !err?.message?.includes('aborted')
           ) {
             console.error('Pump error:', error);
           }
@@ -155,18 +158,18 @@ export async function GET(request: Request) {
           reader.cancel().catch(() => {});
         });
 
-        // Cleanup function
-        const cleanup = () => {
-          if (!isClosed) {
-            isClosed = true;
-            reader.cancel().catch(() => {});
-            try {
-              controller.close();
-            } catch (e) {
-              // Controller already closed
-            }
-          }
-        };
+        // Cleanup function - commented out as it's not currently used
+        // const cleanup = () => {
+        //   if (!isClosed) {
+        //     isClosed = true;
+        //     reader.cancel().catch(() => {});
+        //     try {
+        //       controller.close();
+        //     } catch {
+        //       // Controller already closed
+        //     }
+        //   }
+        // };
       },
     });
 
@@ -188,9 +191,10 @@ export async function GET(request: Request) {
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error) {
     // Don't log abort errors as they're expected
-    if (error?.name !== 'AbortError' && !error?.message?.includes('aborted')) {
+    const err = error as Error;
+    if (err?.name !== 'AbortError' && !err?.message?.includes('aborted')) {
       console.error('SSE Proxy Error:', error);
     }
     return new Response('SSE proxy failed', { status: 500 });
