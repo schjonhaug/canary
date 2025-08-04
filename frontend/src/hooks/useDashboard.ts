@@ -21,7 +21,7 @@ export function useDashboard() {
   useEffect(() => {
     // Only fetch data if user is authenticated and has a token
     if (!isAuthenticated || !token) {
-      console.log('User not authenticated or no token available, skipping dashboard data fetch');
+      // User not authenticated, skip dashboard data fetch
       return;
     }
 
@@ -59,7 +59,7 @@ export function useDashboard() {
   const connect = useCallback(() => {
     // Don't connect if no token is available or user is not authenticated
     if (!isAuthenticated || !token) {
-      console.log('User not authenticated or no token available, skipping SSE connection');
+      // User not authenticated, skip SSE connection
       return;
     }
 
@@ -118,13 +118,16 @@ export function useDashboard() {
       try {
         // Ignore ping messages (comments)
         if (event.data.startsWith(':') || event.data.trim() === '') {
-          console.log('Received ping/keep-alive');
           return;
         }
         
-        console.log('Received dashboard update:', event.data);
         const update: DashboardUpdate = JSON.parse(event.data);
-        console.log('Parsed update - wallets:', update.wallets.length, 'events:', update.events.length);
+        
+        // Only log if there are actual changes (wallets or events)
+        if (update.wallets.length > 0 || update.events.length > 0) {
+          console.log('Dashboard update: wallets:', update.wallets.length, 'events:', update.events.length);
+        }
+        
         setWallets(update.wallets);
         setEvents(update.events);
         setLastUpdate(update.timestamp);

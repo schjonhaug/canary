@@ -141,18 +141,6 @@ async fn main() -> anyhow::Result<()> {
                 eprintln!("Sync failed: {}", e);
             }
 
-            // Broadcast dashboard update after sync
-            match manager.get_current_dashboard_state().await {
-                Ok(dashboard_update) => {
-                    if let Err(e) = sync_dashboard_tx.send(dashboard_update) {
-                        eprintln!("Failed to send dashboard update: {}", e);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to get dashboard state for broadcast: {}", e);
-                }
-            }
-
             // Check for new block headers
             if let Some(ref electrum_client) = manager.electrum_client {
                 match electrum_client.get_current_block_height() {

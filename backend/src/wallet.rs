@@ -501,10 +501,7 @@ impl WalletManager {
         let event_sender = &self.event_sender;
 
         if self.wallets.is_empty() {
-            // Send dashboard update even when no wallets exist to prevent frontend hanging
-            if let Err(e) = self.send_dashboard_update().await {
-                eprintln!("Failed to send dashboard update: {}", e);
-            }
+            // No wallets to sync, return early without sending update
             return Ok(());
         }
 
