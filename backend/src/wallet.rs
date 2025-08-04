@@ -1148,7 +1148,15 @@ impl WalletManager {
         };
         
         // Get recent transaction events (last 100 events)
-        let events = self.metadata_db.get_all_events_with_wallets().await?;
+        let mut events = self.metadata_db.get_all_events_with_wallets().await?;
+        
+        // Filter events based on user permissions
+        if !is_admin {
+            let user_wallet_ids: Vec<i64> = wallets.iter()
+                .filter_map(|w| w.id)
+                .collect();
+            events.retain(|event| user_wallet_ids.contains(&event.wallet_id));
+        }
         
         // Create dashboard update
         let dashboard_update = DashboardUpdate {
