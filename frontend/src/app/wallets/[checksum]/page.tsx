@@ -133,23 +133,19 @@ export default function WalletDetailPage() {
       
       <div className="mb-6">
         {/* Breadcrumb Navigation */}
-        <nav className="flex items-center text-sm text-muted-foreground mb-4">
-          <Link href="/wallets" className="hover:text-foreground">
+        <nav className="flex items-center text-2xl text-muted-foreground mb-4">
+          <Link href="/wallets" className="hover:text-foreground font-semibold">
             Wallets
           </Link>
           <span className="mx-2">/</span>
-          <span className="text-foreground font-medium">{wallet.name}</span>
-        </nav>
-        
-        <div className="flex items-center gap-6">
-          <div>
+          <div className="text-foreground font-semibold">
             <InlineWalletNameEdit 
               walletChecksum={wallet.checksum}
               currentName={wallet.name}
               onNameUpdated={handleNameUpdated}
             />
           </div>
-        </div>
+        </nav>
       </div>
 
       {/* Main Content */}

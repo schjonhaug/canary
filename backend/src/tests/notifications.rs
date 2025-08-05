@@ -8,7 +8,7 @@ use std::sync::Arc;
 fn create_test_event(event_type: EventType, amount_sats: i64, is_confirmed: bool) -> TransactionEvent {
     TransactionEvent {
         id: Some(1),
-        wallet_id: 1,
+        wallet_checksum: "test_wallet".to_string(),
         event_type,
         amount_sats,
         is_confirmed,
@@ -23,7 +23,7 @@ fn create_test_event(event_type: EventType, amount_sats: i64, is_confirmed: bool
 fn create_test_contact(name: &str, language: Language) -> Contact {
     Contact {
         id: Some(1),
-        wallet_id: 1,
+        wallet_checksum: "test_wallet".to_string(),
         name: name.to_string(),
         language,
         notification_methods: vec![],

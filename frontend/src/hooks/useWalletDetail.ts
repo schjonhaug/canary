@@ -50,7 +50,6 @@ export function useWalletDetail(walletChecksum: string | null) {
         setLastUpdate(data.timestamp);
         setIsConnected(true);
         setError(null);
-        console.log('Wallet detail updated:', data.wallet.name, 'with', data.events.length, 'events');
       } else if (response.status === 404) {
         setError('Wallet not found');
         setIsConnected(true);

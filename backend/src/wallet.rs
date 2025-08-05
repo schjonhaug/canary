@@ -509,8 +509,6 @@ impl WalletManager {
             return Ok(());
         }
 
-        // Track if any wallet had changes during this sync cycle
-        let mut any_wallet_changed = false;
 
         for (wallet_key, wallet) in self.wallets.iter_mut() {
             // Get balance before sync
@@ -602,8 +600,6 @@ impl WalletManager {
                         || total_before != total_after;
 
                     if has_changes {
-                        // Mark that at least one wallet had changes
-                        any_wallet_changed = true;
                         // Get the user-friendly wallet name and wallet ID
                         let wallet_filename = format!("{}.sqlite", wallet_key);
                         let wallet_name = self

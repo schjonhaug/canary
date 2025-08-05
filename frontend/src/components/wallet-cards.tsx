@@ -18,7 +18,7 @@ interface WalletCardsProps {
   onWalletDeleted?: () => void
 }
 
-export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
+export function WalletCards({ wallets, isConnected, error, lastUpdate, onWalletDeleted }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
 
   // Track when we've received data for the first time
@@ -142,7 +142,7 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
           return (
-            <Link key={wallet.checksum} href={`/wallets/${wallet.checksum}`} prefetch={true} onClick={() => console.log('Navigating to:', `/wallets/${wallet.checksum}`)}>
+            <Link key={wallet.checksum} href={`/wallets/${wallet.checksum}`} prefetch={true}>
               <Card className="transition-all duration-200 hover:shadow-md hover:bg-muted/50 cursor-pointer">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">

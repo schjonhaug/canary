@@ -4,11 +4,13 @@
 
 **License**: Open Source (FOSS)
 
+**Version**: 0.4.0
+
 ## Project Overview
 Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, and optional phone-based authentication using Twilio Verify.
 
 ## Architecture
-Built with a plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with phone number verification via Twilio Verify for multi-user support.
+Built with a plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with phone number verification via Twilio Verify for multi-user support. Uses polling-based frontend updates rather than server-sent events.
 
 ## Development Commands
 
@@ -47,8 +49,8 @@ cd regtest-env && ./docker-utils.sh run-tests <wallet_address>
 canary/
 ├── backend/          # Rust service with BDK wallet management
 │   ├── src/         # All source code (api.rs, main.rs, wallet management, notifications)
-│   ├── database/    # Network-specific SQLite databases  
-│   └── migrations/  # Single initial database schema
+│   ├── database/    # Network-specific SQLite databases (database/{network}/)
+│   └── migrations/  # Database schema migrations (001_initial_schema.sql, 002_dev_users.sql)
 ├── frontend/        # Next.js app with React components
 ├── regtest-env/    # Docker Bitcoin + Fulcrum setup
 └── CLAUDE.md       # This file
@@ -56,7 +58,7 @@ canary/
 
 ## Key Dependencies
 - **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio notifications
-- **Frontend**: Next.js 15.3.5, React 19, Tailwind CSS 4, shadcn/ui components, JWT authentication support
+- **Frontend**: Next.js 15, React 19, Tailwind CSS 4, shadcn/ui components, JWT authentication support
 
 ## API Endpoints
 
@@ -66,19 +68,21 @@ canary/
 - `POST /api/auth/logout` - Logout current user
 - `GET /api/auth/me` - Get current user info
 
-### Dashboard (REST with Polling)
-- `GET /api/dashboard` - Dashboard state with wallets, events, and block header information
-
 ### Wallet Management
 - `POST /api/wallets` - Create wallet (name + descriptor)
-- `GET /api/wallets/{id}` - Get wallet
-- `PUT /api/wallets/{id}` - Update wallet name
-- `DELETE /api/wallets/{id}` - Delete wallet
+- `GET /api/wallets` - List all wallets with timestamp (returns `WalletsListResponse`)
+- `GET /api/wallets/{checksum}` - Get wallet metadata by checksum
+- `GET /api/wallets/{checksum}/detail` - Get wallet with transaction events (returns `WalletDetailResponse`)
+- `PUT /api/wallets/{checksum}` - Update wallet name
+- `DELETE /api/wallets/{checksum}` - Delete wallet
 
-### Contact Management  
-- `POST /api/wallets/{id}/contacts` - Add contact with automatic provider detection (name + contact_address + language)
-- `GET /api/wallets/{id}/contacts` - List contacts with notification methods
-- `DELETE /api/wallets/{wallet_id}/contacts/{contact_id}` - Remove contact and all notification methods
+### Contact Management (Wallet-specific)
+- `POST /api/wallets/{checksum}/contacts` - Add contact with automatic provider detection (name + contact_address + language)
+- `GET /api/wallets/{checksum}/contacts` - List contacts with notification methods
+- `DELETE /api/wallets/{wallet_checksum}/contacts/{contact_id}` - Remove contact and all notification methods
+
+### Blockchain Data
+- `GET /api/block-headers/current` - Get current block header from database
 
 ### Notification System
 - `GET /api/providers` - List available and configured notification providers
@@ -114,7 +118,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
 - **Environment Configuration**: Provider selection via .env variables, no database config needed
 - **Performance**: Async SQLite with r2d2 connection pooling
-- **Real-time Updates**: Frontend polls `/api/dashboard` at configurable intervals (default 60s) for wallet and transaction updates
+- **Real-time Updates**: Frontend polls wallet endpoints at configurable intervals (default 60s) for wallet and transaction updates
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
 - **Network Isolation**: Separate databases per Bitcoin network
 - **Background Sync**: 4-second wallet sync intervals
@@ -125,7 +129,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 ## Notification Setup
 
 ### ntfy.sh (Default, always enabled)
-1. Add contacts with ntfy topics: `POST /api/wallets/{id}/contacts` (name + language + topic)
+1. Add contacts with ntfy topics: `POST /api/wallets/{checksum}/contacts` (name + language + topic)
 2. Auto-generated topics: `contactname-language-checksum` (e.g., `john-en-8nt3y08q`)
 3. Subscribe to topics at https://ntfy.sh/your-topic
 4. Automatic push notifications for all transactions
@@ -138,8 +142,8 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
    TWILIO_AUTH_TOKEN=your_auth_token
    TWILIO_MESSAGING_SERVICE_SID=your_service_sid_or_phone
    ```
-2. Add contacts with phone numbers: `POST /api/wallets/{id}/contacts` (name + language + phone)
-3. Phone numbers must include country code (e.g., `+4712345678`)
+2. Add contacts with phone numbers: `POST /api/wallets/{checksum}/contacts` (name + language + phone)
+3. Phone numbers must include country code (e.g., `+4712345678`) and are validated/normalized to E.164 format
 4. Automatic SMS notifications for all transactions
 
 ### Multiple Notification Methods (New Architecture)
@@ -162,11 +166,13 @@ Enable phone-based authentication for multi-user support:
 4. New users provide name on first login
 5. JWT tokens stored in httpOnly cookies for security
 6. All wallet data isolated per user when auth is enabled
+7. **Development Mode**: Pre-configured test users for development (`+4799999901` Alice, `+4699999902` Bob, `+3399999903` Charlie for registration testing)
+8. **Rate limiting**: OTP attempts are rate-limited and tracked in database
 
 ## Storage
 - **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
 - **Metadata**: `database/{network}/metadata.sqlite` (normalized schema with users, contacts, contact_notification_methods, events, notification_logs)
-- **Schema**: Single migration file with normalized design for extensible notification methods and multi-user support
+- **Schema**: Two migration files - initial schema (001_initial_schema.sql) and development users (002_dev_users.sql) with normalized design for extensible notification methods and multi-user support
 - **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
 
 ## Address Management
@@ -178,7 +184,7 @@ The service uses BDK's address revelation mechanism with a stop gap of 20:
 
 ## Development Workflow
 - **Testing**: `./regtest-env/docker-utils.sh` provides complete Bitcoin regtest environment
-- **Database Management**: Single migration file for clean schema initialization
+- **Database Management**: Two migration files for clean schema initialization and development test data
 
 ## Code Standards
 - No commented-out code (use git history)  

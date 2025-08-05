@@ -10,9 +10,10 @@ interface InlineWalletNameEditProps {
   walletChecksum: string
   currentName: string
   onNameUpdated?: (newName: string) => void
+  size?: "default" | "small"
 }
 
-export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdated }: InlineWalletNameEditProps) {
+export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdated, size = "default" }: InlineWalletNameEditProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [name, setName] = useState(currentName)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -65,6 +66,10 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
     }
   }
 
+  const textClasses = size === "small" ? "text-sm font-medium" : "text-2xl font-semibold"
+  const inputClasses = size === "small" ? "text-sm font-medium h-auto py-1 px-2" : "text-2xl font-semibold h-auto py-1 px-2"
+  const editIconSize = size === "small" ? 12 : 16
+
   if (isEditing) {
     return (
       <div className="space-y-2">
@@ -73,7 +78,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="text-3xl font-bold tracking-wide h-auto py-1 px-2"
+            className={inputClasses}
             disabled={isUpdating}
             autoFocus
           />
@@ -83,7 +88,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
             disabled={isUpdating || !name.trim()}
             className="shrink-0"
           >
-            <Check size={16} />
+            <Check size={editIconSize} />
           </Button>
           <Button
             size="sm"
@@ -92,7 +97,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
             disabled={isUpdating}
             className="shrink-0"
           >
-            <X size={16} />
+            <X size={editIconSize} />
           </Button>
         </div>
         {error && (
@@ -104,14 +109,14 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
 
   return (
     <div className="flex items-center gap-2 group">
-      <h1 className="text-3xl font-bold tracking-wide">{currentName}</h1>
+      <span className={textClasses}>{currentName}</span>
       <Button
         size="sm"
         variant="ghost"
         onClick={handleEdit}
         className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
       >
-        <Edit size={16} />
+        <Edit size={editIconSize} />
       </Button>
     </div>
   )

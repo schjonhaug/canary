@@ -4,7 +4,7 @@ use crate::metadata::{EventType, Language, TransactionEvent};
 fn create_test_event(event_type: EventType, amount_sats: i64, is_confirmed: bool) -> TransactionEvent {
     TransactionEvent {
         id: Some(1),
-        wallet_id: 1,
+        wallet_checksum: "test_wallet".to_string(),
         event_type,
         amount_sats,
         is_confirmed,

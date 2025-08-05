@@ -41,7 +41,6 @@ export function useBlockHeader() {
         setBlockHeader(data);
         setIsConnected(true);
         setError(null);
-        console.log('Block header updated:', data.height);
       } else if (response.status === 404) {
         // No block header found yet - this is normal on startup
         setBlockHeader(null);

@@ -47,7 +47,6 @@ export function useWalletsList(shouldFetch: boolean = true) {
         setLastUpdate(data.timestamp);
         setIsConnected(true);
         setError(null);
-        console.log('Wallets list updated:', data.wallets.length, 'wallets');
       } else {
         console.error('Failed to load wallets list:', response.status);
         setError('Failed to load wallets list');
