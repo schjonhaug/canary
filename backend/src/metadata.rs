@@ -191,6 +191,7 @@ pub struct DashboardUpdate {
     pub timestamp: u64,
     pub wallets: Vec<WalletMetadata>,
     pub events: Vec<TransactionEventWithWallet>,
+    pub current_block_header: Option<crate::electrum::BlockHeader>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]

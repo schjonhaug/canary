@@ -69,4 +69,5 @@ export interface DashboardUpdate {
   timestamp: number
   wallets: Wallet[]
   events: TransactionEvent[]
+  current_block_header: BlockHeader | null
 }

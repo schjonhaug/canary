@@ -4,10 +4,9 @@ import { useState, lazy, Suspense } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { Button } from "@/components/ui/button"
-import { CircleCheckBig, LoaderCircle, CircleOff, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
-import { useBlockHeaders } from "@/hooks/useBlockHeaders"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { UserDropdown } from "@/components/user-dropdown"
@@ -20,23 +19,10 @@ const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
-  const { wallets, events, isConnected, error, lastUpdate } = useDashboard()
-  const { blockHeader, connected, reconnecting, error: blockError } = useBlockHeaders()
+  const { wallets, events, blockHeader, error, lastUpdate, isLoading: dashboardLoading } = useDashboard()
   const { isAuthenticated, isLoading } = useAuth()
   const blockHeaderTime = useRelativeTime(blockHeader?.timestamp)
 
-
-  const getConnectionSymbol = () => {
-    if (reconnecting) return <LoaderCircle size={16} className="text-yellow-500 animate-spin" />
-    if (!connected || blockError) return <CircleOff size={16} className="text-red-500" />
-    return <CircleCheckBig size={16} className="text-green-500" />
-  }
-
-  const getConnectionTooltip = () => {
-    if (reconnecting) return 'Reconnecting...'
-    if (!connected || blockError) return 'Disconnected'
-    return 'Connected'
-  }
 
   const handleCreateWallet = () => {
     setIsCreateWalletOpen(true)
@@ -101,12 +87,6 @@ export default function Home() {
           {blockHeader && (
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-2">
-                <div 
-                  className="cursor-help" 
-                  title={getConnectionTooltip()}
-                >
-                  {getConnectionSymbol()}
-                </div>
                 <span className="text-muted-foreground">Block height:</span>
                 <span className="font-mono font-medium">{blockHeader.height.toLocaleString()}</span>
               </div>
@@ -121,12 +101,6 @@ export default function Home() {
           
           {!blockHeader && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div 
-                className="cursor-help" 
-                title={getConnectionTooltip()}
-              >
-                {getConnectionSymbol()}
-              </div>
               <span>Loading blockchain data...</span>
             </div>
           )}
@@ -168,7 +142,7 @@ export default function Home() {
               selectedWalletId={selectedWalletId}
               onSelectWallet={setSelectedWalletId}
               wallets={wallets}
-              isConnected={isConnected}
+              isConnected={!error}
               error={error}
               lastUpdate={lastUpdate}
             />
@@ -187,7 +161,7 @@ export default function Home() {
             <TransactionEvents 
               selectedWalletId={selectedWalletId} 
               events={events}
-              isConnected={isConnected}
+              isConnected={!error}
               error={error}
               lastUpdate={lastUpdate}
               walletsCount={wallets.length}

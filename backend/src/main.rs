@@ -13,8 +13,7 @@ mod twilio_provider;
 
 use api::create_router;
 use config::AppConfig;
-use electrum::BlockHeader;
-use metadata::{TransactionEvent, DashboardUpdate};
+use metadata::TransactionEvent;
 use notifications::{NotificationManager};
 use wallet::WalletManager;
 use ntfy_provider::NtfyProvider;
@@ -41,19 +40,12 @@ async fn main() -> anyhow::Result<()> {
     
     let (event_tx, _event_rx) = broadcast::channel::<TransactionEvent>(100);
 
-    // Create broadcast channel for block headers
-    let (block_header_tx, _block_header_rx) = broadcast::channel::<BlockHeader>(10);
-
-    // Create broadcast channel for dashboard updates
-    let (dashboard_tx, _dashboard_rx) = broadcast::channel::<DashboardUpdate>(100);
-
     // Create shared state for current block header
-    let current_block_header = Arc::new(Mutex::new(None::<BlockHeader>));
+    let current_block_header = Arc::new(Mutex::new(None::<electrum::BlockHeader>));
 
     let wallet_manager = Arc::new(Mutex::new(
         WalletManager::new(
             event_tx.clone(),
-            dashboard_tx.clone(),
             config.effective_wallet_dir().into(),
             &config.effective_metadata_db(),
             config.network(),
@@ -108,11 +100,6 @@ async fn main() -> anyhow::Result<()> {
                             // Update shared state
                             let mut current_header = current_block_header.lock().await;
                             *current_header = Some(block_header.clone());
-                            
-                            // Broadcast to SSE clients
-                            if let Err(e) = block_header_tx.send(block_header) {
-                                eprintln!("Failed to broadcast initial block header: {}", e);
-                            }
                         }
                         Err(e) => {
                             eprintln!("❌ Failed to get initial block header: {}", e);
@@ -131,7 +118,6 @@ async fn main() -> anyhow::Result<()> {
     // Spawn wallet sync worker
     let sync_wallet_manager = Arc::clone(&wallet_manager);
     let sync_current_block_header = Arc::clone(&current_block_header);
-    let block_header_tx_sync = block_header_tx.clone();
     let sync_interval_secs = config.sync_interval_secs();
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(sync_interval_secs));
@@ -168,11 +154,6 @@ async fn main() -> anyhow::Result<()> {
                                     let mut current_header = sync_current_block_header.lock().await;
                                     *current_header = Some(block_header.clone());
                                     drop(current_header);
-                                    
-                                    // Broadcast to SSE clients
-                                    if let Err(e) = block_header_tx_sync.send(block_header) {
-                                        eprintln!("Failed to broadcast block header: {}", e);
-                                    }
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to get block header for height {}: {}", current_height, e);
@@ -290,7 +271,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let app = create_router(wallet_manager, notification_manager, block_header_tx, dashboard_tx);
+    let app = create_router(wallet_manager, notification_manager);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);

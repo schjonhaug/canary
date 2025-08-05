@@ -7,15 +7,13 @@ use axum::{
     Router,
     extract::{Path, State},
     http::{StatusCode, HeaderMap},
-    response::{IntoResponse, Json, Response, Sse},
+    response::{IntoResponse, Json, Response},
     routing::{get, post},
 };
 use tower_http::cors::CorsLayer;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::{Mutex, broadcast};
-use tokio_stream::wrappers::BroadcastStream;
-use futures_util::StreamExt as FuturesStreamExt;
+use tokio::sync::Mutex;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 use phonenumber::PhoneNumber;
@@ -94,8 +92,6 @@ pub struct ProvidersResponse {
 
 pub type AppState = Arc<Mutex<WalletManager>>;
 pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
-pub type BlockHeaderBroadcast = broadcast::Sender<BlockHeader>;
-pub type DashboardBroadcast = broadcast::Sender<DashboardUpdate>;
 
 /// Validates and normalizes a phone number
 fn validate_phone_number(phone: &str) -> Result<String, String> {
@@ -915,175 +911,6 @@ pub async fn get_current_block_header(State(wallet_manager): State<AppState>) ->
     }
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/block-headers/stream",
-    responses(
-        (status = 200, description = "Server-sent events stream of block headers", content_type = "text/event-stream"),
-    ),
-    tag = "blockchain"
-)]
-pub async fn block_headers_stream(
-    State((wallet_manager, block_header_tx)): State<(AppState, BlockHeaderBroadcast)>,
-) -> Response {
-    use axum::response::sse::Event;
-    use tokio_stream::wrappers::BroadcastStream;
-    use futures_util::{StreamExt as FuturesStreamExt};
-    use tokio::time::{interval, Duration};
-    
-    // Send current header immediately, then stream future updates
-    let initial_event = {
-        #[allow(unused_mut)]
-        let mut manager = wallet_manager.lock().await;
-        if let Ok(Some(header)) = manager.metadata_db.get_current_block_header().await {
-            let data = serde_json::to_string(&header).unwrap_or_default();
-            Some(Event::default().data(data))
-        } else {
-            None
-        }
-    };
-
-    let block_header_stream = FuturesStreamExt::filter_map(
-        BroadcastStream::new(block_header_tx.subscribe()),
-        |result| async move {
-            match result {
-                Ok(block_header) => {
-                    let data = serde_json::to_string(&block_header).unwrap_or_default();
-                    Some(Ok::<Event, axum::Error>(Event::default().data(data)))
-                }
-                Err(_) => None,
-            }
-        }
-    );
-
-    // Send immediate ping to establish connection
-    let immediate_ping = futures_util::stream::once(async {
-        Ok::<Event, axum::Error>(Event::default().comment("ping"))
-    });
-    
-    // Create keep-alive stream that sends ping messages every 30 seconds
-    let keep_alive_stream = {
-        let mut interval = interval(Duration::from_secs(30));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        tokio_stream::wrappers::IntervalStream::new(interval)
-            .map(|_| Ok::<Event, axum::Error>(Event::default().comment("ping")))
-    };
-
-    // Combine the streams: immediate ping + optional initial event + block header updates + periodic keep-alive pings
-    let stream = if let Some(initial) = initial_event {
-        immediate_ping
-            .chain(futures_util::stream::once(async { Ok(initial) }))
-            .chain(block_header_stream)
-            .chain(keep_alive_stream)
-            .boxed()
-    } else {
-        immediate_ping
-            .chain(block_header_stream)
-            .chain(keep_alive_stream)
-            .boxed()
-    };
-
-    Sse::new(stream).into_response()
-}
-
-#[utoipa::path(
-    get,
-    path = "/api/dashboard/stream",
-    responses(
-        (status = 200, description = "Server-sent events stream of dashboard updates", content_type = "text/event-stream"),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-    ),
-    tag = "dashboard",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
-pub async fn dashboard_stream(
-    State((dashboard_tx, wallet_manager)): State<(DashboardBroadcast, AppState)>,
-    headers: HeaderMap,
-) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
-        Ok(user) => user,
-        Err(_) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
-                }),
-            )
-                .into_response();
-        }
-    };
-    use axum::response::sse::Event;
-    use tokio::time::{interval, Duration};
-    
-    let user_id = user.user_id;
-    let is_admin = user.is_admin;
-    
-    // Clone wallet_manager for use in the stream
-    let stream_wallet_manager = wallet_manager.clone();
-    
-    let dashboard_stream = FuturesStreamExt::filter_map(
-        BroadcastStream::new(dashboard_tx.subscribe()),
-        move |result| {
-            let manager = stream_wallet_manager.clone();
-            let user_id = user_id;
-            let is_admin = is_admin;
-            async move {
-                match result {
-                    Ok(mut dashboard_update) => {
-                        // Filter wallets based on user access
-                        if !is_admin {
-                            // Get fresh list of wallet IDs the user owns
-                            let user_wallet_ids = {
-                                #[allow(unused_mut)]
-                                let mut mgr = manager.lock().await;
-                                match mgr.metadata_db.get_wallet_ids_for_user(user_id).await {
-                                    Ok(ids) => ids,
-                                    Err(_) => vec![], // If error, show no wallets
-                                }
-                            };
-                            
-                            dashboard_update.wallets.retain(|wallet| {
-                                wallet.id.map_or(false, |id| user_wallet_ids.contains(&id))
-                            });
-                            dashboard_update.events.retain(|event| {
-                                user_wallet_ids.contains(&event.wallet_id)
-                            });
-                        }
-                        
-                        // Convert to SSE format
-                        let data = serde_json::to_string(&dashboard_update).unwrap_or_default();
-                        Some(Ok::<Event, axum::Error>(Event::default().data(data)))
-                    }
-                    Err(_) => None,
-                }
-            }
-        }
-    );
-
-    // Send immediate ping to establish connection, then periodic pings
-    let immediate_ping = futures_util::stream::once(async {
-        Ok::<Event, axum::Error>(Event::default().comment("ping"))
-    });
-    
-    // Create keep-alive stream that sends ping messages every 30 seconds
-    let keep_alive_stream = {
-        let mut interval = interval(Duration::from_secs(30));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        tokio_stream::wrappers::IntervalStream::new(interval)
-            .map(|_| Ok::<Event, axum::Error>(Event::default().comment("ping")))
-    };
-
-    // Combine the streams: immediate ping + dashboard updates + periodic keep-alive pings
-    let stream = immediate_ping
-        .chain(dashboard_stream)
-        .chain(keep_alive_stream)
-        .boxed();
-
-    Sse::new(stream).into_response()
-}
 
 #[utoipa::path(
     get,
@@ -1115,7 +942,7 @@ pub async fn get_dashboard(
     #[allow(unused_mut)]
     let mut manager = wallet_manager.lock().await;
     match manager.get_current_dashboard_state_for_user(user.user_id, user.is_admin).await {
-        Ok(dashboard_update) => Json(dashboard_update).into_response(),
+        Ok(dashboard_update) => (StatusCode::OK, Json(dashboard_update)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -1617,8 +1444,8 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
     paths(
         create_wallet, update_wallet, delete_wallet, get_wallet,
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
-        get_current_block_header, block_headers_stream,
-        dashboard_stream, get_dashboard,
+        get_current_block_header,
+        get_dashboard,
         get_providers,
         send_otp, verify_otp, logout, me
     ),
@@ -1646,7 +1473,7 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
 )]
 pub struct ApiDoc;
 
-pub fn create_router(wallet_manager: AppState, notification_manager: NotificationManagerState, block_header_tx: BlockHeaderBroadcast, dashboard_tx: DashboardBroadcast) -> Router {
+pub fn create_router(wallet_manager: AppState, notification_manager: NotificationManagerState) -> Router {
     // Auth routes (public)
     let auth_routes = Router::new()
         .route("/auth/send-otp", post(send_otp))
@@ -1674,16 +1501,8 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
         .route("/providers", get(get_providers))
         .with_state(notification_manager);
 
-    let block_header_routes = Router::new()
-        .route("/block-headers/stream", get(block_headers_stream))
-        .with_state((wallet_manager.clone(), block_header_tx));
-
-    let dashboard_stream_routes = Router::new()
-        .route("/dashboard/stream", get(dashboard_stream))
-        .with_state((dashboard_tx, wallet_manager.clone()));
-
     Router::new()
-        .nest("/api", auth_routes.merge(wallet_routes).merge(provider_routes).merge(block_header_routes).merge(dashboard_stream_routes))
+        .nest("/api", auth_routes.merge(wallet_routes).merge(provider_routes))
         .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
 }

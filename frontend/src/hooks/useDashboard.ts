@@ -1,182 +1,90 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Wallet, TransactionEvent, DashboardUpdate } from '../types';
-import { SSE } from 'sse.js';
+import { Wallet, TransactionEvent, DashboardUpdate, BlockHeader } from '../types';
 import { useAuth } from '../contexts/auth-context';
+
+// Get polling interval from environment variable (in seconds), default to 60
+const POLLING_INTERVAL = (parseInt(process.env.NEXT_PUBLIC_SYNC_INTERVAL || '60') || 60) * 1000;
 
 export function useDashboard() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [events, setEvents] = useState<TransactionEvent[]>([]);
+  const [blockHeader, setBlockHeader] = useState<BlockHeader | null>(null);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { token, isAuthenticated } = useAuth();
 
-  const eventSourceRef = useRef<SSE | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 5;
-  const baseReconnectDelay = 1000; // 1 second
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load initial data via REST API on mount
-  useEffect(() => {
+  const fetchDashboard = useCallback(async () => {
     // Only fetch data if user is authenticated and has a token
     if (!isAuthenticated || !token) {
       // User not authenticated, skip dashboard data fetch
       return;
     }
 
-    const loadInitialData = async () => {
-      try {
-        // Fetch fresh data from REST API through Next.js proxy
-        const headers: HeadersInit = {};
-        
-        // Add Authorization header if token is available
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        
-        const response = await fetch('/api/dashboard', {
-          headers,
-        });
-        if (response.ok) {
-          const data: DashboardUpdate = await response.json();
-          setWallets(data.wallets);
-          setEvents(data.events);
-          setLastUpdate(data.timestamp);
-          console.log('Loaded initial dashboard data from API');
-        } else {
-          console.error('Failed to load initial dashboard data:', response.status);
-        }
-      } catch (err) {
-        console.error('Failed to load initial data:', err);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const headers: HeadersInit = {};
+      
+      // Add Authorization header if token is available
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch('/api/dashboard', {
+        headers,
+      });
+      
+      if (response.ok) {
+        const data: DashboardUpdate = await response.json();
+        setWallets(data.wallets);
+        setEvents(data.events);
+        setBlockHeader(data.current_block_header);
+        setLastUpdate(data.timestamp);
+        console.log('Dashboard updated: wallets:', data.wallets.length, 'events:', data.events.length);
+      } else {
+        console.error('Failed to load dashboard data:', response.status);
         setError('Failed to load dashboard data');
       }
-    };
-
-    loadInitialData();
+    } catch (err) {
+      console.error('Failed to fetch dashboard:', err);
+      setError('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
   }, [token, isAuthenticated]);
 
-  const connect = useCallback(() => {
-    // Don't connect if no token is available or user is not authenticated
-    if (!isAuthenticated || !token) {
-      // User not authenticated, skip SSE connection
-      return;
-    }
-
-    // Close existing connection if any
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-
-    // Clear any existing reconnect timeout
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-    }
-
-    // Connect to dashboard stream through Next.js proxy
-    // SSE.js requires absolute URLs
-    const streamUrl = `${window.location.origin}/api/dashboard/stream`;
-    
-    console.log('Connecting to dashboard stream:', streamUrl);
-    setError(null);
-    
-    const authHeaders: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
-    
-    // Set up Server-Sent Events for real-time dashboard updates using sse.js library
-    const eventSource = new SSE(streamUrl, {
-      headers: authHeaders,
-    });
-    
-    eventSourceRef.current = eventSource;
-
-    // Set connection timeout
-    const connectionTimeout = setTimeout(() => {
-      console.warn('Dashboard stream connection timeout');
-      eventSource.close();
-      setIsConnected(false);
-      setError('Connection timeout');
-      
-      // Attempt reconnection
-      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-        const delay = baseReconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
-        reconnectTimeoutRef.current = setTimeout(() => {
-          reconnectAttemptsRef.current++;
-          connect();
-        }, delay);
-      }
-    }, 10000); // 10 second timeout
-    
-    eventSource.addEventListener('open', () => {
-      console.log('Dashboard stream connected successfully');
-      clearTimeout(connectionTimeout);
-      reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
-      setIsConnected(true);
-      setError(null);
-    });
-
-    eventSource.addEventListener('message', (event: MessageEvent) => {
-      try {
-        // Ignore ping messages (comments)
-        if (event.data.startsWith(':') || event.data.trim() === '') {
-          return;
-        }
-        
-        const update: DashboardUpdate = JSON.parse(event.data);
-        
-        // Only log if there are actual changes (wallets or events)
-        if (update.wallets.length > 0 || update.events.length > 0) {
-          console.log('Dashboard update: wallets:', update.wallets.length, 'events:', update.events.length);
-        }
-        
-        setWallets(update.wallets);
-        setEvents(update.events);
-        setLastUpdate(update.timestamp);
-        setError(null);
-        setIsConnected(true);
-      } catch (err) {
-        console.error('Failed to parse dashboard update:', err);
-        setError('Failed to parse dashboard update data');
-      }
-    });
-
-    eventSource.addEventListener('error', (error: Event) => {
-      console.error('Dashboard SSE failed:', error);
-      clearTimeout(connectionTimeout);
-      setIsConnected(false);
-      
-      // Attempt reconnection
-      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-        const delay = baseReconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
-        reconnectTimeoutRef.current = setTimeout(() => {
-          reconnectAttemptsRef.current++;
-          connect();
-        }, delay);
-      } else {
-        setError('Failed to reconnect after multiple attempts');
-      }
-    });
-
-    eventSource.stream();
-  }, [token, isAuthenticated]);
+  const refresh = useCallback(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
 
   useEffect(() => {
-    connect();
+    // Load initial data
+    fetchDashboard();
 
+    // Set up polling interval
+    pollingIntervalRef.current = setInterval(() => {
+      fetchDashboard();
+    }, POLLING_INTERVAL);
+
+    // Cleanup on unmount
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [connect]);
+  }, [fetchDashboard]);
 
   return { 
     wallets, 
     events, 
+    blockHeader,
     lastUpdate, 
     error, 
-    isConnected,
+    isLoading,
+    refresh, // Manual refresh function
   };
 }

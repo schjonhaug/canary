@@ -1,5 +1,5 @@
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventInsert, EventType, TransactionEvent, WalletMetadata, DashboardUpdate, MetadataDb};
+use crate::metadata::{EventInsert, EventType, TransactionEvent, WalletMetadata, MetadataDb, DashboardUpdate};
 use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::secp256k1::Secp256k1;
 use bdk_wallet::rusqlite::Connection;
@@ -15,7 +15,6 @@ pub struct WalletManager {
     pub electrum_client: Option<ElectrumClient>,
     pub metadata_db: MetadataDb,
     pub event_sender: broadcast::Sender<TransactionEvent>,
-    pub dashboard_sender: broadcast::Sender<DashboardUpdate>,
     network: Network,
 }
 
@@ -30,7 +29,6 @@ impl WalletManager {
 
     pub async fn new(
         event_sender: broadcast::Sender<TransactionEvent>,
-        dashboard_sender: broadcast::Sender<DashboardUpdate>,
         wallet_dir: PathBuf,
         metadata_db_path: &str,
         network: Network,
@@ -68,7 +66,6 @@ impl WalletManager {
             electrum_client,
             metadata_db,
             event_sender,
-            dashboard_sender,
             network,
         };
 
@@ -1165,24 +1162,22 @@ impl WalletManager {
             events.retain(|event| user_wallet_ids.contains(&event.wallet_id));
         }
         
+        // Get current block header
+        let current_block_header = self.metadata_db.get_current_block_header().await.ok().flatten();
+
         // Create dashboard update
         let dashboard_update = DashboardUpdate {
             timestamp,
             wallets,
             events,
+            current_block_header,
         };
 
         Ok(dashboard_update)
     }
 
     pub async fn send_dashboard_update(&self) -> Result<()> {
-        let dashboard_update = self.get_current_dashboard_state().await?;
-
-        // Send dashboard update to subscribers
-        if let Err(e) = self.dashboard_sender.send(dashboard_update) {
-            eprintln!("Failed to broadcast dashboard update: {}", e);
-        }
-
+        // No longer needed - frontend polls for updates
         Ok(())
     }
 
