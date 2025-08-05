@@ -26,9 +26,10 @@ interface WalletCardsProps {
   isConnected: boolean
   error: string | null
   lastUpdate: number | null
+  onWalletDeleted?: () => void
 }
 
-export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, lastUpdate }: WalletCardsProps) {
+export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, lastUpdate, onWalletDeleted }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -100,6 +101,11 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     // Clear selection if the deleted wallet was selected
     if (selectedWalletId === walletId) {
       onSelectWallet(null)
+    }
+    
+    // Trigger immediate refresh
+    if (onWalletDeleted) {
+      onWalletDeleted()
     }
   }
 
@@ -287,6 +293,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
           isOpen={isEditModalOpen}
           onClose={handleEditModalClose}
           onDeleteWallet={handleDeleteFromEdit}
+          onWalletUpdated={onWalletDeleted}
         />
       </Suspense>
     </div>

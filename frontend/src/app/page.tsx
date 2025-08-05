@@ -19,7 +19,7 @@ const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
-  const { wallets, events, blockHeader, error, lastUpdate, isLoading: dashboardLoading } = useDashboard()
+  const { wallets, events, blockHeader, error, lastUpdate, isLoading: dashboardLoading, refresh } = useDashboard()
   const { isAuthenticated, isLoading } = useAuth()
   const blockHeaderTime = useRelativeTime(blockHeader?.timestamp)
 
@@ -30,6 +30,11 @@ export default function Home() {
 
   const handleWalletCreated = () => {
     setIsCreateWalletOpen(false)
+    refresh() // Immediately refresh dashboard after wallet creation
+  }
+
+  const handleWalletDeleted = () => {
+    refresh() // Immediately refresh dashboard after wallet deletion
   }
 
   const getTotalBalance = () => {
@@ -123,6 +128,7 @@ export default function Home() {
               isConnected={!error}
               error={error}
               lastUpdate={lastUpdate}
+              onWalletDeleted={handleWalletDeleted}
             />
           </section>
 

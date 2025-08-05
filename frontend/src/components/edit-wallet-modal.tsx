@@ -28,6 +28,7 @@ interface EditWalletModalProps {
   isOpen: boolean
   onClose: () => void
   onDeleteWallet: (wallet: Wallet) => void
+  onWalletUpdated?: () => void
 }
 
 export function EditWalletModal({
@@ -35,6 +36,7 @@ export function EditWalletModal({
   isOpen,
   onClose,
   onDeleteWallet,
+  onWalletUpdated,
 }: EditWalletModalProps) {
   const [walletName, setWalletName] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
@@ -105,6 +107,9 @@ export function EditWalletModal({
     try {
       await api.updateWallet(wallet.id, walletName.trim())
       onClose()
+      if (onWalletUpdated) {
+        onWalletUpdated()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update wallet")
     } finally {
@@ -158,6 +163,9 @@ export function EditWalletModal({
       setEnabledProviders({})
       setProviderValues({})
       await fetchWalletContacts(wallet.id)
+      if (onWalletUpdated) {
+        onWalletUpdated() // Refresh dashboard to update contact count
+      }
     } catch (err) {
       setNewContactError(err instanceof Error ? err.message : "Failed to create contact")
     } finally {
@@ -171,6 +179,9 @@ export function EditWalletModal({
     try {
       await api.deleteContact(wallet.id, contactId)
       await fetchWalletContacts(wallet.id)
+      if (onWalletUpdated) {
+        onWalletUpdated() // Refresh dashboard to update contact count
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete contact")
     }
