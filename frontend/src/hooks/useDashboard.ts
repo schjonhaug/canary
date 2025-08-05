@@ -12,6 +12,7 @@ export function useDashboard() {
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const { token, isAuthenticated } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -44,14 +45,18 @@ export function useDashboard() {
         setEvents(data.events);
         setBlockHeader(data.current_block_header);
         setLastUpdate(data.timestamp);
+        setIsConnected(true);
+        setError(null);
         console.log('Dashboard updated: wallets:', data.wallets.length, 'events:', data.events.length);
       } else {
         console.error('Failed to load dashboard data:', response.status);
         setError('Failed to load dashboard data');
+        setIsConnected(false);
       }
     } catch (err) {
       console.error('Failed to fetch dashboard:', err);
       setError('Failed to load dashboard data');
+      setIsConnected(false);
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +90,7 @@ export function useDashboard() {
     lastUpdate, 
     error, 
     isLoading,
+    isConnected,
     refresh, // Manual refresh function
   };
 }

@@ -166,7 +166,7 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
     )
   }
 
-  if (error) {
+  if (error && wallets.length === 0) {
     return (
       <Card>
         <CardHeader>

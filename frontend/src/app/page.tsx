@@ -4,7 +4,7 @@ import { useState, lazy, Suspense } from "react"
 import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import { useDashboard } from "@/hooks/useDashboard"
 import { formatBitcoinAmount } from "@/lib/utils"
@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { UserDropdown } from "@/components/user-dropdown"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
 import { useRelativeTime } from "@/hooks/useRelativeTime"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Lazy load modal components for code splitting
 const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
@@ -19,7 +20,7 @@ const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
-  const { wallets, events, blockHeader, error, lastUpdate, isLoading: dashboardLoading, refresh } = useDashboard()
+  const { wallets, events, blockHeader, error, lastUpdate, isLoading: dashboardLoading, isConnected, refresh } = useDashboard()
   const { isAuthenticated, isLoading } = useAuth()
   const blockHeaderTime = useRelativeTime(blockHeader?.timestamp)
 
@@ -76,6 +77,21 @@ export default function Home() {
   // Show dashboard for authenticated users
   return (
     <div className="container mx-auto py-8">
+      {/* Connection Warning Banner */}
+      {!isConnected && (
+        <Alert variant={"warning" as any} className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Backend Connection Lost</AlertTitle>
+          <AlertDescription>
+            Unable to connect to the backend service. Displaying cached data.
+            {lastUpdate && (
+              <span className="block mt-1 text-xs">
+                Last updated: {new Date(lastUpdate * 1000).toLocaleString()}
+              </span>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Image
@@ -125,7 +141,7 @@ export default function Home() {
               selectedWalletId={selectedWalletId}
               onSelectWallet={setSelectedWalletId}
               wallets={wallets}
-              isConnected={!error}
+              isConnected={isConnected}
               error={error}
               lastUpdate={lastUpdate}
               onWalletDeleted={handleWalletDeleted}
@@ -145,7 +161,7 @@ export default function Home() {
             <TransactionEvents 
               selectedWalletId={selectedWalletId} 
               events={events}
-              isConnected={!error}
+              isConnected={isConnected}
               error={error}
               lastUpdate={lastUpdate}
               walletsCount={wallets.length}

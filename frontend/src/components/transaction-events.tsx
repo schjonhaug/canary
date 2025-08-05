@@ -106,7 +106,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate,
     )
   }
 
-  if (error) {
+  if (error && events.length === 0) {
     return (
       <Card>
         <CardHeader>
