@@ -142,7 +142,7 @@ export default function WalletDetailPage() {
         <div className="flex items-center gap-6">
           {walletSvg && (
             <div 
-              className="w-16 h-16 flex-shrink-0"
+              className="w-16 h-16 flex-shrink-0 [&>svg]:w-full [&>svg]:h-full"
               title={`Checksum: #${checksum}`}
               dangerouslySetInnerHTML={{ __html: walletSvg }}
             />
@@ -173,16 +173,6 @@ export default function WalletDetailPage() {
                 </div>
               </div>
               
-              <div>
-                <div className="text-sm text-muted-foreground">Last Activity</div>
-                <div className="text-sm">
-                  {wallet.last_activity 
-                    ? formatDateTime(parseInt(wallet.last_activity))
-                    : "No recent activity"
-                  }
-                </div>
-              </div>
-
 
               <div className="pt-2 border-t">
                 <WalletContactsList 
