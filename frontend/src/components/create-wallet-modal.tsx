@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useModal } from "@/hooks/useModal"
 import { api } from "@/lib/api"
 import { ErrorDisplay } from "@/components/ui/error-display"
+import { Loader2 } from "lucide-react"
 
 interface CreateWalletModalProps {
   isOpen: boolean
@@ -126,7 +127,14 @@ export function CreateWalletModal({
               type="submit"
               disabled={modal.isLoading}
             >
-              {modal.isLoading ? "Creating..." : "Create Wallet"}
+              {modal.isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Wallet"
+              )}
             </Button>
           </DialogFooter>
         </form>
