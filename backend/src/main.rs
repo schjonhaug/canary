@@ -81,38 +81,71 @@ async fn main() -> anyhow::Result<()> {
     
     let notification_manager = Arc::new(Mutex::new(notification_manager));
 
-    // Fetch and store initial block header
+    // Try to fetch initial block header in background with timeout
     {
-        let manager = wallet_manager.lock().await;
-        if let Some(ref electrum_client) = manager.electrum_client {
-            match electrum_client.get_current_block_height() {
-                Ok(height) => {
-                    match electrum_client.get_block_header(height) {
-                        Ok(block_header) => {
-                            println!("📦 Initial block header: height={}", 
-                                   block_header.height);
-                            
-                            // Store in database
-                            if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header).await {
-                                eprintln!("Failed to store initial block header: {}", e);
+        let initial_wallet_manager = Arc::clone(&wallet_manager);
+        let initial_block_header = Arc::clone(&current_block_header);
+        tokio::spawn(async move {
+            // Use tokio timeout to prevent indefinite blocking
+            let timeout_duration = Duration::from_secs(5);
+            
+            let manager = initial_wallet_manager.lock().await;
+            if let Some(ref electrum_client) = manager.electrum_client {
+                println!("📦 Attempting to fetch initial block header (5s timeout)...");
+                
+                // Clone what we need before the blocking operation
+                let client = electrum_client.clone();
+                let metadata_db = manager.metadata_db.clone();
+                drop(manager); // Release the lock before potential blocking
+                
+                // Run the blocking operation in a separate thread with timeout
+                let height_result = tokio::time::timeout(
+                    timeout_duration,
+                    tokio::task::spawn_blocking(move || {
+                        client.get_current_block_height()
+                    })
+                ).await;
+                
+                match height_result {
+                    Ok(Ok(Ok(height))) => {
+                        // Successfully got height, now get the header
+                        let manager = initial_wallet_manager.lock().await;
+                        if let Some(ref electrum_client) = manager.electrum_client {
+                            match electrum_client.get_block_header(height) {
+                                Ok(block_header) => {
+                                    println!("📦 Initial block header fetched: height={}", 
+                                           block_header.height);
+                                    
+                                    // Store in database
+                                    if let Err(e) = metadata_db.upsert_current_block_header(&block_header).await {
+                                        eprintln!("Failed to store initial block header: {}", e);
+                                    }
+                                    
+                                    // Update shared state
+                                    let mut current_header = initial_block_header.lock().await;
+                                    *current_header = Some(block_header.clone());
+                                }
+                                Err(e) => {
+                                    eprintln!("❌ Failed to get block header: {}", e);
+                                }
                             }
-                            
-                            // Update shared state
-                            let mut current_header = current_block_header.lock().await;
-                            *current_header = Some(block_header.clone());
-                        }
-                        Err(e) => {
-                            eprintln!("❌ Failed to get initial block header: {}", e);
                         }
                     }
+                    Ok(Ok(Err(e))) => {
+                        eprintln!("❌ Electrum error getting block height: {}", e);
+                    }
+                    Ok(Err(e)) => {
+                        eprintln!("❌ Task error getting block height: {}", e);
+                    }
+                    Err(_) => {
+                        eprintln!("⏱️  Timeout getting block height from Electrum (5s exceeded)");
+                        eprintln!("   Electrum may be down or unresponsive");
+                    }
                 }
-                Err(e) => {
-                    eprintln!("❌ Failed to get current block height from Electrum: {}", e);
-                }
+            } else {
+                eprintln!("⚠️  No Electrum client available - cannot fetch block headers");
             }
-        } else {
-            eprintln!("⚠️  No Electrum client available - cannot fetch block headers");
-        }
+        });
     }
 
     // Spawn wallet sync worker
@@ -130,39 +163,59 @@ async fn main() -> anyhow::Result<()> {
                 eprintln!("Sync failed: {}", e);
             }
 
-            // Check for new block headers
+            // Check for new block headers with timeout
             if let Some(ref electrum_client) = manager.electrum_client {
-                match electrum_client.get_current_block_height() {
-                    Ok(current_height) => {
-                        let stored_header = sync_current_block_header.lock().await;
-                        let stored_height = stored_header.as_ref().map(|h| h.height).unwrap_or(0);
-                        
+                let client = electrum_client.clone();
+                let metadata_db = manager.metadata_db.clone();
+                let current_block_header_clone = sync_current_block_header.clone();
+                
+                // Get current stored height
+                let stored_header = sync_current_block_header.lock().await;
+                let stored_height = stored_header.as_ref().map(|h| h.height).unwrap_or(0);
+                drop(stored_header);
+                
+                // Run blocking operation in separate thread with timeout
+                let height_result = tokio::time::timeout(
+                    Duration::from_secs(5),
+                    tokio::task::spawn_blocking(move || {
+                        client.get_current_block_height()
+                    })
+                ).await;
+                
+                match height_result {
+                    Ok(Ok(Ok(current_height))) => {
                         if current_height > stored_height {
-                            drop(stored_header); // Release the lock before the blocking operation
-                            
-                            match electrum_client.get_block_header(current_height) {
-                                Ok(block_header) => {
-                                    println!("📦 New block header: height={} (was {})", 
-                                           block_header.height, stored_height);
-                                    
-                                    // Store in database
-                                    if let Err(e) = manager.metadata_db.upsert_current_block_header(&block_header).await {
-                                        eprintln!("Failed to store block header: {}", e);
+                            // Get the actual block header
+                            if let Some(ref electrum_client) = manager.electrum_client {
+                                match electrum_client.get_block_header(current_height) {
+                                    Ok(block_header) => {
+                                        println!("📦 New block header: height={} (was {})", 
+                                               block_header.height, stored_height);
+                                        
+                                        // Store in database
+                                        if let Err(e) = metadata_db.upsert_current_block_header(&block_header).await {
+                                            eprintln!("Failed to store block header: {}", e);
+                                        }
+                                        
+                                        // Update shared state
+                                        let mut current_header = current_block_header_clone.lock().await;
+                                        *current_header = Some(block_header.clone());
                                     }
-                                    
-                                    // Update shared state
-                                    let mut current_header = sync_current_block_header.lock().await;
-                                    *current_header = Some(block_header.clone());
-                                    drop(current_header);
-                                }
-                                Err(e) => {
-                                    eprintln!("Failed to get block header for height {}: {}", current_height, e);
+                                    Err(e) => {
+                                        eprintln!("Failed to get block header for height {}: {}", current_height, e);
+                                    }
                                 }
                             }
                         }
                     }
-                    Err(e) => {
-                        eprintln!("Failed to get current block height: {}", e);
+                    Ok(Ok(Err(e))) => {
+                        eprintln!("Electrum error checking block height: {}", e);
+                    }
+                    Ok(Err(e)) => {
+                        eprintln!("Task error checking block height: {}", e);
+                    }
+                    Err(_) => {
+                        eprintln!("⏱️  Timeout checking block height (sync task)");
                     }
                 }
             }

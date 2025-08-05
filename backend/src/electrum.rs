@@ -5,6 +5,7 @@ use bdk_wallet::{KeychainKind, PersistedWallet};
 use bdk_wallet::chain::collections::HashSet;
 use bdk_wallet::rusqlite::Connection;
 use std::io::{self, Write};
+use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -16,8 +17,9 @@ pub struct BlockHeader {
 pub const STOP_GAP: usize = 20;
 pub const BATCH_SIZE: usize = 5;
 
+#[derive(Clone)]
 pub struct ElectrumClient {
-    pub client: BdkElectrumClient<electrum_client::Client>,
+    pub client: Arc<BdkElectrumClient<electrum_client::Client>>,
 }
 
 impl ElectrumClient {
@@ -31,7 +33,7 @@ impl ElectrumClient {
 
         let electrum_client = electrum_client::Client::new(url)?;
         let client = BdkElectrumClient::new(electrum_client);
-        Ok(ElectrumClient { client })
+        Ok(ElectrumClient { client: Arc::new(client) })
     }
 
     /// Get the highest address index that has been used (has transactions)
