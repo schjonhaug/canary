@@ -10,7 +10,7 @@ interface WalletsListResponse {
   wallets: Wallet[];
 }
 
-export function useWalletsList() {
+export function useWalletsList(shouldFetch: boolean = true) {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +21,8 @@ export function useWalletsList() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchWallets = useCallback(async () => {
-    // Only fetch data if user is authenticated and has a token
-    if (!isAuthenticated || !token) {
-      // User not authenticated, skip wallet data fetch
+    // Only fetch data if user is authenticated, has a token, and should fetch
+    if (!isAuthenticated || !token || !shouldFetch) {
       return;
     }
 
@@ -61,13 +60,18 @@ export function useWalletsList() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, isAuthenticated]);
+  }, [token, isAuthenticated, shouldFetch]);
 
   const refresh = useCallback(() => {
     fetchWallets();
   }, [fetchWallets]);
 
   useEffect(() => {
+    // Only set up polling if we should fetch
+    if (!shouldFetch) {
+      return;
+    }
+
     // Load initial data immediately
     fetchWallets();
 
@@ -82,7 +86,7 @@ export function useWalletsList() {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [fetchWallets]);
+  }, [fetchWallets, shouldFetch]);
 
   return { 
     wallets, 

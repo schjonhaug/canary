@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, lazy, Suspense } from "react"
+import { usePathname } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 import { useWalletsList } from "@/hooks/useWalletsList"
@@ -14,7 +15,11 @@ export default function WalletsLayout({
   children: React.ReactNode
 }) {
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
-  const { wallets, refresh: refetchWallets } = useWalletsList()
+  const pathname = usePathname()
+  
+  // Only fetch wallets list on the main wallets page, not on detail pages
+  const shouldFetchWallets = pathname === '/wallets'
+  const { wallets, refresh: refetchWallets } = useWalletsList(shouldFetchWallets)
 
   const handleCreateWallet = () => {
     setIsCreateWalletOpen(true)
