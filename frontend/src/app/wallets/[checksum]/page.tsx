@@ -161,18 +161,6 @@ export default function WalletDetailPage() {
         {/* Wallet Info Sidebar */}
         <div className="lg:col-span-1">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {walletSvg && (
-                  <div 
-                    className="w-5 h-5 flex-shrink-0 [&>svg]:w-full [&>svg]:h-full"
-                    title={`Checksum: #${checksum}`}
-                    dangerouslySetInnerHTML={{ __html: walletSvg }}
-                  />
-                )}
-                Wallet Information
-              </CardTitle>
-            </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <div className="text-sm text-muted-foreground">Balance</div>
