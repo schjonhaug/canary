@@ -83,28 +83,6 @@ export default function Home() {
           <h1 className="text-3xl font-bold tracking-wide">Canary</h1>
         </div>
         <div className="flex items-center gap-6">
-          {/* Blockchain Status */}
-          {blockHeader && (
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Block height:</span>
-                <span className="font-mono font-medium">{blockHeader.height.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center gap-2 hidden lg:flex">
-                <span className="text-muted-foreground">Time:</span>
-                <span>
-                  {blockHeaderTime}
-                </span>
-              </div>
-            </div>
-          )}
-          
-          {!blockHeader && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Loading blockchain data...</span>
-            </div>
-          )}
-
           {wallets.length > 0 && (
             <Button
               onClick={handleCreateWallet}
@@ -195,6 +173,21 @@ export default function Home() {
               <p className="text-muted-foreground text-sm">Bitcoin Wallet Alert System</p>
             </div>
           </div>
+          
+          {/* Blockchain Info */}
+          {blockHeader && (
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Block height:</span>
+                <span className="font-mono font-medium">{blockHeader.height.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Time:</span>
+                <span>{blockHeaderTime}</span>
+              </div>
+            </div>
+          )}
+          
           <a 
             href="https://github.com/schjonhaug/canary" 
             target="_blank" 
