@@ -1,17 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useState, useEffect, lazy, Suspense } from "react"
+import { useParams, useRouter } from "next/navigation"
 import { TransactionEvents } from "@/components/transaction-events"
 import { AppFooter } from "@/components/app-footer"
+import { AppHeader } from "@/components/app-header"
+import { InlineWalletNameEdit } from "@/components/inline-wallet-name-edit"
+import { WalletContactsList } from "@/components/wallet-contacts-list"
+import { AddContactInline } from "@/components/add-contact-inline"
+import { DeleteWalletModal } from "@/components/delete-wallet-modal"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Users } from "lucide-react"
+import { ArrowLeft, Trash2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useWalletDetail } from "@/hooks/useWalletDetail"
 import { useWalletsList } from "@/hooks/useWalletsList"
 import { formatBitcoinAmount, formatDateTime, loadCanarySvg, getCachedCanarySvg } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { api } from "@/lib/api"
 
 // Helper function to extract checksum from descriptor
 function extractChecksum(descriptor: string): string {
@@ -19,14 +25,20 @@ function extractChecksum(descriptor: string): string {
   return checksumMatch ? checksumMatch[1] : "Unknown"
 }
 
+// Lazy load modal components for code splitting
+const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
+
 export default function WalletDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const checksum = params.checksum as string
   
   // First, get all wallets to find the one with matching checksum
-  const { wallets } = useWalletsList()
+  const { wallets, refetch: refetchWallets } = useWalletsList()
   const [walletId, setWalletId] = useState<number | null>(null)
   const [walletSvg, setWalletSvg] = useState<string>("")
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
 
   // Find wallet by checksum
   useEffect(() => {
@@ -49,11 +61,38 @@ export default function WalletDetailPage() {
   }, [wallets, checksum])
 
   // Get wallet detail data
-  const { wallet, events, error, isLoading, isConnected, lastUpdate } = useWalletDetail(walletId)
+  const { wallet, events, error, isLoading, isConnected, lastUpdate, refetch } = useWalletDetail(walletId)
+
+  const handleWalletUpdated = () => {
+    refetch()
+    refetchWallets()
+  }
+
+  const handleNameUpdated = (newName: string) => {
+    // Immediately update local state for responsive UI 
+    if (wallet) {
+      wallet.name = newName
+    }
+    handleWalletUpdated()
+  }
+
+  const handleDeleteWallet = async (walletId: number) => {
+    await api.deleteWallet(walletId)
+    router.push('/')
+  }
+
+  const handleCreateWallet = () => {
+    setIsCreateWalletOpen(true)
+  }
+
+  const handleWalletCreated = () => {
+    setIsCreateWalletOpen(false)
+    refetchWallets()
+  }
 
   if (isLoading && !wallet) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex h-screen items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
@@ -66,7 +105,7 @@ export default function WalletDetailPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-2">
@@ -88,7 +127,7 @@ export default function WalletDetailPage() {
 
   if (!wallet) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-2">
@@ -111,10 +150,11 @@ export default function WalletDetailPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Connection Warning Banner */}
       {!isConnected && (
         <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
           <AlertTitle>Backend Connection Lost</AlertTitle>
           <AlertDescription>
             Unable to connect to the backend service. Displaying cached data.
@@ -128,6 +168,11 @@ export default function WalletDetailPage() {
       )}
 
       {/* Header */}
+      <AppHeader 
+        showCreateWallet={true}
+        onCreateWallet={handleCreateWallet}
+      />
+      
       <div className="mb-6">
         <Link href="/">
           <Button variant="ghost" size="sm" className="gap-2 mb-4">
@@ -136,17 +181,20 @@ export default function WalletDetailPage() {
           </Button>
         </Link>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           {walletSvg && (
             <div 
-              className="w-12 h-12 flex-shrink-0"
+              className="w-16 h-16 flex-shrink-0"
               title={`Checksum: #${checksum}`}
               dangerouslySetInnerHTML={{ __html: walletSvg }}
             />
           )}
           <div>
-            <h1 className="text-3xl font-bold tracking-wide">{wallet.name}</h1>
-            <p className="text-muted-foreground">Wallet #{checksum}</p>
+            <InlineWalletNameEdit 
+              walletId={wallet.id}
+              currentName={wallet.name}
+              onNameUpdated={handleNameUpdated}
+            />
           </div>
         </div>
       </div>
@@ -158,7 +206,6 @@ export default function WalletDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle>Wallet Information</CardTitle>
-              <CardDescription>Details about this wallet</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -177,25 +224,28 @@ export default function WalletDetailPage() {
                   }
                 </div>
               </div>
-              
-              <div>
-                <div className="text-sm text-muted-foreground">Contacts</div>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  <span>{wallet.contact_count || 0}</span>
-                </div>
+
+
+              <div className="pt-2 border-t">
+                <WalletContactsList 
+                  walletId={wallet.id} 
+                  onContactsUpdated={handleWalletUpdated}
+                />
+                <AddContactInline 
+                  walletId={wallet.id} 
+                  onContactAdded={handleWalletUpdated}
+                />
               </div>
 
-              <div>
-                <div className="text-sm text-muted-foreground">Checksum</div>
-                <div className="text-sm font-mono">#{checksum}</div>
-              </div>
-
-              <div>
-                <div className="text-sm text-muted-foreground">Created</div>
-                <div className="text-sm">
-                  {new Date(wallet.created_at).toLocaleDateString()}
-                </div>
+              <div className="pt-4 border-t flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="text-muted-foreground hover:text-red-600"
+                >
+                  <Trash2 size={16} />
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -212,6 +262,21 @@ export default function WalletDetailPage() {
           />
         </div>
       </div>
+
+      <DeleteWalletModal
+        wallet={wallet}
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirmDelete={handleDeleteWallet}
+      />
+
+      <Suspense fallback={null}>
+        <CreateWalletModal
+          isOpen={isCreateWalletOpen}
+          onClose={() => setIsCreateWalletOpen(false)}
+          onWalletCreated={handleWalletCreated}
+        />
+      </Suspense>
 
       <AppFooter />
     </div>

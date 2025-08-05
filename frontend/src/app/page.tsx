@@ -3,13 +3,12 @@
 import { useState, lazy, Suspense } from "react"
 import { WalletCards } from "@/components/wallet-cards"
 import { AppFooter } from "@/components/app-footer"
-import { Button } from "@/components/ui/button"
-import { Plus, AlertCircle } from "lucide-react"
+import { AppHeader } from "@/components/app-header"
+import { AlertCircle } from "lucide-react"
 import Image from "next/image"
 import { useWalletsList } from "@/hooks/useWalletsList"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
-import { UserDropdown } from "@/components/user-dropdown"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -73,7 +72,7 @@ export default function Home() {
 
   // Show dashboard for authenticated users
   return (
-    <div className="container mx-auto py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Connection Warning Banner */}
       {!isConnected && (
         <Alert variant="destructive" className="mb-6">
@@ -89,32 +88,10 @@ export default function Home() {
           </AlertDescription>
         </Alert>
       )}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Image
-            src="/images/canary.svg"
-            alt="Canary Logo"
-            width={48}
-            height={48}
-            className="h-12 w-12"
-          />
-          <h1 className="text-3xl font-bold tracking-wide">Canary</h1>
-        </div>
-        <div className="flex items-center gap-6">
-          {wallets.length > 0 && (
-            <Button
-              onClick={handleCreateWallet}
-              size="sm"
-              className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
-            >
-              <Plus size={16} />
-              Create Wallet
-            </Button>
-          )}
-          
-          <UserDropdown />
-        </div>
-      </div>
+      <AppHeader 
+        showCreateWallet={wallets.length > 0}
+        onCreateWallet={handleCreateWallet}
+      />
       
       {wallets.length === 0 ? (
         <WalletOnboarding onCreateWallet={handleCreateWallet} />
