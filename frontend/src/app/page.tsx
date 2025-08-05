@@ -1,28 +1,25 @@
 "use client"
 
 import { useState, lazy, Suspense } from "react"
-import { TransactionEvents } from "@/components/transaction-events"
 import { WalletCards } from "@/components/wallet-cards"
+import { AppFooter } from "@/components/app-footer"
 import { Button } from "@/components/ui/button"
 import { Plus, AlertCircle } from "lucide-react"
 import Image from "next/image"
-import { useDashboard } from "@/hooks/useDashboard"
+import { useWalletsList } from "@/hooks/useWalletsList"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { UserDropdown } from "@/components/user-dropdown"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
-import { useRelativeTime } from "@/hooks/useRelativeTime"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Lazy load modal components for code splitting
 const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
 
 export default function Home() {
-  const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
-  const { wallets, events, blockHeader, error, lastUpdate, isConnected, refresh } = useDashboard()
+  const { wallets, error, lastUpdate, isConnected, refresh } = useWalletsList()
   const { isAuthenticated, isLoading } = useAuth()
-  const blockHeaderTime = useRelativeTime(blockHeader?.timestamp)
 
 
   const handleCreateWallet = () => {
@@ -138,8 +135,8 @@ export default function Home() {
               </div>
             </div>
             <WalletCards 
-              selectedWalletId={selectedWalletId}
-              onSelectWallet={setSelectedWalletId}
+              selectedWalletId={null}
+              onSelectWallet={() => {}}
               wallets={wallets}
               isConnected={isConnected}
               error={error}
@@ -148,25 +145,6 @@ export default function Home() {
             />
           </section>
 
-          {/* Transaction Events Section */}
-          <section>
-            <h2 className="text-2xl font-semibold mb-4">
-              Transaction Events
-              {selectedWalletId && (
-                <span className="text-lg text-muted-foreground ml-2">
-                  (filtered)
-                </span>
-              )}
-            </h2>
-            <TransactionEvents 
-              selectedWalletId={selectedWalletId} 
-              events={events}
-              isConnected={isConnected}
-              error={error}
-              lastUpdate={lastUpdate}
-              walletsCount={wallets.length}
-            />
-          </section>
         </div>
       )}
       
@@ -179,54 +157,7 @@ export default function Home() {
         />
       </Suspense>
       
-      {/* Footer */}
-      <footer className="mt-16 pt-8 border-t border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Image
-              src="/images/canary-in-a-coalmine.svg"
-              alt="Canary Logo"
-              width={48}
-              height={48}
-              className="h-12 w-12"
-            />
-            <div>
-              <h3 className="text-lg font-bold tracking-wide">Canary</h3>
-              <p className="text-muted-foreground text-sm">Bitcoin Wallet Alert System</p>
-            </div>
-          </div>
-          
-          {/* Blockchain Info */}
-          {blockHeader && (
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Block height:</span>
-                <span className="font-mono font-medium">{blockHeader.height.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Time:</span>
-                <span>{blockHeaderTime}</span>
-              </div>
-            </div>
-          )}
-          
-          <a 
-            href="https://github.com/schjonhaug/canary" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-accent transition-colors flex items-center gap-2"
-          >
-            <Image
-              src="/images/github.svg"
-              alt="GitHub"
-              width={20}
-              height={20}
-              className="h-5 w-5"
-            />
-            <span>GitHub</span>
-          </a>
-        </div>
-      </footer>
+      <AppFooter />
     </div>
   )
 }

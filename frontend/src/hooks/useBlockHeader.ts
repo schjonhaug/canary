@@ -1,15 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Wallet, TransactionEvent, DashboardUpdate, BlockHeader } from '../types';
+import { BlockHeader } from '../types';
 import { useAuth } from '../contexts/auth-context';
 
 // Get polling interval from environment variable (in seconds), default to 60
 const POLLING_INTERVAL = (parseInt(process.env.NEXT_PUBLIC_SYNC_INTERVAL || '60') || 60) * 1000;
 
-export function useDashboard() {
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [events, setEvents] = useState<TransactionEvent[]>([]);
+export function useBlockHeader() {
   const [blockHeader, setBlockHeader] = useState<BlockHeader | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
@@ -17,10 +14,10 @@ export function useDashboard() {
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchDashboard = useCallback(async () => {
+  const fetchBlockHeader = useCallback(async () => {
     // Only fetch data if user is authenticated and has a token
     if (!isAuthenticated || !token) {
-      // User not authenticated, skip dashboard data fetch
+      // User not authenticated, skip block header fetch
       return;
     }
 
@@ -35,27 +32,29 @@ export function useDashboard() {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      const response = await fetch('/api/dashboard', {
+      const response = await fetch('/api/block-headers/current', {
         headers,
       });
       
       if (response.ok) {
-        const data: DashboardUpdate = await response.json();
-        setWallets(data.wallets);
-        setEvents(data.events);
-        setBlockHeader(data.current_block_header);
-        setLastUpdate(data.timestamp);
+        const data: BlockHeader = await response.json();
+        setBlockHeader(data);
         setIsConnected(true);
         setError(null);
-        console.log('Dashboard updated: wallets:', data.wallets.length, 'events:', data.events.length);
+        console.log('Block header updated:', data.height);
+      } else if (response.status === 404) {
+        // No block header found yet - this is normal on startup
+        setBlockHeader(null);
+        setIsConnected(true);
+        setError(null);
       } else {
-        console.error('Failed to load dashboard data:', response.status);
-        setError('Failed to load dashboard data');
+        console.error('Failed to load block header:', response.status);
+        setError('Failed to load block header');
         setIsConnected(false);
       }
     } catch (err) {
-      console.error('Failed to fetch dashboard:', err);
-      setError('Failed to load dashboard data');
+      console.error('Failed to fetch block header:', err);
+      setError('Failed to load block header');
       setIsConnected(false);
     } finally {
       setIsLoading(false);
@@ -63,16 +62,16 @@ export function useDashboard() {
   }, [token, isAuthenticated]);
 
   const refresh = useCallback(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+    fetchBlockHeader();
+  }, [fetchBlockHeader]);
 
   useEffect(() => {
-    // Load initial data
-    fetchDashboard();
+    // Load initial data immediately
+    fetchBlockHeader();
 
     // Set up polling interval
     pollingIntervalRef.current = setInterval(() => {
-      fetchDashboard();
+      fetchBlockHeader();
     }, POLLING_INTERVAL);
 
     // Cleanup on unmount
@@ -81,13 +80,10 @@ export function useDashboard() {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [fetchDashboard]);
+  }, [fetchBlockHeader]);
 
   return { 
-    wallets, 
-    events, 
     blockHeader,
-    lastUpdate, 
     error, 
     isLoading,
     isConnected,

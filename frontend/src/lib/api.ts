@@ -1,5 +1,5 @@
 import { getApiBaseUrl, handleApiResponse } from './utils'
-import { Wallet, Contact } from '../types'
+import { Wallet, Contact, TransactionEvent } from '../types'
 
 export interface ProviderInfo {
   name: string
@@ -67,6 +67,14 @@ class ApiClient {
     return this.request<void>(`/api/wallets/${id}`, {
       method: 'DELETE',
     })
+  }
+
+  async getWallets(): Promise<{ timestamp: number; wallets: Wallet[] }> {
+    return this.request<{ timestamp: number; wallets: Wallet[] }>('/api/wallets')
+  }
+
+  async getWalletDetail(id: number): Promise<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }> {
+    return this.request<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }>(`/api/wallets/${id}/detail`)
   }
 
   // Contact API methods

@@ -1,4 +1,4 @@
-use crate::metadata::{Contact, NotificationMethod, ProviderType, Language, WalletMetadata, TransactionEventWithWallet, EventType, DashboardUpdate};
+use crate::metadata::{Contact, NotificationMethod, ProviderType, Language, WalletMetadata, TransactionEventWithWallet, EventType, WalletsListResponse, WalletDetailResponse};
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::wallet::WalletManager;
 use crate::electrum::BlockHeader;
@@ -638,10 +638,6 @@ pub async fn create_wallet_contact(
         processed_methods
     ).await {
         Ok(contact_id) => {
-            // Send dashboard update to notify clients of contact count change
-            if let Err(e) = manager.send_dashboard_update().await {
-                eprintln!("Failed to send dashboard update after contact creation: {}", e);
-            }
             
             (
                 StatusCode::CREATED,
@@ -753,10 +749,6 @@ pub async fn delete_wallet_contact(
     
     match manager.metadata_db.delete_contact_with_methods(contact_id).await {
         Ok(true) => {
-            // Send dashboard update to notify clients of contact count change
-            if let Err(e) = manager.send_dashboard_update().await {
-                eprintln!("Failed to send dashboard update after contact deletion: {}", e);
-            }
             
             StatusCode::NO_CONTENT.into_response()
         }
@@ -914,14 +906,18 @@ pub async fn get_current_block_header(State(wallet_manager): State<AppState>) ->
 
 #[utoipa::path(
     get,
-    path = "/api/dashboard",
+    path = "/api/wallets",
     responses(
-        (status = 200, description = "Current dashboard state", body = DashboardUpdate),
+        (status = 200, description = "List of all wallets", body = WalletsListResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 500, description = "Internal server error", body = ErrorResponse)
     ),
-    tag = "dashboard"
+    tag = "wallet",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
-pub async fn get_dashboard(
+pub async fn get_wallets_list(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
 ) -> Response {
@@ -941,15 +937,69 @@ pub async fn get_dashboard(
     
     #[allow(unused_mut)]
     let mut manager = wallet_manager.lock().await;
-    match manager.get_current_dashboard_state_for_user(user.user_id, user.is_admin).await {
-        Ok(dashboard_update) => (StatusCode::OK, Json(dashboard_update)).into_response(),
+    match manager.get_wallets_list_for_user(user.user_id, user.is_admin).await {
+        Ok(wallets_response) => (StatusCode::OK, Json(wallets_response)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
-                error: format!("Failed to get dashboard state: {}", e),
+                error: format!("Failed to get wallets list: {}", e),
             }),
         )
             .into_response(),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/wallets/{id}/detail",
+    responses(
+        (status = 200, description = "Wallet detail with transaction events", body = WalletDetailResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Access denied", body = ErrorResponse),
+        (status = 404, description = "Wallet not found", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    params(
+        ("id" = i64, Path, description = "Wallet ID")
+    ),
+    tag = "wallet",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn get_wallet_detail(
+    State(wallet_manager): State<AppState>,
+    Path(wallet_id): Path<i64>,
+    headers: HeaderMap,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
+    match manager.get_wallet_detail_for_user(wallet_id, user.user_id, user.is_admin).await {
+        Ok(wallet_detail) => (StatusCode::OK, Json(wallet_detail)).into_response(),
+        Err(e) => {
+            let error_msg = e.to_string();
+            let status_code = match error_msg.as_str() {
+                "Wallet not found" => StatusCode::NOT_FOUND,
+                "Access denied to wallet" => StatusCode::FORBIDDEN,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            
+            (status_code, Json(ErrorResponse { error: error_msg })).into_response()
+        }
     }
 }
 
@@ -1443,9 +1493,9 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
 #[openapi(
     paths(
         create_wallet, update_wallet, delete_wallet, get_wallet,
+        get_wallets_list, get_wallet_detail,
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
         get_current_block_header,
-        get_dashboard,
         get_providers,
         send_otp, verify_otp, logout, me
     ),
@@ -1453,7 +1503,7 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactWithMethodsRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
-        BlockHeader, DashboardUpdate, ProviderInfo,
+        BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
         SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse
     )),
     tags(
@@ -1462,7 +1512,6 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
         (name = "providers", description = "Notification provider endpoints"),
         (name = "transaction", description = "Transaction events endpoints"),
         (name = "blockchain", description = "Blockchain information endpoints"),
-        (name = "dashboard", description = "Dashboard real-time updates endpoints"),
         (name = "auth", description = "Authentication endpoints")
     ),
     info(
@@ -1483,8 +1532,9 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
         .with_state(wallet_manager.clone());
     
     let wallet_routes = Router::new()
-        .route("/wallets", post(create_wallet))
+        .route("/wallets", post(create_wallet).get(get_wallets_list))
         .route("/wallets/{id}", get(get_wallet).put(update_wallet).delete(delete_wallet))
+        .route("/wallets/{id}/detail", get(get_wallet_detail))
         .route(
             "/wallets/{id}/contacts",
             post(create_wallet_contact).get(get_wallet_contacts),
@@ -1494,7 +1544,6 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
             axum::routing::delete(delete_wallet_contact),
         )
         .route("/block-headers/current", get(get_current_block_header))
-        .route("/dashboard", get(get_dashboard))
         .with_state(wallet_manager.clone());
 
     let provider_routes = Router::new()

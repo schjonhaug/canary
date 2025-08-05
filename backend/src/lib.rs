@@ -19,7 +19,7 @@ pub use electrum::{ElectrumClient, BlockHeader};
 pub use message_formatter::MessageFormatter;
 pub use metadata::{
     Contact, NotificationMethod, ProviderType, EventType, Language, TransactionEvent, TransactionEventWithWallet, 
-    WalletMetadata, DashboardUpdate, NotificationStatus, MetadataDb
+    WalletMetadata, WalletsListResponse, WalletDetailResponse, NotificationStatus, MetadataDb
 };
 pub use migrations::MigrationRunner;
 pub use notifications::{NotificationManager, NotificationProvider, NotificationResult, ProviderInfo};

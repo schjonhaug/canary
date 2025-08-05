@@ -1,5 +1,5 @@
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventInsert, EventType, TransactionEvent, WalletMetadata, MetadataDb, DashboardUpdate};
+use crate::metadata::{EventInsert, EventType, TransactionEvent, WalletMetadata, MetadataDb, WalletsListResponse, WalletDetailResponse};
 use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::secp256k1::Secp256k1;
 use bdk_wallet::rusqlite::Connection;
@@ -495,10 +495,6 @@ impl WalletManager {
             .get_wallet_by_descriptor(descriptor_str).await?
             .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
 
-        // Send immediate dashboard update for wallet creation
-        if let Err(e) = self.send_dashboard_update().await {
-            eprintln!("Failed to send dashboard update after wallet creation: {}", e);
-        }
 
         Ok(wallet_metadata)
     }
@@ -1124,18 +1120,12 @@ impl WalletManager {
             }
         }
 
-        // Send dashboard update only if any wallet had changes
-        if any_wallet_changed {
-            if let Err(e) = self.send_dashboard_update().await {
-                eprintln!("Failed to send dashboard update: {}", e);
-            }
-        }
 
         Ok(())
     }
 
 
-    pub async fn get_current_dashboard_state_for_user(&self, user_id: i64, is_admin: bool) -> Result<DashboardUpdate> {
+    pub async fn get_wallets_list_for_user(&self, user_id: i64, is_admin: bool) -> Result<WalletsListResponse> {
         // Get current timestamp
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -1148,36 +1138,52 @@ impl WalletManager {
         } else {
             self.metadata_db.get_wallets_for_user(Some(user_id)).await?
         };
-        
-        // Get recent transaction events (last 100 events)
-        let mut events = self.metadata_db.get_all_events_with_wallets().await?;
-        
-        // Filter events based on user permissions
-        if !is_admin {
-            let user_wallet_ids: Vec<i64> = wallets.iter()
-                .filter_map(|w| w.id)
-                .collect();
-            events.retain(|event| user_wallet_ids.contains(&event.wallet_id));
-        }
-        
-        // Get current block header
-        let current_block_header = self.metadata_db.get_current_block_header().await.ok().flatten();
 
-        // Create dashboard update
-        let dashboard_update = DashboardUpdate {
+        Ok(WalletsListResponse {
             timestamp,
             wallets,
+        })
+    }
+
+    pub async fn get_wallet_detail_for_user(&self, wallet_id: i64, user_id: i64, is_admin: bool) -> Result<WalletDetailResponse> {
+        // Get current timestamp
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Get the specific wallet
+        let wallet = self.get_wallet_by_id(wallet_id).await?
+            .ok_or_else(|| anyhow!("Wallet not found"))?;
+
+        // Check if user has permission to access this wallet
+        if !is_admin && wallet.id.is_some() {
+            let user_wallets = self.metadata_db.get_wallets_for_user(Some(user_id)).await?;
+            let user_wallet_ids: Vec<i64> = user_wallets.iter()
+                .filter_map(|w| w.id)
+                .collect();
+            
+            if let Some(w_id) = wallet.id {
+                if !user_wallet_ids.contains(&w_id) {
+                    return Err(anyhow!("Access denied to wallet"));
+                }
+            }
+        }
+
+        // Get transaction events for this specific wallet
+        let mut events = self.metadata_db.get_all_events_with_wallets().await?;
+        events.retain(|event| event.wallet_id == wallet_id);
+        
+        // Limit to recent events for performance (already ordered by ID desc in SQL)
+        events.truncate(100);
+
+        Ok(WalletDetailResponse {
+            timestamp,
+            wallet,
             events,
-            current_block_header,
-        };
-
-        Ok(dashboard_update)
+        })
     }
 
-    pub async fn send_dashboard_update(&self) -> Result<()> {
-        // No longer needed - frontend polls for updates
-        Ok(())
-    }
 
     pub async fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
         self.metadata_db
@@ -1237,10 +1243,6 @@ impl WalletManager {
 
         println!("Wallet deletion completed successfully");
         
-        // Send immediate dashboard update for wallet deletion
-        if let Err(e) = self.send_dashboard_update().await {
-            eprintln!("Failed to send dashboard update after wallet deletion: {}", e);
-        }
         
         Ok(())
     }
@@ -1256,10 +1258,6 @@ impl WalletManager {
         
         println!("  Updated wallet name to: {}", name);
         
-        // Send immediate dashboard update for wallet name change
-        if let Err(e) = self.send_dashboard_update().await {
-            eprintln!("Failed to send dashboard update after wallet update: {}", e);
-        }
         
         Ok(())
     }

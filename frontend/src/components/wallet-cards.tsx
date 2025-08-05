@@ -1,22 +1,17 @@
 "use client"
 
-import { useEffect, useState, useMemo, memo, lazy, Suspense } from "react"
+import { useEffect, useState, useMemo, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Edit, Users, Filter } from "lucide-react"
+import { Users } from "lucide-react"
+import Link from "next/link"
 import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount, formatDateTime } from "@/lib/utils"
-
-// Lazy load modal components for code splitting
-const DeleteWalletModal = lazy(() => import("./delete-wallet-modal").then(mod => ({ default: mod.DeleteWalletModal })))
-const EditWalletModal = lazy(() => import("./edit-wallet-modal").then(mod => ({ default: mod.EditWalletModal })))
 
 // Helper function to extract checksum from descriptor
 function extractChecksum(descriptor: string): string {
   const checksumMatch = descriptor.match(/#([a-zA-Z0-9]+)$/)
   return checksumMatch ? checksumMatch[1] : "Unknown"
 }
-import { api } from "@/lib/api"
 import { Wallet } from "../types"
 
 interface WalletCardsProps {
@@ -29,12 +24,8 @@ interface WalletCardsProps {
   onWalletDeleted?: () => void
 }
 
-export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, lastUpdate, onWalletDeleted }: WalletCardsProps) {
+export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
-  const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null)
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [walletToEdit, setWalletToEdit] = useState<Wallet | null>(null)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   // Track when we've received data for the first time
   useEffect(() => {
@@ -82,50 +73,6 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
   
   WalletIcon.displayName = 'WalletIcon'
 
-  const handleFilterClick = (walletId: number) => {
-    if (selectedWalletId === walletId) {
-      onSelectWallet(null) // Deselect if already selected
-    } else {
-      onSelectWallet(walletId)
-    }
-  }
-
-  const handleEditClick = (wallet: Wallet) => {
-    setWalletToEdit(wallet)
-    setIsEditModalOpen(true)
-  }
-
-  const handleDeleteConfirm = async (walletId: number) => {
-    await api.deleteWallet(walletId)
-    
-    // Clear selection if the deleted wallet was selected
-    if (selectedWalletId === walletId) {
-      onSelectWallet(null)
-    }
-    
-    // Trigger immediate refresh
-    if (onWalletDeleted) {
-      onWalletDeleted()
-    }
-  }
-
-  const handleDeleteModalClose = () => {
-    setIsDeleteModalOpen(false)
-    setWalletToDelete(null)
-  }
-
-  const handleEditModalClose = () => {
-    setIsEditModalOpen(false)
-    setWalletToEdit(null)
-  }
-
-  const handleDeleteFromEdit = (wallet: Wallet) => {
-    // Close edit modal and open delete modal
-    setIsEditModalOpen(false)
-    setWalletToEdit(null)
-    setWalletToDelete(wallet)
-    setIsDeleteModalOpen(true)
-  }
 
   if (!hasReceivedData) {
     return (
@@ -200,102 +147,46 @@ export function WalletCards({ selectedWalletId, onSelectWallet, wallets, error, 
       {/* Individual Wallet Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
-          const isSelected = selectedWalletId === wallet.id
+          const checksum = extractChecksum(wallet.descriptor)
           return (
-            <Card 
-              key={wallet.id} 
-              className={`transition-all duration-200 ${
-                isSelected 
-                  ? "ring-2 ring-accent bg-accent/5 shadow-lg" 
-                  : "hover:shadow-md hover:bg-muted/50"
-              }`}
-            >
-              <CardHeader className="pb-3 relative">
-                <div className="flex items-center gap-2">
-                  <WalletIcon wallet={wallet} />
-                  <CardTitle className="text-lg truncate pr-20" title={wallet.name}>
-                    {wallet.name}
-                  </CardTitle>
-                </div>
-                <div className="absolute top-2 right-2 flex items-center gap-1">
-                  {wallets.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={`h-8 w-8 p-0 transition-colors ${
-                        isSelected 
-                          ? "bg-accent/20 text-accent hover:bg-accent/30" 
-                          : "hover:bg-accent/10 hover:text-accent"
-                      }`}
-                      onClick={() => handleFilterClick(wallet.id)}
-                      title={isSelected ? "Remove filter" : "Filter transactions"}
-                    >
-                      <Filter className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 hover:bg-accent/10 hover:text-accent"
-                    onClick={() => handleEditClick(wallet)}
-                    title="Edit wallet"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
-                {wallets.length > 1 && (
-                  <CardDescription className="text-xs text-muted-foreground">
-                    {isSelected ? 'Filtering transactions below' : 'Use filter icon to view transactions'}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Balance</div>
-                    <div className={`text-xl font-bold font-mono ${
-                      isSelected ? "text-accent" : ""
-                    }`}>
-                      {formatBitcoinAmount(wallet.balance_total)}
+            <Link key={wallet.id} href={`/wallets/${checksum}`}>
+              <Card className="transition-all duration-200 hover:shadow-md hover:bg-muted/50 cursor-pointer">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <WalletIcon wallet={wallet} />
+                    <CardTitle className="text-lg truncate" title={wallet.name}>
+                      {wallet.name}
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Balance</div>
+                      <div className="text-xl font-bold font-mono">
+                        {formatBitcoinAmount(wallet.balance_total || 0)}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-muted-foreground">
+                      <span>
+                        {wallet.last_activity 
+                          ? `Last activity: ${formatDateTime(parseInt(wallet.last_activity))}` 
+                          : "No recent activity"
+                        }
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        <span>{wallet.contact_count || 0}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex justify-between items-center text-xs text-muted-foreground">
-                    <span>
-                      {wallet.last_activity 
-                        ? `Last activity: ${formatDateTime(parseInt(wallet.last_activity))}` 
-                        : "No recent activity"
-                      }
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      <span>{wallet.contact_count}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           )
         })}
       </div>
 
-      <Suspense fallback={null}>
-        <DeleteWalletModal
-          wallet={walletToDelete}
-          isOpen={isDeleteModalOpen}
-          onClose={handleDeleteModalClose}
-          onConfirmDelete={handleDeleteConfirm}
-        />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <EditWalletModal
-          wallet={walletToEdit}
-          isOpen={isEditModalOpen}
-          onClose={handleEditModalClose}
-          onDeleteWallet={handleDeleteFromEdit}
-          onWalletUpdated={onWalletDeleted}
-        />
-      </Suspense>
     </div>
   )
 }

@@ -65,9 +65,13 @@ export interface BlockHeaderState {
   error: string | null
 }
 
-export interface DashboardUpdate {
+export interface WalletsListResponse {
   timestamp: number
   wallets: Wallet[]
+}
+
+export interface WalletDetailResponse {
+  timestamp: number
+  wallet: Wallet
   events: TransactionEvent[]
-  current_block_header: BlockHeader | null
 }
