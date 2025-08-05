@@ -33,9 +33,9 @@ export async function DELETE(
 }
 
 async function proxyToBackend(request: NextRequest, slug: string[]) {
-  // Skip SSE endpoints - they have their own routes
+  // Note: SSE endpoints are no longer supported - system uses polling instead
   if (slug.includes('stream')) {
-    return new Response('Use dedicated SSE endpoints', { status: 400 });
+    return new Response('Stream endpoints not supported - system uses polling', { status: 404 });
   }
 
   // Use API_URL for server-side, fallback to NEXT_PUBLIC_API_URL for compatibility

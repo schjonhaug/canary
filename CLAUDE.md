@@ -66,11 +66,8 @@ canary/
 - `POST /api/auth/logout` - Logout current user
 - `GET /api/auth/me` - Get current user info
 
-### Dashboard (Hybrid REST + SSE)
-- `GET /api/dashboard` - Initial state (REST)
-- `GET /api/dashboard/stream` - Real-time updates (SSE)
-- `GET /api/block-headers/stream` - Block header updates (SSE)
-- `GET /api/block-headers/current` - Current block header
+### Dashboard (REST with Polling)
+- `GET /api/dashboard` - Dashboard state with wallets, events, and block header information
 
 ### Wallet Management
 - `POST /api/wallets` - Create wallet (name + descriptor)
@@ -104,6 +101,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Testnet: ssl://electrum.blockstream.info:60002  
 - Mainnet: ssl://electrum.blockstream.info:50002
 - Sync interval: 60 seconds (configurable via CANARY_SYNC_INTERVAL)
+- Frontend polling: 60 seconds (configurable via NEXT_PUBLIC_SYNC_INTERVAL)
 
 ## Key Features
 - **Optional Authentication**: Phone-based authentication with OTP via Twilio Verify
@@ -116,7 +114,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
 - **Environment Configuration**: Provider selection via .env variables, no database config needed
 - **Performance**: Async SQLite with r2d2 connection pooling
-- **Real-time**: Hybrid REST + SSE architecture, block header streaming
+- **Real-time Updates**: Frontend polls `/api/dashboard` at configurable intervals (default 60s) for wallet and transaction updates
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
 - **Network Isolation**: Separate databases per Bitcoin network
 - **Background Sync**: 4-second wallet sync intervals

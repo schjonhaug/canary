@@ -1,7 +1,7 @@
 module.exports = {
-  // All API calls now handled by Next.js API routes for proper SSE support
+  // All API calls handled by Next.js API routes with proper caching configuration
   serverExternalPackages: [],
-  // Configure API routes to handle long-running connections
+  // Configure API routes with appropriate caching headers
   async headers() {
     return [
       {
@@ -15,11 +15,11 @@ module.exports = {
       },
     ];
   },
-  // Configure server options for long-running connections
+  // Configure server options for API routes
   serverRuntimeConfig: {
-    // Increase timeout for API routes
-    apiTimeout: 0, // No timeout
+    // Standard timeout for API routes
+    apiTimeout: 30000, // 30 seconds
   },
-  // Disable any built-in timeouts
+  // Configure production settings
   poweredByHeader: false,
 }; 

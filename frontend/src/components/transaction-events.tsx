@@ -56,7 +56,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate,
         ? `${filteredEvents.length} transaction event${filteredEvents.length !== 1 ? 's' : ''} for selected wallet`
         : "No transaction events found for selected wallet"
     }
-    return "Real-time Bitcoin transaction events from all wallets"
+    return "Bitcoin transaction events from all wallets"
   }
 
   if (!hasReceivedData) {
