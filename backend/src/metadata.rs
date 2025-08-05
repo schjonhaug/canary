@@ -88,7 +88,7 @@ impl From<&str> for Language {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct WalletMetadata {
-    pub id: Option<i64>,
+    pub checksum: String,
     pub name: String,
     pub descriptor: String,
     pub wallet_filename: String,
@@ -102,7 +102,7 @@ pub struct WalletMetadata {
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct Contact {
     pub id: Option<i64>,
-    pub wallet_id: i64,
+    pub wallet_checksum: String,
     pub name: String,
     pub language: Language,
     pub notification_methods: Vec<NotificationMethod>,
@@ -151,7 +151,7 @@ impl From<&str> for ProviderType {
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEvent {
     pub id: Option<i64>,
-    pub wallet_id: i64,
+    pub wallet_checksum: String,
     pub event_type: EventType,
     pub amount_sats: i64,
     pub is_confirmed: bool,
@@ -165,7 +165,7 @@ pub struct TransactionEvent {
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEventWithWallet {
     pub id: Option<i64>,
-    pub wallet_id: i64,
+    pub wallet_checksum: String,
     pub wallet_name: String,
     pub event_type: EventType,
     pub amount_sats: i64,
@@ -199,9 +199,9 @@ pub struct WalletDetailResponse {
     pub events: Vec<TransactionEventWithWallet>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct EventInsert {
-    pub wallet_id: i64,
+    pub wallet_checksum: String,
     pub event_type: EventType,
     pub amount_sats: i64,
     pub is_confirmed: bool,
@@ -348,22 +348,27 @@ impl MetadataDb {
         descriptor: &str,
         wallet_filename: &str,
         user_id: i64,
-    ) -> Result<i64> {
+    ) -> Result<String> {
         let pool = self.pool.clone();
         let name = name.to_string();
         let descriptor = descriptor.to_string();
         let wallet_filename = wallet_filename.to_string();
         
-        spawn_blocking(move || -> Result<i64> {
+        spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             let hex_color = calculate_wallet_color(&descriptor);
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
             
+            // Extract checksum from descriptor (part after #)
+            let checksum = descriptor.split('#').last()
+                .ok_or_else(|| anyhow::anyhow!("Invalid descriptor format: missing checksum"))?
+                .to_string();
+            
             conn.execute(
-                "INSERT INTO wallets (name, descriptor, wallet_filename, hex_color, balance_total, last_activity, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![&name, &descriptor, &wallet_filename, &hex_color, "0", &current_time, user_id],
+                "INSERT INTO wallets (checksum, name, descriptor, wallet_filename, hex_color, balance_total, last_activity, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![&checksum, &name, &descriptor, &wallet_filename, &hex_color, "0", &current_time, user_id],
             )?;
-            Ok(conn.last_insert_rowid())
+            Ok(checksum)
         }).await?
     }
 
@@ -390,17 +395,17 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
             match conn.query_row(
-                "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
                         COUNT(c.id) as contact_count
                  FROM wallets w 
-                 LEFT JOIN contacts c ON w.id = c.wallet_id 
+                 LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                  WHERE w.descriptor = ?1 
-                 GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
+                 GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
                 params![descriptor],
                 |row| {
                     Ok(WalletMetadata {
-                        id: Some(row.get(0)?),
+                        checksum: row.get(0)?,
                         name: row.get(1)?,
                         descriptor: row.get(2)?,
                         wallet_filename: row.get(3)?,
@@ -419,23 +424,24 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
+    pub async fn get_wallet_by_checksum(&self, checksum: &str) -> Result<Option<WalletMetadata>> {
         let pool = self.pool.clone();
+        let checksum = checksum.to_string();
         
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
             match conn.query_row(
-                "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
                         COUNT(c.id) as contact_count
                  FROM wallets w 
-                 LEFT JOIN contacts c ON w.id = c.wallet_id 
-                 WHERE w.id = ?1 
-                 GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
-                params![id],
+                 LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                 WHERE w.checksum = ?1 
+                 GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
+                params![checksum],
                 |row| {
                     Ok(WalletMetadata {
-                        id: Some(row.get(0)?),
+                        checksum: row.get(0)?,
                         name: row.get(1)?,
                         descriptor: row.get(2)?,
                         wallet_filename: row.get(3)?,
@@ -461,17 +467,17 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
             match conn.query_row(
-                "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
                         COUNT(c.id) as contact_count
                  FROM wallets w 
-                 LEFT JOIN contacts c ON w.id = c.wallet_id 
+                 LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                  WHERE w.wallet_filename = ?1 
-                 GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
+                 GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
                 params![wallet_filename],
                 |row| {
                     Ok(WalletMetadata {
-                        id: Some(row.get(0)?),
+                        checksum: row.get(0)?,
                         name: row.get(1)?,
                         descriptor: row.get(2)?,
                         wallet_filename: row.get(3)?,
@@ -502,22 +508,22 @@ impl MetadataDb {
             
             let query = match user_id {
                 Some(_) => {
-                    "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                            (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                    "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                            (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
                             COUNT(c.id) as contact_count
                      FROM wallets w 
-                     LEFT JOIN contacts c ON w.id = c.wallet_id 
+                     LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                      WHERE w.user_id = ?1
-                     GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
+                     GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
                      ORDER BY w.created_at DESC"
                 }
                 None => {
-                    "SELECT w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                            (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_id = w.id) as last_activity,
+                    "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                            (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
                             COUNT(c.id) as contact_count
                      FROM wallets w 
-                     LEFT JOIN contacts c ON w.id = c.wallet_id 
-                     GROUP BY w.id, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
+                     LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                     GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
                      ORDER BY w.created_at DESC"
                 }
             };
@@ -531,7 +537,7 @@ impl MetadataDb {
             
             let wallet_iter = stmt.query_map(&params[..], |row| {
                 Ok(WalletMetadata {
-                    id: Some(row.get(0)?),
+                    checksum: row.get(0)?,
                     name: row.get(1)?,
                     descriptor: row.get(2)?,
                     wallet_filename: row.get(3)?,
@@ -553,28 +559,30 @@ impl MetadataDb {
     }
 
     
-    pub async fn is_wallet_owned_by_user(&self, wallet_id: i64, user_id: i64) -> Result<bool> {
+    pub async fn is_wallet_owned_by_user(&self, wallet_checksum: &str, user_id: i64) -> Result<bool> {
         let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
         
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let exists: bool = conn
-                .prepare("SELECT 1 FROM wallets WHERE id = ?1 AND user_id = ?2")?
-                .exists(params![wallet_id, user_id])?;
+                .prepare("SELECT 1 FROM wallets WHERE checksum = ?1 AND user_id = ?2")?
+                .exists(params![checksum, user_id])?;
             Ok(exists)
         }).await?
     }
 
-    pub async fn delete_wallet_by_id(&self, id: i64) -> Result<Option<(String, String)>> {
+    pub async fn delete_wallet_by_checksum(&self, checksum: &str) -> Result<Option<(String, String)>> {
         let pool = self.pool.clone();
+        let checksum = checksum.to_string();
         
         spawn_blocking(move || -> Result<Option<(String, String)>> {
             let conn = pool.get()?;
 
             // First get the descriptor and filename before deleting
             let wallet_info = match conn.query_row(
-                "SELECT descriptor, wallet_filename FROM wallets WHERE id = ?1",
-                params![id],
+                "SELECT descriptor, wallet_filename FROM wallets WHERE checksum = ?1",
+                params![checksum],
                 |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
             ) {
                 Ok((desc, filename)) => Some((desc, filename)),
@@ -584,7 +592,7 @@ impl MetadataDb {
 
             if let Some((descriptor, filename)) = wallet_info {
                 // Delete the wallet
-                let changes = conn.execute("DELETE FROM wallets WHERE id = ?1", params![id])?;
+                let changes = conn.execute("DELETE FROM wallets WHERE checksum = ?1", params![checksum])?;
 
                 if changes > 0 {
                     Ok(Some((descriptor, filename)))
@@ -599,15 +607,15 @@ impl MetadataDb {
 
     pub async fn insert_event(&self, event: &EventInsert) -> Result<i64> {
         let pool = self.pool.clone();
-        let event = *event;
+        let event = event.clone();
         
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT INTO transaction_events (wallet_id, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
+                "INSERT INTO transaction_events (wallet_checksum, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
-                    event.wallet_id,
+                    event.wallet_checksum,
                     event.event_type.as_str(),
                     event.amount_sats,
                     event.is_confirmed as i32,
@@ -627,16 +635,16 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<TransactionEventWithWallet>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT te.id, te.wallet_id, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.transaction_time 
+                "SELECT te.id, te.wallet_checksum, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.transaction_time 
                  FROM transaction_events te 
-                 JOIN wallets w ON te.wallet_id = w.id 
+                 JOIN wallets w ON te.wallet_checksum = w.checksum 
                  ORDER BY te.transaction_time DESC, te.id DESC"
             )?;
 
             let event_iter = stmt.query_map([], |row| {
                 Ok(TransactionEventWithWallet {
                     id: Some(row.get(0)?),
-                    wallet_id: row.get(1)?,
+                    wallet_checksum: row.get(1)?,
                     wallet_name: row.get(2)?,
                     event_type: EventType::from(row.get::<_, String>(3)?.as_str()),
                     amount_sats: row.get(4)?,
@@ -692,7 +700,7 @@ impl MetadataDb {
     // Normalized contact methods
     pub async fn insert_contact_with_notification_methods(
         &self, 
-        wallet_id: i64, 
+        wallet_checksum: &str, 
         name: &str, 
         language: &Language,
         notification_methods: Vec<(ProviderType, String)>
@@ -700,6 +708,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let name = name.to_string();
         let language = *language;
+        let checksum = wallet_checksum.to_string();
         
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
@@ -707,8 +716,8 @@ impl MetadataDb {
             
             // Insert contact
             tx.execute(
-                "INSERT INTO contacts (wallet_id, name, language) VALUES (?1, ?2, ?3)",
-                params![wallet_id, &name, language.as_str()],
+                "INSERT INTO contacts (wallet_checksum, name, language) VALUES (?1, ?2, ?3)",
+                params![checksum, &name, language.as_str()],
             )?;
             let contact_id = tx.last_insert_rowid();
             
@@ -725,26 +734,27 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_contacts_with_notification_methods(&self, wallet_id: i64) -> Result<Vec<Contact>> {
+    pub async fn get_contacts_with_notification_methods(&self, wallet_checksum: &str) -> Result<Vec<Contact>> {
         let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
         
         spawn_blocking(move || -> Result<Vec<Contact>> {
             let conn = pool.get()?;
             
             // First get all contacts for the wallet
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_id, name, language, created_at 
+                "SELECT id, wallet_checksum, name, language, created_at 
                  FROM contacts 
-                 WHERE wallet_id = ?1 ORDER BY name",
+                 WHERE wallet_checksum = ?1 ORDER BY name",
             )?;
 
-            let contact_iter = stmt.query_map(params![wallet_id], |row| {
+            let contact_iter = stmt.query_map(params![checksum], |row| {
                 let language_str: String = row.get(3)?;
                 Ok((
                     row.get::<_, i64>(0)?, // id
                     Contact {
                         id: Some(row.get(0)?),
-                        wallet_id: row.get(1)?,
+                        wallet_checksum: row.get(1)?,
                         name: row.get(2)?,
                         language: Language::from(language_str.as_str()),
                         notification_methods: Vec::new(), // Will be populated below
@@ -823,28 +833,30 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn update_wallet_balance(&self, wallet_id: i64, balance_total: i64) -> Result<()> {
+    pub async fn update_wallet_balance_by_checksum(&self, wallet_checksum: &str, balance_total: i64) -> Result<()> {
         let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
         
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
-                "UPDATE wallets SET balance_total = ?1 WHERE id = ?2",
-                params![balance_total, wallet_id],
+                "UPDATE wallets SET balance_total = ?1 WHERE checksum = ?2",
+                params![balance_total, checksum],
             )?;
             Ok(())
         }).await?
     }
 
-    pub async fn update_wallet(&self, wallet_id: i64, name: &str) -> Result<bool> {
+    pub async fn update_wallet_by_checksum(&self, wallet_checksum: &str, name: &str) -> Result<bool> {
         let pool = self.pool.clone();
         let name = name.to_string();
+        let checksum = wallet_checksum.to_string();
         
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let changes = conn.execute(
-                "UPDATE wallets SET name = ?1 WHERE id = ?2",
-                params![&name, wallet_id],
+                "UPDATE wallets SET name = ?1 WHERE checksum = ?2",
+                params![&name, checksum],
             )?;
             Ok(changes > 0)
         }).await?

@@ -17,7 +17,7 @@ interface DeleteWalletModalProps {
   wallet: Wallet | null
   isOpen: boolean
   onClose: () => void
-  onConfirmDelete: (walletId: number) => Promise<void>
+  onConfirmDelete: () => Promise<void>
 }
 
 export function DeleteWalletModal({
@@ -36,7 +36,7 @@ export function DeleteWalletModal({
     setError(null)
 
     try {
-      await onConfirmDelete(wallet.id)
+      await onConfirmDelete()
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete wallet")

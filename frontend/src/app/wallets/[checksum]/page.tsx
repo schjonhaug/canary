@@ -12,16 +12,11 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Trash2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useWalletDetail } from "@/hooks/useWalletDetail"
-import { useWalletsList } from "@/hooks/useWalletsList"
 import { formatBitcoinAmount, formatDateTime, loadCanarySvg, getCachedCanarySvg } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { api } from "@/lib/api"
 
-// Helper function to extract checksum from descriptor
-function extractChecksum(descriptor: string): string {
-  const checksumMatch = descriptor.match(/#([a-zA-Z0-9]+)$/)
-  return checksumMatch ? checksumMatch[1] : "Unknown"
-}
+// Note: checksum is now available directly from wallet.checksum and URL params
 
 
 export default function WalletDetailPage() {
@@ -29,38 +24,26 @@ export default function WalletDetailPage() {
   const router = useRouter()
   const checksum = params.checksum as string
   
-  // First, get all wallets to find the one with matching checksum
-  const { wallets, refresh: refetchWallets } = useWalletsList()
-  const [walletId, setWalletId] = useState<number | null>(null)
   const [walletSvg, setWalletSvg] = useState<string>("")
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
-  // Find wallet by checksum
+  // Get wallet detail data directly using checksum
+  const { wallet, events, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
+  
+  // Load SVG when wallet data is available
   useEffect(() => {
-    if (wallets.length > 0) {
-      const matchingWallet = wallets.find(wallet => 
-        extractChecksum(wallet.descriptor) === checksum
-      )
-      if (matchingWallet && matchingWallet.id) {
-        setWalletId(matchingWallet.id)
-        
-        // Load SVG for the wallet
-        const cachedSvg = getCachedCanarySvg(matchingWallet.hex_color)
-        if (cachedSvg) {
-          setWalletSvg(cachedSvg)
-        } else {
-          loadCanarySvg(matchingWallet.hex_color).then(setWalletSvg)
-        }
+    if (wallet?.hex_color) {
+      const cachedSvg = getCachedCanarySvg(wallet.hex_color)
+      if (cachedSvg) {
+        setWalletSvg(cachedSvg)
+      } else {
+        loadCanarySvg(wallet.hex_color).then(setWalletSvg)
       }
     }
-  }, [wallets, checksum])
-
-  // Get wallet detail data
-  const { wallet, events, error, isLoading, isConnected, lastUpdate, refetch } = useWalletDetail(walletId)
+  }, [wallet?.hex_color])
 
   const handleWalletUpdated = () => {
-    refetch()
-    refetchWallets()
+    refresh()
   }
 
   const handleNameUpdated = (newName: string) => {
@@ -71,8 +54,8 @@ export default function WalletDetailPage() {
     handleWalletUpdated()
   }
 
-  const handleDeleteWallet = async (walletId: number) => {
-    await api.deleteWallet(walletId)
+  const handleDeleteWallet = async (checksum: string) => {
+    await api.deleteWallet(checksum)
     router.push('/wallets')
   }
 
@@ -166,7 +149,7 @@ export default function WalletDetailPage() {
           )}
           <div>
             <InlineWalletNameEdit 
-              walletId={wallet.id}
+              walletChecksum={wallet.checksum}
               currentName={wallet.name}
               onNameUpdated={handleNameUpdated}
             />
@@ -203,11 +186,11 @@ export default function WalletDetailPage() {
 
               <div className="pt-2 border-t">
                 <WalletContactsList 
-                  walletId={wallet.id} 
+                  walletChecksum={wallet.checksum} 
                   onContactsUpdated={handleWalletUpdated}
                 />
                 <AddContactInline 
-                  walletId={wallet.id} 
+                  walletChecksum={wallet.checksum} 
                   onContactAdded={handleWalletUpdated}
                 />
               </div>
@@ -242,7 +225,7 @@ export default function WalletDetailPage() {
         wallet={wallet}
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        onConfirmDelete={handleDeleteWallet}
+        onConfirmDelete={() => handleDeleteWallet(wallet.checksum)}
       />
     </>
   )

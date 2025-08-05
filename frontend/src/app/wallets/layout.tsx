@@ -1,10 +1,29 @@
 "use client"
 
-import { useState, lazy, Suspense } from "react"
+import { useState, lazy, Suspense, createContext, useContext } from "react"
 import { usePathname } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 import { useWalletsList } from "@/hooks/useWalletsList"
+import { Wallet } from "@/types"
+
+// Create context for sharing wallet data
+interface WalletsContextType {
+  wallets: Wallet[]
+  error: string | null
+  lastUpdate: number | null
+  isConnected: boolean
+}
+
+const WalletsContext = createContext<WalletsContextType | null>(null)
+
+export const useWalletsContext = () => {
+  const context = useContext(WalletsContext)
+  if (!context) {
+    throw new Error('useWalletsContext must be used within WalletsLayout')
+  }
+  return context
+}
 
 // Lazy load modal components for code splitting
 const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
@@ -19,7 +38,7 @@ export default function WalletsLayout({
   
   // Only fetch wallets list on the main wallets page, not on detail pages
   const shouldFetchWallets = pathname === '/wallets'
-  const { wallets, refresh: refetchWallets } = useWalletsList(shouldFetchWallets)
+  const { wallets, error, lastUpdate, isConnected, refresh: refetchWallets } = useWalletsList(shouldFetchWallets)
 
   const handleCreateWallet = () => {
     setIsCreateWalletOpen(true)
@@ -37,7 +56,10 @@ export default function WalletsLayout({
         onCreateWallet={handleCreateWallet}
       />
 
-      {children}
+      {/* Pass wallet data to children via React context or props */}
+      <WalletsContext.Provider value={{ wallets, error, lastUpdate, isConnected }}>
+        {children}
+      </WalletsContext.Provider>
 
       <Suspense fallback={null}>
         <CreateWalletModal

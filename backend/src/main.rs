@@ -256,9 +256,9 @@ async fn main() -> anyhow::Result<()> {
             
             // Get wallet information for the event
             let wallet_manager_lock = notification_wallet_manager.lock().await;
-            if let Ok(Some(wallet_info)) = wallet_manager_lock.get_wallet_by_id(event.wallet_id).await {
+            if let Ok(Some(wallet_info)) = wallet_manager_lock.get_wallet_by_checksum(&event.wallet_checksum).await {
                 // Get contacts for this wallet
-                if let Ok(contacts) = wallet_manager_lock.metadata_db.get_contacts_with_notification_methods(event.wallet_id).await {
+                if let Ok(contacts) = wallet_manager_lock.metadata_db.get_contacts_with_notification_methods(&event.wallet_checksum).await {
                     if !contacts.is_empty() {
                         println!("🔔 Triggering notifications for {} contacts on wallet '{}'", contacts.len(), wallet_info.name);
                         

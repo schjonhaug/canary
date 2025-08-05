@@ -8,11 +8,11 @@ import { Contact } from "../types"
 import { api } from "../lib/api"
 
 interface WalletContactsListProps {
-  walletId: number
+  walletChecksum: string
   onContactsUpdated?: () => void
 }
 
-export function WalletContactsList({ walletId, onContactsUpdated }: WalletContactsListProps) {
+export function WalletContactsList({ walletChecksum, onContactsUpdated }: WalletContactsListProps) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -22,7 +22,7 @@ export function WalletContactsList({ walletId, onContactsUpdated }: WalletContac
     setError(null)
     
     try {
-      const contactsData = await api.getWalletContacts(walletId)
+      const contactsData = await api.getWalletContacts(walletChecksum)
       setContacts(contactsData)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load contacts")
@@ -33,7 +33,7 @@ export function WalletContactsList({ walletId, onContactsUpdated }: WalletContac
 
   const handleDeleteContact = async (contactId: number) => {
     try {
-      await api.deleteContact(walletId, contactId)
+      await api.deleteContact(walletChecksum, contactId)
       await fetchContacts()
       if (onContactsUpdated) {
         onContactsUpdated()
@@ -45,7 +45,7 @@ export function WalletContactsList({ walletId, onContactsUpdated }: WalletContac
 
   useEffect(() => {
     fetchContacts()
-  }, [walletId])
+  }, [walletChecksum])
 
   if (isLoading && contacts.length === 0) {
     return (

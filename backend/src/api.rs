@@ -221,7 +221,7 @@ pub async fn create_wallet(
 pub async fn delete_wallet(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
-    Path(id): Path<i64>,
+    Path(checksum): Path<String>,
 ) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
@@ -241,11 +241,11 @@ pub async fn delete_wallet(
     let mut manager = wallet_manager.lock().await;
     
     // Check if wallet exists and belongs to user (or user is admin)
-    match manager.metadata_db.get_wallet_by_id(id).await {
+    match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(id, user.user_id).await {
+                match manager.metadata_db.is_wallet_owned_by_user(&checksum, user.user_id).await {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -288,7 +288,7 @@ pub async fn delete_wallet(
         }
     }
     
-    match manager.delete_wallet_by_id(id).await {
+    match manager.delete_wallet_by_checksum(&checksum).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
             let error_msg = e.to_string();
@@ -324,7 +324,7 @@ pub async fn delete_wallet(
 pub async fn update_wallet(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
-    Path(id): Path<i64>,
+    Path(checksum): Path<String>,
     Json(payload): Json<UpdateWalletRequest>,
 ) -> Response {
     // Authenticate user
@@ -355,11 +355,11 @@ pub async fn update_wallet(
     let mut manager = wallet_manager.lock().await;
     
     // Check if wallet exists and belongs to user (or user is admin)
-    match manager.metadata_db.get_wallet_by_id(id).await {
+    match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(id, user.user_id).await {
+                match manager.metadata_db.is_wallet_owned_by_user(&checksum, user.user_id).await {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -402,7 +402,7 @@ pub async fn update_wallet(
         }
     }
 
-    match manager.update_wallet(id, &payload.name).await {
+    match manager.update_wallet(&checksum, &payload.name).await {
         Ok(()) => StatusCode::OK.into_response(),
         Err(e) => {
             let error_msg = e.to_string();
@@ -436,7 +436,7 @@ pub async fn update_wallet(
 pub async fn get_wallet(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
-    Path(id): Path<i64>
+    Path(checksum): Path<String>
 ) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
@@ -454,11 +454,11 @@ pub async fn get_wallet(
     
     #[allow(unused_mut)]
     let mut manager = wallet_manager.lock().await;
-    match manager.get_wallet_by_id(id).await {
+    match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(wallet)) => {
             // Check if user has access to this wallet
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(id, user.user_id).await {
+                match manager.metadata_db.is_wallet_owned_by_user(&checksum, user.user_id).await {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -524,7 +524,7 @@ pub async fn get_wallet(
 pub async fn create_wallet_contact(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
-    Path(wallet_id): Path<i64>,
+    Path(wallet_checksum): Path<String>,
     Json(payload): Json<CreateContactWithMethodsRequest>,
 ) -> Response {
     // Authenticate user
@@ -545,10 +545,10 @@ pub async fn create_wallet_contact(
     let mut manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
-    let wallet = match manager.get_wallet_by_id(wallet_id).await {
+    let wallet = match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
         Ok(Some(wallet)) => {
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(wallet_id, user.user_id).await {
+                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -632,7 +632,7 @@ pub async fn create_wallet_contact(
     }
 
     match manager.metadata_db.insert_contact_with_notification_methods(
-        wallet_id, 
+        &wallet_checksum, 
         &payload.name, 
         &payload.language,
         processed_methods
@@ -681,7 +681,7 @@ pub async fn create_wallet_contact(
 pub async fn delete_wallet_contact(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
-    Path((wallet_id, contact_id)): Path<(i64, i64)>,
+    Path((wallet_checksum, contact_id)): Path<(String, i64)>,
 ) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
@@ -701,10 +701,10 @@ pub async fn delete_wallet_contact(
     let mut manager = wallet_manager.lock().await;
     
     // Check if wallet exists and user has access
-    match manager.metadata_db.get_wallet_by_id(wallet_id).await {
+    match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(wallet_id, user.user_id).await {
+                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -793,7 +793,7 @@ pub async fn delete_wallet_contact(
 pub async fn get_wallet_contacts(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
-    Path(wallet_id): Path<i64>,
+    Path(wallet_checksum): Path<String>,
 ) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
@@ -813,10 +813,10 @@ pub async fn get_wallet_contacts(
     let mut manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
-    match manager.get_wallet_by_id(wallet_id).await {
+    match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(wallet_id, user.user_id).await {
+                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -859,7 +859,7 @@ pub async fn get_wallet_contacts(
         }
     }
 
-    match manager.metadata_db.get_contacts_with_notification_methods(wallet_id).await {
+    match manager.metadata_db.get_contacts_with_notification_methods(&wallet_checksum).await {
         Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -969,7 +969,7 @@ pub async fn get_wallets_list(
 )]
 pub async fn get_wallet_detail(
     State(wallet_manager): State<AppState>,
-    Path(wallet_id): Path<i64>,
+    Path(checksum): Path<String>,
     headers: HeaderMap,
 ) -> Response {
     // Authenticate user
@@ -988,7 +988,7 @@ pub async fn get_wallet_detail(
     
     #[allow(unused_mut)]
     let mut manager = wallet_manager.lock().await;
-    match manager.get_wallet_detail_for_user(wallet_id, user.user_id, user.is_admin).await {
+    match manager.get_wallet_detail_for_user(&checksum, user.user_id, user.is_admin).await {
         Ok(wallet_detail) => (StatusCode::OK, Json(wallet_detail)).into_response(),
         Err(e) => {
             let error_msg = e.to_string();
@@ -1533,14 +1533,14 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
     
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet).get(get_wallets_list))
-        .route("/wallets/{id}", get(get_wallet).put(update_wallet).delete(delete_wallet))
-        .route("/wallets/{id}/detail", get(get_wallet_detail))
+        .route("/wallets/{checksum}", get(get_wallet).put(update_wallet).delete(delete_wallet))
+        .route("/wallets/{checksum}/detail", get(get_wallet_detail))
         .route(
-            "/wallets/{id}/contacts",
+            "/wallets/{checksum}/contacts",
             post(create_wallet_contact).get(get_wallet_contacts),
         )
         .route(
-            "/wallets/{wallet_id}/contacts/{contact_id}",
+            "/wallets/{wallet_checksum}/contacts/{contact_id}",
             axum::routing::delete(delete_wallet_contact),
         )
         .route("/block-headers/current", get(get_current_block_header))

@@ -56,15 +56,15 @@ class ApiClient {
     })
   }
 
-  async updateWallet(id: number, name: string): Promise<Wallet> {
-    return this.request<Wallet>(`/api/wallets/${id}`, {
+  async updateWallet(checksum: string, name: string): Promise<Wallet> {
+    return this.request<Wallet>(`/api/wallets/${checksum}`, {
       method: 'PUT',
       body: JSON.stringify({ name }),
     })
   }
 
-  async deleteWallet(id: number): Promise<void> {
-    return this.request<void>(`/api/wallets/${id}`, {
+  async deleteWallet(checksum: string): Promise<void> {
+    return this.request<void>(`/api/wallets/${checksum}`, {
       method: 'DELETE',
     })
   }
@@ -73,22 +73,22 @@ class ApiClient {
     return this.request<{ timestamp: number; wallets: Wallet[] }>('/api/wallets')
   }
 
-  async getWalletDetail(id: number): Promise<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }> {
-    return this.request<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }>(`/api/wallets/${id}/detail`)
+  async getWalletDetail(checksum: string): Promise<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }> {
+    return this.request<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }>(`/api/wallets/${checksum}/detail`)
   }
 
   // Contact API methods
-  async getWalletContacts(walletId: number): Promise<Contact[]> {
-    return this.request<Contact[]>(`/api/wallets/${walletId}/contacts`)
+  async getWalletContacts(walletChecksum: string): Promise<Contact[]> {
+    return this.request<Contact[]>(`/api/wallets/${walletChecksum}/contacts`)
   }
 
   async createContact(
-    walletId: number, 
+    walletChecksum: string, 
     name: string,
     language: 'en' | 'no',
     notificationMethods: Array<{ provider_type: 'sms' | 'ntfy', notification_target: string }>
   ): Promise<Contact> {
-    return this.request<Contact>(`/api/wallets/${walletId}/contacts`, {
+    return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts`, {
       method: 'POST',
       body: JSON.stringify({
         name,
@@ -98,8 +98,8 @@ class ApiClient {
     })
   }
 
-  async deleteContact(walletId: number, contactId: number): Promise<void> {
-    return this.request<void>(`/api/wallets/${walletId}/contacts/${contactId}`, {
+  async deleteContact(walletChecksum: string, contactId: number): Promise<void> {
+    return this.request<void>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {
       method: 'DELETE',
     })
   }

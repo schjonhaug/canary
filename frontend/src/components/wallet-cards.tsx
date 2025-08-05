@@ -7,16 +7,10 @@ import { Users } from "lucide-react"
 import Link from "next/link"
 import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
-// Helper function to extract checksum from descriptor
-function extractChecksum(descriptor: string): string {
-  const checksumMatch = descriptor.match(/#([a-zA-Z0-9]+)$/)
-  return checksumMatch ? checksumMatch[1] : "Unknown"
-}
+// Note: checksum is now directly available from wallet.checksum
 import { Wallet } from "../types"
 
 interface WalletCardsProps {
-  selectedWalletId: number | null
-  onSelectWallet: (walletId: number | null) => void
   wallets: Wallet[]
   isConnected: boolean
   error: string | null
@@ -58,8 +52,8 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
     }, [wallet.hex_color, cachedSvg])
     
     const checksumTitle = useMemo(() => 
-      `Checksum: #${extractChecksum(wallet.descriptor)}`, 
-      [wallet.descriptor]
+      `Checksum: #${wallet.checksum}`, 
+      [wallet.checksum]
     )
     
     return (
@@ -147,9 +141,8 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
       {/* Individual Wallet Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
-          const checksum = extractChecksum(wallet.descriptor)
           return (
-            <Link key={wallet.id} href={`/wallets/${checksum}`} prefetch={true} onClick={() => console.log('Navigating to:', `/wallets/${checksum}`)}>
+            <Link key={wallet.checksum} href={`/wallets/${wallet.checksum}`} prefetch={true} onClick={() => console.log('Navigating to:', `/wallets/${wallet.checksum}`)}>
               <Card className="transition-all duration-200 hover:shadow-md hover:bg-muted/50 cursor-pointer">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">

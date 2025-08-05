@@ -7,12 +7,12 @@ import { Edit, Check, X } from "lucide-react"
 import { api } from "@/lib/api"
 
 interface InlineWalletNameEditProps {
-  walletId: number
+  walletChecksum: string
   currentName: string
   onNameUpdated?: (newName: string) => void
 }
 
-export function InlineWalletNameEdit({ walletId, currentName, onNameUpdated }: InlineWalletNameEditProps) {
+export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdated }: InlineWalletNameEditProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [name, setName] = useState(currentName)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -45,7 +45,7 @@ export function InlineWalletNameEdit({ walletId, currentName, onNameUpdated }: I
     setError(null)
 
     try {
-      await api.updateWallet(walletId, name.trim())
+      await api.updateWallet(walletChecksum, name.trim())
       setIsEditing(false)
       if (onNameUpdated) {
         onNameUpdated(name.trim())

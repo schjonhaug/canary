@@ -13,11 +13,11 @@ const LANGUAGES = [
 ] as const
 
 interface AddContactInlineProps {
-  walletId: number
+  walletChecksum: string
   onContactAdded?: () => void
 }
 
-export function AddContactInline({ walletId, onContactAdded }: AddContactInlineProps) {
+export function AddContactInline({ walletChecksum, onContactAdded }: AddContactInlineProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [name, setName] = useState("")
   const [language, setLanguage] = useState<'en' | 'no'>('en')
@@ -83,7 +83,7 @@ export function AddContactInline({ walletId, onContactAdded }: AddContactInlineP
 
     try {
       await api.createContact(
-        walletId,
+        walletChecksum,
         name.trim(),
         language,
         notificationMethods

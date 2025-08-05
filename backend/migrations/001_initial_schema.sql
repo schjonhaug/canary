@@ -35,7 +35,7 @@ CREATE TABLE otp_attempts (
 
 -- Wallets table: Core wallet metadata with balance tracking
 CREATE TABLE wallets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    checksum TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     descriptor TEXT NOT NULL UNIQUE,
     wallet_filename TEXT NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE wallets (
 -- Transaction events table: Bitcoin transaction tracking with comprehensive metadata
 CREATE TABLE transaction_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    wallet_id INTEGER NOT NULL,
+    wallet_checksum TEXT NOT NULL,
     event_type TEXT NOT NULL CHECK (event_type IN ('send', 'receive')),
     amount_sats INTEGER NOT NULL,
     is_confirmed BOOLEAN DEFAULT FALSE,
@@ -58,17 +58,17 @@ CREATE TABLE transaction_events (
     is_cpfp BOOLEAN DEFAULT FALSE,
     balance_total INTEGER,
     transaction_time INTEGER NOT NULL,
-    FOREIGN KEY (wallet_id) REFERENCES wallets (id) ON DELETE CASCADE
+    FOREIGN KEY (wallet_checksum) REFERENCES wallets (checksum) ON DELETE CASCADE
 );
 
 -- Contacts table: Basic contact info
 CREATE TABLE contacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    wallet_id INTEGER NOT NULL,
+    wallet_checksum TEXT NOT NULL,
     name TEXT NOT NULL,
     language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no')),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (wallet_id) REFERENCES wallets (id) ON DELETE CASCADE
+    FOREIGN KEY (wallet_checksum) REFERENCES wallets (checksum) ON DELETE CASCADE
 );
 
 -- Contact notification methods: Multiple notification methods per contact  
@@ -117,7 +117,7 @@ CREATE INDEX idx_otp_attempts_phone ON otp_attempts(phone_number);
 CREATE INDEX idx_notification_logs_event_id ON notification_logs (event_id);
 CREATE INDEX idx_notification_logs_notification_method_id ON notification_logs (notification_method_id);
 CREATE INDEX idx_notification_logs_provider ON notification_logs (provider_name);
-CREATE INDEX idx_transaction_events_wallet_id ON transaction_events (wallet_id);
-CREATE INDEX idx_contacts_wallet_id ON contacts (wallet_id);
+CREATE INDEX idx_transaction_events_wallet_checksum ON transaction_events (wallet_checksum);
+CREATE INDEX idx_contacts_wallet_checksum ON contacts (wallet_checksum);
 CREATE INDEX idx_contact_notification_methods_contact_id ON contact_notification_methods (contact_id);
 CREATE INDEX idx_contact_notification_methods_provider_type ON contact_notification_methods (provider_type);

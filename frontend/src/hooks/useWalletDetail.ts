@@ -11,7 +11,7 @@ interface WalletDetailResponse {
   events: TransactionEvent[];
 }
 
-export function useWalletDetail(walletId: number | null) {
+export function useWalletDetail(walletChecksum: string | null) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [events, setEvents] = useState<TransactionEvent[]>([]);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
@@ -23,8 +23,8 @@ export function useWalletDetail(walletId: number | null) {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchWalletDetail = useCallback(async () => {
-    // Only fetch data if user is authenticated, has a token, and walletId is provided
-    if (!isAuthenticated || !token || !walletId) {
+    // Only fetch data if user is authenticated, has a token, and walletChecksum is provided
+    if (!isAuthenticated || !token || !walletChecksum) {
       return;
     }
 
@@ -39,7 +39,7 @@ export function useWalletDetail(walletId: number | null) {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      const response = await fetch(`/api/wallets/${walletId}/detail`, {
+      const response = await fetch(`/api/wallets/${walletChecksum}/detail`, {
         headers,
       });
       
@@ -69,21 +69,21 @@ export function useWalletDetail(walletId: number | null) {
     } finally {
       setIsLoading(false);
     }
-  }, [token, isAuthenticated, walletId]);
+  }, [token, isAuthenticated, walletChecksum]);
 
   const refresh = useCallback(() => {
     fetchWalletDetail();
   }, [fetchWalletDetail]);
 
   useEffect(() => {
-    // Clear previous data when walletId changes
+    // Clear previous data when walletChecksum changes
     setWallet(null);
     setEvents([]);
     setLastUpdate(null);
     setError(null);
 
-    // Only fetch if walletId is provided
-    if (!walletId) {
+    // Only fetch if walletChecksum is provided
+    if (!walletChecksum) {
       return;
     }
 
@@ -95,13 +95,13 @@ export function useWalletDetail(walletId: number | null) {
       fetchWalletDetail();
     }, POLLING_INTERVAL);
 
-    // Cleanup on unmount or walletId change
+    // Cleanup on unmount or walletChecksum change
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [fetchWalletDetail, walletId]);
+  }, [fetchWalletDetail, walletChecksum]);
 
   return { 
     wallet,

@@ -2,15 +2,15 @@
 
 import { AlertCircle } from "lucide-react"
 import Image from "next/image"
-import { useWalletsList } from "@/hooks/useWalletsList"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { WalletCards } from "@/components/wallet-cards"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useWalletsContext } from "./layout"
 
 export default function WalletsPage() {
-  const { wallets, error, lastUpdate, isConnected } = useWalletsList()
+  const { wallets, error, lastUpdate, isConnected } = useWalletsContext()
   const { isAuthenticated, isLoading } = useAuth()
 
   const handleWalletDeleted = () => {
@@ -91,8 +91,6 @@ export default function WalletsPage() {
               </div>
             </div>
             <WalletCards 
-              selectedWalletId={null}
-              onSelectWallet={() => {}}
               wallets={wallets}
               isConnected={isConnected}
               error={error}

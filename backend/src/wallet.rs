@@ -94,7 +94,7 @@ impl WalletManager {
         // Create TransactionEvent for broadcasting
         let event = TransactionEvent {
             id: Some(event_id),
-            wallet_id: event_insert.wallet_id,
+            wallet_checksum: event_insert.wallet_checksum.clone(),
             event_type: event_insert.event_type,
             amount_sats: event_insert.amount_sats,
             is_confirmed: event_insert.is_confirmed,
@@ -127,9 +127,9 @@ impl WalletManager {
     pub async fn extract_historical_transactions(
         &self,
         wallet: &PersistedWallet<Connection>,
-        wallet_id: i64,
+        wallet_checksum: &str,
     ) -> Result<()> {
-        println!("Extracting historical transactions for wallet ID: {}", wallet_id);
+        println!("Extracting historical transactions for wallet checksum: {}", wallet_checksum);
 
         // Collect all transactions and sort them chronologically
         let mut all_transactions: Vec<_> = wallet.transactions().collect();
@@ -239,7 +239,7 @@ impl WalletManager {
 
             // Create historical event with balance_total and transaction_time
             let event_insert = EventInsert {
-                wallet_id,
+                wallet_checksum: wallet_checksum.to_string(),
                 event_type,
                 amount_sats,
                 is_confirmed,
@@ -464,14 +464,14 @@ impl WalletManager {
         }
 
         // Save wallet metadata
-        let wallet_id = self.metadata_db
+        let wallet_checksum = self.metadata_db
             .insert_wallet(name, descriptor_str, &wallet_filename_with_ext, user_id).await?;
         println!("  Metadata saved to file: {}", wallet_filename_with_ext);
 
         // Extract historical transactions BEFORE enabling real-time tracking
         // This ensures chronological order: historical events → real-time events
         println!("  Extracting historical transactions...");
-        if let Err(e) = self.extract_historical_transactions(&wallet, wallet_id).await {
+        if let Err(e) = self.extract_historical_transactions(&wallet, &wallet_checksum).await {
             eprintln!("Warning: Failed to extract historical transactions: {}", e);
         }
 
@@ -480,7 +480,7 @@ impl WalletManager {
         let initial_balance_btc = initial_balance as f64 / 100_000_000.0;
         println!("  Initial balance: {:.8} BTC ({} sats)", initial_balance_btc, initial_balance);
         
-        if let Err(e) = self.metadata_db.update_wallet_balance(wallet_id, initial_balance).await {
+        if let Err(e) = self.metadata_db.update_wallet_balance_by_checksum(&wallet_checksum, initial_balance).await {
             eprintln!("Warning: Failed to set initial wallet balance: {}", e);
         } else {
             println!("  Balance saved to metadata database");
@@ -620,10 +620,10 @@ impl WalletManager {
                             .get_wallet_by_filename(&wallet_filename).await
                             .expect("Failed to get wallet")
                             .expect("Wallet should exist in metadata database");
-                        let wallet_id = wallet_metadata.id.expect("Wallet should have ID");
+                        let wallet_checksum = &wallet_metadata.checksum;
 
                         // Update the wallet balance in the metadata database
-                        if let Err(e) = self.metadata_db.update_wallet_balance(wallet_id, total_after.to_sat() as i64).await {
+                        if let Err(e) = self.metadata_db.update_wallet_balance_by_checksum(wallet_checksum, total_after.to_sat() as i64).await {
                             eprintln!("Failed to update wallet balance in metadata: {}", e);
                         }
 
@@ -744,7 +744,7 @@ impl WalletManager {
                                     metadata_db,
                                     event_sender,
                                     &EventInsert {
-                                        wallet_id,
+                                        wallet_checksum: wallet_checksum.clone(),
                                         event_type: EventType::Send,
                                         amount_sats: fee_paid as i64,
                                         is_confirmed: false,
@@ -785,7 +785,7 @@ impl WalletManager {
                                     metadata_db,
                                     event_sender,
                                     &EventInsert {
-                                        wallet_id,
+                                        wallet_checksum: wallet_checksum.clone(),
                                         event_type: EventType::Send,
                                         amount_sats: fee_increase as i64,
                                         is_confirmed: false,
@@ -816,7 +816,7 @@ impl WalletManager {
                                         metadata_db,
                                         event_sender,
                                         &EventInsert {
-                                            wallet_id,
+                                            wallet_checksum: wallet_checksum.clone(),
                                             event_type: EventType::Send,
                                             amount_sats: sending_amount as i64,
                                             is_confirmed: false,
@@ -846,7 +846,7 @@ impl WalletManager {
                                         metadata_db,
                                         event_sender,
                                         &EventInsert {
-                                            wallet_id,
+                                            wallet_checksum: wallet_checksum.clone(),
                                             event_type: EventType::Send,
                                             amount_sats: total_spent as i64,
                                             is_confirmed: false,
@@ -872,7 +872,7 @@ impl WalletManager {
                                         metadata_db,
                                         event_sender,
                                         &EventInsert {
-                                            wallet_id,
+                                            wallet_checksum: wallet_checksum.clone(),
                                             event_type: EventType::Send,
                                             amount_sats: trusted_spent as i64,
                                             is_confirmed: false,
@@ -905,7 +905,7 @@ impl WalletManager {
                                     metadata_db,
                                     event_sender,
                                     &EventInsert {
-                                        wallet_id,
+                                        wallet_checksum: wallet_checksum.clone(),
                                         event_type: EventType::Send,
                                         amount_sats: sending_amount as i64,
                                         is_confirmed: false,
@@ -938,7 +938,7 @@ impl WalletManager {
                                     metadata_db,
                                     event_sender,
                                     &EventInsert {
-                                        wallet_id,
+                                        wallet_checksum: wallet_checksum.clone(),
                                         event_type: EventType::Send,
                                         amount_sats: total_spent as i64,
                                         is_confirmed: false,
@@ -967,7 +967,7 @@ impl WalletManager {
                                     metadata_db,
                                     event_sender,
                                     &EventInsert {
-                                        wallet_id,
+                                        wallet_checksum: wallet_checksum.clone(),
                                         event_type: EventType::Send,
                                         amount_sats: trusted_spent as i64,
                                         is_confirmed: false,
@@ -1001,7 +1001,7 @@ impl WalletManager {
                                 metadata_db,
                                 event_sender,
                                 &EventInsert {
-                                    wallet_id,
+                                    wallet_checksum: wallet_checksum.clone(),
                                     event_type: EventType::Receive,
                                     amount_sats: receiving_amount as i64,
                                     is_confirmed: false,
@@ -1036,7 +1036,7 @@ impl WalletManager {
                                     metadata_db,
                                     event_sender,
                                     &EventInsert {
-                                        wallet_id,
+                                        wallet_checksum: wallet_checksum.clone(),
                                         event_type: EventType::Send,
                                         amount_sats: total_confirmed_send_amount,
                                         is_confirmed: true,
@@ -1058,7 +1058,7 @@ impl WalletManager {
                                     metadata_db,
                                     event_sender,
                                     &EventInsert {
-                                        wallet_id,
+                                        wallet_checksum: wallet_checksum.clone(),
                                         event_type: EventType::Send,
                                         amount_sats: 0,
                                         is_confirmed: true,
@@ -1094,7 +1094,7 @@ impl WalletManager {
                                 metadata_db,
                                 event_sender,
                                 &EventInsert {
-                                    wallet_id,
+                                    wallet_checksum: wallet_checksum.clone(),
                                     event_type: EventType::Receive,
                                     amount_sats: confirmed_amount as i64,
                                     is_confirmed: true,
@@ -1145,7 +1145,7 @@ impl WalletManager {
         })
     }
 
-    pub async fn get_wallet_detail_for_user(&self, wallet_id: i64, user_id: i64, is_admin: bool) -> Result<WalletDetailResponse> {
+    pub async fn get_wallet_detail_for_user(&self, wallet_checksum: &str, user_id: i64, is_admin: bool) -> Result<WalletDetailResponse> {
         // Get current timestamp
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -1153,26 +1153,24 @@ impl WalletManager {
             .as_secs();
 
         // Get the specific wallet
-        let wallet = self.get_wallet_by_id(wallet_id).await?
+        let wallet = self.metadata_db.get_wallet_by_checksum(wallet_checksum).await?
             .ok_or_else(|| anyhow!("Wallet not found"))?;
 
         // Check if user has permission to access this wallet
-        if !is_admin && wallet.id.is_some() {
+        if !is_admin {
             let user_wallets = self.metadata_db.get_wallets_for_user(Some(user_id)).await?;
-            let user_wallet_ids: Vec<i64> = user_wallets.iter()
-                .filter_map(|w| w.id)
+            let user_wallet_checksums: Vec<&str> = user_wallets.iter()
+                .map(|w| w.checksum.as_str())
                 .collect();
             
-            if let Some(w_id) = wallet.id {
-                if !user_wallet_ids.contains(&w_id) {
-                    return Err(anyhow!("Access denied to wallet"));
-                }
+            if !user_wallet_checksums.contains(&wallet_checksum) {
+                return Err(anyhow!("Access denied to wallet"));
             }
         }
 
         // Get transaction events for this specific wallet
         let mut events = self.metadata_db.get_all_events_with_wallets().await?;
-        events.retain(|event| event.wallet_id == wallet_id);
+        events.retain(|event| event.wallet_checksum == wallet_checksum);
         
         // Limit to recent events for performance (already ordered by ID desc in SQL)
         events.truncate(100);
@@ -1185,18 +1183,18 @@ impl WalletManager {
     }
 
 
-    pub async fn get_wallet_by_id(&self, id: i64) -> Result<Option<WalletMetadata>> {
+    pub async fn get_wallet_by_checksum(&self, checksum: &str) -> Result<Option<WalletMetadata>> {
         self.metadata_db
-            .get_wallet_by_id(id).await
-            .map_err(|e| anyhow!("Failed to get wallet by ID: {}", e))
+            .get_wallet_by_checksum(checksum).await
+            .map_err(|e| anyhow!("Failed to get wallet by checksum: {}", e))
     }
 
 
-    pub async fn delete_wallet_by_id(&mut self, id: i64) -> Result<()> {
-        println!("Deleting wallet with ID: {}", id);
+    pub async fn delete_wallet_by_checksum(&mut self, checksum: &str) -> Result<()> {
+        println!("Deleting wallet with checksum: {}", checksum);
 
-        // Get the descriptor and filename for this wallet ID and delete from metadata
-        let (descriptor, wallet_filename) = match self.metadata_db.delete_wallet_by_id(id).await? {
+        // Get the descriptor and filename for this wallet checksum and delete from metadata
+        let (descriptor, wallet_filename) = match self.metadata_db.delete_wallet_by_checksum(checksum).await? {
             Some((desc, filename)) => (desc, filename),
             None => return Err(anyhow!("Wallet not found")),
         };
@@ -1247,11 +1245,11 @@ impl WalletManager {
         Ok(())
     }
 
-    pub async fn update_wallet(&self, id: i64, name: &str) -> Result<()> {
-        println!("Updating wallet with ID: {}", id);
+    pub async fn update_wallet(&self, checksum: &str, name: &str) -> Result<()> {
+        println!("Updating wallet with checksum: {}", checksum);
         
         // Update wallet name in metadata database
-        let updated = self.metadata_db.update_wallet(id, name).await?;
+        let updated = self.metadata_db.update_wallet_by_checksum(checksum, name).await?;
         if !updated {
             return Err(anyhow!("Wallet not found"));
         }

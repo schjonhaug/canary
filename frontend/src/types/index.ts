@@ -1,7 +1,7 @@
 // Shared type definitions for the Canary frontend application
 
 export interface Wallet {
-  id: number
+  checksum: string
   name: string
   descriptor: string
   wallet_filename: string
@@ -22,7 +22,7 @@ export interface NotificationStatus {
 
 export interface TransactionEvent {
   id: number
-  wallet_id: number
+  wallet_checksum: string
   wallet_name: string
   event_type: 'send' | 'receive'
   amount_sats: number
@@ -45,7 +45,7 @@ export interface NotificationMethod {
 
 export interface Contact {
   id: number
-  wallet_id: number
+  wallet_checksum: string
   name: string
   language: 'en' | 'no'
   notification_methods: NotificationMethod[]
