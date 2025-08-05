@@ -115,14 +115,16 @@ async fn main() -> anyhow::Result<()> {
                             }
                         }
                         Err(e) => {
-                            eprintln!("Failed to get initial block header: {}", e);
+                            eprintln!("❌ Failed to get initial block header: {}", e);
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("Failed to get current block height: {}", e);
+                    eprintln!("❌ Failed to get current block height from Electrum: {}", e);
                 }
             }
+        } else {
+            eprintln!("⚠️  No Electrum client available - cannot fetch block headers");
         }
     }
 

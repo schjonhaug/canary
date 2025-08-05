@@ -41,7 +41,17 @@ impl WalletManager {
         }
 
         // Initialize electrum client
-        let electrum_client = ElectrumClient::new(electrum_url).ok();
+        let electrum_client = match ElectrumClient::new(electrum_url) {
+            Ok(client) => {
+                println!("✅ Connected to Electrum server: {}", electrum_url);
+                Some(client)
+            }
+            Err(e) => {
+                eprintln!("❌ Failed to connect to Electrum server {}: {}", electrum_url, e);
+                eprintln!("   Wallet sync will not work without Electrum connection!");
+                None
+            }
+        };
 
         // Initialize metadata database
         let metadata_db = match MetadataDb::new(metadata_db_path) {
