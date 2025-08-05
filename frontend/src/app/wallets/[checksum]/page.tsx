@@ -131,7 +131,7 @@ export default function WalletDetailPage() {
         </Alert>
       )}
       
-      <div className="mt-8 space-y-8">
+      <div className="space-y-8">
         {/* Header Section */}
         <section>
           <div className="flex items-center justify-between mb-4">
