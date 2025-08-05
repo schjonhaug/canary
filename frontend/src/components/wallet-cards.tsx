@@ -149,7 +149,7 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
         {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
           const checksum = extractChecksum(wallet.descriptor)
           return (
-            <Link key={wallet.id} href={`/wallets/${checksum}`}>
+            <Link key={wallet.id} href={`/wallets/${checksum}`} prefetch={true} onClick={() => console.log('Navigating to:', `/wallets/${checksum}`)}>
               <Card className="transition-all duration-200 hover:shadow-md hover:bg-muted/50 cursor-pointer">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
