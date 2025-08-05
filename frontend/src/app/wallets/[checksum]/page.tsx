@@ -131,25 +131,33 @@ export default function WalletDetailPage() {
         </Alert>
       )}
       
-      <div className="mb-6">
-        {/* Breadcrumb Navigation */}
-        <nav className="flex items-center text-2xl text-muted-foreground mb-4">
-          <Link href="/wallets" className="hover:text-foreground font-semibold">
-            Wallets
-          </Link>
-          <span className="mx-2">/</span>
-          <div className="text-foreground font-semibold">
-            <InlineWalletNameEdit 
-              walletChecksum={wallet.checksum}
-              currentName={wallet.name}
-              onNameUpdated={handleNameUpdated}
-            />
+      <div className="mt-8 space-y-8">
+        {/* Header Section */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div>
+                <nav className="flex items-center text-2xl text-muted-foreground">
+                  <Link href="/wallets" className="hover:text-foreground font-semibold">
+                    Wallets
+                  </Link>
+                  <span className="mx-2">/</span>
+                  <div className="text-foreground font-semibold">
+                    <InlineWalletNameEdit 
+                      walletChecksum={wallet.checksum}
+                      currentName={wallet.name}
+                      onNameUpdated={handleNameUpdated}
+                    />
+                  </div>
+                </nav>
+              </div>
+            </div>
           </div>
-        </nav>
-      </div>
+        </section>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <section>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Wallet Info Sidebar */}
         <div className="lg:col-span-1">
           <Card>
@@ -209,6 +217,8 @@ export default function WalletDetailPage() {
             walletsCount={1} // Single wallet context
           />
         </div>
+      </div>
+        </section>
       </div>
 
       <DeleteWalletModal
