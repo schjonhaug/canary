@@ -16,20 +16,22 @@ export function AppHeader({ showCreateWallet = false, onCreateWallet, customLogo
   return (
     <div className="mb-6 flex items-center justify-between">
       <Link href="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
-        {customLogo ? (
-          <div 
-            className="w-12 h-12 [&>svg]:w-full [&>svg]:h-full"
-            dangerouslySetInnerHTML={{ __html: customLogo }}
-          />
-        ) : (
-          <Image
-            src="/images/canary.svg"
-            alt="Canary Logo"
-            width={48}
-            height={48}
-            className="h-12 w-12"
-          />
-        )}
+        <div className="relative w-12 h-12">
+          {customLogo ? (
+            <div 
+              className="absolute inset-0 w-full h-full [&>svg]:w-full [&>svg]:h-full [&>svg]:transition-all [&>svg]:duration-500 [&>svg]:ease-in-out animate-in fade-in-0 duration-500"
+              dangerouslySetInnerHTML={{ __html: customLogo }}
+            />
+          ) : (
+            <Image
+              src="/images/canary.svg"
+              alt="Canary Logo"
+              width={48}
+              height={48}
+              className="absolute inset-0 h-12 w-12 transition-all duration-500 ease-in-out animate-in fade-in-0 duration-500"
+            />
+          )}
+        </div>
         <h1 className="text-3xl font-bold tracking-wide">Canary</h1>
       </Link>
       <div className="flex items-center gap-6">
