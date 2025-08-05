@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useWalletsContext } from "./layout"
 
 export default function WalletsPage() {
-  const { wallets, error, lastUpdate, isConnected } = useWalletsContext()
+  const { wallets, error, lastUpdate, isConnected, onCreateWallet } = useWalletsContext()
   const { isAuthenticated, isLoading } = useAuth()
 
   const handleWalletDeleted = () => {
@@ -73,7 +73,7 @@ export default function WalletsPage() {
       )}
       
       {wallets.length === 0 ? (
-        <WalletOnboarding onCreateWallet={() => {}} />
+        <WalletOnboarding onCreateWallet={onCreateWallet} />
       ) : (
         <div className="mt-8 space-y-8">
           {/* Wallet Cards Section */}

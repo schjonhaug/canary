@@ -13,6 +13,7 @@ interface WalletsContextType {
   error: string | null
   lastUpdate: number | null
   isConnected: boolean
+  onCreateWallet: () => void
 }
 
 const WalletsContext = createContext<WalletsContextType | null>(null)
@@ -57,7 +58,7 @@ export default function WalletsLayout({
       />
 
       {/* Pass wallet data to children via React context or props */}
-      <WalletsContext.Provider value={{ wallets, error, lastUpdate, isConnected }}>
+      <WalletsContext.Provider value={{ wallets, error, lastUpdate, isConnected, onCreateWallet: handleCreateWallet }}>
         {children}
       </WalletsContext.Provider>
 
