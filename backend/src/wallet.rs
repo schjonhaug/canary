@@ -1133,9 +1133,6 @@ impl WalletManager {
         Ok(())
     }
 
-    pub async fn get_current_dashboard_state(&self) -> Result<DashboardUpdate> {
-        self.get_current_dashboard_state_for_user(1, true).await
-    }
 
     pub async fn get_current_dashboard_state_for_user(&self, user_id: i64, is_admin: bool) -> Result<DashboardUpdate> {
         // Get current timestamp

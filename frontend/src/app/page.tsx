@@ -20,7 +20,7 @@ const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").
 export default function Home() {
   const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null)
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
-  const { wallets, events, blockHeader, error, lastUpdate, isLoading: dashboardLoading, isConnected, refresh } = useDashboard()
+  const { wallets, events, blockHeader, error, lastUpdate, isConnected, refresh } = useDashboard()
   const { isAuthenticated, isLoading } = useAuth()
   const blockHeaderTime = useRelativeTime(blockHeader?.timestamp)
 
@@ -79,7 +79,7 @@ export default function Home() {
     <div className="container mx-auto py-8">
       {/* Connection Warning Banner */}
       {!isConnected && (
-        <Alert variant={"warning" as any} className="mb-6">
+        <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Backend Connection Lost</AlertTitle>
           <AlertDescription>

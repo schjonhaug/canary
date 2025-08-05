@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsLoading(false)
     }
-  }, [])
+  }, [authEnabled])
 
   const fetchUser = async () => {
     try {

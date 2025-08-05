@@ -546,19 +546,6 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_wallet_ids_for_user(&self, user_id: i64) -> Result<Vec<i64>> {
-        let pool = self.pool.clone();
-        
-        spawn_blocking(move || -> Result<Vec<i64>> {
-            let conn = pool.get()?;
-            let mut stmt = conn.prepare("SELECT id FROM wallets WHERE user_id = ?1")?;
-            let wallet_ids = stmt.query_map(params![user_id], |row| {
-                row.get(0)
-            })?
-            .collect::<Result<Vec<i64>, _>>()?;
-            Ok(wallet_ids)
-        }).await?
-    }
     
     pub async fn is_wallet_owned_by_user(&self, wallet_id: i64, user_id: i64) -> Result<bool> {
         let pool = self.pool.clone();
