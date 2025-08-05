@@ -417,9 +417,10 @@ impl WalletManager {
         println!("  Name: {}", name);
         println!("  Input descriptor: {}", descriptor_str);
 
+
         // Check if descriptor already exists
         if self.metadata_db.descriptor_exists(descriptor_str).await? {
-            return Err(anyhow!("Descriptor already exists"));
+            return Err(anyhow!("This wallet has already been added. Ask the wallet owner to add you as a contact for notifications."));
         }
 
         // Parse and validate the multipath descriptor first
@@ -515,7 +516,7 @@ impl WalletManager {
         // Track if any wallet had changes during this sync cycle
         let mut any_wallet_changed = false;
 
-        for (checksum, wallet) in self.wallets.iter_mut() {
+        for (wallet_key, wallet) in self.wallets.iter_mut() {
             // Get balance before sync
             let balance_before = wallet.balance();
             let trusted_pending_before = balance_before.trusted_pending;
@@ -558,7 +559,7 @@ impl WalletManager {
             {
                 Some(Ok(())) => {
                     // Persist wallet changes after successful incremental sync
-                    let wallet_filename = format!("{}.sqlite", checksum);
+                    let wallet_filename = format!("{}.sqlite", wallet_key);
                     let wallet_path = self.wallet_dir.join(&wallet_filename);
 
                     match Connection::open(&wallet_path) {
@@ -566,14 +567,14 @@ impl WalletManager {
                             if let Err(e) = wallet.persist(&mut db) {
                                 eprintln!(
                                     "❌ Failed to persist wallet {} after sync: {}",
-                                    checksum, e
+                                    wallet_key, e
                                 );
                             }
                         }
                         Err(e) => {
                             eprintln!(
                                 "❌ Failed to create database connection for wallet {}: {}",
-                                checksum, e
+                                wallet_key, e
                             );
                         }
                     }
@@ -608,7 +609,7 @@ impl WalletManager {
                         // Mark that at least one wallet had changes
                         any_wallet_changed = true;
                         // Get the user-friendly wallet name and wallet ID
-                        let wallet_filename = format!("{}.sqlite", checksum);
+                        let wallet_filename = format!("{}.sqlite", wallet_key);
                         let wallet_name = self
                             .metadata_db
                             .get_wallet_name_by_filename(&wallet_filename).await
@@ -1115,7 +1116,7 @@ impl WalletManager {
                     }
                 }
                 Some(Err(e)) => {
-                    eprintln!("❌ Sync failed for wallet {} - {}", checksum, e);
+                    eprintln!("❌ Sync failed for wallet {} - {}", wallet_key, e);
                 }
                 None => {
                     // No electrum client available, skip sync

@@ -322,6 +322,21 @@ impl MetadataDb {
         })
     }
 
+    pub async fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let descriptor = descriptor.to_string();
+        
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM wallets WHERE descriptor = ?1",
+                params![descriptor],
+                |row| row.get(0),
+            )?;
+            Ok(count > 0)
+        }).await?
+    }
+
     pub async fn insert_wallet(
         &self,
         name: &str,
@@ -347,20 +362,6 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
-        let pool = self.pool.clone();
-        let descriptor = descriptor.to_string();
-        
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
-            let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM wallets WHERE descriptor = ?1",
-                params![descriptor],
-                |row| row.get(0),
-            )?;
-            Ok(count > 0)
-        }).await?
-    }
 
     pub async fn get_wallet_name_by_filename(&self, wallet_filename: &str) -> Result<String> {
         let pool = self.pool.clone();
