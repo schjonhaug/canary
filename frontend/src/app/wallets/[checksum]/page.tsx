@@ -132,21 +132,16 @@ export default function WalletDetailPage() {
       )}
       
       <div className="mb-6">
-        <Link href="/wallets">
-          <Button variant="ghost" size="sm" className="gap-2 mb-4">
-            <ArrowLeft size={16} />
-            Back to Wallets
-          </Button>
-        </Link>
+        {/* Breadcrumb Navigation */}
+        <nav className="flex items-center text-sm text-muted-foreground mb-4">
+          <Link href="/wallets" className="hover:text-foreground">
+            Wallets
+          </Link>
+          <span className="mx-2">/</span>
+          <span className="text-foreground font-medium">{wallet.name}</span>
+        </nav>
         
         <div className="flex items-center gap-6">
-          {walletSvg && (
-            <div 
-              className="w-16 h-16 flex-shrink-0 [&>svg]:w-full [&>svg]:h-full"
-              title={`Checksum: #${checksum}`}
-              dangerouslySetInnerHTML={{ __html: walletSvg }}
-            />
-          )}
           <div>
             <InlineWalletNameEdit 
               walletChecksum={wallet.checksum}
@@ -163,7 +158,16 @@ export default function WalletDetailPage() {
         <div className="lg:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle>Wallet Information</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                {walletSvg && (
+                  <div 
+                    className="w-5 h-5 flex-shrink-0 [&>svg]:w-full [&>svg]:h-full"
+                    title={`Checksum: #${checksum}`}
+                    dangerouslySetInnerHTML={{ __html: walletSvg }}
+                  />
+                )}
+                Wallet Information
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
