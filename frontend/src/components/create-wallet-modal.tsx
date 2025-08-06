@@ -127,7 +127,7 @@ export function CreateWalletModal({
               disabled={modal.isLoading}
               rows={4}
               className="font-mono text-sm break-all whitespace-pre-wrap resize-none"
-              autoFocus={shouldFocusDescriptor}
+              autoFocus={!!shouldFocusDescriptor}
             />
             <p className="text-xs text-muted-foreground">
               Must be a valid multipath output descriptor with checksum

@@ -12,13 +12,11 @@ import { Wallet } from "../types"
 
 interface WalletCardsProps {
   wallets: Wallet[]
-  isConnected: boolean
   error: string | null
   lastUpdate: number | null
-  onWalletDeleted?: () => void
 }
 
-export function WalletCards({ wallets, isConnected, error, lastUpdate, onWalletDeleted }: WalletCardsProps) {
+export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
 
   // Track when we've received data for the first time

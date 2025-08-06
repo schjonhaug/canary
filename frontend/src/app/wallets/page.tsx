@@ -2,22 +2,16 @@
 
 import { AlertCircle } from "lucide-react"
 import Image from "next/image"
-import Link from "next/link"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { WalletCards } from "@/components/wallet-cards"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
   const { wallets, error, lastUpdate, isConnected, onCreateWallet } = useWalletsContext()
   const { isAuthenticated, isLoading } = useAuth()
-
-  const handleWalletDeleted = () => {
-    // Wallet list will auto-refresh via polling
-  }
 
   const getTotalBalance = () => {
     return wallets.reduce((total, wallet) => {
@@ -97,10 +91,8 @@ export default function WalletsPage() {
             </div>
             <WalletCards 
               wallets={wallets}
-              isConnected={isConnected}
               error={error}
               lastUpdate={lastUpdate}
-              onWalletDeleted={handleWalletDeleted}
             />
           </section>
 
