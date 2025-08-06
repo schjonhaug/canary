@@ -42,26 +42,16 @@ export function CreateWalletModal({
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
   
-  // Prefill name and manage focus when modal opens
+  // Prefill name when modal opens
   useEffect(() => {
-    if (isOpen) {
-      const shouldPrefillName = isFirstWallet && authEnabled && user?.name
-      
-      if (shouldPrefillName) {
-        // Set the name and focus the descriptor field
-        setName(user.name)
-        // Use setTimeout to ensure the focus happens after the name is set and rendered
-        setTimeout(() => {
-          descriptorRef.current?.focus()
-        }, 0)
-      } else {
-        // Focus the name field for normal cases
-        setTimeout(() => {
-          nameRef.current?.focus()
-        }, 0)
-      }
+    if (isOpen && isFirstWallet && authEnabled && user?.name) {
+      setName(user.name)
     }
   }, [isOpen, isFirstWallet, authEnabled, user?.name])
+  
+  // Determine which field should be auto-focused
+  const shouldFocusDescriptor = isOpen && isFirstWallet && authEnabled && user?.name
+  const shouldFocusName = isOpen && !shouldFocusDescriptor
 
   const handleClose = () => {
     if (!modal.isLoading) {
@@ -122,6 +112,7 @@ export function CreateWalletModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={modal.isLoading}
+              autoFocus={shouldFocusName}
             />
           </div>
 
@@ -136,6 +127,7 @@ export function CreateWalletModal({
               disabled={modal.isLoading}
               rows={4}
               className="font-mono text-sm break-all whitespace-pre-wrap resize-none"
+              autoFocus={shouldFocusDescriptor}
             />
             <p className="text-xs text-muted-foreground">
               Must be a valid multipath output descriptor with checksum
