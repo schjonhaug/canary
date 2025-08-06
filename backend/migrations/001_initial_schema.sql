@@ -11,8 +11,7 @@ CREATE TABLE users (
     last_login DATETIME
 );
 
--- Initialize admin user (id=1) for self-hosted mode
-INSERT INTO users (id, phone_number, name, is_admin) VALUES (1, 'admin', 'Admin', TRUE);
+-- Note: Admin user creation is now handled dynamically in the application code
 
 -- Sessions table: JWT/session management
 CREATE TABLE sessions (

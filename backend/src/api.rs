@@ -1324,9 +1324,31 @@ pub async fn verify_otp(
                 eprintln!("Failed to update last login for user {}: {:?}", user_id, e);
             }
             
-            // Check if user is admin
-            let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
-            let is_admin = admin_phone.map_or(false, |phone| phone == request.phone_number) 
+            // Get user from database to check admin status (determined by create_user logic)
+            let user_record = match manager.metadata_db.get_user_by_phone(&request.phone_number).await {
+                Ok(Some(user)) => user,
+                Ok(None) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: "User not found after creation".to_string(),
+                        }),
+                    )
+                        .into_response();
+                }
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Failed to fetch user: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
+            };
+            
+            // Check if user is admin from database or hardcoded dev phone
+            let is_admin = user_record.is_admin 
                 || (cfg!(debug_assertions) && request.phone_number == crate::auth::DEV_ADMIN_PHONE);
             
             // Generate JWT token
@@ -1632,6 +1654,7 @@ pub async fn update_user(
     
     Json(UpdateUserResponse { user: user_info }).into_response()
 }
+
 
 #[utoipa::path(
     get,

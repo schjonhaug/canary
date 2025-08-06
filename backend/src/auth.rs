@@ -254,11 +254,9 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     let auth_service = AuthService::new(jwt_secret);
     let claims = auth_service.validate_token(token)?;
 
-    // Check if user is admin
-    let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
-    let is_admin = admin_phone.map_or(false, |phone| phone == claims.phone) 
-        || claims.is_admin
-        || (DEV_MODE && claims.phone == DEV_ADMIN_PHONE);
+    // Admin status comes from the JWT token claims, which are set from database at login time
+    // Only add hardcoded dev admin phone for development mode
+    let is_admin = claims.is_admin || (DEV_MODE && claims.phone == DEV_ADMIN_PHONE);
 
     Ok(AuthUser {
         user_id: claims.sub,

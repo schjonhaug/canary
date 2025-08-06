@@ -34,6 +34,7 @@ pub struct UserRecord {
     pub id: i64,
     pub phone_number: String,
     pub name: Option<String>,
+    pub is_admin: bool,
     pub created_at: String,
 }
 
@@ -322,9 +323,55 @@ impl MetadataDb {
             .build(manager)
             .context("Failed to create database pool")?;
 
-        Ok(MetadataDb {
+        let db = MetadataDb {
             pool: Arc::new(pool),
-        })
+        };
+        
+        // Initialize admin user based on auth configuration
+        db.initialize_admin_user().await?;
+        
+        Ok(db)
+    }
+
+    async fn initialize_admin_user(&self) -> Result<()> {
+        // Check if auth is enabled
+        let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(false);
+        
+        if !auth_enabled {
+            // AUTH=false: Create default admin user (id=1) for self-hosted mode
+            self.ensure_default_admin_user().await?;
+        }
+        // AUTH=true: First registered user will become admin (handled in registration logic)
+        
+        Ok(())
+    }
+
+    async fn ensure_default_admin_user(&self) -> Result<()> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            
+            // Check if admin user already exists
+            let admin_exists: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE id = 1)",
+                [],
+                |row| row.get(0)
+            )?;
+            
+            if !admin_exists {
+                // Create default admin user for self-hosted mode
+                conn.execute(
+                    "INSERT INTO users (id, phone_number, name, is_admin) VALUES (1, 'admin', 'Admin', TRUE)",
+                    []
+                )?;
+                println!("Created default admin user for self-hosted mode");
+            }
+            
+            Ok(())
+        }).await?
     }
 
     pub async fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
@@ -919,27 +966,53 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let phone_number = phone_number.to_string();
         let name = name.map(|n| n.to_string());
-        let admin_phone = std::env::var("ADMIN_PHONE_NUMBER").ok();
-        let is_admin = admin_phone.map_or(false, |phone| phone == phone_number)
-            || (cfg!(debug_assertions) && phone_number == crate::auth::DEV_ADMIN_PHONE);
+        
+        // Check if auth is enabled to determine admin logic
+        let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(false);
+        
+        let is_admin = if auth_enabled {
+            // AUTH=true: First registered user becomes admin (checked later in the transaction)
+            // or development admin phone
+            cfg!(debug_assertions) && phone_number == crate::auth::DEV_ADMIN_PHONE
+        } else {
+            // AUTH=false: No user registration in this mode (only default admin exists)
+            false
+        };
         
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
+            let tx = conn.unchecked_transaction()?;
             
             // Try to get existing user first
-            let existing: Option<i64> = conn
+            let existing: Option<i64> = tx
                 .prepare("SELECT id FROM users WHERE phone_number = ?1")?
                 .query_row(params![&phone_number], |row| row.get(0))
                 .ok();
             
             if let Some(id) = existing {
+                tx.commit()?;
                 return Ok(id);
             }
             
+            // For AUTH=true, check if this is the first user (excluding default admin id=1)
+            let mut final_is_admin = is_admin;
+            if auth_enabled && !is_admin {
+                let user_count: i64 = tx.query_row(
+                    "SELECT COUNT(*) FROM users WHERE id != 1", // Exclude default admin user (id=1)
+                    [],
+                    |row| row.get(0)
+                )?;
+                
+                if user_count == 0 {
+                    final_is_admin = true;
+                    println!("Creating first user as admin: {}", phone_number);
+                }
+            }
+            
             // Determine the name to use
-            let user_name = if is_admin {
-                Some("Admin".to_string())
-            } else if cfg!(debug_assertions) && name.is_none() {
+            let user_name = if cfg!(debug_assertions) && name.is_none() {
                 // Dev mode: use hardcoded names for test users only if no name provided
                 match phone_number.as_str() {
                     "+4799999901" => Some("Alice".to_string()),
@@ -952,11 +1025,28 @@ impl MetadataDb {
             };
             
             // Create new user
-            conn.execute(
+            tx.execute(
                 "INSERT INTO users (phone_number, is_admin, name) VALUES (?1, ?2, ?3)",
-                params![&phone_number, is_admin, user_name],
+                params![&phone_number, final_is_admin, user_name],
             )?;
-            Ok(conn.last_insert_rowid())
+            
+            let user_id = tx.last_insert_rowid();
+            tx.commit()?;
+            Ok(user_id)
+        }).await?
+    }
+
+    pub async fn has_any_users(&self) -> Result<bool> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM users WHERE id != 1", // Exclude default admin user (id=1)
+                [],
+                |row| row.get(0)
+            )?;
+            Ok(count > 0)
         }).await?
     }
 
@@ -967,13 +1057,14 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, phone_number, name, created_at FROM users WHERE phone_number = ?1")?
+                .prepare("SELECT id, phone_number, name, is_admin, created_at FROM users WHERE phone_number = ?1")?
                 .query_row(params![&phone_number], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
                         phone_number: row.get(1)?,
                         name: row.get(2)?,
-                        created_at: row.get(3)?,
+                        is_admin: row.get(3)?,
+                        created_at: row.get(4)?,
                     })
                 })
                 .ok();
@@ -987,13 +1078,14 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, phone_number, name, created_at FROM users WHERE id = ?1")?
+                .prepare("SELECT id, phone_number, name, is_admin, created_at FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
                         phone_number: row.get(1)?,
                         name: row.get(2)?,
-                        created_at: row.get(3)?,
+                        is_admin: row.get(3)?,
+                        created_at: row.get(4)?,
                     })
                 })
                 .ok();
