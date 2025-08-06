@@ -46,6 +46,9 @@ export default function LoginPage() {
       
       // Check if name is required
       if ('requires_name' in response && response.requires_name) {
+        // Store the token so we can use it for the update profile call
+        localStorage.setItem('auth_token', response.token)
+        api.setAuthToken(response.token)
         setStep('name')
         setIsLoading(false)
         return
