@@ -74,4 +74,5 @@ export interface WalletDetailResponse {
   timestamp: number
   wallet: Wallet
   events: TransactionEvent[]
+  contacts: Contact[]
 }

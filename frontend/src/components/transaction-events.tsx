@@ -18,7 +18,7 @@ import { TransactionEvent } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
 interface TransactionEventsProps {
-  selectedWalletId?: number | null
+  selectedWalletChecksum?: string | null
   events: TransactionEvent[]
   isConnected: boolean
   error: string | null
@@ -26,7 +26,7 @@ interface TransactionEventsProps {
   walletsCount?: number
 }
 
-export function TransactionEvents({ selectedWalletId, events, error, lastUpdate, walletsCount = 0 }: TransactionEventsProps) {
+export function TransactionEvents({ selectedWalletChecksum, events, error, lastUpdate, walletsCount = 0 }: TransactionEventsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
 
   // Track when we've received data for the first time
@@ -38,20 +38,20 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate,
 
 
   // Filter events by selected wallet if one is selected
-  const filteredEvents = selectedWalletId 
-    ? events.filter(event => event.wallet_id === selectedWalletId)
+  const filteredEvents = selectedWalletChecksum 
+    ? events.filter(event => event.wallet_checksum === selectedWalletChecksum)
     : events
 
   const getCardTitle = () => {
-    if (selectedWalletId && filteredEvents.length > 0) {
-      const walletName = filteredEvents[0]?.wallet_name || `Wallet ${selectedWalletId}`
+    if (selectedWalletChecksum && filteredEvents.length > 0) {
+      const walletName = filteredEvents[0]?.wallet_name || `Wallet ${selectedWalletChecksum}`
       return `Transaction Events - ${walletName}`
     }
     return "Transaction Events"
   }
 
   const getCardDescription = () => {
-    if (selectedWalletId) {
+    if (selectedWalletChecksum) {
       return filteredEvents.length > 0 
         ? `${filteredEvents.length} transaction event${filteredEvents.length !== 1 ? 's' : ''} for selected wallet`
         : "No transaction events found for selected wallet"
@@ -126,7 +126,7 @@ export function TransactionEvents({ selectedWalletId, events, error, lastUpdate,
       <CardContent>
         {filteredEvents.length === 0 ? (
           <p className="text-muted-foreground">
-            {selectedWalletId 
+            {selectedWalletChecksum 
               ? "No transaction events found for the selected wallet." 
               : "No transaction events found."
             }

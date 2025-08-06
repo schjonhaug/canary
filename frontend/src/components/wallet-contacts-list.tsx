@@ -1,59 +1,31 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Smartphone, Trash2, Users } from "lucide-react"
+import { Bell, Smartphone, Trash2 } from "lucide-react"
 import { Contact } from "../types"
 import { api } from "../lib/api"
 
 interface WalletContactsListProps {
   walletChecksum: string
+  contacts: Contact[]
   onContactsUpdated?: () => void
 }
 
-export function WalletContactsList({ walletChecksum, onContactsUpdated }: WalletContactsListProps) {
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated }: WalletContactsListProps) {
   const [error, setError] = useState<string | null>(null)
-
-  const fetchContacts = async () => {
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      const contactsData = await api.getWalletContacts(walletChecksum)
-      setContacts(contactsData)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load contacts")
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const handleDeleteContact = async (contactId: number) => {
     try {
       await api.deleteContact(walletChecksum, contactId)
-      await fetchContacts()
+      // Trigger parent component to refresh all data including contacts
       if (onContactsUpdated) {
         onContactsUpdated()
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete contact")
     }
-  }
-
-  useEffect(() => {
-    fetchContacts()
-  }, [walletChecksum])
-
-  if (isLoading && contacts.length === 0) {
-    return (
-      <div>
-        <div className="text-sm text-muted-foreground">Contacts</div>
-        <div className="mt-2 text-sm text-muted-foreground">Loading...</div>
-      </div>
-    )
   }
 
   return (

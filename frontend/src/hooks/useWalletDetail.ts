@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Wallet, TransactionEvent } from '../types';
+import { Wallet, TransactionEvent, Contact } from '../types';
 import { useAuth } from '../contexts/auth-context';
 
 // Get polling interval from environment variable (in seconds), default to 60
@@ -9,11 +9,13 @@ interface WalletDetailResponse {
   timestamp: number;
   wallet: Wallet;
   events: TransactionEvent[];
+  contacts: Contact[];
 }
 
 export function useWalletDetail(walletChecksum: string | null) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [events, setEvents] = useState<TransactionEvent[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,6 +49,7 @@ export function useWalletDetail(walletChecksum: string | null) {
         const data: WalletDetailResponse = await response.json();
         setWallet(data.wallet);
         setEvents(data.events);
+        setContacts(data.contacts || []); // Fallback for backwards compatibility
         setLastUpdate(data.timestamp);
         setIsConnected(true);
         setError(null);
@@ -78,6 +81,7 @@ export function useWalletDetail(walletChecksum: string | null) {
     // Clear previous data when walletChecksum changes
     setWallet(null);
     setEvents([]);
+    setContacts([]);
     setLastUpdate(null);
     setError(null);
 
@@ -104,7 +108,8 @@ export function useWalletDetail(walletChecksum: string | null) {
 
   return { 
     wallet,
-    events, 
+    events,
+    contacts,
     lastUpdate, 
     error, 
     isLoading,

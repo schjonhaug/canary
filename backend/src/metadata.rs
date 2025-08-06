@@ -197,6 +197,7 @@ pub struct WalletDetailResponse {
     pub timestamp: u64,
     pub wallet: WalletMetadata,
     pub events: Vec<TransactionEventWithWallet>,
+    pub contacts: Vec<Contact>,
 }
 
 #[derive(Debug, Default, Clone)]

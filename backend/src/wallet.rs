@@ -1171,10 +1171,14 @@ impl WalletManager {
         // Limit to recent events for performance (already ordered by ID desc in SQL)
         events.truncate(100);
 
+        // Get contacts for this wallet
+        let contacts = self.metadata_db.get_contacts_with_notification_methods(wallet_checksum).await?;
+
         Ok(WalletDetailResponse {
             timestamp,
             wallet,
             events,
+            contacts,
         })
     }
 

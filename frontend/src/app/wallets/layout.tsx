@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, lazy, Suspense } from "react"
-import { usePathname, useParams } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 import { useWalletsList } from "@/hooks/useWalletsList"

@@ -28,7 +28,7 @@ export default function WalletDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
   // Get wallet detail data directly using checksum
-  const { wallet, events, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
+  const { wallet, events, contacts, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
   
   // Share wallet data with layout context for SVG loading
   const { setCurrentWallet } = useWalletsContext()
@@ -171,7 +171,8 @@ export default function WalletDetailPage() {
 
               <div className="pt-2 border-t">
                 <WalletContactsList 
-                  walletChecksum={wallet.checksum} 
+                  walletChecksum={wallet.checksum}
+                  contacts={contacts}
                   onContactsUpdated={handleWalletUpdated}
                 />
                 <AddContactInline 
