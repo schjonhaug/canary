@@ -50,9 +50,14 @@ class ApiClient {
 
   // Wallet API methods
   async createWallet(name: string, descriptor: string): Promise<Wallet> {
+    // Send raw browser language - backend will map to supported languages
+    const browserLanguage = typeof window !== 'undefined' 
+      ? navigator.language
+      : 'en'
+    
     return this.request<Wallet>('/api/wallets', {
       method: 'POST',
-      body: JSON.stringify({ name, descriptor }),
+      body: JSON.stringify({ name, descriptor, preferred_language: browserLanguage }),
     })
   }
 

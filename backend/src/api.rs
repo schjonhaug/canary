@@ -29,6 +29,10 @@ pub struct CreateWalletRequest {
         example = "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)"
     )]
     pub descriptor: String,
+    /// The user's preferred language for notifications (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(example = "en")]
+    pub preferred_language: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -179,14 +183,71 @@ pub async fn create_wallet(
         .create_from_multipath(&payload.name, &payload.descriptor, user.user_id)
         .await
     {
-        Ok(wallet_metadata) => (
-            StatusCode::CREATED,
-            Json(CreateWalletResponse {
-                message: "Wallet created successfully".to_string(),
-                wallet: wallet_metadata,
-            }),
-        )
-            .into_response(),
+        Ok(wallet_metadata) => {
+            // Check if AUTH is enabled - if so, auto-add user as contact
+            let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false);
+            
+            if auth_enabled {
+                // Get user info for contact creation
+                let manager_clone = wallet_manager.clone();
+                let user_id = user.user_id;
+                let wallet_checksum = wallet_metadata.checksum.clone();
+                let preferred_language = payload.preferred_language.clone();
+                
+                // Spawn async task to create contact (don't block wallet creation if this fails)
+                tokio::spawn(async move {
+                    let manager = manager_clone.lock().await;
+                    
+                    // Get user details from database
+                    match manager.metadata_db.get_user_by_id(user_id).await {
+                        Ok(Some(user_record)) => {
+                            // Map browser language to supported languages
+                            let language = match preferred_language.as_deref() {
+                                Some(lang) if lang.starts_with("no") => Language::Norwegian,
+                                _ => Language::English, // Default to English for all other cases
+                            };
+                            
+                            // Use user's name or fallback to "Me"
+                            let contact_name = user_record.name.as_deref().unwrap_or("Me");
+                            
+                            // Create contact with SMS notification method using user's phone
+                            let notification_methods = vec![(ProviderType::Sms, user_record.phone_number)];
+                            
+                            match manager.metadata_db.insert_contact_with_notification_methods(
+                                &wallet_checksum,
+                                contact_name,
+                                &language,
+                                notification_methods
+                            ).await {
+                                Ok(contact_id) => {
+                                    eprintln!("Auto-created contact {} for user {} in wallet {}", contact_id, user_id, wallet_checksum);
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to auto-create contact for user {}: {}", user_id, e);
+                                }
+                            }
+                        }
+                        Ok(None) => {
+                            eprintln!("User {} not found in database for auto-contact creation", user_id);
+                        }
+                        Err(e) => {
+                            eprintln!("Error getting user {} for auto-contact creation: {}", user_id, e);
+                        }
+                    }
+                });
+            }
+            
+            (
+                StatusCode::CREATED,
+                Json(CreateWalletResponse {
+                    message: "Wallet created successfully".to_string(),
+                    wallet: wallet_metadata,
+                }),
+            )
+                .into_response()
+        }
         Err(e) => {
             let error_msg = e.to_string();
             let status_code = match error_msg.as_str() {
