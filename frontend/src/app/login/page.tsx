@@ -18,7 +18,7 @@ export default function LoginPage() {
   const [step, setStep] = useState<'phone' | 'otp' | 'name'>('phone')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { sendOtp, login, setAuth } = useAuth()
+  const { sendOtp, setAuth } = useAuth()
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,9 +67,11 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await login(phone, otp, name)
+      const response = await api.updateUserProfile(name)
+      // Update auth context with new user data and redirect
+      await setAuth(localStorage.getItem('auth_token')!, response.user)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create account')
+      setError(err instanceof Error ? err.message : 'Failed to update profile')
     } finally {
       setIsLoading(false)
     }

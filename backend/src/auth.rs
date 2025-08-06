@@ -62,6 +62,8 @@ pub struct VerifyOtpRequest {
 pub struct AuthResponse {
     pub token: String,
     pub user: AuthUserResponse,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_name: Option<bool>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -69,7 +71,18 @@ pub struct AuthUserResponse {
     pub id: i64,
     pub phone_number: String,
     pub name: Option<String>,
+    pub is_admin: bool,
     pub created_at: String,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateUserRequest {
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UpdateUserResponse {
+    pub user: AuthUserResponse,
 }
 
 // Development mode configuration

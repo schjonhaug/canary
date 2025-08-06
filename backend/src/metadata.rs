@@ -1015,6 +1015,20 @@ impl MetadataDb {
         }).await?
     }
 
+    pub async fn update_user_name(&self, user_id: i64, name: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let name = name.to_string();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET name = ?1 WHERE id = ?2",
+                params![&name, user_id],
+            )?;
+            Ok(())
+        }).await?
+    }
+
     // Session management
     pub async fn create_session(&self, user_id: i64, token_hash: &str, expires_at: chrono::DateTime<chrono::Utc>) -> Result<i64> {
         let pool = self.pool.clone();

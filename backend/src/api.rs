@@ -2,13 +2,13 @@ use crate::metadata::{Contact, NotificationMethod, ProviderType, Language, Walle
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::wallet::WalletManager;
 use crate::electrum::BlockHeader;
-use crate::auth::{AuthService, SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse, authenticate_user};
+use crate::auth::{AuthService, SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse, authenticate_user};
 use axum::{
     Router,
     extract::{Path, State},
     http::{StatusCode, HeaderMap},
     response::{IntoResponse, Json, Response},
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use tower_http::cors::CorsLayer;
 use serde::{Deserialize, Serialize};
@@ -1300,13 +1300,8 @@ pub async fn verify_otp(
                 }
             };
             
-            // If user doesn't exist and no name provided, return a special response
-            if existing_user.is_none() && request.name.is_none() {
-                return Json(serde_json::json!({
-                    "requires_name": true,
-                    "message": "New user registration requires a name"
-                })).into_response();
-            }
+            // If user doesn't exist and no name provided, create user with name=null
+            // They will update their name later via PUT /api/auth/user
             
             eprintln!("User exists: {:?}, Name provided: {:?}", existing_user.is_some(), request.name);
             
@@ -1371,6 +1366,7 @@ pub async fn verify_otp(
                         id: db_user.id,
                         phone_number: db_user.phone_number,
                         name: db_user.name,
+                        is_admin,
                         created_at: db_user.created_at,
                     }
                 },
@@ -1380,6 +1376,7 @@ pub async fn verify_otp(
                         id: user_id,
                         phone_number: request.phone_number.clone(),
                         name: request.name.clone(),
+                        is_admin,
                         created_at: chrono::Utc::now().to_rfc3339(),
                     }
                 },
@@ -1398,6 +1395,7 @@ pub async fn verify_otp(
             eprintln!("Sending successful response for user: {:?}", user_info.name);
             Json(AuthResponse {
                 token,
+                requires_name: if user_info.name.is_none() { Some(true) } else { None },
                 user: user_info,
             })
             .into_response()
@@ -1522,6 +1520,7 @@ pub async fn me(
             id: db_user.id,
             phone_number: db_user.phone_number,
             name: db_user.name,
+            is_admin: user.is_admin,
             created_at: db_user.created_at,
         },
         Ok(None) => {
@@ -1548,6 +1547,93 @@ pub async fn me(
 }
 
 #[utoipa::path(
+    put,
+    path = "/api/auth/user",
+    request_body = UpdateUserRequest,
+    responses(
+        (status = 200, description = "User profile updated successfully", body = UpdateUserResponse),
+        (status = 400, description = "Bad request", body = ErrorResponse),
+        (status = 401, description = "Authentication required", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "auth"
+)]
+pub async fn update_user(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+    Json(request): Json<UpdateUserRequest>,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    // Validate name is not empty
+    if request.name.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Name cannot be empty".to_string(),
+            }),
+        )
+            .into_response();
+    }
+    
+    // Update user name in database
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
+    if let Err(e) = manager.metadata_db.update_user_name(user.user_id, request.name.trim()).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to update user: {}", e),
+            }),
+        )
+            .into_response();
+    }
+    
+    // Get updated user info
+    let user_info = match manager.metadata_db.get_user_by_id(user.user_id).await {
+        Ok(Some(db_user)) => AuthUserResponse {
+            id: db_user.id,
+            phone_number: db_user.phone_number,
+            name: db_user.name,
+            is_admin: user.is_admin,
+            created_at: db_user.created_at,
+        },
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "User not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get user: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    Json(UpdateUserResponse { user: user_info }).into_response()
+}
+
+#[utoipa::path(
     get,
     path = "/api/providers",
     responses(
@@ -1571,14 +1657,14 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
         get_current_block_header,
         get_providers,
-        send_otp, verify_otp, logout, me
+        send_otp, verify_otp, logout, me, update_user
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactWithMethodsRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
-        SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse
+        SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),
@@ -1603,6 +1689,7 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
         .route("/auth/verify-otp", post(verify_otp))
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
+        .route("/auth/user", put(update_user))
         .with_state(wallet_manager.clone());
     
     let wallet_routes = Router::new()

@@ -144,6 +144,13 @@ class ApiClient {
   async getMe(): Promise<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }> {
     return this.request<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }>('/api/auth/me')
   }
+
+  async updateUserProfile(name: string): Promise<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }> {
+    return this.request<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }>('/api/auth/user', {
+      method: 'PUT',
+      body: JSON.stringify({ name }),
+    })
+  }
 }
 
 // Export a singleton instance
