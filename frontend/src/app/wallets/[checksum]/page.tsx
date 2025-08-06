@@ -70,7 +70,8 @@ export default function WalletDetailPage() {
     )
   }
 
-  if (error) {
+  // Only show error if we have no cached data
+  if (error && !wallet) {
     return (
       <>
         <div className="mb-6">
@@ -115,7 +116,7 @@ export default function WalletDetailPage() {
   return (
     <>
       {/* Connection Warning Banner */}
-      {!isConnected && (
+      {(!isConnected || (error && wallet)) && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Backend Connection Lost</AlertTitle>
