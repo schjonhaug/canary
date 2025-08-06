@@ -154,10 +154,12 @@ impl AppConfig {
     }
     
     // Helper methods for tests
+    #[cfg(test)]
     pub fn wallet_dir_path(&self) -> String {
         format!("database/{}/wallets", self.network_name())
     }
     
+    #[cfg(test)]
     pub fn metadata_db_path(&self) -> String {
         format!("database/{}/metadata.sqlite", self.network_name())
     }

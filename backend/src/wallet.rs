@@ -51,7 +51,7 @@ impl WalletManager {
         };
 
         // Initialize metadata database
-        let metadata_db = match MetadataDb::new(metadata_db_path) {
+        let metadata_db = match MetadataDb::new(metadata_db_path).await {
             Ok(db) => db,
             Err(e) => {
                 eprintln!("Warning: Failed to create metadata database: {}", e);

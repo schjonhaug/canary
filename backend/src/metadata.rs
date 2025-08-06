@@ -285,7 +285,7 @@ pub struct MetadataDb {
 }
 
 impl MetadataDb {
-    pub fn new(db_path: &str) -> Result<Self> {
+    pub async fn new(db_path: &str) -> Result<Self> {
         // Create parent directory if it doesn't exist
         if let Some(parent) = std::path::Path::new(db_path).parent() {
             if let Err(e) = std::fs::create_dir_all(parent) {
@@ -1036,19 +1036,6 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn has_any_users(&self) -> Result<bool> {
-        let pool = self.pool.clone();
-        
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
-            let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM users WHERE id != 1", // Exclude default admin user (id=1)
-                [],
-                |row| row.get(0)
-            )?;
-            Ok(count > 0)
-        }).await?
-    }
 
     pub async fn get_user_by_phone(&self, phone_number: &str) -> Result<Option<UserRecord>> {
         let pool = self.pool.clone();
