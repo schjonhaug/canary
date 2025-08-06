@@ -59,13 +59,9 @@ pub struct AppConfig {
     #[arg(long, default_value = "127.0.0.1:3000")]
     pub bind_address: String,
 
-    /// Wallet directory path
-    #[arg(long, default_value = "./wallets")]
-    pub wallet_dir: String,
-
-    /// Metadata database path
-    #[arg(long, default_value = "metadata.sqlite")]
-    pub metadata_db: String,
+    /// Data directory path
+    #[arg(long, default_value = "./database")]
+    pub data_dir: String,
 }
 
 impl AppConfig {
@@ -96,12 +92,8 @@ impl AppConfig {
             config.bind_address = format!("0.0.0.0:{}", port);
         }
 
-        if let Ok(wallet_dir_env) = std::env::var("CANARY_WALLET_DIR") {
-            config.wallet_dir = wallet_dir_env;
-        }
-
-        if let Ok(metadata_db_env) = std::env::var("CANARY_METADATA_DB") {
-            config.metadata_db = metadata_db_env;
+        if let Ok(data_dir_env) = std::env::var("CANARY_DATA_DIR") {
+            config.data_dir = data_dir_env;
         }
 
         Ok(config)
@@ -140,52 +132,34 @@ impl AppConfig {
         self.network.to_bdk_network()
     }
 
-    /// Get network-specific wallet directory path
-    /// Returns: database/{network}/wallets
-    pub fn wallet_dir_path(&self) -> String {
-        let network_name = match self.network {
+    /// Get the network name as a string
+    fn network_name(&self) -> &'static str {
+        match self.network {
             NetworkConfig::Regtest => "regtest",
             NetworkConfig::Testnet => "testnet",
             NetworkConfig::Mainnet => "mainnet",
-        };
-        format!("database/{}/wallets", network_name)
-    }
-
-    /// Get network-specific metadata database path
-    /// Returns: database/{network}/metadata.sqlite
-    pub fn metadata_db_path(&self) -> String {
-        let network_name = match self.network {
-            NetworkConfig::Regtest => "regtest",
-            NetworkConfig::Testnet => "testnet",
-            NetworkConfig::Mainnet => "mainnet",
-        };
-        format!("database/{}/metadata.sqlite", network_name)
+        }
     }
 
     /// Get the effective wallet directory path
-    /// Uses the configured path if it's absolute,
-    /// otherwise uses network-specific path
+    /// Returns: {data_dir}/{network}/wallets
     pub fn effective_wallet_dir(&self) -> String {
-        if self.wallet_dir.starts_with('/') {
-            // Absolute path - use as-is
-            self.wallet_dir.clone()
-        } else {
-            // Relative path - use network-specific path
-            self.wallet_dir_path()
-        }
+        format!("{}/{}/wallets", self.data_dir, self.network_name())
     }
 
     /// Get the effective metadata database path
-    /// Uses the configured path if it's absolute,
-    /// otherwise uses network-specific path
+    /// Returns: {data_dir}/{network}/metadata.sqlite
     pub fn effective_metadata_db(&self) -> String {
-        if self.metadata_db.starts_with('/') {
-            // Absolute path - use as-is
-            self.metadata_db.clone()
-        } else {
-            // Relative path - use network-specific path
-            self.metadata_db_path()
-        }
+        format!("{}/{}/metadata.sqlite", self.data_dir, self.network_name())
+    }
+    
+    // Helper methods for tests
+    pub fn wallet_dir_path(&self) -> String {
+        format!("database/{}/wallets", self.network_name())
+    }
+    
+    pub fn metadata_db_path(&self) -> String {
+        format!("database/{}/metadata.sqlite", self.network_name())
     }
 }
 
@@ -240,8 +214,7 @@ mod tests {
             network: NetworkConfig::Regtest,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
-            wallet_dir: "./wallets".to_string(),
-            metadata_db: "metadata.sqlite".to_string(),
+            data_dir: "./database".to_string(),
         };
         assert_eq!(config.wallet_dir_path(), "database/regtest/wallets");
         assert_eq!(
@@ -254,8 +227,7 @@ mod tests {
             network: NetworkConfig::Testnet,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
-            wallet_dir: "./wallets".to_string(),
-            metadata_db: "metadata.sqlite".to_string(),
+            data_dir: "./database".to_string(),
         };
         assert_eq!(config.wallet_dir_path(), "database/testnet/wallets");
         assert_eq!(
@@ -268,8 +240,7 @@ mod tests {
             network: NetworkConfig::Mainnet,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
-            wallet_dir: "./wallets".to_string(),
-            metadata_db: "metadata.sqlite".to_string(),
+            data_dir: "./database".to_string(),
         };
         assert_eq!(config.wallet_dir_path(), "database/mainnet/wallets");
         assert_eq!(
@@ -285,22 +256,20 @@ mod tests {
             network: NetworkConfig::Regtest,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
-            wallet_dir: "./wallets".to_string(),
-            metadata_db: "metadata.sqlite".to_string(),
+            data_dir: "./database".to_string(),
         };
-        assert_eq!(config.effective_wallet_dir(), "database/regtest/wallets");
-        assert_eq!(config.effective_metadata_db(), "database/regtest/metadata.sqlite");
+        assert_eq!(config.effective_wallet_dir(), "./database/regtest/wallets");
+        assert_eq!(config.effective_metadata_db(), "./database/regtest/metadata.sqlite");
 
         // Test with absolute paths (Docker/Umbrel)
         let config = AppConfig {
             network: NetworkConfig::Mainnet,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
-            wallet_dir: "/app/data/database/mainnet/wallets".to_string(),
-            metadata_db: "/app/data/database/mainnet/metadata.sqlite".to_string(),
+            data_dir: "/app/data".to_string(),
         };
-        assert_eq!(config.effective_wallet_dir(), "/app/data/database/mainnet/wallets");
-        assert_eq!(config.effective_metadata_db(), "/app/data/database/mainnet/metadata.sqlite");
+        assert_eq!(config.effective_wallet_dir(), "/app/data/mainnet/wallets");
+        assert_eq!(config.effective_metadata_db(), "/app/data/mainnet/metadata.sqlite");
     }
 
     #[test]
@@ -319,8 +288,7 @@ mod tests {
                 network,
                 electrum_url: None,
                 bind_address: "127.0.0.1:3000".to_string(),
-                wallet_dir: "./wallets".to_string(),
-                metadata_db: "metadata.sqlite".to_string(),
+                data_dir: "./database".to_string(),
             };
             
             let wallet_path = config.wallet_dir_path();
@@ -354,8 +322,7 @@ mod tests {
             network: NetworkConfig::Regtest,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
-            wallet_dir: "./wallets".to_string(),
-            metadata_db: "metadata.sqlite".to_string(),
+            data_dir: "./database".to_string(),
         };
         assert_eq!(regtest_config.electrum_url(), "tcp://127.0.0.1:50001");
         
@@ -363,8 +330,7 @@ mod tests {
             network: NetworkConfig::Testnet,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
-            wallet_dir: "./wallets".to_string(),
-            metadata_db: "metadata.sqlite".to_string(),
+            data_dir: "./database".to_string(),
         };
         assert_eq!(testnet_config.electrum_url(), "ssl://electrum.blockstream.info:60002");
         
@@ -372,8 +338,7 @@ mod tests {
             network: NetworkConfig::Mainnet,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
-            wallet_dir: "./wallets".to_string(),
-            metadata_db: "metadata.sqlite".to_string(),
+            data_dir: "./database".to_string(),
         };
         assert_eq!(mainnet_config.electrum_url(), "ssl://electrum.blockstream.info:50002");
     }
@@ -384,8 +349,7 @@ mod tests {
             network: NetworkConfig::Mainnet,
             electrum_url: Some("ssl://custom.electrum.server:50002".to_string()),
             bind_address: "127.0.0.1:3000".to_string(),
-            wallet_dir: "./wallets".to_string(),
-            metadata_db: "metadata.sqlite".to_string(),
+            data_dir: "./database".to_string(),
         };
         assert_eq!(config.electrum_url(), "ssl://custom.electrum.server:50002");
     }
