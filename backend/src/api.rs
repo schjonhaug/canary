@@ -190,6 +190,9 @@ pub async fn create_wallet(
                 .unwrap_or(false);
             
             if auth_enabled {
+                // Log the received language from frontend
+                eprintln!("Received preferred_language from frontend: {:?}", payload.preferred_language);
+                
                 // Get user info for contact creation
                 let manager_clone = wallet_manager.clone();
                 let user_id = user.user_id;
@@ -205,8 +208,18 @@ pub async fn create_wallet(
                         Ok(Some(user_record)) => {
                             // Map browser language to supported languages
                             let language = match preferred_language.as_deref() {
-                                Some(lang) if lang.starts_with("no") => Language::Norwegian,
-                                _ => Language::English, // Default to English for all other cases
+                                Some(lang) if lang.starts_with("no") || lang.starts_with("nb") || lang.starts_with("nn") => {
+                                    eprintln!("Mapping language '{}' to Norwegian", lang);
+                                    Language::Norwegian
+                                },
+                                Some(lang) => {
+                                    eprintln!("Mapping language '{}' to English (default)", lang);
+                                    Language::English
+                                },
+                                None => {
+                                    eprintln!("No language provided, defaulting to English");
+                                    Language::English
+                                }
                             };
                             
                             // Use user's name or fallback to "Me"
