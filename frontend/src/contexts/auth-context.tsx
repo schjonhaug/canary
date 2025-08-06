@@ -31,7 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   // Check if auth is enabled
-  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false'
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
+  
+  // Log auth status for debugging
+  console.log('🔐 Frontend Auth Status:', {
+    NEXT_PUBLIC_AUTH_ENABLED: process.env.NEXT_PUBLIC_AUTH_ENABLED,
+    authEnabled
+  })
 
   // Check for existing session on mount
   useEffect(() => {

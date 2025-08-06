@@ -2,11 +2,13 @@
 
 import { AlertCircle } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { WalletCards } from "@/components/wallet-cards"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
@@ -23,8 +25,23 @@ export default function WalletsPage() {
     }, 0)
   }
 
-  // Show landing page for logged out users
-  if (!isLoading && !isAuthenticated) {
+  // Check if auth is enabled
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
+
+  // Show loading state while auth is loading
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show landing page for unauthenticated users when auth is enabled
+  if (authEnabled && !isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -41,19 +58,7 @@ export default function WalletsPage() {
     )
   }
 
-  // Show loading state while auth is loading
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Show dashboard for authenticated users
+  // Show dashboard for authenticated users or when auth is disabled
   return (
     <>
       {/* Connection Warning Banner */}

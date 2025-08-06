@@ -34,6 +34,12 @@ async fn main() -> anyhow::Result<()> {
     println!("  Wallet directory: {}", config.effective_wallet_dir());
     println!("  Metadata DB: {}", config.effective_metadata_db());
     println!("  Sync interval: {} seconds", config.sync_interval_secs());
+    
+    // Log authentication status
+    let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
+        .unwrap_or_else(|_| "false".to_string())
+        .to_lowercase() == "true";
+    println!("🔐 Authentication: {}", if auth_enabled { "ENABLED" } else { "DISABLED" });
 
     // Create wallet manager with sync worker
     println!("Creating wallet sync worker...");
