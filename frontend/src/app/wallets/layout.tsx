@@ -70,6 +70,7 @@ export default function WalletsLayout({
           isOpen={isCreateWalletOpen}
           onClose={() => setIsCreateWalletOpen(false)}
           onWalletCreated={handleWalletCreated}
+          isFirstWallet={wallets.length === 0}
         />
       </Suspense>
 

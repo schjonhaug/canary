@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -17,21 +17,51 @@ import { useModal } from "@/hooks/useModal"
 import { api } from "@/lib/api"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { Loader2 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
 interface CreateWalletModalProps {
   isOpen: boolean
   onClose: () => void
   onWalletCreated: () => void
+  isFirstWallet?: boolean
 }
 
 export function CreateWalletModal({
   isOpen,
   onClose,
   onWalletCreated,
+  isFirstWallet = false,
 }: CreateWalletModalProps) {
   const [name, setName] = useState("")
   const [descriptor, setDescriptor] = useState("")
   const modal = useModal()
+  const { user } = useAuth()
+  const descriptorRef = useRef<HTMLTextAreaElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+  
+  // Check if auth is enabled
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
+  
+  // Prefill name and manage focus when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const shouldPrefillName = isFirstWallet && authEnabled && user?.name
+      
+      if (shouldPrefillName) {
+        // Set the name and focus the descriptor field
+        setName(user.name)
+        // Use setTimeout to ensure the focus happens after the name is set and rendered
+        setTimeout(() => {
+          descriptorRef.current?.focus()
+        }, 0)
+      } else {
+        // Focus the name field for normal cases
+        setTimeout(() => {
+          nameRef.current?.focus()
+        }, 0)
+      }
+    }
+  }, [isOpen, isFirstWallet, authEnabled, user?.name])
 
   const handleClose = () => {
     if (!modal.isLoading) {
@@ -85,6 +115,7 @@ export function CreateWalletModal({
           <div className="space-y-2">
             <Label htmlFor="wallet-name">Wallet Name</Label>
             <Input
+              ref={nameRef}
               id="wallet-name"
               type="text"
               placeholder="Enter wallet name"
@@ -97,6 +128,7 @@ export function CreateWalletModal({
           <div className="space-y-2">
             <Label htmlFor="output-descriptor">Output Descriptor</Label>
             <Textarea
+              ref={descriptorRef}
               id="output-descriptor"
               placeholder="Enter multipath output descriptor (e.g., wpkh([fingerprint/derivation_path]xpub.../0/*)"
               value={descriptor}
