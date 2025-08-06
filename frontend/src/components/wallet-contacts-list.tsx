@@ -37,7 +37,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
       
       {contacts.length > 0 && (
         <div className="mt-2 space-y-2">
-          {contacts.map((contact) => (
+          {contacts.sort((a, b) => a.name.localeCompare(b.name)).map((contact) => (
             <div key={contact.id} className="flex items-start justify-between p-2 bg-muted/30 rounded-md">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
