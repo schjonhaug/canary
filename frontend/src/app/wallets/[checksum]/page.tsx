@@ -7,12 +7,13 @@ import { InlineWalletNameEdit } from "@/components/inline-wallet-name-edit"
 import { WalletContactsList } from "@/components/wallet-contacts-list"
 import { AddContactInline } from "@/components/add-contact-inline"
 import { DeleteWalletModal } from "@/components/delete-wallet-modal"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Trash2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useWalletDetail } from "@/hooks/useWalletDetail"
-import { formatBitcoinAmount, formatDateTime, loadCanarySvg, getCachedCanarySvg } from "@/lib/utils"
+import { useWalletsContext } from "@/contexts/wallets-context"
+import { formatBitcoinAmount } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { api } from "@/lib/api"
 
@@ -24,23 +25,21 @@ export default function WalletDetailPage() {
   const router = useRouter()
   const checksum = params.checksum as string
   
-  const [walletSvg, setWalletSvg] = useState<string>("")
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
   // Get wallet detail data directly using checksum
   const { wallet, events, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
   
-  // Load SVG when wallet data is available
+  // Share wallet data with layout context for SVG loading
+  const { setCurrentWallet } = useWalletsContext()
+  
+  // Update context when wallet data changes
   useEffect(() => {
-    if (wallet?.hex_color) {
-      const cachedSvg = getCachedCanarySvg(wallet.hex_color)
-      if (cachedSvg) {
-        setWalletSvg(cachedSvg)
-      } else {
-        loadCanarySvg(wallet.hex_color).then(setWalletSvg)
-      }
+    if (setCurrentWallet) {
+      setCurrentWallet(wallet)
     }
-  }, [wallet?.hex_color])
+  }, [wallet, setCurrentWallet])
+  
 
   const handleWalletUpdated = () => {
     refresh()

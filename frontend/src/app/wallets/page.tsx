@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { WalletCards } from "@/components/wallet-cards"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useWalletsContext } from "./layout"
+import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
   const { wallets, error, lastUpdate, isConnected, onCreateWallet } = useWalletsContext()
