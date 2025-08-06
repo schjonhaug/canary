@@ -91,7 +91,6 @@ pub struct WalletMetadata {
     pub checksum: String,
     pub name: String,
     pub descriptor: String,
-    pub wallet_filename: String,
     pub hex_color: String,
     pub created_at: String,
     pub balance_total: Option<i64>,
@@ -343,17 +342,20 @@ impl MetadataDb {
         }).await?
     }
 
+    /// Extract checksum from a Bitcoin descriptor
+    pub fn extract_checksum(&self, descriptor: &str) -> String {
+        extract_checksum(descriptor)
+    }
+
     pub async fn insert_wallet(
         &self,
         name: &str,
         descriptor: &str,
-        wallet_filename: &str,
         user_id: i64,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let name = name.to_string();
         let descriptor = descriptor.to_string();
-        let wallet_filename = wallet_filename.to_string();
         
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
@@ -366,23 +368,23 @@ impl MetadataDb {
                 .to_string();
             
             conn.execute(
-                "INSERT INTO wallets (checksum, name, descriptor, wallet_filename, hex_color, balance_total, last_activity, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![&checksum, &name, &descriptor, &wallet_filename, &hex_color, "0", &current_time, user_id],
+                "INSERT INTO wallets (checksum, name, descriptor, hex_color, balance_total, last_activity, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![&checksum, &name, &descriptor, &hex_color, "0", &current_time, user_id],
             )?;
             Ok(checksum)
         }).await?
     }
 
 
-    pub async fn get_wallet_name_by_filename(&self, wallet_filename: &str) -> Result<String> {
+    pub async fn get_wallet_name_by_checksum(&self, checksum: &str) -> Result<String> {
         let pool = self.pool.clone();
-        let wallet_filename = wallet_filename.to_string();
+        let checksum = checksum.to_string();
         
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             let name: String = conn.query_row(
-                "SELECT name FROM wallets WHERE wallet_filename = ?1",
-                params![wallet_filename],
+                "SELECT name FROM wallets WHERE checksum = ?1",
+                params![checksum],
                 |row| row.get(0),
             )?;
             Ok(name)
@@ -396,25 +398,24 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
             match conn.query_row(
-                "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
                         COUNT(c.id) as contact_count
                  FROM wallets w 
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                  WHERE w.descriptor = ?1 
-                 GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
+                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total",
                 params![descriptor],
                 |row| {
                     Ok(WalletMetadata {
                         checksum: row.get(0)?,
                         name: row.get(1)?,
                         descriptor: row.get(2)?,
-                        wallet_filename: row.get(3)?,
-                        hex_color: row.get(4)?,
-                        created_at: row.get(5)?,
-                        balance_total: row.get(6).ok(),
-                        last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
-                        contact_count: Some(row.get(8)?),
+                        hex_color: row.get(3)?,
+                        created_at: row.get(4)?,
+                        balance_total: row.get(5).ok(),
+                        last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
+                        contact_count: Some(row.get(7)?),
                     })
                 },
             ) {
@@ -432,25 +433,24 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
             match conn.query_row(
-                "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
                         COUNT(c.id) as contact_count
                  FROM wallets w 
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                  WHERE w.checksum = ?1 
-                 GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
+                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total",
                 params![checksum],
                 |row| {
                     Ok(WalletMetadata {
                         checksum: row.get(0)?,
                         name: row.get(1)?,
                         descriptor: row.get(2)?,
-                        wallet_filename: row.get(3)?,
-                        hex_color: row.get(4)?,
-                        created_at: row.get(5)?,
-                        balance_total: row.get(6).ok(),
-                        last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
-                        contact_count: Some(row.get(8)?),
+                        hex_color: row.get(3)?,
+                        created_at: row.get(4)?,
+                        balance_total: row.get(5).ok(),
+                        last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
+                        contact_count: Some(row.get(7)?),
                     })
                 },
             ) {
@@ -461,41 +461,6 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_wallet_by_filename(&self, wallet_filename: &str) -> Result<Option<WalletMetadata>> {
-        let pool = self.pool.clone();
-        let wallet_filename = wallet_filename.to_string();
-        
-        spawn_blocking(move || -> Result<Option<WalletMetadata>> {
-            let conn = pool.get()?;
-            match conn.query_row(
-                "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
-                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                        COUNT(c.id) as contact_count
-                 FROM wallets w 
-                 LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
-                 WHERE w.wallet_filename = ?1 
-                 GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total",
-                params![wallet_filename],
-                |row| {
-                    Ok(WalletMetadata {
-                        checksum: row.get(0)?,
-                        name: row.get(1)?,
-                        descriptor: row.get(2)?,
-                        wallet_filename: row.get(3)?,
-                        hex_color: row.get(4)?,
-                        created_at: row.get(5)?,
-                        balance_total: Some(row.get(6).unwrap_or(0)),
-                        last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
-                        contact_count: Some(row.get(8)?),
-                    })
-                },
-            ) {
-                Ok(wallet) => Ok(Some(wallet)),
-                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-                Err(e) => Err(e.into()),
-            }
-        }).await?
-    }
 
     pub async fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
         self.get_wallets_for_user(None).await
@@ -509,22 +474,22 @@ impl MetadataDb {
             
             let query = match user_id {
                 Some(_) => {
-                    "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                    "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                             (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
                             COUNT(c.id) as contact_count
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                      WHERE w.user_id = ?1
-                     GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
+                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total 
                      ORDER BY w.created_at DESC"
                 }
                 None => {
-                    "SELECT w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total, 
+                    "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                             (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
                             COUNT(c.id) as contact_count
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
-                     GROUP BY w.checksum, w.name, w.descriptor, w.wallet_filename, w.hex_color, w.created_at, w.balance_total 
+                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total 
                      ORDER BY w.created_at DESC"
                 }
             };
@@ -541,12 +506,11 @@ impl MetadataDb {
                     checksum: row.get(0)?,
                     name: row.get(1)?,
                     descriptor: row.get(2)?,
-                    wallet_filename: row.get(3)?,
-                    hex_color: row.get(4)?,
-                    created_at: row.get(5)?,
-                    balance_total: Some(row.get(6).unwrap_or(0)),
-                    last_activity: row.get::<_, Option<i64>>(7).ok().flatten().map(|t| t.to_string()),
-                    contact_count: Some(row.get(8)?),
+                    hex_color: row.get(3)?,
+                    created_at: row.get(4)?,
+                    balance_total: Some(row.get(5).unwrap_or(0)),
+                    last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
+                    contact_count: Some(row.get(7)?),
                 })
             })?;
 
@@ -580,22 +544,24 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<(String, String)>> {
             let conn = pool.get()?;
 
-            // First get the descriptor and filename before deleting
-            let wallet_info = match conn.query_row(
-                "SELECT descriptor, wallet_filename FROM wallets WHERE checksum = ?1",
+            // First get the descriptor before deleting (filename is generated from checksum)
+            let descriptor = match conn.query_row(
+                "SELECT descriptor FROM wallets WHERE checksum = ?1",
                 params![checksum],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                |row| row.get::<_, String>(0),
             ) {
-                Ok((desc, filename)) => Some((desc, filename)),
+                Ok(desc) => Some(desc),
                 Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => None,
                 Err(e) => return Err(e.into()),
             };
 
-            if let Some((descriptor, filename)) = wallet_info {
+            if let Some(descriptor) = descriptor {
                 // Delete the wallet
                 let changes = conn.execute("DELETE FROM wallets WHERE checksum = ?1", params![checksum])?;
 
                 if changes > 0 {
+                    // Generate filename from checksum
+                    let filename = format!("{}.sqlite", checksum);
                     Ok(Some((descriptor, filename)))
                 } else {
                     Ok(None)

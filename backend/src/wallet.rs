@@ -1,9 +1,8 @@
 use crate::electrum::ElectrumClient;
 use crate::metadata::{EventInsert, EventType, TransactionEvent, WalletMetadata, MetadataDb, WalletsListResponse, WalletDetailResponse};
 use anyhow::{Result, anyhow};
-use bdk_wallet::bitcoin::secp256k1::Secp256k1;
 use bdk_wallet::rusqlite::Connection;
-use bdk_wallet::{PersistedWallet, Wallet, bitcoin::Network, wallet_name_from_descriptor};
+use bdk_wallet::{PersistedWallet, Wallet, bitcoin::Network};
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::fs;
 use std::path::PathBuf;
@@ -362,7 +361,8 @@ impl WalletManager {
             println!("    - Network: {:?}", wallet.network());
             println!("    - Loaded from disk (sync will happen in background loop)");
 
-            // Extract checksum from filename (remove .sqlite extension)
+            // Extract checksum from filename (remove .sqlite extension) 
+            // Since we now use checksums as filenames, this is already the checksum
             let checksum = filename
                 .strip_suffix(".sqlite")
                 .unwrap_or(filename)
@@ -427,14 +427,9 @@ impl WalletManager {
         let (receive_descriptor, change_descriptor) =
             self.parse_multipath_descriptor(descriptor_str)?;
 
-        // Use BDK's function to generate wallet filename
-        let wallet_filename = wallet_name_from_descriptor(
-            &receive_descriptor,
-            Some(&change_descriptor),
-            self.get_network(),
-            &Secp256k1::new(),
-        )?;
-        let wallet_filename_with_ext = format!("{}.sqlite", wallet_filename);
+        // Extract checksum from the descriptor for consistent filename
+        let checksum = self.metadata_db.extract_checksum(descriptor_str);
+        let wallet_filename_with_ext = format!("{}.sqlite", checksum);
         println!("  Wallet filename: {}", wallet_filename_with_ext);
 
         // Create wallet file path
@@ -463,10 +458,10 @@ impl WalletManager {
             eprintln!("Warning: Failed to sync wallet during creation: {}", e);
         }
 
-        // Save wallet metadata
+        // Save wallet metadata (checksum used directly as filename)
         let wallet_checksum = self.metadata_db
-            .insert_wallet(name, descriptor_str, &wallet_filename_with_ext, user_id).await?;
-        println!("  Metadata saved to file: {}", wallet_filename_with_ext);
+            .insert_wallet(name, descriptor_str, user_id).await?;
+        println!("  Metadata saved with checksum: {}", wallet_checksum);
 
         // Extract historical transactions BEFORE enabling real-time tracking
         // This ensures chronological order: historical events → real-time events
@@ -486,8 +481,8 @@ impl WalletManager {
             println!("  Balance saved to metadata database");
         }
 
-        // Add wallet to the in-memory manager (using wallet_filename as key)
-        self.wallets.push((wallet_filename, wallet));
+        // Add wallet to the in-memory manager (using checksum as key)
+        self.wallets.push((checksum.clone(), wallet));
 
         // Retrieve and return the created wallet metadata
         let wallet_metadata = self
@@ -600,23 +595,15 @@ impl WalletManager {
                         || total_before != total_after;
 
                     if has_changes {
-                        // Get the user-friendly wallet name and wallet ID
-                        let wallet_filename = format!("{}.sqlite", wallet_key);
+                        // Get the user-friendly wallet name (wallet_key is now the checksum)
+                        let wallet_checksum = wallet_key;
                         let wallet_name = self
                             .metadata_db
-                            .get_wallet_name_by_filename(&wallet_filename).await
+                            .get_wallet_name_by_checksum(wallet_checksum).await
                             .expect(&format!(
-                                "Wallet name for filename '{}' should exist in metadata database",
-                                wallet_filename
+                                "Wallet name for checksum '{}' should exist in metadata database",
+                                wallet_checksum
                             ));
-
-                        // Get wallet ID for database events
-                        let wallet_metadata = self
-                            .metadata_db
-                            .get_wallet_by_filename(&wallet_filename).await
-                            .expect("Failed to get wallet")
-                            .expect("Wallet should exist in metadata database");
-                        let wallet_checksum = &wallet_metadata.checksum;
 
                         // Update the wallet balance in the metadata database
                         if let Err(e) = self.metadata_db.update_wallet_balance_by_checksum(wallet_checksum, total_after.to_sat() as i64).await {
@@ -1202,12 +1189,7 @@ impl WalletManager {
         println!("  Found descriptor: {}", descriptor);
         println!("  Wallet filename: {}", wallet_filename);
 
-        // Extract checksum from filename (remove .sqlite extension)
-        let checksum = wallet_filename
-            .strip_suffix(".sqlite")
-            .unwrap_or(&wallet_filename);
-
-        // Find and remove wallet from in-memory manager
+        // Find and remove wallet from in-memory manager (checksum is the key now)
         let wallet_index = self
             .wallets
             .iter()
