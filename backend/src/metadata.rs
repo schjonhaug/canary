@@ -377,51 +377,6 @@ impl MetadataDb {
         }).await?
     }
 
-    async fn ensure_dev_test_users(&self) -> Result<()> {
-        // Only run in dev mode with auth enabled
-        if !cfg!(debug_assertions) {
-            return Ok(());
-        }
-        
-        let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
-            .map(|v| v.to_lowercase() == "true" || v == "1")
-            .unwrap_or(false);
-            
-        if !auth_enabled {
-            return Ok(());
-        }
-        
-        let pool = self.pool.clone();
-        
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
-            
-            // Only create dev users if an admin exists
-            let admin_exists: bool = conn.query_row(
-                "SELECT EXISTS(SELECT 1 FROM users WHERE is_admin = 1)",
-                [],
-                |row| row.get(0)
-            )?;
-            
-            if admin_exists {
-                // Create Alice if not exists
-                conn.execute(
-                    "INSERT OR IGNORE INTO users (phone_number, name, is_admin) VALUES ('+4799999901', 'Alice', FALSE)",
-                    []
-                )?;
-                
-                // Create Bob if not exists
-                conn.execute(
-                    "INSERT OR IGNORE INTO users (phone_number, name, is_admin) VALUES ('+4699999902', 'Bob', FALSE)",
-                    []
-                )?;
-                
-                // Note: Charlie (+3399999903) is intentionally NOT pre-created to test new user registration
-            }
-            
-            Ok(())
-        }).await?
-    }
 
     pub async fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
         let pool = self.pool.clone();
@@ -1059,19 +1014,8 @@ impl MetadataDb {
             // Note: When AUTH=false, we don't create users through this function
             // The default admin is created at startup in ensure_default_admin_user()
             
-            // Determine the name to use
-            let user_name = if cfg!(debug_assertions) && name.is_none() {
-                // Dev mode: use hardcoded names for test users only if no name provided
-                match phone_number.as_str() {
-                    "+4799999900" => Some("Admin".to_string()),
-                    "+4799999901" => Some("Alice".to_string()),
-                    "+4699999902" => Some("Bob".to_string()),
-                    // Charlie (+3399999903) is a new user, so they provide their own name
-                    _ => name,
-                }
-            } else {
-                name
-            };
+            // Use the provided name (can be None - UI will handle name entry if needed)
+            let user_name = name;
             
             println!("DEBUG: Creating user {} with name {:?}, is_admin={}", phone_number, user_name, final_is_admin);
             
@@ -1086,13 +1030,7 @@ impl MetadataDb {
             Ok((user_id, final_is_admin))
         }).await??;  // First ? for JoinError, second ? for inner Result
         
-        let (user_id, was_admin) = result;
-        
-        // In dev mode with auth enabled, create test users after first admin is created
-        if was_admin && auth_enabled && cfg!(debug_assertions) {
-            println!("Creating dev test users Alice and Bob...");
-            let _ = self.ensure_dev_test_users().await;
-        }
+        let (user_id, _was_admin) = result;
         
         Ok(user_id)
     }
