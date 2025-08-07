@@ -972,14 +972,8 @@ impl MetadataDb {
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(false);
         
-        let is_admin = if auth_enabled {
-            // AUTH=true: First registered user becomes admin (checked later in the transaction)
-            // or development admin phone
-            cfg!(debug_assertions) && phone_number == crate::auth::DEV_ADMIN_PHONE
-        } else {
-            // AUTH=false: No user registration in this mode (only default admin exists)
-            false
-        };
+        // In dev mode, check if it's the development admin phone
+        let is_dev_admin = cfg!(debug_assertions) && phone_number == crate::auth::DEV_ADMIN_PHONE;
         
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
@@ -996,11 +990,13 @@ impl MetadataDb {
                 return Ok(id);
             }
             
-            // For AUTH=true, check if this is the first user (excluding default admin id=1)
-            let mut final_is_admin = is_admin;
-            if auth_enabled && !is_admin {
+            // Determine if this user should be admin
+            let mut final_is_admin = is_dev_admin;
+            
+            if auth_enabled && !is_dev_admin {
+                // AUTH=true: Check if this is the first user
                 let user_count: i64 = tx.query_row(
-                    "SELECT COUNT(*) FROM users WHERE id != 1", // Exclude default admin user (id=1)
+                    "SELECT COUNT(*) FROM users",
                     [],
                     |row| row.get(0)
                 )?;
@@ -1010,6 +1006,8 @@ impl MetadataDb {
                     println!("Creating first user as admin: {}", phone_number);
                 }
             }
+            // Note: When AUTH=false, we don't create users through this function
+            // The default admin is created at startup in ensure_default_admin_user()
             
             // Determine the name to use
             let user_name = if cfg!(debug_assertions) && name.is_none() {
