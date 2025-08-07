@@ -1040,16 +1040,20 @@ impl MetadataDb {
             let mut final_is_admin = false;
             
             if auth_enabled {
-                // AUTH=true: Check if this is the first user
-                let user_count: i64 = tx.query_row(
-                    "SELECT COUNT(*) FROM users",
+                // AUTH=true: Check if any admin users already exist  
+                let admin_count: i64 = tx.query_row(
+                    "SELECT COUNT(*) FROM users WHERE is_admin = 1",
                     [],
                     |row| row.get(0)
                 )?;
                 
-                if user_count == 0 {
+                println!("DEBUG: User {} - current admin_count={}, auth_enabled={}", phone_number, admin_count, auth_enabled);
+                
+                if admin_count == 0 {
                     final_is_admin = true;
-                    println!("Creating first user as admin: {}", phone_number);
+                    println!("No admin users exist, creating first admin user: {}", phone_number);
+                } else {
+                    println!("Admin users already exist (count={}), creating regular user: {}", admin_count, phone_number);
                 }
             }
             // Note: When AUTH=false, we don't create users through this function
@@ -1068,6 +1072,8 @@ impl MetadataDb {
             } else {
                 name
             };
+            
+            println!("DEBUG: Creating user {} with name {:?}, is_admin={}", phone_number, user_name, final_is_admin);
             
             // Create new user
             tx.execute(
