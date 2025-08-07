@@ -1099,8 +1099,7 @@ pub async fn send_otp(
     
     // Check if this is a dev test phone
     let is_dev_phone = cfg!(debug_assertions) && 
-        (request.phone_number == crate::auth::DEV_ADMIN_PHONE || 
-         ["+4799999901", "+4699999902", "+3399999903"].contains(&request.phone_number.as_str()));
+        ["+4799999900", "+4799999901", "+4699999902", "+3399999903"].contains(&request.phone_number.as_str());
     
     // Check rate limit (skip for dev phones)
     if !is_dev_phone {
@@ -1220,8 +1219,7 @@ pub async fn verify_otp(
     
     // Check if this is a dev test phone
     let is_dev_phone = cfg!(debug_assertions) && 
-        (request.phone_number == crate::auth::DEV_ADMIN_PHONE || 
-         ["+4799999901", "+4699999902", "+3399999903"].contains(&request.phone_number.as_str()));
+        ["+4799999900", "+4799999901", "+4699999902", "+3399999903"].contains(&request.phone_number.as_str());
     
     // Check if Twilio is enabled (skip for dev phones in dev mode)
     let twilio_enabled = std::env::var("CANARY_ENABLE_TWILIO")
@@ -1347,9 +1345,8 @@ pub async fn verify_otp(
                 }
             };
             
-            // Check if user is admin from database or hardcoded dev phone
-            let is_admin = user_record.is_admin 
-                || (cfg!(debug_assertions) && request.phone_number == crate::auth::DEV_ADMIN_PHONE);
+            // Check if user is admin from database
+            let is_admin = user_record.is_admin;
             
             // Generate JWT token
             let token = match auth_service.generate_token(user_id, &request.phone_number, is_admin) {

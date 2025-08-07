@@ -342,8 +342,11 @@ impl MetadataDb {
         if !auth_enabled {
             // AUTH=false: Create default admin user (id=1) for self-hosted mode
             self.ensure_default_admin_user().await?;
+        } else if cfg!(debug_assertions) {
+            // AUTH=true in dev mode: Create dev test users AFTER the first admin registers
+            // We'll do this on-demand rather than at startup to allow testing first user becomes admin
+            // The dev users Alice and Bob will be created after the admin exists
         }
-        // AUTH=true: First registered user will become admin (handled in registration logic)
         
         Ok(())
     }
@@ -368,6 +371,52 @@ impl MetadataDb {
                     []
                 )?;
                 println!("Created default admin user for self-hosted mode");
+            }
+            
+            Ok(())
+        }).await?
+    }
+
+    async fn ensure_dev_test_users(&self) -> Result<()> {
+        // Only run in dev mode with auth enabled
+        if !cfg!(debug_assertions) {
+            return Ok(());
+        }
+        
+        let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(false);
+            
+        if !auth_enabled {
+            return Ok(());
+        }
+        
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            
+            // Only create dev users if an admin exists
+            let admin_exists: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE is_admin = 1)",
+                [],
+                |row| row.get(0)
+            )?;
+            
+            if admin_exists {
+                // Create Alice if not exists
+                conn.execute(
+                    "INSERT OR IGNORE INTO users (phone_number, name, is_admin) VALUES ('+4799999901', 'Alice', FALSE)",
+                    []
+                )?;
+                
+                // Create Bob if not exists
+                conn.execute(
+                    "INSERT OR IGNORE INTO users (phone_number, name, is_admin) VALUES ('+4699999902', 'Bob', FALSE)",
+                    []
+                )?;
+                
+                // Note: Charlie (+3399999903) is intentionally NOT pre-created to test new user registration
             }
             
             Ok(())
@@ -972,10 +1021,7 @@ impl MetadataDb {
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(false);
         
-        // In dev mode, check if it's the development admin phone
-        let is_dev_admin = cfg!(debug_assertions) && phone_number == crate::auth::DEV_ADMIN_PHONE;
-        
-        spawn_blocking(move || -> Result<i64> {
+        let result = spawn_blocking(move || -> Result<(i64, bool)> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
             
@@ -987,13 +1033,13 @@ impl MetadataDb {
             
             if let Some(id) = existing {
                 tx.commit()?;
-                return Ok(id);
+                return Ok((id, false));
             }
             
             // Determine if this user should be admin
-            let mut final_is_admin = is_dev_admin;
+            let mut final_is_admin = false;
             
-            if auth_enabled && !is_dev_admin {
+            if auth_enabled {
                 // AUTH=true: Check if this is the first user
                 let user_count: i64 = tx.query_row(
                     "SELECT COUNT(*) FROM users",
@@ -1013,6 +1059,7 @@ impl MetadataDb {
             let user_name = if cfg!(debug_assertions) && name.is_none() {
                 // Dev mode: use hardcoded names for test users only if no name provided
                 match phone_number.as_str() {
+                    "+4799999900" => Some("Admin".to_string()),
                     "+4799999901" => Some("Alice".to_string()),
                     "+4699999902" => Some("Bob".to_string()),
                     // Charlie (+3399999903) is a new user, so they provide their own name
@@ -1030,8 +1077,18 @@ impl MetadataDb {
             
             let user_id = tx.last_insert_rowid();
             tx.commit()?;
-            Ok(user_id)
-        }).await?
+            Ok((user_id, final_is_admin))
+        }).await??;  // First ? for JoinError, second ? for inner Result
+        
+        let (user_id, was_admin) = result;
+        
+        // In dev mode with auth enabled, create test users after first admin is created
+        if was_admin && auth_enabled && cfg!(debug_assertions) {
+            println!("Creating dev test users Alice and Bob...");
+            let _ = self.ensure_dev_test_users().await;
+        }
+        
+        Ok(user_id)
     }
 
 

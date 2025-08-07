@@ -87,10 +87,10 @@ pub struct UpdateUserResponse {
 
 // Development mode configuration
 const DEV_MODE: bool = cfg!(debug_assertions);
-pub const DEV_ADMIN_PHONE: &str = "+4799999900";
 
-// Dev mode test phone numbers
-const DEV_TEST_PHONES: [&str; 3] = [
+// Dev mode test phone numbers (bypass OTP verification in dev mode)
+const DEV_TEST_PHONES: [&str; 4] = [
+    "+4799999900",  // Can be used to test first user becomes admin
     "+4799999901",
     "+4699999902", 
     "+3399999903"
@@ -111,7 +111,7 @@ impl AuthService {
 
     pub async fn send_otp(&self, twilio_config: &TwilioConfig, phone_number: &str) -> Result<()> {
         // Development mode: bypass Twilio for dev test phones
-        if DEV_MODE && (DEV_TEST_PHONES.contains(&phone_number) || phone_number == DEV_ADMIN_PHONE) {
+        if DEV_MODE && DEV_TEST_PHONES.contains(&phone_number) {
             return Ok(());
         }
 
@@ -149,7 +149,7 @@ impl AuthService {
 
     pub async fn verify_otp(&self, twilio_config: &TwilioConfig, phone_number: &str, code: &str) -> Result<bool> {
         // Development mode: accept any code for dev test phones
-        if DEV_MODE && (DEV_TEST_PHONES.contains(&phone_number) || phone_number == DEV_ADMIN_PHONE) {
+        if DEV_MODE && DEV_TEST_PHONES.contains(&phone_number) {
             return Ok(true);
         }
 
@@ -255,8 +255,7 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     let claims = auth_service.validate_token(token)?;
 
     // Admin status comes from the JWT token claims, which are set from database at login time
-    // Only add hardcoded dev admin phone for development mode
-    let is_admin = claims.is_admin || (DEV_MODE && claims.phone == DEV_ADMIN_PHONE);
+    let is_admin = claims.is_admin;
 
     Ok(AuthUser {
         user_id: claims.sub,
