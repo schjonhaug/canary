@@ -1,6 +1,6 @@
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use bdk_wallet::rusqlite::{params, ToSql};
+use bdk_wallet::rusqlite::{params, ToSql, OptionalExtension};
 use std::sync::Arc;
 use tokio::task::spawn_blocking;
 use crate::migrations::MigrationRunner;
@@ -1225,6 +1225,138 @@ impl MetadataDb {
             conn.execute(
                 "DELETE FROM otp_attempts WHERE phone_number = ?1",
                 params![&phone_number],
+            )?;
+            Ok(())
+        }).await?
+    }
+
+    pub async fn create_pending_contact_verification(
+        &self,
+        wallet_checksum: &str,
+        provider_type: &str,
+        notification_target: &str,
+        contact_name: &str,
+        language: &str,
+        verification_code: Option<&str>,
+    ) -> Result<i64> {
+        let pool = self.pool.clone();
+        let wallet_checksum = wallet_checksum.to_string();
+        let provider_type = provider_type.to_string();
+        let notification_target = notification_target.to_string();
+        let contact_name = contact_name.to_string();
+        let language = language.to_string();
+        let verification_code = verification_code.map(|s| s.to_string());
+        
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            let expires_at = chrono::Utc::now() + chrono::Duration::minutes(10);
+            
+            conn.execute(
+                "INSERT INTO pending_contact_verifications 
+                 (wallet_checksum, provider_type, notification_target, contact_name, language, verification_code, expires_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    &wallet_checksum,
+                    &provider_type,
+                    &notification_target,
+                    &contact_name,
+                    &language,
+                    &verification_code,
+                    expires_at.to_rfc3339()
+                ],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
+    }
+
+    pub async fn get_pending_verification(
+        &self,
+        wallet_checksum: &str,
+        notification_target: &str,
+    ) -> Result<Option<(i64, String, String, Option<String>)>> {
+        let pool = self.pool.clone();
+        let wallet_checksum = wallet_checksum.to_string();
+        let notification_target = notification_target.to_string();
+        
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT id, contact_name, language, verification_code 
+                 FROM pending_contact_verifications 
+                 WHERE wallet_checksum = ?1 
+                 AND notification_target = ?2 
+                 AND expires_at > datetime('now')
+                 ORDER BY created_at DESC
+                 LIMIT 1"
+            )?;
+            
+            let result = stmt.query_row(
+                params![&wallet_checksum, &notification_target],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                    ))
+                },
+            ).optional()?;
+            
+            Ok(result)
+        }).await?
+    }
+
+    pub async fn delete_pending_verification(&self, verification_id: i64) -> Result<()> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            conn.execute(
+                "DELETE FROM pending_contact_verifications WHERE id = ?1",
+                params![verification_id],
+            )?;
+            Ok(())
+        }).await?
+    }
+
+    pub async fn cleanup_expired_verifications(&self) -> Result<u64> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            let deleted = conn.execute(
+                "DELETE FROM pending_contact_verifications WHERE expires_at <= datetime('now')",
+                [],
+            )?;
+            Ok(deleted as u64)
+        }).await?
+    }
+
+    pub async fn create_contact(&self, wallet_checksum: &str, name: &str, language: &str) -> Result<i64> {
+        let pool = self.pool.clone();
+        let wallet_checksum = wallet_checksum.to_string();
+        let name = name.to_string();
+        let language = language.to_string();
+        
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO contacts (wallet_checksum, name, language) VALUES (?1, ?2, ?3)",
+                params![&wallet_checksum, &name, &language],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }).await?
+    }
+
+    pub async fn add_notification_method(&self, contact_id: i64, provider_type: ProviderType, notification_target: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let notification_target = notification_target.to_string();
+        
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO contact_notification_methods (contact_id, provider_type, notification_target) VALUES (?1, ?2, ?3)",
+                params![contact_id, provider_type.as_str(), &notification_target],
             )?;
             Ok(())
         }).await?

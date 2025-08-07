@@ -2,7 +2,7 @@ use crate::metadata::{Contact, NotificationMethod, ProviderType, Language, Walle
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::wallet::WalletManager;
 use crate::electrum::BlockHeader;
-use crate::auth::{AuthService, SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse, authenticate_user};
+use crate::auth::{AuthService, SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse, authenticate_user, load_twilio_config_from_env};
 use axum::{
     Router,
     extract::{Path, State},
@@ -87,6 +87,23 @@ pub struct CreateContactResponse {
     pub contact_id: i64,
 }
 
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct SendContactVerificationRequest {
+    /// Contact name
+    pub name: String,
+    /// Language for notifications
+    pub language: String,
+    /// Phone number to verify
+    pub phone_number: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct VerifyContactRequest {
+    /// Phone number being verified
+    pub phone_number: String,
+    /// Verification code
+    pub code: String,
+}
 
 #[derive(Serialize, ToSchema)]
 pub struct ProvidersResponse {
@@ -672,19 +689,14 @@ pub async fn create_wallet_contact(
     for method in &payload.notification_methods {
         match method.provider_type {
             ProviderType::Sms => {
-                // Validate phone number
-                match validate_phone_number(&method.notification_target) {
-                    Ok(normalized_phone) => {
-                        processed_methods.push((ProviderType::Sms, normalized_phone));
-                    }
-                    Err(error) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse { error }),
-                        )
-                            .into_response();
-                    }
-                }
+                // SMS contacts require verification - don't allow direct creation
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse { 
+                        error: "SMS contacts require phone verification. Please use /api/wallets/{checksum}/contacts/send-verification".to_string() 
+                    }),
+                )
+                    .into_response();
             }
             ProviderType::Ntfy => {
                 // Auto-generate ntfy topic
@@ -943,6 +955,451 @@ pub async fn get_wallet_contacts(
         )
             .into_response(),
     }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/wallets/{checksum}/contacts/send-verification",
+    request_body = SendContactVerificationRequest,
+    params(
+        ("checksum" = String, Path, description = "The wallet checksum")
+    ),
+    responses(
+        (status = 200, description = "Verification code sent", body = serde_json::Value),
+        (status = 400, description = "Invalid phone number", body = ErrorResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
+        (status = 404, description = "Wallet not found", body = ErrorResponse),
+        (status = 429, description = "Rate limit exceeded", body = ErrorResponse),
+    ),
+    tag = "contact",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn send_contact_verification(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+    Path(wallet_checksum): Path<String>,
+    Json(request): Json<SendContactVerificationRequest>,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
+
+    // Check if wallet exists and user has access
+    match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
+        Ok(Some(_)) => {
+            if !user.is_admin {
+                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
+                    Ok(true) => {} // User owns the wallet
+                    Ok(false) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: "Access denied".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Database error: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+        }
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    // Validate phone number
+    let normalized_phone = match validate_phone_number(&request.phone_number) {
+        Ok(phone) => phone,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse { error: e }),
+            )
+                .into_response();
+        }
+    };
+
+    // Check if this is a dev test phone
+    let is_dev_phone = cfg!(debug_assertions) && 
+        ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
+
+    // Check rate limit (skip for dev phones)
+    if !is_dev_phone {
+        match manager.metadata_db.check_rate_limit(&normalized_phone).await {
+            Ok(true) => {} // Allowed
+            Ok(false) => {
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    Json(ErrorResponse {
+                        error: "Too many verification attempts. Please try again later.".to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to check rate limit: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+    }
+
+    // Get Twilio config
+    let twilio_config = match load_twilio_config_from_env() {
+        Ok(config) => config,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Twilio configuration error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Check that Verify service is configured (skip for dev phones)
+    if !is_dev_phone && twilio_config.verify_service_sid.is_none() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "Twilio Verify service not configured".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Clean up any expired verifications first
+    let _ = manager.metadata_db.cleanup_expired_verifications().await;
+    
+    // Store pending verification
+    let verification_code = if is_dev_phone { Some("123456") } else { None };
+    
+    match manager.metadata_db.create_pending_contact_verification(
+        &wallet_checksum,
+        "sms",
+        &normalized_phone,
+        &request.name,
+        &request.language,
+        verification_code,
+    ).await {
+        Ok(_) => {}
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to store verification: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    // Send OTP
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let auth_service = AuthService::new(jwt_secret);
+    
+    match auth_service.send_otp(&twilio_config, &normalized_phone).await {
+        Ok(_) => {
+            Json(serde_json::json!({
+                "message": "Verification code sent successfully"
+            }))
+            .into_response()
+        }
+        Err(e) => {
+            // Clean up pending verification on error
+            let _ = manager.metadata_db.cleanup_expired_verifications().await;
+            
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: format!("Failed to send verification: {}", e),
+                }),
+            )
+                .into_response()
+        }
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/wallets/{checksum}/contacts/verify",
+    request_body = VerifyContactRequest,
+    params(
+        ("checksum" = String, Path, description = "The wallet checksum")
+    ),
+    responses(
+        (status = 201, description = "Contact created successfully", body = CreateContactResponse),
+        (status = 400, description = "Invalid verification code", body = ErrorResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
+        (status = 404, description = "Wallet or verification not found", body = ErrorResponse),
+    ),
+    tag = "contact",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn verify_contact(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+    Path(wallet_checksum): Path<String>,
+    Json(request): Json<VerifyContactRequest>,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    #[allow(unused_mut)]
+    let mut manager = wallet_manager.lock().await;
+
+    // Check if wallet exists and user has access
+    match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
+        Ok(Some(_)) => {
+            if !user.is_admin {
+                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
+                    Ok(true) => {} // User owns the wallet
+                    Ok(false) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: "Access denied".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Database error: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+        }
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    // Validate phone number
+    let normalized_phone = match validate_phone_number(&request.phone_number) {
+        Ok(phone) => phone,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse { error: e }),
+            )
+                .into_response();
+        }
+    };
+
+    // Clean up any expired verifications first
+    let _ = manager.metadata_db.cleanup_expired_verifications().await;
+    
+    // Get pending verification
+    let (verification_id, contact_name, language, verification_code) = match manager.metadata_db
+        .get_pending_verification(&wallet_checksum, &normalized_phone)
+        .await
+    {
+        Ok(Some(verification)) => verification,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "No pending verification found. Please request a new code.".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get verification: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Check if this is a dev test phone
+    let is_dev_phone = cfg!(debug_assertions) && 
+        verification_code.as_deref() == Some("123456");
+
+    // Verify OTP
+    let is_valid = if is_dev_phone {
+        // For dev phones, accept the test code
+        request.code == "123456"
+    } else {
+        // Get Twilio config
+        let twilio_config = match load_twilio_config_from_env() {
+            Ok(config) => config,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Twilio configuration error: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        };
+
+        let jwt_secret = std::env::var("JWT_SECRET")
+            .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+        let auth_service = AuthService::new(jwt_secret);
+        
+        match auth_service.verify_otp(&twilio_config, &normalized_phone, &request.code).await {
+            Ok(valid) => valid,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to verify code: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+    };
+
+    if !is_valid {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Invalid verification code".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Clear rate limit on successful verification
+    let _ = manager.metadata_db.clear_rate_limit(&normalized_phone).await;
+
+    // Delete pending verification
+    let _ = manager.metadata_db.delete_pending_verification(verification_id).await;
+
+    // Create the contact with SMS notification method
+    let contact_id = match manager.metadata_db.create_contact(
+        &wallet_checksum,
+        &contact_name,
+        &language,
+    ).await {
+        Ok(id) => id,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to create contact: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Add SMS notification method
+    match manager.metadata_db.add_notification_method(
+        contact_id,
+        ProviderType::Sms,
+        &normalized_phone,
+    ).await {
+        Ok(_) => {}
+        Err(e) => {
+            // Clean up contact if notification method fails
+            let _ = manager.metadata_db.delete_contact_with_methods(contact_id).await;
+            
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to add notification method: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    (
+        StatusCode::CREATED,
+        Json(CreateContactResponse {
+            message: "Contact created and verified successfully".to_string(),
+            contact_id,
+        }),
+    )
+        .into_response()
 }
 
 
@@ -1675,6 +2132,7 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
         create_wallet, update_wallet, delete_wallet, get_wallet,
         get_wallets_list, get_wallet_detail,
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
+        send_contact_verification, verify_contact,
         get_current_block_header,
         get_providers,
         send_otp, verify_otp, logout, me, update_user
@@ -1682,6 +2140,7 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactWithMethodsRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
+        SendContactVerificationRequest, VerifyContactRequest,
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
         SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse
@@ -1719,6 +2178,14 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
         .route(
             "/wallets/{checksum}/contacts",
             post(create_wallet_contact).get(get_wallet_contacts),
+        )
+        .route(
+            "/wallets/{checksum}/contacts/send-verification",
+            post(send_contact_verification),
+        )
+        .route(
+            "/wallets/{checksum}/contacts/verify",
+            post(verify_contact),
         )
         .route(
             "/wallets/{wallet_checksum}/contacts/{contact_id}",

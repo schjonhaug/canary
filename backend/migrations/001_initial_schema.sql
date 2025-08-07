@@ -80,6 +80,20 @@ CREATE TABLE contact_notification_methods (
     UNIQUE(contact_id, provider_type, notification_target)
 );
 
+-- Pending contact verifications: Temporary storage for contacts awaiting verification
+CREATE TABLE pending_contact_verifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wallet_checksum TEXT NOT NULL,
+    provider_type TEXT NOT NULL CHECK (provider_type IN ('sms', 'email')),
+    notification_target TEXT NOT NULL,  -- phone number or email
+    contact_name TEXT NOT NULL,
+    language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no')),
+    verification_code TEXT,  -- For dev mode testing
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (wallet_checksum) REFERENCES wallets (checksum) ON DELETE CASCADE
+);
+
 -- Notification logs table: Generic notification tracking for all providers
 CREATE TABLE notification_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,3 +133,5 @@ CREATE INDEX idx_transaction_events_wallet_checksum ON transaction_events (walle
 CREATE INDEX idx_contacts_wallet_checksum ON contacts (wallet_checksum);
 CREATE INDEX idx_contact_notification_methods_contact_id ON contact_notification_methods (contact_id);
 CREATE INDEX idx_contact_notification_methods_provider_type ON contact_notification_methods (provider_type);
+CREATE INDEX idx_pending_verifications_wallet ON pending_contact_verifications (wallet_checksum);
+CREATE INDEX idx_pending_verifications_expires ON pending_contact_verifications (expires_at);

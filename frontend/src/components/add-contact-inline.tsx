@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,6 +26,49 @@ export function AddContactInline({ walletChecksum, onContactAdded }: AddContactI
   const [providerValues, setProviderValues] = useState<Record<string, string>>({})
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [verificationStep, setVerificationStep] = useState<'input' | 'verify'>('input')
+  const [verificationCode, setVerificationCode] = useState("")
+  const [pendingPhoneNumber, setPendingPhoneNumber] = useState<string | null>(null)
+  const [timeRemaining, setTimeRemaining] = useState<number>(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Clear timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [])
+
+  // Start countdown timer
+  const startTimer = useCallback(() => {
+    setTimeRemaining(600) // 10 minutes in seconds
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+    }
+    timerRef.current = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current)
+          }
+          // Auto-cancel verification when expired
+          setVerificationStep('input')
+          setError("Verification code expired. Please try again.")
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [])
+
+  // Format time remaining as MM:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
 
   // Fetch available providers
   const fetchProviders = useCallback(async () => {
@@ -50,6 +93,13 @@ export function AddContactInline({ walletChecksum, onContactAdded }: AddContactI
     setEnabledProviders({})
     setProviderValues({})
     setError(null)
+    setVerificationStep('input')
+    setVerificationCode("")
+    setPendingPhoneNumber(null)
+    setTimeRemaining(0)
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+    }
   }
 
   const handleCreate = async () => {
@@ -58,22 +108,11 @@ export function AddContactInline({ walletChecksum, onContactAdded }: AddContactI
       return
     }
 
-    // Build notification methods array
-    const notificationMethods: Array<{ provider_type: 'sms' | 'ntfy', notification_target: string }> = []
+    // Check what's enabled
+    const hasNtfy = enabledProviders['ntfy'] || false
+    const hasSms = enabledProviders['twilio'] && providerValues['twilio']?.trim()
 
-    for (const [providerName, enabled] of Object.entries(enabledProviders)) {
-      if (enabled) {
-        if (providerName === 'ntfy') {
-          // For ntfy, send empty string - backend will auto-generate
-          notificationMethods.push({ provider_type: 'ntfy', notification_target: '' })
-        } else if (providerName === 'twilio' && providerValues[providerName]?.trim()) {
-          // For SMS, require phone number
-          notificationMethods.push({ provider_type: 'sms', notification_target: providerValues[providerName].trim() })
-        }
-      }
-    }
-
-    if (notificationMethods.length === 0) {
+    if (!hasNtfy && !hasSms) {
       setError("Please enable at least one notification method")
       return
     }
@@ -82,12 +121,75 @@ export function AddContactInline({ walletChecksum, onContactAdded }: AddContactI
     setError(null)
 
     try {
-      await api.createContact(
+      // If only ntfy is enabled, create directly
+      if (hasNtfy && !hasSms) {
+        await api.createContact(
+          walletChecksum,
+          name.trim(),
+          language,
+          [{ provider_type: 'ntfy', notification_target: '' }]
+        )
+
+        // Reset form and collapse
+        handleCancel()
+        if (onContactAdded) {
+          onContactAdded()
+        }
+      } 
+      // If SMS is enabled (with or without ntfy), start verification
+      else if (hasSms) {
+        const phoneNumber = providerValues['twilio'].trim()
+        setPendingPhoneNumber(phoneNumber)
+        
+        // Send verification code
+        await api.sendContactVerification(
+          walletChecksum,
+          name.trim(),
+          language,
+          phoneNumber
+        )
+        
+        setVerificationStep('verify')
+        setError(null)
+        startTimer()
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create contact")
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleVerify = async () => {
+    if (!verificationCode.trim() || !pendingPhoneNumber) {
+      setError("Verification code is required")
+      return
+    }
+
+    setIsCreating(true)
+    setError(null)
+
+    try {
+      await api.verifyContact(
         walletChecksum,
-        name.trim(),
-        language,
-        notificationMethods
+        pendingPhoneNumber,
+        verificationCode.trim()
       )
+
+      // If ntfy was also enabled, create that too
+      if (enabledProviders['ntfy']) {
+        try {
+          await api.createContact(
+            walletChecksum,
+            name.trim(),
+            language,
+            [{ provider_type: 'ntfy', notification_target: '' }]
+          )
+        } catch {
+          // Ignore error if contact already exists with ntfy
+          console.log('Note: ntfy creation failed, likely already exists with SMS')
+        }
+      }
 
       // Reset form and collapse
       handleCancel()
@@ -95,7 +197,45 @@ export function AddContactInline({ walletChecksum, onContactAdded }: AddContactI
         onContactAdded()
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create contact")
+      const errorMessage = err instanceof Error ? err.message : "Invalid verification code"
+      
+      // Provide more specific error messages
+      if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
+        setError("Verification code expired. Please request a new code.")
+        setVerificationStep('input')
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+        }
+      } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
+        setError("Invalid verification code. Please try again.")
+        setVerificationCode("") // Clear the input
+      } else {
+        setError(errorMessage)
+      }
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleResendCode = async () => {
+    if (!pendingPhoneNumber) return
+    
+    setIsCreating(true)
+    setError(null)
+    
+    try {
+      await api.sendContactVerification(
+        walletChecksum,
+        name.trim(),
+        language,
+        pendingPhoneNumber
+      )
+      
+      setVerificationCode("")
+      startTimer()
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend code")
     } finally {
       setIsCreating(false)
     }
@@ -223,25 +363,81 @@ export function AddContactInline({ walletChecksum, onContactAdded }: AddContactI
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          onClick={handleCreate}
-          disabled={isCreating || !name.trim()}
-          className="flex-1 h-7 text-xs"
-        >
-          {isCreating ? "Creating..." : "Create Contact"}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleCancel}
-          disabled={isCreating}
-          className="h-7 text-xs"
-        >
-          Cancel
-        </Button>
-      </div>
+      {verificationStep === 'input' ? (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={handleCreate}
+            disabled={isCreating || !name.trim()}
+            className="flex-1 h-7 text-xs"
+          >
+            {isCreating ? "Sending..." : enabledProviders['twilio'] ? "Send Verification" : "Create Contact"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isCreating}
+            className="h-7 text-xs"
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div>
+            <Label htmlFor="verification-code" className="text-xs">Verification Code</Label>
+            <Input
+              id="verification-code"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              placeholder="Enter 6-digit code"
+              disabled={isCreating}
+              className="h-8 text-sm"
+              maxLength={6}
+            />
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-muted-foreground">
+                We sent a verification code to {pendingPhoneNumber}
+                {timeRemaining > 0 && (
+                  <span className="block">Code expires in {formatTime(timeRemaining)}</span>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={isCreating || timeRemaining > 540} // Allow resend after 1 minute
+                className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 underline"
+              >
+                Resend
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={handleVerify}
+              disabled={isCreating || !verificationCode.trim()}
+              className="flex-1 h-7 text-xs"
+            >
+              {isCreating ? "Verifying..." : "Verify & Create"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setVerificationStep('input')
+                setVerificationCode("")
+                setError(null)
+              }}
+              disabled={isCreating}
+              className="h-7 text-xs"
+            >
+              Back
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

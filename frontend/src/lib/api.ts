@@ -103,6 +103,36 @@ class ApiClient {
     })
   }
 
+  async sendContactVerification(
+    walletChecksum: string,
+    name: string,
+    language: string,
+    phoneNumber: string
+  ): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/wallets/${walletChecksum}/contacts/send-verification`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        language,
+        phone_number: phoneNumber,
+      }),
+    })
+  }
+
+  async verifyContact(
+    walletChecksum: string,
+    phoneNumber: string,
+    code: string
+  ): Promise<{ message: string; contact_id: number }> {
+    return this.request<{ message: string; contact_id: number }>(`/api/wallets/${walletChecksum}/contacts/verify`, {
+      method: 'POST',
+      body: JSON.stringify({
+        phone_number: phoneNumber,
+        code,
+      }),
+    })
+  }
+
   async deleteContact(walletChecksum: string, contactId: number): Promise<void> {
     return this.request<void>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {
       method: 'DELETE',
