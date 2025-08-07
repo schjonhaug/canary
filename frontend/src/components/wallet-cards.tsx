@@ -125,7 +125,7 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
           <CardHeader>
             <CardTitle>No Wallets</CardTitle>
             <CardDescription>
-              No wallets found. Use the &quot;Create Wallet&quot; button in the header to get started.
+              No wallets found. Use the &quot;Add Wallet&quot; button in the header to get started.
             </CardDescription>
           </CardHeader>
         </Card>

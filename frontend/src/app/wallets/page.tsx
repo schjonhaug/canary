@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
-  const { wallets, error, lastUpdate, isConnected, onCreateWallet } = useWalletsContext()
+  const { wallets, error, lastUpdate, isConnected, onAddWallet } = useWalletsContext()
   const { isAuthenticated, isLoading } = useAuth()
 
   const getTotalBalance = () => {
@@ -72,7 +72,7 @@ export default function WalletsPage() {
       )}
       
       {wallets.length === 0 ? (
-        <WalletOnboarding onCreateWallet={onCreateWallet} />
+        <WalletOnboarding onAddWallet={onAddWallet} />
       ) : (
         <div className="mt-8 space-y-8">
           {/* Wallet Cards Section */}

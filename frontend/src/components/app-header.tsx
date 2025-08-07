@@ -7,12 +7,12 @@ import { Plus } from "lucide-react"
 import { UserDropdown } from "@/components/user-dropdown"
 
 interface AppHeaderProps {
-  showCreateWallet?: boolean
-  onCreateWallet?: () => void
+  showAddWallet?: boolean
+  onAddWallet?: () => void
   customLogo?: string
 }
 
-export function AppHeader({ showCreateWallet = false, onCreateWallet, customLogo }: AppHeaderProps) {
+export function AppHeader({ showAddWallet = false, onAddWallet, customLogo }: AppHeaderProps) {
   return (
     <div className="mb-6 flex items-center justify-between">
       <Link href="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
@@ -35,14 +35,14 @@ export function AppHeader({ showCreateWallet = false, onCreateWallet, customLogo
         <h1 className="text-3xl font-bold tracking-wide">Canary</h1>
       </Link>
       <div className="flex items-center gap-6">
-        {showCreateWallet && onCreateWallet && (
+        {showAddWallet && onAddWallet && (
           <Button
-            onClick={onCreateWallet}
+            onClick={onAddWallet}
             size="sm"
             className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
           >
             <Plus size={16} />
-            Create Wallet
+            Add Wallet
           </Button>
         )}
         

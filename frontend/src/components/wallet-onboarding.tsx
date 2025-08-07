@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Plus, Info } from "lucide-react"
 
 interface WalletOnboardingProps {
-  onCreateWallet: () => void
+  onAddWallet: () => void
 }
 
-export function WalletOnboarding({ onCreateWallet }: WalletOnboardingProps) {
+export function WalletOnboarding({ onAddWallet }: WalletOnboardingProps) {
   return (
     <div className="max-w-3xl mx-auto mt-16">
       <Card className="border-muted">
@@ -22,7 +22,7 @@ export function WalletOnboarding({ onCreateWallet }: WalletOnboardingProps) {
             
             <div className="space-y-4 text-left max-w-2xl mx-auto">
               <p className="text-lg text-muted-foreground">
-                To get started, you&apos;ll need an <span className="font-semibold text-foreground">output descriptor</span> from your Bitcoin wallet.
+                To get started, you&apos;ll need an <span className="font-semibold text-foreground">output descriptor</span> from your existing Bitcoin wallet.
               </p>
               
               <div className="bg-muted/30 rounded-lg p-6 space-y-3">
@@ -61,12 +61,12 @@ export function WalletOnboarding({ onCreateWallet }: WalletOnboardingProps) {
             
             <div className="pt-6">
               <Button
-                onClick={onCreateWallet}
+                onClick={onAddWallet}
                 size="lg"
                 className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
               >
                 <Plus size={20} />
-                Create Wallet
+                Add Wallet
               </Button>
             </div>
           </div>

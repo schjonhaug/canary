@@ -10,14 +10,14 @@ import { Wallet } from "@/types"
 import { WalletsContext } from "@/contexts/wallets-context"
 
 // Lazy load modal components for code splitting
-const CreateWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
+const AddWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
 
 export default function WalletsLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false)
+  const [isAddWalletOpen, setIsAddWalletOpen] = useState(false)
   const [walletSvg, setWalletSvg] = useState<string>("")
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null)
   const pathname = usePathname()
@@ -43,33 +43,33 @@ export default function WalletsLayout({
     }
   }, [isWalletDetailPage, currentWallet?.hex_color])
 
-  const handleCreateWallet = () => {
-    setIsCreateWalletOpen(true)
+  const handleAddWallet = () => {
+    setIsAddWalletOpen(true)
   }
 
-  const handleWalletCreated = () => {
-    setIsCreateWalletOpen(false)
+  const handleWalletAdded = () => {
+    setIsAddWalletOpen(false)
     refetchWallets()
   }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <AppHeader 
-        showCreateWallet={wallets.length > 0 || isWalletDetailPage}
-        onCreateWallet={handleCreateWallet}
+        showAddWallet={wallets.length > 0 || isWalletDetailPage}
+        onAddWallet={handleAddWallet}
         customLogo={isWalletDetailPage ? walletSvg : undefined}
       />
 
       {/* Pass wallet data to children via React context or props */}
-      <WalletsContext.Provider value={{ wallets, error, lastUpdate, isConnected, onCreateWallet: handleCreateWallet, currentWallet, setCurrentWallet }}>
+      <WalletsContext.Provider value={{ wallets, error, lastUpdate, isConnected, onAddWallet: handleAddWallet, currentWallet, setCurrentWallet }}>
         {children}
       </WalletsContext.Provider>
 
       <Suspense fallback={null}>
-        <CreateWalletModal
-          isOpen={isCreateWalletOpen}
-          onClose={() => setIsCreateWalletOpen(false)}
-          onWalletCreated={handleWalletCreated}
+        <AddWalletModal
+          isOpen={isAddWalletOpen}
+          onClose={() => setIsAddWalletOpen(false)}
+          onWalletCreated={handleWalletAdded}
           isFirstWallet={wallets.length === 0}
         />
       </Suspense>

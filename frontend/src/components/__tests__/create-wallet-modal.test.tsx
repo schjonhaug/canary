@@ -69,7 +69,7 @@ describe('CreateWalletModal', () => {
     it('renders modal when open', () => {
       render(<CreateWalletModal {...defaultProps} />)
       
-      expect(screen.getByText('Create New Wallet')).toBeInTheDocument()
+      expect(screen.getByText('Add Wallet for Monitoring')).toBeInTheDocument()
       expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
       expect(screen.getByLabelText('Output Descriptor')).toBeInTheDocument()
     })
@@ -77,7 +77,7 @@ describe('CreateWalletModal', () => {
     it('does not render when closed', () => {
       render(<CreateWalletModal {...defaultProps} isOpen={false} />)
       
-      expect(screen.queryByText('Create New Wallet')).not.toBeInTheDocument()
+      expect(screen.queryByText('Add Wallet for Monitoring')).not.toBeInTheDocument()
     })
 
     it('calls onClose when cancel button is clicked', () => {
@@ -165,12 +165,12 @@ describe('CreateWalletModal', () => {
   })
 
   describe('Form Submission', () => {
-    it('successfully creates wallet with valid input', async () => {
+    it('successfully adds wallet with valid input', async () => {
       render(<CreateWalletModal {...defaultProps} />)
       
       const nameInput = screen.getByLabelText('Wallet Name')
       const descriptorInput = screen.getByLabelText('Output Descriptor')
-      const submitButton = screen.getByText('Create Wallet')
+      const submitButton = screen.getByText('Add Wallet')
       
       fireEvent.change(nameInput, { target: { value: 'My Wallet' } })
       fireEvent.change(descriptorInput, { 
@@ -189,14 +189,14 @@ describe('CreateWalletModal', () => {
       expect(defaultProps.onWalletCreated).toHaveBeenCalled()
     })
 
-    it('creates wallet with prefilled name when user submits', async () => {
+    it('adds wallet with prefilled name when user submits', async () => {
       process.env.NEXT_PUBLIC_AUTH_ENABLED = 'true'
       mockUseAuth.mockReturnValue({ user: mockUser })
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
       
       const descriptorInput = screen.getByLabelText('Output Descriptor')
-      const submitButton = screen.getByText('Create Wallet')
+      const submitButton = screen.getByText('Add Wallet')
       
       // Name should be prefilled, just add descriptor
       fireEvent.change(descriptorInput, { 
@@ -221,7 +221,7 @@ describe('CreateWalletModal', () => {
       
       const nameInput = screen.getByLabelText('Wallet Name')
       const descriptorInput = screen.getByLabelText('Output Descriptor')
-      const submitButton = screen.getByText('Create Wallet')
+      const submitButton = screen.getByText('Add Wallet')
       
       // Modify the prefilled name
       fireEvent.change(nameInput, { target: { value: 'My Personal Wallet' } })
@@ -245,7 +245,7 @@ describe('CreateWalletModal', () => {
       render(<CreateWalletModal {...defaultProps} />)
       
       const descriptorInput = screen.getByLabelText('Output Descriptor')
-      const submitButton = screen.getByText('Create Wallet')
+      const submitButton = screen.getByText('Add Wallet')
       
       fireEvent.change(descriptorInput, { 
         target: { value: 'wpkh([fingerprint/derivation]xpub.../0/*)#checksum' } 
@@ -260,7 +260,7 @@ describe('CreateWalletModal', () => {
       render(<CreateWalletModal {...defaultProps} />)
       
       const nameInput = screen.getByLabelText('Wallet Name')
-      const submitButton = screen.getByText('Create Wallet')
+      const submitButton = screen.getByText('Add Wallet')
       
       fireEvent.change(nameInput, { target: { value: 'My Wallet' } })
       fireEvent.click(submitButton)

@@ -83,7 +83,7 @@ export function CreateWalletModal({
       onWalletCreated()
       handleClose()
     } catch (err) {
-      modal.setError(err instanceof Error ? err.message : "Failed to create wallet")
+      modal.setError(err instanceof Error ? err.message : "Failed to add wallet")
     } finally {
       modal.setLoading(false)
     }
@@ -94,10 +94,10 @@ export function CreateWalletModal({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Create New Wallet
+            Add Wallet for Monitoring
           </DialogTitle>
           <DialogDescription>
-            Create a new wallet by providing a name and output descriptor.
+            Add an existing wallet for monitoring by providing a name and output descriptor.
           </DialogDescription>
         </DialogHeader>
 
@@ -154,10 +154,10 @@ export function CreateWalletModal({
               {modal.isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  Adding...
                 </>
               ) : (
-                "Create Wallet"
+                "Add Wallet"
               )}
             </Button>
           </DialogFooter>
