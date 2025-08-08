@@ -243,8 +243,8 @@ pub async fn create_wallet(
                             // Use user's name or fallback to "Me"
                             let contact_name = user_record.name.as_deref().unwrap_or("Me");
                             
-                            // Create contact with email notification (note: we might want to change this to SMS if user has verified phone)
-                            let notification_methods = vec![(ProviderType::Ntfy, user_record.email)];
+                            // Create contact with email notification using the user's email
+                            let notification_methods = vec![(ProviderType::Email, user_record.email)];
                             
                             match manager.metadata_db.insert_contact_with_notification_methods(
                                 &wallet_checksum,
@@ -701,6 +701,10 @@ pub async fn create_wallet_contact(
                 // Auto-generate ntfy topic
                 let topic = generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
                 processed_methods.push((ProviderType::Ntfy, topic));
+            }
+            ProviderType::Email => {
+                // Use the provided email address directly
+                processed_methods.push((ProviderType::Email, method.notification_target.clone()));
             }
         }
     }

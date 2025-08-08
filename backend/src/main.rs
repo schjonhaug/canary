@@ -4,6 +4,7 @@ mod auth;
 mod config;
 mod electrum;
 mod email_service;
+mod email_provider;
 mod message_formatter;
 mod metadata;
 mod migrations;
@@ -19,6 +20,7 @@ use notifications::{NotificationManager};
 use wallet::WalletManager;
 use ntfy_provider::NtfyProvider;
 use twilio_provider::TwilioProvider;
+use email_provider::EmailProvider;
 use std::sync::Arc;
 use tokio::sync::{Mutex, broadcast};
 use tokio::time::{Duration, interval};
@@ -85,6 +87,10 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
+    
+    // Register email provider (always register, it will check if configured internally)
+    println!("📧 Registering email notification provider");
+    notification_manager.register_provider(Arc::new(EmailProvider::new()));
     
     let notification_manager = Arc::new(Mutex::new(notification_manager));
 

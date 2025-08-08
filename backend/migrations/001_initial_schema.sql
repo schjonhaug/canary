@@ -95,8 +95,8 @@ CREATE TABLE contacts (
 CREATE TABLE contact_notification_methods (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     contact_id INTEGER NOT NULL,
-    provider_type TEXT NOT NULL CHECK (provider_type IN ('sms', 'ntfy')),
-    notification_target TEXT NOT NULL,  -- phone number or ntfy topic
+    provider_type TEXT NOT NULL CHECK (provider_type IN ('sms', 'ntfy', 'email')),
+    notification_target TEXT NOT NULL,  -- phone number, ntfy topic, or email address
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE,
     UNIQUE(contact_id, provider_type, notification_target)

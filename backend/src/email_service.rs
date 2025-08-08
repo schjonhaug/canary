@@ -273,4 +273,40 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
             },
         }
     }
+    
+    pub async fn send_transaction_notification(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        subject: &str,
+        html_body: &str,
+        text_body: &str,
+    ) -> Result<()> {
+        use lettre::{Message, message::{header, MultiPart, SinglePart}};
+        
+        let from_email = std::env::var("FROM_EMAIL")
+            .unwrap_or_else(|_| "notifications@canarybitcoin.com".to_string());
+        let from_name = std::env::var("FROM_NAME")
+            .unwrap_or_else(|_| "Canary Wallet".to_string());
+        
+        let email = Message::builder()
+            .from(format!("{} <{}>", from_name, from_email).parse()?)
+            .to(format!("{} <{}>", to_name, to_email).parse()?)
+            .subject(subject)
+            .multipart(
+                MultiPart::alternative()
+                    .singlepart(
+                        SinglePart::builder()
+                            .header(header::ContentType::TEXT_PLAIN)
+                            .body(text_body.to_string()),
+                    )
+                    .singlepart(
+                        SinglePart::builder()
+                            .header(header::ContentType::TEXT_HTML)
+                            .body(html_body.to_string()),
+                    ),
+            )?;
+
+        self.send_email(email).await
+    }
 }

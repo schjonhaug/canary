@@ -128,6 +128,8 @@ pub enum ProviderType {
     Sms,
     #[serde(rename = "ntfy")]
     Ntfy,
+    #[serde(rename = "email")]
+    Email,
 }
 
 impl ProviderType {
@@ -135,6 +137,7 @@ impl ProviderType {
         match self {
             ProviderType::Sms => "sms",
             ProviderType::Ntfy => "ntfy",
+            ProviderType::Email => "email",
         }
     }
 }
@@ -144,6 +147,7 @@ impl From<&str> for ProviderType {
         match s {
             "sms" => ProviderType::Sms,
             "ntfy" => ProviderType::Ntfy,
+            "email" => ProviderType::Email,
             _ => ProviderType::Ntfy, // Default fallback
         }
     }
