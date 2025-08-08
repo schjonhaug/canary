@@ -39,7 +39,7 @@ export default function VerifyEmailPage() {
   }, [params.token])
 
   const handleContinue = () => {
-    router.push('/login')
+    router.push('/sign-in')
   }
 
   return (
