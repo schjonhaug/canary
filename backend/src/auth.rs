@@ -1,11 +1,15 @@
 use anyhow::{Result, anyhow};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
 use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey, Algorithm};
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use base64::{Engine as _, engine::general_purpose};
 use reqwest::Client;
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 use crate::metadata::TwilioConfig;
+use crate::email_service::EmailService;
 use utoipa::ToSchema;
 
 /// Load Twilio configuration from environment variables
@@ -34,7 +38,7 @@ pub fn load_twilio_config_from_env() -> Result<TwilioConfig> {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: i64,
-    pub phone: String,
+    pub email: String,
     pub is_admin: bool,
     pub exp: usize,
     pub iat: usize,
@@ -47,15 +51,26 @@ pub struct AuthUser {
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-pub struct SendOtpRequest {
-    pub phone_number: String,
+pub struct RegisterRequest {
+    pub email: String,
+    pub password: String,
+    pub name: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-pub struct VerifyOtpRequest {
-    pub phone_number: String,
-    pub code: String,
-    pub name: Option<String>,
+pub struct LoginRequest {
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct ForgotPasswordRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct ResetPasswordRequest {
+    pub password: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -69,9 +84,10 @@ pub struct AuthResponse {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AuthUserResponse {
     pub id: i64,
-    pub phone_number: String,
+    pub email: String,
     pub name: Option<String>,
     pub is_admin: bool,
+    pub email_verified: bool,
     pub created_at: String,
 }
 
@@ -88,33 +104,93 @@ pub struct UpdateUserResponse {
 // Development mode configuration
 const DEV_MODE: bool = cfg!(debug_assertions);
 
-// Dev mode test phone numbers (bypass OTP verification in dev mode)
-const DEV_TEST_PHONES: [&str; 4] = [
-    "+4799999900",  // Can be used to test first user becomes admin
-    "+4799999901",
-    "+4699999902", 
-    "+3399999903"
+// Dev mode test email addresses (bypass email verification in dev mode)
+pub const DEV_TEST_EMAILS: [&str; 3] = [
+    "admin@example.com",     // Admin user
+    "alice@example.com",     // Test user 1  
+    "bob@example.com",       // Test user 2
 ];
+
+// Dev mode password for all test accounts
+pub const DEV_TEST_PASSWORD: &str = "password123";
 
 pub struct AuthService {
     jwt_secret: String,
     client: Client,
+    email_service: Option<EmailService>,
 }
 
 impl AuthService {
-    pub fn new(jwt_secret: String) -> Self {
+    pub fn new(jwt_secret: String, email_service: Option<EmailService>) -> Self {
         Self {
             jwt_secret,
             client: Client::new(),
+            email_service,
         }
     }
 
-    pub async fn send_otp(&self, twilio_config: &TwilioConfig, phone_number: &str) -> Result<()> {
-        // Development mode: bypass Twilio for dev test phones
-        if DEV_MODE && DEV_TEST_PHONES.contains(&phone_number) {
-            return Ok(());
-        }
+    pub fn hash_password(&self, password: &str) -> Result<String> {
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        let password_hash = argon2
+            .hash_password(password.as_bytes(), &salt)
+            .map_err(|e| anyhow!("Failed to hash password: {}", e))?
+            .to_string();
+        Ok(password_hash)
+    }
 
+    pub fn verify_password(&self, password: &str, password_hash: &str) -> Result<bool> {
+        let parsed_hash = PasswordHash::new(password_hash)
+            .map_err(|e| anyhow!("Invalid password hash: {}", e))?;
+        
+        match Argon2::default().verify_password(password.as_bytes(), &parsed_hash) {
+            Ok(()) => Ok(true),
+            Err(_) => Ok(false),
+        }
+    }
+
+    pub fn generate_verification_token(&self) -> String {
+        Uuid::new_v4().to_string()
+    }
+
+    pub async fn send_email_verification(&self, email: &str, name: &str, token: &str) -> Result<()> {
+        if let Some(email_service) = &self.email_service {
+            email_service.send_email_verification(email, name, token).await
+        } else {
+            // In development mode without email service, just log the token
+            if DEV_MODE {
+                println!("[DEV MODE] Email verification token for {}: {}", email, token);
+                Ok(())
+            } else {
+                Err(anyhow!("Email service not configured"))
+            }
+        }
+    }
+
+    pub async fn send_password_reset(&self, email: &str, name: &str, token: &str) -> Result<()> {
+        if let Some(email_service) = &self.email_service {
+            email_service.send_password_reset(email, name, token).await
+        } else {
+            // In development mode without email service, just log the token
+            if DEV_MODE {
+                println!("[DEV MODE] Password reset token for {}: {}", email, token);
+                Ok(())
+            } else {
+                Err(anyhow!("Email service not configured"))
+            }
+        }
+    }
+
+    pub fn is_dev_test_email(&self, email: &str) -> bool {
+        DEV_MODE && DEV_TEST_EMAILS.contains(&email)
+    }
+
+    pub fn get_dev_test_password(&self) -> &'static str {
+        DEV_TEST_PASSWORD
+    }
+
+    // Keep this method for SMS contact verification (not auth login)
+    pub async fn send_contact_otp(&self, twilio_config: &TwilioConfig, phone_number: &str) -> Result<()> {
         let verify_service_sid = twilio_config.verify_service_sid
             .as_ref()
             .ok_or_else(|| anyhow!("Twilio Verify service SID not configured"))?;
@@ -147,12 +223,8 @@ impl AuthService {
         Ok(())
     }
 
-    pub async fn verify_otp(&self, twilio_config: &TwilioConfig, phone_number: &str, code: &str) -> Result<bool> {
-        // Development mode: accept any code for dev test phones
-        if DEV_MODE && DEV_TEST_PHONES.contains(&phone_number) {
-            return Ok(true);
-        }
-
+    // Keep this method for SMS contact verification (not auth login)
+    pub async fn verify_contact_otp(&self, twilio_config: &TwilioConfig, phone_number: &str, code: &str) -> Result<bool> {
         let verify_service_sid = twilio_config.verify_service_sid
             .as_ref()
             .ok_or_else(|| anyhow!("Twilio Verify service SID not configured"))?;
@@ -187,14 +259,14 @@ impl AuthService {
         Ok(false)
     }
 
-    pub fn generate_token(&self, user_id: i64, phone_number: &str, is_admin: bool) -> Result<String> {
+    pub fn generate_token(&self, user_id: i64, email: &str, is_admin: bool) -> Result<String> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)?
             .as_secs() as usize;
         
         let claims = Claims {
             sub: user_id,
-            phone: phone_number.to_string(),
+            email: email.to_string(),
             is_admin,
             exp: now + 7 * 24 * 60 * 60, // 7 days
             iat: now,
@@ -251,7 +323,7 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
     
-    let auth_service = AuthService::new(jwt_secret);
+    let auth_service = AuthService::new(jwt_secret, None);
     let claims = auth_service.validate_token(token)?;
 
     // Admin status comes from the JWT token claims, which are set from database at login time

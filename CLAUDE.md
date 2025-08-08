@@ -4,13 +4,13 @@
 
 **License**: Open Source (FOSS)
 
-**Version**: 0.4.0
+**Version**: 0.5.1
 
 ## Project Overview
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, and optional phone-based authentication using Twilio Verify.
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, and optional email/password authentication with email verification.
 
 ## Architecture
-Built with a plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with phone number verification via Twilio Verify for multi-user support. Uses polling-based frontend updates rather than server-sent events.
+Built with a plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with email/password and email verification for multi-user support. SMS verification via Twilio Verify is still used for contact verification when adding SMS contacts. Uses polling-based frontend updates rather than server-sent events.
 
 ## Development Commands
 
@@ -63,8 +63,11 @@ canary/
 ## API Endpoints
 
 ### Authentication (Optional)
-- `POST /api/auth/send-otp` - Send OTP to phone number
-- `POST /api/auth/verify-otp` - Verify OTP and login/register
+- `POST /api/auth/register` - Register with email/password (sends verification email)
+- `POST /api/auth/login` - Login with email/password
+- `GET /api/auth/verify-email/{token}` - Verify email address
+- `POST /api/auth/forgot-password` - Send password reset email
+- `POST /api/auth/reset-password/{token}` - Reset password with token
 - `POST /api/auth/logout` - Logout current user
 - `GET /api/auth/me` - Get current user info
 
@@ -108,7 +111,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Frontend polling: 60 seconds (configurable via NEXT_PUBLIC_SYNC_INTERVAL)
 
 ## Key Features
-- **Optional Authentication**: Phone-based authentication with OTP via Twilio Verify
+- **Optional Authentication**: Email/password authentication with email verification
 - **Multi-user Support**: JWT-based sessions with user isolation when auth is enabled
 - **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh and Twilio SMS
 - **Multiple Notification Methods**: Each contact can have multiple notification methods (future: SMS + email + ntfy + telegram + webhooks)
@@ -124,7 +127,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Background Sync**: 4-second wallet sync intervals
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
 - **User Onboarding**: Guided wallet creation with BIP39 mnemonic generation
-- **Development Mode**: Quick login options for testing with pre-configured test accounts
+- **Development Mode**: Quick login options for testing with pre-configured email accounts
 
 ## Notification Setup
 
@@ -154,25 +157,39 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Provider Independence**: All providers process all contacts, notification methods determine delivery targets
 
 ### Authentication (Optional)
-Enable phone-based authentication for multi-user support:
+Enable email/password authentication for multi-user support:
 1. Set environment variables in `.env`:
    ```
    CANARY_ENABLE_AUTH=true
    JWT_SECRET=your_secure_jwt_secret_here
-   TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   # Email service for verification emails (optional in dev mode)
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USERNAME=your-email@gmail.com
+   SMTP_PASSWORD=your-app-password
+   FROM_EMAIL=your-email@gmail.com
+   FROM_NAME="Canary Wallet"
+   FRONTEND_URL=http://localhost:3001
    ```
 2. Frontend automatically shows login page when auth is enabled
-3. Users authenticate via phone number + OTP (6-digit code)
-4. New users provide name on first login
-5. JWT tokens stored in httpOnly cookies for security
-6. All wallet data isolated per user when auth is enabled
-7. **Development Mode**: Pre-configured test users for development (`+4799999901` Alice, `+4699999902` Bob, `+3399999903` Charlie for registration testing)
-8. **Rate limiting**: OTP attempts are rate-limited and tracked in database
+3. Users register with email/password and receive verification email
+4. Email verification required before login (except in dev mode)
+5. Password reset functionality via email
+6. JWT tokens stored in localStorage for session management
+7. All wallet data isolated per user when auth is enabled
+8. **Development Mode**: Pre-configured test users (`admin@example.com`, `alice@example.com`, `bob@example.com`, `charlie@example.com` all with password `password123`) - no email verification required
+
+### SMS Contact Verification (Separate from Auth)
+For adding SMS contacts, Twilio Verify is still used:
+```
+TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+This is separate from the main authentication system and only used when users add phone number contacts.
 
 ## Storage
 - **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
-- **Metadata**: `database/{network}/metadata.sqlite` (normalized schema with users, contacts, contact_notification_methods, events, notification_logs)
-- **Schema**: Two migration files - initial schema (001_initial_schema.sql) and development users (002_dev_users.sql) with normalized design for extensible notification methods and multi-user support
+- **Metadata**: `database/{network}/metadata.sqlite` (normalized schema with users, contacts, contact_notification_methods, events, notification_logs, email_verification_tokens, password_reset_tokens)
+- **Schema**: Single migration file (001_initial_schema.sql) with normalized design for extensible notification methods, multi-user support, and email authentication
 - **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
 
 ## Address Management
@@ -184,7 +201,7 @@ The service uses BDK's address revelation mechanism with a stop gap of 20:
 
 ## Development Workflow
 - **Testing**: `./regtest-env/docker-utils.sh` provides complete Bitcoin regtest environment
-- **Database Management**: Two migration files for clean schema initialization and development test data
+- **Database Management**: Single migration file for clean schema initialization
 
 ## Code Standards
 - No commented-out code (use git history)  

@@ -4,9 +4,11 @@
 -- Users table: Store authenticated users
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    phone_number TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
     name TEXT,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME
 );
@@ -23,7 +25,27 @@ CREATE TABLE sessions (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- OTP attempts tracking for rate limiting
+-- Email verification tokens for new user registration
+CREATE TABLE email_verification_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- Password reset tokens
+CREATE TABLE password_reset_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- OTP attempts tracking for rate limiting (used for SMS contact verification)
 CREATE TABLE otp_attempts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone_number TEXT NOT NULL,
@@ -125,6 +147,11 @@ VALUES (1, 0, 0);
 CREATE INDEX idx_sessions_token ON sessions(token_hash);
 CREATE INDEX idx_sessions_expires ON sessions(expires_at);
 CREATE INDEX idx_wallets_user ON wallets(user_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_email_verification_tokens_token ON email_verification_tokens(token);
+CREATE INDEX idx_email_verification_tokens_expires ON email_verification_tokens(expires_at);
+CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
+CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
 CREATE INDEX idx_otp_attempts_phone ON otp_attempts(phone_number);
 CREATE INDEX idx_notification_logs_event_id ON notification_logs (event_id);
 CREATE INDEX idx_notification_logs_notification_method_id ON notification_logs (notification_method_id);

@@ -36,10 +36,12 @@ jsonwebtoken = "9.3"
 rand = "0.8"
 sha2 = "0.10"
 urlencoding = "2.1"
+argon2 = "0.5"
+lettre = { version = "0.11", features = ["tokio1-native-tls", "smtp-transport", "builder"] }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 mime = "0.3"
 tempfile = "3.3"
-uuid = { version = "1", features = ["v4"] }

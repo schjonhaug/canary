@@ -5,6 +5,7 @@ pub mod api;
 pub mod auth;
 pub mod config;
 pub mod electrum;
+pub mod email_service;
 pub mod message_formatter;
 pub mod metadata;
 pub mod migrations;
@@ -16,6 +17,7 @@ pub mod twilio_provider;
 // Re-export commonly used types
 pub use config::AppConfig;
 pub use electrum::{ElectrumClient, BlockHeader};
+pub use email_service::{EmailService, EmailConfig};
 pub use message_formatter::MessageFormatter;
 pub use metadata::{
     Contact, NotificationMethod, ProviderType, EventType, Language, TransactionEvent, TransactionEventWithWallet, 

@@ -6,9 +6,10 @@ import { api } from '@/lib/api'
 
 interface User {
   id: number
-  phone_number: string
+  email: string
   name?: string
   is_admin: boolean
+  email_verified: boolean
 }
 
 interface AuthContextType {
@@ -16,9 +17,12 @@ interface AuthContextType {
   token: string | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (phone: string, code: string, name?: string) => Promise<void>
+  register: (email: string, password: string, name: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
   setAuth: (token: string, user: User) => Promise<void>
-  sendOtp: (phone: string) => Promise<void>
+  forgotPassword: (email: string) => Promise<void>
+  resetPassword: (token: string, password: string) => Promise<void>
+  verifyEmail: (token: string) => Promise<void>
   logout: () => void
 }
 
@@ -40,9 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authEnabled) {
       setUser({
         id: 1,
-        phone_number: 'FOSS',
+        email: 'admin@foss.mode',
         name: 'Admin',
-        is_admin: true
+        is_admin: true,
+        email_verified: true
       })
       setToken('foss-mode')
       setIsLoading(false)
@@ -76,22 +81,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const sendOtp = async (phone: string) => {
+  const register = async (email: string, password: string, name: string) => {
     try {
-      await api.sendOtp(phone)
+      await api.register(email, password, name)
     } catch (error) {
       throw error
     }
   }
 
-  const login = async (phone: string, code: string, name?: string) => {
+  const login = async (email: string, password: string) => {
     try {
-      const data = await api.verifyOtp(phone, code, name)
+      const data = await api.login(email, password)
       setToken(data.token)
       setUser(data.user)
       localStorage.setItem('auth_token', data.token)
       api.setAuthToken(data.token)
       router.push('/')
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const forgotPassword = async (email: string) => {
+    try {
+      await api.forgotPassword(email)
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const resetPassword = async (token: string, password: string) => {
+    try {
+      await api.resetPassword(token, password)
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const verifyEmail = async (token: string) => {
+    try {
+      await api.verifyEmail(token)
     } catch (error) {
       throw error
     }
@@ -130,9 +159,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isLoading,
         isAuthenticated: !!token,
+        register,
         login,
         setAuth,
-        sendOtp,
+        forgotPassword,
+        resetPassword,
+        verifyEmail,
         logout,
       }}
     >

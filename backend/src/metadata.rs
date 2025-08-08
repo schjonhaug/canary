@@ -32,9 +32,11 @@ pub enum Language {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserRecord {
     pub id: i64,
-    pub phone_number: String,
+    pub email: String,
+    pub password_hash: String,
     pub name: Option<String>,
     pub is_admin: bool,
+    pub email_verified: bool,
     pub created_at: String,
 }
 
@@ -343,9 +345,8 @@ impl MetadataDb {
             // AUTH=false: Create default admin user (id=1) for self-hosted mode
             self.ensure_default_admin_user().await?;
         } else if cfg!(debug_assertions) {
-            // AUTH=true in dev mode: Create dev test users AFTER the first admin registers
-            // We'll do this on-demand rather than at startup to allow testing first user becomes admin
-            // The dev users Alice and Bob will be created after the admin exists
+            // AUTH=true in dev mode: Create hardcoded dev test users
+            self.ensure_dev_test_users().await?;
         }
         
         Ok(())
@@ -365,18 +366,58 @@ impl MetadataDb {
             )?;
             
             if !admin_exists {
-                // Create default admin user for self-hosted mode
-                conn.execute(
-                    "INSERT INTO users (id, phone_number, name, is_admin) VALUES (1, 'admin', 'Admin', TRUE)",
-                    []
-                )?;
-                println!("Created default admin user for self-hosted mode");
+                // Admin user will be created dynamically when auth is enabled
+                println!("No admin user exists yet - will be created on first registration");
             }
             
             Ok(())
         }).await?
     }
 
+    async fn ensure_dev_test_users(&self) -> Result<()> {
+        use crate::auth::{AuthService, DEV_TEST_EMAILS, DEV_TEST_PASSWORD};
+        
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            
+            // Create a temporary auth service to hash passwords
+            let auth_service = AuthService::new("temp".to_string(), None);
+            let password_hash = auth_service.hash_password(DEV_TEST_PASSWORD)?;
+            
+            for (index, email) in DEV_TEST_EMAILS.iter().enumerate() {
+                // Check if user already exists
+                let exists: bool = conn.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM users WHERE email = ?1)",
+                    [email],
+                    |row| row.get(0)
+                )?;
+                
+                if !exists {
+                    let name = match *email {
+                        "admin@example.com" => "Admin",
+                        "alice@example.com" => "Alice",
+                        "bob@example.com" => "Bob",
+                        _ => "Test User",
+                    };
+                    
+                    // First user becomes admin
+                    let is_admin = index == 0;
+                    
+                    conn.execute(
+                        "INSERT INTO users (email, password_hash, name, is_admin, email_verified, created_at) 
+                         VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))",
+                        params![email, &password_hash, name, is_admin, true], // Dev users are pre-verified
+                    )?;
+                    
+                    println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
+                }
+            }
+            
+            Ok(())
+        }).await?
+    }
 
     pub async fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
         let pool = self.pool.clone();
@@ -966,9 +1007,10 @@ impl MetadataDb {
     }
 
     // User management methods
-    pub async fn create_user(&self, phone_number: &str, name: Option<&str>) -> Result<i64> {
+    pub async fn create_user(&self, email: &str, password_hash: &str, name: Option<&str>, email_verified: bool) -> Result<i64> {
         let pool = self.pool.clone();
-        let phone_number = phone_number.to_string();
+        let email = email.to_string();
+        let password_hash = password_hash.to_string();
         let name = name.map(|n| n.to_string());
         
         // Check if auth is enabled to determine admin logic
@@ -980,15 +1022,15 @@ impl MetadataDb {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
             
-            // Try to get existing user first
+            // Check if user already exists
             let existing: Option<i64> = tx
-                .prepare("SELECT id FROM users WHERE phone_number = ?1")?
-                .query_row(params![&phone_number], |row| row.get(0))
+                .prepare("SELECT id FROM users WHERE email = ?1")?
+                .query_row(params![&email], |row| row.get(0))
                 .ok();
             
-            if let Some(id) = existing {
-                tx.commit()?;
-                return Ok((id, false));
+            if let Some(_id) = existing {
+                tx.rollback()?;
+                return Err(anyhow::anyhow!("User with this email already exists"));
             }
             
             // Determine if this user should be admin
@@ -1002,27 +1044,25 @@ impl MetadataDb {
                     |row| row.get(0)
                 )?;
                 
-                println!("DEBUG: User {} - current admin_count={}, auth_enabled={}", phone_number, admin_count, auth_enabled);
+                println!("DEBUG: User {} - current admin_count={}, auth_enabled={}", email, admin_count, auth_enabled);
                 
                 if admin_count == 0 {
                     final_is_admin = true;
-                    println!("No admin users exist, creating first admin user: {}", phone_number);
+                    println!("No admin users exist, creating first admin user: {}", email);
                 } else {
-                    println!("Admin users already exist (count={}), creating regular user: {}", admin_count, phone_number);
+                    println!("Admin users already exist (count={}), creating regular user: {}", admin_count, email);
                 }
             }
             // Note: When AUTH=false, we don't create users through this function
-            // The default admin is created at startup in ensure_default_admin_user()
             
-            // Use the provided name (can be None - UI will handle name entry if needed)
             let user_name = name;
             
-            println!("DEBUG: Creating user {} with name {:?}, is_admin={}", phone_number, user_name, final_is_admin);
+            println!("DEBUG: Creating user {} with name {:?}, is_admin={}", email, user_name, final_is_admin);
             
             // Create new user
             tx.execute(
-                "INSERT INTO users (phone_number, is_admin, name) VALUES (?1, ?2, ?3)",
-                params![&phone_number, final_is_admin, user_name],
+                "INSERT INTO users (email, password_hash, name, is_admin, email_verified) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![&email, &password_hash, user_name, final_is_admin, email_verified],
             )?;
             
             let user_id = tx.last_insert_rowid();
@@ -1036,21 +1076,23 @@ impl MetadataDb {
     }
 
 
-    pub async fn get_user_by_phone(&self, phone_number: &str) -> Result<Option<UserRecord>> {
+    pub async fn get_user_by_email(&self, email: &str) -> Result<Option<UserRecord>> {
         let pool = self.pool.clone();
-        let phone_number = phone_number.to_string();
+        let email = email.to_string();
         
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, phone_number, name, is_admin, created_at FROM users WHERE phone_number = ?1")?
-                .query_row(params![&phone_number], |row| {
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, created_at FROM users WHERE email = ?1")?
+                .query_row(params![&email], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
-                        phone_number: row.get(1)?,
-                        name: row.get(2)?,
-                        is_admin: row.get(3)?,
-                        created_at: row.get(4)?,
+                        email: row.get(1)?,
+                        password_hash: row.get(2)?,
+                        name: row.get(3)?,
+                        is_admin: row.get(4)?,
+                        email_verified: row.get(5)?,
+                        created_at: row.get(6)?,
                     })
                 })
                 .ok();
@@ -1064,14 +1106,16 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, phone_number, name, is_admin, created_at FROM users WHERE id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, created_at FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
-                        phone_number: row.get(1)?,
-                        name: row.get(2)?,
-                        is_admin: row.get(3)?,
-                        created_at: row.get(4)?,
+                        email: row.get(1)?,
+                        password_hash: row.get(2)?,
+                        name: row.get(3)?,
+                        is_admin: row.get(4)?,
+                        email_verified: row.get(5)?,
+                        created_at: row.get(6)?,
                     })
                 })
                 .ok();
@@ -1151,7 +1195,154 @@ impl MetadataDb {
         }).await?
     }
 
-    // Rate limiting for OTP
+    // Email verification token management
+    pub async fn create_email_verification_token(&self, user_id: i64, token: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let token = token.to_string();
+        let expires_at = (chrono::Utc::now() + chrono::Duration::hours(24))
+            .format("%Y-%m-%d %H:%M:%S").to_string();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES (?1, ?2, ?3)",
+                params![user_id, &token, &expires_at],
+            )?;
+            Ok(())
+        }).await?
+    }
+
+    pub async fn verify_email_token(&self, token: &str) -> Result<Option<i64>> {
+        let pool = self.pool.clone();
+        let token = token.to_string();
+        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        
+        spawn_blocking(move || -> Result<Option<i64>> {
+            let conn = pool.get()?;
+            let tx = conn.unchecked_transaction()?;
+            
+            // Get user_id for valid, non-expired token
+            let user_id: Option<i64> = tx
+                .prepare("SELECT user_id FROM email_verification_tokens WHERE token = ?1 AND expires_at > ?2")?
+                .query_row(params![&token, &current_time], |row| row.get(0))
+                .ok();
+            
+            if let Some(user_id) = user_id {
+                // Mark user as verified
+                tx.execute(
+                    "UPDATE users SET email_verified = TRUE WHERE id = ?1",
+                    params![user_id],
+                )?;
+                
+                // Delete the token
+                tx.execute(
+                    "DELETE FROM email_verification_tokens WHERE token = ?1",
+                    params![&token],
+                )?;
+                
+                tx.commit()?;
+                Ok(Some(user_id))
+            } else {
+                tx.rollback()?;
+                Ok(None)
+            }
+        }).await?
+    }
+
+    pub async fn cleanup_expired_email_tokens(&self) -> Result<u64> {
+        let pool = self.pool.clone();
+        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        
+        spawn_blocking(move || -> Result<u64> {
+            let conn = pool.get()?;
+            let rows_deleted = conn.execute(
+                "DELETE FROM email_verification_tokens WHERE expires_at < ?1",
+                params![&current_time],
+            )?;
+            Ok(rows_deleted as u64)
+        }).await?
+    }
+
+    // Password reset token management
+    pub async fn create_password_reset_token(&self, user_id: i64, token: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let token = token.to_string();
+        let expires_at = (chrono::Utc::now() + chrono::Duration::hours(1))
+            .format("%Y-%m-%d %H:%M:%S").to_string();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            
+            // Delete any existing tokens for this user
+            conn.execute(
+                "DELETE FROM password_reset_tokens WHERE user_id = ?1",
+                params![user_id],
+            )?;
+            
+            // Create new token
+            conn.execute(
+                "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?1, ?2, ?3)",
+                params![user_id, &token, &expires_at],
+            )?;
+            Ok(())
+        }).await?
+    }
+
+    pub async fn verify_password_reset_token(&self, token: &str) -> Result<Option<i64>> {
+        let pool = self.pool.clone();
+        let token = token.to_string();
+        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        
+        spawn_blocking(move || -> Result<Option<i64>> {
+            let conn = pool.get()?;
+            let user_id: Option<i64> = conn
+                .prepare("SELECT user_id FROM password_reset_tokens WHERE token = ?1 AND expires_at > ?2")?
+                .query_row(params![&token, &current_time], |row| row.get(0))
+                .ok();
+            Ok(user_id)
+        }).await?
+    }
+
+    pub async fn update_user_password(&self, user_id: i64, password_hash: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let password_hash = password_hash.to_string();
+        
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            let tx = conn.unchecked_transaction()?;
+            
+            // Update password
+            tx.execute(
+                "UPDATE users SET password_hash = ?1 WHERE id = ?2",
+                params![&password_hash, user_id],
+            )?;
+            
+            // Delete all password reset tokens for this user
+            tx.execute(
+                "DELETE FROM password_reset_tokens WHERE user_id = ?1",
+                params![user_id],
+            )?;
+            
+            tx.commit()?;
+            Ok(())
+        }).await?
+    }
+
+    pub async fn cleanup_expired_password_tokens(&self) -> Result<u64> {
+        let pool = self.pool.clone();
+        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        
+        spawn_blocking(move || -> Result<u64> {
+            let conn = pool.get()?;
+            let rows_deleted = conn.execute(
+                "DELETE FROM password_reset_tokens WHERE expires_at < ?1",
+                params![&current_time],
+            )?;
+            Ok(rows_deleted as u64)
+        }).await?
+    }
+
+    // Rate limiting for OTP (SMS contact verification only)
     pub async fn check_rate_limit(&self, phone_number: &str) -> Result<bool> {
         let pool = self.pool.clone();
         let phone_number = phone_number.to_string();

@@ -12,84 +12,71 @@ import { Phone, ArrowRight, Loader2, User, Shield } from 'lucide-react'
 import Image from 'next/image'
 
 export default function LoginPage() {
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [name, setName] = useState('')
-  const [step, setStep] = useState<'phone' | 'otp' | 'name'>('phone')
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot-password'>('login')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { sendOtp, setAuth } = useAuth()
+  const [message, setMessage] = useState('')
+  const { register, login } = useAuth()
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setMessage('')
     setIsLoading(true)
 
     try {
-      await sendOtp(phone)
-      setStep('otp')
+      await register(email, password, name)
+      setMessage('Registration successful! Please check your email to verify your account.')
+      setMode('login')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send OTP')
+      setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setMessage('')
     setIsLoading(true)
 
     try {
-      // Try to verify OTP without name first
-      const response = await api.verifyOtp(phone, otp)
-      
-      // Check if name is required
-      if ('requires_name' in response && response.requires_name) {
-        // Store the token so we can use it for the update profile call
-        localStorage.setItem('auth_token', response.token)
-        api.setAuthToken(response.token)
-        setStep('name')
-        setIsLoading(false)
-        return
-      }
-      
-      // Otherwise, we already have a successful login response
-      // Use setAuth to avoid making another API call
-      await setAuth(response.token, response.user)
+      await login(email, password)
+      // Navigation is handled by the login function in auth context
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid OTP')
+      setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleSubmitName = async (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setMessage('')
     setIsLoading(true)
 
     try {
-      const response = await api.updateUserProfile(name)
-      // Update auth context with new user data and redirect
-      await setAuth(localStorage.getItem('auth_token')!, response.user)
+      await api.forgotPassword(email)
+      setMessage('If an account with that email exists, a password reset link has been sent.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update profile')
+      setError(err instanceof Error ? err.message : 'Failed to send reset email')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleDevLogin = async (phoneNumber: string) => {
+  const handleDevLogin = async (devEmail: string) => {
     setError('')
     setIsLoading(true)
 
     try {
-      await sendOtp(phoneNumber)
-      setPhone(phoneNumber)
-      setStep('otp')
-      // For dev mode, auto-fill the OTP
-      setOtp('123456')
+      await login(devEmail, 'password123')
+      // Navigation is handled by the login function in auth context
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login')
     } finally {
@@ -114,11 +101,11 @@ export default function LoginPage() {
             Welcome to Canary
           </CardTitle>
           <CardDescription className="text-center">
-            {step === 'phone' 
-              ? 'Enter your phone number to get started'
-              : step === 'otp'
-              ? 'Enter the verification code sent to your phone'
-              : 'Welcome! Please enter your name to complete registration'
+            {mode === 'login' 
+              ? 'Sign in to your account'
+              : mode === 'register'
+              ? 'Create a new account'
+              : 'Enter your email to reset your password'
             }
           </CardDescription>
         </CardHeader>
@@ -128,38 +115,33 @@ export default function LoginPage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+          
+          {message && (
+            <Alert className="mb-4">
+              <AlertDescription>{message}</AlertDescription>
+            </Alert>
+          )}
 
           {/* Development Mode Quick Login */}
-          {process.env.NODE_ENV === 'development' && step === 'phone' && (
+          {process.env.NODE_ENV === 'development' && mode === 'login' && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Shield className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-medium text-blue-800">Development Mode</span>
               </div>
               <div className="space-y-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => handleDevLogin('+4799999900')}
-                  disabled={isLoading}
-                >
-                  <Shield className="mr-2 h-4 w-4" />
-                  Admin Account
-                </Button>
                 <div className="grid grid-cols-1 gap-2">
                   {[
-                    { phone: '+4799999901', label: '+47 999 99 901 (Alice)' },
-                    { phone: '+4699999902', label: '+46 999 99 902 (Bob)' },
-                    { phone: '+3399999903', label: '+33 999 99 903 (New user)' }
-                  ].map(({ phone, label }) => (
+                    { email: 'admin@example.com', label: 'Admin' },
+                    { email: 'alice@example.com', label: 'Alice' },
+                    { email: 'bob@example.com', label: 'Bob' }
+                  ].map(({ email, label }) => (
                     <Button
-                      key={phone}
+                      key={email}
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDevLogin(phone)}
+                      onClick={() => handleDevLogin(email)}
                       disabled={isLoading}
                     >
                       <User className="mr-2 h-3 w-3" />
@@ -171,91 +153,79 @@ export default function LoginPage() {
             </div>
           )}
 
-          {step === 'phone' ? (
-            <form onSubmit={handleSendOtp} className="space-y-4">
+          {mode === 'login' ? (
+            <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+1 (555) 000-0000"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="pl-10"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={isLoading || !phone}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    Send Verification Code
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </form>
-          ) : step === 'otp' ? (
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="otp">Verification Code</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="otp"
-                  type="text"
-                  placeholder="000000"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="text-center text-2xl tracking-widest"
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={isLoading}
-                  autoFocus
-                  maxLength={6}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
                 />
               </div>
               <Button 
                 type="submit" 
                 className="w-full"
-                disabled={isLoading || otp.length !== 6}
+                disabled={isLoading || !email || !password}
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying...
+                    Signing in...
                   </>
                 ) : (
-                  'Verify & Login'
+                  'Sign in'
                 )}
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => {
-                  setStep('phone')
-                  setOtp('')
-                  setError('')
-                }}
-                disabled={isLoading}
-              >
-                Use a different number
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setMode('register')
+                    setError('')
+                    setMessage('')
+                  }}
+                  disabled={isLoading}
+                >
+                  Don't have an account? Sign up
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setMode('forgot-password')
+                    setError('')
+                    setMessage('')
+                  }}
+                  disabled={isLoading}
+                >
+                  Forgot your password?
+                </Button>
+              </div>
             </form>
-          ) : (
-            <form onSubmit={handleSubmitName} className="space-y-4">
+          ) : mode === 'register' ? (
+            <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Your Name</Label>
+                <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
                   type="text"
@@ -264,21 +234,46 @@ export default function LoginPage() {
                   onChange={(e) => setName(e.target.value)}
                   required
                   disabled={isLoading}
-                  autoFocus
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter a strong password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  minLength={6}
+                />
+                <p className="text-sm text-gray-500">Password must be at least 6 characters long</p>
               </div>
               <Button 
                 type="submit" 
                 className="w-full"
-                disabled={isLoading || !name.trim()}
+                disabled={isLoading || !email || !password || !name}
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Account...
+                    Creating account...
                   </>
                 ) : (
-                  'Create Account'
+                  'Create account'
                 )}
               </Button>
               <Button
@@ -286,14 +281,55 @@ export default function LoginPage() {
                 variant="ghost"
                 className="w-full"
                 onClick={() => {
-                  setStep('phone')
-                  setOtp('')
-                  setName('')
+                  setMode('login')
                   setError('')
+                  setMessage('')
                 }}
                 disabled={isLoading}
               >
-                Start over
+                Already have an account? Sign in
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={isLoading || !email}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  'Send reset link'
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setMode('login')
+                  setError('')
+                  setMessage('')
+                }}
+                disabled={isLoading}
+              >
+                Back to sign in
               </Button>
             </form>
           )}

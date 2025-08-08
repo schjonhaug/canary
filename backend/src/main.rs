@@ -3,6 +3,7 @@ mod api;
 mod auth;
 mod config;
 mod electrum;
+mod email_service;
 mod message_formatter;
 mod metadata;
 mod migrations;

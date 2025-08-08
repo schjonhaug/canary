@@ -2,7 +2,8 @@ use crate::metadata::{Contact, NotificationMethod, ProviderType, Language, Walle
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::wallet::WalletManager;
 use crate::electrum::BlockHeader;
-use crate::auth::{AuthService, SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse, authenticate_user, load_twilio_config_from_env};
+use crate::auth::{AuthService, RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse, authenticate_user, load_twilio_config_from_env};
+use crate::email_service::EmailService;
 use axum::{
     Router,
     extract::{Path, State},
@@ -242,8 +243,8 @@ pub async fn create_wallet(
                             // Use user's name or fallback to "Me"
                             let contact_name = user_record.name.as_deref().unwrap_or("Me");
                             
-                            // Create contact with SMS notification method using user's phone
-                            let notification_methods = vec![(ProviderType::Sms, user_record.phone_number)];
+                            // Create contact with email notification (note: we might want to change this to SMS if user has verified phone)
+                            let notification_methods = vec![(ProviderType::Ntfy, user_record.email)];
                             
                             match manager.metadata_db.insert_contact_with_notification_methods(
                                 &wallet_checksum,
@@ -328,7 +329,6 @@ pub async fn delete_wallet(
         }
     };
 
-    #[allow(unused_mut)]
     let mut manager = wallet_manager.lock().await;
     
     // Check if wallet exists and belongs to user (or user is admin)
@@ -442,7 +442,6 @@ pub async fn update_wallet(
             .into_response();
     }
 
-    #[allow(unused_mut)]
     let mut manager = wallet_manager.lock().await;
     
     // Check if wallet exists and belongs to user (or user is admin)
@@ -544,7 +543,7 @@ pub async fn get_wallet(
     };
     
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(wallet)) => {
             // Check if user has access to this wallet
@@ -633,7 +632,7 @@ pub async fn create_wallet_contact(
     };
     
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
     let wallet = match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
@@ -784,7 +783,7 @@ pub async fn delete_wallet_contact(
     };
     
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     
     // Check if wallet exists and user has access
     match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
@@ -896,7 +895,7 @@ pub async fn get_wallet_contacts(
     };
     
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
     match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
@@ -998,7 +997,7 @@ pub async fn send_contact_verification(
     };
     
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
     match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
@@ -1142,9 +1141,9 @@ pub async fn send_contact_verification(
     // Send OTP
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    let auth_service = AuthService::new(jwt_secret);
+    let auth_service = AuthService::new(jwt_secret, None);
     
-    match auth_service.send_otp(&twilio_config, &normalized_phone).await {
+    match auth_service.send_contact_otp(&twilio_config, &normalized_phone).await {
         Ok(_) => {
             Json(serde_json::json!({
                 "message": "Verification code sent successfully"
@@ -1206,7 +1205,7 @@ pub async fn verify_contact(
     };
     
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
     match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
@@ -1321,9 +1320,9 @@ pub async fn verify_contact(
 
         let jwt_secret = std::env::var("JWT_SECRET")
             .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-        let auth_service = AuthService::new(jwt_secret);
+        let auth_service = AuthService::new(jwt_secret, None);
         
-        match auth_service.verify_otp(&twilio_config, &normalized_phone, &request.code).await {
+        match auth_service.verify_contact_otp(&twilio_config, &normalized_phone, &request.code).await {
             Ok(valid) => valid,
             Err(e) => {
                 return (
@@ -1414,7 +1413,7 @@ pub async fn verify_contact(
 )]
 pub async fn get_current_block_header(State(wallet_manager): State<AppState>) -> Response {
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     match manager.metadata_db.get_current_block_header().await {
         Ok(Some(block_header)) => (StatusCode::OK, Json(block_header)).into_response(),
         Ok(None) => (
@@ -1467,7 +1466,7 @@ pub async fn get_wallets_list(
     };
     
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     match manager.get_wallets_list_for_user(user.user_id, user.is_admin).await {
         Ok(wallets_response) => (StatusCode::OK, Json(wallets_response)).into_response(),
         Err(e) => (
@@ -1518,7 +1517,7 @@ pub async fn get_wallet_detail(
     };
     
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     match manager.get_wallet_detail_for_user(&checksum, user.user_id, user.is_admin).await {
         Ok(wallet_detail) => (StatusCode::OK, Json(wallet_detail)).into_response(),
         Err(e) => {
@@ -1537,86 +1536,224 @@ pub async fn get_wallet_detail(
 // Auth endpoints
 #[utoipa::path(
     post,
-    path = "/api/auth/send-otp",
-    request_body = SendOtpRequest,
+    path = "/api/auth/register",
+    request_body = RegisterRequest,
     responses(
-        (status = 200, description = "OTP sent successfully", body = serde_json::Value),
-        (status = 400, description = "Invalid phone number or bad request", body = ErrorResponse),
-        (status = 429, description = "Rate limit exceeded", body = ErrorResponse),
+        (status = 200, description = "Registration successful, verification email sent", body = serde_json::Value),
+        (status = 400, description = "Invalid email, weak password, or user already exists", body = ErrorResponse),
         (status = 500, description = "Internal server error", body = ErrorResponse)
     ),
     tag = "auth"
 )]
-pub async fn send_otp(
+pub async fn register(
     State(wallet_manager): State<AppState>,
-    Json(request): Json<SendOtpRequest>,
+    Json(request): Json<RegisterRequest>,
 ) -> Response {
-    #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     
-    // Check if this is a dev test phone
-    let is_dev_phone = cfg!(debug_assertions) && 
-        ["+4799999900", "+4799999901", "+4699999902", "+3399999903"].contains(&request.phone_number.as_str());
-    
-    // Check rate limit (skip for dev phones)
-    if !is_dev_phone {
-        match manager.metadata_db.check_rate_limit(&request.phone_number).await {
-            Ok(true) => {} // Allowed
-            Ok(false) => {
-                return (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    Json(ErrorResponse {
-                        error: "Too many OTP attempts. Please try again later.".to_string(),
-                    }),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to check rate limit: {}", e),
-                    }),
-                )
-                    .into_response();
-            }
-        }
-    }
-    
-    // Check if Twilio is enabled (skip for dev phones in dev mode)
-    let twilio_enabled = std::env::var("CANARY_ENABLE_TWILIO")
-        .map(|v| v.to_lowercase() == "true" || v == "1")
-        .unwrap_or(false);
-    
-    if !twilio_enabled && !is_dev_phone {
+    // Validate email format
+    if !request.email.contains('@') || request.email.len() < 5 {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: "Twilio SMS is not enabled".to_string(),
+                error: "Invalid email format".to_string(),
             }),
         )
             .into_response();
     }
     
-    // Load Twilio config from environment (create dummy config for dev phones)
-    let twilio_config = if is_dev_phone {
-        // Create a dummy config for dev phones
-        crate::metadata::TwilioConfig {
-            id: None,
-            account_sid: "dummy".to_string(),
-            auth_token: "dummy".to_string(),
-            messaging_service_sid: "dummy".to_string(),
-            verify_service_sid: Some("dummy".to_string()),
-            created_at: chrono::Utc::now().to_rfc3339(),
+    // Validate password strength
+    if request.password.len() < 6 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Password must be at least 6 characters long".to_string(),
+            }),
+        )
+            .into_response();
+    }
+    
+    // Check if user already exists
+    match manager.metadata_db.get_user_by_email(&request.email).await {
+        Ok(Some(_)) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "User with this email already exists".to_string(),
+                }),
+            )
+                .into_response();
         }
+        Ok(None) => {} // User doesn't exist, proceed
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to check user existence: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+    
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    
+    let email_service = match EmailService::from_env() {
+        Ok(service) => Some(service),
+        Err(_) => None, // Email service not configured, will work in dev mode
+    };
+    
+    // Log email service status for debugging
+    let has_email_service = email_service.is_some();
+    if has_email_service {
+        println!("Email service is available for registration");
     } else {
-        match crate::auth::load_twilio_config_from_env() {
-            Ok(config) => config,
+        println!("Email service is NOT available - using dev mode token logging only");
+    }
+    
+    let auth_service = AuthService::new(jwt_secret, email_service);
+    
+    // Check if this is a dev test email
+    let is_dev_email = auth_service.is_dev_test_email(&request.email);
+    
+    // Hash password
+    let password_hash = match auth_service.hash_password(&request.password) {
+        Ok(hash) => hash,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to hash password: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    // For dev mode, auto-verify emails. For production, require verification.
+    let email_verified = is_dev_email;
+    
+    // Create user
+    let user_id = match manager.metadata_db.create_user(&request.email, &password_hash, Some(&request.name), email_verified).await {
+        Ok(id) => id,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to create user: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    // Send verification email for non-dev accounts
+    if !is_dev_email {
+        let token = auth_service.generate_verification_token();
+        
+        // Store verification token
+        if let Err(e) = manager.metadata_db.create_email_verification_token(user_id, &token).await {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to create verification token: {}", e),
+                }),
+            )
+                .into_response();
+        }
+        
+        // Send verification email
+        if let Err(e) = auth_service.send_email_verification(&request.email, &request.name, &token).await {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to send verification email: {}", e),
+                }),
+            )
+                .into_response();
+        }
+        
+        Json(serde_json::json!({
+            "message": "Registration successful. Please check your email to verify your account."
+        }))
+        .into_response()
+    } else {
+        // Dev mode: return success immediately
+        Json(serde_json::json!({
+            "message": "Registration successful (dev mode - no email verification required)."
+        }))
+        .into_response()
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Login successful", body = AuthResponse),
+        (status = 400, description = "Invalid credentials", body = ErrorResponse),
+        (status = 403, description = "Email not verified", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "auth"
+)]
+pub async fn login(
+    State(wallet_manager): State<AppState>,
+    Json(request): Json<LoginRequest>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    
+    // Check if user exists
+    let user_record = match manager.metadata_db.get_user_by_email(&request.email).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Invalid credentials".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to check user: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    
+    let email_service = match EmailService::from_env() {
+        Ok(service) => Some(service),
+        Err(_) => None, // Email service not configured, will work in dev mode
+    };
+    
+    let auth_service = AuthService::new(jwt_secret, email_service);
+    
+    // Check if this is a dev test email (bypass password check)
+    let is_dev_email = auth_service.is_dev_test_email(&request.email);
+    
+    // Verify password
+    let password_valid = if is_dev_email {
+        // For dev emails, check against dev test password
+        request.password == auth_service.get_dev_test_password()
+    } else {
+        // For regular users, verify against stored hash
+        match auth_service.verify_password(&request.password, &user_record.password_hash) {
+            Ok(valid) => valid,
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse {
-                        error: format!("Twilio configuration error: {}", e),
+                        error: format!("Failed to verify password: {}", e),
                     }),
                 )
                     .into_response();
@@ -1624,32 +1761,115 @@ pub async fn send_otp(
         }
     };
     
-    // Check that Verify service is configured for auth (skip for dev phones)
-    if !is_dev_phone && twilio_config.verify_service_sid.is_none() {
+    if !password_valid {
         return (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: "TWILIO_VERIFY_SERVICE_SID must be set for SMS authentication".to_string(),
+                error: "Invalid credentials".to_string(),
             }),
         )
             .into_response();
     }
     
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    let auth_service = AuthService::new(jwt_secret);
+    // Check email verification (skip for dev emails)
+    if !is_dev_email && !user_record.email_verified {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "Email not verified. Please check your email and click the verification link.".to_string(),
+            }),
+        )
+            .into_response();
+    }
     
-    match auth_service.send_otp(&twilio_config, &request.phone_number).await {
-        Ok(_) => {
+    // Update last login
+    if let Err(e) = manager.metadata_db.update_last_login(user_record.id).await {
+        eprintln!("Failed to update last login for user {}: {:?}", user_record.id, e);
+    }
+    
+    // Generate JWT token
+    let token = match auth_service.generate_token(user_record.id, &user_record.email, user_record.is_admin) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to generate token: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    // Create session
+    let token_hash = AuthService::hash_token(&token);
+    let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
+    
+    if let Err(e) = manager.metadata_db.create_session(user_record.id, &token_hash, expires_at).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to create session: {}", e),
+            }),
+        )
+            .into_response();
+    }
+    
+    // Build user response
+    let user_info = AuthUserResponse {
+        id: user_record.id,
+        email: user_record.email,
+        name: user_record.name,
+        is_admin: user_record.is_admin,
+        email_verified: user_record.email_verified,
+        created_at: user_record.created_at,
+    };
+    
+    Json(AuthResponse {
+        token,
+        user: user_info,
+        requires_name: None, // No longer used with email auth
+    })
+    .into_response()
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/auth/verify-email/{token}",
+    params(
+        ("token" = String, Path, description = "Email verification token")
+    ),
+    responses(
+        (status = 200, description = "Email verified successfully", body = serde_json::Value),
+        (status = 400, description = "Invalid or expired token", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "auth"
+)]
+pub async fn verify_email(
+    State(wallet_manager): State<AppState>,
+    Path(token): Path<String>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    
+    match manager.metadata_db.verify_email_token(&token).await {
+        Ok(Some(_user_id)) => {
             Json(serde_json::json!({
-                "message": "OTP sent successfully"
+                "message": "Email verified successfully. You can now log in."
             }))
             .into_response()
         }
-        Err(e) => (
+        Ok(None) => (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: format!("Failed to send OTP: {}", e),
+                error: "Invalid or expired verification token".to_string(),
+            }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to verify email: {}", e),
             }),
         )
             .into_response(),
@@ -1658,239 +1878,170 @@ pub async fn send_otp(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/verify-otp",
-    request_body = VerifyOtpRequest,
+    path = "/api/auth/forgot-password",
+    request_body = ForgotPasswordRequest,
     responses(
-        (status = 200, description = "OTP verified successfully", body = AuthResponse),
-        (status = 400, description = "Invalid OTP or bad request", body = ErrorResponse),
+        (status = 200, description = "Password reset email sent", body = serde_json::Value),
+        (status = 400, description = "User not found", body = ErrorResponse),
         (status = 500, description = "Internal server error", body = ErrorResponse)
     ),
     tag = "auth"
 )]
-pub async fn verify_otp(
+pub async fn forgot_password(
     State(wallet_manager): State<AppState>,
-    Json(request): Json<VerifyOtpRequest>,
+    Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
-    #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     
-    // Check if this is a dev test phone
-    let is_dev_phone = cfg!(debug_assertions) && 
-        ["+4799999900", "+4799999901", "+4699999902", "+3399999903"].contains(&request.phone_number.as_str());
-    
-    // Check if Twilio is enabled (skip for dev phones in dev mode)
-    let twilio_enabled = std::env::var("CANARY_ENABLE_TWILIO")
-        .map(|v| v.to_lowercase() == "true" || v == "1")
-        .unwrap_or(false);
-    
-    if !twilio_enabled && !is_dev_phone {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Twilio SMS is not enabled".to_string(),
-            }),
-        )
+    // Check if user exists
+    let user_record = match manager.metadata_db.get_user_by_email(&request.email).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            // Don't reveal whether user exists or not
+            return Json(serde_json::json!({
+                "message": "If an account with that email exists, a password reset link has been sent."
+            }))
             .into_response();
-    }
-    
-    // Load Twilio config from environment (create dummy config for dev phones)
-    let twilio_config = if is_dev_phone {
-        // Create a dummy config for dev phones
-        crate::metadata::TwilioConfig {
-            id: None,
-            account_sid: "dummy".to_string(),
-            auth_token: "dummy".to_string(),
-            messaging_service_sid: "dummy".to_string(),
-            verify_service_sid: Some("dummy".to_string()),
-            created_at: chrono::Utc::now().to_rfc3339(),
         }
-    } else {
-        match crate::auth::load_twilio_config_from_env() {
-            Ok(config) => config,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Twilio configuration error: {}", e),
-                    }),
-                )
-                    .into_response();
-            }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to check user: {}", e),
+                }),
+            )
+                .into_response();
         }
     };
     
-    // Check that Verify service is configured for auth (skip for dev phones)
-    if !is_dev_phone && twilio_config.verify_service_sid.is_none() {
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    
+    let email_service = match EmailService::from_env() {
+        Ok(service) => Some(service),
+        Err(_) => None,
+    };
+    
+    let auth_service = AuthService::new(jwt_secret, email_service);
+    let token = auth_service.generate_verification_token();
+    
+    // Store password reset token
+    if let Err(e) = manager.metadata_db.create_password_reset_token(user_record.id, &token).await {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
-                error: "TWILIO_VERIFY_SERVICE_SID must be set for SMS authentication".to_string(),
+                error: format!("Failed to create reset token: {}", e),
             }),
         )
             .into_response();
     }
     
+    // Send password reset email
+    if let Err(e) = auth_service.send_password_reset(&user_record.email, &user_record.name.unwrap_or_else(|| "User".to_string()), &token).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to send reset email: {}", e),
+            }),
+        )
+            .into_response();
+    }
+    
+    Json(serde_json::json!({
+        "message": "If an account with that email exists, a password reset link has been sent."
+    }))
+    .into_response()
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/auth/reset-password/{token}",
+    params(
+        ("token" = String, Path, description = "Password reset token")
+    ),
+    request_body = ResetPasswordRequest,
+    responses(
+        (status = 200, description = "Password reset successfully", body = serde_json::Value),
+        (status = 400, description = "Invalid or expired token", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "auth"
+)]
+pub async fn reset_password(
+    State(wallet_manager): State<AppState>,
+    Path(token): Path<String>,
+    Json(request): Json<ResetPasswordRequest>,
+) -> Response {
+    let manager = wallet_manager.lock().await;
+    
+    // Validate password strength
+    if request.password.len() < 6 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Password must be at least 6 characters long".to_string(),
+            }),
+        )
+            .into_response();
+    }
+    
+    // Verify token and get user ID
+    let user_id = match manager.metadata_db.verify_password_reset_token(&token).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Invalid or expired reset token".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to verify token: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+    
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    let auth_service = AuthService::new(jwt_secret.clone());
     
-    // Verify OTP
-    match auth_service.verify_otp(&twilio_config, &request.phone_number, &request.code).await {
-        Ok(true) => {
-            // Clear rate limit on successful verification
-            let _ = manager.metadata_db.clear_rate_limit(&request.phone_number).await;
-            
-            // Check if user exists first
-            let existing_user = match manager.metadata_db.get_user_by_phone(&request.phone_number).await {
-                Ok(user) => user,
-                Err(e) => {
-                    eprintln!("Error checking user existence: {:?}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: format!("Failed to check user: {}", e),
-                        }),
-                    )
-                        .into_response();
-                }
-            };
-            
-            // If user doesn't exist and no name provided, create user with name=null
-            // They will update their name later via PUT /api/auth/user
-            
-            eprintln!("User exists: {:?}, Name provided: {:?}", existing_user.is_some(), request.name);
-            
-            // Create or get user
-            let user_id = match manager.metadata_db.create_user(&request.phone_number, request.name.as_deref()).await {
-                Ok(id) => id,
-                Err(e) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: format!("Failed to create user: {}", e),
-                        }),
-                    )
-                        .into_response();
-                }
-            };
-            
-            // Update last login
-            if let Err(e) = manager.metadata_db.update_last_login(user_id).await {
-                eprintln!("Failed to update last login for user {}: {:?}", user_id, e);
-            }
-            
-            // Get user from database to check admin status (determined by create_user logic)
-            let user_record = match manager.metadata_db.get_user_by_phone(&request.phone_number).await {
-                Ok(Some(user)) => user,
-                Ok(None) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: "User not found after creation".to_string(),
-                        }),
-                    )
-                        .into_response();
-                }
-                Err(e) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: format!("Failed to fetch user: {}", e),
-                        }),
-                    )
-                        .into_response();
-                }
-            };
-            
-            // Check if user is admin from database
-            let is_admin = user_record.is_admin;
-            
-            // Generate JWT token
-            let token = match auth_service.generate_token(user_id, &request.phone_number, is_admin) {
-                Ok(t) => t,
-                Err(e) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: format!("Failed to generate token: {}", e),
-                        }),
-                    )
-                        .into_response();
-                }
-            };
-            
-            // Create session
-            let token_hash = AuthService::hash_token(&token);
-            let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
-            
-            if let Err(e) = manager.metadata_db.create_session(user_id, &token_hash, expires_at).await {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to create session: {}", e),
-                    }),
-                )
-                    .into_response();
-            }
-            
-            // Get user info
-            eprintln!("Getting user info for user_id: {}", user_id);
-            let user_info = match manager.metadata_db.get_user_by_id(user_id).await {
-                Ok(Some(db_user)) => {
-                    eprintln!("Found user in DB: {:?}", db_user.name);
-                    AuthUserResponse {
-                        id: db_user.id,
-                        phone_number: db_user.phone_number,
-                        name: db_user.name,
-                        is_admin,
-                        created_at: db_user.created_at,
-                    }
-                },
-                Ok(None) => {
-                    eprintln!("User not found in DB, creating response from request");
-                    AuthUserResponse {
-                        id: user_id,
-                        phone_number: request.phone_number.clone(),
-                        name: request.name.clone(),
-                        is_admin,
-                        created_at: chrono::Utc::now().to_rfc3339(),
-                    }
-                },
-                Err(e) => {
-                    eprintln!("Error getting user by ID: {:?}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: format!("Failed to get user info: {}", e),
-                        }),
-                    )
-                        .into_response();
-                }
-            };
-            
-            eprintln!("Sending successful response for user: {:?}", user_info.name);
-            Json(AuthResponse {
-                token,
-                requires_name: if user_info.name.is_none() { Some(true) } else { None },
-                user: user_info,
-            })
-            .into_response()
+    let auth_service = AuthService::new(jwt_secret, None);
+    
+    // Hash new password
+    let password_hash = match auth_service.hash_password(&request.password) {
+        Ok(hash) => hash,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to hash password: {}", e),
+                }),
+            )
+                .into_response();
         }
-        Ok(false) => (
-            StatusCode::BAD_REQUEST,
+    };
+    
+    // Update password and clear reset tokens
+    if let Err(e) = manager.metadata_db.update_user_password(user_id, &password_hash).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
-                error: "Invalid OTP code".to_string(),
+                error: format!("Failed to update password: {}", e),
             }),
         )
-            .into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: format!("Failed to verify OTP: {}", e),
-            }),
-        )
-            .into_response(),
+            .into_response();
     }
+    
+    Json(serde_json::json!({
+        "message": "Password reset successfully. You can now log in with your new password."
+    }))
+    .into_response()
 }
 
 #[utoipa::path(
@@ -1939,7 +2090,7 @@ pub async fn logout(
     let token_hash = AuthService::hash_token(token);
     
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     
     // Delete the session from the database
     if let Err(e) = manager.metadata_db.delete_session(&token_hash).await {
@@ -1990,13 +2141,14 @@ pub async fn me(
     
     // Get user info from database
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     let user_info = match manager.metadata_db.get_user_by_id(user.user_id).await {
         Ok(Some(db_user)) => AuthUserResponse {
             id: db_user.id,
-            phone_number: db_user.phone_number,
+            email: db_user.email,
             name: db_user.name,
             is_admin: user.is_admin,
+            email_verified: db_user.email_verified,
             created_at: db_user.created_at,
         },
         Ok(None) => {
@@ -2066,7 +2218,7 @@ pub async fn update_user(
     
     // Update user name in database
     #[allow(unused_mut)]
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     if let Err(e) = manager.metadata_db.update_user_name(user.user_id, request.name.trim()).await {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -2081,9 +2233,10 @@ pub async fn update_user(
     let user_info = match manager.metadata_db.get_user_by_id(user.user_id).await {
         Ok(Some(db_user)) => AuthUserResponse {
             id: db_user.id,
-            phone_number: db_user.phone_number,
+            email: db_user.email,
             name: db_user.name,
             is_admin: user.is_admin,
+            email_verified: db_user.email_verified,
             created_at: db_user.created_at,
         },
         Ok(None) => {
@@ -2135,7 +2288,7 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
         send_contact_verification, verify_contact,
         get_current_block_header,
         get_providers,
-        send_otp, verify_otp, logout, me, update_user
+        register, login, verify_email, forgot_password, reset_password, logout, me, update_user
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
@@ -2143,7 +2296,7 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
         SendContactVerificationRequest, VerifyContactRequest,
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
-        SendOtpRequest, VerifyOtpRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse
+        RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),
@@ -2164,8 +2317,11 @@ pub struct ApiDoc;
 pub fn create_router(wallet_manager: AppState, notification_manager: NotificationManagerState) -> Router {
     // Auth routes (public)
     let auth_routes = Router::new()
-        .route("/auth/send-otp", post(send_otp))
-        .route("/auth/verify-otp", post(verify_otp))
+        .route("/auth/register", post(register))
+        .route("/auth/login", post(login))
+        .route("/auth/verify-email/{token}", get(verify_email))
+        .route("/auth/forgot-password", post(forgot_password))
+        .route("/auth/reset-password/{token}", post(reset_password))
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
         .route("/auth/user", put(update_user))

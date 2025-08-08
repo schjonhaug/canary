@@ -151,17 +151,37 @@ class ApiClient {
   }
 
   // Auth API methods
-  async sendOtp(phoneNumber: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>('/api/auth/send-otp', {
+  async register(email: string, password: string, name: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ phone_number: phoneNumber }),
+      body: JSON.stringify({ email, password, name }),
     })
   }
 
-  async verifyOtp(phoneNumber: string, code: string, name?: string): Promise<{ token: string; user: { id: number; phone_number: string; name?: string; is_admin: boolean }; requires_name?: boolean }> {
-    return this.request<{ token: string; user: { id: number; phone_number: string; name?: string; is_admin: boolean }; requires_name?: boolean }>('/api/auth/verify-otp', {
+  async login(email: string, password: string): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; email_verified: boolean } }> {
+    return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; email_verified: boolean } }>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ phone_number: phoneNumber, code, name }),
+      body: JSON.stringify({ email, password }),
+    })
+  }
+
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/auth/verify-email/${token}`, {
+      method: 'GET',
+    })
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  async resetPassword(token: string, password: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/auth/reset-password/${token}`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
     })
   }
 
@@ -171,12 +191,12 @@ class ApiClient {
     })
   }
 
-  async getMe(): Promise<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }> {
-    return this.request<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }>('/api/auth/me')
+  async getMe(): Promise<{ user: { id: number, email: string, name?: string, is_admin: boolean, email_verified: boolean } }> {
+    return this.request<{ user: { id: number, email: string, name?: string, is_admin: boolean, email_verified: boolean } }>('/api/auth/me')
   }
 
-  async updateUserProfile(name: string): Promise<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }> {
-    return this.request<{ user: { id: number, phone_number: string, name?: string, is_admin: boolean } }>('/api/auth/user', {
+  async updateUserProfile(name: string): Promise<{ user: { id: number, email: string, name?: string, is_admin: boolean, email_verified: boolean } }> {
+    return this.request<{ user: { id: number, email: string, name?: string, is_admin: boolean, email_verified: boolean } }>('/api/auth/user', {
       method: 'PUT',
       body: JSON.stringify({ name }),
     })

@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import Image from 'next/image'
+import LandingPage from '@/components/landing-page'
 
 export default function HomePage() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -11,11 +12,11 @@ export default function HomePage() {
   const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
 
   useEffect(() => {
-    // If auth is disabled (FOSS mode) or user is authenticated, redirect to wallets
-    if (!isLoading && (!authEnabled || isAuthenticated)) {
+    // If user is authenticated, redirect to wallets
+    if (!isLoading && isAuthenticated) {
       router.push('/wallets')
     }
-  }, [isAuthenticated, isLoading, authEnabled, router])
+  }, [isAuthenticated, isLoading, router])
 
   // Show loading while checking auth
   if (isLoading) {
@@ -29,22 +30,15 @@ export default function HomePage() {
     )
   }
 
+  // When auth is disabled, redirect to wallets
+  if (!authEnabled) {
+    router.push('/wallets')
+    return null
+  }
+
   // Show landing page for unauthenticated users when auth is enabled
   if (authEnabled && !isAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <Image
-            src="/images/canary.svg"
-            alt="Canary Logo"
-            width={120}
-            height={120}
-            className="mx-auto mb-6"
-          />
-          <h1 className="text-4xl font-bold tracking-wide">Canary</h1>
-        </div>
-      </div>
-    )
+    return <LandingPage />
   }
 
   // This should not be reached due to the useEffect redirect above
