@@ -42,12 +42,6 @@ impl MigrationRunner {
         
         if count > 0 {
             println!("Initial schema already applied, skipping");
-            
-            // Still check for dev users migration in debug mode
-            if cfg!(debug_assertions) {
-                self.apply_dev_users_migration(migrations_path)?;
-            }
-            
             return Ok(());
         }
         
@@ -87,52 +81,6 @@ impl MigrationRunner {
         
         println!("Successfully applied initial schema");
         
-        // In debug mode, also apply dev users migration
-        if cfg!(debug_assertions) {
-            self.apply_dev_users_migration(migrations_path)?;
-        }
-        
-        Ok(())
-    }
-    
-    fn apply_dev_users_migration(&self, migrations_path: &Path) -> Result<()> {
-        // Check if dev users migration has already been applied
-        let mut stmt = self.conn.prepare(
-            "SELECT COUNT(*) FROM schema_migrations WHERE version = ?1"
-        ).map_err(|e| anyhow::Error::from(e))?;
-        let count: i32 = stmt.query_row(["002_dev"], |row| row.get(0)).map_err(|e| anyhow::Error::from(e))?;
-        
-        if count == 0 {
-            let dev_users_file = migrations_path.join("002_dev_users.sql");
-            if dev_users_file.exists() {
-                println!("Applying dev users migration: 002_dev_users.sql");
-                let sql = fs::read_to_string(&dev_users_file)?;
-                
-                let statements: Vec<&str> = sql.split(';').collect();
-                for statement in statements.iter() {
-                    let trimmed = statement.trim();
-                    if trimmed.is_empty() || trimmed.lines().all(|line| line.trim().starts_with("--") || line.trim().is_empty()) {
-                        continue;
-                    }
-                    
-                    if let Err(e) = self.conn.execute(trimmed, []) {
-                        eprintln!("Error executing dev users migration: {}", e);
-                        eprintln!("Statement: {}", trimmed);
-                        // Don't fail on dev user creation errors
-                    }
-                }
-                
-                // Record that dev users migration has been applied
-                self.conn.execute(
-                    "INSERT INTO schema_migrations (version) VALUES (?1)",
-                    ["002_dev"],
-                ).map_err(|e| anyhow::Error::from(e))?;
-                
-                println!("Successfully applied dev users migration");
-            }
-        } else {
-            println!("Dev users migration already applied");
-        }
         Ok(())
     }
     

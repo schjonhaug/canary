@@ -50,7 +50,7 @@ canary/
 ├── backend/          # Rust service with BDK wallet management
 │   ├── src/         # All source code (api.rs, main.rs, wallet management, notifications)
 │   ├── database/    # Network-specific SQLite databases (database/{network}/)
-│   └── migrations/  # Database schema migrations (001_initial_schema.sql, 002_dev_users.sql)
+│   └── migrations/  # Database schema migrations (001_initial_schema.sql)
 ├── frontend/        # Next.js app with React components
 ├── regtest-env/    # Docker Bitcoin + Fulcrum setup
 └── CLAUDE.md       # This file
