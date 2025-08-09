@@ -293,13 +293,12 @@ export function ContactModal({
     setError(null)
 
     try {
-      // For edit mode, we need to delete and recreate since there's no update endpoint
-      if (isEditMode && editContact) {
-        await api.deleteContact(walletChecksum, editContact.id)
-      }
-
       // If only ntfy is enabled, or email is enabled without SMS, create directly
       if ((hasNtfy && !hasSms && !hasEmail) || (hasEmail && !hasSms)) {
+        // For edit mode, delete first only after validation passes
+        if (isEditMode && editContact) {
+          await api.deleteContact(walletChecksum, editContact.id)
+        }
         const notificationMethods = []
         
         if (hasNtfy) {
@@ -327,6 +326,11 @@ export function ContactModal({
       } 
       // If SMS is enabled and verified
       else if (hasSms && smsVerified) {
+        // For edit mode, delete first only after validation passes
+        if (isEditMode && editContact) {
+          await api.deleteContact(walletChecksum, editContact.id)
+        }
+        
         // With the new verify-phone-only endpoint, no contact was created during verification
         // We need to create the contact with ALL methods including SMS
         const allMethods = []
