@@ -155,8 +155,8 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
    ```
    CANARY_ENABLE_AUTH=true
    RESEND_API_KEY=re_your-resend-api-key
-   FROM_EMAIL=notifications@canarybitcoin.com
-   FROM_NAME=Canary Wallet
+   RESEND_FROM_EMAIL=notifications@canarybitcoin.com
+   RESEND_FROM_NAME=Canary Wallet
    ```
 2. Add contacts with email addresses: `POST /api/wallets/{checksum}/contacts` (name + language + email)
 3. Email addresses are validated and used for both transaction notifications and auth verification
@@ -180,8 +180,8 @@ Enable email/password authentication for multi-user support:
    SMTP_PORT=587
    SMTP_USERNAME=your-email@gmail.com
    SMTP_PASSWORD=your-app-password
-   FROM_EMAIL=your-email@gmail.com
-   FROM_NAME="Canary Wallet"
+   RESEND_FROM_EMAIL=your-email@gmail.com
+   RESEND_FROM_NAME="Canary Wallet"
    FRONTEND_URL=http://localhost:3001
    ```
 2. Frontend automatically shows login page when auth is enabled

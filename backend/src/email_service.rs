@@ -5,23 +5,23 @@ use resend_rs::types::{CreateEmailBaseOptions, ContactData};
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
     pub resend_api_key: String,
-    pub from_email: String,
-    pub from_name: String,
+    pub resend_from_email: String,
+    pub resend_from_name: String,
 }
 
 impl EmailConfig {
     pub fn from_env() -> Result<Self> {
         let resend_api_key = std::env::var("RESEND_API_KEY")
             .map_err(|_| anyhow!("RESEND_API_KEY environment variable not set"))?;
-        let from_email = std::env::var("FROM_EMAIL")
-            .map_err(|_| anyhow!("FROM_EMAIL environment variable not set"))?;
-        let from_name = std::env::var("FROM_NAME")
+        let resend_from_email = std::env::var("RESEND_FROM_EMAIL")
+            .map_err(|_| anyhow!("RESEND_FROM_EMAIL environment variable not set"))?;
+        let resend_from_name = std::env::var("RESEND_FROM_NAME")
             .unwrap_or_else(|_| "Canary Bitcoin Wallet".to_string());
 
         Ok(Self {
             resend_api_key,
-            from_email,
-            from_name,
+            resend_from_email,
+            resend_from_name,
         })
     }
 }
@@ -245,7 +245,7 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
         html_body: &str,
         text_body: &str,
     ) -> Result<()> {
-        let from = format!("{} <{}>", self.config.from_name, self.config.from_email);
+        let from = format!("{} <{}>", self.config.resend_from_name, self.config.resend_from_email);
         let to = vec![format!("{} <{}>", to_name, to_email)];
         
         // Create email with Resend SDK
