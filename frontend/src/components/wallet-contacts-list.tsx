@@ -46,9 +46,6 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium truncate">{contact.name}</span>
-                  <Badge variant="outline" className="text-xs shrink-0">
-                    {contact.language === 'no' ? 'NO' : 'EN'}
-                  </Badge>
                 </div>
                 <div className="space-y-1">
                   {contact.notification_methods?.map((method) => (
