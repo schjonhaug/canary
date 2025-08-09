@@ -6,6 +6,10 @@ import { Contact } from '../../types'
 // Mock the api module
 jest.mock('../../lib/api', () => ({
   api: {
+    getProviders: jest.fn(),
+    sendContactVerification: jest.fn(),
+    verifyContact: jest.fn(),
+    createContact: jest.fn(),
     deleteContact: jest.fn(),
   },
 }))
@@ -58,13 +62,20 @@ describe('WalletContactsList', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockApi.getProviders.mockResolvedValue({ providers: [] })
+    mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
+    mockApi.verifyContact.mockResolvedValue({ valid: true, message: 'Verified' })
+    mockApi.createContact.mockResolvedValue({ id: 1 })
     mockApi.deleteContact.mockResolvedValue({})
   })
 
-  it('displays contacts section title', () => {
+  it('renders contacts without title', () => {
     render(<WalletContactsList {...defaultProps} />)
     
-    expect(screen.getByText('Contacts')).toBeInTheDocument()
+    // The component no longer has a "Contacts" title
+    expect(screen.queryByText('Contacts')).not.toBeInTheDocument()
+    // But should render the contacts
+    expect(screen.getByText('Alice Smith')).toBeInTheDocument()
   })
 
   it('displays all contacts with correct information', () => {
@@ -74,11 +85,7 @@ describe('WalletContactsList', () => {
     expect(screen.getByText('Alice Smith')).toBeInTheDocument()
     expect(screen.getByText('Bob Johnson')).toBeInTheDocument()
     
-    // Check language badges
-    expect(screen.getByText('EN')).toBeInTheDocument()
-    expect(screen.getByText('NO')).toBeInTheDocument()
-    
-    // Check notification targets
+    // Check notification targets (no language badges in current component)
     expect(screen.getByText('+4792050946')).toBeInTheDocument()
     expect(screen.getByText('bob-no-8nt3y08q')).toBeInTheDocument()
   })
@@ -104,47 +111,36 @@ describe('WalletContactsList', () => {
     expect(icons.length).toBeGreaterThan(0)
   })
 
-  it('handles contact deletion', async () => {
+  it('shows edit button for contacts', async () => {
     render(<WalletContactsList {...defaultProps} />)
     
-    // Find delete button for Alice Smith (first contact)
-    const deleteButtons = screen.getAllByRole('button')
-    const deleteButton = deleteButtons.find(button => 
-      button.closest('[class*="flex items-start justify-between"]')?.textContent?.includes('Alice Smith')
-    )
+    // Should show edit buttons (no delete buttons anymore)
+    const editButtons = screen.getAllByRole('button')
+    expect(editButtons.length).toBeGreaterThan(0)
     
-    expect(deleteButton).toBeInTheDocument()
-    fireEvent.click(deleteButton!)
-    
-    await waitFor(() => {
-      expect(mockApi.deleteContact).toHaveBeenCalledWith('test-checksum', 1)
-    })
-    
-    await waitFor(() => {
-      expect(defaultProps.onContactsUpdated).toHaveBeenCalled()
-    })
+    // Edit buttons should have Edit icons
+    const editIcons = document.querySelectorAll('svg')
+    expect(editIcons.length).toBeGreaterThan(0)
   })
 
-  it('shows error message when deletion fails', async () => {
-    mockApi.deleteContact.mockRejectedValue(new Error('Delete failed'))
-    
+  it('opens edit modal when edit button is clicked', async () => {
     render(<WalletContactsList {...defaultProps} />)
     
-    // Try to delete a contact
-    const deleteButtons = screen.getAllByRole('button')
-    const deleteButton = deleteButtons[0]
+    // Find and click edit button
+    const editButtons = screen.getAllByRole('button')
+    fireEvent.click(editButtons[0])
     
-    fireEvent.click(deleteButton)
-    
+    // Contact modal should open in edit mode
     await waitFor(() => {
-      expect(screen.getByText('Delete failed')).toBeInTheDocument()
+      expect(screen.getByText('Edit Contact')).toBeInTheDocument()
     })
   })
 
   it('renders empty state when no contacts', () => {
     render(<WalletContactsList {...defaultProps} contacts={[]} />)
     
-    expect(screen.getByText('Contacts')).toBeInTheDocument()
+    // Should show empty state message
+    expect(screen.getByText('No contacts added yet')).toBeInTheDocument()
     // Should not show any contact items
     expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument()
     expect(screen.queryByText('Bob Johnson')).not.toBeInTheDocument()

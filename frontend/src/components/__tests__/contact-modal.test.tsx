@@ -475,7 +475,7 @@ describe('ContactModal', () => {
       })
 
       // Enable and verify email (auto-verified)
-      mockApi.sendContactVerification.mockResolvedValue({ 
+      mockApi.sendContactVerification.mockResolvedValueOnce({ 
         message: 'Auto-verified', 
         auto_verified: true 
       })

@@ -912,7 +912,7 @@ export function ContactModal({
           <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || !name.trim() || (isEditMode && !hasChanges)}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges)}>
             {isSubmitting ? "Processing..." : (isEditMode ? "Update Contact" : "Create Contact")}
           </Button>
         </DialogFooter>
