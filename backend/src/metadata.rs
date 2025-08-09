@@ -1253,19 +1253,6 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn cleanup_expired_email_tokens(&self) -> Result<u64> {
-        let pool = self.pool.clone();
-        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        
-        spawn_blocking(move || -> Result<u64> {
-            let conn = pool.get()?;
-            let rows_deleted = conn.execute(
-                "DELETE FROM email_verification_tokens WHERE expires_at < ?1",
-                params![&current_time],
-            )?;
-            Ok(rows_deleted as u64)
-        }).await?
-    }
 
     // Password reset token management
     pub async fn create_password_reset_token(&self, user_id: i64, token: &str) -> Result<()> {
@@ -1332,19 +1319,6 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn cleanup_expired_password_tokens(&self) -> Result<u64> {
-        let pool = self.pool.clone();
-        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        
-        spawn_blocking(move || -> Result<u64> {
-            let conn = pool.get()?;
-            let rows_deleted = conn.execute(
-                "DELETE FROM password_reset_tokens WHERE expires_at < ?1",
-                params![&current_time],
-            )?;
-            Ok(rows_deleted as u64)
-        }).await?
-    }
 
     // Rate limiting for OTP (SMS contact verification only)
     pub async fn check_rate_limit(&self, phone_number: &str) -> Result<bool> {
@@ -1527,34 +1501,6 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn create_contact(&self, wallet_checksum: &str, name: &str, language: &str) -> Result<i64> {
-        let pool = self.pool.clone();
-        let wallet_checksum = wallet_checksum.to_string();
-        let name = name.to_string();
-        let language = language.to_string();
-        
-        spawn_blocking(move || {
-            let conn = pool.get()?;
-            conn.execute(
-                "INSERT INTO contacts (wallet_checksum, name, language) VALUES (?1, ?2, ?3)",
-                params![&wallet_checksum, &name, &language],
-            )?;
-            Ok(conn.last_insert_rowid())
-        }).await?
-    }
 
-    pub async fn add_notification_method(&self, contact_id: i64, provider_type: ProviderType, notification_target: &str) -> Result<()> {
-        let pool = self.pool.clone();
-        let notification_target = notification_target.to_string();
-        
-        spawn_blocking(move || {
-            let conn = pool.get()?;
-            conn.execute(
-                "INSERT INTO contact_notification_methods (contact_id, provider_type, notification_target) VALUES (?1, ?2, ?3)",
-                params![contact_id, provider_type.as_str(), &notification_target],
-            )?;
-            Ok(())
-        }).await?
-    }
 
 }

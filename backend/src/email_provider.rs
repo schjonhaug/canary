@@ -122,17 +122,6 @@ impl EmailProvider {
         Self::send_transaction_email_impl(email_service, to_email, to_name, wallet_name, event, message).await
     }
 
-    async fn send_transaction_email(
-        &self,
-        email_service: &EmailService,
-        to_email: &str,
-        to_name: &str,
-        wallet_name: &str,
-        event: &TransactionEvent,
-        message: &str,
-    ) -> Result<()> {
-        Self::send_transaction_email_impl(email_service, to_email, to_name, wallet_name, event, message).await
-    }
 
     // Shared implementation
     async fn send_transaction_email_impl(

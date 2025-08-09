@@ -442,7 +442,7 @@ pub async fn update_wallet(
             .into_response();
     }
 
-    let mut manager = wallet_manager.lock().await;
+    let manager = wallet_manager.lock().await;
     
     // Check if wallet exists and belongs to user (or user is admin)
     match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
