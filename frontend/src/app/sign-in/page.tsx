@@ -84,9 +84,9 @@ export default function SignInPage() {
               <div className="space-y-2">
                 <div className="grid grid-cols-1 gap-2">
                   {[
-                    { email: 'admin@example.com', label: 'Admin' },
-                    { email: 'alice@example.com', label: 'Alice' },
-                    { email: 'bob@example.com', label: 'Bob' }
+                    { email: 'delivered+admin@resend.dev', label: 'Admin' },
+                    { email: 'delivered+alice@resend.dev', label: 'Alice' },
+                    { email: 'delivered+bob@resend.dev', label: 'Bob' }
                   ].map(({ email, label }) => (
                     <Button
                       key={email}
