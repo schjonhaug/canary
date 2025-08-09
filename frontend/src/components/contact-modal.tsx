@@ -42,6 +42,8 @@ export function ContactModal({
   const [providerValues, setProviderValues] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [smsVerificationError, setSmsVerificationError] = useState<string | null>(null)
+  const [phoneNumberError, setPhoneNumberError] = useState<string | null>(null)
   const [smsVerificationSent, setSmsVerificationSent] = useState(false)
   const [smsVerificationCode, setSmsVerificationCode] = useState("")
   const [smsVerificationPhone, setSmsVerificationPhone] = useState<string | null>(null)
@@ -49,19 +51,21 @@ export function ContactModal({
   const [isSendingVerification, setIsSendingVerification] = useState(false)
   const [isVerifyingCode, setIsVerifyingCode] = useState(false)
   const [smsVerified, setSmsVerified] = useState(false)
+  const [showSmsVerificationSuccess, setShowSmsVerificationSuccess] = useState(false)
   const [originalPhoneNumber, setOriginalPhoneNumber] = useState<string | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const isEditMode = !!editContact
 
-  // Check if the phone number has changed from the original
-  const phoneNumberChanged = originalPhoneNumber !== null && 
-    providerValues['twilio']?.trim() !== originalPhoneNumber
+  // Only calculate when modal is open to avoid unnecessary computation
+  const phoneNumberChanged = isOpen ? (originalPhoneNumber !== null && 
+    providerValues['twilio']?.trim() !== originalPhoneNumber) : false
 
   // Check if SMS verification is required
-  const smsVerificationRequired = enabledProviders['twilio'] && 
-    (phoneNumberChanged || (!isEditMode && !smsVerified))
+  const smsVerificationRequired = isOpen ? (enabledProviders['twilio'] && 
+    (phoneNumberChanged || (!isEditMode && !smsVerified) || (isEditMode && originalPhoneNumber === null && !smsVerified))) : false
+  
 
   // Clear timer on unmount
   useEffect(() => {
@@ -114,6 +118,23 @@ export function ContactModal({
   // Initialize form data when modal opens
   useEffect(() => {
     if (isOpen) {
+      // Force clear all state first
+      setError(null)
+      setSmsVerificationError(null)
+      setPhoneNumberError(null)
+      setSmsVerificationSent(false)
+      setSmsVerificationCode("")
+      setSmsVerificationPhone(null)
+      setTimeRemaining(0)
+      setSmsVerified(false)
+      setShowSmsVerificationSuccess(false)
+      setOriginalPhoneNumber(null)
+      setHasChanges(false)
+      
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+      
       if (editContact) {
         // Populate form with existing contact data
         setName(editContact.name)
@@ -147,19 +168,6 @@ export function ContactModal({
         setEnabledProviders({})
         setProviderValues({})
       }
-      
-      setError(null)
-      setSmsVerificationSent(false)
-      setSmsVerificationCode("")
-      setSmsVerificationPhone(null)
-      setTimeRemaining(0)
-      setSmsVerified(false)
-      setOriginalPhoneNumber(null)
-      setHasChanges(false)
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-      }
 
       if (providers.length === 0) {
         fetchProviders()
@@ -169,11 +177,14 @@ export function ContactModal({
 
   const handleClose = () => {
     setError(null)
+    setSmsVerificationError(null)
+    setPhoneNumberError(null)
     setSmsVerificationSent(false)
     setSmsVerificationCode("")
     setSmsVerificationPhone(null)
     setTimeRemaining(0)
     setSmsVerified(false)
+    setShowSmsVerificationSuccess(false)
     setOriginalPhoneNumber(null)
     setHasChanges(false)
     if (timerRef.current) {
@@ -184,8 +195,8 @@ export function ContactModal({
 
   const handleSendSmsVerification = async () => {
     const phoneNumber = providerValues['twilio']?.trim()
-    if (!phoneNumber || !name.trim()) {
-      setError("Contact name and phone number are required for SMS verification")
+    if (!phoneNumber) {
+      setError("Phone number is required for SMS verification")
       return
     }
 
@@ -195,7 +206,7 @@ export function ContactModal({
     try {
       await api.sendContactVerification(
         walletChecksum,
-        name.trim(),
+        name.trim() || `Contact-${phoneNumber.slice(-4)}`,
         language,
         phoneNumber
       )
@@ -206,7 +217,12 @@ export function ContactModal({
       setError(null)
       startTimer()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send verification code")
+      const errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
+      if (errorMessage.toLowerCase().includes("phone") || errorMessage.toLowerCase().includes("number")) {
+        setPhoneNumberError(errorMessage)
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setIsSendingVerification(false)
     }
@@ -231,7 +247,9 @@ export function ContactModal({
       
       if (result.valid) {
         setSmsVerified(true)
+        setShowSmsVerificationSuccess(true) // Only show success for fresh verification
         setError(null)
+        setSmsVerificationError(null)
         
         // Clear the timer since verification is complete
         if (timerRef.current) {
@@ -239,24 +257,24 @@ export function ContactModal({
         }
         setTimeRemaining(0)
       } else {
-        setError(result.message || "Invalid verification code")
+        setSmsVerificationError(result.message || "Invalid verification code")
         setSmsVerificationCode("")
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Invalid verification code"
       
       if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
-        setError("Verification code expired. Please request a new code.")
+        setSmsVerificationError("Verification code expired. Please request a new code.")
         setSmsVerificationSent(false)
         setSmsVerified(false)
         if (timerRef.current) {
           clearInterval(timerRef.current)
         }
       } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setError("Invalid verification code. Please try again.")
+        setSmsVerificationError("Invalid verification code. Please try again.")
         setSmsVerificationCode("") // Clear the input
       } else {
-        setError(errorMessage)
+        setSmsVerificationError(errorMessage)
       }
     } finally {
       setIsVerifyingCode(false)
@@ -274,11 +292,6 @@ export function ContactModal({
     const hasSms = enabledProviders['twilio'] && providerValues['twilio']?.trim()
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
 
-    if (!hasNtfy && !hasSms && !hasEmail) {
-      setError("Please enable at least one notification method")
-      return
-    }
-
     // Check if SMS verification is required but not completed
     if (smsVerificationRequired && !smsVerified) {
       if (phoneNumberChanged) {
@@ -293,12 +306,13 @@ export function ContactModal({
     setError(null)
 
     try {
-      // If only ntfy is enabled, or email is enabled without SMS, create directly
-      if ((hasNtfy && !hasSms && !hasEmail) || (hasEmail && !hasSms)) {
+      // If no SMS or SMS is enabled and verified
+      if (!hasSms || (hasSms && smsVerified)) {
         // For edit mode, delete first only after validation passes
         if (isEditMode && editContact) {
           await api.deleteContact(walletChecksum, editContact.id)
         }
+        
         const notificationMethods = []
         
         if (hasNtfy) {
@@ -312,53 +326,18 @@ export function ContactModal({
           })
         }
         
+        if (hasSms && smsVerified) {
+          notificationMethods.push({ 
+            provider_type: 'sms', 
+            notification_target: smsVerificationPhone! 
+          })
+        }
+        
         await api.createContact(
           walletChecksum,
           name.trim(),
           language,
           notificationMethods
-        )
-
-        handleClose()
-        if (onContactSaved) {
-          onContactSaved()
-        }
-      } 
-      // If SMS is enabled and verified
-      else if (hasSms && smsVerified) {
-        // For edit mode, delete first only after validation passes
-        if (isEditMode && editContact) {
-          await api.deleteContact(walletChecksum, editContact.id)
-        }
-        
-        // With the new verify-phone-only endpoint, no contact was created during verification
-        // We need to create the contact with ALL methods including SMS
-        const allMethods = []
-        
-        // Add the verified SMS method
-        allMethods.push({ 
-          provider_type: 'sms', 
-          notification_target: smsVerificationPhone! 
-        })
-        
-        // Add other methods if enabled
-        if (enabledProviders['ntfy']) {
-          allMethods.push({ provider_type: 'ntfy', notification_target: '' })
-        }
-        
-        if (enabledProviders['email'] && providerValues['email']?.trim()) {
-          allMethods.push({ 
-            provider_type: 'email', 
-            notification_target: providerValues['email'].trim() 
-          })
-        }
-        
-        // Create contact with all methods at once
-        await api.createContact(
-          walletChecksum,
-          name.trim(),
-          language,
-          allMethods
         )
 
         handleClose()
@@ -503,6 +482,10 @@ export function ContactModal({
                                   [provider.name]: e.target.value
                                 }))
                                 setHasChanges(true)
+                                // Clear phone number error when user starts typing
+                                if (phoneNumberError) {
+                                  setPhoneNumberError(null)
+                                }
                                 // Reset verification state when phone number changes from original
                                 const newPhoneNumber = e.target.value.trim()
                                 if (originalPhoneNumber !== null && newPhoneNumber !== originalPhoneNumber) {
@@ -528,22 +511,29 @@ export function ContactModal({
                               }}
                               placeholder="+1234567890"
                               disabled={isSubmitting || isSendingVerification}
+                              className={phoneNumberError ? 'border-red-500 focus:border-red-500' : ''}
                             />
-                            {!providerValues[provider.name] && (
+                            {/* Phone number error under the input */}
+                            {phoneNumberError && (
+                              <div className="text-sm text-red-600 mt-1">
+                                {phoneNumberError}
+                              </div>
+                            )}
+                            {(!providerValues[provider.name] || !smsVerified) && !phoneNumberError && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                Include country code (e.g., +47 for Norway)
+                                Include country code
                               </p>
                             )}
                           </div>
                           
                           {/* Send Verification Button - only show when verification is required */}
-                          {smsVerificationRequired && !smsVerificationSent && (
+                          {(smsVerificationRequired && !smsVerificationSent) && (
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               onClick={handleSendSmsVerification}
-                              disabled={isSendingVerification || isSubmitting || !name.trim()}
+                              disabled={isSendingVerification || isSubmitting || !providerValues['twilio']?.trim()}
                               className="w-full"
                             >
                               {isSendingVerification ? "Sending..." : "Send Verification Code"}
@@ -559,11 +549,17 @@ export function ContactModal({
                                   <Input
                                     id="sms-verification-code"
                                     value={smsVerificationCode}
-                                    onChange={(e) => setSmsVerificationCode(e.target.value)}
+                                    onChange={(e) => {
+                                      setSmsVerificationCode(e.target.value)
+                                      // Clear SMS verification error when user starts typing
+                                      if (smsVerificationError) {
+                                        setSmsVerificationError(null)
+                                      }
+                                    }}
                                     placeholder="Enter 6-digit code"
                                     disabled={isSubmitting || isVerifyingCode}
                                     maxLength={6}
-                                    className="flex-1"
+                                    className={`flex-1 ${smsVerificationError ? 'border-red-500 focus:border-red-500' : ''}`}
                                   />
                                   <Button
                                     type="button"
@@ -574,6 +570,12 @@ export function ContactModal({
                                     {isVerifyingCode ? "Verifying..." : "Verify"}
                                   </Button>
                                 </div>
+                                {/* SMS verification error under the input */}
+                                {smsVerificationError && (
+                                  <div className="text-sm text-red-600 mt-1">
+                                    {smsVerificationError}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex justify-between items-center text-xs text-muted-foreground">
                                 <span>
@@ -594,8 +596,8 @@ export function ContactModal({
                             </div>
                           )}
 
-                          {/* Verification Success */}
-                          {smsVerified && (
+                          {/* Verification Success - only show after fresh verification */}
+                          {showSmsVerificationSuccess && (
                             <div className="flex items-center gap-2 text-green-600 text-sm">
                               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

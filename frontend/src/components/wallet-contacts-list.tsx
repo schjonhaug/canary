@@ -82,6 +82,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
       )}
 
       <ContactModal
+        key={`edit-contact-${editingContact?.id || 'none'}`}
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false)

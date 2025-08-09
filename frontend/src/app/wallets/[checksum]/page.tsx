@@ -248,6 +248,7 @@ export default function WalletDetailPage() {
       </div>
 
       <ContactModal
+        key="add-contact"
         isOpen={isAddContactModalOpen}
         onClose={() => setIsAddContactModalOpen(false)}
         walletChecksum={wallet.checksum}
