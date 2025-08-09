@@ -119,12 +119,12 @@ class ApiClient {
     })
   }
 
-  async verifyContact(
+  async verifyPhoneOnly(
     walletChecksum: string,
     phoneNumber: string,
     code: string
-  ): Promise<{ message: string; contact_id: number }> {
-    return this.request<{ message: string; contact_id: number }>(`/api/wallets/${walletChecksum}/contacts/verify`, {
+  ): Promise<{ valid: boolean; message: string }> {
+    return this.request<{ valid: boolean; message: string }>(`/api/wallets/${walletChecksum}/contacts/verify-phone`, {
       method: 'POST',
       body: JSON.stringify({
         phone_number: phoneNumber,
