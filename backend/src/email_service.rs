@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use resend_rs::Resend;
-use resend_rs::types::CreateEmailBaseOptions;
+use resend_rs::types::{CreateEmailBaseOptions, ContactData};
 
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
@@ -207,6 +207,34 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
         text_body: &str,
     ) -> Result<()> {
         self.send_email(to_email, to_name, subject, html_body, text_body).await
+    }
+
+    pub async fn add_to_marketing_audience(&self, email: &str, name: &str) -> Result<()> {
+        let audience_id = std::env::var("RESEND_AUDIENCE_ID")
+            .map_err(|_| anyhow!("RESEND_AUDIENCE_ID environment variable not set"))?;
+        
+        let (first_name, last_name) = if name.contains(' ') {
+            let parts: Vec<&str> = name.splitn(2, ' ').collect();
+            (parts[0], *parts.get(1).unwrap_or(&""))
+        } else {
+            (name, "")
+        };
+
+        let contact = ContactData::new(email)
+            .with_first_name(first_name)
+            .with_last_name(last_name)
+            .with_unsubscribed(false);
+
+        match self.resend.contacts.create(&audience_id, contact).await {
+            Ok(_) => {
+                println!("Added {} to marketing audience", email);
+                Ok(())
+            },
+            Err(e) => {
+                println!("Warning: Failed to add {} to marketing audience: {}", email, e);
+                Ok(())
+            }
+        }
     }
 
     async fn send_email(

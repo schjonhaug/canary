@@ -81,9 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const register = async (email: string, password: string, name: string) => {
+  const register = async (email: string, password: string, name: string, marketingEmails: boolean = false) => {
     try {
-      await api.register(email, password, name)
+      await api.register(email, password, name, marketingEmails)
     } catch (error) {
       throw error
     }

@@ -55,6 +55,8 @@ pub struct RegisterRequest {
     pub email: String,
     pub password: String,
     pub name: String,
+    #[serde(default)]
+    pub marketing_emails_opt_in: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -117,7 +119,7 @@ pub const DEV_TEST_PASSWORD: &str = "password123";
 pub struct AuthService {
     jwt_secret: String,
     client: Client,
-    email_service: Option<EmailService>,
+    pub email_service: Option<EmailService>,
 }
 
 impl AuthService {

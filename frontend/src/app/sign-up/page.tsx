@@ -16,6 +16,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  const [marketingEmails, setMarketingEmails] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const { register } = useAuth()
@@ -27,7 +28,7 @@ export default function SignUpPage() {
     setIsLoading(true)
 
     try {
-      await register(email, password, name)
+      await register(email, password, name, marketingEmails)
       // Redirect to success page immediately
       router.push('/sign-up/success')
     } catch (err) {
@@ -112,6 +113,22 @@ export default function SignUpPage() {
                 minLength={6}
               />
               <p className="text-sm text-gray-500">Password must be at least 6 characters long</p>
+            </div>
+            <div className="flex items-start space-x-2">
+              <input
+                id="marketing"
+                type="checkbox"
+                checked={marketingEmails}
+                onChange={(e) => setMarketingEmails(e.target.checked)}
+                disabled={isLoading}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <Label 
+                htmlFor="marketing" 
+                className="text-sm text-gray-600 cursor-pointer select-none"
+              >
+                I'd like to receive occasional emails about updates to the service
+              </Label>
             </div>
             <Button 
               type="submit" 

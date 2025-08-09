@@ -168,10 +168,10 @@ class ApiClient {
   }
 
   // Auth API methods
-  async register(email: string, password: string, name: string): Promise<{ message: string }> {
+  async register(email: string, password: string, name: string, marketingEmails: boolean = false): Promise<{ message: string }> {
     return this.request<{ message: string }>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ email, password, name, marketing_emails_opt_in: marketingEmails }),
     })
   }
 

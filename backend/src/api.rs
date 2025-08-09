@@ -1609,6 +1609,22 @@ pub async fn register(
         }
     };
     
+    // Add to marketing audience if opted in
+    if request.marketing_emails_opt_in {
+        if let Some(email_service) = &auth_service.email_service {
+            tokio::spawn({
+                let email = request.email.clone();
+                let name = request.name.clone();
+                let email_service = email_service.clone();
+                async move {
+                    if let Err(e) = email_service.add_to_marketing_audience(&email, &name).await {
+                        eprintln!("Failed to add user to marketing audience: {}", e);
+                    }
+                }
+            });
+        }
+    }
+    
     // Send verification email for non-dev accounts
     if !is_dev_email {
         let token = auth_service.generate_verification_token();
