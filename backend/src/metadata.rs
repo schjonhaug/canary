@@ -412,10 +412,11 @@ impl MetadataDb {
                     // First user becomes admin
                     let is_admin = index == 0;
                     
+                    let user_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
-                        "INSERT INTO users (email, password_hash, name, is_admin, email_verified, created_at) 
-                         VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))",
-                        params![email, &password_hash, name, is_admin, true], // Dev users are pre-verified
+                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, created_at) 
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
+                        params![&user_id, email, &password_hash, name, is_admin, true], // Dev users are pre-verified
                     )?;
                     
                     println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
