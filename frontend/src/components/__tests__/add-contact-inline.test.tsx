@@ -7,6 +7,7 @@ jest.mock('../../lib/api', () => ({
   api: {
     getProviders: jest.fn(),
     createContact: jest.fn(),
+    sendContactVerification: jest.fn(),
   },
 }))
 
@@ -37,6 +38,7 @@ describe('AddContactInline', () => {
     jest.clearAllMocks()
     mockApi.getProviders.mockResolvedValue({ providers: mockProviders })
     mockApi.createContact.mockResolvedValue({})
+    mockApi.sendContactVerification.mockResolvedValue({})
   })
 
   it('shows add contact button initially', () => {
@@ -120,20 +122,16 @@ describe('AddContactInline', () => {
     const phoneInput = screen.getByPlaceholderText('+1234567890')
     fireEvent.change(phoneInput, { target: { value: '+4712345678' } })
     
-    // Create contact
-    fireEvent.click(screen.getByText('Create Contact'))
+    // Send verification
+    fireEvent.click(screen.getByText('Send Verification'))
     
     await waitFor(() => {
-      expect(mockApi.createContact).toHaveBeenCalledWith(
+      expect(mockApi.sendContactVerification).toHaveBeenCalledWith(
         'test-checksum',
         'Test Contact',
         'en',
-        [{ provider_type: 'sms', notification_target: '+4712345678' }]
+        '+4712345678'
       )
-    })
-    
-    await waitFor(() => {
-      expect(defaultProps.onContactAdded).toHaveBeenCalled()
     })
   })
 
@@ -270,8 +268,8 @@ describe('AddContactInline', () => {
     // Create contact
     fireEvent.click(screen.getByText('Create Contact'))
     
-    expect(screen.getByText('Creating...')).toBeInTheDocument()
-    expect(screen.getByText('Creating...')).toBeDisabled()
+    expect(screen.getByText('Sending...')).toBeInTheDocument()
+    expect(screen.getByText('Sending...')).toBeDisabled()
   })
 
   it('shows API error message when creation fails', async () => {
