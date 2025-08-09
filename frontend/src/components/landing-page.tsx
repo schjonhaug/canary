@@ -11,7 +11,7 @@ const features = [
   {
     icon: <Bell className="h-5 w-5" />,
     title: "Instant Notifications",
-    description: "Real-time alerts for all Bitcoin transactions via SMS and push"
+    description: "Real-time alerts via email, SMS and push notifications delivered straight to your device"
   },
   {
     icon: <Shield className="h-5 w-5" />,
@@ -19,24 +19,9 @@ const features = [
     description: "Watch-only access using descriptors - we never touch your keys"
   },
   {
-    icon: <Globe className="h-5 w-5" />,
-    title: "Multi-Language",
-    description: "Notifications in English and Norwegian with proper formatting"
-  },
-  {
-    icon: <Smartphone className="h-5 w-5" />,
-    title: "Multiple Providers",
-    description: "SMS via Twilio, push via ntfy.sh, extensible architecture"
-  },
-  {
     icon: <Zap className="h-5 w-5" />,
-    title: "Background Sync",
-    description: "Automatic wallet synchronization with configurable intervals"
-  },
-  {
-    icon: <Bitcoin className="h-5 w-5" />,
-    title: "Advanced Analysis",
-    description: "RBF/CPFP detection and comprehensive transaction insights"
+    title: "Fast Sync",
+    description: "Sync intervals from 10 minutes down to 5 seconds based on your plan"
   }
 ]
 
@@ -47,11 +32,11 @@ const pricingTiers = [
     description: "Perfect for getting started",
     features: [
       "1 Bitcoin wallet",
-      "1 notification contact",
-      "ntfy.sh push notifications",
+      "Email notifications",
       "Basic transaction alerts",
-      "60-second sync interval",
-      "Community support"
+      "10 minute sync interval",
+      "Multi-language support",
+      "Email support"
     ],
     cta: "Get Started",
     ctaLink: "/wallets",
@@ -65,14 +50,13 @@ const pricingTiers = [
     features: [
       "5 Bitcoin wallets",
       "10 contacts per wallet",
-      "SMS + push notifications",
-      "30-second sync interval",
-      "Transaction analysis",
+      "Email + SMS + push notifications",
+      "1 minute sync interval",
+      "Transaction analysis (RBF/CPFP + mempool detection)",
       "Multi-language support",
       "Priority email support",
-      "Advanced security features"
     ],
-    cta: "Start Free Trial",
+    cta: "Get Started",
     ctaLink: "/wallets",
     highlighted: true,
     badge: "POPULAR"
@@ -86,15 +70,14 @@ const pricingTiers = [
       "Unlimited wallets",
       "Unlimited contacts",
       "All notification providers",
-      "10-second sync interval",
+      "5-second sync interval",
       "REST API access",
       "Custom webhook integrations",
       "Dedicated support",
       "99.9% uptime SLA",
-      "Custom branding options"
     ],
     cta: "Contact Sales",
-    ctaLink: "mailto:sales@canary.bitcoin",
+    ctaLink: "mailto:mail@canarybitcoin.com",
     highlighted: false
   }
 ]
@@ -102,19 +85,20 @@ const pricingTiers = [
 const faqs = [
   {
     question: "What is Canary?",
-    answer: "Canary is a professional Bitcoin wallet notification service that monitors your wallets and sends instant alerts for all transactions through SMS and push notifications. Never miss an important transaction again."
+    answer: "Canary is a professional Bitcoin wallet notification service that monitors your wallets and sends instant alerts for all transactions through email, SMS and push notifications. Never miss an important transaction again."
+  },
+  {
+    question: "Why is it called Canary?",
+    answer: "A canary in the coal mine - When your bitcoins are in cold storage, you seldom check on them. Canary acts as an early warning system that alerts you the moment your coins move, giving you immediate notification of any activity on your wallets."
   },
   {
     question: "Is it safe to use?",
     answer: "Yes! Canary only requires your wallet descriptor (xpub) for monitoring. This gives us read-only access to watch your addresses. We never have access to your private keys and cannot move your funds."
   },
-  {
-    question: "Which Bitcoin networks are supported?",
-    answer: "Canary supports mainnet, testnet, and regtest networks with enterprise-grade Electrum servers providing reliable connectivity."
-  },
+
   {
     question: "How fast are notifications?",
-    answer: "With our Pro and Business plans, you get near real-time notifications with sync intervals as fast as 10 seconds. Most notifications arrive within seconds of transaction confirmation."
+    answer: "With our Pro and Business plans, you get near real-time notifications with sync intervals as fast as 5 seconds. Most notifications arrive within seconds of transaction confirmation."
   },
   {
     question: "Can I upgrade or downgrade anytime?",
@@ -129,6 +113,15 @@ const faqs = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen">
+      {/* Header */}
+      <header className="container mx-auto px-4 py-6">
+        <div className="flex justify-end">
+          <Link href="/sign-in" className="text-sm text-muted-foreground hover:text-foreground">
+            Already a user? Sign in
+          </Link>
+        </div>
+      </header>
+
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-3xl mx-auto">
@@ -143,12 +136,12 @@ export default function LandingPage() {
             Never Miss a Bitcoin Transaction
           </h1>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Professional Bitcoin wallet monitoring with instant notifications. 
+            Professional Bitcoin wallet monitoring with instant notifications via email, SMS, and push. 
             Watch-only access using any wallet descriptor - we never touch your keys.
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Button size="lg" asChild>
-              <Link href="/wallets">
+              <Link href="/sign-up">
                 Get Started Free <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -167,7 +160,7 @@ export default function LandingPage() {
         <div className="text-center mb-10">
           <h2 className="text-2xl font-semibold mb-3">Professional Bitcoin Monitoring</h2>
           <p className="text-muted-foreground">
-            Enterprise features, self-custody security
+            Professional monitoring with read-only security
           </p>
         </div>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
@@ -272,17 +265,17 @@ export default function LandingPage() {
               Start Monitoring Your Bitcoin Today
             </h2>
             <p className="mb-6 opacity-90">
-              Join thousands who never miss a transaction
+              Never miss another Bitcoin transaction
             </p>
             <div className="flex gap-3 justify-center flex-wrap">
               <Button size="lg" variant="secondary" asChild>
-                <Link href="/wallets">
-                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
+                <Link href="/sign-up">
+                  Get Started Free <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
               <Button size="lg" variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10" asChild>
-                <Link href="#pricing">
-                  View Pricing Plans
+                <Link href="/sign-in">
+                  Sign In
                 </Link>
               </Button>
             </div>
