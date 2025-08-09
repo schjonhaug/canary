@@ -57,7 +57,7 @@ canary/
 ```
 
 ## Key Dependencies
-- **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio notifications
+- **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio + Resend email notifications
 - **Frontend**: Next.js 15, React 19, Tailwind CSS 4, shadcn/ui components, JWT authentication support
 
 ## API Endpoints
@@ -90,7 +90,7 @@ canary/
 ### Notification System
 - `GET /api/providers` - List available and configured notification providers
 - **Multiple Notification Methods**: Contacts can receive notifications through multiple providers simultaneously
-- **Auto-detection**: Phone numbers (starting with +) → SMS, topics → ntfy
+- **Auto-detection**: Phone numbers (starting with +) → SMS, topics → ntfy, email addresses → email
 - **Normalized Database**: Separate tables for contacts and notification methods for extensibility
 - Generic notification logs with delivery status tracking for all providers
 - `/swagger-ui` - API documentation
@@ -113,10 +113,10 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 ## Key Features
 - **Optional Authentication**: Email/password authentication with email verification
 - **Multi-user Support**: JWT-based sessions with user isolation when auth is enabled
-- **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh and Twilio SMS
-- **Multiple Notification Methods**: Each contact can have multiple notification methods (future: SMS + email + ntfy + telegram + webhooks)
+- **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh, Twilio SMS, and Resend email
+- **Multiple Notification Methods**: Each contact can have multiple notification methods (SMS + email + ntfy + future: telegram + webhooks)
 - **Multi-language Support**: Norwegian and English with proper Bitcoin amount formatting  
-- **Auto-detection**: Automatically detects provider type from contact address format
+- **Auto-detection**: Automatically detects provider type from contact address format (phone numbers → SMS, email addresses → email, topics → ntfy)
 - **Normalized Database**: Clean separation of contacts and notification methods for future extensibility
 - **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
 - **Environment Configuration**: Provider selection via .env variables, no database config needed
@@ -128,6 +128,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
 - **User Onboarding**: Guided wallet creation with BIP39 mnemonic generation
 - **Development Mode**: Quick login options for testing with pre-configured email accounts
+- **Clean Registration Flow**: Dedicated success page (/sign-up/success) after registration with clear email verification instructions
 
 ## Notification Setup
 
@@ -149,7 +150,19 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 3. Phone numbers must include country code (e.g., `+4712345678`) and are validated/normalized to E.164 format
 4. Automatic SMS notifications for all transactions
 
-### Multiple Notification Methods (New Architecture)
+### Resend Email (Optional)
+1. Set environment variables in `.env`:
+   ```
+   CANARY_ENABLE_AUTH=true
+   RESEND_API_KEY=re_your-resend-api-key
+   FROM_EMAIL=notifications@canarybitcoin.com
+   FROM_NAME=Canary Wallet
+   ```
+2. Add contacts with email addresses: `POST /api/wallets/{checksum}/contacts` (name + language + email)
+3. Email addresses are validated and used for both transaction notifications and auth verification
+4. Automatic email notifications for all transactions sent from notifications@canarybitcoin.com
+
+### Multiple Notification Methods (Current Architecture)
 - **Current Implementation**: Contacts have single notification method per contact (auto-detected from address format)
 - **Database Schema**: Normalized design with separate `contacts` and `contact_notification_methods` tables
 - **Future Extensibility**: Architecture supports multiple methods per contact (same person can have SMS + ntfy + email)
@@ -178,6 +191,14 @@ Enable email/password authentication for multi-user support:
 6. JWT tokens stored in localStorage for session management
 7. All wallet data isolated per user when auth is enabled
 8. **Development Mode**: Pre-configured test users (`admin@example.com`, `alice@example.com`, `bob@example.com`, `charlie@example.com` all with password `password123`) - no email verification required
+
+### Frontend Authentication Routes
+- `/sign-up` - Registration form with email/password/name
+- `/sign-up/success` - Post-registration success page with email verification instructions  
+- `/sign-in` - Login form with email/password
+- `/forgot-password` - Password reset request form
+- `/reset-password/{token}` - Password reset form with token
+- `/verify-email/{token}` - Email verification handler
 
 ### SMS Contact Verification (Separate from Auth)
 For adding SMS contacts, Twilio Verify is still used:

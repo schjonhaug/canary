@@ -94,12 +94,15 @@ export async function handleApiResponse(response: Response): Promise<unknown> {
     }
     
     // Try to get error message from response
+    let errorMessage: string
     try {
       const errorData = await response.json()
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      errorMessage = errorData.error || errorData.message || `HTTP error! status: ${response.status}`
     } catch {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      errorMessage = `HTTP error! status: ${response.status}`
     }
+    
+    throw new Error(errorMessage)
   }
   
   // Return JSON if response has content

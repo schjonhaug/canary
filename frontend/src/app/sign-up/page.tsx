@@ -18,23 +18,18 @@ export default function SignUpPage() {
   const [name, setName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
   const { register } = useAuth()
   const router = useRouter()
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setMessage('')
     setIsLoading(true)
 
     try {
       await register(email, password, name)
-      setMessage('Registration successful! Please check your email to verify your account.')
-      // Redirect to sign-in after a short delay
-      setTimeout(() => {
-        router.push('/sign-in')
-      }, 3000)
+      // Redirect to success page immediately
+      router.push('/sign-up/success')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
@@ -65,13 +60,17 @@ export default function SignUpPage() {
         <CardContent>
           {error && (
             <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          
-          {message && (
-            <Alert className="mb-4">
-              <AlertDescription>{message}</AlertDescription>
+              <AlertDescription>
+                {error}
+                {error.includes("already exists") && (
+                  <>
+                    {" "}
+                    <Link href="/sign-in" className="underline font-medium hover:no-underline">
+                      Sign in instead
+                    </Link>
+                  </>
+                )}
+              </AlertDescription>
             </Alert>
           )}
 

@@ -37,8 +37,8 @@ rand = "0.8"
 sha2 = "0.10"
 urlencoding = "2.1"
 argon2 = "0.5"
-lettre = { version = "0.11", features = ["tokio1-native-tls", "smtp-transport", "builder"] }
 uuid = { version = "1", features = ["v4"] }
+resend-rs = "0.16"
 
 [dev-dependencies]
 http-body-util = "0.1"

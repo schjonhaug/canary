@@ -1,53 +1,44 @@
 use anyhow::{Result, anyhow};
-use lettre::message::{header, MultiPart, SinglePart};
-use lettre::{Message, SmtpTransport, Transport};
-use lettre::transport::smtp::authentication::Credentials;
+use resend_rs::Resend;
+use resend_rs::types::CreateEmailBaseOptions;
 
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
-    pub smtp_host: String,
-    pub smtp_port: u16,
-    pub smtp_username: String,
-    pub smtp_password: String,
+    pub resend_api_key: String,
     pub from_email: String,
     pub from_name: String,
 }
 
 impl EmailConfig {
     pub fn from_env() -> Result<Self> {
-        let smtp_host = std::env::var("SMTP_HOST")
-            .map_err(|_| anyhow!("SMTP_HOST environment variable not set"))?;
-        let smtp_port = std::env::var("SMTP_PORT")
-            .unwrap_or_else(|_| "587".to_string())
-            .parse::<u16>()
-            .map_err(|_| anyhow!("Invalid SMTP_PORT value"))?;
-        let smtp_username = std::env::var("SMTP_USERNAME")
-            .map_err(|_| anyhow!("SMTP_USERNAME environment variable not set"))?;
-        let smtp_password = std::env::var("SMTP_PASSWORD")
-            .map_err(|_| anyhow!("SMTP_PASSWORD environment variable not set"))?;
+        let resend_api_key = std::env::var("RESEND_API_KEY")
+            .map_err(|_| anyhow!("RESEND_API_KEY environment variable not set"))?;
         let from_email = std::env::var("FROM_EMAIL")
             .map_err(|_| anyhow!("FROM_EMAIL environment variable not set"))?;
         let from_name = std::env::var("FROM_NAME")
             .unwrap_or_else(|_| "Canary Bitcoin Wallet".to_string());
 
         Ok(Self {
-            smtp_host,
-            smtp_port,
-            smtp_username,
-            smtp_password,
+            resend_api_key,
             from_email,
             from_name,
         })
     }
 }
 
+#[derive(Clone)]
 pub struct EmailService {
     config: EmailConfig,
+    resend: Resend,
 }
 
 impl EmailService {
     pub fn new(config: EmailConfig) -> Self {
-        Self { config }
+        let resend = Resend::new(&config.resend_api_key);
+        Self { 
+            config,
+            resend,
+        }
     }
 
     pub fn from_env() -> Result<Self> {
@@ -61,21 +52,22 @@ impl EmailService {
             verification_token
         );
 
+        let subject = "Verify Your Email - Canary Wallet";
         let html_body = format!(
             r#"
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>Verify Your Email - Canary Wallet</title>
+                <title>{}</title>
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Welcome to Canary Wallet</h1>
+                    <h1 style="color: #1f2937;">Canary Wallet</h1>
                 </div>
                 
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h2 style="color: #1f2937; margin-top: 0;">Verify Your Email Address</h2>
+                    <h2 style="color: #1f2937; margin-top: 0;">Welcome to Canary Wallet!</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
                         Hi {name},
                     </p>
@@ -107,8 +99,7 @@ impl EmailService {
             </body>
             </html>
             "#,
-            name = to_name,
-            verification_url = verification_url
+            subject, name = to_name, verification_url = verification_url
         );
 
         let text_body = format!(
@@ -125,29 +116,10 @@ This verification link will expire in 24 hours. If you didn't create an account,
 
 © 2024 Canary Wallet. All rights reserved.
             "#,
-            name = to_name,
-            verification_url = verification_url
+            name = to_name, verification_url = verification_url
         );
 
-        let email = Message::builder()
-            .from(format!("{} <{}>", self.config.from_name, self.config.from_email).parse()?)
-            .to(format!("{} <{}>", to_name, to_email).parse()?)
-            .subject("Verify Your Email - Canary Wallet")
-            .multipart(
-                MultiPart::alternative()
-                    .singlepart(
-                        SinglePart::builder()
-                            .header(header::ContentType::TEXT_PLAIN)
-                            .body(text_body),
-                    )
-                    .singlepart(
-                        SinglePart::builder()
-                            .header(header::ContentType::TEXT_HTML)
-                            .body(html_body),
-                    ),
-            )?;
-
-        self.send_email(email).await
+        self.send_email(to_email, to_name, subject, &html_body, &text_body).await
     }
 
     pub async fn send_password_reset(&self, to_email: &str, to_name: &str, reset_token: &str) -> Result<()> {
@@ -156,13 +128,14 @@ This verification link will expire in 24 hours. If you didn't create an account,
             reset_token
         );
 
+        let subject = "Reset Your Password - Canary Wallet";
         let html_body = format!(
             r#"
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>Reset Your Password - Canary Wallet</title>
+                <title>{}</title>
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
@@ -188,7 +161,7 @@ This verification link will expire in 24 hours. If you didn't create an account,
                     <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
                         If the button doesn't work, you can copy and paste this link into your browser:
                         <br>
-                        <a href="{reset_url}" style="color: #dc2626; word-break: break-all;">{reset_url}</a>
+                        <a href="{reset_url}" style="color: #3b82f6; word-break: break-all;">{reset_url}</a>
                     </p>
                     
                     <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
@@ -202,13 +175,12 @@ This verification link will expire in 24 hours. If you didn't create an account,
             </body>
             </html>
             "#,
-            name = to_name,
-            reset_url = reset_url
+            subject, name = to_name, reset_url = reset_url
         );
 
         let text_body = format!(
             r#"
-Canary Wallet - Reset Your Password
+Reset Your Password - Canary Wallet
 
 Hi {name},
 
@@ -220,58 +192,10 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
 
 © 2024 Canary Wallet. All rights reserved.
             "#,
-            name = to_name,
-            reset_url = reset_url
+            name = to_name, reset_url = reset_url
         );
 
-        let email = Message::builder()
-            .from(format!("{} <{}>", self.config.from_name, self.config.from_email).parse()?)
-            .to(format!("{} <{}>", to_name, to_email).parse()?)
-            .subject("Reset Your Password - Canary Wallet")
-            .multipart(
-                MultiPart::alternative()
-                    .singlepart(
-                        SinglePart::builder()
-                            .header(header::ContentType::TEXT_PLAIN)
-                            .body(text_body),
-                    )
-                    .singlepart(
-                        SinglePart::builder()
-                            .header(header::ContentType::TEXT_HTML)
-                            .body(html_body),
-                    ),
-            )?;
-
-        self.send_email(email).await
-    }
-
-    async fn send_email(&self, email: Message) -> Result<()> {
-        let creds = Credentials::new(
-            self.config.smtp_username.clone(),
-            self.config.smtp_password.clone(),
-        );
-
-        let mailer = SmtpTransport::relay(&self.config.smtp_host)?
-            .port(self.config.smtp_port)
-            .credentials(creds)
-            .build();
-
-        println!("Attempting to send email to {} via {}:{}", 
-            email.envelope().to().first().map(|a| a.as_ref()).unwrap_or("unknown"),
-            self.config.smtp_host,
-            self.config.smtp_port
-        );
-        
-        match mailer.send(&email) {
-            Ok(response) => {
-                println!("Email sent successfully: {:?}", response);
-                Ok(())
-            },
-            Err(e) => {
-                eprintln!("Failed to send email: {}", e);
-                Err(anyhow!("Failed to send email: {}", e))
-            },
-        }
+        self.send_email(to_email, to_name, subject, &html_body, &text_body).await
     }
     
     pub async fn send_transaction_notification(
@@ -282,31 +206,29 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
         html_body: &str,
         text_body: &str,
     ) -> Result<()> {
-        use lettre::{Message, message::{header, MultiPart, SinglePart}};
-        
-        let from_email = std::env::var("FROM_EMAIL")
-            .unwrap_or_else(|_| "notifications@canarybitcoin.com".to_string());
-        let from_name = std::env::var("FROM_NAME")
-            .unwrap_or_else(|_| "Canary Wallet".to_string());
-        
-        let email = Message::builder()
-            .from(format!("{} <{}>", from_name, from_email).parse()?)
-            .to(format!("{} <{}>", to_name, to_email).parse()?)
-            .subject(subject)
-            .multipart(
-                MultiPart::alternative()
-                    .singlepart(
-                        SinglePart::builder()
-                            .header(header::ContentType::TEXT_PLAIN)
-                            .body(text_body.to_string()),
-                    )
-                    .singlepart(
-                        SinglePart::builder()
-                            .header(header::ContentType::TEXT_HTML)
-                            .body(html_body.to_string()),
-                    ),
-            )?;
+        self.send_email(to_email, to_name, subject, html_body, text_body).await
+    }
 
-        self.send_email(email).await
+    async fn send_email(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        subject: &str,
+        html_body: &str,
+        text_body: &str,
+    ) -> Result<()> {
+        let from = format!("{} <{}>", self.config.from_name, self.config.from_email);
+        let to = vec![format!("{} <{}>", to_name, to_email)];
+        
+        // Create email with Resend SDK
+        let email = CreateEmailBaseOptions::new(from, to, subject)
+            .with_html(html_body)
+            .with_text(text_body);
+
+        // Send email
+        match self.resend.emails.send(email).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(anyhow!("Resend API error: {}", e))
+        }
     }
 }

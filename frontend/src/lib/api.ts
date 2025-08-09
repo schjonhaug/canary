@@ -41,8 +41,8 @@ class ApiClient {
     }
     
     const response = await fetch(url, {
-      headers,
       ...options,
+      headers,
     })
 
     return handleApiResponse(response) as T

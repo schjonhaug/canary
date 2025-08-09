@@ -1,7 +1,7 @@
 use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionEvent};
 use crate::message_formatter::MessageFormatter;
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
-use crate::email_service::{EmailService, EmailConfig};
+use crate::email_service::EmailService;
 use async_trait::async_trait;
 use anyhow::Result;
 use serde_json;
@@ -16,7 +16,7 @@ impl EmailProvider {
         let email_service = EmailService::from_env().ok();
         
         if email_service.is_none() {
-            eprintln!("Warning: Email provider created but SMTP not configured");
+            eprintln!("Warning: Email provider created but Resend not configured");
         }
         
         Self {
@@ -47,24 +47,38 @@ impl NotificationProvider for EmailProvider {
                 let email_address = &method.notification_target;
                 
                 let result = if let Some(email_service) = &self.email_service {
-                    // Send transaction notification email
-                    match self.send_transaction_email(email_service, email_address, &contact.name, wallet_name, event, &message).await {
-                        Ok(_) => NotificationResult {
-                            success: true,
-                            provider_id: Some("email".to_string()),
-                            error_message: None,
-                        },
-                        Err(e) => NotificationResult {
-                            success: false,
-                            provider_id: Some("email".to_string()),
-                            error_message: Some(format!("Failed to send email: {}", e)),
-                        },
+                    // Clone data for background task
+                    let email_service_clone = email_service.clone();
+                    let email_address = email_address.to_string();
+                    let contact_name = contact.name.clone();
+                    let wallet_name = wallet_name.to_string();
+                    let event_clone = event.clone();
+                    let message_clone = message.clone();
+                    let _method_id = method.id;
+                    
+                    // Spawn background task for email sending - don't wait for it
+                    tokio::spawn(async move {
+                        match Self::send_transaction_email_static(&email_service_clone, &email_address, &contact_name, &wallet_name, &event_clone, &message_clone).await {
+                            Ok(_) => {
+                                println!("✅ Email sent successfully to {}", email_address);
+                            },
+                            Err(e) => {
+                                eprintln!("❌ Failed to send email to {}: {}", email_address, e);
+                            }
+                        }
+                    });
+                    
+                    // Return success immediately - email will be sent in background
+                    NotificationResult {
+                        success: true,
+                        provider_id: Some("email".to_string()),
+                        error_message: None,
                     }
                 } else {
                     NotificationResult {
                         success: false,
                         provider_id: Some("email".to_string()),
-                        error_message: Some("Email service not configured".to_string()),
+                        error_message: Some("Resend not configured".to_string()),
                     }
                 };
                 
@@ -82,10 +96,7 @@ impl NotificationProvider for EmailProvider {
             config_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "smtp_host": {"type": "string"},
-                    "smtp_port": {"type": "integer"},
-                    "smtp_username": {"type": "string"},
-                    "smtp_password": {"type": "string"},
+                    "resend_api_key": {"type": "string"},
                     "from_email": {"type": "string"},
                     "from_name": {"type": "string"}
                 }
@@ -99,6 +110,18 @@ impl NotificationProvider for EmailProvider {
 }
 
 impl EmailProvider {
+    // Static version for use in spawned tasks
+    async fn send_transaction_email_static(
+        email_service: &EmailService,
+        to_email: &str,
+        to_name: &str,
+        wallet_name: &str,
+        event: &TransactionEvent,
+        message: &str,
+    ) -> Result<()> {
+        Self::send_transaction_email_impl(email_service, to_email, to_name, wallet_name, event, message).await
+    }
+
     async fn send_transaction_email(
         &self,
         email_service: &EmailService,
@@ -108,8 +131,18 @@ impl EmailProvider {
         event: &TransactionEvent,
         message: &str,
     ) -> Result<()> {
-        use lettre::{Message, message::{header, MultiPart, SinglePart}};
-        
+        Self::send_transaction_email_impl(email_service, to_email, to_name, wallet_name, event, message).await
+    }
+
+    // Shared implementation
+    async fn send_transaction_email_impl(
+        email_service: &EmailService,
+        to_email: &str,
+        to_name: &str,
+        wallet_name: &str,
+        event: &TransactionEvent,
+        message: &str,
+    ) -> Result<()> {
         // Determine the type of transaction
         let (subject, emoji) = match event.event_type {
             crate::metadata::EventType::Receive => {
@@ -166,7 +199,7 @@ impl EmailProvider {
             &event.wallet_checksum[..8]
         );
 
-        // Send using the email service's internal method
+        // Send using the Resend email service
         email_service.send_transaction_notification(to_email, to_name, &subject, &html_body, &text_body).await
     }
 }

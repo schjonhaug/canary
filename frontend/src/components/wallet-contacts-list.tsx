@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Smartphone, Trash2 } from "lucide-react"
+import { Bell, Mail, Smartphone, Trash2 } from "lucide-react"
 import { Contact } from "../types"
 import { api } from "../lib/api"
 
@@ -51,6 +51,8 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                     <div key={method.id} className="flex items-center gap-1 text-xs text-muted-foreground">
                       {method.provider_type === 'sms' ? (
                         <Smartphone className="h-3 w-3 shrink-0" />
+                      ) : method.provider_type === 'email' ? (
+                        <Mail className="h-3 w-3 shrink-0" />
                       ) : (
                         <Bell className="h-3 w-3 shrink-0" />
                       )}

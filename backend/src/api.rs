@@ -1605,16 +1605,8 @@ pub async fn register(
     
     let email_service = match EmailService::from_env() {
         Ok(service) => Some(service),
-        Err(_) => None, // Email service not configured, will work in dev mode
+        Err(_) => None // Email service not configured, will work in dev mode
     };
-    
-    // Log email service status for debugging
-    let has_email_service = email_service.is_some();
-    if has_email_service {
-        println!("Email service is available for registration");
-    } else {
-        println!("Email service is NOT available - using dev mode token logging only");
-    }
     
     let auth_service = AuthService::new(jwt_secret, email_service);
     
@@ -1670,7 +1662,7 @@ pub async fn register(
         // Send verification email
         if let Err(e) = auth_service.send_email_verification(&request.email, &request.name, &token).await {
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
                     error: format!("Failed to send verification email: {}", e),
                 }),
@@ -1736,8 +1728,14 @@ pub async fn login(
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
     
     let email_service = match EmailService::from_env() {
-        Ok(service) => Some(service),
-        Err(_) => None, // Email service not configured, will work in dev mode
+        Ok(service) => {
+            println!("✅ Email service initialized successfully");
+            Some(service)
+        },
+        Err(e) => {
+            eprintln!("❌ Failed to initialize email service: {}", e);
+            None // Email service not configured, will work in dev mode
+        }
     };
     
     let auth_service = AuthService::new(jwt_secret, email_service);
@@ -2358,8 +2356,10 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
         .route("/providers", get(get_providers))
         .with_state(notification_manager);
 
+    let api_routes = auth_routes.merge(wallet_routes).merge(provider_routes);
+    
     Router::new()
-        .nest("/api", auth_routes.merge(wallet_routes).merge(provider_routes))
+        .nest("/api", api_routes)
         .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
 }
