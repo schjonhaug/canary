@@ -91,7 +91,7 @@ pub struct CreateContactResponse {
     /// Success message
     pub message: String,
     /// Contact ID
-    pub contact_id: i64,
+    pub contact_id: String, // UUIDv4
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -210,7 +210,7 @@ pub async fn create_wallet(
     match wallet_manager
         .lock()
         .await
-        .create_from_multipath(&payload.name, &payload.descriptor, user.user_id)
+        .create_from_multipath(&payload.name, &payload.descriptor, &user.user_id)
         .await
     {
         Ok(wallet_metadata) => {
@@ -228,7 +228,7 @@ pub async fn create_wallet(
 
                 // Get user info for contact creation
                 let manager_clone = wallet_manager.clone();
-                let user_id = user.user_id;
+                let user_id = user.user_id.clone();
                 let wallet_checksum = wallet_metadata.checksum.clone();
                 let preferred_language = payload.preferred_language.clone();
 
@@ -237,7 +237,7 @@ pub async fn create_wallet(
                     let manager = manager_clone.lock().await;
 
                     // Get user details from database
-                    match manager.metadata_db.get_user_by_id(user_id).await {
+                    match manager.metadata_db.get_user_by_id(&user_id).await {
                         Ok(Some(user_record)) => {
                             // Map browser language to supported languages
                             let language = match preferred_language.as_deref() {
@@ -374,7 +374,7 @@ pub async fn delete_wallet(
             if !user.is_admin {
                 match manager
                     .metadata_db
-                    .is_wallet_owned_by_user(&checksum, user.user_id)
+                    .is_wallet_owned_by_user(&checksum, &user.user_id)
                     .await
                 {
                     Ok(true) => {} // User owns the wallet
@@ -491,7 +491,7 @@ pub async fn update_wallet(
             if !user.is_admin {
                 match manager
                     .metadata_db
-                    .is_wallet_owned_by_user(&checksum, user.user_id)
+                    .is_wallet_owned_by_user(&checksum, &user.user_id)
                     .await
                 {
                     Ok(true) => {} // User owns the wallet
@@ -594,7 +594,7 @@ pub async fn get_wallet(
             if !user.is_admin {
                 match manager
                     .metadata_db
-                    .is_wallet_owned_by_user(&checksum, user.user_id)
+                    .is_wallet_owned_by_user(&checksum, &user.user_id)
                     .await
                 {
                     Ok(true) => {} // User owns the wallet
@@ -691,7 +691,7 @@ pub async fn create_wallet_contact(
             if !user.is_admin {
                 match manager
                     .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
                 {
                     Ok(true) => {} // User owns the wallet
@@ -812,7 +812,7 @@ pub async fn create_wallet_contact(
     path = "/api/wallets/{wallet_id}/contacts/{contact_id}",
     params(
         ("wallet_id" = i64, Path, description = "The wallet ID"),
-        ("contact_id" = i64, Path, description = "The contact ID")
+        ("contact_id" = String, Path, description = "The contact ID")
     ),
     responses(
         (status = 204, description = "Contact deleted successfully"),
@@ -828,7 +828,7 @@ pub async fn create_wallet_contact(
 pub async fn delete_wallet_contact(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
-    Path((wallet_checksum, contact_id)): Path<(String, i64)>,
+    Path((wallet_checksum, contact_id)): Path<(String, String)>,
 ) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
@@ -857,7 +857,7 @@ pub async fn delete_wallet_contact(
             if !user.is_admin {
                 match manager
                     .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
                 {
                     Ok(true) => {} // User owns the wallet
@@ -904,7 +904,7 @@ pub async fn delete_wallet_contact(
 
     match manager
         .metadata_db
-        .delete_wallet_contact(&wallet_checksum, contact_id)
+        .delete_wallet_contact(&wallet_checksum, &contact_id)
         .await
     {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
@@ -978,7 +978,7 @@ pub async fn get_wallet_contacts(
             if !user.is_admin {
                 match manager
                     .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
                 {
                     Ok(true) => {} // User owns the wallet
@@ -1092,7 +1092,7 @@ pub async fn send_contact_verification(
             if !user.is_admin {
                 match manager
                     .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
                 {
                     Ok(true) => {} // User owns the wallet
@@ -1324,7 +1324,7 @@ pub async fn verify_phone_only(
             if !user.is_admin {
                 match manager
                     .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
                 {
                     Ok(true) => {} // User owns the wallet
@@ -1538,7 +1538,7 @@ pub async fn get_wallets_list(
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
     match manager
-        .get_wallets_list_for_user(user.user_id, user.is_admin)
+        .get_wallets_list_for_user(&user.user_id, user.is_admin)
         .await
     {
         Ok(wallets_response) => (StatusCode::OK, Json(wallets_response)).into_response(),
@@ -1592,7 +1592,7 @@ pub async fn get_wallet_detail(
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
     match manager
-        .get_wallet_detail_for_user(&checksum, user.user_id, user.is_admin)
+        .get_wallet_detail_for_user(&checksum, &user.user_id, user.is_admin)
         .await
     {
         Ok(wallet_detail) => (StatusCode::OK, Json(wallet_detail)).into_response(),
@@ -1748,7 +1748,7 @@ pub async fn register(
         // Store verification token
         if let Err(e) = manager
             .metadata_db
-            .create_email_verification_token(user_id, &token)
+            .create_email_verification_token(&user_id, &token)
             .await
         {
             return (
@@ -1891,7 +1891,7 @@ pub async fn login(
     }
 
     // Update last login
-    if let Err(e) = manager.metadata_db.update_last_login(user_record.id).await {
+    if let Err(e) = manager.metadata_db.update_last_login(&user_record.id).await {
         eprintln!(
             "Failed to update last login for user {}: {:?}",
             user_record.id, e
@@ -1900,7 +1900,7 @@ pub async fn login(
 
     // Generate JWT token
     let token =
-        match auth_service.generate_token(user_record.id, &user_record.email, user_record.is_admin)
+        match auth_service.generate_token(&user_record.id, &user_record.email, user_record.is_admin)
         {
             Ok(t) => t,
             Err(e) => {
@@ -1920,7 +1920,7 @@ pub async fn login(
 
     if let Err(e) = manager
         .metadata_db
-        .create_session(user_record.id, &token_hash, expires_at)
+        .create_session(&user_record.id, &token_hash, expires_at)
         .await
     {
         return (
@@ -2043,7 +2043,7 @@ pub async fn forgot_password(
     // Store password reset token
     if let Err(e) = manager
         .metadata_db
-        .create_password_reset_token(user_record.id, &token)
+        .create_password_reset_token(&user_record.id, &token)
         .await
     {
         return (
@@ -2270,7 +2270,7 @@ pub async fn me(State(wallet_manager): State<AppState>, headers: HeaderMap) -> R
     // Get user info from database
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
-    let user_info = match manager.metadata_db.get_user_by_id(user.user_id).await {
+    let user_info = match manager.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(db_user)) => AuthUserResponse {
             id: db_user.id,
             email: db_user.email,
@@ -2349,7 +2349,7 @@ pub async fn update_user(
     let manager = wallet_manager.lock().await;
     if let Err(e) = manager
         .metadata_db
-        .update_user_name(user.user_id, request.name.trim())
+        .update_user_name(&user.user_id, request.name.trim())
         .await
     {
         return (
@@ -2362,7 +2362,7 @@ pub async fn update_user(
     }
 
     // Get updated user info
-    let user_info = match manager.metadata_db.get_user_by_id(user.user_id).await {
+    let user_info = match manager.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(db_user)) => AuthUserResponse {
             id: db_user.id,
             email: db_user.email,

@@ -57,7 +57,7 @@ impl NotificationProvider for EmailProvider {
                     let wallet_name = wallet_name.to_string();
                     let event_clone = event.clone();
                     let message_clone = message.clone();
-                    let _method_id = method.id;
+                    let _method_id = method.id.clone();
 
                     // Spawn background task for email sending - don't wait for it
                     tokio::spawn(async move {

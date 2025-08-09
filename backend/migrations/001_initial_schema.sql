@@ -1,9 +1,21 @@
--- Canary Bitcoin Wallet Management Database Schema
+-- Canary Bitcoin Wallet - Initial Database Schema with UUIDs
 -- This is the complete initial schema for the application
+-- Uses UUIDs for security-critical IDs instead of sequential integers
 
--- Users table: Store authenticated users
+-- Core data tables
+
+-- Current block header tracking (singleton table)
+CREATE TABLE current_block_header (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    height INTEGER NOT NULL,
+    timestamp INTEGER NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CHECK (id = 1)
+);
+
+-- Users table: UUID primary key (critical for JWT security)
 CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY, -- UUIDv4
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     name TEXT,
@@ -13,39 +25,37 @@ CREATE TABLE users (
     last_login DATETIME
 );
 
--- Note: Admin user creation is now handled dynamically in the application code
-
 -- Sessions table: JWT/session management
 CREATE TABLE sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
+    id TEXT PRIMARY KEY, -- UUIDv4
+    user_id TEXT NOT NULL, -- UUID reference
     token_hash TEXT NOT NULL UNIQUE,
     expires_at DATETIME NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- Email verification tokens for new user registration
+-- Email verification tokens
 CREATE TABLE email_verification_tokens (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT, -- Keep integer (internal only)
+    user_id TEXT NOT NULL, -- UUID reference
     token TEXT NOT NULL UNIQUE,
     expires_at DATETIME NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- Password reset tokens
+-- Password reset tokens  
 CREATE TABLE password_reset_tokens (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT, -- Keep integer (internal only)
+    user_id TEXT NOT NULL, -- UUID reference
     token TEXT NOT NULL UNIQUE,
     expires_at DATETIME NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- OTP attempts tracking for rate limiting (used for SMS contact verification)
+-- OTP attempts tracking (keep integer - internal only)
 CREATE TABLE otp_attempts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone_number TEXT NOT NULL,
@@ -54,22 +64,22 @@ CREATE TABLE otp_attempts (
     blocked_until DATETIME
 );
 
--- Wallets table: Core wallet metadata with balance tracking
+-- Wallets table: Core wallet metadata
 CREATE TABLE wallets (
-    checksum TEXT PRIMARY KEY,
+    checksum TEXT PRIMARY KEY, -- Already secure (crypto hash)
     name TEXT NOT NULL,
     descriptor TEXT NOT NULL UNIQUE,
     hex_color TEXT NOT NULL,
     balance_total INTEGER DEFAULT 0,
     last_activity DATETIME,
-    user_id INTEGER NOT NULL,
+    user_id TEXT NOT NULL, -- UUID reference
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- Transaction events table: Bitcoin transaction tracking with comprehensive metadata
+-- Transaction events table: UUID primary key (exposed in API)
 CREATE TABLE transaction_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY, -- UUIDv4
     wallet_checksum TEXT NOT NULL,
     event_type TEXT NOT NULL CHECK (event_type IN ('send', 'receive')),
     amount_sats INTEGER NOT NULL,
@@ -81,9 +91,9 @@ CREATE TABLE transaction_events (
     FOREIGN KEY (wallet_checksum) REFERENCES wallets (checksum) ON DELETE CASCADE
 );
 
--- Contacts table: Basic contact info
+-- Contacts table: UUID primary key (exposed in API URLs)  
 CREATE TABLE contacts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY, -- UUIDv4
     wallet_checksum TEXT NOT NULL,
     name TEXT NOT NULL,
     language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no')),
@@ -91,38 +101,38 @@ CREATE TABLE contacts (
     FOREIGN KEY (wallet_checksum) REFERENCES wallets (checksum) ON DELETE CASCADE
 );
 
--- Contact notification methods: Multiple notification methods per contact  
+-- Contact notification methods: UUID primary key
 CREATE TABLE contact_notification_methods (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    contact_id INTEGER NOT NULL,
+    id TEXT PRIMARY KEY, -- UUIDv4
+    contact_id TEXT NOT NULL, -- UUID reference
     provider_type TEXT NOT NULL CHECK (provider_type IN ('sms', 'ntfy', 'email')),
-    notification_target TEXT NOT NULL,  -- phone number, ntfy topic, or email address
+    notification_target TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE,
     UNIQUE(contact_id, provider_type, notification_target)
 );
 
--- Pending contact verifications: Temporary storage for contacts awaiting verification
+-- Pending contact verifications
 CREATE TABLE pending_contact_verifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT, -- Keep integer (temporary internal)
     wallet_checksum TEXT NOT NULL,
     provider_type TEXT NOT NULL CHECK (provider_type IN ('sms', 'email')),
-    notification_target TEXT NOT NULL,  -- phone number or email
+    notification_target TEXT NOT NULL,
     contact_name TEXT NOT NULL,
     language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no')),
-    verification_code TEXT,  -- For dev mode testing
+    verification_code TEXT,
     expires_at DATETIME NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (wallet_checksum) REFERENCES wallets (checksum) ON DELETE CASCADE
 );
 
--- Notification logs table: Generic notification tracking for all providers
+-- Notification logs: UUID references
 CREATE TABLE notification_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_id INTEGER NOT NULL,
-    notification_method_id INTEGER NOT NULL,
+    id TEXT PRIMARY KEY, -- UUIDv4
+    event_id TEXT NOT NULL, -- UUID reference
+    notification_method_id TEXT NOT NULL, -- UUID reference  
     provider_name TEXT NOT NULL,
-    provider_message_id TEXT,         -- Twilio SID, ntfy response ID, etc.
+    provider_message_id TEXT,
     status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'delivered')),
     error_message TEXT,
     message_content TEXT NOT NULL,
@@ -131,27 +141,18 @@ CREATE TABLE notification_logs (
     FOREIGN KEY (notification_method_id) REFERENCES contact_notification_methods (id) ON DELETE CASCADE
 );
 
--- Current block header table: Blockchain state tracking (singleton)
-CREATE TABLE current_block_header (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    height INTEGER NOT NULL,
-    timestamp INTEGER NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- Initialize the singleton block header row
-INSERT INTO current_block_header (id, height, timestamp) 
-VALUES (1, 0, 0);
-
--- Indexes for performance
+-- Performance indexes
 CREATE INDEX idx_sessions_token ON sessions(token_hash);
 CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_wallets_user ON wallets(user_id);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_email_verification_tokens_token ON email_verification_tokens(token);
 CREATE INDEX idx_email_verification_tokens_expires ON email_verification_tokens(expires_at);
+CREATE INDEX idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
 CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
+CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
 CREATE INDEX idx_otp_attempts_phone ON otp_attempts(phone_number);
 CREATE INDEX idx_notification_logs_event_id ON notification_logs (event_id);
 CREATE INDEX idx_notification_logs_notification_method_id ON notification_logs (notification_method_id);

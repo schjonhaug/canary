@@ -450,7 +450,7 @@ impl WalletManager {
         &mut self,
         name: &str,
         descriptor_str: &str,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<WalletMetadata> {
         println!("Creating wallet from multipath descriptor:");
         println!("  Name: {}", name);
@@ -1189,7 +1189,7 @@ impl WalletManager {
 
     pub async fn get_wallets_list_for_user(
         &self,
-        user_id: i64,
+        user_id: &str,
         is_admin: bool,
     ) -> Result<WalletsListResponse> {
         // Get current timestamp
@@ -1211,7 +1211,7 @@ impl WalletManager {
     pub async fn get_wallet_detail_for_user(
         &self,
         wallet_checksum: &str,
-        user_id: i64,
+        user_id: &str,
         is_admin: bool,
     ) -> Result<WalletDetailResponse> {
         // Get current timestamp

@@ -13,7 +13,7 @@ fn create_test_event(
     is_confirmed: bool,
 ) -> TransactionEvent {
     TransactionEvent {
-        id: Some(1),
+        id: Some("550e8400-e29b-41d4-a716-446655440001".to_string()),
         wallet_checksum: "test_wallet".to_string(),
         event_type,
         amount_sats,
@@ -28,7 +28,7 @@ fn create_test_event(
 
 fn create_test_contact(name: &str, language: Language) -> Contact {
     Contact {
-        id: Some(1),
+        id: Some("550e8400-e29b-41d4-a716-446655440001".to_string()),
         wallet_checksum: "test_wallet".to_string(),
         name: name.to_string(),
         language,
@@ -39,8 +39,8 @@ fn create_test_contact(name: &str, language: Language) -> Contact {
 
 fn create_notification_method(provider_type: ProviderType, target: &str) -> NotificationMethod {
     NotificationMethod {
-        id: Some(1),
-        contact_id: 1,
+        id: Some("550e8400-e29b-41d4-a716-446655440001".to_string()),
+        contact_id: "550e8400-e29b-41d4-a716-446655440001".to_string(),
         provider_type,
         notification_target: target.to_string(),
         display_target: None,

@@ -37,7 +37,7 @@ pub fn load_twilio_config_from_env() -> Result<TwilioConfig> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: i64,
+    pub sub: String, // UUIDv4
     pub email: String,
     pub is_admin: bool,
     pub exp: usize,
@@ -46,7 +46,7 @@ pub struct Claims {
 
 #[derive(Debug, Clone)]
 pub struct AuthUser {
-    pub user_id: i64,
+    pub user_id: String, // UUIDv4
     pub is_admin: bool,
 }
 
@@ -85,7 +85,7 @@ pub struct AuthResponse {
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AuthUserResponse {
-    pub id: i64,
+    pub id: String, // UUIDv4
     pub email: String,
     pub name: Option<String>,
     pub is_admin: bool,
@@ -278,11 +278,11 @@ impl AuthService {
         Ok(false)
     }
 
-    pub fn generate_token(&self, user_id: i64, email: &str, is_admin: bool) -> Result<String> {
+    pub fn generate_token(&self, user_id: &str, email: &str, is_admin: bool) -> Result<String> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
 
         let claims = Claims {
-            sub: user_id,
+            sub: user_id.to_string(),
             email: email.to_string(),
             is_admin,
             exp: now + 7 * 24 * 60 * 60, // 7 days
@@ -324,7 +324,7 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     if !auth_enabled {
         // Self-hosted mode: always return admin user
         return Ok(AuthUser {
-            user_id: 1,
+            user_id: "00000000-0000-0000-0000-000000000001".to_string(), // Fixed UUID for self-hosted admin
             is_admin: true,
         });
     }

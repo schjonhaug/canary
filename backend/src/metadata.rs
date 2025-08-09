@@ -12,6 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::task::spawn_blocking;
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
 pub enum EventType {
@@ -31,7 +32,7 @@ pub enum Language {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserRecord {
-    pub id: i64,
+    pub id: String, // UUIDv4
     pub email: String,
     pub password_hash: String,
     pub name: Option<String>,
@@ -102,7 +103,7 @@ pub struct WalletMetadata {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct Contact {
-    pub id: Option<i64>,
+    pub id: Option<String>, // UUIDv4
     pub wallet_checksum: String,
     pub name: String,
     pub language: Language,
@@ -112,8 +113,8 @@ pub struct Contact {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct NotificationMethod {
-    pub id: Option<i64>,
-    pub contact_id: i64,
+    pub id: Option<String>, // UUIDv4
+    pub contact_id: String, // UUIDv4
     pub provider_type: ProviderType,
     pub notification_target: String, // phone number or ntfy topic
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -154,7 +155,7 @@ impl From<&str> for ProviderType {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEvent {
-    pub id: Option<i64>,
+    pub id: Option<String>, // UUIDv4
     pub wallet_checksum: String,
     pub event_type: EventType,
     pub amount_sats: i64,
@@ -168,7 +169,7 @@ pub struct TransactionEvent {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEventWithWallet {
-    pub id: Option<i64>,
+    pub id: Option<String>, // UUIDv4
     pub wallet_checksum: String,
     pub wallet_name: String,
     pub event_type: EventType,
@@ -450,11 +451,12 @@ impl MetadataDb {
         &self,
         name: &str,
         descriptor: &str,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let name = name.to_string();
         let descriptor = descriptor.to_string();
+        let user_id = user_id.to_string();
 
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
@@ -567,8 +569,9 @@ impl MetadataDb {
         self.get_wallets_for_user(None).await
     }
 
-    pub async fn get_wallets_for_user(&self, user_id: Option<i64>) -> Result<Vec<WalletMetadata>> {
+    pub async fn get_wallets_for_user(&self, user_id: Option<&str>) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
+        let user_id = user_id.map(|id| id.to_string());
 
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
@@ -597,8 +600,8 @@ impl MetadataDb {
             
             let mut stmt = conn.prepare(query)?;
 
-            let params: Vec<&dyn ToSql> = match user_id {
-                Some(ref uid) => vec![uid],
+            let params: Vec<&dyn ToSql> = match user_id.as_ref() {
+                Some(uid) => vec![uid],
                 None => vec![],
             };
             
@@ -627,10 +630,11 @@ impl MetadataDb {
     pub async fn is_wallet_owned_by_user(
         &self,
         wallet_checksum: &str,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
+        let user_id = user_id.to_string();
 
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
@@ -682,16 +686,18 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn insert_event(&self, event: &EventInsert) -> Result<i64> {
+    pub async fn insert_event(&self, event: &EventInsert) -> Result<String> {
         let pool = self.pool.clone();
         let event = event.clone();
 
-        spawn_blocking(move || -> Result<i64> {
+        spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
+            let event_id = Uuid::new_v4().to_string();
             conn.execute(
-                "INSERT INTO transaction_events (wallet_checksum, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                "INSERT INTO transaction_events (id, wallet_checksum, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
+                    &event_id,
                     event.wallet_checksum,
                     event.event_type.as_str(),
                     event.amount_sats,
@@ -702,7 +708,7 @@ impl MetadataDb {
                     event.transaction_time,
                 ],
             )?;
-            Ok(conn.last_insert_rowid())
+            Ok(event_id)
         }).await?
     }
 
@@ -739,7 +745,7 @@ impl MetadataDb {
                 let mut event = event?;
                 
                 // Get notification logs for this event
-                if let Some(event_id) = event.id {
+                if let Some(ref event_id) = event.id {
                     let mut notification_status = Vec::new();
                     
                     let mut log_stmt = conn.prepare(
@@ -781,28 +787,29 @@ impl MetadataDb {
         name: &str,
         language: &Language,
         notification_methods: Vec<(ProviderType, String)>,
-    ) -> Result<i64> {
+    ) -> Result<String> {
         let pool = self.pool.clone();
         let name = name.to_string();
         let language = *language;
         let checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<i64> {
+        spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
             
-            // Insert contact
+            // Insert contact with UUID
+            let contact_id = Uuid::new_v4().to_string();
             tx.execute(
-                "INSERT INTO contacts (wallet_checksum, name, language) VALUES (?1, ?2, ?3)",
-                params![checksum, &name, language.as_str()],
+                "INSERT INTO contacts (id, wallet_checksum, name, language) VALUES (?1, ?2, ?3, ?4)",
+                params![&contact_id, checksum, &name, language.as_str()],
             )?;
-            let contact_id = tx.last_insert_rowid();
             
             // Insert notification methods
             for (provider_type, notification_target) in notification_methods {
+                let method_id = Uuid::new_v4().to_string();
                 tx.execute(
-                    "INSERT INTO contact_notification_methods (contact_id, provider_type, notification_target) VALUES (?1, ?2, ?3)",
-                    params![contact_id, provider_type.as_str(), &notification_target],
+                    "INSERT INTO contact_notification_methods (id, contact_id, provider_type, notification_target) VALUES (?1, ?2, ?3, ?4)",
+                    params![&method_id, &contact_id, provider_type.as_str(), &notification_target],
                 )?;
             }
             
@@ -831,7 +838,7 @@ impl MetadataDb {
             let contact_iter = stmt.query_map(params![checksum], |row| {
                 let language_str: String = row.get(3)?;
                 Ok((
-                    row.get::<_, i64>(0)?, // id
+                    row.get::<_, String>(0)?, // id as UUIDv4
                     Contact {
                         id: Some(row.get(0)?),
                         wallet_checksum: row.get(1)?,
@@ -843,7 +850,7 @@ impl MetadataDb {
                 ))
             })?;
 
-            let mut contacts: std::collections::HashMap<i64, Contact> =
+            let mut contacts: std::collections::HashMap<String, Contact> =
                 std::collections::HashMap::new();
             for contact_result in contact_iter {
                 let (contact_id, contact) = contact_result?;
@@ -851,7 +858,7 @@ impl MetadataDb {
             }
 
             // Now get all notification methods for these contacts
-            let contact_ids: Vec<i64> = contacts.keys().cloned().collect();
+            let contact_ids: Vec<String> = contacts.keys().cloned().collect();
             if !contact_ids.is_empty() {
                 let placeholders = contact_ids
                     .iter()
@@ -915,10 +922,11 @@ impl MetadataDb {
     pub async fn delete_wallet_contact(
         &self,
         wallet_checksum: &str,
-        contact_id: i64,
+        contact_id: &str,
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
+        let contact_id = contact_id.to_string();
 
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
@@ -1019,37 +1027,41 @@ impl MetadataDb {
 
     pub async fn insert_notification_log_for_method(
         &self,
-        event_id: i64,
-        notification_method_id: i64,
+        event_id: &str,
+        notification_method_id: &str,
         provider_name: &str,
         provider_message_id: Option<&str>,
         status: &str,
         error_message: Option<&str>,
         message_content: &str,
-    ) -> Result<i64> {
+    ) -> Result<String> {
         let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        let notification_method_id = notification_method_id.to_string();
         let provider_name = provider_name.to_string();
         let provider_message_id = provider_message_id.map(|s| s.to_string());
         let status = status.to_string();
         let error_message = error_message.map(|s| s.to_string());
         let message_content = message_content.to_string();
 
-        spawn_blocking(move || -> Result<i64> {
+        spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
+            let log_id = uuid::Uuid::new_v4().to_string();
             conn.execute(
-                "INSERT INTO notification_logs (event_id, notification_method_id, provider_name, provider_message_id, status, error_message, message_content) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO notification_logs (id, event_id, notification_method_id, provider_name, provider_message_id, status, error_message, message_content) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
-                    event_id,
-                    notification_method_id,
-                    provider_name,
-                    provider_message_id,
-                    status,
-                    error_message,
-                    message_content,
+                    &log_id,
+                    &event_id,
+                    &notification_method_id,
+                    &provider_name,
+                    &provider_message_id,
+                    &status,
+                    &error_message,
+                    &message_content,
                 ],
             )?;
-            Ok(conn.last_insert_rowid())
+            Ok(log_id)
         }).await?
     }
 
@@ -1060,7 +1072,7 @@ impl MetadataDb {
         password_hash: &str,
         name: Option<&str>,
         email_verified: bool,
-    ) -> Result<i64> {
+    ) -> Result<String> {
         let pool = self.pool.clone();
         let email = email.to_string();
         let password_hash = password_hash.to_string();
@@ -1071,12 +1083,12 @@ impl MetadataDb {
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(false);
 
-        let result = spawn_blocking(move || -> Result<(i64, bool)> {
+        let result = spawn_blocking(move || -> Result<(String, bool)> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
             
             // Check if user already exists
-            let existing: Option<i64> = tx
+            let existing: Option<String> = tx
                 .prepare("SELECT id FROM users WHERE email = ?1")?
                 .query_row(params![&email], |row| row.get(0))
                 .ok();
@@ -1110,15 +1122,17 @@ impl MetadataDb {
             
             let user_name = name;
             
+            // Generate UUID for new user
+            let user_id = Uuid::new_v4().to_string();
+            
             println!("DEBUG: Creating user {} with name {:?}, is_admin={}", email, user_name, final_is_admin);
             
             // Create new user
             tx.execute(
-                "INSERT INTO users (email, password_hash, name, is_admin, email_verified) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![&email, &password_hash, user_name, final_is_admin, email_verified],
+                "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified],
             )?;
             
-            let user_id = tx.last_insert_rowid();
             tx.commit()?;
             Ok((user_id, final_is_admin))
         }).await??; // First ? for JoinError, second ? for inner Result
@@ -1152,8 +1166,9 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_user_by_id(&self, user_id: i64) -> Result<Option<UserRecord>> {
+    pub async fn get_user_by_id(&self, user_id: &str) -> Result<Option<UserRecord>> {
         let pool = self.pool.clone();
+        let user_id = user_id.to_string();
 
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
@@ -1175,8 +1190,9 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn update_last_login(&self, user_id: i64) -> Result<()> {
+    pub async fn update_last_login(&self, user_id: &str) -> Result<()> {
         let pool = self.pool.clone();
+        let user_id = user_id.to_string();
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -1190,9 +1206,10 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn update_user_name(&self, user_id: i64, name: &str) -> Result<()> {
+    pub async fn update_user_name(&self, user_id: &str, name: &str) -> Result<()> {
         let pool = self.pool.clone();
         let name = name.to_string();
+        let user_id = user_id.to_string();
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -1208,21 +1225,23 @@ impl MetadataDb {
     // Session management
     pub async fn create_session(
         &self,
-        user_id: i64,
+        user_id: &str,
         token_hash: &str,
         expires_at: chrono::DateTime<chrono::Utc>,
-    ) -> Result<i64> {
+    ) -> Result<String> {
         let pool = self.pool.clone();
         let token_hash = token_hash.to_string();
         let expires_at = expires_at.format("%Y-%m-%d %H:%M:%S").to_string();
 
-        spawn_blocking(move || -> Result<i64> {
+        let user_id = user_id.to_string();
+        spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
+            let session_id = uuid::Uuid::new_v4().to_string();
             conn.execute(
-                "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?1, ?2, ?3)",
-                params![user_id, &token_hash, &expires_at],
+                "INSERT INTO sessions (id, user_id, token_hash, expires_at) VALUES (?1, ?2, ?3, ?4)",
+                params![&session_id, &user_id, &token_hash, &expires_at],
             )?;
-            Ok(conn.last_insert_rowid())
+            Ok(session_id)
         })
         .await?
     }
@@ -1258,18 +1277,19 @@ impl MetadataDb {
     }
 
     // Email verification token management
-    pub async fn create_email_verification_token(&self, user_id: i64, token: &str) -> Result<()> {
+    pub async fn create_email_verification_token(&self, user_id: &str, token: &str) -> Result<()> {
         let pool = self.pool.clone();
         let token = token.to_string();
         let expires_at = (chrono::Utc::now() + chrono::Duration::hours(24))
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
 
+        let user_id = user_id.to_string();
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
                 "INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES (?1, ?2, ?3)",
-                params![user_id, &token, &expires_at],
+                params![&user_id, &token, &expires_at],
             )?;
             Ok(())
         }).await?
@@ -1313,8 +1333,9 @@ impl MetadataDb {
     }
 
     // Password reset token management
-    pub async fn create_password_reset_token(&self, user_id: i64, token: &str) -> Result<()> {
+    pub async fn create_password_reset_token(&self, user_id: &str, token: &str) -> Result<()> {
         let pool = self.pool.clone();
+        let user_id = user_id.to_string();
         let token = token.to_string();
         let expires_at = (chrono::Utc::now() + chrono::Duration::hours(1))
             .format("%Y-%m-%d %H:%M:%S")
@@ -1326,13 +1347,13 @@ impl MetadataDb {
             // Delete any existing tokens for this user
             conn.execute(
                 "DELETE FROM password_reset_tokens WHERE user_id = ?1",
-                params![user_id],
+                params![&user_id],
             )?;
             
             // Create new token
             conn.execute(
                 "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?1, ?2, ?3)",
-                params![user_id, &token, &expires_at],
+                params![&user_id, &token, &expires_at],
             )?;
             Ok(())
         }).await?

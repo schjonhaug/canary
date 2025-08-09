@@ -7,7 +7,7 @@ fn create_test_event(
     is_confirmed: bool,
 ) -> TransactionEvent {
     TransactionEvent {
-        id: Some(1),
+        id: Some("550e8400-e29b-41d4-a716-446655440001".to_string()),
         wallet_checksum: "test_wallet".to_string(),
         event_type,
         amount_sats,

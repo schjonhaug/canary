@@ -327,8 +327,8 @@ async fn main() -> anyhow::Result<()> {
                                     }
 
                                     // Log the notification attempt to database
-                                    if let Some(method_id) = notification_method.id {
-                                        if let Some(event_id) = event.id {
+                                    if let Some(ref method_id) = notification_method.id {
+                                        if let Some(ref event_id) = event.id {
                                             let status =
                                                 if result.success { "sent" } else { "failed" };
                                             let _ = wallet_manager_lock

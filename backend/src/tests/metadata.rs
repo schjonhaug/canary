@@ -34,11 +34,11 @@ async fn test_delete_wallet_contact_authorization() {
 
     // Create two wallets for different users
     let wallet1_checksum = db
-        .insert_wallet("Wallet 1", "descriptor1", user_id)
+        .insert_wallet("Wallet 1", "descriptor1", &user_id)
         .await
         .unwrap();
     let wallet2_checksum = db
-        .insert_wallet("Wallet 2", "descriptor2", other_user_id)
+        .insert_wallet("Wallet 2", "descriptor2", &other_user_id)
         .await
         .unwrap();
 
@@ -64,14 +64,14 @@ async fn test_delete_wallet_contact_authorization() {
 
     // Test 1: User can delete their own contact
     let result = db
-        .delete_wallet_contact(&wallet1_checksum, contact1_id)
+        .delete_wallet_contact(&wallet1_checksum, &contact1_id)
         .await
         .unwrap();
     assert!(result, "Should be able to delete own contact");
 
     // Test 2: User cannot delete contact from another user's wallet (IDOR protection)
     let result = db
-        .delete_wallet_contact(&wallet1_checksum, contact2_id)
+        .delete_wallet_contact(&wallet1_checksum, &contact2_id)
         .await
         .unwrap();
     assert!(
@@ -89,7 +89,7 @@ async fn test_delete_wallet_contact_authorization() {
         1,
         "Contact should still exist in original wallet"
     );
-    assert_eq!(contacts[0].id.unwrap(), contact2_id);
+    assert_eq!(contacts[0].id.clone().unwrap(), contact2_id);
 }
 
 #[tokio::test]
@@ -107,13 +107,13 @@ async fn test_delete_wallet_contact_nonexistent() {
         .await
         .unwrap();
     let wallet_checksum = db
-        .insert_wallet("Test Wallet", "descriptor", user_id)
+        .insert_wallet("Test Wallet", "descriptor", &user_id)
         .await
         .unwrap();
 
     // Try to delete nonexistent contact
     let result = db
-        .delete_wallet_contact(&wallet_checksum, 999)
+        .delete_wallet_contact(&wallet_checksum, "550e8400-e29b-41d4-a716-446655440999")
         .await
         .unwrap();
     assert!(!result, "Should return false for nonexistent contact");
@@ -134,11 +134,11 @@ async fn test_delete_wallet_contact_wrong_wallet() {
         .unwrap();
 
     let wallet1_checksum = db
-        .insert_wallet("Wallet 1", "descriptor1", user1_id)
+        .insert_wallet("Wallet 1", "descriptor1", &user1_id)
         .await
         .unwrap();
     let wallet2_checksum = db
-        .insert_wallet("Wallet 2", "descriptor2", user2_id)
+        .insert_wallet("Wallet 2", "descriptor2", &user2_id)
         .await
         .unwrap();
 
@@ -155,7 +155,7 @@ async fn test_delete_wallet_contact_wrong_wallet() {
 
     // Try to delete contact using wrong wallet checksum
     let result = db
-        .delete_wallet_contact(&wallet2_checksum, contact_id)
+        .delete_wallet_contact(&wallet2_checksum, &contact_id)
         .await
         .unwrap();
     assert!(
