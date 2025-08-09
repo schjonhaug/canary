@@ -1506,6 +1506,32 @@ case "$1" in
         fi
         ;;
         
+    "kill")
+        echo "🔪 Killing processes on ports 3000 and 3001..."
+        
+        # Check and kill processes on port 3001
+        PIDS_3001=$(lsof -ti :3001 2>/dev/null || true)
+        if [ -n "$PIDS_3001" ]; then
+            echo "📍 Found processes on port 3001: $PIDS_3001"
+            kill -9 $PIDS_3001 2>/dev/null || true
+            echo "✅ Killed processes on port 3001"
+        else
+            echo "ℹ️  No processes found on port 3001"
+        fi
+        
+        # Check and kill processes on port 3000
+        PIDS_3000=$(lsof -ti :3000 2>/dev/null || true)
+        if [ -n "$PIDS_3000" ]; then
+            echo "📍 Found processes on port 3000: $PIDS_3000"
+            kill -9 $PIDS_3000 2>/dev/null || true
+            echo "✅ Killed processes on port 3000"
+        else
+            echo "ℹ️  No processes found on port 3000"
+        fi
+        
+        echo "🎯 Port cleanup complete"
+        ;;
+        
     *)
         echo "Bitcoin regtest Docker development utilities"
         echo ""
@@ -1518,6 +1544,7 @@ case "$1" in
         echo "  restart             Restart all containers"  
         echo "  reset               Stop containers and delete all data (includes database)"
         echo "  wipe-database       Drop all database tables (standalone command)"
+        echo "  kill                Kill processes on localhost ports 3000 and 3001"
         echo "  logs [service]      Show logs (bitcoin/electrum or all)"
         echo "  status              Show environment status"
         echo ""
