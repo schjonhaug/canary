@@ -1,7 +1,8 @@
 "use client"
 
 import { AlertCircle } from "lucide-react"
-import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { WalletCards } from "@/components/wallet-cards"
@@ -12,6 +13,7 @@ import { useWalletsContext } from "@/contexts/wallets-context"
 export default function WalletsPage() {
   const { wallets, error, lastUpdate, isConnected, onAddWallet } = useWalletsContext()
   const { isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
 
   const getTotalBalance = () => {
     return wallets.reduce((total, wallet) => {
@@ -21,6 +23,13 @@ export default function WalletsPage() {
 
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
+
+  // Redirect unauthenticated users to sign-in when auth is enabled
+  useEffect(() => {
+    if (authEnabled && !isLoading && !isAuthenticated) {
+      router.push('/sign-in')
+    }
+  }, [authEnabled, isAuthenticated, isLoading, router])
 
   // Show loading state while auth is loading
   if (isLoading) {
@@ -34,22 +43,9 @@ export default function WalletsPage() {
     )
   }
 
-  // Show landing page for unauthenticated users when auth is enabled
+  // Return null while redirecting unauthenticated users
   if (authEnabled && !isAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <Image
-            src="/images/canary.svg"
-            alt="Canary Logo"
-            width={120}
-            height={120}
-            className="mx-auto mb-6"
-          />
-          <h1 className="text-4xl font-bold tracking-wide">Canary</h1>
-        </div>
-      </div>
-    )
+    return null
   }
 
   // Show dashboard for authenticated users or when auth is disabled

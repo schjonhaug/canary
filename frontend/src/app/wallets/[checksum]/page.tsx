@@ -16,6 +16,7 @@ import { useWalletsContext } from "@/contexts/wallets-context"
 import { formatBitcoinAmount } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { api } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
 
 // Note: checksum is now available directly from wallet.checksum and URL params
 
@@ -24,9 +25,20 @@ export default function WalletDetailPage() {
   const params = useParams()
   const router = useRouter()
   const checksum = params.checksum as string
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
+
+  // Check if auth is enabled
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
+
+  // Redirect unauthenticated users to sign-in when auth is enabled
+  useEffect(() => {
+    if (authEnabled && !authLoading && !isAuthenticated) {
+      router.push('/sign-in')
+    }
+  }, [authEnabled, isAuthenticated, authLoading, router])
 
   // Get wallet detail data directly using checksum
   const { wallet, events, contacts, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
@@ -59,6 +71,22 @@ export default function WalletDetailPage() {
     router.push('/wallets')
   }
 
+  // Show loading state while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Return null while redirecting unauthenticated users
+  if (authEnabled && !isAuthenticated) {
+    return null
+  }
 
   if (isLoading && !wallet) {
     return (
