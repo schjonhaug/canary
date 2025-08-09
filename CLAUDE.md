@@ -190,7 +190,7 @@ Enable email/password authentication for multi-user support:
 5. Password reset functionality via email
 6. JWT tokens stored in localStorage for session management
 7. All wallet data isolated per user when auth is enabled
-8. **Development Mode**: Pre-configured test users (`admin@example.com`, `alice@example.com`, `bob@example.com`, `charlie@example.com` all with password `password123`) - no email verification required
+8. **Development Mode**: Pre-configured test users (`delivered+admin@resend.dev`, `delivered+alice@resend.dev`, `delivered+bob@resend.dev` all with password `password123`) - no email verification required
 
 ### Frontend Authentication Routes
 - `/sign-up` - Registration form with email/password/name

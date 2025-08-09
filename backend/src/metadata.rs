@@ -400,9 +400,9 @@ impl MetadataDb {
                 
                 if !exists {
                     let name = match *email {
-                        "admin@example.com" => "Admin",
-                        "alice@example.com" => "Alice",
-                        "bob@example.com" => "Bob",
+                        "delivered+admin@resend.dev" => "Admin",
+                        "delivered+alice@resend.dev" => "Alice",
+                        "delivered+bob@resend.dev" => "Bob",
                         _ => "Test User",
                     };
                     

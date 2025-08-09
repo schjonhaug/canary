@@ -49,9 +49,19 @@ export function ContactModal({
   const [isSendingVerification, setIsSendingVerification] = useState(false)
   const [isVerifyingCode, setIsVerifyingCode] = useState(false)
   const [smsVerified, setSmsVerified] = useState(false)
+  const [originalPhoneNumber, setOriginalPhoneNumber] = useState<string | null>(null)
+  const [hasChanges, setHasChanges] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const isEditMode = !!editContact
+
+  // Check if the phone number has changed from the original
+  const phoneNumberChanged = originalPhoneNumber !== null && 
+    providerValues['twilio']?.trim() !== originalPhoneNumber
+
+  // Check if SMS verification is required
+  const smsVerificationRequired = enabledProviders['twilio'] && 
+    (phoneNumberChanged || (!isEditMode && !smsVerified))
 
   // Clear timer on unmount
   useEffect(() => {
@@ -115,8 +125,11 @@ export function ContactModal({
         
         editContact.notification_methods.forEach(method => {
           if (method.provider_type === 'sms') {
+            const phoneNumber = method.display_target || method.notification_target
             newEnabledProviders['twilio'] = true
-            newProviderValues['twilio'] = method.display_target || method.notification_target
+            newProviderValues['twilio'] = phoneNumber
+            setOriginalPhoneNumber(phoneNumber)
+            setSmsVerified(true) // SMS already exists on contact, so it's verified
           } else if (method.provider_type === 'ntfy') {
             newEnabledProviders['ntfy'] = true
           } else if (method.provider_type === 'email') {
@@ -141,6 +154,8 @@ export function ContactModal({
       setSmsVerificationPhone(null)
       setTimeRemaining(0)
       setSmsVerified(false)
+      setOriginalPhoneNumber(null)
+      setHasChanges(false)
       
       if (timerRef.current) {
         clearInterval(timerRef.current)
@@ -159,6 +174,8 @@ export function ContactModal({
     setSmsVerificationPhone(null)
     setTimeRemaining(0)
     setSmsVerified(false)
+    setOriginalPhoneNumber(null)
+    setHasChanges(false)
     if (timerRef.current) {
       clearInterval(timerRef.current)
     }
@@ -262,9 +279,13 @@ export function ContactModal({
       return
     }
 
-    // Check if SMS is enabled but not verified yet
-    if (hasSms && !smsVerified) {
-      setError("Please verify the SMS code before saving the contact")
+    // Check if SMS verification is required but not completed
+    if (smsVerificationRequired && !smsVerified) {
+      if (phoneNumberChanged) {
+        setError("Please verify the new SMS phone number before saving the contact")
+      } else {
+        setError("Please verify the SMS code before saving the contact")
+      }
       return
     }
 
@@ -408,7 +429,10 @@ export function ContactModal({
             <Input
               id="contact-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value)
+                setHasChanges(true)
+              }}
               placeholder="Contact name"
               disabled={isSubmitting}
             />
@@ -419,7 +443,10 @@ export function ContactModal({
             <select
               id="contact-language"
               value={language}
-              onChange={(e) => setLanguage(e.target.value as 'en' | 'no')}
+              onChange={(e) => {
+                setLanguage(e.target.value as 'en' | 'no')
+                setHasChanges(true)
+              }}
               disabled={isSubmitting}
               className="w-full h-10 border border-input bg-background px-3 py-2 rounded-md text-sm"
             >
@@ -445,6 +472,7 @@ export function ContactModal({
                           ...prev,
                           [provider.name]: e.target.checked
                         }))
+                        setHasChanges(true)
                       }}
                       disabled={isSubmitting}
                       className="mt-1"
@@ -470,12 +498,24 @@ export function ContactModal({
                                   ...prev,
                                   [provider.name]: e.target.value
                                 }))
-                                // Reset verification state when phone number changes
-                                if (smsVerificationSent && smsVerificationPhone !== e.target.value.trim()) {
+                                setHasChanges(true)
+                                // Reset verification state when phone number changes from original
+                                const newPhoneNumber = e.target.value.trim()
+                                if (originalPhoneNumber !== null && newPhoneNumber !== originalPhoneNumber) {
                                   setSmsVerificationSent(false)
                                   setSmsVerificationCode("")
                                   setSmsVerificationPhone(null)
                                   setSmsVerified(false)
+                                  setTimeRemaining(0)
+                                  if (timerRef.current) {
+                                    clearInterval(timerRef.current)
+                                  }
+                                } else if (originalPhoneNumber !== null && newPhoneNumber === originalPhoneNumber) {
+                                  // Phone number reverted to original, mark as verified
+                                  setSmsVerified(true)
+                                  setSmsVerificationSent(false)
+                                  setSmsVerificationCode("")
+                                  setSmsVerificationPhone(null)
                                   setTimeRemaining(0)
                                   if (timerRef.current) {
                                     clearInterval(timerRef.current)
@@ -485,13 +525,15 @@ export function ContactModal({
                               placeholder="+1234567890"
                               disabled={isSubmitting || isSendingVerification}
                             />
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Include country code (e.g., +47 for Norway)
-                            </p>
+                            {!providerValues[provider.name] && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Include country code (e.g., +47 for Norway)
+                              </p>
+                            )}
                           </div>
                           
-                          {/* Send Verification Button */}
-                          {providerValues[provider.name]?.trim() && !smsVerificationSent && (
+                          {/* Send Verification Button - only show when verification is required */}
+                          {smsVerificationRequired && !smsVerificationSent && (
                             <Button
                               type="button"
                               variant="outline"
@@ -568,14 +610,17 @@ export function ContactModal({
                                 ...prev,
                                 [provider.name]: e.target.value
                               }))
+                              setHasChanges(true)
                             }}
                             placeholder="user@example.com"
                             disabled={isSubmitting}
                             type="email"
                           />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Enter valid email address
-                          </p>
+                          {!providerValues[provider.name] && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Enter valid email address
+                            </p>
+                          )}
                         </div>
                       )}
                       {enabledProviders[provider.name] && provider.name === 'ntfy' && (
@@ -596,7 +641,7 @@ export function ContactModal({
           <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || !name.trim()}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || !name.trim() || (isEditMode && !hasChanges)}>
             {isSubmitting ? "Processing..." : (isEditMode ? "Update Contact" : "Create Contact")}
           </Button>
         </DialogFooter>

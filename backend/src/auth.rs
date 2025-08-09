@@ -106,9 +106,9 @@ const DEV_MODE: bool = cfg!(debug_assertions);
 
 // Dev mode test email addresses (bypass email verification in dev mode)
 pub const DEV_TEST_EMAILS: [&str; 3] = [
-    "admin@example.com",     // Admin user
-    "alice@example.com",     // Test user 1  
-    "bob@example.com",       // Test user 2
+    "delivered+admin@resend.dev",     // Admin user
+    "delivered+alice@resend.dev",     // Test user 1  
+    "delivered+bob@resend.dev",       // Test user 2
 ];
 
 // Dev mode password for all test accounts
