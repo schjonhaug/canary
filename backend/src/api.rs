@@ -840,7 +840,7 @@ pub async fn delete_wallet_contact(
         }
     }
     
-    match manager.metadata_db.delete_contact_with_methods(contact_id).await {
+    match manager.metadata_db.delete_wallet_contact(&wallet_checksum, contact_id).await {
         Ok(true) => {
             
             StatusCode::NO_CONTENT.into_response()

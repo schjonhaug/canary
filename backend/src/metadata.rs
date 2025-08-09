@@ -883,14 +883,15 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn delete_contact_with_methods(&self, contact_id: i64) -> Result<bool> {
+    pub async fn delete_wallet_contact(&self, wallet_checksum: &str, contact_id: i64) -> Result<bool> {
         let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
         
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let rows_affected = conn.execute(
-                "DELETE FROM contacts WHERE id = ?1",
-                params![contact_id],
+                "DELETE FROM contacts WHERE id = ?1 AND wallet_checksum = ?2",
+                params![contact_id, checksum],
             )?;
             Ok(rows_affected > 0)
         }).await?
