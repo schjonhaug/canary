@@ -200,23 +200,23 @@ export default function WalletDetailPage() {
               
 
               <div className="pt-2 border-t">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm text-muted-foreground">Contacts</div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsAddContactModalOpen(true)}
-                    className="h-8 gap-1"
-                  >
-                    <Plus size={14} />
-                    Add Contact
-                  </Button>
-                </div>
+                <div className="text-sm text-muted-foreground mb-2">Contacts</div>
                 <WalletContactsList 
                   walletChecksum={wallet.checksum}
                   contacts={contacts}
                   onContactsUpdated={handleWalletUpdated}
                 />
+                <div className="mt-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsAddContactModalOpen(true)}
+                    className="h-8 gap-1 w-full"
+                  >
+                    <Plus size={14} />
+                    Add Contact
+                  </Button>
+                </div>
               </div>
 
               <div className="pt-4 border-t flex justify-end">
