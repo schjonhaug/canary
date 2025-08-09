@@ -133,6 +133,23 @@ class ApiClient {
     })
   }
 
+  async updateContact(
+    walletChecksum: string,
+    contactId: number,
+    name: string,
+    language: 'en' | 'no',
+    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
+  ): Promise<Contact> {
+    return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name,
+        language,
+        notification_methods: notificationMethods,
+      }),
+    })
+  }
+
   async deleteContact(walletChecksum: string, contactId: number): Promise<void> {
     return this.request<void>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {
       method: 'DELETE',

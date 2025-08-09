@@ -19,7 +19,7 @@ export function DevIndicator() {
         DEV MODE
         {user && (
           <span className="ml-2 text-xs">
-            {user.is_admin ? 'ADMIN' : 'USER'} - {user.phone_number.slice(-4)}
+            {user.is_admin ? 'ADMIN' : 'USER'} - {user.email.slice(0, user.email.indexOf('@'))}
           </span>
         )}
       </Badge>

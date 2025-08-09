@@ -37,7 +37,7 @@ export interface TransactionEvent {
 export interface NotificationMethod {
   id: number
   contact_id: number
-  provider_type: 'sms' | 'ntfy'
+  provider_type: 'sms' | 'ntfy' | 'email'
   notification_target: string
   display_target?: string
   created_at: string

@@ -3,9 +3,10 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Mail, Smartphone, Trash2 } from "lucide-react"
+import { Bell, Mail, Smartphone, Edit } from "lucide-react"
 import { Contact } from "../types"
 import { api } from "../lib/api"
+import { ContactModal } from "./contact-modal"
 
 interface WalletContactsListProps {
   walletChecksum: string
@@ -15,28 +16,31 @@ interface WalletContactsListProps {
 
 export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated }: WalletContactsListProps) {
   const [error, setError] = useState<string | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingContact, setEditingContact] = useState<Contact | null>(null)
 
-  const handleDeleteContact = async (contactId: number) => {
-    try {
-      await api.deleteContact(walletChecksum, contactId)
-      // Trigger parent component to refresh all data including contacts
-      if (onContactsUpdated) {
-        onContactsUpdated()
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete contact")
+
+  const handleEditContact = (contact: Contact) => {
+    setEditingContact(contact)
+    setIsEditModalOpen(true)
+  }
+
+  const handleContactSaved = () => {
+    setIsEditModalOpen(false)
+    setEditingContact(null)
+    if (onContactsUpdated) {
+      onContactsUpdated()
     }
   }
 
   return (
     <div>
-      <div className="text-sm text-muted-foreground">Contacts</div>
       {error && (
-        <div className="mt-2 text-sm text-red-600">{error}</div>
+        <div className="mb-2 text-sm text-red-600">{error}</div>
       )}
       
-      {contacts.length > 0 && (
-        <div className="mt-2 space-y-2">
+      {contacts.length > 0 ? (
+        <div className="space-y-2">
           {contacts.sort((a, b) => a.name.localeCompare(b.name)).map((contact) => (
             <div key={contact.id} className="flex items-start justify-between p-2 bg-muted/30 rounded-md">
               <div className="flex-1 min-w-0">
@@ -61,18 +65,35 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                   ))}
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDeleteContact(contact.id)}
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-red-600 shrink-0"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditContact(contact)}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-600"
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
+      ) : (
+        <div className="text-sm text-muted-foreground text-center py-4">
+          No contacts added yet
+        </div>
       )}
+
+      <ContactModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setEditingContact(null)
+        }}
+        walletChecksum={walletChecksum}
+        onContactSaved={handleContactSaved}
+        editContact={editingContact || undefined}
+      />
     </div>
   )
 }

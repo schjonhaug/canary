@@ -5,11 +5,11 @@ import { useParams, useRouter } from "next/navigation"
 import { TransactionEvents } from "@/components/transaction-events"
 import { InlineWalletNameEdit } from "@/components/inline-wallet-name-edit"
 import { WalletContactsList } from "@/components/wallet-contacts-list"
-import { AddContactInline } from "@/components/add-contact-inline"
+import { ContactModal } from "@/components/contact-modal"
 import { DeleteWalletModal } from "@/components/delete-wallet-modal"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Trash2, AlertCircle } from "lucide-react"
+import { ArrowLeft, Trash2, AlertCircle, Plus } from "lucide-react"
 import Link from "next/link"
 import { useWalletDetail } from "@/hooks/useWalletDetail"
 import { useWalletsContext } from "@/contexts/wallets-context"
@@ -26,6 +26,7 @@ export default function WalletDetailPage() {
   const checksum = params.checksum as string
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
 
   // Get wallet detail data directly using checksum
   const { wallet, events, contacts, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
@@ -171,14 +172,22 @@ export default function WalletDetailPage() {
               
 
               <div className="pt-2 border-t">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm text-muted-foreground">Contacts</div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsAddContactModalOpen(true)}
+                    className="h-8 gap-1"
+                  >
+                    <Plus size={14} />
+                    Add Contact
+                  </Button>
+                </div>
                 <WalletContactsList 
                   walletChecksum={wallet.checksum}
                   contacts={contacts}
                   onContactsUpdated={handleWalletUpdated}
-                />
-                <AddContactInline 
-                  walletChecksum={wallet.checksum} 
-                  onContactAdded={handleWalletUpdated}
                 />
               </div>
 
@@ -209,6 +218,16 @@ export default function WalletDetailPage() {
       </div>
         </section>
       </div>
+
+      <ContactModal
+        isOpen={isAddContactModalOpen}
+        onClose={() => setIsAddContactModalOpen(false)}
+        walletChecksum={wallet.checksum}
+        onContactSaved={() => {
+          setIsAddContactModalOpen(false)
+          handleWalletUpdated()
+        }}
+      />
 
       <DeleteWalletModal
         wallet={wallet}
