@@ -278,6 +278,31 @@ impl AuthService {
         Ok(false)
     }
 
+    // Email contact verification methods
+    pub async fn send_email_contact_otp(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        otp_code: &str,
+    ) -> Result<()> {
+        if let Some(email_service) = &self.email_service {
+            email_service
+                .send_contact_otp_verification(to_email, to_name, otp_code)
+                .await
+        } else {
+            Err(anyhow!("Email service not configured"))
+        }
+    }
+
+    pub fn verify_email_contact_otp(&self, stored_code: &str, provided_code: &str) -> bool {
+        stored_code == provided_code
+    }
+
+    // Check if email matches current user's account email (skip verification if same)
+    pub fn should_skip_email_verification(&self, contact_email: &str, user_email: &str) -> bool {
+        contact_email.to_lowercase() == user_email.to_lowercase()
+    }
+
     pub fn generate_token(&self, user_id: &str, email: &str, is_admin: bool) -> Result<String> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
 

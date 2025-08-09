@@ -44,6 +44,16 @@ export function ContactModal({
   const [error, setError] = useState<string | null>(null)
   const [smsVerificationError, setSmsVerificationError] = useState<string | null>(null)
   const [phoneNumberError, setPhoneNumberError] = useState<string | null>(null)
+  const [emailVerificationError, setEmailVerificationError] = useState<string | null>(null)
+  const [emailAddressError, setEmailAddressError] = useState<string | null>(null)
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false)
+  const [emailVerificationCode, setEmailVerificationCode] = useState("")
+  const [emailVerificationAddress, setEmailVerificationAddress] = useState<string | null>(null)
+  const [emailVerified, setEmailVerified] = useState(false)
+  const [showEmailVerificationSuccess, setShowEmailVerificationSuccess] = useState(false)
+  const [originalEmailAddress, setOriginalEmailAddress] = useState<string | null>(null)
+  const [isSendingEmailVerification, setIsSendingEmailVerification] = useState(false)
+  const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false)
   const [smsVerificationSent, setSmsVerificationSent] = useState(false)
   const [smsVerificationCode, setSmsVerificationCode] = useState("")
   const [smsVerificationPhone, setSmsVerificationPhone] = useState<string | null>(null)
@@ -62,9 +72,17 @@ export function ContactModal({
   const phoneNumberChanged = isOpen ? (originalPhoneNumber !== null && 
     providerValues['twilio']?.trim() !== originalPhoneNumber) : false
 
+  // Only calculate when modal is open to avoid unnecessary computation
+  const emailAddressChanged = isOpen ? (originalEmailAddress !== null && 
+    providerValues['email']?.trim() !== originalEmailAddress) : false
+
   // Check if SMS verification is required
   const smsVerificationRequired = isOpen ? (enabledProviders['twilio'] && 
     (phoneNumberChanged || (!isEditMode && !smsVerified) || (isEditMode && originalPhoneNumber === null && !smsVerified))) : false
+  
+  // Check if email verification is required
+  const emailVerificationRequired = isOpen ? (enabledProviders['email'] && 
+    (emailAddressChanged || (!isEditMode && !emailVerified) || (isEditMode && originalEmailAddress === null && !emailVerified))) : false
   
 
   // Clear timer on unmount
@@ -122,13 +140,21 @@ export function ContactModal({
       setError(null)
       setSmsVerificationError(null)
       setPhoneNumberError(null)
+      setEmailVerificationError(null)
+      setEmailAddressError(null)
       setSmsVerificationSent(false)
       setSmsVerificationCode("")
       setSmsVerificationPhone(null)
+      setEmailVerificationSent(false)
+      setEmailVerificationCode("")
+      setEmailVerificationAddress(null)
       setTimeRemaining(0)
       setSmsVerified(false)
       setShowSmsVerificationSuccess(false)
+      setEmailVerified(false)
+      setShowEmailVerificationSuccess(false)
       setOriginalPhoneNumber(null)
+      setOriginalEmailAddress(null)
       setHasChanges(false)
       
       if (timerRef.current) {
@@ -154,8 +180,11 @@ export function ContactModal({
           } else if (method.provider_type === 'ntfy') {
             newEnabledProviders['ntfy'] = true
           } else if (method.provider_type === 'email') {
+            const emailAddress = method.display_target || method.notification_target
             newEnabledProviders['email'] = true
-            newProviderValues['email'] = method.display_target || method.notification_target
+            newProviderValues['email'] = emailAddress
+            setOriginalEmailAddress(emailAddress)
+            setEmailVerified(true) // Email already exists on contact, so it's verified
           }
         })
         
@@ -179,13 +208,20 @@ export function ContactModal({
     setError(null)
     setSmsVerificationError(null)
     setPhoneNumberError(null)
+    setEmailVerificationError(null)
     setSmsVerificationSent(false)
     setSmsVerificationCode("")
     setSmsVerificationPhone(null)
+    setEmailVerificationSent(false)
+    setEmailVerificationCode("")
+    setEmailVerificationAddress(null)
     setTimeRemaining(0)
     setSmsVerified(false)
     setShowSmsVerificationSuccess(false)
+    setEmailVerified(false)
+    setShowEmailVerificationSuccess(false)
     setOriginalPhoneNumber(null)
+    setOriginalEmailAddress(null)
     setHasChanges(false)
     if (timerRef.current) {
       clearInterval(timerRef.current)
@@ -208,7 +244,8 @@ export function ContactModal({
         walletChecksum,
         name.trim() || `Contact-${phoneNumber.slice(-4)}`,
         language,
-        phoneNumber
+        phoneNumber,
+        undefined // emailAddress
       )
       
       setSmsVerificationPhone(phoneNumber)
@@ -238,11 +275,12 @@ export function ContactModal({
     setError(null)
 
     try {
-      // Use the new verify-phone-only endpoint that doesn't create contacts
-      const result = await api.verifyPhoneOnly(
+      // Use the new unified verify endpoint
+      const result = await api.verifyContact(
         walletChecksum,
+        smsVerificationCode.trim(),
         smsVerificationPhone,
-        smsVerificationCode.trim()
+        undefined // emailAddress
       )
       
       if (result.valid) {
@@ -281,6 +319,104 @@ export function ContactModal({
     }
   }
 
+  const handleSendEmailVerification = async () => {
+    const emailAddress = providerValues['email']?.trim()
+    if (!emailAddress) {
+      setEmailAddressError("Email address is required for email verification")
+      return
+    }
+
+    setIsSendingEmailVerification(true)
+    setEmailVerificationError(null)
+    setEmailAddressError(null)
+
+    try {
+      const result = await api.sendContactVerification(
+        walletChecksum,
+        name.trim() || `Contact-${emailAddress.split('@')[0]}`,
+        language,
+        undefined, // phoneNumber
+        emailAddress
+      )
+      
+      // Check if email was auto-verified (user's own email)
+      if (result.auto_verified) {
+        setEmailVerified(true)
+        setShowEmailVerificationSuccess(true)
+        setError(null)
+      } else {
+        setEmailVerificationAddress(emailAddress)
+        setEmailVerificationSent(true)
+        setEmailVerificationCode("")
+        setError(null)
+        startTimer()
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
+      if (errorMessage.toLowerCase().includes("email") || errorMessage.toLowerCase().includes("address")) {
+        setEmailAddressError(errorMessage)
+      } else {
+        setError(errorMessage)
+      }
+    } finally {
+      setIsSendingEmailVerification(false)
+    }
+  }
+
+  const handleVerifyEmailCode = async () => {
+    if (!emailVerificationCode.trim() || !emailVerificationAddress) {
+      setEmailVerificationError("Please enter the verification code")
+      return
+    }
+
+    setIsVerifyingEmailCode(true)
+    setEmailVerificationError(null)
+
+    try {
+      const result = await api.verifyContact(
+        walletChecksum,
+        emailVerificationCode.trim(),
+        undefined, // phoneNumber
+        emailVerificationAddress
+      )
+      
+      if (result.valid) {
+        setEmailVerified(true)
+        setShowEmailVerificationSuccess(true)
+        setError(null)
+        setEmailVerificationError(null)
+      setEmailAddressError(null)
+        
+        // Clear the timer since verification is complete
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+        }
+        setTimeRemaining(0)
+      } else {
+        setEmailVerificationError(result.message || "Invalid verification code")
+        setEmailVerificationCode("")
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Invalid verification code"
+      
+      if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
+        setEmailVerificationError("Verification code expired. Please request a new code.")
+        setEmailVerificationSent(false)
+        setEmailVerified(false)
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+        }
+      } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
+        setEmailVerificationError("Invalid verification code. Please try again.")
+        setEmailVerificationCode("")
+      } else {
+        setEmailVerificationError(errorMessage)
+      }
+    } finally {
+      setIsVerifyingEmailCode(false)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!name.trim()) {
       setError("Contact name is required")
@@ -302,12 +438,22 @@ export function ContactModal({
       return
     }
 
+    // Check if email verification is required but not completed
+    if (emailVerificationRequired && !emailVerified) {
+      if (emailAddressChanged) {
+        setError("Please verify the new email address before saving the contact")
+      } else {
+        setError("Please verify the email code before saving the contact")
+      }
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
     try {
-      // If no SMS or SMS is enabled and verified
-      if (!hasSms || (hasSms && smsVerified)) {
+      // If verification requirements are met
+      if ((!hasSms || (hasSms && smsVerified)) && (!hasEmail || (hasEmail && emailVerified))) {
         // For edit mode, delete first only after validation passes
         if (isEditMode && editContact) {
           await api.deleteContact(walletChecksum, editContact.id)
@@ -319,10 +465,10 @@ export function ContactModal({
           notificationMethods.push({ provider_type: 'ntfy', notification_target: '' })
         }
         
-        if (hasEmail) {
+        if (hasEmail && emailVerified) {
           notificationMethods.push({ 
             provider_type: 'email', 
-            notification_target: providerValues['email'].trim() 
+            notification_target: emailVerificationAddress || providerValues['email'].trim() 
           })
         }
         
@@ -608,24 +754,143 @@ export function ContactModal({
                         </div>
                       )}
                       {enabledProviders[provider.name] && provider.name === 'email' && (
-                        <div className="mt-2">
-                          <Input
-                            value={providerValues[provider.name] || ''}
-                            onChange={(e) => {
-                              setProviderValues(prev => ({
-                                ...prev,
-                                [provider.name]: e.target.value
-                              }))
-                              setHasChanges(true)
-                            }}
-                            placeholder="user@example.com"
-                            disabled={isSubmitting}
-                            type="email"
-                          />
-                          {!providerValues[provider.name] && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Enter valid email address
-                            </p>
+                        <div className="mt-2 space-y-3">
+                          <div>
+                            <Input
+                              value={providerValues[provider.name] || ''}
+                              onChange={(e) => {
+                                setProviderValues(prev => ({
+                                  ...prev,
+                                  [provider.name]: e.target.value
+                                }))
+                                setHasChanges(true)
+                                // Clear email errors when user starts typing
+                                if (emailVerificationError) {
+                                  setEmailVerificationError(null)
+                                }
+                                if (emailAddressError) {
+                                  setEmailAddressError(null)
+                                }
+                                // Reset verification state when email address changes from original
+                                const newEmailAddress = e.target.value.trim()
+                                if (originalEmailAddress !== null && newEmailAddress !== originalEmailAddress) {
+                                  setEmailVerificationSent(false)
+                                  setEmailVerificationCode("")
+                                  setEmailVerificationAddress(null)
+                                  setEmailVerified(false)
+                                  setTimeRemaining(0)
+                                  if (timerRef.current) {
+                                    clearInterval(timerRef.current)
+                                  }
+                                } else if (originalEmailAddress !== null && newEmailAddress === originalEmailAddress) {
+                                  // Email address reverted to original, mark as verified
+                                  setEmailVerified(true)
+                                  setEmailVerificationSent(false)
+                                  setEmailVerificationCode("")
+                                  setEmailVerificationAddress(null)
+                                  setTimeRemaining(0)
+                                  if (timerRef.current) {
+                                    clearInterval(timerRef.current)
+                                  }
+                                }
+                              }}
+                              placeholder="user@example.com"
+                              disabled={isSubmitting || isSendingEmailVerification}
+                              type="email"
+                              className={emailAddressError ? 'border-red-500 focus:border-red-500' : ''}
+                            />
+                            {/* Email address error under the input */}
+                            {emailAddressError && (
+                              <div className="text-sm text-red-600 mt-1">
+                                {emailAddressError}
+                              </div>
+                            )}
+                            {(!providerValues[provider.name] || !emailVerified) && !emailAddressError && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Enter valid email address
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Send Verification Button - only show when verification is required */}
+                          {(emailVerificationRequired && !emailVerificationSent) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleSendEmailVerification}
+                              disabled={isSendingEmailVerification || isSubmitting || !providerValues['email']?.trim()}
+                              className="w-full"
+                            >
+                              {isSendingEmailVerification ? "Sending..." : "Send Verification Code"}
+                            </Button>
+                          )}
+
+                          {/* OTP Input Field */}
+                          {emailVerificationSent && !emailVerified && (
+                            <div className="space-y-3">
+                              <div>
+                                <Label htmlFor="email-verification-code">Verification Code</Label>
+                                <div className="flex gap-2">
+                                  <Input
+                                    id="email-verification-code"
+                                    value={emailVerificationCode}
+                                    onChange={(e) => {
+                                      setEmailVerificationCode(e.target.value)
+                                      // Clear email verification error when user starts typing
+                                      if (emailVerificationError) {
+                                        setEmailVerificationError(null)
+      setEmailAddressError(null)
+                                      }
+                                    }}
+                                    placeholder="Enter 6-digit code"
+                                    disabled={isSubmitting || isVerifyingEmailCode}
+                                    maxLength={6}
+                                    className={`flex-1 ${emailVerificationError ? 'border-red-500 focus:border-red-500' : ''}`}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleVerifyEmailCode}
+                                    disabled={!emailVerificationCode.trim() || isVerifyingEmailCode || isSubmitting}
+                                  >
+                                    {isVerifyingEmailCode ? "Verifying..." : "Verify"}
+                                  </Button>
+                                </div>
+                                {/* Email verification error under the input */}
+                                {emailVerificationError && (
+                                  <div className="text-sm text-red-600 mt-1">
+                                    {emailVerificationError}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                                <span>
+                                  Code sent to {emailVerificationAddress}
+                                  {timeRemaining > 0 && (
+                                    <span className="block">Expires in {formatTime(timeRemaining)}</span>
+                                  )}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendEmailVerification()}
+                                  disabled={isSendingEmailVerification || timeRemaining > 540} // Allow resend after 1 minute
+                                  className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 underline"
+                                >
+                                  Resend
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Verification Success - only show after fresh verification */}
+                          {showEmailVerificationSuccess && (
+                            <div className="flex items-center gap-2 text-green-600 text-sm">
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Email verified successfully
+                            </div>
                           )}
                         </div>
                       )}

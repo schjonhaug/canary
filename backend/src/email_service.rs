@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use resend_rs::types::{ContactData, CreateEmailBaseOptions};
 use resend_rs::Resend;
+use rand::Rng;
 
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
@@ -224,6 +225,88 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
         text_body: &str,
     ) -> Result<()> {
         self.send_email(to_email, to_name, subject, html_body, text_body)
+            .await
+    }
+
+    /// Generate a 6-digit OTP code for email verification
+    pub fn generate_otp_code() -> String {
+        let mut rng = rand::thread_rng();
+        format!("{:06}", rng.gen_range(100000..1000000))
+    }
+
+    /// Send OTP verification code via email for contact verification
+    pub async fn send_contact_otp_verification(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        otp_code: &str,
+    ) -> Result<()> {
+        let subject = "Verify Your Email - Canary Wallet Contact";
+        let html_body = format!(
+            r#"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>{}</title>
+            </head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #1f2937;">Canary Wallet</h1>
+                </div>
+                
+                <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h2 style="color: #1f2937; margin-top: 0;">Email Verification Required</h2>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        Hi {name},
+                    </p>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        Please verify your email address to receive Bitcoin transaction notifications. Enter the verification code below:
+                    </p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <div style="background-color: #e5e7eb; border: 2px dashed #9ca3af; padding: 20px; border-radius: 8px; display: inline-block;">
+                            <span style="font-size: 32px; font-weight: bold; font-family: 'Courier New', monospace; color: #1f2937; letter-spacing: 8px;">
+                                {otp_code}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+                        This verification code will expire in 10 minutes. If you didn't request this verification, you can safely ignore this email.
+                    </p>
+                </div>
+                
+                <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
+                    <p>© 2024 Canary Wallet. All rights reserved.</p>
+                </div>
+            </body>
+            </html>
+            "#,
+            subject,
+            name = to_name,
+            otp_code = otp_code
+        );
+
+        let text_body = format!(
+            r#"
+Canary Wallet - Email Verification
+
+Hi {name},
+
+Please verify your email address to receive Bitcoin transaction notifications. 
+
+Your verification code is: {otp_code}
+
+This verification code will expire in 10 minutes. If you didn't request this verification, you can safely ignore this email.
+
+© 2024 Canary Wallet. All rights reserved.
+            "#,
+            name = to_name,
+            otp_code = otp_code
+        );
+
+        self.send_email(to_email, to_name, subject, &html_body, &text_body)
             .await
     }
 

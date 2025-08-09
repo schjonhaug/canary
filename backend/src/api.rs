@@ -100,17 +100,12 @@ pub struct SendContactVerificationRequest {
     pub name: String,
     /// Language for notifications
     pub language: String,
-    /// Phone number to verify
-    pub phone_number: String,
+    /// Phone number to verify (optional)
+    pub phone_number: Option<String>,
+    /// Email address to verify (optional)
+    pub email_address: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-pub struct VerifyContactRequest {
-    /// Phone number being verified
-    pub phone_number: String,
-    /// Verification code
-    pub code: String,
-}
 
 #[derive(Serialize, ToSchema)]
 pub struct ProvidersResponse {
@@ -1137,23 +1132,70 @@ pub async fn send_contact_verification(
         }
     }
 
-    // Validate phone number
-    let normalized_phone = match validate_phone_number(&request.phone_number) {
-        Ok(phone) => phone,
-        Err(e) => {
-            return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })).into_response();
+    // Determine verification type and validate input
+    let (provider_type, notification_target, is_dev_mode) = if let Some(phone_number) = &request.phone_number {
+        // SMS verification
+        let normalized_phone = match validate_phone_number(phone_number) {
+            Ok(phone) => phone,
+            Err(e) => {
+                return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })).into_response();
+            }
+        };
+
+        let is_dev_phone = cfg!(debug_assertions)
+            && ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
+
+        ("sms", normalized_phone, is_dev_phone)
+    } else if let Some(email_address) = &request.email_address {
+        // Email verification
+        let email = email_address.trim().to_lowercase();
+        
+        // Basic email validation
+        if !email.contains('@') || email.len() < 5 {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Invalid email address format".to_string(),
+                }),
+            )
+                .into_response();
         }
+
+        // Check if email matches current user's account email (skip verification)
+        if let Ok(Some(user_record)) = manager.metadata_db.get_user_by_id(&user.user_id).await {
+            let jwt_secret = std::env::var("JWT_SECRET")
+                .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+            let auth_service = AuthService::new(jwt_secret.clone(), None);
+            
+            if auth_service.should_skip_email_verification(&email, &user_record.email) {
+                // Auto-approve for user's own email
+                return Json(serde_json::json!({
+                    "message": "Email verification skipped - this is your account email",
+                    "auto_verified": true
+                }))
+                .into_response();
+            }
+        }
+
+        let is_dev_email = cfg!(debug_assertions)
+            && ["test@example.com", "dev@canary.local"].contains(&email.as_str());
+
+        ("email", email, is_dev_email)
+    } else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Either phone_number or email_address must be provided".to_string(),
+            }),
+        )
+            .into_response();
     };
 
-    // Check if this is a dev test phone
-    let is_dev_phone = cfg!(debug_assertions)
-        && ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
-
-    // Check rate limit (skip for dev phones)
-    if !is_dev_phone {
+    // Check rate limit (skip for dev mode)
+    if !is_dev_mode {
         match manager
             .metadata_db
-            .check_rate_limit(&normalized_phone)
+            .check_rate_limit(&notification_target)
             .await
         {
             Ok(true) => {} // Allowed
@@ -1179,46 +1221,32 @@ pub async fn send_contact_verification(
         }
     }
 
-    // Get Twilio config
-    let twilio_config = match load_twilio_config_from_env() {
-        Ok(config) => config,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Twilio configuration error: {}", e),
-                }),
-            )
-                .into_response();
-        }
-    };
-
-    // Check that Verify service is configured (skip for dev phones)
-    if !is_dev_phone && twilio_config.verify_service_sid.is_none() {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: "Twilio Verify service not configured".to_string(),
-            }),
-        )
-            .into_response();
-    }
-
     // Clean up any expired verifications first
     let _ = manager.metadata_db.cleanup_expired_verifications().await;
 
-    // Store pending verification
-    let verification_code = if is_dev_phone { Some("123456") } else { None };
+    // Generate verification code
+    let verification_code = if is_dev_mode {
+        "123456".to_string()
+    } else if provider_type == "email" {
+        use crate::email_service::EmailService;
+        EmailService::generate_otp_code()
+    } else {
+        // SMS uses Twilio Verify which generates its own codes
+        "".to_string() // Will be None in database
+    };
 
+    // Store pending verification
+    let stored_code = if verification_code.is_empty() { None } else { Some(verification_code.as_str()) };
+    
     match manager
         .metadata_db
         .create_pending_contact_verification(
             &wallet_checksum,
-            "sms",
-            &normalized_phone,
+            provider_type,
+            &notification_target,
             &request.name,
             &request.language,
-            verification_code,
+            stored_code,
         )
         .await
     {
@@ -1234,15 +1262,58 @@ pub async fn send_contact_verification(
         }
     }
 
-    // Send OTP
+    // Send verification code
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    let auth_service = AuthService::new(jwt_secret, None);
+    
+    let result = if provider_type == "sms" {
+        // SMS verification via Twilio
+        let twilio_config = match load_twilio_config_from_env() {
+            Ok(config) => config,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Twilio configuration error: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        };
 
-    match auth_service
-        .send_contact_otp(&twilio_config, &normalized_phone)
-        .await
-    {
+        if !is_dev_mode && twilio_config.verify_service_sid.is_none() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "Twilio Verify service not configured".to_string(),
+                }),
+            )
+                .into_response();
+        }
+
+        let auth_service = AuthService::new(jwt_secret, None);
+        auth_service.send_contact_otp(&twilio_config, &notification_target).await
+    } else {
+        // Email verification via Resend
+        use crate::email_service::EmailService;
+        let email_service = match EmailService::from_env() {
+            Ok(service) => service,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Email service configuration error: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        };
+
+        let auth_service = AuthService::new(jwt_secret, Some(email_service));
+        auth_service.send_email_contact_otp(&notification_target, &request.name, &verification_code).await
+    };
+
+    match result {
         Ok(_) => Json(serde_json::json!({
             "message": "Verification code sent successfully"
         }))
@@ -1263,23 +1334,27 @@ pub async fn send_contact_verification(
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
-pub struct VerifyPhoneRequest {
-    pub phone_number: String,
+pub struct VerifyContactRequest {
+    /// Phone number being verified (optional)
+    pub phone_number: Option<String>,
+    /// Email address being verified (optional)
+    pub email_address: Option<String>,
+    /// Verification code
     pub code: String,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
-pub struct VerifyPhoneResponse {
+pub struct VerifyContactResponse {
     pub valid: bool,
     pub message: String,
 }
 
 #[utoipa::path(
     post,
-    path = "/api/wallets/{checksum}/contacts/verify-phone",
-    request_body = VerifyPhoneRequest,
+    path = "/api/wallets/{checksum}/contacts/verify",
+    request_body = VerifyContactRequest,
     responses(
-        (status = 200, description = "Phone verification result", body = VerifyPhoneResponse),
+        (status = 200, description = "Contact verification result", body = VerifyContactResponse),
         (status = 400, description = "Invalid request", body = ErrorResponse),
         (status = 401, description = "Authentication required", body = ErrorResponse),
         (status = 403, description = "Access denied", body = ErrorResponse),
@@ -1291,11 +1366,11 @@ pub struct VerifyPhoneResponse {
         ("bearer_auth" = [])
     )
 )]
-pub async fn verify_phone_only(
+pub async fn verify_contact(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
-    Json(request): Json<VerifyPhoneRequest>,
+    Json(request): Json<VerifyContactRequest>,
 ) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
@@ -1369,26 +1444,58 @@ pub async fn verify_phone_only(
         }
     }
 
-    // Validate phone number
-    let normalized_phone = match validate_phone_number(&request.phone_number) {
-        Ok(phone) => phone,
-        Err(e) => {
-            return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })).into_response();
+    // Determine what we're verifying and validate input
+    let (provider_type, notification_target) = if let Some(phone_number) = &request.phone_number {
+        // SMS verification
+        let normalized_phone = match validate_phone_number(phone_number) {
+            Ok(phone) => phone,
+            Err(e) => {
+                return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })).into_response();
+            }
+        };
+        ("sms", normalized_phone)
+    } else if let Some(email_address) = &request.email_address {
+        // Email verification
+        let email = email_address.trim().to_lowercase();
+        
+        // Basic email validation
+        if !email.contains('@') || email.len() < 5 {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Invalid email address format".to_string(),
+                }),
+            )
+                .into_response();
         }
+        ("email", email)
+    } else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Either phone_number or email_address must be provided".to_string(),
+            }),
+        )
+            .into_response();
     };
 
     // Look up the pending verification
-    let (verification_id, _contact_name, _language, _verification_code) = match manager
+    let (verification_id, _contact_name, _language, verification_code) = match manager
         .metadata_db
-        .get_pending_verification(&wallet_checksum, &normalized_phone)
+        .get_pending_verification(&wallet_checksum, &notification_target)
         .await
     {
         Ok(Some(verification)) => verification,
         Ok(None) => {
+            let error_msg = if provider_type == "email" {
+                "No pending verification found for this email address"
+            } else {
+                "No pending verification found for this phone number"
+            };
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
-                    error: "No pending verification found for this phone number".to_string(),
+                    error: error_msg.to_string(),
                 }),
             )
                 .into_response();
@@ -1404,38 +1511,53 @@ pub async fn verify_phone_only(
         }
     };
 
-    // Verify the code using Twilio
-    let is_valid = {
-        let twilio_config = match load_twilio_config_from_env() {
-            Ok(config) => config,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Twilio configuration error: {}", e),
-                    }),
-                )
-                    .into_response();
-            }
-        };
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
 
-        let jwt_secret = std::env::var("JWT_SECRET")
-            .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-        let auth_service = AuthService::new(jwt_secret, None);
+    // Verify the code based on provider type
+    let is_valid = if provider_type == "email" {
+        // Email verification - direct code comparison
+        if let Some(stored_code) = verification_code {
+            let auth_service = AuthService::new(jwt_secret, None);
+            auth_service.verify_email_contact_otp(&stored_code, &request.code)
+        } else {
+            false // No stored code means invalid
+        }
+    } else {
+        // SMS verification
+        if let Some(stored_code) = verification_code {
+            // Dev mode - direct comparison
+            stored_code == request.code
+        } else {
+            // Production mode - verify with Twilio
+            let twilio_config = match load_twilio_config_from_env() {
+                Ok(config) => config,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Twilio configuration error: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
+            };
 
-        match auth_service
-            .verify_contact_otp(&twilio_config, &normalized_phone, &request.code)
-            .await
-        {
-            Ok(valid) => valid,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to verify code: {}", e),
-                    }),
-                )
-                    .into_response();
+            let auth_service = AuthService::new(jwt_secret, None);
+            match auth_service
+                .verify_contact_otp(&twilio_config, &notification_target, &request.code)
+                .await
+            {
+                Ok(valid) => valid,
+                Err(e) => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse {
+                            error: format!("Failed to verify code: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
             }
         }
     };
@@ -1444,7 +1566,7 @@ pub async fn verify_phone_only(
         // Clear rate limit on successful verification
         let _ = manager
             .metadata_db
-            .clear_rate_limit(&normalized_phone)
+            .clear_rate_limit(&notification_target)
             .await;
 
         // Delete pending verification
@@ -1453,18 +1575,24 @@ pub async fn verify_phone_only(
             .delete_pending_verification(verification_id)
             .await;
 
+        let success_message = if provider_type == "email" {
+            "Email address verified successfully"
+        } else {
+            "Phone number verified successfully"
+        };
+
         (
             StatusCode::OK,
-            Json(VerifyPhoneResponse {
+            Json(VerifyContactResponse {
                 valid: true,
-                message: "Phone number verified successfully".to_string(),
+                message: success_message.to_string(),
             }),
         )
             .into_response()
     } else {
         (
             StatusCode::BAD_REQUEST,
-            Json(VerifyPhoneResponse {
+            Json(VerifyContactResponse {
                 valid: false,
                 message: "Invalid verification code".to_string(),
             }),
@@ -2418,7 +2546,7 @@ pub async fn get_providers(
         create_wallet, update_wallet, delete_wallet, get_wallet,
         get_wallets_list, get_wallet_detail,
         create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
-        send_contact_verification, verify_phone_only,
+        send_contact_verification, verify_contact,
         get_current_block_header,
         get_providers,
         register, login, verify_email, forgot_password, reset_password, logout, me, update_user
@@ -2426,7 +2554,7 @@ pub async fn get_providers(
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactWithMethodsRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
-        SendContactVerificationRequest, VerifyPhoneRequest, VerifyPhoneResponse,
+        SendContactVerificationRequest, VerifyContactRequest, VerifyContactResponse,
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
         RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse
@@ -2479,8 +2607,8 @@ pub fn create_router(
             post(send_contact_verification),
         )
         .route(
-            "/wallets/{checksum}/contacts/verify-phone",
-            post(verify_phone_only),
+            "/wallets/{checksum}/contacts/verify",
+            post(verify_contact),
         )
         .route(
             "/wallets/{wallet_checksum}/contacts/{contact_id}",

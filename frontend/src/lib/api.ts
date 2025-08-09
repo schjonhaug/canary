@@ -91,7 +91,7 @@ class ApiClient {
     walletChecksum: string, 
     name: string,
     language: 'en' | 'no',
-    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy', notification_target: string }>
+    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts`, {
       method: 'POST',
@@ -107,27 +107,31 @@ class ApiClient {
     walletChecksum: string,
     name: string,
     language: string,
-    phoneNumber: string
-  ): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/api/wallets/${walletChecksum}/contacts/send-verification`, {
+    phoneNumber?: string,
+    emailAddress?: string
+  ): Promise<{ message: string; auto_verified?: boolean }> {
+    return this.request<{ message: string; auto_verified?: boolean }>(`/api/wallets/${walletChecksum}/contacts/send-verification`, {
       method: 'POST',
       body: JSON.stringify({
         name,
         language,
         phone_number: phoneNumber,
+        email_address: emailAddress,
       }),
     })
   }
 
-  async verifyPhoneOnly(
+  async verifyContact(
     walletChecksum: string,
-    phoneNumber: string,
-    code: string
+    code: string,
+    phoneNumber?: string,
+    emailAddress?: string
   ): Promise<{ valid: boolean; message: string }> {
-    return this.request<{ valid: boolean; message: string }>(`/api/wallets/${walletChecksum}/contacts/verify-phone`, {
+    return this.request<{ valid: boolean; message: string }>(`/api/wallets/${walletChecksum}/contacts/verify`, {
       method: 'POST',
       body: JSON.stringify({
         phone_number: phoneNumber,
+        email_address: emailAddress,
         code,
       }),
     })
