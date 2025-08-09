@@ -1,30 +1,30 @@
-use anyhow::{Result, anyhow};
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
-use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey, Algorithm};
-use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
-use base64::{Engine as _, engine::general_purpose};
-use reqwest::Client;
-use std::time::{SystemTime, UNIX_EPOCH};
-use uuid::Uuid;
-use crate::metadata::TwilioConfig;
 use crate::email_service::EmailService;
+use crate::metadata::TwilioConfig;
+use anyhow::{anyhow, Result};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use base64::{engine::general_purpose, Engine as _};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::time::{SystemTime, UNIX_EPOCH};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 /// Load Twilio configuration from environment variables
 pub fn load_twilio_config_from_env() -> Result<TwilioConfig> {
-    let account_sid = std::env::var("TWILIO_ACCOUNT_SID")
-        .map_err(|_| anyhow!("TWILIO_ACCOUNT_SID not set"))?;
-    
-    let auth_token = std::env::var("TWILIO_AUTH_TOKEN")
-        .map_err(|_| anyhow!("TWILIO_AUTH_TOKEN not set"))?;
-    
+    let account_sid =
+        std::env::var("TWILIO_ACCOUNT_SID").map_err(|_| anyhow!("TWILIO_ACCOUNT_SID not set"))?;
+
+    let auth_token =
+        std::env::var("TWILIO_AUTH_TOKEN").map_err(|_| anyhow!("TWILIO_AUTH_TOKEN not set"))?;
+
     let messaging_service_sid = std::env::var("TWILIO_MESSAGING_SERVICE_SID")
         .map_err(|_| anyhow!("TWILIO_MESSAGING_SERVICE_SID not set"))?;
-    
+
     let verify_service_sid = std::env::var("TWILIO_VERIFY_SERVICE_SID").ok();
-    
+
     Ok(TwilioConfig {
         id: None,
         account_sid,
@@ -108,9 +108,9 @@ const DEV_MODE: bool = cfg!(debug_assertions);
 
 // Dev mode test email addresses (bypass email verification in dev mode)
 pub const DEV_TEST_EMAILS: [&str; 3] = [
-    "delivered+admin@resend.dev",     // Admin user
-    "delivered+alice@resend.dev",     // Test user 1  
-    "delivered+bob@resend.dev",       // Test user 2
+    "delivered+admin@resend.dev", // Admin user
+    "delivered+alice@resend.dev", // Test user 1
+    "delivered+bob@resend.dev",   // Test user 2
 ];
 
 // Dev mode password for all test accounts
@@ -144,7 +144,7 @@ impl AuthService {
     pub fn verify_password(&self, password: &str, password_hash: &str) -> Result<bool> {
         let parsed_hash = PasswordHash::new(password_hash)
             .map_err(|e| anyhow!("Invalid password hash: {}", e))?;
-        
+
         match Argon2::default().verify_password(password.as_bytes(), &parsed_hash) {
             Ok(()) => Ok(true),
             Err(_) => Ok(false),
@@ -155,13 +155,23 @@ impl AuthService {
         Uuid::new_v4().to_string()
     }
 
-    pub async fn send_email_verification(&self, email: &str, name: &str, token: &str) -> Result<()> {
+    pub async fn send_email_verification(
+        &self,
+        email: &str,
+        name: &str,
+        token: &str,
+    ) -> Result<()> {
         if let Some(email_service) = &self.email_service {
-            email_service.send_email_verification(email, name, token).await
+            email_service
+                .send_email_verification(email, name, token)
+                .await
         } else {
             // In development mode without email service, just log the token
             if DEV_MODE {
-                println!("[DEV MODE] Email verification token for {}: {}", email, token);
+                println!(
+                    "[DEV MODE] Email verification token for {}: {}",
+                    email, token
+                );
                 Ok(())
             } else {
                 Err(anyhow!("Email service not configured"))
@@ -192,8 +202,13 @@ impl AuthService {
     }
 
     // Keep this method for SMS contact verification (not auth login)
-    pub async fn send_contact_otp(&self, twilio_config: &TwilioConfig, phone_number: &str) -> Result<()> {
-        let verify_service_sid = twilio_config.verify_service_sid
+    pub async fn send_contact_otp(
+        &self,
+        twilio_config: &TwilioConfig,
+        phone_number: &str,
+    ) -> Result<()> {
+        let verify_service_sid = twilio_config
+            .verify_service_sid
             .as_ref()
             .ok_or_else(|| anyhow!("Twilio Verify service SID not configured"))?;
 
@@ -205,12 +220,10 @@ impl AuthService {
         let auth_string = format!("{}:{}", twilio_config.account_sid, twilio_config.auth_token);
         let auth_header = format!("Basic {}", general_purpose::STANDARD.encode(auth_string));
 
-        let params = [
-            ("To", phone_number),
-            ("Channel", "sms"),
-        ];
+        let params = [("To", phone_number), ("Channel", "sms")];
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", auth_header)
             .form(&params)
@@ -226,8 +239,14 @@ impl AuthService {
     }
 
     // Keep this method for SMS contact verification (not auth login)
-    pub async fn verify_contact_otp(&self, twilio_config: &TwilioConfig, phone_number: &str, code: &str) -> Result<bool> {
-        let verify_service_sid = twilio_config.verify_service_sid
+    pub async fn verify_contact_otp(
+        &self,
+        twilio_config: &TwilioConfig,
+        phone_number: &str,
+        code: &str,
+    ) -> Result<bool> {
+        let verify_service_sid = twilio_config
+            .verify_service_sid
             .as_ref()
             .ok_or_else(|| anyhow!("Twilio Verify service SID not configured"))?;
 
@@ -239,12 +258,10 @@ impl AuthService {
         let auth_string = format!("{}:{}", twilio_config.account_sid, twilio_config.auth_token);
         let auth_header = format!("Basic {}", general_purpose::STANDARD.encode(auth_string));
 
-        let params = [
-            ("To", phone_number),
-            ("Code", code),
-        ];
+        let params = [("To", phone_number), ("Code", code)];
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", auth_header)
             .form(&params)
@@ -262,10 +279,8 @@ impl AuthService {
     }
 
     pub fn generate_token(&self, user_id: i64, email: &str, is_admin: bool) -> Result<String> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_secs() as usize;
-        
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
+
         let claims = Claims {
             sub: user_id,
             email: email.to_string(),
@@ -305,7 +320,7 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
         .map(|v| v.to_lowercase() == "true" || v == "1")
         .unwrap_or(false);
-    
+
     if !auth_enabled {
         // Self-hosted mode: always return admin user
         return Ok(AuthUser {
@@ -316,7 +331,7 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
 
     // SAAS mode: validate JWT token
     let auth_header = auth_header.ok_or_else(|| anyhow!("Authorization header required"))?;
-    
+
     if !auth_header.starts_with("Bearer ") {
         return Err(anyhow!("Invalid authorization header format"));
     }
@@ -324,7 +339,7 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     let token = &auth_header[7..];
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    
+
     let auth_service = AuthService::new(jwt_secret, None);
     let claims = auth_service.validate_token(token)?;
 

@@ -10,24 +10,27 @@ pub mod message_formatter;
 pub mod metadata;
 pub mod migrations;
 pub mod notifications;
-pub mod wallet;
 pub mod ntfy_provider;
 pub mod twilio_provider;
+pub mod wallet;
 
 // Re-export commonly used types
 pub use config::AppConfig;
-pub use electrum::{ElectrumClient, BlockHeader};
-pub use email_service::{EmailService, EmailConfig};
+pub use electrum::{BlockHeader, ElectrumClient};
+pub use email_service::{EmailConfig, EmailService};
 pub use message_formatter::MessageFormatter;
 pub use metadata::{
-    Contact, NotificationMethod, ProviderType, EventType, Language, TransactionEvent, TransactionEventWithWallet, 
-    WalletMetadata, WalletsListResponse, WalletDetailResponse, NotificationStatus, MetadataDb
+    Contact, EventType, Language, MetadataDb, NotificationMethod, NotificationStatus, ProviderType,
+    TransactionEvent, TransactionEventWithWallet, WalletDetailResponse, WalletMetadata,
+    WalletsListResponse,
 };
 pub use migrations::MigrationRunner;
-pub use notifications::{NotificationManager, NotificationProvider, NotificationResult, ProviderInfo};
-pub use wallet::WalletManager;
+pub use notifications::{
+    NotificationManager, NotificationProvider, NotificationResult, ProviderInfo,
+};
 pub use ntfy_provider::NtfyProvider;
 pub use twilio_provider::TwilioProvider;
+pub use wallet::WalletManager;
 
 // Test modules
 #[cfg(test)]

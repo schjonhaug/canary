@@ -1,5 +1,5 @@
-use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionEvent, EventType};
 use crate::message_formatter::MessageFormatter;
+use crate::metadata::{Contact, EventType, NotificationMethod, ProviderType, TransactionEvent};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
 use serde_json::json;
@@ -25,26 +25,46 @@ impl NotificationProvider for NtfyProvider {
         contacts: &[Contact],
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
-        
+
         for contact in contacts {
             // Find ntfy notification methods for this contact
-            let ntfy_methods: Vec<&NotificationMethod> = contact.notification_methods
+            let ntfy_methods: Vec<&NotificationMethod> = contact
+                .notification_methods
                 .iter()
                 .filter(|method| matches!(method.provider_type, ProviderType::Ntfy))
                 .collect();
 
             for method in ntfy_methods {
-                let message = MessageFormatter::create_localized_message(event, wallet_name, &contact.language);
-                
+                let message = MessageFormatter::create_localized_message(
+                    event,
+                    wallet_name,
+                    &contact.language,
+                );
+
                 let topic = &method.notification_target;
                 let ntfy_url = format!("https://ntfy.sh/{}", topic);
-                
-                let result = match self.client
+
+                let result = match self
+                    .client
                     .post(&ntfy_url)
                     .header("Content-Type", "text/plain; charset=utf-8")
                     .header("Title", format!("Canary - {}", wallet_name))
-                    .header("Priority", if event.is_confirmed { "default" } else { "high" })
-                    .header("Tags", if event.event_type == EventType::Receive { "money_with_wings" } else { "arrow_right" })
+                    .header(
+                        "Priority",
+                        if event.is_confirmed {
+                            "default"
+                        } else {
+                            "high"
+                        },
+                    )
+                    .header(
+                        "Tags",
+                        if event.event_type == EventType::Receive {
+                            "money_with_wings"
+                        } else {
+                            "arrow_right"
+                        },
+                    )
                     .body(message.clone())
                     .send()
                     .await
@@ -53,11 +73,18 @@ impl NotificationProvider for NtfyProvider {
                         if response.status().is_success() {
                             NotificationResult {
                                 success: true,
-                                provider_id: Some(format!("ntfy_{}", chrono::Utc::now().timestamp())),
+                                provider_id: Some(format!(
+                                    "ntfy_{}",
+                                    chrono::Utc::now().timestamp()
+                                )),
                                 error_message: None,
                             }
                         } else {
-                            let error = format!("HTTP {}: {}", response.status(), response.status().canonical_reason().unwrap_or("Unknown"));
+                            let error = format!(
+                                "HTTP {}: {}",
+                                response.status(),
+                                response.status().canonical_reason().unwrap_or("Unknown")
+                            );
                             NotificationResult {
                                 success: false,
                                 provider_id: None,
@@ -74,14 +101,14 @@ impl NotificationProvider for NtfyProvider {
                         }
                     }
                 };
-                
+
                 results.push((method.clone(), result, message));
             }
         }
-        
+
         results
     }
-    
+
     fn provider_info(&self) -> ProviderInfo {
         ProviderInfo {
             name: "ntfy".to_string(),
@@ -99,7 +126,7 @@ impl NotificationProvider for NtfyProvider {
             }),
         }
     }
-    
+
     fn name(&self) -> &'static str {
         "ntfy"
     }

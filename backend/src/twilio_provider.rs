@@ -1,8 +1,8 @@
-use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionEvent};
 use crate::message_formatter::MessageFormatter;
+use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionEvent};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use reqwest::Client;
 use serde::Serialize;
 use serde_json::json;
@@ -28,7 +28,7 @@ impl TwilioConfig {
         let account_sid = std::env::var("TWILIO_ACCOUNT_SID").ok()?;
         let auth_token = std::env::var("TWILIO_AUTH_TOKEN").ok()?;
         let messaging_service_sid = std::env::var("TWILIO_MESSAGING_SERVICE_SID").ok()?;
-        
+
         Some(Self {
             account_sid,
             auth_token,
@@ -87,7 +87,9 @@ impl TwilioProvider {
                     // Parse successful response to get Twilio SID
                     match response.text().await {
                         Ok(response_text) => {
-                            let twilio_sid = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                            let twilio_sid = if let Ok(json) =
+                                serde_json::from_str::<serde_json::Value>(&response_text)
+                            {
                                 json.get("sid")
                                     .and_then(|v| v.as_str())
                                     .map(|s| s.to_string())
@@ -118,7 +120,10 @@ impl TwilioProvider {
                         Err(e) => NotificationResult {
                             success: false,
                             provider_id: None,
-                            error_message: Some(format!("HTTP {} and failed to read error: {}", status_code, e)),
+                            error_message: Some(format!(
+                                "HTTP {} and failed to read error: {}",
+                                status_code, e
+                            )),
                         },
                     }
                 }
@@ -130,7 +135,6 @@ impl TwilioProvider {
             },
         }
     }
-
 }
 
 #[async_trait]
@@ -145,13 +149,18 @@ impl NotificationProvider for TwilioProvider {
 
         for contact in contacts {
             // Find SMS notification methods for this contact
-            let sms_methods: Vec<&NotificationMethod> = contact.notification_methods
+            let sms_methods: Vec<&NotificationMethod> = contact
+                .notification_methods
                 .iter()
                 .filter(|method| matches!(method.provider_type, ProviderType::Sms))
                 .collect();
 
             for method in sms_methods {
-                let message = MessageFormatter::create_localized_message(event, wallet_name, &contact.language);
+                let message = MessageFormatter::create_localized_message(
+                    event,
+                    wallet_name,
+                    &contact.language,
+                );
                 let result = self.send_sms(&method.notification_target, &message).await;
                 results.push((method.clone(), result, message));
             }

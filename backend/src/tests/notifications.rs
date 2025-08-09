@@ -1,11 +1,17 @@
-use crate::metadata::{Contact, NotificationMethod, ProviderType, EventType, Language, TransactionEvent};
+use crate::metadata::{
+    Contact, EventType, Language, NotificationMethod, ProviderType, TransactionEvent,
+};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use crate::ntfy_provider::NtfyProvider;
 use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
 use std::sync::Arc;
 
-fn create_test_event(event_type: EventType, amount_sats: i64, is_confirmed: bool) -> TransactionEvent {
+fn create_test_event(
+    event_type: EventType,
+    amount_sats: i64,
+    is_confirmed: bool,
+) -> TransactionEvent {
     TransactionEvent {
         id: Some(1),
         wallet_checksum: "test_wallet".to_string(),
@@ -46,7 +52,7 @@ fn create_notification_method(provider_type: ProviderType, target: &str) -> Noti
 async fn test_ntfy_provider_info() {
     let provider = NtfyProvider::new();
     let info = provider.provider_info();
-    
+
     assert_eq!(info.name, "ntfy");
     assert_eq!(info.display_name, "ntfy.sh Notifications");
     assert!(info.config_schema.is_object());
@@ -56,18 +62,22 @@ async fn test_ntfy_provider_info() {
 async fn test_ntfy_send_notification() {
     let provider = NtfyProvider::new();
     let event = create_test_event(EventType::Receive, 100_000_000, true);
-    
+
     let mut contact = create_test_contact("Test User", Language::English);
-    contact.notification_methods = vec![
-        create_notification_method(ProviderType::Ntfy, "test-topic"),
-    ];
-    
-    let results = provider.send_notification(&event, "Test Wallet", &[contact]).await;
-    
+    contact.notification_methods =
+        vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
+
+    let results = provider
+        .send_notification(&event, "Test Wallet", &[contact])
+        .await;
+
     assert_eq!(results.len(), 1);
     let (method, _result, message) = &results[0];
     assert_eq!(method.notification_target, "test-topic");
-    assert_eq!(message, "✅ Receive confirmed: 1.00000000 BTC to Test Wallet. Total balance: 1.50000000 BTC");
+    assert_eq!(
+        message,
+        "✅ Receive confirmed: 1.00000000 BTC to Test Wallet. Total balance: 1.50000000 BTC"
+    );
     // Note: Actual result.success depends on ntfy.sh availability
 }
 
@@ -75,15 +85,17 @@ async fn test_ntfy_send_notification() {
 async fn test_ntfy_filters_only_ntfy_methods() {
     let provider = NtfyProvider::new();
     let event = create_test_event(EventType::Send, 50_000_000, false);
-    
+
     let mut contact = create_test_contact("Test User", Language::Norwegian);
     contact.notification_methods = vec![
         create_notification_method(ProviderType::Ntfy, "my-topic"),
         create_notification_method(ProviderType::Sms, "+4712345678"),
     ];
-    
-    let results = provider.send_notification(&event, "Test Wallet", &[contact]).await;
-    
+
+    let results = provider
+        .send_notification(&event, "Test Wallet", &[contact])
+        .await;
+
     // Should only process the ntfy method
     assert_eq!(results.len(), 1);
     let (method, _, message) = &results[0];
@@ -98,15 +110,15 @@ fn test_twilio_provider_creation() {
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
     std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15551234567");
-    
+
     let provider = TwilioProvider::from_env();
     assert!(provider.is_some());
-    
+
     let provider = provider.unwrap();
     let info = provider.provider_info();
     assert_eq!(info.name, "twilio");
     assert_eq!(info.display_name, "SMS");
-    
+
     // Clean up
     std::env::remove_var("TWILIO_ACCOUNT_SID");
     std::env::remove_var("TWILIO_AUTH_TOKEN");
@@ -119,7 +131,7 @@ fn test_twilio_provider_missing_env() {
     std::env::remove_var("TWILIO_ACCOUNT_SID");
     std::env::remove_var("TWILIO_AUTH_TOKEN");
     std::env::remove_var("TWILIO_MESSAGING_SERVICE_SID");
-    
+
     let provider = TwilioProvider::from_env();
     assert!(provider.is_none());
 }
@@ -130,22 +142,28 @@ async fn test_twilio_send_notification() {
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
     std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15551234567");
-    
+
     let provider = TwilioProvider::from_env().unwrap();
     let event = create_test_event(EventType::Receive, 100_000_000, true);
-    
+
     let mut contact = create_test_contact("Test User", Language::English);
-    contact.notification_methods = vec![
-        create_notification_method(ProviderType::Sms, "+15551234567"),
-    ];
-    
-    let results = provider.send_notification(&event, "Test Wallet", &[contact]).await;
-    
+    contact.notification_methods = vec![create_notification_method(
+        ProviderType::Sms,
+        "+15551234567",
+    )];
+
+    let results = provider
+        .send_notification(&event, "Test Wallet", &[contact])
+        .await;
+
     assert_eq!(results.len(), 1);
     let (method, _result, message) = &results[0];
     assert_eq!(method.notification_target, "+15551234567");
-    assert_eq!(message, "✅ Receive confirmed: 1.00000000 BTC to Test Wallet. Total balance: 1.50000000 BTC");
-    
+    assert_eq!(
+        message,
+        "✅ Receive confirmed: 1.00000000 BTC to Test Wallet. Total balance: 1.50000000 BTC"
+    );
+
     // Clean up
     std::env::remove_var("TWILIO_ACCOUNT_SID");
     std::env::remove_var("TWILIO_AUTH_TOKEN");
@@ -157,25 +175,27 @@ async fn test_twilio_filters_only_sms_methods() {
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
     std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15551234567");
-    
+
     let provider = TwilioProvider::from_env().unwrap();
     let event = create_test_event(EventType::Send, 50_000_000, false);
-    
+
     let mut contact = create_test_contact("Test User", Language::Norwegian);
     contact.notification_methods = vec![
         create_notification_method(ProviderType::Ntfy, "my-topic"),
         create_notification_method(ProviderType::Sms, "+4712345678"),
     ];
-    
-    let results = provider.send_notification(&event, "Test Wallet", &[contact]).await;
-    
+
+    let results = provider
+        .send_notification(&event, "Test Wallet", &[contact])
+        .await;
+
     // Should only process the SMS method
     assert_eq!(results.len(), 1);
     let (method, _, message) = &results[0];
     assert_eq!(method.provider_type, ProviderType::Sms);
     assert_eq!(method.notification_target, "+4712345678");
     assert!(message.contains("0,50000000 BTC")); // Norwegian formatting
-    
+
     // Clean up
     std::env::remove_var("TWILIO_ACCOUNT_SID");
     std::env::remove_var("TWILIO_AUTH_TOKEN");
@@ -196,7 +216,8 @@ impl NotificationProvider for MockProvider {
         _wallet_name: &str,
         contacts: &[Contact],
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
-        contacts.iter()
+        contacts
+            .iter()
             .flat_map(|contact| &contact.notification_methods)
             .map(|method| {
                 (
@@ -204,14 +225,18 @@ impl NotificationProvider for MockProvider {
                     NotificationResult {
                         success: self.should_succeed,
                         provider_id: Some("mock-123".to_string()),
-                        error_message: if self.should_succeed { None } else { Some("Mock error".to_string()) },
+                        error_message: if self.should_succeed {
+                            None
+                        } else {
+                            Some("Mock error".to_string())
+                        },
                     },
                     "Mock message".to_string(),
                 )
             })
             .collect()
     }
-    
+
     fn provider_info(&self) -> ProviderInfo {
         ProviderInfo {
             name: self.name.clone(),
@@ -219,7 +244,7 @@ impl NotificationProvider for MockProvider {
             config_schema: serde_json::json!({}),
         }
     }
-    
+
     fn name(&self) -> &'static str {
         Box::leak(self.name.clone().into_boxed_str())
     }
@@ -228,9 +253,9 @@ impl NotificationProvider for MockProvider {
 #[tokio::test]
 async fn test_notification_manager() {
     use crate::notifications::NotificationManager;
-    
+
     let mut manager = NotificationManager::new();
-    
+
     // Register mock providers
     let success_provider = Arc::new(MockProvider {
         name: "success".to_string(),
@@ -240,26 +265,31 @@ async fn test_notification_manager() {
         name: "failure".to_string(),
         should_succeed: false,
     });
-    
+
     manager.register_provider(success_provider);
     manager.register_provider(failure_provider);
-    
+
     // List providers
     let providers = manager.list_providers();
     assert_eq!(providers.len(), 2);
-    
+
     // Send notifications
     let event = create_test_event(EventType::Receive, 100_000_000, true);
     let mut contact = create_test_contact("Test User", Language::English);
-    contact.notification_methods = vec![
-        create_notification_method(ProviderType::Ntfy, "test-topic"),
-    ];
-    
-    let results = manager.send_notifications("success", &event, "Test Wallet", &[contact.clone()]).await.unwrap();
+    contact.notification_methods =
+        vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
+
+    let results = manager
+        .send_notifications("success", &event, "Test Wallet", &[contact.clone()])
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert!(results[0].1.success);
-    
-    let results = manager.send_notifications("failure", &event, "Test Wallet", &[contact]).await.unwrap();
+
+    let results = manager
+        .send_notifications("failure", &event, "Test Wallet", &[contact])
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert!(!results[0].1.success);
     assert_eq!(results[0].1.error_message, Some("Mock error".to_string()));
@@ -268,12 +298,14 @@ async fn test_notification_manager() {
 #[tokio::test]
 async fn test_notification_manager_unknown_provider() {
     use crate::notifications::NotificationManager;
-    
+
     let manager = NotificationManager::new();
     let event = create_test_event(EventType::Receive, 100_000_000, true);
     let contact = create_test_contact("Test User", Language::English);
-    
-    let result = manager.send_notifications("unknown", &event, "Test Wallet", &[contact]).await;
+
+    let result = manager
+        .send_notifications("unknown", &event, "Test Wallet", &[contact])
+        .await;
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not found"));
 }

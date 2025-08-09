@@ -1,17 +1,17 @@
+use crate::electrum::BlockHeader;
+use crate::migrations::MigrationRunner;
+use anyhow::{Context, Result};
+use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
+use chrono;
+use phonenumber::PhoneNumber;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use bdk_wallet::rusqlite::{params, ToSql, OptionalExtension};
+use serde::{Deserialize, Serialize};
+use std::num::Wrapping;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::task::spawn_blocking;
-use crate::migrations::MigrationRunner;
-use crate::electrum::BlockHeader;
-use anyhow::{Result, Context};
-use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use std::num::Wrapping;
-use phonenumber::PhoneNumber;
-use std::str::FromStr;
-use chrono;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
 pub enum EventType {
@@ -49,7 +49,6 @@ pub struct TwilioConfig {
     pub verify_service_sid: Option<String>,
     pub created_at: String,
 }
-
 
 impl EventType {
     pub fn as_str(&self) -> &'static str {
@@ -116,9 +115,9 @@ pub struct NotificationMethod {
     pub id: Option<i64>,
     pub contact_id: i64,
     pub provider_type: ProviderType,
-    pub notification_target: String,  // phone number or ntfy topic
+    pub notification_target: String, // phone number or ntfy topic
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub display_target: Option<String>,  // formatted version for display
+    pub display_target: Option<String>, // formatted version for display
     pub created_at: String,
 }
 
@@ -153,7 +152,6 @@ impl From<&str> for ProviderType {
     }
 }
 
-
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEvent {
     pub id: Option<i64>,
@@ -182,7 +180,6 @@ pub struct TransactionEventWithWallet {
     pub transaction_time: u64,
     pub notification_status: Vec<NotificationStatus>,
 }
-
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct NotificationStatus {
@@ -243,19 +240,20 @@ fn checksum_to_hex_color(checksum: &str) -> String {
         // Add position weighting to further improve distribution
         hash = ((hash << 5) + hash) + Wrapping(char_code * (i as u32 + 1));
     }
-    
+
     // Get hue (0-360 degrees)
     let hue = (hash.0 % 360) as f64;
-    
+
     // Fixed saturation and lightness for consistent appearance
     let saturation = 70.0; // 70% saturation for vibrant colors
-    let lightness = 50.0;  // 50% lightness for good contrast
-    
+    let lightness = 50.0; // 50% lightness for good contrast
+
     // Convert HSL to RGB
-    let c = (1.0_f64 - (2.0_f64 * (lightness / 100.0_f64) - 1.0_f64).abs()) * (saturation / 100.0_f64);
+    let c =
+        (1.0_f64 - (2.0_f64 * (lightness / 100.0_f64) - 1.0_f64).abs()) * (saturation / 100.0_f64);
     let x = c * (1.0_f64 - ((hue / 60.0_f64) % 2.0_f64 - 1.0_f64).abs());
     let m = (lightness / 100.0_f64) - c / 2.0_f64;
-    
+
     let (r, g, b) = if hue < 60.0_f64 {
         (c, x, 0.0_f64)
     } else if hue < 120.0_f64 {
@@ -269,11 +267,11 @@ fn checksum_to_hex_color(checksum: &str) -> String {
     } else {
         (c, 0.0_f64, x)
     };
-    
+
     let r = ((r + m) * 255.0_f64).round() as u8;
     let g = ((g + m) * 255.0_f64).round() as u8;
     let b = ((b + m) * 255.0_f64).round() as u8;
-    
+
     format!("#{:02x}{:02x}{:02x}", r, g, b)
 }
 
@@ -298,7 +296,7 @@ impl MetadataDb {
                 eprintln!("Warning: Failed to create database directory: {}", e);
             }
         }
-        
+
         // Run migrations first
         let migration_runner = MigrationRunner::new(db_path)?;
         // Try multiple migration paths (for development and production)
@@ -315,13 +313,16 @@ impl MetadataDb {
             }
         }
         if !migrations_run {
-            eprintln!("Warning: No migrations directory found in any of: {:?}", migration_paths);
+            eprintln!(
+                "Warning: No migrations directory found in any of: {:?}",
+                migration_paths
+            );
         }
-        
+
         // Get the connection back from the migration runner and close it
         let conn = migration_runner.get_connection();
         drop(conn);
-        
+
         // Create connection pool
         let manager = SqliteConnectionManager::file(db_path);
         let pool = Pool::builder()
@@ -332,10 +333,10 @@ impl MetadataDb {
         let db = MetadataDb {
             pool: Arc::new(pool),
         };
-        
+
         // Initialize admin user based on auth configuration
         db.initialize_admin_user().await?;
-        
+
         Ok(db)
     }
 
@@ -344,7 +345,7 @@ impl MetadataDb {
         let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(false);
-        
+
         if !auth_enabled {
             // AUTH=false: Create default admin user (id=1) for self-hosted mode
             self.ensure_default_admin_user().await?;
@@ -352,37 +353,38 @@ impl MetadataDb {
             // AUTH=true in dev mode: Create hardcoded dev test users
             self.ensure_dev_test_users().await?;
         }
-        
+
         Ok(())
     }
 
     async fn ensure_default_admin_user(&self) -> Result<()> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
-            
+
             // Check if admin user already exists
             let admin_exists: bool = conn.query_row(
                 "SELECT EXISTS(SELECT 1 FROM users WHERE id = 1)",
                 [],
-                |row| row.get(0)
+                |row| row.get(0),
             )?;
-            
+
             if !admin_exists {
                 // Admin user will be created dynamically when auth is enabled
                 println!("No admin user exists yet - will be created on first registration");
             }
-            
+
             Ok(())
-        }).await?
+        })
+        .await?
     }
 
     async fn ensure_dev_test_users(&self) -> Result<()> {
         use crate::auth::{AuthService, DEV_TEST_EMAILS, DEV_TEST_PASSWORD};
-        
+
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             
@@ -426,7 +428,7 @@ impl MetadataDb {
     pub async fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
         let pool = self.pool.clone();
         let descriptor = descriptor.to_string();
-        
+
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let count: i64 = conn.query_row(
@@ -435,7 +437,8 @@ impl MetadataDb {
                 |row| row.get(0),
             )?;
             Ok(count > 0)
-        }).await?
+        })
+        .await?
     }
 
     /// Extract checksum from a Bitcoin descriptor
@@ -452,7 +455,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let name = name.to_string();
         let descriptor = descriptor.to_string();
-        
+
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             let hex_color = calculate_wallet_color(&descriptor);
@@ -471,11 +474,10 @@ impl MetadataDb {
         }).await?
     }
 
-
     pub async fn get_wallet_name_by_checksum(&self, checksum: &str) -> Result<String> {
         let pool = self.pool.clone();
         let checksum = checksum.to_string();
-        
+
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             let name: String = conn.query_row(
@@ -484,13 +486,17 @@ impl MetadataDb {
                 |row| row.get(0),
             )?;
             Ok(name)
-        }).await?
+        })
+        .await?
     }
 
-    pub async fn get_wallet_by_descriptor(&self, descriptor: &str) -> Result<Option<WalletMetadata>> {
+    pub async fn get_wallet_by_descriptor(
+        &self,
+        descriptor: &str,
+    ) -> Result<Option<WalletMetadata>> {
         let pool = self.pool.clone();
         let descriptor = descriptor.to_string();
-        
+
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
             match conn.query_row(
@@ -525,7 +531,7 @@ impl MetadataDb {
     pub async fn get_wallet_by_checksum(&self, checksum: &str) -> Result<Option<WalletMetadata>> {
         let pool = self.pool.clone();
         let checksum = checksum.to_string();
-        
+
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
             match conn.query_row(
@@ -557,14 +563,13 @@ impl MetadataDb {
         }).await?
     }
 
-
     pub async fn get_all_wallets(&self) -> Result<Vec<WalletMetadata>> {
         self.get_wallets_for_user(None).await
     }
 
     pub async fn get_wallets_for_user(&self, user_id: Option<i64>) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
             
@@ -619,24 +624,31 @@ impl MetadataDb {
         }).await?
     }
 
-    
-    pub async fn is_wallet_owned_by_user(&self, wallet_checksum: &str, user_id: i64) -> Result<bool> {
+    pub async fn is_wallet_owned_by_user(
+        &self,
+        wallet_checksum: &str,
+        user_id: i64,
+    ) -> Result<bool> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
-        
+
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let exists: bool = conn
                 .prepare("SELECT 1 FROM wallets WHERE checksum = ?1 AND user_id = ?2")?
                 .exists(params![checksum, user_id])?;
             Ok(exists)
-        }).await?
+        })
+        .await?
     }
 
-    pub async fn delete_wallet_by_checksum(&self, checksum: &str) -> Result<Option<(String, String)>> {
+    pub async fn delete_wallet_by_checksum(
+        &self,
+        checksum: &str,
+    ) -> Result<Option<(String, String)>> {
         let pool = self.pool.clone();
         let checksum = checksum.to_string();
-        
+
         spawn_blocking(move || -> Result<Option<(String, String)>> {
             let conn = pool.get()?;
 
@@ -653,7 +665,8 @@ impl MetadataDb {
 
             if let Some(descriptor) = descriptor {
                 // Delete the wallet
-                let changes = conn.execute("DELETE FROM wallets WHERE checksum = ?1", params![checksum])?;
+                let changes =
+                    conn.execute("DELETE FROM wallets WHERE checksum = ?1", params![checksum])?;
 
                 if changes > 0 {
                     // Generate filename from checksum
@@ -665,13 +678,14 @@ impl MetadataDb {
             } else {
                 Ok(None)
             }
-        }).await?
+        })
+        .await?
     }
 
     pub async fn insert_event(&self, event: &EventInsert) -> Result<i64> {
         let pool = self.pool.clone();
         let event = event.clone();
-        
+
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
             conn.execute(
@@ -694,7 +708,7 @@ impl MetadataDb {
 
     pub async fn get_all_events_with_wallets(&self) -> Result<Vec<TransactionEventWithWallet>> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<Vec<TransactionEventWithWallet>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
@@ -762,17 +776,17 @@ impl MetadataDb {
 
     // Normalized contact methods
     pub async fn insert_contact_with_notification_methods(
-        &self, 
-        wallet_checksum: &str, 
-        name: &str, 
+        &self,
+        wallet_checksum: &str,
+        name: &str,
         language: &Language,
-        notification_methods: Vec<(ProviderType, String)>
+        notification_methods: Vec<(ProviderType, String)>,
     ) -> Result<i64> {
         let pool = self.pool.clone();
         let name = name.to_string();
         let language = *language;
         let checksum = wallet_checksum.to_string();
-        
+
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
@@ -797,13 +811,16 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_contacts_with_notification_methods(&self, wallet_checksum: &str) -> Result<Vec<Contact>> {
+    pub async fn get_contacts_with_notification_methods(
+        &self,
+        wallet_checksum: &str,
+    ) -> Result<Vec<Contact>> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
-        
+
         spawn_blocking(move || -> Result<Vec<Contact>> {
             let conn = pool.get()?;
-            
+
             // First get all contacts for the wallet
             let mut stmt = conn.prepare(
                 "SELECT id, wallet_checksum, name, language, created_at 
@@ -822,44 +839,55 @@ impl MetadataDb {
                         language: Language::from(language_str.as_str()),
                         notification_methods: Vec::new(), // Will be populated below
                         created_at: row.get(4)?,
-                    }
+                    },
                 ))
             })?;
 
-            let mut contacts: std::collections::HashMap<i64, Contact> = std::collections::HashMap::new();
+            let mut contacts: std::collections::HashMap<i64, Contact> =
+                std::collections::HashMap::new();
             for contact_result in contact_iter {
                 let (contact_id, contact) = contact_result?;
                 contacts.insert(contact_id, contact);
             }
-            
+
             // Now get all notification methods for these contacts
             let contact_ids: Vec<i64> = contacts.keys().cloned().collect();
             if !contact_ids.is_empty() {
-                let placeholders = contact_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let placeholders = contact_ids
+                    .iter()
+                    .map(|_| "?")
+                    .collect::<Vec<_>>()
+                    .join(",");
                 let query = format!(
                     "SELECT id, contact_id, provider_type, notification_target, created_at 
                      FROM contact_notification_methods 
                      WHERE contact_id IN ({}) ORDER BY contact_id, provider_type",
                     placeholders
                 );
-                
+
                 let mut method_stmt = conn.prepare(&query)?;
-                let method_params: Vec<&dyn ToSql> = contact_ids.iter().map(|id| id as &dyn ToSql).collect();
-                
+                let method_params: Vec<&dyn ToSql> =
+                    contact_ids.iter().map(|id| id as &dyn ToSql).collect();
+
                 let method_iter = method_stmt.query_map(method_params.as_slice(), |row| {
                     let provider_type_str: String = row.get(2)?;
                     let provider_type = ProviderType::from(provider_type_str.as_str());
                     let notification_target: String = row.get(3)?;
-                    
+
                     // Format phone numbers for display
                     let display_target = if provider_type == ProviderType::Sms {
                         PhoneNumber::from_str(&notification_target)
                             .ok()
-                            .map(|phone| phone.format().mode(phonenumber::Mode::International).to_string())
+                            .map(|phone| {
+                                phone
+                                    .format()
+                                    .mode(phonenumber::Mode::International)
+                                    .to_string()
+                            })
                     } else {
                         None
                     };
-                    
+
                     Ok(NotificationMethod {
                         id: Some(row.get(0)?),
                         contact_id: row.get(1)?,
@@ -869,7 +897,7 @@ impl MetadataDb {
                         created_at: row.get(4)?,
                     })
                 })?;
-                
+
                 // Add notification methods to their corresponding contacts
                 for method_result in method_iter {
                     let method = method_result?;
@@ -878,15 +906,20 @@ impl MetadataDb {
                     }
                 }
             }
-            
+
             Ok(contacts.into_values().collect())
-        }).await?
+        })
+        .await?
     }
 
-    pub async fn delete_wallet_contact(&self, wallet_checksum: &str, contact_id: i64) -> Result<bool> {
+    pub async fn delete_wallet_contact(
+        &self,
+        wallet_checksum: &str,
+        contact_id: i64,
+    ) -> Result<bool> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
-        
+
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let rows_affected = conn.execute(
@@ -894,13 +927,18 @@ impl MetadataDb {
                 params![contact_id, checksum],
             )?;
             Ok(rows_affected > 0)
-        }).await?
+        })
+        .await?
     }
 
-    pub async fn update_wallet_balance_by_checksum(&self, wallet_checksum: &str, balance_total: i64) -> Result<()> {
+    pub async fn update_wallet_balance_by_checksum(
+        &self,
+        wallet_checksum: &str,
+        balance_total: i64,
+    ) -> Result<()> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
-        
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
@@ -908,14 +946,19 @@ impl MetadataDb {
                 params![balance_total, checksum],
             )?;
             Ok(())
-        }).await?
+        })
+        .await?
     }
 
-    pub async fn update_wallet_by_checksum(&self, wallet_checksum: &str, name: &str) -> Result<bool> {
+    pub async fn update_wallet_by_checksum(
+        &self,
+        wallet_checksum: &str,
+        name: &str,
+    ) -> Result<bool> {
         let pool = self.pool.clone();
         let name = name.to_string();
         let checksum = wallet_checksum.to_string();
-        
+
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let changes = conn.execute(
@@ -923,31 +966,30 @@ impl MetadataDb {
                 params![&name, checksum],
             )?;
             Ok(changes > 0)
-        }).await?
+        })
+        .await?
     }
 
     pub async fn upsert_current_block_header(&self, block_header: &BlockHeader) -> Result<()> {
         let pool = self.pool.clone();
         let block_header = block_header.clone();
-        
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
                 "UPDATE current_block_header 
                  SET height = ?1, timestamp = ?2, updated_at = datetime('now') 
                  WHERE id = 1",
-                params![
-                    block_header.height,
-                    block_header.timestamp,
-                ],
+                params![block_header.height, block_header.timestamp,],
             )?;
             Ok(())
-        }).await?
+        })
+        .await?
     }
 
     pub async fn get_current_block_header(&self) -> Result<Option<BlockHeader>> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<Option<BlockHeader>> {
             let conn = pool.get()?;
             match conn.query_row(
@@ -971,9 +1013,9 @@ impl MetadataDb {
                 Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
                 Err(e) => Err(e.into()),
             }
-        }).await?
+        })
+        .await?
     }
-
 
     pub async fn insert_notification_log_for_method(
         &self,
@@ -991,7 +1033,7 @@ impl MetadataDb {
         let status = status.to_string();
         let error_message = error_message.map(|s| s.to_string());
         let message_content = message_content.to_string();
-        
+
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
             conn.execute(
@@ -1012,17 +1054,23 @@ impl MetadataDb {
     }
 
     // User management methods
-    pub async fn create_user(&self, email: &str, password_hash: &str, name: Option<&str>, email_verified: bool) -> Result<i64> {
+    pub async fn create_user(
+        &self,
+        email: &str,
+        password_hash: &str,
+        name: Option<&str>,
+        email_verified: bool,
+    ) -> Result<i64> {
         let pool = self.pool.clone();
         let email = email.to_string();
         let password_hash = password_hash.to_string();
         let name = name.map(|n| n.to_string());
-        
+
         // Check if auth is enabled to determine admin logic
         let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(false);
-        
+
         let result = spawn_blocking(move || -> Result<(i64, bool)> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
@@ -1073,18 +1121,17 @@ impl MetadataDb {
             let user_id = tx.last_insert_rowid();
             tx.commit()?;
             Ok((user_id, final_is_admin))
-        }).await??;  // First ? for JoinError, second ? for inner Result
-        
+        }).await??; // First ? for JoinError, second ? for inner Result
+
         let (user_id, _was_admin) = result;
-        
+
         Ok(user_id)
     }
-
 
     pub async fn get_user_by_email(&self, email: &str) -> Result<Option<UserRecord>> {
         let pool = self.pool.clone();
         let email = email.to_string();
-        
+
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
@@ -1107,7 +1154,7 @@ impl MetadataDb {
 
     pub async fn get_user_by_id(&self, user_id: i64) -> Result<Option<UserRecord>> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
@@ -1130,7 +1177,7 @@ impl MetadataDb {
 
     pub async fn update_last_login(&self, user_id: i64) -> Result<()> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -1139,13 +1186,14 @@ impl MetadataDb {
                 params![&current_time, user_id],
             )?;
             Ok(())
-        }).await?
+        })
+        .await?
     }
 
     pub async fn update_user_name(&self, user_id: i64, name: &str) -> Result<()> {
         let pool = self.pool.clone();
         let name = name.to_string();
-        
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
@@ -1153,15 +1201,21 @@ impl MetadataDb {
                 params![&name, user_id],
             )?;
             Ok(())
-        }).await?
+        })
+        .await?
     }
 
     // Session management
-    pub async fn create_session(&self, user_id: i64, token_hash: &str, expires_at: chrono::DateTime<chrono::Utc>) -> Result<i64> {
+    pub async fn create_session(
+        &self,
+        user_id: i64,
+        token_hash: &str,
+        expires_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<i64> {
         let pool = self.pool.clone();
         let token_hash = token_hash.to_string();
         let expires_at = expires_at.format("%Y-%m-%d %H:%M:%S").to_string();
-        
+
         spawn_blocking(move || -> Result<i64> {
             let conn = pool.get()?;
             conn.execute(
@@ -1169,13 +1223,14 @@ impl MetadataDb {
                 params![user_id, &token_hash, &expires_at],
             )?;
             Ok(conn.last_insert_rowid())
-        }).await?
+        })
+        .await?
     }
 
     pub async fn delete_session(&self, token_hash: &str) -> Result<()> {
         let pool = self.pool.clone();
         let token_hash = token_hash.to_string();
-        
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
@@ -1183,12 +1238,13 @@ impl MetadataDb {
                 params![&token_hash],
             )?;
             Ok(())
-        }).await?
+        })
+        .await?
     }
 
     pub async fn cleanup_expired_sessions(&self) -> Result<u64> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<u64> {
             let conn = pool.get()?;
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -1197,7 +1253,8 @@ impl MetadataDb {
                 params![&current_time],
             )?;
             Ok(rows_deleted as u64)
-        }).await?
+        })
+        .await?
     }
 
     // Email verification token management
@@ -1205,8 +1262,9 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let token = token.to_string();
         let expires_at = (chrono::Utc::now() + chrono::Duration::hours(24))
-            .format("%Y-%m-%d %H:%M:%S").to_string();
-        
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
@@ -1221,7 +1279,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let token = token.to_string();
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        
+
         spawn_blocking(move || -> Result<Option<i64>> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
@@ -1254,14 +1312,14 @@ impl MetadataDb {
         }).await?
     }
 
-
     // Password reset token management
     pub async fn create_password_reset_token(&self, user_id: i64, token: &str) -> Result<()> {
         let pool = self.pool.clone();
         let token = token.to_string();
         let expires_at = (chrono::Utc::now() + chrono::Duration::hours(1))
-            .format("%Y-%m-%d %H:%M:%S").to_string();
-        
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             
@@ -1284,7 +1342,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let token = token.to_string();
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        
+
         spawn_blocking(move || -> Result<Option<i64>> {
             let conn = pool.get()?;
             let user_id: Option<i64> = conn
@@ -1298,34 +1356,34 @@ impl MetadataDb {
     pub async fn update_user_password(&self, user_id: i64, password_hash: &str) -> Result<()> {
         let pool = self.pool.clone();
         let password_hash = password_hash.to_string();
-        
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
-            
+
             // Update password
             tx.execute(
                 "UPDATE users SET password_hash = ?1 WHERE id = ?2",
                 params![&password_hash, user_id],
             )?;
-            
+
             // Delete all password reset tokens for this user
             tx.execute(
                 "DELETE FROM password_reset_tokens WHERE user_id = ?1",
                 params![user_id],
             )?;
-            
+
             tx.commit()?;
             Ok(())
-        }).await?
+        })
+        .await?
     }
-
 
     // Rate limiting for OTP (SMS contact verification only)
     pub async fn check_rate_limit(&self, phone_number: &str) -> Result<bool> {
         let pool = self.pool.clone();
         let phone_number = phone_number.to_string();
-        
+
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let current_time = chrono::Utc::now();
@@ -1389,7 +1447,7 @@ impl MetadataDb {
     pub async fn clear_rate_limit(&self, phone_number: &str) -> Result<()> {
         let pool = self.pool.clone();
         let phone_number = phone_number.to_string();
-        
+
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
@@ -1397,7 +1455,8 @@ impl MetadataDb {
                 params![&phone_number],
             )?;
             Ok(())
-        }).await?
+        })
+        .await?
     }
 
     pub async fn create_pending_contact_verification(
@@ -1416,7 +1475,7 @@ impl MetadataDb {
         let contact_name = contact_name.to_string();
         let language = language.to_string();
         let verification_code = verification_code.map(|s| s.to_string());
-        
+
         spawn_blocking(move || {
             let conn = pool.get()?;
             let expires_at = chrono::Utc::now() + chrono::Duration::minutes(10);
@@ -1447,7 +1506,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
         let notification_target = notification_target.to_string();
-        
+
         spawn_blocking(move || {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
@@ -1457,28 +1516,23 @@ impl MetadataDb {
                  AND notification_target = ?2 
                  AND expires_at > datetime('now')
                  ORDER BY created_at DESC
-                 LIMIT 1"
+                 LIMIT 1",
             )?;
-            
-            let result = stmt.query_row(
-                params![&wallet_checksum, &notification_target],
-                |row| {
-                    Ok((
-                        row.get(0)?,
-                        row.get(1)?,
-                        row.get(2)?,
-                        row.get(3)?,
-                    ))
-                },
-            ).optional()?;
-            
+
+            let result = stmt
+                .query_row(params![&wallet_checksum, &notification_target], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                })
+                .optional()?;
+
             Ok(result)
-        }).await?
+        })
+        .await?
     }
 
     pub async fn delete_pending_verification(&self, verification_id: i64) -> Result<()> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || {
             let conn = pool.get()?;
             conn.execute(
@@ -1486,12 +1540,13 @@ impl MetadataDb {
                 params![verification_id],
             )?;
             Ok(())
-        }).await?
+        })
+        .await?
     }
 
     pub async fn cleanup_expired_verifications(&self) -> Result<u64> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || {
             let conn = pool.get()?;
             let deleted = conn.execute(
@@ -1499,9 +1554,7 @@ impl MetadataDb {
                 [],
             )?;
             Ok(deleted as u64)
-        }).await?
+        })
+        .await?
     }
-
-
-
 }

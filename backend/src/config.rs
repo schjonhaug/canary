@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::Network;
 use clap::{Parser, ValueEnum};
 
@@ -121,7 +121,6 @@ impl AppConfig {
             .unwrap_or(60) // Default to 60 seconds for public servers
     }
 
-
     pub fn electrum_url(&self) -> String {
         self.electrum_url
             .clone()
@@ -152,13 +151,13 @@ impl AppConfig {
     pub fn effective_metadata_db(&self) -> String {
         format!("{}/{}/metadata.sqlite", self.data_dir, self.network_name())
     }
-    
+
     // Helper methods for tests
     #[cfg(test)]
     pub fn wallet_dir_path(&self) -> String {
         format!("database/{}/wallets", self.network_name())
     }
-    
+
     #[cfg(test)]
     pub fn metadata_db_path(&self) -> String {
         format!("database/{}/metadata.sqlite", self.network_name())
@@ -261,7 +260,10 @@ mod tests {
             data_dir: "./database".to_string(),
         };
         assert_eq!(config.effective_wallet_dir(), "./database/regtest/wallets");
-        assert_eq!(config.effective_metadata_db(), "./database/regtest/metadata.sqlite");
+        assert_eq!(
+            config.effective_metadata_db(),
+            "./database/regtest/metadata.sqlite"
+        );
 
         // Test with absolute paths (Docker/Umbrel)
         let config = AppConfig {
@@ -271,7 +273,10 @@ mod tests {
             data_dir: "/app/data".to_string(),
         };
         assert_eq!(config.effective_wallet_dir(), "/app/data/mainnet/wallets");
-        assert_eq!(config.effective_metadata_db(), "/app/data/mainnet/metadata.sqlite");
+        assert_eq!(
+            config.effective_metadata_db(),
+            "/app/data/mainnet/metadata.sqlite"
+        );
     }
 
     #[test]
@@ -281,10 +286,10 @@ mod tests {
             NetworkConfig::Testnet,
             NetworkConfig::Mainnet,
         ];
-        
+
         let mut wallet_paths = Vec::new();
         let mut metadata_paths = Vec::new();
-        
+
         for network in networks {
             let config = AppConfig {
                 network,
@@ -292,27 +297,35 @@ mod tests {
                 bind_address: "127.0.0.1:3000".to_string(),
                 data_dir: "./database".to_string(),
             };
-            
+
             let wallet_path = config.wallet_dir_path();
             let metadata_path = config.metadata_db_path();
-            
+
             // Ensure no duplicate paths
-            assert!(!wallet_paths.contains(&wallet_path), "Wallet path '{}' is not unique", wallet_path);
-            assert!(!metadata_paths.contains(&metadata_path), "Metadata path '{}' is not unique", metadata_path);
-            
+            assert!(
+                !wallet_paths.contains(&wallet_path),
+                "Wallet path '{}' is not unique",
+                wallet_path
+            );
+            assert!(
+                !metadata_paths.contains(&metadata_path),
+                "Metadata path '{}' is not unique",
+                metadata_path
+            );
+
             wallet_paths.push(wallet_path);
             metadata_paths.push(metadata_path);
         }
-        
+
         // Verify all paths are different
         assert_eq!(wallet_paths.len(), 3);
         assert_eq!(metadata_paths.len(), 3);
-        
+
         // Verify expected paths
         assert!(wallet_paths.contains(&"database/regtest/wallets".to_string()));
         assert!(wallet_paths.contains(&"database/testnet/wallets".to_string()));
         assert!(wallet_paths.contains(&"database/mainnet/wallets".to_string()));
-        
+
         assert!(metadata_paths.contains(&"database/regtest/metadata.sqlite".to_string()));
         assert!(metadata_paths.contains(&"database/testnet/metadata.sqlite".to_string()));
         assert!(metadata_paths.contains(&"database/mainnet/metadata.sqlite".to_string()));
@@ -327,22 +340,28 @@ mod tests {
             data_dir: "./database".to_string(),
         };
         assert_eq!(regtest_config.electrum_url(), "tcp://127.0.0.1:50001");
-        
+
         let testnet_config = AppConfig {
             network: NetworkConfig::Testnet,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: "./database".to_string(),
         };
-        assert_eq!(testnet_config.electrum_url(), "ssl://electrum.blockstream.info:60002");
-        
+        assert_eq!(
+            testnet_config.electrum_url(),
+            "ssl://electrum.blockstream.info:60002"
+        );
+
         let mainnet_config = AppConfig {
             network: NetworkConfig::Mainnet,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: "./database".to_string(),
         };
-        assert_eq!(mainnet_config.electrum_url(), "ssl://electrum.blockstream.info:50002");
+        assert_eq!(
+            mainnet_config.electrum_url(),
+            "ssl://electrum.blockstream.info:50002"
+        );
     }
 
     #[test]

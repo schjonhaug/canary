@@ -1,9 +1,9 @@
-use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionEvent};
-use crate::message_formatter::MessageFormatter;
-use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use crate::email_service::EmailService;
-use async_trait::async_trait;
+use crate::message_formatter::MessageFormatter;
+use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionEvent};
+use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use anyhow::Result;
+use async_trait::async_trait;
 use serde_json;
 
 pub struct EmailProvider {
@@ -14,14 +14,12 @@ impl EmailProvider {
     pub fn new() -> Self {
         // Try to create email service from environment
         let email_service = EmailService::from_env().ok();
-        
+
         if email_service.is_none() {
             eprintln!("Warning: Email provider created but Resend not configured");
         }
-        
-        Self {
-            email_service,
-        }
+
+        Self { email_service }
     }
 }
 
@@ -34,18 +32,23 @@ impl NotificationProvider for EmailProvider {
         contacts: &[Contact],
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
-        
+
         for contact in contacts {
             // Find email notification methods for this contact
-            let email_methods: Vec<&NotificationMethod> = contact.notification_methods
+            let email_methods: Vec<&NotificationMethod> = contact
+                .notification_methods
                 .iter()
                 .filter(|method| matches!(method.provider_type, ProviderType::Email))
                 .collect();
 
             for method in email_methods {
-                let message = MessageFormatter::create_localized_message(event, wallet_name, &contact.language);
+                let message = MessageFormatter::create_localized_message(
+                    event,
+                    wallet_name,
+                    &contact.language,
+                );
                 let email_address = &method.notification_target;
-                
+
                 let result = if let Some(email_service) = &self.email_service {
                     // Clone data for background task
                     let email_service_clone = email_service.clone();
@@ -55,19 +58,28 @@ impl NotificationProvider for EmailProvider {
                     let event_clone = event.clone();
                     let message_clone = message.clone();
                     let _method_id = method.id;
-                    
+
                     // Spawn background task for email sending - don't wait for it
                     tokio::spawn(async move {
-                        match Self::send_transaction_email_static(&email_service_clone, &email_address, &contact_name, &wallet_name, &event_clone, &message_clone).await {
+                        match Self::send_transaction_email_static(
+                            &email_service_clone,
+                            &email_address,
+                            &contact_name,
+                            &wallet_name,
+                            &event_clone,
+                            &message_clone,
+                        )
+                        .await
+                        {
                             Ok(_) => {
                                 println!("✅ Email sent successfully to {}", email_address);
-                            },
+                            }
                             Err(e) => {
                                 eprintln!("❌ Failed to send email to {}: {}", email_address, e);
                             }
                         }
                     });
-                    
+
                     // Return success immediately - email will be sent in background
                     NotificationResult {
                         success: true,
@@ -81,14 +93,14 @@ impl NotificationProvider for EmailProvider {
                         error_message: Some("Resend not configured".to_string()),
                     }
                 };
-                
+
                 results.push((method.clone(), result, message));
             }
         }
-        
+
         results
     }
-    
+
     fn provider_info(&self) -> ProviderInfo {
         ProviderInfo {
             name: "email".to_string(),
@@ -103,7 +115,7 @@ impl NotificationProvider for EmailProvider {
             }),
         }
     }
-    
+
     fn name(&self) -> &'static str {
         "email"
     }
@@ -119,9 +131,16 @@ impl EmailProvider {
         event: &TransactionEvent,
         message: &str,
     ) -> Result<()> {
-        Self::send_transaction_email_impl(email_service, to_email, to_name, wallet_name, event, message).await
+        Self::send_transaction_email_impl(
+            email_service,
+            to_email,
+            to_name,
+            wallet_name,
+            event,
+            message,
+        )
+        .await
     }
-
 
     // Shared implementation
     async fn send_transaction_email_impl(
@@ -134,16 +153,12 @@ impl EmailProvider {
     ) -> Result<()> {
         // Determine the type of transaction
         let (subject, emoji) = match event.event_type {
-            crate::metadata::EventType::Receive => {
-                ("Bitcoin Received", "💰")
-            },
-            crate::metadata::EventType::Send => {
-                ("Bitcoin Sent", "📤")
-            },
+            crate::metadata::EventType::Receive => ("Bitcoin Received", "💰"),
+            crate::metadata::EventType::Send => ("Bitcoin Sent", "📤"),
         };
-        
+
         let subject = format!("{} {} - {}", emoji, subject, wallet_name);
-        
+
         // Create HTML body with better formatting
         let html_body = format!(
             r#"
@@ -189,7 +204,8 @@ impl EmailProvider {
         );
 
         // Send using the Resend email service
-        email_service.send_transaction_notification(to_email, to_name, &subject, &html_body, &text_body).await
+        email_service
+            .send_transaction_notification(to_email, to_name, &subject, &html_body, &text_body)
+            .await
     }
 }
-

@@ -1,6 +1,6 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use resend_rs::types::{ContactData, CreateEmailBaseOptions};
 use resend_rs::Resend;
-use resend_rs::types::{CreateEmailBaseOptions, ContactData};
 
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
@@ -35,10 +35,7 @@ pub struct EmailService {
 impl EmailService {
     pub fn new(config: EmailConfig) -> Self {
         let resend = Resend::new(&config.resend_api_key);
-        Self { 
-            config,
-            resend,
-        }
+        Self { config, resend }
     }
 
     pub fn from_env() -> Result<Self> {
@@ -46,8 +43,14 @@ impl EmailService {
         Ok(Self::new(config))
     }
 
-    pub async fn send_email_verification(&self, to_email: &str, to_name: &str, verification_token: &str) -> Result<()> {
-        let verification_url = format!("{}/verify-email/{}", 
+    pub async fn send_email_verification(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        verification_token: &str,
+    ) -> Result<()> {
+        let verification_url = format!(
+            "{}/verify-email/{}",
             std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3001".to_string()),
             verification_token
         );
@@ -99,7 +102,9 @@ impl EmailService {
             </body>
             </html>
             "#,
-            subject, name = to_name, verification_url = verification_url
+            subject,
+            name = to_name,
+            verification_url = verification_url
         );
 
         let text_body = format!(
@@ -116,14 +121,22 @@ This verification link will expire in 24 hours. If you didn't create an account,
 
 © 2024 Canary Wallet. All rights reserved.
             "#,
-            name = to_name, verification_url = verification_url
+            name = to_name,
+            verification_url = verification_url
         );
 
-        self.send_email(to_email, to_name, subject, &html_body, &text_body).await
+        self.send_email(to_email, to_name, subject, &html_body, &text_body)
+            .await
     }
 
-    pub async fn send_password_reset(&self, to_email: &str, to_name: &str, reset_token: &str) -> Result<()> {
-        let reset_url = format!("{}/reset-password/{}", 
+    pub async fn send_password_reset(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        reset_token: &str,
+    ) -> Result<()> {
+        let reset_url = format!(
+            "{}/reset-password/{}",
             std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3001".to_string()),
             reset_token
         );
@@ -175,7 +188,9 @@ This verification link will expire in 24 hours. If you didn't create an account,
             </body>
             </html>
             "#,
-            subject, name = to_name, reset_url = reset_url
+            subject,
+            name = to_name,
+            reset_url = reset_url
         );
 
         let text_body = format!(
@@ -192,12 +207,14 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
 
 © 2024 Canary Wallet. All rights reserved.
             "#,
-            name = to_name, reset_url = reset_url
+            name = to_name,
+            reset_url = reset_url
         );
 
-        self.send_email(to_email, to_name, subject, &html_body, &text_body).await
+        self.send_email(to_email, to_name, subject, &html_body, &text_body)
+            .await
     }
-    
+
     pub async fn send_transaction_notification(
         &self,
         to_email: &str,
@@ -206,13 +223,14 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
         html_body: &str,
         text_body: &str,
     ) -> Result<()> {
-        self.send_email(to_email, to_name, subject, html_body, text_body).await
+        self.send_email(to_email, to_name, subject, html_body, text_body)
+            .await
     }
 
     pub async fn add_to_marketing_audience(&self, email: &str, name: &str) -> Result<()> {
         let audience_id = std::env::var("RESEND_AUDIENCE_ID")
             .map_err(|_| anyhow!("RESEND_AUDIENCE_ID environment variable not set"))?;
-        
+
         let (first_name, last_name) = if name.contains(' ') {
             let parts: Vec<&str> = name.splitn(2, ' ').collect();
             (parts[0], *parts.get(1).unwrap_or(&""))
@@ -229,9 +247,12 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
             Ok(_) => {
                 println!("Added {} to marketing audience", email);
                 Ok(())
-            },
+            }
             Err(e) => {
-                println!("Warning: Failed to add {} to marketing audience: {}", email, e);
+                println!(
+                    "Warning: Failed to add {} to marketing audience: {}",
+                    email, e
+                );
                 Ok(())
             }
         }
@@ -245,9 +266,12 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
         html_body: &str,
         text_body: &str,
     ) -> Result<()> {
-        let from = format!("{} <{}>", self.config.resend_from_name, self.config.resend_from_email);
+        let from = format!(
+            "{} <{}>",
+            self.config.resend_from_name, self.config.resend_from_email
+        );
         let to = vec![format!("{} <{}>", to_name, to_email)];
-        
+
         // Create email with Resend SDK
         let email = CreateEmailBaseOptions::new(from, to, subject)
             .with_html(html_body)
@@ -256,7 +280,7 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
         // Send email
         match self.resend.emails.send(email).await {
             Ok(_) => Ok(()),
-            Err(e) => Err(anyhow!("Resend API error: {}", e))
+            Err(e) => Err(anyhow!("Resend API error: {}", e)),
         }
     }
 }

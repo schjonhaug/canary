@@ -1,24 +1,31 @@
-use crate::metadata::{Contact, NotificationMethod, ProviderType, Language, WalletMetadata, TransactionEventWithWallet, EventType, WalletsListResponse, WalletDetailResponse};
+use crate::auth::{
+    authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUserResponse,
+    ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateUserRequest,
+    UpdateUserResponse,
+};
+use crate::electrum::BlockHeader;
+use crate::email_service::EmailService;
+use crate::metadata::{
+    Contact, EventType, Language, NotificationMethod, ProviderType, TransactionEventWithWallet,
+    WalletDetailResponse, WalletMetadata, WalletsListResponse,
+};
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::wallet::WalletManager;
-use crate::electrum::BlockHeader;
-use crate::auth::{AuthService, RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse, authenticate_user, load_twilio_config_from_env};
-use crate::email_service::EmailService;
 use axum::{
-    Router,
     extract::{Path, State},
-    http::{StatusCode, HeaderMap},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
     routing::{get, post, put},
+    Router,
 };
-use tower_http::cors::CorsLayer;
+use phonenumber::PhoneNumber;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tower_http::cors::CorsLayer;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
-use phonenumber::PhoneNumber;
-use std::str::FromStr;
 
 #[derive(Deserialize, Serialize, ToSchema)]
 pub struct CreateWalletRequest {
@@ -56,7 +63,6 @@ pub struct ErrorResponse {
     /// Error description
     pub error: String,
 }
-
 
 #[derive(Deserialize, Serialize, ToSchema)]
 pub struct NotificationMethodRequest {
@@ -119,12 +125,15 @@ pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 fn validate_phone_number(phone: &str) -> Result<String, String> {
     // Check if phone number starts with country code
     if !phone.starts_with('+') {
-        return Err("Phone number must include country code (e.g., +1 for US, +44 for UK, +47 for Norway)".to_string());
+        return Err(
+            "Phone number must include country code (e.g., +1 for US, +44 for UK, +47 for Norway)"
+                .to_string(),
+        );
     }
 
     // Parse phone number using the phonenumber crate
-    let parsed_number = PhoneNumber::from_str(phone)
-        .map_err(|_| "Invalid phone number format".to_string())?;
+    let parsed_number =
+        PhoneNumber::from_str(phone).map_err(|_| "Invalid phone number format".to_string())?;
 
     // Check if it's a valid number
     if !parsed_number.is_valid() {
@@ -132,7 +141,10 @@ fn validate_phone_number(phone: &str) -> Result<String, String> {
     }
 
     // Return normalized E.164 format
-    Ok(parsed_number.format().mode(phonenumber::Mode::E164).to_string())
+    Ok(parsed_number
+        .format()
+        .mode(phonenumber::Mode::E164)
+        .to_string())
 }
 
 /// Generates an ntfy topic from contact name, language, and wallet descriptor
@@ -142,7 +154,7 @@ fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> Str
         .rfind('#')
         .map(|i| &descriptor[i + 1..])
         .unwrap_or("unknown");
-    
+
     // Sanitize name for topic
     let sanitized_name = name
         .to_lowercase()
@@ -151,7 +163,7 @@ fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> Str
         .collect::<String>()
         .trim_matches('-')
         .to_string();
-    
+
     // Combine into topic (max 64 chars)
     let topic = format!("{}-{}-{}", sanitized_name, language.as_str(), checksum);
     if topic.len() > 64 {
@@ -194,7 +206,7 @@ pub async fn create_wallet(
                 .into_response();
         }
     };
-    
+
     match wallet_manager
         .lock()
         .await
@@ -206,70 +218,94 @@ pub async fn create_wallet(
             let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
                 .map(|v| v.to_lowercase() == "true" || v == "1")
                 .unwrap_or(false);
-            
+
             if auth_enabled {
                 // Log the received language from frontend
-                eprintln!("Received preferred_language from frontend: {:?}", payload.preferred_language);
-                
+                eprintln!(
+                    "Received preferred_language from frontend: {:?}",
+                    payload.preferred_language
+                );
+
                 // Get user info for contact creation
                 let manager_clone = wallet_manager.clone();
                 let user_id = user.user_id;
                 let wallet_checksum = wallet_metadata.checksum.clone();
                 let preferred_language = payload.preferred_language.clone();
-                
+
                 // Spawn async task to create contact (don't block wallet creation if this fails)
                 tokio::spawn(async move {
                     let manager = manager_clone.lock().await;
-                    
+
                     // Get user details from database
                     match manager.metadata_db.get_user_by_id(user_id).await {
                         Ok(Some(user_record)) => {
                             // Map browser language to supported languages
                             let language = match preferred_language.as_deref() {
-                                Some(lang) if lang.starts_with("no") || lang.starts_with("nb") || lang.starts_with("nn") => {
+                                Some(lang)
+                                    if lang.starts_with("no")
+                                        || lang.starts_with("nb")
+                                        || lang.starts_with("nn") =>
+                                {
                                     eprintln!("Mapping language '{}' to Norwegian", lang);
                                     Language::Norwegian
-                                },
+                                }
                                 Some(lang) => {
                                     eprintln!("Mapping language '{}' to English (default)", lang);
                                     Language::English
-                                },
+                                }
                                 None => {
                                     eprintln!("No language provided, defaulting to English");
                                     Language::English
                                 }
                             };
-                            
+
                             // Use user's name or fallback to "Me"
                             let contact_name = user_record.name.as_deref().unwrap_or("Me");
-                            
+
                             // Create contact with email notification using the user's email
-                            let notification_methods = vec![(ProviderType::Email, user_record.email)];
-                            
-                            match manager.metadata_db.insert_contact_with_notification_methods(
-                                &wallet_checksum,
-                                contact_name,
-                                &language,
-                                notification_methods
-                            ).await {
+                            let notification_methods =
+                                vec![(ProviderType::Email, user_record.email)];
+
+                            match manager
+                                .metadata_db
+                                .insert_contact_with_notification_methods(
+                                    &wallet_checksum,
+                                    contact_name,
+                                    &language,
+                                    notification_methods,
+                                )
+                                .await
+                            {
                                 Ok(contact_id) => {
-                                    eprintln!("Auto-created contact {} for user {} in wallet {}", contact_id, user_id, wallet_checksum);
+                                    eprintln!(
+                                        "Auto-created contact {} for user {} in wallet {}",
+                                        contact_id, user_id, wallet_checksum
+                                    );
                                 }
                                 Err(e) => {
-                                    eprintln!("Failed to auto-create contact for user {}: {}", user_id, e);
+                                    eprintln!(
+                                        "Failed to auto-create contact for user {}: {}",
+                                        user_id, e
+                                    );
                                 }
                             }
                         }
                         Ok(None) => {
-                            eprintln!("User {} not found in database for auto-contact creation", user_id);
+                            eprintln!(
+                                "User {} not found in database for auto-contact creation",
+                                user_id
+                            );
                         }
                         Err(e) => {
-                            eprintln!("Error getting user {} for auto-contact creation: {}", user_id, e);
+                            eprintln!(
+                                "Error getting user {} for auto-contact creation: {}",
+                                user_id, e
+                            );
                         }
                     }
                 });
             }
-            
+
             (
                 StatusCode::CREATED,
                 Json(CreateWalletResponse {
@@ -330,13 +366,17 @@ pub async fn delete_wallet(
     };
 
     let mut manager = wallet_manager.lock().await;
-    
+
     // Check if wallet exists and belongs to user (or user is admin)
     match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(&checksum, user.user_id).await {
+                match manager
+                    .metadata_db
+                    .is_wallet_owned_by_user(&checksum, user.user_id)
+                    .await
+                {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -378,7 +418,7 @@ pub async fn delete_wallet(
                 .into_response();
         }
     }
-    
+
     match manager.delete_wallet_by_checksum(&checksum).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
@@ -431,7 +471,7 @@ pub async fn update_wallet(
                 .into_response();
         }
     };
-    
+
     if payload.name.trim().is_empty() {
         return (
             StatusCode::BAD_REQUEST,
@@ -443,13 +483,17 @@ pub async fn update_wallet(
     }
 
     let manager = wallet_manager.lock().await;
-    
+
     // Check if wallet exists and belongs to user (or user is admin)
     match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(&checksum, user.user_id).await {
+                match manager
+                    .metadata_db
+                    .is_wallet_owned_by_user(&checksum, user.user_id)
+                    .await
+                {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -526,7 +570,7 @@ pub async fn update_wallet(
 pub async fn get_wallet(
     State(wallet_manager): State<AppState>,
     headers: HeaderMap,
-    Path(checksum): Path<String>
+    Path(checksum): Path<String>,
 ) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
@@ -541,14 +585,18 @@ pub async fn get_wallet(
                 .into_response();
         }
     };
-    
+
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
     match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(wallet)) => {
             // Check if user has access to this wallet
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(&checksum, user.user_id).await {
+                match manager
+                    .metadata_db
+                    .is_wallet_owned_by_user(&checksum, user.user_id)
+                    .await
+                {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -588,7 +636,6 @@ pub async fn get_wallet(
             .into_response(),
     }
 }
-
 
 // Wallet-specific contact management endpoints
 
@@ -630,15 +677,23 @@ pub async fn create_wallet_contact(
                 .into_response();
         }
     };
-    
+
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
-    let wallet = match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
+    let wallet = match manager
+        .metadata_db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+    {
         Ok(Some(wallet)) => {
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
+                match manager
+                    .metadata_db
+                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .await
+                {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -684,7 +739,7 @@ pub async fn create_wallet_contact(
 
     // Process notification methods
     let mut processed_methods = Vec::new();
-    
+
     for method in &payload.notification_methods {
         match method.provider_type {
             ProviderType::Sms => {
@@ -692,10 +747,7 @@ pub async fn create_wallet_contact(
                 let normalized_phone = match validate_phone_number(&method.notification_target) {
                     Ok(phone) => phone,
                     Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse { error: e }),
-                        )
+                        return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e }))
                             .into_response();
                     }
                 };
@@ -703,7 +755,8 @@ pub async fn create_wallet_contact(
             }
             ProviderType::Ntfy => {
                 // Auto-generate ntfy topic
-                let topic = generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
+                let topic =
+                    generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
                 processed_methods.push((ProviderType::Ntfy, topic));
             }
             ProviderType::Email => {
@@ -724,23 +777,24 @@ pub async fn create_wallet_contact(
             .into_response();
     }
 
-    match manager.metadata_db.insert_contact_with_notification_methods(
-        &wallet_checksum, 
-        &payload.name, 
-        &payload.language,
-        processed_methods
-    ).await {
-        Ok(contact_id) => {
-            
-            (
-                StatusCode::CREATED,
-                Json(CreateContactResponse {
-                    message: "Contact created successfully".to_string(),
-                    contact_id,
-                }),
-            )
-                .into_response()
-        }
+    match manager
+        .metadata_db
+        .insert_contact_with_notification_methods(
+            &wallet_checksum,
+            &payload.name,
+            &payload.language,
+            processed_methods,
+        )
+        .await
+    {
+        Ok(contact_id) => (
+            StatusCode::CREATED,
+            Json(CreateContactResponse {
+                message: "Contact created successfully".to_string(),
+                contact_id,
+            }),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
@@ -789,15 +843,23 @@ pub async fn delete_wallet_contact(
                 .into_response();
         }
     };
-    
+
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
-    
+
     // Check if wallet exists and user has access
-    match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
+    match manager
+        .metadata_db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+    {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
+                match manager
+                    .metadata_db
+                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .await
+                {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -839,12 +901,13 @@ pub async fn delete_wallet_contact(
                 .into_response();
         }
     }
-    
-    match manager.metadata_db.delete_wallet_contact(&wallet_checksum, contact_id).await {
-        Ok(true) => {
-            
-            StatusCode::NO_CONTENT.into_response()
-        }
+
+    match manager
+        .metadata_db
+        .delete_wallet_contact(&wallet_checksum, contact_id)
+        .await
+    {
+        Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
@@ -901,15 +964,23 @@ pub async fn get_wallet_contacts(
                 .into_response();
         }
     };
-    
+
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
-    match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
+    match manager
+        .metadata_db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+    {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
+                match manager
+                    .metadata_db
+                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .await
+                {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -952,7 +1023,11 @@ pub async fn get_wallet_contacts(
         }
     }
 
-    match manager.metadata_db.get_contacts_with_notification_methods(&wallet_checksum).await {
+    match manager
+        .metadata_db
+        .get_contacts_with_notification_methods(&wallet_checksum)
+        .await
+    {
         Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1003,15 +1078,23 @@ pub async fn send_contact_verification(
                 .into_response();
         }
     };
-    
+
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
-    match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
+    match manager
+        .metadata_db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+    {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
+                match manager
+                    .metadata_db
+                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .await
+                {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -1058,27 +1141,28 @@ pub async fn send_contact_verification(
     let normalized_phone = match validate_phone_number(&request.phone_number) {
         Ok(phone) => phone,
         Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse { error: e }),
-            )
-                .into_response();
+            return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })).into_response();
         }
     };
 
     // Check if this is a dev test phone
-    let is_dev_phone = cfg!(debug_assertions) && 
-        ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
+    let is_dev_phone = cfg!(debug_assertions)
+        && ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
 
     // Check rate limit (skip for dev phones)
     if !is_dev_phone {
-        match manager.metadata_db.check_rate_limit(&normalized_phone).await {
+        match manager
+            .metadata_db
+            .check_rate_limit(&normalized_phone)
+            .await
+        {
             Ok(true) => {} // Allowed
             Ok(false) => {
                 return (
                     StatusCode::TOO_MANY_REQUESTS,
                     Json(ErrorResponse {
-                        error: "Too many verification attempts. Please try again later.".to_string(),
+                        error: "Too many verification attempts. Please try again later."
+                            .to_string(),
                     }),
                 )
                     .into_response();
@@ -1122,18 +1206,22 @@ pub async fn send_contact_verification(
 
     // Clean up any expired verifications first
     let _ = manager.metadata_db.cleanup_expired_verifications().await;
-    
+
     // Store pending verification
     let verification_code = if is_dev_phone { Some("123456") } else { None };
-    
-    match manager.metadata_db.create_pending_contact_verification(
-        &wallet_checksum,
-        "sms",
-        &normalized_phone,
-        &request.name,
-        &request.language,
-        verification_code,
-    ).await {
+
+    match manager
+        .metadata_db
+        .create_pending_contact_verification(
+            &wallet_checksum,
+            "sms",
+            &normalized_phone,
+            &request.name,
+            &request.language,
+            verification_code,
+        )
+        .await
+    {
         Ok(_) => {}
         Err(e) => {
             return (
@@ -1150,18 +1238,19 @@ pub async fn send_contact_verification(
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
     let auth_service = AuthService::new(jwt_secret, None);
-    
-    match auth_service.send_contact_otp(&twilio_config, &normalized_phone).await {
-        Ok(_) => {
-            Json(serde_json::json!({
-                "message": "Verification code sent successfully"
-            }))
-            .into_response()
-        }
+
+    match auth_service
+        .send_contact_otp(&twilio_config, &normalized_phone)
+        .await
+    {
+        Ok(_) => Json(serde_json::json!({
+            "message": "Verification code sent successfully"
+        }))
+        .into_response(),
         Err(e) => {
             // Clean up pending verification on error
             let _ = manager.metadata_db.cleanup_expired_verifications().await;
-            
+
             (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
@@ -1179,7 +1268,7 @@ pub struct VerifyPhoneRequest {
     pub code: String,
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]  
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct VerifyPhoneResponse {
     pub valid: bool,
     pub message: String,
@@ -1221,15 +1310,23 @@ pub async fn verify_phone_only(
                 .into_response();
         }
     };
-    
+
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
 
     // Check if wallet exists and user has access
-    match manager.metadata_db.get_wallet_by_checksum(&wallet_checksum).await {
+    match manager
+        .metadata_db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+    {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager.metadata_db.is_wallet_owned_by_user(&wallet_checksum, user.user_id).await {
+                match manager
+                    .metadata_db
+                    .is_wallet_owned_by_user(&wallet_checksum, user.user_id)
+                    .await
+                {
                     Ok(true) => {} // User owns the wallet
                     Ok(false) => {
                         return (
@@ -1276,16 +1373,13 @@ pub async fn verify_phone_only(
     let normalized_phone = match validate_phone_number(&request.phone_number) {
         Ok(phone) => phone,
         Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse { error: e }),
-            )
-                .into_response();
+            return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })).into_response();
         }
     };
 
     // Look up the pending verification
-    let (verification_id, _contact_name, _language, _verification_code) = match manager.metadata_db
+    let (verification_id, _contact_name, _language, _verification_code) = match manager
+        .metadata_db
         .get_pending_verification(&wallet_checksum, &normalized_phone)
         .await
     {
@@ -1328,8 +1422,11 @@ pub async fn verify_phone_only(
         let jwt_secret = std::env::var("JWT_SECRET")
             .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
         let auth_service = AuthService::new(jwt_secret, None);
-        
-        match auth_service.verify_contact_otp(&twilio_config, &normalized_phone, &request.code).await {
+
+        match auth_service
+            .verify_contact_otp(&twilio_config, &normalized_phone, &request.code)
+            .await
+        {
             Ok(valid) => valid,
             Err(e) => {
                 return (
@@ -1345,10 +1442,16 @@ pub async fn verify_phone_only(
 
     if is_valid {
         // Clear rate limit on successful verification
-        let _ = manager.metadata_db.clear_rate_limit(&normalized_phone).await;
+        let _ = manager
+            .metadata_db
+            .clear_rate_limit(&normalized_phone)
+            .await;
 
         // Delete pending verification
-        let _ = manager.metadata_db.delete_pending_verification(verification_id).await;
+        let _ = manager
+            .metadata_db
+            .delete_pending_verification(verification_id)
+            .await;
 
         (
             StatusCode::OK,
@@ -1369,7 +1472,6 @@ pub async fn verify_phone_only(
             .into_response()
     }
 }
-
 
 #[utoipa::path(
     get,
@@ -1402,7 +1504,6 @@ pub async fn get_current_block_header(State(wallet_manager): State<AppState>) ->
     }
 }
 
-
 #[utoipa::path(
     get,
     path = "/api/wallets",
@@ -1433,10 +1534,13 @@ pub async fn get_wallets_list(
                 .into_response();
         }
     };
-    
+
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
-    match manager.get_wallets_list_for_user(user.user_id, user.is_admin).await {
+    match manager
+        .get_wallets_list_for_user(user.user_id, user.is_admin)
+        .await
+    {
         Ok(wallets_response) => (StatusCode::OK, Json(wallets_response)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1484,10 +1588,13 @@ pub async fn get_wallet_detail(
                 .into_response();
         }
     };
-    
+
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
-    match manager.get_wallet_detail_for_user(&checksum, user.user_id, user.is_admin).await {
+    match manager
+        .get_wallet_detail_for_user(&checksum, user.user_id, user.is_admin)
+        .await
+    {
         Ok(wallet_detail) => (StatusCode::OK, Json(wallet_detail)).into_response(),
         Err(e) => {
             let error_msg = e.to_string();
@@ -1496,7 +1603,7 @@ pub async fn get_wallet_detail(
                 "Access denied to wallet" => StatusCode::FORBIDDEN,
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
             };
-            
+
             (status_code, Json(ErrorResponse { error: error_msg })).into_response()
         }
     }
@@ -1519,7 +1626,7 @@ pub async fn register(
     Json(request): Json<RegisterRequest>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
-    
+
     // Validate email format
     if !request.email.contains('@') || request.email.len() < 5 {
         return (
@@ -1530,7 +1637,7 @@ pub async fn register(
         )
             .into_response();
     }
-    
+
     // Validate password strength
     if request.password.len() < 6 {
         return (
@@ -1541,7 +1648,7 @@ pub async fn register(
         )
             .into_response();
     }
-    
+
     // Check if user already exists
     match manager.metadata_db.get_user_by_email(&request.email).await {
         Ok(Some(_)) => {
@@ -1564,20 +1671,20 @@ pub async fn register(
                 .into_response();
         }
     }
-    
+
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    
+
     let email_service = match EmailService::from_env() {
         Ok(service) => Some(service),
-        Err(_) => None // Email service not configured, will work in dev mode
+        Err(_) => None, // Email service not configured, will work in dev mode
     };
-    
+
     let auth_service = AuthService::new(jwt_secret, email_service);
-    
+
     // Check if this is a dev test email
     let is_dev_email = auth_service.is_dev_test_email(&request.email);
-    
+
     // Hash password
     let password_hash = match auth_service.hash_password(&request.password) {
         Ok(hash) => hash,
@@ -1591,12 +1698,21 @@ pub async fn register(
                 .into_response();
         }
     };
-    
+
     // For dev mode, auto-verify emails. For production, require verification.
     let email_verified = is_dev_email;
-    
+
     // Create user
-    let user_id = match manager.metadata_db.create_user(&request.email, &password_hash, Some(&request.name), email_verified).await {
+    let user_id = match manager
+        .metadata_db
+        .create_user(
+            &request.email,
+            &password_hash,
+            Some(&request.name),
+            email_verified,
+        )
+        .await
+    {
         Ok(id) => id,
         Err(e) => {
             return (
@@ -1608,7 +1724,7 @@ pub async fn register(
                 .into_response();
         }
     };
-    
+
     // Add to marketing audience if opted in
     if request.marketing_emails_opt_in {
         if let Some(email_service) = &auth_service.email_service {
@@ -1624,13 +1740,17 @@ pub async fn register(
             });
         }
     }
-    
+
     // Send verification email for non-dev accounts
     if !is_dev_email {
         let token = auth_service.generate_verification_token();
-        
+
         // Store verification token
-        if let Err(e) = manager.metadata_db.create_email_verification_token(user_id, &token).await {
+        if let Err(e) = manager
+            .metadata_db
+            .create_email_verification_token(user_id, &token)
+            .await
+        {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
@@ -1639,9 +1759,12 @@ pub async fn register(
             )
                 .into_response();
         }
-        
+
         // Send verification email
-        if let Err(e) = auth_service.send_email_verification(&request.email, &request.name, &token).await {
+        if let Err(e) = auth_service
+            .send_email_verification(&request.email, &request.name, &token)
+            .await
+        {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
@@ -1650,7 +1773,7 @@ pub async fn register(
             )
                 .into_response();
         }
-        
+
         Json(serde_json::json!({
             "message": "Registration successful. Please check your email to verify your account."
         }))
@@ -1681,7 +1804,7 @@ pub async fn login(
     Json(request): Json<LoginRequest>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
-    
+
     // Check if user exists
     let user_record = match manager.metadata_db.get_user_by_email(&request.email).await {
         Ok(Some(user)) => user,
@@ -1704,26 +1827,26 @@ pub async fn login(
                 .into_response();
         }
     };
-    
+
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    
+
     let email_service = match EmailService::from_env() {
         Ok(service) => {
             println!("✅ Email service initialized successfully");
             Some(service)
-        },
+        }
         Err(e) => {
             eprintln!("❌ Failed to initialize email service: {}", e);
             None // Email service not configured, will work in dev mode
         }
     };
-    
+
     let auth_service = AuthService::new(jwt_secret, email_service);
-    
+
     // Check if this is a dev test email (bypass password check)
     let is_dev_email = auth_service.is_dev_test_email(&request.email);
-    
+
     // Verify password
     let password_valid = if is_dev_email {
         // For dev emails, check against dev test password
@@ -1743,7 +1866,7 @@ pub async fn login(
             }
         }
     };
-    
+
     if !password_valid {
         return (
             StatusCode::BAD_REQUEST,
@@ -1753,42 +1876,53 @@ pub async fn login(
         )
             .into_response();
     }
-    
+
     // Check email verification (skip for dev emails)
     if !is_dev_email && !user_record.email_verified {
         return (
             StatusCode::FORBIDDEN,
             Json(ErrorResponse {
-                error: "Email not verified. Please check your email and click the verification link.".to_string(),
+                error:
+                    "Email not verified. Please check your email and click the verification link."
+                        .to_string(),
             }),
         )
             .into_response();
     }
-    
+
     // Update last login
     if let Err(e) = manager.metadata_db.update_last_login(user_record.id).await {
-        eprintln!("Failed to update last login for user {}: {:?}", user_record.id, e);
+        eprintln!(
+            "Failed to update last login for user {}: {:?}",
+            user_record.id, e
+        );
     }
-    
+
     // Generate JWT token
-    let token = match auth_service.generate_token(user_record.id, &user_record.email, user_record.is_admin) {
-        Ok(t) => t,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to generate token: {}", e),
-                }),
-            )
-                .into_response();
-        }
-    };
-    
+    let token =
+        match auth_service.generate_token(user_record.id, &user_record.email, user_record.is_admin)
+        {
+            Ok(t) => t,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to generate token: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        };
+
     // Create session
     let token_hash = AuthService::hash_token(&token);
     let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
-    
-    if let Err(e) = manager.metadata_db.create_session(user_record.id, &token_hash, expires_at).await {
+
+    if let Err(e) = manager
+        .metadata_db
+        .create_session(user_record.id, &token_hash, expires_at)
+        .await
+    {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -1797,7 +1931,7 @@ pub async fn login(
         )
             .into_response();
     }
-    
+
     // Build user response
     let user_info = AuthUserResponse {
         id: user_record.id,
@@ -1807,7 +1941,7 @@ pub async fn login(
         email_verified: user_record.email_verified,
         created_at: user_record.created_at,
     };
-    
+
     Json(AuthResponse {
         token,
         user: user_info,
@@ -1834,14 +1968,12 @@ pub async fn verify_email(
     Path(token): Path<String>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
-    
+
     match manager.metadata_db.verify_email_token(&token).await {
-        Ok(Some(_user_id)) => {
-            Json(serde_json::json!({
-                "message": "Email verified successfully. You can now log in."
-            }))
-            .into_response()
-        }
+        Ok(Some(_user_id)) => Json(serde_json::json!({
+            "message": "Email verified successfully. You can now log in."
+        }))
+        .into_response(),
         Ok(None) => (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
@@ -1875,7 +2007,7 @@ pub async fn forgot_password(
     Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
-    
+
     // Check if user exists
     let user_record = match manager.metadata_db.get_user_by_email(&request.email).await {
         Ok(Some(user)) => user,
@@ -1896,20 +2028,24 @@ pub async fn forgot_password(
                 .into_response();
         }
     };
-    
+
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    
+
     let email_service = match EmailService::from_env() {
         Ok(service) => Some(service),
         Err(_) => None,
     };
-    
+
     let auth_service = AuthService::new(jwt_secret, email_service);
     let token = auth_service.generate_verification_token();
-    
+
     // Store password reset token
-    if let Err(e) = manager.metadata_db.create_password_reset_token(user_record.id, &token).await {
+    if let Err(e) = manager
+        .metadata_db
+        .create_password_reset_token(user_record.id, &token)
+        .await
+    {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -1918,9 +2054,16 @@ pub async fn forgot_password(
         )
             .into_response();
     }
-    
+
     // Send password reset email
-    if let Err(e) = auth_service.send_password_reset(&user_record.email, &user_record.name.unwrap_or_else(|| "User".to_string()), &token).await {
+    if let Err(e) = auth_service
+        .send_password_reset(
+            &user_record.email,
+            &user_record.name.unwrap_or_else(|| "User".to_string()),
+            &token,
+        )
+        .await
+    {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -1929,7 +2072,7 @@ pub async fn forgot_password(
         )
             .into_response();
     }
-    
+
     Json(serde_json::json!({
         "message": "If an account with that email exists, a password reset link has been sent."
     }))
@@ -1956,7 +2099,7 @@ pub async fn reset_password(
     Json(request): Json<ResetPasswordRequest>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
-    
+
     // Validate password strength
     if request.password.len() < 6 {
         return (
@@ -1967,9 +2110,13 @@ pub async fn reset_password(
         )
             .into_response();
     }
-    
+
     // Verify token and get user ID
-    let user_id = match manager.metadata_db.verify_password_reset_token(&token).await {
+    let user_id = match manager
+        .metadata_db
+        .verify_password_reset_token(&token)
+        .await
+    {
         Ok(Some(id)) => id,
         Ok(None) => {
             return (
@@ -1990,12 +2137,12 @@ pub async fn reset_password(
                 .into_response();
         }
     };
-    
+
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    
+
     let auth_service = AuthService::new(jwt_secret, None);
-    
+
     // Hash new password
     let password_hash = match auth_service.hash_password(&request.password) {
         Ok(hash) => hash,
@@ -2009,9 +2156,13 @@ pub async fn reset_password(
                 .into_response();
         }
     };
-    
+
     // Update password and clear reset tokens
-    if let Err(e) = manager.metadata_db.update_user_password(user_id, &password_hash).await {
+    if let Err(e) = manager
+        .metadata_db
+        .update_user_password(user_id, &password_hash)
+        .await
+    {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -2020,7 +2171,7 @@ pub async fn reset_password(
         )
             .into_response();
     }
-    
+
     Json(serde_json::json!({
         "message": "Password reset successfully. You can now log in with your new password."
     }))
@@ -2039,10 +2190,7 @@ pub async fn reset_password(
         ("bearer_auth" = [])
     )
 )]
-pub async fn logout(
-    State(wallet_manager): State<AppState>,
-    headers: HeaderMap,
-) -> Response {
+pub async fn logout(State(wallet_manager): State<AppState>, headers: HeaderMap) -> Response {
     // Get the token from the Authorization header
     let auth_header = match headers.get("authorization").and_then(|h| h.to_str().ok()) {
         Some(header) => header,
@@ -2068,13 +2216,13 @@ pub async fn logout(
     }
 
     let token = &auth_header[7..]; // Skip "Bearer "
-    
+
     // Hash the token to find it in the database
     let token_hash = AuthService::hash_token(token);
-    
+
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
-    
+
     // Delete the session from the database
     if let Err(e) = manager.metadata_db.delete_session(&token_hash).await {
         return (
@@ -2085,7 +2233,7 @@ pub async fn logout(
         )
             .into_response();
     }
-    
+
     Json(serde_json::json!({
         "message": "Logged out successfully"
     }))
@@ -2104,10 +2252,7 @@ pub async fn logout(
         ("bearer_auth" = [])
     )
 )]
-pub async fn me(
-    State(wallet_manager): State<AppState>,
-    headers: HeaderMap,
-) -> Response {
+pub async fn me(State(wallet_manager): State<AppState>, headers: HeaderMap) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -2121,7 +2266,7 @@ pub async fn me(
                 .into_response();
         }
     };
-    
+
     // Get user info from database
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
@@ -2153,7 +2298,7 @@ pub async fn me(
                 .into_response();
         }
     };
-    
+
     Json(serde_json::json!({ "user": user_info })).into_response()
 }
 
@@ -2187,7 +2332,7 @@ pub async fn update_user(
                 .into_response();
         }
     };
-    
+
     // Validate name is not empty
     if request.name.trim().is_empty() {
         return (
@@ -2198,11 +2343,15 @@ pub async fn update_user(
         )
             .into_response();
     }
-    
+
     // Update user name in database
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
-    if let Err(e) = manager.metadata_db.update_user_name(user.user_id, request.name.trim()).await {
+    if let Err(e) = manager
+        .metadata_db
+        .update_user_name(user.user_id, request.name.trim())
+        .await
+    {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -2211,7 +2360,7 @@ pub async fn update_user(
         )
             .into_response();
     }
-    
+
     // Get updated user info
     let user_info = match manager.metadata_db.get_user_by_id(user.user_id).await {
         Ok(Some(db_user)) => AuthUserResponse {
@@ -2241,10 +2390,9 @@ pub async fn update_user(
                 .into_response();
         }
     };
-    
+
     Json(UpdateUserResponse { user: user_info }).into_response()
 }
-
 
 #[utoipa::path(
     get,
@@ -2255,7 +2403,9 @@ pub async fn update_user(
     ),
     tag = "providers"
 )]
-pub async fn get_providers(State(notification_manager): State<NotificationManagerState>) -> Response {
+pub async fn get_providers(
+    State(notification_manager): State<NotificationManagerState>,
+) -> Response {
     #[allow(unused_mut)]
     let mut manager = notification_manager.lock().await;
     let providers = manager.list_providers();
@@ -2297,7 +2447,10 @@ pub async fn get_providers(State(notification_manager): State<NotificationManage
 )]
 pub struct ApiDoc;
 
-pub fn create_router(wallet_manager: AppState, notification_manager: NotificationManagerState) -> Router {
+pub fn create_router(
+    wallet_manager: AppState,
+    notification_manager: NotificationManagerState,
+) -> Router {
     // Auth routes (public)
     let auth_routes = Router::new()
         .route("/auth/register", post(register))
@@ -2309,10 +2462,13 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
         .route("/auth/me", get(me))
         .route("/auth/user", put(update_user))
         .with_state(wallet_manager.clone());
-    
+
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet).get(get_wallets_list))
-        .route("/wallets/{checksum}", get(get_wallet).put(update_wallet).delete(delete_wallet))
+        .route(
+            "/wallets/{checksum}",
+            get(get_wallet).put(update_wallet).delete(delete_wallet),
+        )
         .route("/wallets/{checksum}/detail", get(get_wallet_detail))
         .route(
             "/wallets/{checksum}/contacts",
@@ -2338,7 +2494,7 @@ pub fn create_router(wallet_manager: AppState, notification_manager: Notificatio
         .with_state(notification_manager);
 
     let api_routes = auth_routes.merge(wallet_routes).merge(provider_routes);
-    
+
     Router::new()
         .nest("/api", api_routes)
         .layer(CorsLayer::permissive())

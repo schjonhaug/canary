@@ -28,7 +28,7 @@ pub trait NotificationProvider: Send + Sync {
         wallet_name: &str,
         contacts: &[Contact],
     ) -> Vec<(NotificationMethod, NotificationResult, String)>;
-    
+
     fn provider_info(&self) -> ProviderInfo;
     fn name(&self) -> &'static str;
 }
@@ -48,7 +48,6 @@ impl NotificationManager {
         let name = provider.name().to_string();
         self.providers.insert(name, provider);
     }
-
 
     pub fn list_providers(&self) -> Vec<ProviderInfo> {
         self.providers
