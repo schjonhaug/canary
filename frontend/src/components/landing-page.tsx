@@ -1,9 +1,10 @@
 'use client'
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CheckCircle2, Zap, Shield, Globe, Bell, Smartphone, ArrowRight, Bitcoin, Server, Github, Users } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { CheckCircle2, Zap, Shield, Bell, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -25,57 +26,45 @@ const features = [
   }
 ]
 
+const allFeatures = [
+  { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', pro: '5 wallets', business: 'Unlimited wallets', unique: { pro: true, business: true } },
+  { id: 'contacts', label: 'Contacts per wallet', personal: '1 contact', pro: '10 contacts', business: 'Unlimited contacts', unique: { pro: true, business: true } },
+  { id: 'email', label: 'Email notifications', personal: true, pro: true, business: true },
+  { id: 'sms', label: 'SMS notifications', personal: false, pro: true, business: true, unique: { pro: true } },
+  { id: 'push', label: 'Push notifications', personal: false, pro: true, business: true, unique: { pro: true } },
+  { id: 'sync', label: 'Sync interval', personal: '10 minute sync time', pro: '1 minute sync time', business: '5 second sync time', unique: { pro: true, business: true } },
+  { id: 'analysis', label: 'Transaction analysis (RBF/CPFP)', personal: false, pro: true, business: true, unique: { pro: true } },
+  { id: 'api', label: 'REST API access', personal: false, pro: false, business: true, unique: { business: true } },
+  { id: 'webhooks', label: 'Custom webhooks', personal: false, pro: false, business: true, unique: { business: true } },
+  { id: 'support', label: 'Support', personal: 'Email', pro: 'Priority email', business: 'Dedicated support', unique: { pro: true, business: true } },
+  { id: 'sla', label: '99.9% uptime SLA', personal: false, pro: false, business: true, unique: { business: true } },
+]
+
 const pricingTiers = [
   {
     name: "Personal",
-    price: "Free",
+    monthlyPrice: 0,
+    yearlyPrice: 0,
     description: "Perfect for getting started",
-    features: [
-      "1 Bitcoin wallet",
-      "Email notifications",
-      "Basic transaction alerts",
-      "10 minute sync interval",
-      "Multi-language support",
-      "Email support"
-    ],
     cta: "Get Started",
     ctaLink: "/wallets",
     highlighted: false
   },
   {
     name: "Pro",
-    price: "$9",
-    period: "/month",
+    monthlyPrice: 9,
+    yearlyPrice: 86, // 20% discount: 9 * 12 * 0.8
     description: "Most popular for individuals",
-    features: [
-      "5 Bitcoin wallets",
-      "10 contacts per wallet",
-      "Email + SMS + push notifications",
-      "1 minute sync interval",
-      "Transaction analysis (RBF/CPFP + mempool detection)",
-      "Multi-language support",
-      "Priority email support",
-    ],
-    cta: "Get Started",
+    cta: "Subscribe",
     ctaLink: "/wallets",
     highlighted: true,
     badge: "POPULAR"
   },
   {
     name: "Business",
-    price: "$29",
-    period: "/month",
+    monthlyPrice: 29,
+    yearlyPrice: 278, // 20% discount: 29 * 12 * 0.8
     description: "For businesses and power users",
-    features: [
-      "Unlimited wallets",
-      "Unlimited contacts",
-      "All notification providers",
-      "5-second sync interval",
-      "REST API access",
-      "Custom webhook integrations",
-      "Dedicated support",
-      "99.9% uptime SLA",
-    ],
     cta: "Contact Sales",
     ctaLink: "mailto:mail@canarybitcoin.com",
     highlighted: false
@@ -111,6 +100,8 @@ const faqs = [
 ]
 
 export default function LandingPage() {
+  const [isYearly, setIsYearly] = useState(false)
+  
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -187,51 +178,100 @@ export default function LandingPage() {
           <p className="text-muted-foreground">
             Start free, upgrade as you grow
           </p>
-        </div>
-        <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {pricingTiers.map((tier, index) => (
-            <Card 
-              key={index} 
-              className={`relative ${tier.highlighted ? "border-primary shadow-md" : ""}`}
-            >
-              {tier.badge && (
-                <div className="absolute -top-3 left-4">
-                  <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full font-semibold">
-                    {tier.badge}
-                  </span>
-                </div>
+          
+          {/* Billing Toggle */}
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <span className={`text-sm ${!isYearly ? 'font-semibold' : 'text-muted-foreground'}`}>
+              Monthly
+            </span>
+            <Switch
+              checked={isYearly}
+              onCheckedChange={setIsYearly}
+              aria-label="Toggle yearly billing"
+            />
+            <span className={`text-sm ${isYearly ? 'font-semibold' : 'text-muted-foreground'}`}>
+              Yearly
+              {isYearly && (
+                <span className="ml-1.5 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                  Save 20%
+                </span>
               )}
-              <CardHeader>
-                <CardTitle className="text-lg">{tier.name}</CardTitle>
-                <CardDescription className="text-sm">{tier.description}</CardDescription>
-                <div className="mt-3">
-                  <span className="text-2xl font-bold">{tier.price}</span>
-                  {tier.period && <span className="text-muted-foreground text-sm">{tier.period}</span>}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {tier.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start text-sm">
-                      <CheckCircle2 className="h-4 w-4 text-primary mr-2 flex-shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  className="w-full" 
-                  variant={tier.highlighted ? "default" : "outline"}
-                  asChild
-                >
-                  <a href={tier.ctaLink} target={tier.name === "Self-Hosted" ? "_blank" : undefined} rel={tier.name === "Self-Hosted" ? "noopener noreferrer" : undefined}>
-                    {tier.cta}
-                  </a>
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+            </span>
+          </div>
+        </div>
+        
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {pricingTiers.map((tier, index) => {
+            const price = isYearly ? tier.yearlyPrice : tier.monthlyPrice
+            const period = price === 0 ? '' : isYearly ? '/year' : '/month'
+            const displayPrice = price === 0 ? 'Free' : `$${price}`
+            
+            return (
+              <Card 
+                key={index} 
+                className={`relative ${tier.highlighted ? "border-primary shadow-md" : ""}`}
+              >
+                {tier.badge && (
+                  <div className="absolute -top-3 left-4">
+                    <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full font-semibold">
+                      {tier.badge}
+                    </span>
+                  </div>
+                )}
+                <CardHeader>
+                  <CardTitle className="text-lg">{tier.name}</CardTitle>
+                  <CardDescription className="text-sm">{tier.description}</CardDescription>
+                  <div className="mt-3">
+                    <span className="text-2xl font-bold">{displayPrice}</span>
+                    {period && <span className="text-muted-foreground text-sm">{period}</span>}
+                    {isYearly && tier.monthlyPrice > 0 && (
+                      <div className="text-xs text-muted-foreground mt-1 line-through">
+                        ${tier.monthlyPrice * 12}/year
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2.5">
+                    {allFeatures.map((feature) => {
+                      const tierKey = tier.name.toLowerCase() as 'personal' | 'pro' | 'business'
+                      const value = feature[tierKey]
+                      const isUnique = feature.unique?.[tierKey] || false
+                      
+                      if (value === false) {
+                        return (
+                          <li key={feature.id} className="flex items-start text-sm text-muted-foreground/50">
+                            <span className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5">–</span>
+                            <span className="line-through">{feature.label}</span>
+                          </li>
+                        )
+                      }
+                      
+                      return (
+                        <li key={feature.id} className={`flex items-start text-sm ${isUnique && tier.name !== 'Personal' ? 'font-medium' : ''}`}>
+                          <CheckCircle2 className={`h-4 w-4 mr-2 flex-shrink-0 mt-0.5 ${isUnique && tier.name !== 'Personal' ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <span>
+                            {typeof value === 'string' ? value : feature.label}
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    className="w-full" 
+                    variant={tier.highlighted ? "default" : "outline"}
+                    asChild
+                  >
+                    <a href={tier.ctaLink}>
+                      {tier.cta}
+                    </a>
+                  </Button>
+                </CardFooter>
+              </Card>
+            )
+          })}
         </div>
       </section>
 
