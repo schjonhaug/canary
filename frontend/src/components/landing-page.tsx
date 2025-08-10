@@ -27,44 +27,45 @@ const features = [
 ]
 
 const allFeatures = [
-  { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', pro: '5 wallets', business: 'Unlimited wallets', unique: { pro: true, business: true } },
+  { id: 'trial', label: '30-day free trial', personal: true, pro: true, business: true },
+  { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', pro: '15 wallets', business: 'Unlimited wallets', unique: { pro: true, business: true } },
   { id: 'contacts', label: 'Contacts per wallet', personal: '1 contact', pro: '10 contacts per wallet', business: 'Unlimited contacts', unique: { pro: true, business: true } },
   { id: 'email', label: 'Email notifications', personal: true, pro: true, business: true },
   { id: 'sms', label: 'SMS notifications', personal: false, pro: true, business: true, unique: { pro: true } },
   { id: 'push', label: 'Push notifications', personal: false, pro: true, business: true, unique: { pro: true } },
-  { id: 'sync', label: 'Sync interval', personal: '10 minute sync time', pro: '1 minute sync time', business: '5 second sync time', unique: { pro: true, business: true } },
+  { id: 'sync', label: 'Sync interval', personal: '5 minute sync time', pro: '1 minute sync time', business: '5 second sync time', unique: { pro: true, business: true } },
   { id: 'analysis', label: 'Transaction analysis (RBF/CPFP)', personal: false, pro: true, business: true, unique: { pro: true } },
   { id: 'api', label: 'REST API access', personal: false, pro: false, business: true, unique: { business: true } },
   { id: 'webhooks', label: 'Custom webhooks', personal: false, pro: false, business: true, unique: { business: true } },
-  { id: 'support', label: 'Support', personal: 'Email support', pro: 'Priority email support', business: 'Dedicated support', unique: { pro: true, business: true } },
+  { id: 'support', label: 'Support', personal: 'Email support', pro: 'Priority support', business: 'Dedicated support', unique: { pro: true, business: true } },
   { id: 'sla', label: '99.9% uptime SLA', personal: false, pro: false, business: true, unique: { business: true } },
 ]
 
 const pricingTiers = [
   {
     name: "Personal",
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    description: "Perfect for getting started",
-    cta: "Sign up",
+    monthlyPrice: 9,
+    yearlyPrice: 86, // 20% discount: 9 * 12 * 0.8
+    description: "For individual Bitcoin holders",
+    cta: "Start Free Trial",
     ctaLink: "/sign-up",
     highlighted: false
   },
   {
     name: "Pro",
-    monthlyPrice: 9,
-    yearlyPrice: 86, // 20% discount: 9 * 12 * 0.8
-    description: "Most popular for individuals",
-    cta: "Subscribe",
-    ctaLink: "/wallets",
+    monthlyPrice: 29,
+    yearlyPrice: 278, // 20% discount: 29 * 12 * 0.8
+    description: "For Uncle Jims & family guardians",
+    cta: "Start Free Trial",
+    ctaLink: "/sign-up",
     highlighted: true,
     badge: "POPULAR"
   },
   {
     name: "Business",
-    monthlyPrice: 29,
-    yearlyPrice: 278, // 20% discount: 29 * 12 * 0.8
-    description: "For businesses and power users",
+    monthlyPrice: 99,
+    yearlyPrice: 950, // 20% discount: 99 * 12 * 0.8
+    description: "For businesses & services",
     cta: "Contact Sales",
     ctaLink: "mailto:mail@canarybitcoin.com",
     highlighted: false
@@ -133,7 +134,7 @@ export default function LandingPage() {
           <div className="flex gap-3 justify-center flex-wrap">
             <Button size="lg" asChild>
               <Link href="/sign-up">
-                Get Started Free <ArrowRight className="ml-2 h-4 w-4" />
+                Start 30-Day Free Trial <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
@@ -175,8 +176,11 @@ export default function LandingPage() {
       <section className="container mx-auto px-4 py-16" id="pricing">
         <div className="text-center mb-10">
           <h2 className="text-2xl font-semibold mb-3">Simple, Transparent Pricing</h2>
-          <p className="text-muted-foreground">
-            Start free, upgrade as you grow
+          <p className="text-muted-foreground mb-2">
+            Choose the plan that fits your needs
+          </p>
+          <p className="text-sm text-green-600 font-medium">
+            ✓ All plans include a 30-day free trial • No credit card required
           </p>
           
           {/* Billing Toggle */}
@@ -203,8 +207,8 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {pricingTiers.map((tier, index) => {
             const price = isYearly ? tier.yearlyPrice : tier.monthlyPrice
-            const period = price === 0 ? '' : isYearly ? '/year' : '/month'
-            const displayPrice = price === 0 ? 'Free' : `$${price}`
+            const period = isYearly ? '/year' : '/month'
+            const displayPrice = `$${price}`
             
             return (
               <Card 
@@ -310,7 +314,7 @@ export default function LandingPage() {
             <div className="flex gap-3 justify-center flex-wrap">
               <Button size="lg" variant="secondary" asChild>
                 <Link href="/sign-up">
-                  Get Started Free <ArrowRight className="ml-2 h-4 w-4" />
+                  Start 30-Day Free Trial <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
               <Button size="lg" variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10" asChild>
