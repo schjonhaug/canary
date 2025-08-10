@@ -456,6 +456,13 @@ describe('ContactModal', () => {
       // Enable ntfy (no verification needed)
       await user.click(screen.getByRole('checkbox', { name: /Push Notifications/ }))
 
+      // Set up email auto-verification mock first
+      mockApi.sendContactVerification.mockResolvedValueOnce({ message: 'Verification sent' }) // SMS call
+      mockApi.sendContactVerification.mockResolvedValueOnce({ 
+        message: 'Auto-verified', 
+        auto_verified: true 
+      }) // Email call
+
       // Enable and verify SMS
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
       const phoneInput = screen.getByPlaceholderText('+1234567890')
@@ -472,12 +479,6 @@ describe('ContactModal', () => {
 
       await waitFor(() => {
         expect(screen.getByText('SMS verified successfully')).toBeInTheDocument()
-      })
-
-      // Enable and verify email (auto-verified)
-      mockApi.sendContactVerification.mockResolvedValueOnce({ 
-        message: 'Auto-verified', 
-        auto_verified: true 
       })
       
       await user.click(screen.getByRole('checkbox', { name: /Email Notifications/ }))

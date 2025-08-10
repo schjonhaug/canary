@@ -42,10 +42,10 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
       {contacts.length > 0 ? (
         <div className="space-y-2">
           {contacts.sort((a, b) => a.name.localeCompare(b.name)).map((contact) => (
-            <div 
+            <button
               key={contact.id} 
               onClick={() => handleEditContact(contact)}
-              className="p-2 bg-muted/30 rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
+              className="w-full p-2 bg-muted/30 rounded-md hover:bg-muted/50 transition-colors text-left"
             >
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-sm font-medium truncate">{contact.name}</span>
@@ -64,7 +64,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                   </div>
                 ))}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       ) : (

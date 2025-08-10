@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -202,7 +203,7 @@ export function ContactModal({
         fetchProviders()
       }
     }
-  }, [isOpen, editContact, providers.length, fetchProviders])
+  }, [isOpen, editContact, fetchProviders])
 
   const handleClose = () => {
     setError(null)
@@ -544,6 +545,12 @@ export function ContactModal({
           <DialogTitle>
             {isEditMode ? 'Edit Contact' : 'Add New Contact'}
           </DialogTitle>
+          <DialogDescription>
+            {isEditMode 
+              ? 'Update the contact information and notification methods.' 
+              : 'Set up a new contact to receive Bitcoin transaction notifications.'
+            }
+          </DialogDescription>
         </DialogHeader>
 
         {error && (

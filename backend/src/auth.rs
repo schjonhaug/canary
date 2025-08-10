@@ -48,7 +48,6 @@ pub struct Claims {
 pub struct AuthUser {
     pub user_id: String, // UUIDv4
     pub is_admin: bool,
-    pub subscription_tier: crate::subscription::SubscriptionTier,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -354,7 +353,6 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
         return Ok(AuthUser {
             user_id: "00000000-0000-0000-0000-000000000001".to_string(), // Fixed UUID for self-hosted admin
             is_admin: true,
-            subscription_tier: crate::subscription::SubscriptionTier::Business, // Self-hosted admin gets unlimited access
         });
     }
 
@@ -372,18 +370,8 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     let auth_service = AuthService::new(jwt_secret, None);
     let claims = auth_service.validate_token(token)?;
 
-    // TODO: Fetch subscription tier from database
-    // For now, default to Personal tier. This will be fixed when we implement limit checking
-    let is_admin = claims.is_admin;
-    let subscription_tier = if is_admin {
-        crate::subscription::SubscriptionTier::Business // Admin users get unlimited access
-    } else {
-        crate::subscription::SubscriptionTier::Personal // Default to Personal
-    };
-
     Ok(AuthUser {
         user_id: claims.sub,
-        is_admin,
-        subscription_tier,
+        is_admin: claims.is_admin,
     })
 }
