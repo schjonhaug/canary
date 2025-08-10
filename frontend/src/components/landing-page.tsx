@@ -46,8 +46,8 @@ const pricingTiers = [
     monthlyPrice: 0,
     yearlyPrice: 0,
     description: "Perfect for getting started",
-    cta: "Get Started",
-    ctaLink: "/wallets",
+    cta: "Sign up",
+    ctaLink: "/sign-up",
     highlighted: false
   },
   {
