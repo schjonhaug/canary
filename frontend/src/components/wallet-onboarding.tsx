@@ -4,11 +4,17 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Info } from "lucide-react"
 
-interface WalletOnboardingProps {
-  onAddWallet: () => void
+interface User {
+  name?: string
+  email: string
 }
 
-export function WalletOnboarding({ onAddWallet }: WalletOnboardingProps) {
+interface WalletOnboardingProps {
+  onAddWallet: () => void
+  user?: User | null
+}
+
+export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
   return (
     <div className="max-w-3xl mx-auto mt-16">
       <Card className="border-muted">
@@ -18,7 +24,9 @@ export function WalletOnboarding({ onAddWallet }: WalletOnboardingProps) {
               <Info className="w-8 h-8 text-accent" />
             </div>
             
-            <h2 className="text-3xl font-bold">Welcome to Canary</h2>
+            <h2 className="text-3xl font-bold">
+              Welcome to Canary{user?.name ? `, ${user.name}` : ''}
+            </h2>
             
             <div className="space-y-4 text-left max-w-2xl mx-auto">
               <p className="text-lg text-muted-foreground">

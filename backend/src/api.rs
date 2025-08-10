@@ -2067,6 +2067,7 @@ pub async fn login(
         name: user_record.name,
         is_admin: user_record.is_admin,
         email_verified: user_record.email_verified,
+        subscription_tier: user_record.subscription_tier,
         created_at: user_record.created_at,
     };
 
@@ -2405,6 +2406,7 @@ pub async fn me(State(wallet_manager): State<AppState>, headers: HeaderMap) -> R
             name: db_user.name,
             is_admin: user.is_admin,
             email_verified: db_user.email_verified,
+            subscription_tier: db_user.subscription_tier,
             created_at: db_user.created_at,
         },
         Ok(None) => {
@@ -2497,6 +2499,7 @@ pub async fn update_user(
             name: db_user.name,
             is_admin: user.is_admin,
             email_verified: db_user.email_verified,
+            subscription_tier: db_user.subscription_tier,
             created_at: db_user.created_at,
         },
         Ok(None) => {

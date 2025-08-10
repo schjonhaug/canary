@@ -10,6 +10,7 @@ interface User {
   name?: string
   is_admin: boolean
   email_verified: boolean
+  subscription_tier: string
 }
 
 interface AuthContextType {
@@ -47,7 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: 'admin@foss.mode',
         name: 'Admin',
         is_admin: true,
-        email_verified: true
+        email_verified: true,
+        subscription_tier: 'business'
       })
       setToken('foss-mode')
       setIsLoading(false)

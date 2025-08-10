@@ -1508,27 +1508,7 @@ case "$1" in
         
     "kill")
         echo "🔪 Killing processes on ports 3000 and 3001..."
-        
-        # Check and kill processes on port 3001
-        PIDS_3001=$(lsof -ti :3001 2>/dev/null || true)
-        if [ -n "$PIDS_3001" ]; then
-            echo "📍 Found processes on port 3001: $PIDS_3001"
-            kill -9 $PIDS_3001 2>/dev/null || true
-            echo "✅ Killed processes on port 3001"
-        else
-            echo "ℹ️  No processes found on port 3001"
-        fi
-        
-        # Check and kill processes on port 3000
-        PIDS_3000=$(lsof -ti :3000 2>/dev/null || true)
-        if [ -n "$PIDS_3000" ]; then
-            echo "📍 Found processes on port 3000: $PIDS_3000"
-            kill -9 $PIDS_3000 2>/dev/null || true
-            echo "✅ Killed processes on port 3000"
-        else
-            echo "ℹ️  No processes found on port 3000"
-        fi
-        
+        lsof -ti:3000,3001 | xargs kill -9 2>/dev/null || true
         echo "🎯 Port cleanup complete"
         ;;
         

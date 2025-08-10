@@ -1,5 +1,6 @@
 use crate::electrum::BlockHeader;
 use crate::migrations::MigrationRunner;
+use crate::subscription::{SubscriptionTier, LimitError, check_limit};
 use anyhow::{Context, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
 use chrono;
@@ -38,7 +39,63 @@ pub struct UserRecord {
     pub name: Option<String>,
     pub is_admin: bool,
     pub email_verified: bool,
+    // Subscription fields
+    pub subscription_tier: SubscriptionTier,
+    pub trial_started_at: String,
+    pub trial_ends_at: String,
+    pub subscription_status: String,
+    pub stripe_customer_id: Option<String>,
+    pub stripe_subscription_id: Option<String>,
+    pub subscription_started_at: Option<String>,
     pub created_at: String,
+}
+
+impl UserRecord {
+    pub fn is_trial_active(&self) -> bool {
+        if self.subscription_status != "trial" {
+            return false;
+        }
+        
+        // Parse trial end date and compare with current time
+        match chrono::DateTime::parse_from_rfc3339(&self.trial_ends_at) {
+            Ok(trial_ends) => {
+                let now = chrono::Utc::now();
+                now < trial_ends
+            }
+            Err(_) => false,
+        }
+    }
+    
+    pub fn days_remaining_in_trial(&self) -> i64 {
+        match chrono::DateTime::parse_from_rfc3339(&self.trial_ends_at) {
+            Ok(trial_ends) => {
+                let now = chrono::Utc::now();
+                let trial_ends_utc = trial_ends.with_timezone(&chrono::Utc);
+                (trial_ends_utc - now).num_days().max(0)
+            }
+            Err(_) => 0,
+        }
+    }
+    
+    pub fn can_create_wallet(&self, current_count: usize) -> Result<(), LimitError> {
+        let limits = self.subscription_tier.limits();
+        check_limit(
+            current_count,
+            limits.max_wallets,
+            "wallets",
+            self.subscription_tier,
+        )
+    }
+    
+    pub fn can_create_contact(&self, current_count: usize) -> Result<(), LimitError> {
+        let limits = self.subscription_tier.limits();
+        check_limit(
+            current_count,
+            limits.max_contacts_per_wallet,
+            "contacts",
+            self.subscription_tier,
+        )
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -402,11 +459,12 @@ impl MetadataDb {
                 )?;
                 
                 if !exists {
-                    let name = match *email {
-                        "delivered+admin@resend.dev" => "Admin",
-                        "delivered+alice@resend.dev" => "Alice",
-                        "delivered+bob@resend.dev" => "Bob",
-                        _ => "Test User",
+                    let (name, tier) = match *email {
+                        "delivered+admin@resend.dev" => ("Admin", "business"), // Admin gets Business-tier limits
+                        "delivered+alice@resend.dev" => ("Alice", "personal"),
+                        "delivered+bob@resend.dev" => ("Bob", "pro"),
+                        "delivered+charlie@resend.dev" => ("Charlie", "business"),
+                        _ => ("Test User", "personal"),
                     };
                     
                     // First user becomes admin
@@ -414,9 +472,9 @@ impl MetadataDb {
                     
                     let user_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
-                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, created_at) 
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
-                        params![&user_id, email, &password_hash, name, is_admin, true], // Dev users are pre-verified
+                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, trial_started_at, trial_ends_at, created_at) 
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), datetime('now', '+30 days'), datetime('now'))",
+                        params![&user_id, email, &password_hash, name, is_admin, true, tier, "active"], // Dev users skip trial
                     )?;
                     
                     println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
@@ -1130,8 +1188,8 @@ impl MetadataDb {
             
             // Create new user
             tx.execute(
-                "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified],
+                "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, trial_started_at, trial_ends_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), datetime('now', '+30 days'))",
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "personal", "trial"],
             )?;
             
             tx.commit()?;
@@ -1150,7 +1208,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, created_at FROM users WHERE email = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, created_at FROM users WHERE email = ?1")?
                 .query_row(params![&email], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -1159,7 +1217,14 @@ impl MetadataDb {
                         name: row.get(3)?,
                         is_admin: row.get(4)?,
                         email_verified: row.get(5)?,
-                        created_at: row.get(6)?,
+                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
+                        trial_started_at: row.get(7)?,
+                        trial_ends_at: row.get(8)?,
+                        subscription_status: row.get(9)?,
+                        stripe_customer_id: row.get(10)?,
+                        stripe_subscription_id: row.get(11)?,
+                        subscription_started_at: row.get(12)?,
+                        created_at: row.get(13)?,
                     })
                 })
                 .ok();
@@ -1174,7 +1239,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, created_at FROM users WHERE id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, created_at FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -1183,7 +1248,14 @@ impl MetadataDb {
                         name: row.get(3)?,
                         is_admin: row.get(4)?,
                         email_verified: row.get(5)?,
-                        created_at: row.get(6)?,
+                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
+                        trial_started_at: row.get(7)?,
+                        trial_ends_at: row.get(8)?,
+                        subscription_status: row.get(9)?,
+                        stripe_customer_id: row.get(10)?,
+                        stripe_subscription_id: row.get(11)?,
+                        subscription_started_at: row.get(12)?,
+                        created_at: row.get(13)?,
                     })
                 })
                 .ok();

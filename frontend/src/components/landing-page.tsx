@@ -66,8 +66,8 @@ const pricingTiers = [
     monthlyPrice: 99,
     yearlyPrice: 950, // 20% discount: 99 * 12 * 0.8
     description: "For businesses & services",
-    cta: "Contact Sales",
-    ctaLink: "mailto:mail@canarybitcoin.com",
+    cta: "Start Free Trial",
+    ctaLink: "/sign-up",
     highlighted: false
   }
 ]

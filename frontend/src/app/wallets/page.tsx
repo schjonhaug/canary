@@ -12,7 +12,7 @@ import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
   const { wallets, error, lastUpdate, isConnected, onAddWallet } = useWalletsContext()
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
   const router = useRouter()
 
   const getTotalBalance = () => {
@@ -68,9 +68,16 @@ export default function WalletsPage() {
       )}
       
       {wallets.length === 0 ? (
-        <WalletOnboarding onAddWallet={onAddWallet} />
+        <WalletOnboarding onAddWallet={onAddWallet} user={user} />
       ) : (
         <div className="mt-8 space-y-8">
+          {/* Welcome Message */}
+          <section>
+            <h1 className="text-3xl font-bold">
+              Welcome to Canary{user?.name ? `, ${user.name}` : ''}
+            </h1>
+          </section>
+
           {/* Wallet Cards Section */}
           <section>
             <div className="flex items-center justify-between mb-4">

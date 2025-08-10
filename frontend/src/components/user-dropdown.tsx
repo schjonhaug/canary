@@ -24,7 +24,7 @@ export function UserDropdown() {
     return null
   }
 
-  const displayName = user.name || user.phone_number
+  const displayName = user.name || user.email
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -44,7 +44,10 @@ export function UserDropdown() {
             {user.name && (
               <p className="text-sm font-medium">{user.name}</p>
             )}
-            <p className="text-xs text-muted-foreground">{user.phone_number}</p>
+            <p className="text-xs text-muted-foreground">{user.email}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {user.subscription_tier}{user.is_admin && ' + Admin'}
+            </p>
           </div>
         </div>
         <DropdownMenuSeparator />

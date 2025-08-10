@@ -11,6 +11,7 @@ pub mod metadata;
 pub mod migrations;
 pub mod notifications;
 pub mod ntfy_provider;
+pub mod subscription;
 pub mod twilio_provider;
 pub mod wallet;
 
