@@ -406,7 +406,11 @@ impl WalletManager {
                 .strip_suffix(".sqlite")
                 .unwrap_or(filename)
                 .to_string();
-            self.wallets.push((checksum, wallet));
+            
+            // Check if wallet already exists before adding
+            if !self.wallets.iter().any(|(cs, _)| cs == &checksum) {
+                self.wallets.push((checksum, wallet));
+            }
         } else {
             println!("  ⚠ No wallet data found in file");
         }
