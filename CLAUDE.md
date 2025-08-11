@@ -50,10 +50,14 @@ cd regtest-env && ./docker-utils.sh run-tests <wallet_address>
 ```
 canary/
 ├── backend/          # Rust service with BDK wallet management
-│   ├── src/         # All source code (api.rs, main.rs, wallet management, notifications)
+│   ├── src/         # All source code (api.rs, main.rs, wallet management, notifications, subscription.rs)
 │   ├── database/    # Network-specific SQLite databases (database/{network}/)
 │   └── migrations/  # Database schema migrations (001_initial_schema.sql)
 ├── frontend/        # Next.js app with React components
+│   ├── src/
+│   │   ├── components/  # UI components (plan-comparison.tsx, upgrade-modal.tsx, billing-toggle.tsx)
+│   │   ├── lib/        # Shared utilities (pricing-data.ts, utils.ts)
+│   │   └── contexts/   # React contexts (auth-context.tsx, wallets-context.tsx)
 ├── regtest-env/    # Docker Bitcoin + Fulcrum setup
 └── CLAUDE.md       # This file
 ```
@@ -115,6 +119,8 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 ## Key Features
 - **Optional Authentication**: Email/password authentication with email verification
 - **Multi-user Support**: JWT-based sessions with user isolation when auth is enabled
+- **Subscription Tiers**: Three-tier system (Personal, Pro, Business) with enforced limits and feature restrictions
+- **Proactive Limit Enforcement**: Smart upgrade modals prevent users from hitting limits after form completion
 - **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh, Twilio SMS, and Resend email
 - **Multiple Notification Methods**: Each contact can have multiple notification methods (SMS + email + ntfy + future: telegram + webhooks)
 - **Multi-language Support**: Norwegian and English with proper Bitcoin amount formatting  
@@ -123,14 +129,50 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
 - **Environment Configuration**: Provider selection via .env variables, no database config needed
 - **Performance**: Async SQLite with r2d2 connection pooling
-- **Real-time Updates**: Frontend polls wallet endpoints at configurable intervals (default 60s) for wallet and transaction updates
+- **Tier-based Sync**: Individual wallet sync intervals based on user's subscription tier (Personal: 5min, Pro: 1min, Business: 5s)
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
 - **Network Isolation**: Separate databases per Bitcoin network
-- **Background Sync**: 4-second wallet sync intervals
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
 - **User Onboarding**: Guided wallet creation with BIP39 mnemonic generation
+- **Professional UX**: Comprehensive plan comparison modals with yearly/monthly billing toggle
 - **Development Mode**: Quick login options for testing with pre-configured email accounts
 - **Clean Registration Flow**: Dedicated success page (/sign-up/success) after registration with clear email verification instructions
+
+## Subscription Tiers & Limits
+
+### Tier Structure
+- **Personal ($9/month)**: 1 wallet, 1 contact per wallet, 5-minute sync, email notifications only
+- **Pro ($29/month)**: 15 wallets, 10 contacts per wallet, 1-minute sync, all notification types, transaction analysis
+- **Business ($99/month)**: Unlimited wallets/contacts, 5-second sync, all features, API access, webhooks, SLA
+
+### Limit Enforcement
+- **Proactive Checking**: Limits checked before form display (not after submission)
+- **Smart Upgrade Modals**: Professional plan comparison with yearly/monthly pricing
+- **Tier-based Sync**: Individual wallet sync intervals based on subscription tier
+- **Notification Filtering**: SMS notifications restricted to Pro/Business tiers
+- **Contact Sales**: Business tier requires sales consultation (features under development)
+
+### Frontend Components
+- **Shared Pricing Data**: Single source of truth in `/src/lib/pricing-data.ts`
+- **Reusable Components**: `PlanComparison` and `BillingToggle` components
+- **Upgrade Modal**: Wide modal (85vw) with comprehensive feature comparison
+- **Current Plan Highlighting**: Blue highlighting with "CURRENT PLAN" badge
+
+### Database Schema
+```sql
+-- Users table includes subscription_tier column
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    subscription_tier TEXT NOT NULL DEFAULT 'personal'
+);
+
+-- Wallets table includes last_synced_at for tier-based sync
+CREATE TABLE wallets (
+    last_synced_at DATETIME,
+    user_id TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+);
+```
 
 ## Notification Setup
 

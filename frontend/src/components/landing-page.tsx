@@ -1,8 +1,8 @@
 'use client'
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle2, Zap, Shield, Bell, ArrowRight } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Zap, Shield, Bell, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { PlanComparison } from "./plan-comparison"
@@ -25,51 +25,6 @@ const features = [
   }
 ]
 
-const allFeatures = [
-  { id: 'trial', label: '30-day free trial', personal: true, pro: true, business: true },
-  { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', pro: '15 wallets', business: 'Unlimited wallets', unique: { pro: true, business: true } },
-  { id: 'contacts', label: 'Contacts per wallet', personal: '1 contact', pro: '10 contacts per wallet', business: 'Unlimited contacts', unique: { pro: true, business: true } },
-  { id: 'email', label: 'Email notifications', personal: true, pro: true, business: true },
-  { id: 'sms', label: 'SMS notifications', personal: false, pro: true, business: true, unique: { pro: true } },
-  { id: 'push', label: 'Push notifications', personal: false, pro: true, business: true, unique: { pro: true } },
-  { id: 'sync', label: 'Sync interval', personal: '5 minute sync time', pro: '1 minute sync time', business: '5 second sync time', unique: { pro: true, business: true } },
-  { id: 'analysis', label: 'Transaction analysis (RBF/CPFP)', personal: false, pro: true, business: true, unique: { pro: true } },
-  { id: 'api', label: 'REST API access', personal: false, pro: false, business: true, unique: { business: true } },
-  { id: 'webhooks', label: 'Custom webhooks', personal: false, pro: false, business: true, unique: { business: true } },
-  { id: 'support', label: 'Support', personal: 'Email support', pro: 'Priority support', business: 'Dedicated support', unique: { pro: true, business: true } },
-  { id: 'sla', label: '99.9% uptime SLA', personal: false, pro: false, business: true, unique: { business: true } },
-]
-
-const pricingTiers = [
-  {
-    name: "Personal",
-    monthlyPrice: 9,
-    yearlyPrice: 86, // 20% discount: 9 * 12 * 0.8
-    description: "For individual Bitcoin holders",
-    cta: "Start Free Trial",
-    ctaLink: "/sign-up",
-    highlighted: false
-  },
-  {
-    name: "Pro",
-    monthlyPrice: 29,
-    yearlyPrice: 278, // 20% discount: 29 * 12 * 0.8
-    description: "For Uncle Jims & family guardians",
-    cta: "Start Free Trial",
-    ctaLink: "/sign-up",
-    highlighted: true,
-    badge: "POPULAR"
-  },
-  {
-    name: "Business",
-    monthlyPrice: 99,
-    yearlyPrice: 950, // 20% discount: 99 * 12 * 0.8
-    description: "For businesses & services",
-    cta: "Start Free Trial",
-    ctaLink: "/sign-up",
-    highlighted: false
-  }
-]
 
 const faqs = [
   {

@@ -1195,10 +1195,10 @@ impl WalletManager {
         if let Some((_, wallet)) = self.wallets.iter_mut().find(|(checksum, _)| checksum == wallet_checksum) {
             // Get balance before sync
             let balance_before = wallet.balance();
-            let trusted_pending_before = balance_before.trusted_pending;
-            let untrusted_pending_before = balance_before.untrusted_pending;
-            let confirmed_before = balance_before.confirmed;
-            let total_before = balance_before.total();
+            let _trusted_pending_before = balance_before.trusted_pending;
+            let _untrusted_pending_before = balance_before.untrusted_pending;
+            let _confirmed_before = balance_before.confirmed;
+            let _total_before = balance_before.total();
 
             let unconfirmed_sends_before: Vec<(String, i64)> = wallet
                 .transactions()
