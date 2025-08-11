@@ -9,6 +9,7 @@ mod metadata;
 mod migrations;
 mod notifications;
 mod ntfy_provider;
+mod stripe_billing;
 mod subscription;
 mod twilio_provider;
 mod wallet;

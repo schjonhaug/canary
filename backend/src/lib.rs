@@ -11,6 +11,7 @@ pub mod metadata;
 pub mod migrations;
 pub mod notifications;
 pub mod ntfy_provider;
+pub mod stripe_billing;
 pub mod subscription;
 pub mod twilio_provider;
 pub mod wallet;
@@ -30,6 +31,7 @@ pub use notifications::{
     NotificationManager, NotificationProvider, NotificationResult, ProviderInfo,
 };
 pub use ntfy_provider::NtfyProvider;
+pub use stripe_billing::{CheckoutSessionResponse, CustomerPortalResponse, StripeBilling};
 pub use twilio_provider::TwilioProvider;
 pub use wallet::WalletManager;
 

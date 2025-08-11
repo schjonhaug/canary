@@ -39,6 +39,8 @@ urlencoding = "2.1"
 argon2 = "0.5"
 uuid = { version = "1", features = ["v4"] }
 resend-rs = "0.16"
+tracing = "0.1"
+async-stripe = { version = "0.41", features = ["runtime-tokio-hyper", "billing", "checkout", "webhook-endpoints"] }
 
 [dev-dependencies]
 http-body-util = "0.1"

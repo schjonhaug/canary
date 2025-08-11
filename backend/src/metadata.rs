@@ -1414,6 +1414,110 @@ impl MetadataDb {
         .await?
     }
 
+    // Stripe subscription management
+    pub async fn update_user_stripe_customer(
+        &self,
+        user_id: &str,
+        stripe_customer_id: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let stripe_customer_id = stripe_customer_id.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET stripe_customer_id = ?1 WHERE id = ?2",
+                params![stripe_customer_id, user_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn update_user_subscription(
+        &self,
+        user_id: &str,
+        subscription_tier: &str,
+        subscription_status: &str,
+        stripe_subscription_id: Option<&str>,
+        subscription_started_at: Option<&str>,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let subscription_tier = subscription_tier.to_string();
+        let subscription_status = subscription_status.to_string();
+        let stripe_subscription_id = stripe_subscription_id.map(|s| s.to_string());
+        let subscription_started_at = subscription_started_at.map(|s| s.to_string());
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET subscription_tier = ?1, subscription_status = ?2, stripe_subscription_id = ?3, subscription_started_at = ?4 WHERE id = ?5",
+                params![
+                    subscription_tier,
+                    subscription_status,
+                    stripe_subscription_id,
+                    subscription_started_at,
+                    user_id
+                ],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn record_stripe_webhook_event(
+        &self,
+        event_id: &str,
+        event_type: &str,
+        user_id: Option<&str>,
+        subscription_id: Option<&str>,
+        customer_id: Option<&str>,
+        metadata: Option<&str>,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        let event_type = event_type.to_string();
+        let user_id = user_id.map(|s| s.to_string());
+        let subscription_id = subscription_id.map(|s| s.to_string());
+        let customer_id = customer_id.map(|s| s.to_string());
+        let metadata = metadata.map(|s| s.to_string());
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT OR IGNORE INTO stripe_webhook_events (id, event_type, user_id, subscription_id, customer_id, metadata) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    event_id,
+                    event_type,
+                    user_id,
+                    subscription_id,
+                    customer_id,
+                    metadata
+                ],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn is_webhook_event_processed(&self, event_id: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM stripe_webhook_events WHERE id = ?1",
+                params![event_id],
+                |row| row.get(0),
+            )?;
+            Ok(count > 0)
+        })
+        .await?
+    }
+
     // Session management
     pub async fn create_session(
         &self,

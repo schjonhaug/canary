@@ -151,6 +151,18 @@ CREATE TABLE notification_logs (
     FOREIGN KEY (notification_method_id) REFERENCES contact_notification_methods (id) ON DELETE CASCADE
 );
 
+-- Stripe webhook events for idempotency
+CREATE TABLE stripe_webhook_events (
+    id TEXT PRIMARY KEY, -- Stripe event ID
+    event_type TEXT NOT NULL,
+    processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    user_id TEXT, -- UUID reference (optional, some events may not be user-specific)
+    subscription_id TEXT, -- Stripe subscription ID
+    customer_id TEXT, -- Stripe customer ID
+    metadata TEXT, -- JSON metadata from the event
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+);
+
 -- Performance indexes
 CREATE INDEX idx_sessions_token ON sessions(token_hash);
 CREATE INDEX idx_sessions_expires ON sessions(expires_at);
@@ -173,3 +185,5 @@ CREATE INDEX idx_contact_notification_methods_contact_id ON contact_notification
 CREATE INDEX idx_contact_notification_methods_provider_type ON contact_notification_methods (provider_type);
 CREATE INDEX idx_pending_verifications_wallet ON pending_contact_verifications (wallet_checksum);
 CREATE INDEX idx_pending_verifications_expires ON pending_contact_verifications (expires_at);
+CREATE INDEX idx_stripe_webhook_events_user_id ON stripe_webhook_events (user_id);
+CREATE INDEX idx_stripe_webhook_events_customer_id ON stripe_webhook_events (customer_id);

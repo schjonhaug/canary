@@ -10,7 +10,8 @@ use crate::metadata::{
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
-use crate::subscription::check_limit;
+use crate::stripe_billing::{CheckoutSessionResponse, CustomerPortalResponse, StripeBilling};
+use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletManager;
 use axum::{
     extract::{Path, State},
@@ -116,6 +117,41 @@ pub struct ProvidersResponse {
 
 pub type AppState = Arc<Mutex<WalletManager>>;
 pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
+
+// Stripe billing request/response structures
+#[derive(Deserialize, Serialize, ToSchema)]
+pub struct CreateCheckoutSessionRequest {
+    /// The subscription tier to purchase
+    #[schema(example = "pro")]
+    pub tier: String,
+    /// Success URL after payment completion
+    #[schema(example = "https://app.canarybitcoin.com/billing/success")]
+    pub success_url: String,
+    /// Cancel URL if payment is cancelled
+    #[schema(example = "https://app.canarybitcoin.com/billing/cancel")]
+    pub cancel_url: String,
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+pub struct CreateCustomerPortalRequest {
+    /// Return URL after customer portal session
+    #[schema(example = "https://app.canarybitcoin.com/billing")]
+    pub return_url: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct BillingStatusResponse {
+    /// Current subscription tier
+    pub subscription_tier: String,
+    /// Subscription status (trial, active, expired, cancelled)
+    pub subscription_status: String,
+    /// Trial end date (if in trial)
+    pub trial_ends_at: Option<String>,
+    /// Subscription started date (if active)
+    pub subscription_started_at: Option<String>,
+    /// Stripe customer ID
+    pub stripe_customer_id: Option<String>,
+}
 
 /// Validates and normalizes a phone number
 fn validate_phone_number(phone: &str) -> Result<String, String> {
@@ -2668,6 +2704,254 @@ pub async fn get_providers(
     (StatusCode::OK, Json(ProvidersResponse { providers })).into_response()
 }
 
+// Stripe billing endpoints
+#[utoipa::path(
+    post,
+    path = "/api/stripe/checkout",
+    request_body = CreateCheckoutSessionRequest,
+    responses(
+        (status = 200, description = "Checkout session created successfully", body = CheckoutSessionResponse),
+        (status = 400, description = "Invalid request", body = ErrorResponse),
+        (status = 401, description = "Authentication required", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    )
+)]
+pub async fn create_stripe_checkout_session(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<CreateCheckoutSessionRequest>,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            ).into_response();
+        }
+    };
+
+    // Parse subscription tier
+    let tier = match payload.tier.as_str() {
+        "personal" => SubscriptionTier::Personal,
+        "pro" => SubscriptionTier::Pro,
+        "business" => SubscriptionTier::Business,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Invalid subscription tier".to_string(),
+                }),
+            ).into_response();
+        }
+    };
+
+    let manager = wallet_manager.lock().await;
+    
+    // Get user record
+    let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+        Ok(Some(user_record)) => user_record,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "User not found".to_string(),
+                }),
+            ).into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            ).into_response();
+        }
+    };
+
+    // Initialize Stripe billing
+    let stripe_billing = match StripeBilling::new().await {
+        Ok(billing) => billing,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to initialize Stripe: {}", e),
+                }),
+            ).into_response();
+        }
+    };
+
+    // Create checkout session
+    match stripe_billing.create_checkout_session(
+        &user_record,
+        tier,
+        &payload.success_url,
+        &payload.cancel_url,
+    ).await {
+        Ok(session) => (StatusCode::OK, Json(session)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to create checkout session: {}", e),
+            }),
+        ).into_response(),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/stripe/portal",
+    request_body = CreateCustomerPortalRequest,
+    responses(
+        (status = 200, description = "Customer portal session created", body = CustomerPortalResponse),
+        (status = 400, description = "Invalid request", body = ErrorResponse),
+        (status = 401, description = "Authentication required", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    )
+)]
+pub async fn create_stripe_customer_portal(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<CreateCustomerPortalRequest>,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            ).into_response();
+        }
+    };
+
+    let manager = wallet_manager.lock().await;
+    
+    // Get user record
+    let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+        Ok(Some(user_record)) => user_record,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "User not found".to_string(),
+                }),
+            ).into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            ).into_response();
+        }
+    };
+
+    // User must have a Stripe customer ID
+    let customer_id = match &user_record.stripe_customer_id {
+        Some(id) => id,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "No Stripe customer found. Please create a subscription first.".to_string(),
+                }),
+            ).into_response();
+        }
+    };
+
+    // Initialize Stripe billing
+    let stripe_billing = match StripeBilling::new().await {
+        Ok(billing) => billing,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to initialize Stripe: {}", e),
+                }),
+            ).into_response();
+        }
+    };
+
+    // Create customer portal session
+    match stripe_billing.create_customer_portal_session(customer_id, &payload.return_url).await {
+        Ok(session) => (StatusCode::OK, Json(session)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to create customer portal session: {}", e),
+            }),
+        ).into_response(),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/billing/status",
+    responses(
+        (status = 200, description = "Current billing status", body = BillingStatusResponse),
+        (status = 401, description = "Authentication required", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    )
+)]
+pub async fn get_billing_status(
+    State(wallet_manager): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            ).into_response();
+        }
+    };
+
+    let manager = wallet_manager.lock().await;
+    
+    // Get user record
+    let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+        Ok(Some(user_record)) => user_record,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "User not found".to_string(),
+                }),
+            ).into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            ).into_response();
+        }
+    };
+
+    let response = BillingStatusResponse {
+        subscription_tier: user_record.subscription_tier.as_str().to_string(),
+        subscription_status: user_record.subscription_status,
+        trial_ends_at: Some(user_record.trial_ends_at),
+        subscription_started_at: user_record.subscription_started_at,
+        stripe_customer_id: user_record.stripe_customer_id,
+    };
+
+    (StatusCode::OK, Json(response)).into_response()
+}
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -2677,6 +2961,7 @@ pub async fn get_providers(
         send_contact_verification, verify_contact,
         get_current_block_header,
         get_providers,
+        create_stripe_checkout_session, create_stripe_customer_portal, get_billing_status,
         register, login, verify_email, forgot_password, reset_password, logout, me, update_user
     ),
     components(schemas(
@@ -2685,6 +2970,7 @@ pub async fn get_providers(
         SendContactVerificationRequest, VerifyContactRequest, VerifyContactResponse,
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
+        CreateCheckoutSessionRequest, CreateCustomerPortalRequest, BillingStatusResponse, CheckoutSessionResponse, CustomerPortalResponse,
         RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse
     )),
     tags(
@@ -2749,7 +3035,13 @@ pub fn create_router(
         .route("/providers", get(get_providers))
         .with_state(notification_manager);
 
-    let api_routes = auth_routes.merge(wallet_routes).merge(provider_routes);
+    let stripe_routes = Router::new()
+        .route("/stripe/checkout", post(create_stripe_checkout_session))
+        .route("/stripe/portal", post(create_stripe_customer_portal))
+        .route("/billing/status", get(get_billing_status))
+        .with_state(wallet_manager.clone());
+
+    let api_routes = auth_routes.merge(wallet_routes).merge(provider_routes).merge(stripe_routes);
 
     Router::new()
         .nest("/api", api_routes)
