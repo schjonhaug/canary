@@ -117,3 +117,46 @@ export async function handleApiResponse(response: Response): Promise<unknown> {
 // Common error styles
 export const errorStyles = "p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"
 export const successStyles = "p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700"
+
+// Subscription tier utilities
+export const SUBSCRIPTION_LIMITS = {
+  personal: { wallets: 1, contacts: 1 },
+  pro: { wallets: 15, contacts: 10 },
+  business: { wallets: null, contacts: null }, // null means unlimited
+} as const
+
+export type SubscriptionTier = keyof typeof SUBSCRIPTION_LIMITS
+
+export function getWalletLimit(tier: string): number | null {
+  return SUBSCRIPTION_LIMITS[tier.toLowerCase() as SubscriptionTier]?.wallets ?? 1
+}
+
+export function hasReachedWalletLimit(currentWalletCount: number, tier: string): boolean {
+  const limit = getWalletLimit(tier)
+  if (limit === null) return false // unlimited
+  return currentWalletCount >= limit
+}
+
+export function getNextTier(currentTier: string): string | null {
+  switch (currentTier.toLowerCase()) {
+    case 'personal':
+      return 'pro'
+    case 'pro':
+      return 'business'
+    default:
+      return null
+  }
+}
+
+export function getTierDisplayName(tier: string): string {
+  switch (tier.toLowerCase()) {
+    case 'personal':
+      return 'Personal'
+    case 'pro':
+      return 'Pro'
+    case 'business':
+      return 'Business'
+    default:
+      return tier
+  }
+}

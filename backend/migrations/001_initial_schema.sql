@@ -81,6 +81,7 @@ CREATE TABLE wallets (
     hex_color TEXT NOT NULL,
     balance_total INTEGER DEFAULT 0,
     last_activity DATETIME,
+    last_synced_at DATETIME,
     user_id TEXT NOT NULL, -- UUID reference
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE

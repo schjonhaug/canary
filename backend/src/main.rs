@@ -171,19 +171,20 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
-    // Spawn wallet sync worker
+    // Spawn wallet sync worker with tier-based intervals
     let sync_wallet_manager = Arc::clone(&wallet_manager);
     let sync_current_block_header = Arc::clone(&current_block_header);
-    let sync_interval_secs = config.sync_interval_secs();
+    // Check every 5 seconds for wallets due for sync (fastest tier syncs every 5 seconds)
     tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(sync_interval_secs));
+        let mut interval = interval(Duration::from_secs(5));
 
         loop {
             interval.tick().await;
 
             let mut manager = sync_wallet_manager.lock().await;
-            if let Err(e) = manager.sync_all_wallets().await {
-                eprintln!("Sync failed: {}", e);
+            // Use tier-based sync instead of syncing all wallets
+            if let Err(e) = manager.sync_wallets_due_for_sync().await {
+                eprintln!("Tier-based sync failed: {}", e);
             }
 
             // Check for new block headers with timeout
@@ -298,6 +299,23 @@ async fn main() -> anyhow::Result<()> {
                     .await
                 {
                     if !contacts.is_empty() {
+                        // Get user's subscription tier to filter notifications
+                        let user_tier = match wallet_manager_lock
+                            .metadata_db
+                            .get_user_by_id(&wallet_info.user_id)
+                            .await
+                        {
+                            Ok(Some(user_record)) => Some(user_record.subscription_tier),
+                            Ok(None) => {
+                                eprintln!("User not found for wallet {}", wallet_info.name);
+                                None
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to get user for wallet {}: {}", wallet_info.name, e);
+                                None
+                            }
+                        };
+
                         println!(
                             "🔔 Triggering notifications for {} contacts on wallet '{}'",
                             contacts.len(),
@@ -307,10 +325,21 @@ async fn main() -> anyhow::Result<()> {
                         // Generate message content once (same for all providers)
                         let mut message_printed = false;
 
-                        // Try to send notifications using all available providers
+                        // Try to send notifications using all available providers, filtered by subscription tier
                         let available_providers = manager.list_providers();
                         for provider_info in available_providers {
                             let provider_name = &provider_info.name;
+                            
+                            // Filter providers based on subscription tier
+                            if let Some(tier) = user_tier {
+                                let tier_limits = tier.limits();
+                                
+                                // Skip SMS provider if not allowed for this tier
+                                if provider_name == "twilio" && !tier_limits.allows_sms {
+                                    println!("   ⚠️  Skipping SMS notifications - not available on {} tier", tier.as_str());
+                                    continue;
+                                }
+                            }
                             if let Ok(results) = manager
                                 .send_notifications(
                                     provider_name,

@@ -10,6 +10,7 @@ use crate::metadata::{
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
+use crate::subscription::check_limit;
 use crate::wallet::WalletManager;
 use axum::{
     extract::{Path, State},
@@ -202,9 +203,63 @@ pub async fn create_wallet(
         }
     };
 
-    match wallet_manager
-        .lock()
-        .await
+    let mut manager = wallet_manager.lock().await;
+    
+    // Get user's subscription tier and check wallet limit
+    match manager.metadata_db.get_user_by_id(&user.user_id).await {
+        Ok(Some(user_record)) => {
+            // Count existing wallets for the user
+            match manager.metadata_db.count_wallets_for_user(&user.user_id).await {
+                Ok(wallet_count) => {
+                    // Check limit based on subscription tier
+                    let tier_limits = user_record.subscription_tier.limits();
+                    if let Err(limit_err) = check_limit(
+                        wallet_count,
+                        tier_limits.max_wallets,
+                        "Wallet",
+                        user_record.subscription_tier,
+                    ) {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: limit_err.to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Failed to check wallet limit: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
+            }
+        }
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "User not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get user information: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    match manager
         .create_from_multipath(&payload.name, &payload.descriptor, &user.user_id)
         .await
     {
@@ -732,12 +787,80 @@ pub async fn create_wallet_contact(
         }
     };
 
-    // Process notification methods
+    // Get user's subscription tier and check contact limit
+    let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+        Ok(Some(record)) => record,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "User not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get user information: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Count existing contacts for the wallet and check limit
+    match manager.metadata_db.count_contacts_for_wallet(&wallet_checksum).await {
+        Ok(contact_count) => {
+            let tier_limits = user_record.subscription_tier.limits();
+            if let Err(limit_err) = check_limit(
+                contact_count,
+                tier_limits.max_contacts_per_wallet,
+                "Contact",
+                user_record.subscription_tier,
+            ) {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(ErrorResponse {
+                        error: limit_err.to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to check contact limit: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    // Process notification methods and check tier restrictions
     let mut processed_methods = Vec::new();
+    let tier_limits = user_record.subscription_tier.limits();
 
     for method in &payload.notification_methods {
         match method.provider_type {
             ProviderType::Sms => {
+                // Check if SMS is allowed for this tier
+                if !tier_limits.allows_sms {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(ErrorResponse {
+                            error: format!(
+                                "SMS notifications are not available on {} tier. Upgrade to Pro or Business to enable SMS.",
+                                user_record.subscription_tier.as_str()
+                            ),
+                        }),
+                    )
+                        .into_response();
+                }
+                
                 // Validate and normalize the phone number
                 let normalized_phone = match validate_phone_number(&method.notification_target) {
                     Ok(phone) => phone,
@@ -749,12 +872,14 @@ pub async fn create_wallet_contact(
                 processed_methods.push((ProviderType::Sms, normalized_phone));
             }
             ProviderType::Ntfy => {
+                // Push notifications are always allowed (ntfy is free)
                 // Auto-generate ntfy topic
                 let topic =
                     generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
                 processed_methods.push((ProviderType::Ntfy, topic));
             }
             ProviderType::Email => {
+                // Email is allowed for all tiers
                 // Use the provided email address directly
                 processed_methods.push((ProviderType::Email, method.notification_target.clone()));
             }

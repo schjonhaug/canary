@@ -1187,6 +1187,149 @@ impl WalletManager {
         Ok(())
     }
 
+    pub async fn sync_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<()> {
+        // Similar to sync_all_wallets but for a single wallet
+        let metadata_db = &self.metadata_db;
+        let event_sender = &self.event_sender;
+
+        if let Some((_, wallet)) = self.wallets.iter_mut().find(|(checksum, _)| checksum == wallet_checksum) {
+            // Get balance before sync
+            let balance_before = wallet.balance();
+            let trusted_pending_before = balance_before.trusted_pending;
+            let untrusted_pending_before = balance_before.untrusted_pending;
+            let confirmed_before = balance_before.confirmed;
+            let total_before = balance_before.total();
+
+            let unconfirmed_sends_before: Vec<(String, i64)> = wallet
+                .transactions()
+                .filter_map(|tx| {
+                    if !tx.chain_position.is_confirmed() {
+                        let sent = wallet.sent_and_received(&tx.tx_node).0;
+                        let received = wallet.sent_and_received(&tx.tx_node).1;
+                        let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+                        if net_amount < 0 {
+                            Some((tx.tx_node.txid.to_string(), net_amount.abs()))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            // Perform the sync
+            if let Some(ref client) = self.electrum_client {
+                let sync_result = client.sync_wallet_incremental(wallet);
+                if let Err(e) = sync_result {
+                    eprintln!("Failed to sync wallet {}: {}", wallet_checksum, e);
+                    return Ok(());
+                }
+            }
+
+            // Update last_synced_at timestamp
+            let _ = metadata_db.update_wallet_last_synced(wallet_checksum).await;
+
+            // Get balance after sync
+            let balance_after = wallet.balance();
+            let total_after = balance_after.total();
+
+            // Update balance in metadata
+            metadata_db
+                .update_wallet_balance_by_checksum(wallet_checksum, total_after.to_sat() as i64)
+                .await?;
+
+            // Check for confirmed transactions and send events
+            // (Similar logic to sync_all_wallets but for this single wallet)
+            for tx in wallet.transactions() {
+                if tx.chain_position.is_confirmed() {
+                    let txid = tx.tx_node.txid.to_string();
+                    
+                    // Check if this was an unconfirmed send that just got confirmed
+                    if let Some((_, original_amount)) = unconfirmed_sends_before
+                        .iter()
+                        .find(|(stored_txid, _)| stored_txid == &txid) 
+                    {
+                        // This is a send confirmation
+                        let transaction_time = match &tx.chain_position {
+                            bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                                // For confirmed transactions, fetch block timestamp from Electrum
+                                if let Some(electrum_client) = &self.electrum_client {
+                                    match electrum_client.get_block_header(anchor.block_id.height) {
+                                        Ok(block_header) => block_header.timestamp,
+                                        Err(_) => {
+                                            // Fallback to current time if we can't fetch block header
+                                            std::time::SystemTime::now()
+                                                .duration_since(std::time::UNIX_EPOCH)
+                                                .unwrap()
+                                                .as_secs()
+                                        }
+                                    }
+                                } else {
+                                    // Fallback to current time if no Electrum client
+                                    std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs()
+                                }
+                            }
+                            _ => {
+                                // This shouldn't happen since we already checked is_confirmed()
+                                std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs()
+                            }
+                        };
+                        let event = TransactionEvent {
+                            id: Some(uuid::Uuid::new_v4().to_string()),
+                            wallet_checksum: wallet_checksum.to_string(),
+                            event_type: EventType::Send,
+                            amount_sats: *original_amount,
+                            is_confirmed: true,
+                            is_rbf: false,
+                            is_cpfp: false,
+                            balance_total: Some(total_after.to_sat() as i64),
+                            transaction_time,
+                            notification_status: Vec::new(),
+                        };
+                        
+                        let _ = event_sender.send(event);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn sync_wallets_due_for_sync(&mut self) -> Result<()> {
+        // Get wallets that are due for sync based on their owner's tier
+        let due_wallets = self.metadata_db.get_wallets_due_for_sync().await?;
+        
+        if due_wallets.is_empty() {
+            return Ok(());
+        }
+
+        println!("🔄 Syncing {} wallets due for sync", due_wallets.len());
+        
+        // Ensure all wallets are loaded first
+        if let Err(e) = self.load_all_wallets().await {
+            eprintln!("Failed to load wallets: {}", e);
+            return Ok(());
+        }
+
+        for (wallet_metadata, tier) in due_wallets {
+            // Sync the wallet
+            match self.sync_wallet_by_checksum(&wallet_metadata.checksum).await {
+                Ok(_) => println!("   ✅ Synced {} ({})", wallet_metadata.name, tier.as_str()),
+                Err(e) => eprintln!("   ❌ Failed to sync {}: {}", wallet_metadata.name, e),
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn get_wallets_list_for_user(
         &self,
         user_id: &str,

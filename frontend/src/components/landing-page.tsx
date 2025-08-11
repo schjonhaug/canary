@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
 import { CheckCircle2, Zap, Shield, Bell, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { PlanComparison } from "./plan-comparison"
 
 const features = [
   {
@@ -101,7 +100,6 @@ const faqs = [
 ]
 
 export default function LandingPage() {
-  const [isYearly, setIsYearly] = useState(false)
   
   return (
     <div className="min-h-screen">
@@ -182,101 +180,19 @@ export default function LandingPage() {
           <p className="text-sm text-green-600 font-medium">
             ✓ All plans include a 30-day free trial • No credit card required
           </p>
-          
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-3 mt-6">
-            <span className={`text-sm ${!isYearly ? 'font-semibold' : 'text-muted-foreground'}`}>
-              Monthly
-            </span>
-            <Switch
-              checked={isYearly}
-              onCheckedChange={setIsYearly}
-              aria-label="Toggle yearly billing"
-            />
-            <span className={`text-sm ${isYearly ? 'font-semibold' : 'text-muted-foreground'}`}>
-              Yearly
-              {isYearly && (
-                <span className="ml-1.5 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
-                  Save 20%
-                </span>
-              )}
-            </span>
-          </div>
         </div>
         
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {pricingTiers.map((tier, index) => {
-            const price = isYearly ? tier.yearlyPrice : tier.monthlyPrice
-            const period = isYearly ? '/year' : '/month'
-            const displayPrice = `$${price}`
-            
-            return (
-              <Card 
-                key={index} 
-                className={`relative ${tier.highlighted ? "border-primary shadow-md" : ""}`}
-              >
-                {tier.badge && (
-                  <div className="absolute -top-3 left-4">
-                    <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full font-semibold">
-                      {tier.badge}
-                    </span>
-                  </div>
-                )}
-                <CardHeader>
-                  <CardTitle className="text-lg">{tier.name}</CardTitle>
-                  <CardDescription className="text-sm">{tier.description}</CardDescription>
-                  <div className="mt-3">
-                    <span className="text-2xl font-bold">{displayPrice}</span>
-                    {period && <span className="text-muted-foreground text-sm">{period}</span>}
-                    {isYearly && tier.monthlyPrice > 0 && (
-                      <div className="text-xs text-muted-foreground mt-1 line-through">
-                        ${tier.monthlyPrice * 12}/year
-                      </div>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2.5">
-                    {allFeatures.map((feature) => {
-                      const tierKey = tier.name.toLowerCase() as 'personal' | 'pro' | 'business'
-                      const value = feature[tierKey]
-                      const isUnique = feature.unique?.[tierKey] || false
-                      
-                      if (value === false) {
-                        return (
-                          <li key={feature.id} className="flex items-start text-sm text-muted-foreground/50">
-                            <span className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5">–</span>
-                            <span className="line-through">{feature.label}</span>
-                          </li>
-                        )
-                      }
-                      
-                      return (
-                        <li key={feature.id} className={`flex items-start text-sm ${isUnique && tier.name !== 'Personal' ? 'font-medium' : ''}`}>
-                          <CheckCircle2 className={`h-4 w-4 mr-2 flex-shrink-0 mt-0.5 ${isUnique && tier.name !== 'Personal' ? 'text-primary' : 'text-muted-foreground'}`} />
-                          <span>
-                            {typeof value === 'string' ? value : feature.label}
-                          </span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    className="w-full" 
-                    variant={tier.highlighted ? "default" : "outline"}
-                    asChild
-                  >
-                    <a href={tier.ctaLink}>
-                      {tier.cta}
-                    </a>
-                  </Button>
-                </CardFooter>
-              </Card>
-            )
-          })}
-        </div>
+        <PlanComparison
+          currentTier=""
+          onContactSales={() => {
+            window.location.href = 'mailto:sales@canarybitcoin.com?subject=Business Plan Inquiry&body=Hi, I am interested in the Business plan for Canary. Please contact me to discuss.'
+          }}
+          highlightUpgrades={false}
+          showPricing={true}
+          showBillingToggle={true}
+          isModal={false}
+          showCallToAction={true}
+        />
       </section>
 
 

@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 import { useWalletsList } from "@/hooks/useWalletsList"
-import { loadCanarySvg, getCachedCanarySvg } from "@/lib/utils"
+import { loadCanarySvg, getCachedCanarySvg, hasReachedWalletLimit } from "@/lib/utils"
 import { Wallet } from "@/types"
 import { WalletsContext } from "@/contexts/wallets-context"
+import { useAuth } from "@/contexts/auth-context"
 
 // Lazy load modal components for code splitting
 const AddWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
+const UpgradeModal = lazy(() => import("@/components/upgrade-modal").then(mod => ({ default: mod.UpgradeModal })))
 
 export default function WalletsLayout({
   children,
@@ -18,9 +20,11 @@ export default function WalletsLayout({
   children: React.ReactNode
 }) {
   const [isAddWalletOpen, setIsAddWalletOpen] = useState(false)
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
   const [walletSvg, setWalletSvg] = useState<string>("")
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null)
   const pathname = usePathname()
+  const { user } = useAuth()
   
   // Check if we're on a wallet detail page
   const isWalletDetailPage = pathname.startsWith('/wallets/') && pathname !== '/wallets'
@@ -44,6 +48,12 @@ export default function WalletsLayout({
   }, [isWalletDetailPage, currentWallet?.hex_color])
 
   const handleAddWallet = () => {
+    // Check wallet limits before opening create modal
+    if (user && hasReachedWalletLimit(wallets.length, user.subscription_tier)) {
+      setIsUpgradeModalOpen(true)
+      return
+    }
+    
     setIsAddWalletOpen(true)
   }
 
@@ -71,6 +81,15 @@ export default function WalletsLayout({
           onClose={() => setIsAddWalletOpen(false)}
           onWalletCreated={handleWalletAdded}
           isFirstWallet={wallets.length === 0}
+        />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <UpgradeModal
+          isOpen={isUpgradeModalOpen}
+          onClose={() => setIsUpgradeModalOpen(false)}
+          currentTier={user?.subscription_tier || 'personal'}
+          currentWalletCount={wallets.length}
         />
       </Suspense>
 
