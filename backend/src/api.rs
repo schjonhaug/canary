@@ -10,7 +10,7 @@ use crate::metadata::{
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
-use crate::stripe_billing::{CheckoutSessionResponse, CustomerPortalResponse, StripeBilling};
+use crate::stripe_billing::{CheckoutSessionResponse, CustomerPortalResponse, StripeBilling, PricingInfo, TierPricing, PriceDetails, CheckoutSessionDetails};
 use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletManager;
 use axum::{
@@ -117,6 +117,7 @@ pub struct ProvidersResponse {
 
 pub type AppState = Arc<Mutex<WalletManager>>;
 pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
+pub type StripeBillingState = Option<Arc<StripeBilling>>;
 
 // Stripe billing request/response structures
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -124,12 +125,9 @@ pub struct CreateCheckoutSessionRequest {
     /// The subscription tier to purchase
     #[schema(example = "pro")]
     pub tier: String,
-    /// Success URL after payment completion
-    #[schema(example = "https://app.canarybitcoin.com/billing/success")]
-    pub success_url: String,
-    /// Cancel URL if payment is cancelled
-    #[schema(example = "https://app.canarybitcoin.com/billing/cancel")]
-    pub cancel_url: String,
+    /// Whether to use yearly billing (default is monthly)
+    #[schema(example = false)]
+    pub is_yearly: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -2717,7 +2715,7 @@ pub async fn get_providers(
     )
 )]
 pub async fn create_stripe_checkout_session(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
     headers: HeaderMap,
     Json(payload): Json<CreateCheckoutSessionRequest>,
 ) -> Response {
@@ -2772,25 +2770,26 @@ pub async fn create_stripe_checkout_session(
         }
     };
 
-    // Initialize Stripe billing
-    let stripe_billing = match StripeBilling::new().await {
-        Ok(billing) => billing,
-        Err(e) => {
+    // Get Stripe billing from state
+    let stripe_billing = match stripe_billing.as_ref() {
+        Some(billing) => billing.as_ref(),
+        None => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
-                    error: format!("Failed to initialize Stripe: {}", e),
+                    error: "Stripe billing not initialized".to_string(),
                 }),
             ).into_response();
         }
     };
 
-    // Create checkout session
+    // Create checkout session with auto-generated URLs
+    let is_yearly = payload.is_yearly.unwrap_or(false);
     match stripe_billing.create_checkout_session(
         &user_record,
         tier,
-        &payload.success_url,
-        &payload.cancel_url,
+        is_yearly,
+        &manager.metadata_db,
     ).await {
         Ok(session) => (StatusCode::OK, Json(session)).into_response(),
         Err(e) => (
@@ -2814,7 +2813,7 @@ pub async fn create_stripe_checkout_session(
     )
 )]
 pub async fn create_stripe_customer_portal(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
     headers: HeaderMap,
     Json(payload): Json<CreateCustomerPortalRequest>,
 ) -> Response {
@@ -2867,14 +2866,14 @@ pub async fn create_stripe_customer_portal(
         }
     };
 
-    // Initialize Stripe billing
-    let stripe_billing = match StripeBilling::new().await {
-        Ok(billing) => billing,
-        Err(e) => {
+    // Get Stripe billing from state
+    let stripe_billing = match stripe_billing.as_ref() {
+        Some(billing) => billing.as_ref(),
+        None => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
-                    error: format!("Failed to initialize Stripe: {}", e),
+                    error: "Stripe billing not initialized".to_string(),
                 }),
             ).into_response();
         }
@@ -2902,7 +2901,7 @@ pub async fn create_stripe_customer_portal(
     )
 )]
 pub async fn get_billing_status(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
     headers: HeaderMap,
 ) -> Response {
     // Authenticate user
@@ -2952,6 +2951,153 @@ pub async fn get_billing_status(
     (StatusCode::OK, Json(response)).into_response()
 }
 
+/// Get pricing information from Stripe
+#[utoipa::path(
+    get,
+    path = "/api/billing/pricing",
+    responses(
+        (status = 200, description = "Pricing information", body = PricingInfo),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "Billing"
+)]
+pub async fn get_billing_pricing(
+    State((_wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
+) -> Response {
+    // Get Stripe billing from state
+    let stripe_billing = match stripe_billing.as_ref() {
+        Some(billing) => billing.as_ref(),
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "Stripe billing not initialized".to_string(),
+                }),
+            ).into_response();
+        }
+    };
+
+    // Get cached pricing information (instant!)
+    let pricing = stripe_billing.get_pricing_for_frontend();
+    (StatusCode::OK, Json(pricing)).into_response()
+}
+
+/// Handle Stripe webhook events
+#[utoipa::path(
+    post,
+    path = "/api/stripe/webhook",
+    request_body = String,
+    responses(
+        (status = 200, description = "Webhook processed successfully"),
+        (status = 400, description = "Invalid webhook signature", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "Billing"
+)]
+pub async fn handle_stripe_webhook(
+    State((_wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
+    // Get Stripe signature from headers
+    let signature = match headers.get("stripe-signature") {
+        Some(sig) => match sig.to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse {
+                        error: "Invalid stripe-signature header".to_string(),
+                    }),
+                ).into_response();
+            }
+        },
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Missing stripe-signature header".to_string(),
+                }),
+            ).into_response();
+        }
+    };
+
+    // Get Stripe billing from state
+    let stripe_billing = match stripe_billing.as_ref() {
+        Some(billing) => billing.as_ref(),
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "Stripe billing not initialized".to_string(),
+                }),
+            ).into_response();
+        }
+    };
+
+    // Handle the webhook
+    tracing::info!("🎣 Processing Stripe webhook with signature: {}", signature);
+    match stripe_billing.handle_webhook(body.as_bytes(), signature).await {
+        Ok(_) => {
+            tracing::info!("✅ Webhook processed successfully");
+            (StatusCode::OK, "OK").into_response()
+        }
+        Err(e) => {
+            tracing::error!("❌ Webhook processing failed: {}", e);
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: format!("Webhook processing failed: {}", e),
+                }),
+            ).into_response()
+        }
+    }
+}
+
+/// Get checkout session details
+#[utoipa::path(
+    get,
+    path = "/api/billing/session/{session_id}",
+    params(
+        ("session_id" = String, Path, description = "Stripe checkout session ID")
+    ),
+    responses(
+        (status = 200, description = "Session details", body = CheckoutSessionDetails),
+        (status = 404, description = "Session not found", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    tag = "Billing"
+)]
+pub async fn get_checkout_session_details(
+    State((_wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
+    Path(session_id): Path<String>,
+) -> Response {
+    // Get Stripe billing from state
+    let stripe_billing = match stripe_billing.as_ref() {
+        Some(billing) => billing.as_ref(),
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "Stripe billing not initialized".to_string(),
+                }),
+            ).into_response();
+        }
+    };
+
+    // Get session details from Stripe
+    match stripe_billing.get_checkout_session_details(&session_id).await {
+        Ok(details) => (StatusCode::OK, Json(details)).into_response(),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: format!("Session not found: {}", e),
+            }),
+        ).into_response(),
+    }
+}
+
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -2961,7 +3107,7 @@ pub async fn get_billing_status(
         send_contact_verification, verify_contact,
         get_current_block_header,
         get_providers,
-        create_stripe_checkout_session, create_stripe_customer_portal, get_billing_status,
+        create_stripe_checkout_session, create_stripe_customer_portal, get_billing_status, get_billing_pricing, handle_stripe_webhook,
         register, login, verify_email, forgot_password, reset_password, logout, me, update_user
     ),
     components(schemas(
@@ -2971,6 +3117,7 @@ pub async fn get_billing_status(
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
         CreateCheckoutSessionRequest, CreateCustomerPortalRequest, BillingStatusResponse, CheckoutSessionResponse, CustomerPortalResponse,
+        PricingInfo, TierPricing, PriceDetails,
         RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse
     )),
     tags(
@@ -2992,6 +3139,7 @@ pub struct ApiDoc;
 pub fn create_router(
     wallet_manager: AppState,
     notification_manager: NotificationManagerState,
+    stripe_billing: StripeBillingState,
 ) -> Router {
     // Auth routes (public)
     let auth_routes = Router::new()
@@ -3035,11 +3183,19 @@ pub fn create_router(
         .route("/providers", get(get_providers))
         .with_state(notification_manager);
 
-    let stripe_routes = Router::new()
-        .route("/stripe/checkout", post(create_stripe_checkout_session))
-        .route("/stripe/portal", post(create_stripe_customer_portal))
-        .route("/billing/status", get(get_billing_status))
-        .with_state(wallet_manager.clone());
+    // Only create stripe routes if Stripe billing is available
+    let stripe_routes = if stripe_billing.is_some() {
+        Router::new()
+            .route("/stripe/checkout", post(create_stripe_checkout_session))
+            .route("/stripe/portal", post(create_stripe_customer_portal))
+            .route("/stripe/webhook", post(handle_stripe_webhook))
+            .route("/billing/status", get(get_billing_status))
+            .route("/billing/pricing", get(get_billing_pricing))
+            .route("/billing/session/:session_id", get(get_checkout_session_details))
+            .with_state((wallet_manager.clone(), stripe_billing.clone()))
+    } else {
+        Router::new() // Empty router if Stripe not configured
+    };
 
     let api_routes = auth_routes.merge(wallet_routes).merge(provider_routes).merge(stripe_routes);
 

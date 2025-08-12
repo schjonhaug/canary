@@ -31,7 +31,7 @@ pub use notifications::{
     NotificationManager, NotificationProvider, NotificationResult, ProviderInfo,
 };
 pub use ntfy_provider::NtfyProvider;
-pub use stripe_billing::{CheckoutSessionResponse, CustomerPortalResponse, StripeBilling};
+pub use stripe_billing::{CheckoutSessionResponse, CustomerPortalResponse, StripeBilling, PricingInfo, TierPricing, PriceDetails};
 pub use twilio_provider::TwilioProvider;
 pub use wallet::WalletManager;
 

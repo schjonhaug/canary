@@ -21,13 +21,20 @@ use metadata::TransactionEvent;
 use notifications::NotificationManager;
 use ntfy_provider::NtfyProvider;
 use std::sync::Arc;
+use stripe_billing::StripeBilling;
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::{interval, Duration};
+use tracing_subscriber;
 use twilio_provider::TwilioProvider;
 use wallet::WalletManager;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env().add_directive("canary=info".parse()?))
+        .init();
+
     // Load configuration
     let config = AppConfig::load()?;
 
@@ -101,6 +108,20 @@ async fn main() -> anyhow::Result<()> {
     notification_manager.register_provider(Arc::new(EmailProvider::new()));
 
     let notification_manager = Arc::new(Mutex::new(notification_manager));
+
+    // Initialize Stripe billing (load products/prices once at startup)
+    println!("🏦 Initializing Stripe billing...");
+    let stripe_billing = match StripeBilling::new().await {
+        Ok(billing) => {
+            println!("✅ Stripe billing initialized successfully");
+            Some(Arc::new(billing))
+        }
+        Err(e) => {
+            println!("⚠️  Stripe billing initialization failed: {}", e);
+            println!("   Billing endpoints will not be available");
+            None
+        }
+    };
 
     // Try to fetch initial block header in background with timeout
     {
@@ -421,7 +442,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let app = create_router(wallet_manager, notification_manager);
+    let app = create_router(wallet_manager, notification_manager, stripe_billing);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);
