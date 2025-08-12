@@ -90,6 +90,7 @@ export default function WalletsLayout({
           onClose={() => setIsUpgradeModalOpen(false)}
           currentTier={user?.subscription_tier || 'personal'}
           currentWalletCount={wallets.length}
+          limitType="wallets"
         />
       </Suspense>
 

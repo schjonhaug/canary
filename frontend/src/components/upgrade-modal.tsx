@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Zap } from "lucide-react"
-import { getWalletLimit, getTierDisplayName } from "@/lib/utils"
+import { getWalletLimit, getContactLimit, getTierDisplayName } from "@/lib/utils"
 import { PlanComparison } from "./plan-comparison"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
@@ -19,19 +19,27 @@ interface UpgradeModalProps {
   isOpen: boolean
   onClose: () => void
   currentTier: string
-  currentWalletCount: number
+  currentWalletCount?: number
+  currentContactCount?: number
+  limitType?: 'wallets' | 'contacts'
 }
 
 export function UpgradeModal({
   isOpen,
   onClose,
   currentTier,
-  currentWalletCount,
+  currentWalletCount = 0,
+  currentContactCount = 0,
+  limitType = 'wallets',
 }: UpgradeModalProps) {
   const { isAuthenticated, refreshBillingStatus } = useAuth()
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
-  const currentLimit = getWalletLimit(currentTier)
+  
+  // Get the appropriate limit based on limitType
+  const currentLimit = limitType === 'wallets' ? getWalletLimit(currentTier) : getContactLimit(currentTier)
+  const currentCount = limitType === 'wallets' ? currentWalletCount : currentContactCount
+  const limitTypeText = limitType === 'wallets' ? 'wallet' : 'contact'
 
   const handleUpgrade = async (targetTier: string, isYearly: boolean = true) => {
     if (!isAuthenticated) {
@@ -79,20 +87,20 @@ export function UpgradeModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-500" />
-            Wallet Limit Reached
+            {limitType === 'wallets' ? 'Wallet' : 'Contact'} Limit Reached
           </DialogTitle>
           <DialogDescription>
-            You&apos;ve reached your wallet limit of {currentLimit} wallet{currentLimit !== 1 ? 's' : ''} on the{' '}
+            You&apos;ve reached your {limitTypeText} limit of {currentLimit} {limitTypeText}{currentLimit !== 1 ? 's' : ''} on the{' '}
             <Badge variant="outline" className="mx-1">
               {getTierDisplayName(currentTier)}
             </Badge>
-            plan. Compare plans and upgrade to add more wallets.
+            plan. Compare plans and upgrade to add more {limitTypeText}s.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           <div className="text-sm text-muted-foreground text-center">
-            Current usage: {currentWalletCount} / {currentLimit} wallets
+            Current usage: {currentCount} / {currentLimit} {limitTypeText}s
           </div>
 
           <PlanComparison

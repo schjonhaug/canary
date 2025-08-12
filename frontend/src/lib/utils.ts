@@ -137,6 +137,16 @@ export function hasReachedWalletLimit(currentWalletCount: number, tier: string):
   return currentWalletCount >= limit
 }
 
+export function getContactLimit(tier: string): number | null {
+  return SUBSCRIPTION_LIMITS[tier.toLowerCase() as SubscriptionTier]?.contacts ?? 1
+}
+
+export function hasReachedContactLimit(currentContactCount: number, tier: string): boolean {
+  const limit = getContactLimit(tier)
+  if (limit === null) return false // unlimited
+  return currentContactCount >= limit
+}
+
 export function getNextTier(currentTier: string): string | null {
   switch (currentTier.toLowerCase()) {
     case 'personal':

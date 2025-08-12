@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, lazy, Suspense } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { TransactionEvents } from "@/components/transaction-events"
 import { InlineWalletNameEdit } from "@/components/inline-wallet-name-edit"
@@ -13,10 +13,13 @@ import { ArrowLeft, Trash2, AlertCircle, Plus } from "lucide-react"
 import Link from "next/link"
 import { useWalletDetail } from "@/hooks/useWalletDetail"
 import { useWalletsContext } from "@/contexts/wallets-context"
-import { formatBitcoinAmount } from "@/lib/utils"
+import { formatBitcoinAmount, hasReachedContactLimit } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
+
+// Lazy load UpgradeModal to avoid bundling it when not needed
+const UpgradeModal = lazy(() => import("@/components/upgrade-modal").then(mod => ({ default: mod.UpgradeModal })))
 
 // Note: checksum is now available directly from wallet.checksum and URL params
 
@@ -25,10 +28,11 @@ export default function WalletDetailPage() {
   const params = useParams()
   const router = useRouter()
   const checksum = params.checksum as string
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth()
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
 
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
@@ -69,6 +73,16 @@ export default function WalletDetailPage() {
   const handleDeleteWallet = async (checksum: string) => {
     await api.deleteWallet(checksum)
     router.push('/wallets')
+  }
+
+  const handleAddContact = () => {
+    // Check contact limits before opening create modal
+    if (user && hasReachedContactLimit(contacts?.length || 0, user.subscription_tier)) {
+      setIsUpgradeModalOpen(true)
+      return
+    }
+    
+    setIsAddContactModalOpen(true)
   }
 
   // Show loading state while auth is loading
@@ -210,7 +224,7 @@ export default function WalletDetailPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setIsAddContactModalOpen(true)}
+                    onClick={handleAddContact}
                     className="h-8 gap-1 w-full"
                   >
                     <Plus size={14} />
@@ -264,6 +278,17 @@ export default function WalletDetailPage() {
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirmDelete={() => handleDeleteWallet(wallet.checksum)}
       />
+
+      <Suspense fallback={null}>
+        <UpgradeModal
+          isOpen={isUpgradeModalOpen}
+          onClose={() => setIsUpgradeModalOpen(false)}
+          currentTier={user?.subscription_tier || 'personal'}
+          currentWalletCount={1} // We're on a single wallet page
+          currentContactCount={contacts?.length || 0}
+          limitType="contacts" // Show that we're upgrading for contacts
+        />
+      </Suspense>
     </>
   )
 }
