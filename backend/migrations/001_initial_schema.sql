@@ -22,7 +22,7 @@ CREATE TABLE users (
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     -- Subscription fields (extensible for future Business tier)
-    subscription_tier TEXT DEFAULT 'personal' CHECK (subscription_tier IN ('personal', 'pro', 'business')),
+    subscription_tier TEXT DEFAULT 'pro' CHECK (subscription_tier IN ('personal', 'pro', 'business')),
     trial_started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     trial_ends_at DATETIME DEFAULT (datetime('now', '+30 days')),
     subscription_status TEXT DEFAULT 'trial' CHECK (subscription_status IN ('trial', 'active', 'expired', 'cancelled')),

@@ -140,13 +140,14 @@ export default function LandingPage() {
         <PlanComparison
           currentTier=""
           onContactSales={() => {
-            window.location.href = 'mailto:sales@canarybitcoin.com?subject=Business Plan Inquiry&body=Hi, I am interested in the Business plan for Canary. Please contact me to discuss.'
+            window.location.href = 'mailto:mail@canarybitcoin.com?subject=Business Plan Inquiry&body=Hi, I am interested in the Business plan for Canary. Please contact me to discuss.'
           }}
           highlightUpgrades={false}
           showPricing={true}
           showBillingToggle={true}
           isModal={false}
           showCallToAction={true}
+          showUnifiedTrialButton={true}
         />
       </section>
 

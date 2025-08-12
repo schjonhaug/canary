@@ -1257,7 +1257,7 @@ impl MetadataDb {
             // Create new user
             tx.execute(
                 "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, trial_started_at, trial_ends_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), datetime('now', '+30 days'))",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "personal", "trial"],
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "pro", "trial"],
             )?;
             
             tx.commit()?;

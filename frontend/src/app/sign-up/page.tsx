@@ -52,10 +52,10 @@ export default function SignUpPage() {
             />
           </div>
           <CardTitle className="text-2xl font-bold text-center">
-            Create an account
+            Start your 30-day free Pro trial
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your details to get started with Canary
+            30 days free, then continue with the plan of your choice
           </CardDescription>
         </CardHeader>
         <CardContent>

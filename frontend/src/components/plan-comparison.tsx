@@ -17,6 +17,7 @@ interface PlanComparisonProps {
   showBillingToggle?: boolean
   isModal?: boolean
   showCallToAction?: boolean
+  showUnifiedTrialButton?: boolean
   isLoading?: boolean
   loadingTier?: string | null
 }
@@ -30,6 +31,7 @@ export function PlanComparison({
   showBillingToggle = true,
   isModal = false,
   showCallToAction = false,
+  showUnifiedTrialButton = false,
   isLoading = false,
   loadingTier = null
 }: PlanComparisonProps) {
@@ -79,6 +81,7 @@ export function PlanComparison({
       showPricing={showPricing}
       showBillingToggle={showBillingToggle}
       showCallToAction={showCallToAction}
+      showUnifiedTrialButton={showUnifiedTrialButton}
       isYearly={isYearly}
       setIsYearly={setIsYearly}
       isModal={isModal}
@@ -111,6 +114,7 @@ interface PlanComparisonContentProps {
   isLoading: boolean
   loadingTier: string | null
   discountPercent: number
+  showUnifiedTrialButton: boolean
 }
 
 function PlanComparisonContent({
@@ -122,6 +126,7 @@ function PlanComparisonContent({
   showPricing,
   showBillingToggle,
   showCallToAction,
+  showUnifiedTrialButton,
   isYearly,
   setIsYearly,
   isModal,
@@ -236,16 +241,16 @@ function PlanComparisonContent({
               </ul>
             </CardContent>
             
-            {showCallToAction && (
+            {showCallToAction && tier.tier === "business" && (
               <CardFooter>
                 <Button 
                   className="w-full" 
-                  variant={tier.tier === 'pro' ? "default" : "outline"}
-                  onClick={tier.tier === "business" ? onContactSales : undefined}
+                  variant="outline"
+                  onClick={onContactSales}
                   disabled={isLoadingThisTier}
                 >
                   {isLoadingThisTier && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {tier.tier === "business" ? "Contact Sales" : "Start Free Trial"}
+                  Contact Sales
                 </Button>
               </CardFooter>
             )}
@@ -285,6 +290,16 @@ function PlanComparisonContent({
         )
       })}
       </div>
+      
+      {showUnifiedTrialButton && (
+        <div className="text-center mt-8">
+          <Button size="lg" asChild>
+            <a href="/sign-up">
+              Start 30-Day Free Trial
+            </a>
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

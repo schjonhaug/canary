@@ -54,7 +54,7 @@ export const pricingTiers = [
     yearlyPrice: 950, // 20% discount: 99 * 12 * 0.8
     description: "For businesses & services",
     cta: "Contact Sales", // Different CTA for Business tier
-    ctaLink: "mailto:sales@canarybitcoin.com", // Could be changed to a contact form
+    ctaLink: "mailto:mail@canarybitcoin.com", // Could be changed to a contact form
     highlighted: false
   }
 ]

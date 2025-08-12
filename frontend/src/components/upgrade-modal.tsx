@@ -74,7 +74,7 @@ export function UpgradeModal({
 
   const handleContactSales = () => {
     // Open email client for business plan inquiries
-    window.location.href = 'mailto:sales@canarybitcoin.com?subject=Business Plan Inquiry&body=Hi, I am interested in the Business plan for Canary. Please contact me to discuss.'
+    window.location.href = 'mailto:mail@canarybitcoin.com?subject=Business Plan Inquiry&body=Hi, I am interested in the Business plan for Canary. Please contact me to discuss.'
     onClose()
   }
 
