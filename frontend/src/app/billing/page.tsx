@@ -36,7 +36,7 @@ export default function BillingPage() {
     }
   }
 
-  const handleUpgrade = async (targetTier: string, isYearly: boolean = true) => {
+  const handleUpgrade = async (targetTier: string, isYearly: boolean = false) => {
     try {
       setIsUpgrading(true)
       setUpgradingTier(targetTier)

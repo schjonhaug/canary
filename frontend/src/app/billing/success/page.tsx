@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Loader2, ArrowRight } from "lucide-react"
 import { getTierDisplayName } from "@/lib/pricing-data"
-import { formatPrice } from "@/hooks/usePricing"
+import { formatPrice, usePricing } from "@/hooks/usePricing"
 
 export default function BillingSuccessPage() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session')
   const { refreshBillingStatus } = useAuth()
+  const { pricing } = usePricing()
+  const discountPercent = pricing?.yearly_discount_percent || 20
   
   const [sessionDetails, setSessionDetails] = useState<{
     session_id: string
@@ -164,7 +166,7 @@ export default function BillingSuccessPage() {
               {isYearly && (
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                  <span>You&apos;re saving 20% with yearly billing</span>
+                  <span>You&apos;re saving {Math.round(discountPercent)}% with yearly billing</span>
                 </div>
               )}
             </div>

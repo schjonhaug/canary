@@ -83,33 +83,3 @@ export function getTierDescription(tier: string): string {
   }
 }
 
-// Fallback pricing for when Stripe is unavailable (static data)
-export const fallbackPricing = {
-  tiers: pricingTiers.map(tier => ({
-    tier: tier.slug,
-    name: tier.name,
-    description: tier.description,
-    monthly_price: {
-      price_id: `fallback_${tier.slug}_monthly`,
-      amount: tier.monthlyPrice * 100, // convert to cents
-      currency: 'usd',
-      interval: 'month'
-    },
-    yearly_price: {
-      price_id: `fallback_${tier.slug}_yearly`,
-      amount: tier.yearlyPrice * 100, // convert to cents
-      currency: 'usd', 
-      interval: 'year'
-    },
-    features: allFeatures.reduce((acc, feature) => {
-      const tierKey = tier.slug as keyof typeof feature
-      const value = feature[tierKey]
-      if (typeof value === 'string') {
-        acc[feature.id] = value
-      } else if (value === true) {
-        acc[feature.id] = 'Included'
-      }
-      return acc
-    }, {} as Record<string, string>)
-  }))
-}

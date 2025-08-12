@@ -22,6 +22,7 @@ export interface StripePricingTier {
 
 export interface PricingData {
   tiers: StripePricingTier[]
+  yearly_discount_percent?: number
 }
 
 export function usePricing() {

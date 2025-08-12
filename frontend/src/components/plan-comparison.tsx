@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Loader2 } from "lucide-react"
-import { allFeatures, fallbackPricing, getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
+import { allFeatures, getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
 import { BillingToggle } from "./billing-toggle"
 import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
 
@@ -33,12 +33,12 @@ export function PlanComparison({
   isLoading = false,
   loadingTier = null
 }: PlanComparisonProps) {
-  const [isYearly, setIsYearly] = useState(true)
+  const [isYearly, setIsYearly] = useState(false)
   const { pricing, loading, error } = usePricing()
+  const discountPercent = pricing?.yearly_discount_percent || 20 // fallback to 20%
   
-  // Use Stripe pricing if available, otherwise fallback to static data
-  const pricingData = pricing || fallbackPricing
-  const sortedTiers = sortTiers(pricingData.tiers)
+  // Only use Stripe pricing
+  const sortedTiers = pricing ? sortTiers(pricing.tiers) : []
   
   // Filter tiers to show only current tier and higher tiers for modal
   const tiersToShow = isModal 
@@ -59,28 +59,12 @@ export function PlanComparison({
     )
   }
 
-  // Show error state with fallback
-  if (error) {
+  // Show error state - no fallback, require Stripe pricing
+  if (error || !pricing) {
     return (
-      <div className="space-y-4">
-        <div className="text-center text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-          ⚠️ Unable to load current pricing. Showing cached prices.
-        </div>
-        <PlanComparisonContent 
-          tiersToShow={tiersToShow}
-          currentTier={currentTier}
-          onUpgrade={onUpgrade}
-          onContactSales={onContactSales}
-          highlightUpgrades={highlightUpgrades}
-          showPricing={showPricing}
-          showBillingToggle={showBillingToggle}
-          showCallToAction={showCallToAction}
-          isYearly={isYearly}
-          setIsYearly={setIsYearly}
-          isModal={isModal}
-          isLoading={isLoading}
-          loadingTier={loadingTier}
-        />
+      <div className="text-center py-12 bg-red-50 border border-red-200 rounded-lg">
+        <p className="text-red-700 font-semibold mb-2">Unable to load pricing</p>
+        <p className="text-red-600 text-sm">Please refresh the page or try again later.</p>
       </div>
     )
   }
@@ -100,6 +84,7 @@ export function PlanComparison({
       isModal={isModal}
       isLoading={isLoading}
       loadingTier={loadingTier}
+      discountPercent={discountPercent}
     />
   )
 }
@@ -125,6 +110,7 @@ interface PlanComparisonContentProps {
   isModal: boolean
   isLoading: boolean
   loadingTier: string | null
+  discountPercent: number
 }
 
 function PlanComparisonContent({
@@ -140,7 +126,8 @@ function PlanComparisonContent({
   setIsYearly,
   isModal,
   isLoading,
-  loadingTier
+  loadingTier,
+  discountPercent
 }: PlanComparisonContentProps) {
   return (
     <div className="space-y-6">
@@ -148,6 +135,7 @@ function PlanComparisonContent({
         <BillingToggle 
           isYearly={isYearly} 
           onToggle={setIsYearly} 
+          discountPercent={discountPercent}
           className="mt-6"
         />
       )}
@@ -195,7 +183,7 @@ function PlanComparisonContent({
                 <div className="mt-3">
                   {isYearly && yearlyPrice ? (
                     <>
-                      <span className="text-2xl font-bold">{formatPrice(yearlyPrice.amount, yearlyPrice.currency)}</span>
+                      <span className="text-2xl font-bold">{formatPrice(Math.round(yearlyPrice.amount * (1 - discountPercent / 100)), yearlyPrice.currency)}</span>
                       <span className="text-muted-foreground text-sm">/year</span>
                       {monthlyPrice && (
                         <div className="text-xs text-muted-foreground mt-1 line-through">
@@ -208,8 +196,8 @@ function PlanComparisonContent({
                       <span className="text-2xl font-bold">{formatPrice(monthlyPrice.amount, monthlyPrice.currency)}</span>
                       <span className="text-muted-foreground text-sm">/month</span>
                       {yearlyPrice && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {formatPrice(yearlyPrice.amount, yearlyPrice.currency)}/year (save 20%)
+                        <div className="text-xs text-green-600 font-medium mt-1">
+                          Save {Math.round(discountPercent)}% with yearly billing
                         </div>
                       )}
                     </>

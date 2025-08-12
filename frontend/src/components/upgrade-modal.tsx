@@ -41,7 +41,7 @@ export function UpgradeModal({
   const currentCount = limitType === 'wallets' ? currentWalletCount : currentContactCount
   const limitTypeText = limitType === 'wallets' ? 'wallet' : 'contact'
 
-  const handleUpgrade = async (targetTier: string, isYearly: boolean = true) => {
+  const handleUpgrade = async (targetTier: string, isYearly: boolean = false) => {
     if (!isAuthenticated) {
       // Redirect to sign up if not authenticated
       window.location.href = '/sign-up'

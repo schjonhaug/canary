@@ -54,6 +54,7 @@ pub struct CustomerPortalResponse {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct PricingInfo {
     pub tiers: Vec<TierPricing>,
+    pub yearly_discount_percent: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -101,7 +102,7 @@ impl StripeBilling {
             products: HashMap::new(),
             monthly_prices: HashMap::new(),
             yearly_prices: HashMap::new(),
-            cached_pricing: PricingInfo { tiers: Vec::new() },
+            cached_pricing: PricingInfo { tiers: Vec::new(), yearly_discount_percent: None },
         };
 
         // Load products and prices from Stripe
@@ -146,11 +147,17 @@ impl StripeBilling {
                             match recurring.interval.as_str() {
                                 "month" if recurring.interval_count == 1 => {
                                     self.monthly_prices.insert(tier, price.id.clone());
-                                    tracing::info!("Found monthly price for {:?}: {}", tier, price.id);
+                                    let amount = price.unit_amount.unwrap_or(0);
+                                    let currency = price.currency.as_ref().map(|c| c.to_string()).unwrap_or_else(|| "USD".to_string());
+                                    tracing::info!("💰 Found monthly price for {:?}: ${:.2}/{}", 
+                                        tier, amount as f64 / 100.0, currency.to_uppercase());
                                 }
                                 "year" if recurring.interval_count == 1 => {
                                     self.yearly_prices.insert(tier, price.id.clone());
-                                    tracing::info!("Found yearly price for {:?}: {}", tier, price.id);
+                                    let amount = price.unit_amount.unwrap_or(0);
+                                    let currency = price.currency.as_ref().map(|c| c.to_string()).unwrap_or_else(|| "USD".to_string());
+                                    tracing::info!("💰 Found yearly price for {:?}: ${:.2}/{}", 
+                                        tier, amount as f64 / 100.0, currency.to_uppercase());
                                 }
                                 _ => {}
                             }
@@ -231,7 +238,13 @@ impl StripeBilling {
             }
         }
 
-        self.cached_pricing = PricingInfo { tiers };
+        // Get coupon discount percentage
+        let yearly_discount_percent = self.get_coupon_discount_percent().await;
+        
+        self.cached_pricing = PricingInfo { 
+            tiers,
+            yearly_discount_percent,
+        };
         tracing::info!("✅ Cached pricing information for {} tiers", self.cached_pricing.tiers.len());
         
         Ok(())
@@ -240,6 +253,23 @@ impl StripeBilling {
     /// Get pricing information for frontend display (now instant!)
     pub fn get_pricing_for_frontend(&self) -> &PricingInfo {
         &self.cached_pricing
+    }
+
+    /// Get coupon discount percentage (for API)
+    async fn get_coupon_discount_percent(&self) -> Option<f64> {
+        if let Ok(coupon_id) = std::env::var("STRIPE_YEARLY_COUPON_ID") {
+            if let Ok(coupon_id) = CouponId::from_str(&coupon_id) {
+                match stripe::Coupon::retrieve(&self.client, &coupon_id, &[]).await {
+                    Ok(coupon) => {
+                        if let Some(percent_off) = coupon.percent_off {
+                            return Some(percent_off as f64);
+                        }
+                    }
+                    Err(_) => return None,
+                }
+            }
+        }
+        None
     }
 
     /// Log information about the yearly coupon
