@@ -128,7 +128,8 @@ export const SUBSCRIPTION_LIMITS = {
 export type SubscriptionTier = keyof typeof SUBSCRIPTION_LIMITS
 
 export function getWalletLimit(tier: string): number | null {
-  return SUBSCRIPTION_LIMITS[tier.toLowerCase() as SubscriptionTier]?.wallets ?? 1
+  const tierData = SUBSCRIPTION_LIMITS[tier.toLowerCase() as SubscriptionTier]
+  return tierData ? tierData.wallets : 1 // Default to personal limit for unknown tiers
 }
 
 export function hasReachedWalletLimit(currentWalletCount: number, tier: string): boolean {
@@ -138,7 +139,8 @@ export function hasReachedWalletLimit(currentWalletCount: number, tier: string):
 }
 
 export function getContactLimit(tier: string): number | null {
-  return SUBSCRIPTION_LIMITS[tier.toLowerCase() as SubscriptionTier]?.contacts ?? 1
+  const tierData = SUBSCRIPTION_LIMITS[tier.toLowerCase() as SubscriptionTier]
+  return tierData ? tierData.contacts : 1 // Default to personal limit for unknown tiers
 }
 
 export function hasReachedContactLimit(currentContactCount: number, tier: string): boolean {

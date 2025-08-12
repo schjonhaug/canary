@@ -4,7 +4,7 @@
 
 **License**: Open Source (FOSS)
 
-**Version**: 0.5.1
+**Version**: 0.6.0
 
 ## Project Overview
 Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, and optional email/password authentication with email verification.
@@ -92,6 +92,12 @@ canary/
 
 ### Blockchain Data
 - `GET /api/block-headers/current` - Get current block header from database
+
+### Billing & Subscription Management  
+- `POST /api/checkout/create-session` - Create Stripe Checkout session for plan upgrades
+- `POST /api/billing/customer-portal` - Create Stripe Customer Portal session for subscription management
+- `GET /api/billing/status` - Get current subscription status and billing information
+- `POST /api/stripe/webhook` - Process Stripe webhook events (subscription lifecycle)
 
 ### Notification System
 - `GET /api/providers` - List available and configured notification providers
@@ -244,6 +250,131 @@ Enable email/password authentication for multi-user support:
 - `/reset-password/{token}` - Password reset form with token
 - `/verify-email/{token}` - Email verification handler
 
+## Stripe Integration & Billing
+
+### Complete Subscription Management System
+Canary features a fully integrated Stripe billing system with automatic subscription management, proactive limit enforcement, and seamless user experience.
+
+### Backend Integration (Rust)
+- **Stripe API Client**: Direct integration using `reqwest` for HTTP calls to Stripe API
+- **Checkout Sessions**: `POST /api/checkout/create-session` - Creates Stripe Checkout sessions for plan upgrades
+- **Customer Portal**: `POST /api/billing/customer-portal` - Generates Stripe Customer Portal sessions for subscription management
+- **Webhook Processing**: `POST /api/stripe/webhook` - Processes Stripe webhooks for subscription lifecycle events
+- **Billing Status**: `GET /api/billing/status` - Returns current subscription status and billing information
+
+### Stripe Webhook Events Handled
+- **`customer.subscription.created`** - New subscription activated, upgrades user tier
+- **`customer.subscription.updated`** - Subscription changes (plan, billing cycle)
+- **`customer.subscription.deleted`** - Subscription cancelled, preserves access until expiration
+- **`invoice.payment_succeeded`** - Successful payment, ensures continued access
+- **`invoice.payment_failed`** - Failed payment, may affect service access
+- **Idempotency**: All webhook events are tracked in `stripe_webhook_events` table to prevent duplicate processing
+
+### Frontend Billing Integration
+- **AuthContext Enhancement**: Integrated billing status into authentication context
+- **Billing Status API**: Real-time subscription status, trial information, and customer portal access
+- **Upgrade Modals**: Context-aware upgrade prompts for both wallet and contact limits
+- **Customer Portal**: Direct access to Stripe Customer Portal for subscription management
+- **Development Mode**: Test mode with Stripe test keys and webhook forwarding
+
+### Subscription Lifecycle Management
+
+#### Trial Management
+- **30-day Free Trial**: All new users start with 30-day free trial on Personal tier
+- **Trial Tracking**: `trial_started_at` and `trial_ends_at` fields in users table
+- **Automatic Expiration**: Background process monitors and expires trials
+- **Grace Period**: Users retain access until trial expiration date
+
+#### Subscription States
+- **`trial`** - Free 30-day trial period (new users)
+- **`active`** - Paid subscription in good standing
+- **`canceled`** - Subscription cancelled but access remains until `subscription_ends_at`
+- **`expired`** - Trial or cancelled subscription has expired, no wallet syncing
+
+#### Never Downgrade Policy
+- **Tier Preservation**: Users never lose their subscription tier, even after expiration
+- **Access Control**: Expired users keep tier but lose wallet syncing functionality
+- **Historical Data**: All transaction history and wallet data remains accessible
+- **Upgrade Path**: Clear upgrade prompts guide users back to active subscriptions
+
+### Billing Configuration
+Set up Stripe integration with environment variables:
+```bash
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_test_... # or sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_test_... # or pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Price IDs (from Stripe Dashboard)
+STRIPE_PRO_MONTHLY_PRICE_ID=price_...
+STRIPE_PRO_YEARLY_PRICE_ID=price_...
+STRIPE_BUSINESS_MONTHLY_PRICE_ID=price_...
+STRIPE_BUSINESS_YEARLY_PRICE_ID=price_...
+
+# Frontend Environment
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+### Customer Portal Features
+- **Subscription Management**: Change plans, update billing frequency
+- **Payment Methods**: Add/update credit cards and payment sources
+- **Billing History**: Download invoices and view payment history
+- **Cancellation**: Cancel subscriptions with end-of-period access
+- **Reactivation**: Reactivate cancelled subscriptions
+
+### Proactive Limit Enforcement System
+- **Pre-flight Checks**: Limits validated before showing creation forms
+- **Smart Upgrade Modals**: Context-aware upgrade prompts with plan comparisons
+- **Unified Modal Component**: Single `UpgradeModal` component handles both wallet and contact limits
+- **Flexible Messaging**: Dynamic content based on limit type (wallets vs contacts)
+
+### Database Integration
+```sql
+-- Enhanced users table with subscription fields
+CREATE TABLE users (
+    -- Subscription management
+    subscription_tier TEXT DEFAULT 'personal',
+    trial_started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    trial_ends_at DATETIME DEFAULT (datetime('now', '+30 days')),
+    subscription_status TEXT DEFAULT 'trial',
+    
+    -- Stripe integration
+    stripe_customer_id TEXT UNIQUE,
+    stripe_subscription_id TEXT,
+    subscription_started_at DATETIME,
+    subscription_ends_at DATETIME
+);
+
+-- Webhook event tracking for idempotency
+CREATE TABLE stripe_webhook_events (
+    id TEXT PRIMARY KEY, -- Stripe event ID
+    event_type TEXT NOT NULL,
+    processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    user_id TEXT,
+    subscription_id TEXT,
+    customer_id TEXT,
+    metadata TEXT
+);
+```
+
+### Testing & Development
+- **Test Mode**: Complete Stripe integration works in test mode
+- **Webhook Forwarding**: Use Stripe CLI for local webhook testing: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+- **Mock Customer Portal**: Fully functional customer portal in test mode
+- **Development Users**: Pre-configured test accounts with various subscription states
+
+### Error Handling & Resilience
+- **Webhook Retries**: Stripe automatically retries failed webhook deliveries
+- **Graceful Degradation**: Billing failures don't break core wallet functionality  
+- **User Communication**: Clear error messages for payment and subscription issues
+- **Monitoring**: Comprehensive logging of all Stripe interactions
+
+### Security Considerations
+- **Webhook Verification**: All webhook payloads verified using Stripe webhook signatures
+- **API Key Management**: Secure handling of Stripe API keys via environment variables
+- **Customer Data**: Minimal customer data stored locally, full details remain in Stripe
+- **PCI Compliance**: No credit card data stored locally, all handled by Stripe
+
 ### SMS Contact Verification (Separate from Auth)
 For adding SMS contacts, Twilio Verify is still used:
 ```
@@ -267,6 +398,43 @@ The service uses BDK's address revelation mechanism with a stop gap of 20:
 ## Development Workflow
 - **Testing**: `./regtest-env/docker-utils.sh` provides complete Bitcoin regtest environment
 - **Database Management**: Single migration file for clean schema initialization
+
+## Testing & Quality Assurance
+
+### Frontend Test Suite
+Comprehensive test coverage for subscription limits and user interactions:
+
+- **Contact Limit Enforcement Tests** (`contact-limit-enforcement.test.tsx`):
+  - Utility function testing for `getContactLimit()` and `hasReachedContactLimit()`  
+  - Personal tier: 1 contact limit enforcement
+  - Pro tier: 10 contact limit enforcement
+  - Business tier: Unlimited contact handling
+  - Edge cases: Zero contacts, null arrays, case-insensitive tiers
+  - Integration scenarios: Alice (Personal), Bob (Pro), Business user workflows
+
+- **Upgrade Modal Tests** (`upgrade-modal-basic.test.tsx`):
+  - Modal visibility and state management
+  - Dynamic content for wallet vs contact limits
+  - Tier badge display (Personal, Pro, Business)
+  - Plural/singular form handling
+  - Plan comparison integration
+  - Default props and edge cases
+
+- **Contact Modal Tests** (`contact-modal.test.tsx`):
+  - Multi-provider notification setup (ntfy, SMS, email)
+  - SMS verification flow with Twilio Verify
+  - Email verification with auto-verification for user's own email
+  - Edit mode with existing contact data handling
+  - Error handling and validation
+  - State cleanup and management
+
+### Test Coverage Areas
+- **Subscription Limits**: Proactive enforcement of wallet and contact limits
+- **Modal Interactions**: Upgrade prompts and user flow validation  
+- **Authentication**: Login, registration, email verification flows
+- **Contact Management**: Multi-provider notification setup and verification
+- **Error Handling**: Graceful error states and user feedback
+- **Edge Cases**: Boundary conditions and invalid input handling
 
 ## Code Standards
 - No commented-out code (use git history)  
