@@ -1552,20 +1552,24 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn verify_email_token(&self, token: &str) -> Result<Option<i64>> {
+    pub async fn verify_email_token(&self, token: &str) -> Result<Option<String>> {
         let pool = self.pool.clone();
         let token = token.to_string();
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        
+        tracing::debug!("Verifying email token: {} at time: {}", token, current_time);
 
-        spawn_blocking(move || -> Result<Option<i64>> {
+        spawn_blocking(move || -> Result<Option<String>> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
             
             // Get user_id for valid, non-expired token
-            let user_id: Option<i64> = tx
+            let user_id: Option<String> = tx
                 .prepare("SELECT user_id FROM email_verification_tokens WHERE token = ?1 AND expires_at > ?2")?
                 .query_row(params![&token, &current_time], |row| row.get(0))
                 .ok();
+            
+            tracing::debug!("Token query result: {:?}", user_id);
             
             if let Some(user_id) = user_id {
                 // Mark user as verified
