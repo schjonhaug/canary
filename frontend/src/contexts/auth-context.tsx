@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 
@@ -13,9 +13,26 @@ interface User {
   subscription_tier?: 'personal' | 'pro' | 'business'
 }
 
+interface BillingStatus {
+  user_id: string
+  subscription_tier: string
+  stripe_customer_id?: string
+  wallet_count: number
+  contact_count: number
+  limits: {
+    max_wallets: number
+    max_contacts_per_wallet: number
+    sync_interval_seconds: number
+    allows_sms: boolean
+    allows_push: boolean
+    allows_transaction_analysis: boolean
+  }
+}
+
 interface AuthContextType {
   user: User | null
   token: string | null
+  billingStatus: BillingStatus | null
   isLoading: boolean
   isAuthenticated: boolean
   register: (email: string, password: string, name: string, marketingEmails?: boolean) => Promise<void>
@@ -25,6 +42,7 @@ interface AuthContextType {
   resetPassword: (token: string, password: string) => Promise<void>
   verifyEmail: (token: string) => Promise<void>
   logout: () => void
+  refreshBillingStatus: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -32,6 +50,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
@@ -72,6 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { user: userData } = await api.getMe()
       setUser(userData)
+      // Also fetch billing status if user is authenticated
+      await fetchBillingStatus()
     } catch (error) {
       console.error('Failed to fetch user:', error)
       // Token invalid, clear it
@@ -82,6 +103,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     }
   }
+
+  const fetchBillingStatus = useCallback(async () => {
+    try {
+      const status = await api.getBillingStatus()
+      setBillingStatus(status)
+      // Update user subscription tier if it differs
+      if (user && status.subscription_tier !== user.subscription_tier) {
+        setUser(prev => prev ? { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'pro' | 'business' } : null)
+      }
+    } catch (error) {
+      console.error('Failed to fetch billing status:', error)
+      // Don't throw - billing status is optional
+    }
+  }, [user])
+
+  const refreshBillingStatus = useCallback(async () => {
+    if (!token) return
+    await fetchBillingStatus()
+  }, [token, fetchBillingStatus])
 
   const register = async (email: string, password: string, name: string, marketingEmails: boolean = false) => {
     try {
@@ -149,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     setUser(null)
     setToken(null)
+    setBillingStatus(null)
     localStorage.removeItem('auth_token')
     api.setAuthToken(null)
     router.push('/sign-in')
@@ -159,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         token,
+        billingStatus,
         isLoading,
         isAuthenticated: !!token,
         register,
@@ -168,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPassword,
         verifyEmail,
         logout,
+        refreshBillingStatus,
       }}
     >
       {children}

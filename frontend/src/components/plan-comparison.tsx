@@ -3,19 +3,22 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2 } from "lucide-react"
-import { allFeatures, pricingTiers, type TierSlug } from "@/lib/pricing-data"
+import { CheckCircle2, Loader2 } from "lucide-react"
+import { allFeatures, fallbackPricing, getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
 import { BillingToggle } from "./billing-toggle"
+import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
 
 interface PlanComparisonProps {
   currentTier: string
-  onUpgrade?: (targetTier: string) => void
+  onUpgrade?: (targetTier: string, isYearly: boolean) => void
   onContactSales?: () => void
   highlightUpgrades?: boolean
   showPricing?: boolean
   showBillingToggle?: boolean
   isModal?: boolean
   showCallToAction?: boolean
+  isLoading?: boolean
+  loadingTier?: string | null
 }
 
 export function PlanComparison({ 
@@ -26,18 +29,119 @@ export function PlanComparison({
   showPricing = true,
   showBillingToggle = true,
   isModal = false,
-  showCallToAction = false
+  showCallToAction = false,
+  isLoading = false,
+  loadingTier = null
 }: PlanComparisonProps) {
   const [isYearly, setIsYearly] = useState(true)
+  const { pricing, loading, error } = usePricing()
+  
+  // Use Stripe pricing if available, otherwise fallback to static data
+  const pricingData = pricing || fallbackPricing
+  const sortedTiers = sortTiers(pricingData.tiers)
+  
   // Filter tiers to show only current tier and higher tiers for modal
   const tiersToShow = isModal 
-    ? pricingTiers.filter(tier => {
-        const currentIndex = pricingTiers.findIndex(t => t.slug === currentTier)
-        const tierIndex = pricingTiers.findIndex(t => t.slug === tier.slug)
+    ? sortedTiers.filter(tier => {
+        const currentIndex = sortedTiers.findIndex(t => t.tier === currentTier)
+        const tierIndex = sortedTiers.findIndex(t => t.tier === tier.tier)
         return tierIndex >= currentIndex
       })
-    : pricingTiers
+    : sortedTiers
 
+  // Show loading state if pricing is loading
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Loading pricing...</span>
+      </div>
+    )
+  }
+
+  // Show error state with fallback
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="text-center text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          ⚠️ Unable to load current pricing. Showing cached prices.
+        </div>
+        <PlanComparisonContent 
+          tiersToShow={tiersToShow}
+          currentTier={currentTier}
+          onUpgrade={onUpgrade}
+          onContactSales={onContactSales}
+          highlightUpgrades={highlightUpgrades}
+          showPricing={showPricing}
+          showBillingToggle={showBillingToggle}
+          showCallToAction={showCallToAction}
+          isYearly={isYearly}
+          setIsYearly={setIsYearly}
+          isModal={isModal}
+          isLoading={isLoading}
+          loadingTier={loadingTier}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <PlanComparisonContent 
+      tiersToShow={tiersToShow}
+      currentTier={currentTier}
+      onUpgrade={onUpgrade}
+      onContactSales={onContactSales}
+      highlightUpgrades={highlightUpgrades}
+      showPricing={showPricing}
+      showBillingToggle={showBillingToggle}
+      showCallToAction={showCallToAction}
+      isYearly={isYearly}
+      setIsYearly={setIsYearly}
+      isModal={isModal}
+      isLoading={isLoading}
+      loadingTier={loadingTier}
+    />
+  )
+}
+
+interface PlanComparisonContentProps {
+  tiersToShow: Array<{
+    tier: string
+    name: string
+    description?: string
+    monthly_price?: { price_id: string, amount: number, currency: string, interval: string }
+    yearly_price?: { price_id: string, amount: number, currency: string, interval: string }
+    features: Record<string, string>
+  }>
+  currentTier: string
+  onUpgrade?: (targetTier: string, isYearly: boolean) => void
+  onContactSales?: () => void
+  highlightUpgrades: boolean
+  showPricing: boolean
+  showBillingToggle: boolean
+  showCallToAction: boolean
+  isYearly: boolean
+  setIsYearly: (value: boolean) => void
+  isModal: boolean
+  isLoading: boolean
+  loadingTier: string | null
+}
+
+function PlanComparisonContent({
+  tiersToShow,
+  currentTier,
+  onUpgrade,
+  onContactSales,
+  highlightUpgrades,
+  showPricing,
+  showBillingToggle,
+  showCallToAction,
+  isYearly,
+  setIsYearly,
+  isModal,
+  isLoading,
+  loadingTier
+}: PlanComparisonContentProps) {
   return (
     <div className="space-y-6">
       {showBillingToggle && showPricing && (
@@ -50,12 +154,17 @@ export function PlanComparison({
       
       <div className={`grid gap-6 ${tiersToShow.length === 3 ? 'md:grid-cols-3' : tiersToShow.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1'} ${isModal ? 'max-w-6xl mx-auto' : 'max-w-5xl mx-auto'}`}>
       {tiersToShow.map((tier) => {
-        const isCurrentTier = tier.slug === currentTier
+        const isCurrentTier = tier.tier === currentTier
         const isUpgrade = !isCurrentTier && highlightUpgrades
+        const isLoadingThisTier = isLoading && loadingTier === tier.tier
+        
+        // Get pricing info 
+        const monthlyPrice = tier.monthly_price
+        const yearlyPrice = tier.yearly_price
         
         return (
           <Card 
-            key={tier.slug} 
+            key={tier.tier} 
             className={`relative ${
               isCurrentTier 
                 ? "border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-200" 
@@ -64,10 +173,10 @@ export function PlanComparison({
                   : ""
             }`}
           >
-            {tier.badge && !isCurrentTier && (
+            {tier.tier === 'pro' && !isCurrentTier && (
               <div className="absolute -top-3 left-4">
                 <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full font-semibold">
-                  {tier.badge}
+                  POPULAR
                 </span>
               </div>
             )}
@@ -80,26 +189,32 @@ export function PlanComparison({
             )}
             
             <CardHeader>
-              <CardTitle className="text-lg">{tier.name}</CardTitle>
-              <CardDescription className="text-sm">{tier.description}</CardDescription>
-              {showPricing && (
+              <CardTitle className="text-lg">{getTierDisplayName(tier.tier)}</CardTitle>
+              <CardDescription className="text-sm">{tier.description || getTierDescription(tier.tier)}</CardDescription>
+              {showPricing && (monthlyPrice || yearlyPrice) && (
                 <div className="mt-3">
-                  {isYearly ? (
+                  {isYearly && yearlyPrice ? (
                     <>
-                      <span className="text-2xl font-bold">${tier.yearlyPrice}</span>
+                      <span className="text-2xl font-bold">{formatPrice(yearlyPrice.amount, yearlyPrice.currency)}</span>
                       <span className="text-muted-foreground text-sm">/year</span>
-                      <div className="text-xs text-muted-foreground mt-1 line-through">
-                        ${tier.monthlyPrice * 12}/year
-                      </div>
+                      {monthlyPrice && (
+                        <div className="text-xs text-muted-foreground mt-1 line-through">
+                          {formatPrice(monthlyPrice.amount * 12, monthlyPrice.currency)}/year
+                        </div>
+                      )}
+                    </>
+                  ) : monthlyPrice ? (
+                    <>
+                      <span className="text-2xl font-bold">{formatPrice(monthlyPrice.amount, monthlyPrice.currency)}</span>
+                      <span className="text-muted-foreground text-sm">/month</span>
+                      {yearlyPrice && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {formatPrice(yearlyPrice.amount, yearlyPrice.currency)}/year (save 20%)
+                        </div>
+                      )}
                     </>
                   ) : (
-                    <>
-                      <span className="text-2xl font-bold">${tier.monthlyPrice}</span>
-                      <span className="text-muted-foreground text-sm">/month</span>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        ${tier.yearlyPrice}/year (save 20%)
-                      </div>
-                    </>
+                    <div className="text-lg text-muted-foreground">Contact Sales</div>
                   )}
                 </div>
               )}
@@ -108,7 +223,7 @@ export function PlanComparison({
             <CardContent>
               <ul className="space-y-2.5">
                 {allFeatures.map((feature) => {
-                  const tierKey = tier.slug as 'personal' | 'pro' | 'business'
+                  const tierKey = tier.tier as 'personal' | 'pro' | 'business'
                   const value = feature[tierKey]
                   const isUnique = feature.unique?.[tierKey] || false
                   
@@ -122,8 +237,8 @@ export function PlanComparison({
                   }
                   
                   return (
-                    <li key={feature.id} className={`flex items-start text-sm ${isUnique && tier.slug !== 'personal' ? 'font-medium' : ''}`}>
-                      <CheckCircle2 className={`h-4 w-4 mr-2 flex-shrink-0 mt-0.5 ${isUnique && tier.slug !== 'personal' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <li key={feature.id} className={`flex items-start text-sm ${isUnique && tier.tier !== 'personal' ? 'font-medium' : ''}`}>
+                      <CheckCircle2 className={`h-4 w-4 mr-2 flex-shrink-0 mt-0.5 ${isUnique && tier.tier !== 'personal' ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span>
                         {typeof value === 'string' ? value : feature.label}
                       </span>
@@ -137,17 +252,12 @@ export function PlanComparison({
               <CardFooter>
                 <Button 
                   className="w-full" 
-                  variant={tier.highlighted ? "default" : "outline"}
-                  asChild={tier.cta !== "Contact Sales"}
-                  onClick={tier.cta === "Contact Sales" ? onContactSales : undefined}
+                  variant={tier.tier === 'pro' ? "default" : "outline"}
+                  onClick={tier.tier === "business" ? onContactSales : undefined}
+                  disabled={isLoadingThisTier}
                 >
-                  {tier.cta === "Contact Sales" ? (
-                    tier.cta
-                  ) : (
-                    <a href={tier.ctaLink}>
-                      {tier.cta}
-                    </a>
-                  )}
+                  {isLoadingThisTier && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {tier.tier === "business" ? "Contact Sales" : "Start Free Trial"}
                 </Button>
               </CardFooter>
             )}
@@ -158,14 +268,16 @@ export function PlanComparison({
                   className="w-full" 
                   variant={isUpgrade ? "default" : "outline"}
                   onClick={() => {
-                    if (tier.slug === "business" && onContactSales) {
+                    if (tier.tier === "business" && onContactSales) {
                       onContactSales()
                     } else if (onUpgrade) {
-                      onUpgrade(tier.slug)
+                      onUpgrade(tier.tier, isYearly)
                     }
                   }}
+                  disabled={isLoadingThisTier}
                 >
-                  {tier.slug === "business" ? "Contact Sales" : `Upgrade to ${tier.name}`}
+                  {isLoadingThisTier && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {tier.tier === "business" ? "Contact Sales" : `Upgrade to ${getTierDisplayName(tier.tier)}`}
                 </Button>
               </CardFooter>
             )}

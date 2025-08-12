@@ -222,6 +222,89 @@ class ApiClient {
       body: JSON.stringify({ name }),
     })
   }
+
+  // Stripe billing API methods
+  async getBillingPricing(): Promise<{ tiers: Array<{ 
+    tier: string, 
+    name: string, 
+    description?: string, 
+    monthly_price?: { price_id: string, amount: number, currency: string, interval: string },
+    yearly_price?: { price_id: string, amount: number, currency: string, interval: string },
+    features: Record<string, string>
+  }> }> {
+    return this.request<{ tiers: Array<{ 
+      tier: string, 
+      name: string, 
+      description?: string, 
+      monthly_price?: { price_id: string, amount: number, currency: string, interval: string },
+      yearly_price?: { price_id: string, amount: number, currency: string, interval: string },
+      features: Record<string, string>
+    }> }>('/api/billing/pricing')
+  }
+
+  async createCheckoutSession(tier: string, isYearly: boolean = false): Promise<{ url: string, session_id: string }> {
+    return this.request<{ url: string, session_id: string }>('/api/stripe/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ tier, is_yearly: isYearly }),
+    })
+  }
+
+  async getCheckoutSessionDetails(sessionId: string): Promise<{
+    session_id: string,
+    status: string,
+    tier?: string,
+    billing_period?: string,
+    amount_total?: number,
+    currency?: string
+  }> {
+    return this.request<{
+      session_id: string,
+      status: string,
+      tier?: string,
+      billing_period?: string,
+      amount_total?: number,
+      currency?: string
+    }>(`/api/billing/session/${sessionId}`)
+  }
+
+  async createCustomerPortalSession(returnUrl: string): Promise<{ url: string }> {
+    return this.request<{ url: string }>('/api/stripe/portal', {
+      method: 'POST',
+      body: JSON.stringify({ return_url: returnUrl }),
+    })
+  }
+
+  async getBillingStatus(): Promise<{
+    user_id: string,
+    subscription_tier: string,
+    stripe_customer_id?: string,
+    wallet_count: number,
+    contact_count: number,
+    limits: {
+      max_wallets: number,
+      max_contacts_per_wallet: number,
+      sync_interval_seconds: number,
+      allows_sms: boolean,
+      allows_push: boolean,
+      allows_transaction_analysis: boolean
+    }
+  }> {
+    return this.request<{
+      user_id: string,
+      subscription_tier: string,
+      stripe_customer_id?: string,
+      wallet_count: number,
+      contact_count: number,
+      limits: {
+        max_wallets: number,
+        max_contacts_per_wallet: number,
+        sync_interval_seconds: number,
+        allows_sms: boolean,
+        allows_push: boolean,
+        allows_transaction_analysis: boolean
+      }
+    }>('/api/billing/status')
+  }
 }
 
 // Export a singleton instance

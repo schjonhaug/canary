@@ -138,7 +138,19 @@ pub struct CreateCustomerPortalRequest {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct BillingTierLimits {
+    pub max_wallets: i32, // -1 for unlimited
+    pub max_contacts_per_wallet: i32, // -1 for unlimited  
+    pub sync_interval_seconds: u64,
+    pub allows_sms: bool,
+    pub allows_push: bool,
+    pub allows_transaction_analysis: bool,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct BillingStatusResponse {
+    /// User ID
+    pub user_id: String,
     /// Current subscription tier
     pub subscription_tier: String,
     /// Subscription status (trial, active, expired, cancelled)
@@ -149,6 +161,12 @@ pub struct BillingStatusResponse {
     pub subscription_started_at: Option<String>,
     /// Stripe customer ID
     pub stripe_customer_id: Option<String>,
+    /// Current wallet count
+    pub wallet_count: usize,
+    /// Current contact count across all wallets
+    pub contact_count: usize,
+    /// Subscription tier limits
+    pub limits: BillingTierLimits,
 }
 
 /// Validates and normalizes a phone number
@@ -2940,12 +2958,43 @@ pub async fn get_billing_status(
         }
     };
 
+    // Get wallet count for this user
+    let wallet_count = manager.metadata_db.count_wallets_for_user(&user.user_id).await
+        .unwrap_or(0);
+    
+    // Get contact count across all wallets for this user
+    // For now, we'll get contacts per wallet and sum them up
+    let user_wallets = manager.metadata_db.get_wallets_for_user(Some(&user.user_id)).await
+        .unwrap_or_default();
+    let contact_count = {
+        let mut total = 0;
+        for wallet in &user_wallets {
+            total += manager.metadata_db.count_contacts_for_wallet(&wallet.checksum).await.unwrap_or(0);
+        }
+        total
+    };
+    
+    // Get tier limits
+    let tier_limits = user_record.subscription_tier.limits();
+    let limits = BillingTierLimits {
+        max_wallets: tier_limits.max_wallets.map(|n| n as i32).unwrap_or(-1),
+        max_contacts_per_wallet: tier_limits.max_contacts_per_wallet.map(|n| n as i32).unwrap_or(-1),
+        sync_interval_seconds: tier_limits.sync_interval_secs,
+        allows_sms: tier_limits.allows_sms,
+        allows_push: tier_limits.allows_push,
+        allows_transaction_analysis: tier_limits.allows_transaction_analysis,
+    };
+
     let response = BillingStatusResponse {
+        user_id: user.user_id.clone(),
         subscription_tier: user_record.subscription_tier.as_str().to_string(),
         subscription_status: user_record.subscription_status,
         trial_ends_at: Some(user_record.trial_ends_at),
         subscription_started_at: user_record.subscription_started_at,
         stripe_customer_id: user_record.stripe_customer_id,
+        wallet_count,
+        contact_count,
+        limits,
     };
 
     (StatusCode::OK, Json(response)).into_response()
@@ -3038,7 +3087,27 @@ pub async fn handle_stripe_webhook(
     // Handle the webhook
     tracing::info!("🎣 Processing Stripe webhook with signature: {}", signature);
     match stripe_billing.handle_webhook(body.as_bytes(), signature).await {
-        Ok(_) => {
+        Ok(webhook_result) => {
+            // Process any subscription updates
+            let wallet_manager = _wallet_manager.lock().await;
+            for update in webhook_result.subscription_updates {
+                tracing::info!("Processing subscription update for user {}: {} -> {}", 
+                    update.user_id, update.subscription_tier, update.subscription_status);
+                
+                if let Err(e) = wallet_manager.metadata_db.update_user_subscription(
+                    &update.user_id,
+                    &update.subscription_tier,
+                    &update.subscription_status,
+                    update.stripe_subscription_id.as_deref(),
+                    update.subscription_started_at.as_deref(),
+                ).await {
+                    tracing::error!("Failed to update user {} subscription: {}", update.user_id, e);
+                } else {
+                    tracing::info!("✅ Updated user {} subscription to {} ({})", 
+                        update.user_id, update.subscription_tier, update.subscription_status);
+                }
+            }
+            
             tracing::info!("✅ Webhook processed successfully");
             (StatusCode::OK, "OK").into_response()
         }
@@ -3191,7 +3260,7 @@ pub fn create_router(
             .route("/stripe/webhook", post(handle_stripe_webhook))
             .route("/billing/status", get(get_billing_status))
             .route("/billing/pricing", get(get_billing_pricing))
-            .route("/billing/session/:session_id", get(get_checkout_session_details))
+            .route("/billing/session/{session_id}", get(get_checkout_session_details))
             .with_state((wallet_manager.clone(), stripe_billing.clone()))
     } else {
         Router::new() // Empty router if Stripe not configured

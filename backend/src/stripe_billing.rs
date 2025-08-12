@@ -1,5 +1,20 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use chrono;
+
+#[derive(Debug, Clone)]
+pub struct WebhookResult {
+    pub subscription_updates: Vec<SubscriptionUpdate>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SubscriptionUpdate {
+    pub user_id: String,
+    pub subscription_tier: String,
+    pub subscription_status: String,
+    pub stripe_subscription_id: Option<String>,
+    pub subscription_started_at: Option<String>,
+}
 use std::collections::HashMap;
 use std::str::FromStr;
 use stripe::{
@@ -394,38 +409,57 @@ impl StripeBilling {
     }
 
     /// Handle Stripe webhook events
-    pub async fn handle_webhook(&self, payload: &[u8], signature: &str) -> Result<()> {
+    pub async fn handle_webhook(&self, payload: &[u8], signature: &str) -> Result<WebhookResult> {
         let event = Webhook::construct_event(
             std::str::from_utf8(payload)?,
             signature,
             &self.webhook_secret,
         )?;
 
+        let mut subscription_updates = Vec::new();
+
         match event.type_ {
             EventType::CheckoutSessionCompleted => {
-                self.handle_checkout_completed(&event).await?;
+                match self.handle_checkout_completed(&event).await {
+                    Ok(Some(update)) => subscription_updates.push(update),
+                    Ok(None) => {}, // No update needed
+                    Err(e) => {
+                        tracing::warn!("Failed to process checkout completion: {}", e);
+                        // Don't fail the entire webhook processing for this error
+                    }
+                }
             }
             EventType::InvoicePaymentSucceeded => {
-                self.handle_invoice_payment_succeeded(&event).await?;
+                if let Err(e) = self.handle_invoice_payment_succeeded(&event).await {
+                    tracing::warn!("Failed to process invoice payment succeeded: {}", e);
+                }
             }
             EventType::InvoicePaymentFailed => {
-                self.handle_invoice_payment_failed(&event).await?;
+                if let Err(e) = self.handle_invoice_payment_failed(&event).await {
+                    tracing::warn!("Failed to process invoice payment failed: {}", e);
+                }
             }
             EventType::CustomerSubscriptionUpdated => {
-                self.handle_subscription_updated(&event).await?;
+                if let Err(e) = self.handle_subscription_updated(&event).await {
+                    tracing::warn!("Failed to process subscription updated: {}", e);
+                }
             }
             EventType::CustomerSubscriptionDeleted => {
-                self.handle_subscription_deleted(&event).await?;
+                if let Err(e) = self.handle_subscription_deleted(&event).await {
+                    tracing::warn!("Failed to process subscription deleted: {}", e);
+                }
             }
             _ => {
                 tracing::info!("Received unhandled webhook event: {:?}", event.type_);
             }
         }
 
-        Ok(())
+        Ok(WebhookResult {
+            subscription_updates,
+        })
     }
 
-    async fn handle_checkout_completed(&self, event: &Event) -> Result<()> {
+    async fn handle_checkout_completed(&self, event: &Event) -> Result<Option<SubscriptionUpdate>> {
         tracing::info!("Checkout session completed: {}", event.id);
         
         // The event.data.object is an EventObject enum, not an Option
@@ -444,15 +478,21 @@ impl StripeBilling {
                         
                         tracing::info!("Updating user {} to tier {:?}", user_id, tier);
                         
-                        // TODO: Update user subscription in database
-                        // This would require access to MetadataDb, which we don't have in StripeBilling yet
-                        // For now, just log the information
-                        tracing::info!("Would update user {} subscription to {:?}", user_id, tier);
-                        
-                        // Also extract billing period for logging
+                        // Extract billing period for logging
                         if let Some(billing_period) = metadata.get("billing_period") {
                             tracing::info!("Billing period: {}", billing_period);
                         }
+
+                        // Create subscription update to be processed by the API handler
+                        let update = SubscriptionUpdate {
+                            user_id: user_id.clone(),
+                            subscription_tier: tier.as_str().to_string(),
+                            subscription_status: "active".to_string(),
+                            stripe_subscription_id: None, // For now, we don't have subscription ID from checkout
+                            subscription_started_at: Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()),
+                        };
+                        
+                        return Ok(Some(update));
                     } else {
                         tracing::warn!("Checkout session missing required metadata: user_id or tier");
                     }
@@ -461,11 +501,11 @@ impl StripeBilling {
                 }
             }
             _ => {
-                tracing::warn!("Expected CheckoutSession object in checkout.session.completed event, got {:?}", event.data.object);
+                tracing::warn!("Expected CheckoutSession object in checkout.session.completed event, got different object type");
             }
         }
         
-        Ok(())
+        Ok(None)
     }
 
     async fn handle_invoice_payment_succeeded(&self, event: &Event) -> Result<()> {

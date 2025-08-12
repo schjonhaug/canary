@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,8 @@ import { Badge } from "@/components/ui/badge"
 import { Zap } from "lucide-react"
 import { getWalletLimit, getTierDisplayName } from "@/lib/utils"
 import { PlanComparison } from "./plan-comparison"
+import { api } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
 
 interface UpgradeModalProps {
   isOpen: boolean
@@ -25,22 +28,44 @@ export function UpgradeModal({
   currentTier,
   currentWalletCount,
 }: UpgradeModalProps) {
+  const { isAuthenticated, refreshBillingStatus } = useAuth()
+  const [isUpgrading, setIsUpgrading] = useState(false)
+  const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
   const currentLimit = getWalletLimit(currentTier)
 
-  const handleUpgrade = (targetTier: string) => {
-    // TODO: Implement actual upgrade flow - could redirect to billing page
-    console.log(`Upgrade to ${targetTier} requested`)
-    
-    // For now, show an alert (in a real app, this would redirect to billing)
-    alert(`Upgrade to ${getTierDisplayName(targetTier)} plan requested. This would redirect to billing in a production app.`)
-    onClose()
+  const handleUpgrade = async (targetTier: string, isYearly: boolean = true) => {
+    if (!isAuthenticated) {
+      // Redirect to sign up if not authenticated
+      window.location.href = '/sign-up'
+      return
+    }
+
+    try {
+      setIsUpgrading(true)
+      setUpgradingTier(targetTier)
+
+      // Create checkout session
+      const { url } = await api.createCheckoutSession(targetTier, isYearly)
+      
+      // Refresh billing status after user returns (in background)
+      setTimeout(() => {
+        refreshBillingStatus()
+      }, 1000)
+
+      // Redirect to Stripe checkout
+      window.location.href = url
+
+    } catch (error) {
+      console.error('Failed to create checkout session:', error)
+      alert('Failed to start checkout. Please try again.')
+    } finally {
+      setIsUpgrading(false)
+      setUpgradingTier(null)
+    }
   }
 
   const handleContactSales = () => {
-    // TODO: Implement contact sales flow - could open contact form or redirect to email
-    console.log('Contact sales requested')
-    
-    // For now, open email client
+    // Open email client for business plan inquiries
     window.location.href = 'mailto:sales@canarybitcoin.com?subject=Business Plan Inquiry&body=Hi, I am interested in the Business plan for Canary. Please contact me to discuss.'
     onClose()
   }
@@ -57,7 +82,7 @@ export function UpgradeModal({
             Wallet Limit Reached
           </DialogTitle>
           <DialogDescription>
-            You've reached your wallet limit of {currentLimit} wallet{currentLimit !== 1 ? 's' : ''} on the{' '}
+            You&apos;ve reached your wallet limit of {currentLimit} wallet{currentLimit !== 1 ? 's' : ''} on the{' '}
             <Badge variant="outline" className="mx-1">
               {getTierDisplayName(currentTier)}
             </Badge>
@@ -78,6 +103,8 @@ export function UpgradeModal({
             showPricing={true}
             showBillingToggle={true}
             isModal={true}
+            isLoading={isUpgrading}
+            loadingTier={upgradingTier}
           />
         </div>
       </DialogContent>

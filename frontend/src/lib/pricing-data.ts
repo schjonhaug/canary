@@ -1,4 +1,4 @@
-// Shared pricing data and features - single source of truth
+// Shared feature definitions - used for both static and dynamic pricing
 export const allFeatures = [
   { id: 'trial', label: '30-day free trial', personal: true, pro: true, business: true },
   { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', pro: '15 wallets', business: 'Unlimited wallets', unique: { pro: true, business: true } },
@@ -11,6 +11,19 @@ export const allFeatures = [
   { id: 'api', label: 'REST API access', personal: false, pro: false, business: true, unique: { business: true } },
   { id: 'webhooks', label: 'Custom webhooks', personal: false, pro: false, business: true, unique: { business: true } },
 ]
+
+// Feature mapping for Stripe metadata to display features
+export const featureMapping: Record<string, { label: string, tiers: ('personal' | 'pro' | 'business')[], unique?: Record<string, boolean> }> = {
+  'wallets': { label: 'Bitcoin wallets', tiers: ['personal', 'pro', 'business'], unique: { pro: true, business: true } },
+  'contacts_per_wallet': { label: 'Contacts per wallet', tiers: ['personal', 'pro', 'business'], unique: { pro: true, business: true } },
+  'sync_interval': { label: 'Sync interval', tiers: ['personal', 'pro', 'business'], unique: { pro: true, business: true } },
+  'email_notifications': { label: 'Email notifications', tiers: ['personal', 'pro', 'business'] },
+  'sms_notifications': { label: 'SMS notifications', tiers: ['pro', 'business'], unique: { pro: true } },
+  'push_notifications': { label: 'Push notifications', tiers: ['pro', 'business'], unique: { pro: true } },
+  'transaction_analysis': { label: 'Transaction analysis (RBF/CPFP)', tiers: ['pro', 'business'], unique: { pro: true } },
+  'api_access': { label: 'REST API access', tiers: ['business'], unique: { business: true } },
+  'webhooks': { label: 'Custom webhooks', tiers: ['business'], unique: { business: true } },
+}
 
 export const pricingTiers = [
   {
@@ -50,3 +63,53 @@ export const pricingTiers = [
 export type TierSlug = 'personal' | 'pro' | 'business'
 export type PricingTier = typeof pricingTiers[0]
 export type Feature = typeof allFeatures[0]
+
+// Helper functions
+export function getTierDisplayName(tier: string): string {
+  switch (tier.toLowerCase()) {
+    case 'personal': return 'Personal'
+    case 'pro': return 'Pro'  
+    case 'business': return 'Business'
+    default: return tier
+  }
+}
+
+export function getTierDescription(tier: string): string {
+  switch (tier.toLowerCase()) {
+    case 'personal': return 'For individual Bitcoin holders'
+    case 'pro': return 'For Uncle Jims & family guardians'
+    case 'business': return 'For businesses & services'
+    default: return ''
+  }
+}
+
+// Fallback pricing for when Stripe is unavailable (static data)
+export const fallbackPricing = {
+  tiers: pricingTiers.map(tier => ({
+    tier: tier.slug,
+    name: tier.name,
+    description: tier.description,
+    monthly_price: {
+      price_id: `fallback_${tier.slug}_monthly`,
+      amount: tier.monthlyPrice * 100, // convert to cents
+      currency: 'usd',
+      interval: 'month'
+    },
+    yearly_price: {
+      price_id: `fallback_${tier.slug}_yearly`,
+      amount: tier.yearlyPrice * 100, // convert to cents
+      currency: 'usd', 
+      interval: 'year'
+    },
+    features: allFeatures.reduce((acc, feature) => {
+      const tierKey = tier.slug as keyof typeof feature
+      const value = feature[tierKey]
+      if (typeof value === 'string') {
+        acc[feature.id] = value
+      } else if (value === true) {
+        acc[feature.id] = 'Included'
+      }
+      return acc
+    }, {} as Record<string, string>)
+  }))
+}
