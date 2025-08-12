@@ -80,7 +80,6 @@ pub struct LimitError {
     pub current: usize,
     pub limit: usize,
     pub tier: SubscriptionTier,
-    pub upgrade_required: bool,
 }
 
 impl std::fmt::Display for LimitError {
@@ -113,7 +112,6 @@ pub fn check_limit(
                 current,
                 limit: max,
                 tier,
-                upgrade_required: true,
             });
         }
     }

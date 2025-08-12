@@ -1,6 +1,6 @@
 use crate::electrum::BlockHeader;
 use crate::migrations::MigrationRunner;
-use crate::subscription::{SubscriptionTier, LimitError, check_limit};
+use crate::subscription::SubscriptionTier;
 use anyhow::{Context, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
 use chrono;
@@ -51,126 +51,7 @@ pub struct UserRecord {
     pub created_at: String,
 }
 
-impl UserRecord {
-    pub fn is_trial_active(&self) -> bool {
-        if self.subscription_status != "trial" {
-            return false;
-        }
-        
-        // Parse trial end date and compare with current time
-        match chrono::DateTime::parse_from_rfc3339(&self.trial_ends_at) {
-            Ok(trial_ends) => {
-                let now = chrono::Utc::now();
-                now < trial_ends
-            }
-            Err(_) => false,
-        }
-    }
-    
-    pub fn days_remaining_in_trial(&self) -> i64 {
-        match chrono::DateTime::parse_from_rfc3339(&self.trial_ends_at) {
-            Ok(trial_ends) => {
-                let now = chrono::Utc::now();
-                let trial_ends_utc = trial_ends.with_timezone(&chrono::Utc);
-                (trial_ends_utc - now).num_days().max(0)
-            }
-            Err(_) => 0,
-        }
-    }
-    
-    pub fn can_create_wallet(&self, current_count: usize) -> Result<(), LimitError> {
-        let limits = self.subscription_tier.limits();
-        check_limit(
-            current_count,
-            limits.max_wallets,
-            "wallets",
-            self.subscription_tier,
-        )
-    }
-    
-    pub fn can_create_contact(&self, current_count: usize) -> Result<(), LimitError> {
-        let limits = self.subscription_tier.limits();
-        check_limit(
-            current_count,
-            limits.max_contacts_per_wallet,
-            "contacts",
-            self.subscription_tier,
-        )
-    }
-    
-    /// Get the expiration date for this user's access (trial or cancelled subscription)
-    pub fn get_access_expires_at(&self) -> Option<chrono::DateTime<chrono::Utc>> {
-        match self.subscription_status.as_str() {
-            "trial" => {
-                chrono::DateTime::parse_from_rfc3339(&self.trial_ends_at)
-                    .ok()
-                    .map(|dt| dt.with_timezone(&chrono::Utc))
-            }
-            "canceled" => {
-                self.subscription_ends_at
-                    .as_ref()
-                    .and_then(|ends_at| chrono::DateTime::parse_from_rfc3339(ends_at).ok())
-                    .map(|dt| dt.with_timezone(&chrono::Utc))
-            }
-            _ => None, // active/expired users don't have expiration dates
-        }
-    }
-    
-    /// Get days remaining for trial or cancelled subscription access
-    pub fn days_remaining(&self) -> i64 {
-        match self.get_access_expires_at() {
-            Some(expires_at) => {
-                let now = chrono::Utc::now();
-                (expires_at - now).num_days().max(0)
-            }
-            None => 0, // No expiration (active) or already expired
-        }
-    }
-    
-    /// Whether this user should get wallet syncing (has active access)
-    pub fn has_active_access(&self) -> bool {
-        match self.subscription_status.as_str() {
-            "active" => true,
-            "trial" => self.is_trial_active(),
-            "canceled" => {
-                // Cancelled users keep access until subscription_ends_at
-                if let Some(ends_at) = &self.subscription_ends_at {
-                    match chrono::DateTime::parse_from_rfc3339(ends_at) {
-                        Ok(expires) => {
-                            let now = chrono::Utc::now();
-                            now < expires.with_timezone(&chrono::Utc)
-                        }
-                        Err(_) => false,
-                    }
-                } else {
-                    false // No end date means expired
-                }
-            }
-            "expired" => false,
-            _ => false,
-        }
-    }
-    
-    /// Cleaner way to check if user is in trial period
-    pub fn is_in_trial(&self) -> bool {
-        self.subscription_status == "trial" && self.is_trial_active()
-    }
-    
-    /// Whether user needs subscription renewal (for UI prompts)
-    pub fn needs_subscription_renewal(&self) -> bool {
-        match self.subscription_status.as_str() {
-            "trial" => {
-                // Trial users with less than 7 days remaining should see renewal prompts
-                self.days_remaining_in_trial() <= 7
-            }
-            "canceled" => {
-                // Cancelled users with less than 7 days remaining should see reactivation prompts
-                self.days_remaining() <= 7
-            }
-            _ => false, // Active users don't need renewal prompts
-        }
-    }
-}
+impl UserRecord {}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TwilioConfig {
@@ -610,21 +491,6 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_wallet_name_by_checksum(&self, checksum: &str) -> Result<String> {
-        let pool = self.pool.clone();
-        let checksum = checksum.to_string();
-
-        spawn_blocking(move || -> Result<String> {
-            let conn = pool.get()?;
-            let name: String = conn.query_row(
-                "SELECT name FROM wallets WHERE checksum = ?1",
-                params![checksum],
-                |row| row.get(0),
-            )?;
-            Ok(name)
-        })
-        .await?
-    }
 
     pub async fn get_wallet_by_descriptor(
         &self,
@@ -1612,56 +1478,6 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn record_stripe_webhook_event(
-        &self,
-        event_id: &str,
-        event_type: &str,
-        user_id: Option<&str>,
-        subscription_id: Option<&str>,
-        customer_id: Option<&str>,
-        metadata: Option<&str>,
-    ) -> Result<()> {
-        let pool = self.pool.clone();
-        let event_id = event_id.to_string();
-        let event_type = event_type.to_string();
-        let user_id = user_id.map(|s| s.to_string());
-        let subscription_id = subscription_id.map(|s| s.to_string());
-        let customer_id = customer_id.map(|s| s.to_string());
-        let metadata = metadata.map(|s| s.to_string());
-
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
-            conn.execute(
-                "INSERT OR IGNORE INTO stripe_webhook_events (id, event_type, user_id, subscription_id, customer_id, metadata) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![
-                    event_id,
-                    event_type,
-                    user_id,
-                    subscription_id,
-                    customer_id,
-                    metadata
-                ],
-            )?;
-            Ok(())
-        })
-        .await?
-    }
-
-    pub async fn is_webhook_event_processed(&self, event_id: &str) -> Result<bool> {
-        let pool = self.pool.clone();
-        let event_id = event_id.to_string();
-
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
-            let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM stripe_webhook_events WHERE id = ?1",
-                params![event_id],
-                |row| row.get(0),
-            )?;
-            Ok(count > 0)
-        })
-        .await?
-    }
 
     // Session management
     pub async fn create_session(
