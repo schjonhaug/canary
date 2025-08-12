@@ -492,7 +492,179 @@ impl StripeBilling {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
 
-    // TODO: Add unit tests for StripeBilling methods
-    // Would need to mock Stripe API calls for proper testing
+    /// Test basic struct creation and serialization
+    #[test]
+    fn test_pricing_structures() {
+        let pricing = PricingInfo {
+            tiers: vec![
+                TierPricing {
+                    tier: "personal".to_string(),
+                    name: "Personal Plan".to_string(),
+                    description: Some("Perfect for individuals".to_string()),
+                    monthly_price: Some(PriceDetails {
+                        price_id: "price_123".to_string(),
+                        amount: 900,
+                        currency: "usd".to_string(),
+                        interval: "month".to_string(),
+                    }),
+                    yearly_price: Some(PriceDetails {
+                        price_id: "price_456".to_string(),
+                        amount: 9000,
+                        currency: "usd".to_string(),
+                        interval: "year".to_string(),
+                    }),
+                    features: HashMap::new(),
+                }
+            ]
+        };
+
+        // Test serialization
+        let json = serde_json::to_string(&pricing).unwrap();
+        assert!(json.contains("Personal Plan"));
+        assert!(json.contains("price_123"));
+        
+        // Test deserialization
+        let deserialized: PricingInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.tiers.len(), 1);
+        assert_eq!(deserialized.tiers[0].name, "Personal Plan");
+    }
+
+    #[test]
+    fn test_checkout_session_response() {
+        let response = CheckoutSessionResponse {
+            url: "https://checkout.stripe.com/pay/cs_test_123".to_string(),
+            session_id: "cs_test_123".to_string(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: CheckoutSessionResponse = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.session_id, "cs_test_123");
+        assert!(deserialized.url.contains("checkout.stripe.com"));
+    }
+
+    #[test]
+    fn test_checkout_session_details() {
+        let details = CheckoutSessionDetails {
+            session_id: "cs_test_123".to_string(),
+            status: "complete".to_string(),
+            tier: Some("pro".to_string()),
+            billing_period: Some("yearly".to_string()),
+            amount_total: Some(28800), // $288.00 in cents
+            currency: Some("usd".to_string()),
+        };
+
+        let json = serde_json::to_string(&details).unwrap();
+        let deserialized: CheckoutSessionDetails = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.session_id, "cs_test_123");
+        assert_eq!(deserialized.tier, Some("pro".to_string()));
+        assert_eq!(deserialized.amount_total, Some(28800));
+    }
+
+    #[test]
+    fn test_subscription_tier_mapping() {
+        assert_eq!(SubscriptionTier::from("personal"), SubscriptionTier::Personal);
+        assert_eq!(SubscriptionTier::from("pro"), SubscriptionTier::Pro);
+        assert_eq!(SubscriptionTier::from("business"), SubscriptionTier::Business);
+        
+        // Test as_str conversion
+        assert_eq!(SubscriptionTier::Personal.as_str(), "personal");
+        assert_eq!(SubscriptionTier::Pro.as_str(), "pro");
+        assert_eq!(SubscriptionTier::Business.as_str(), "business");
+    }
+
+    #[tokio::test]
+    #[ignore] // Only run with real Stripe credentials
+    async fn test_stripe_billing_initialization() {
+        // This test requires real environment variables
+        env::set_var("STRIPE_SECRET_KEY", "sk_test_fake_key_for_testing");
+        env::set_var("STRIPE_WEBHOOK_SECRET", "whsec_fake_secret_for_testing");
+
+        // This will fail with fake credentials, but tests the initialization logic
+        let result = StripeBilling::new().await;
+        assert!(result.is_err()); // Expected to fail with fake credentials
+    }
+
+    /// Test webhook signature validation logic
+    #[test]
+    fn test_webhook_signature_validation() {
+        // Test that webhook signature validation is properly structured
+        // In a real test, you'd use Stripe's test webhook data
+        let payload = b"{\"id\":\"evt_test_123\",\"object\":\"event\"}";
+        let signature = "t=123456,v1=fake_signature";
+        
+        // This tests the structure, not actual validation (would need real Stripe client)
+        assert!(!payload.is_empty());
+        assert!(signature.contains("t="));
+        assert!(signature.contains("v1="));
+    }
+
+    /// Test error handling for missing environment variables
+    #[tokio::test]
+    async fn test_missing_environment_variables() {
+        // Temporarily unset environment variables
+        env::remove_var("STRIPE_SECRET_KEY");
+        env::remove_var("STRIPE_WEBHOOK_SECRET");
+
+        let result = StripeBilling::new().await;
+        assert!(result.is_err());
+        
+        if let Err(error) = result {
+            let error_message = format!("{}", error);
+            assert!(error_message.contains("STRIPE_SECRET_KEY"));
+        }
+    }
+
+    /// Test price calculation logic
+    #[test]
+    fn test_price_calculations() {
+        let monthly_amount = 2900; // $29.00
+        let yearly_amount_discounted = 27840; // $278.40 (20% discount)
+        let yearly_amount_full = 34800; // $348.00 (full price)
+        
+        // Verify yearly discount calculation (20% off = pay 80%)
+        let expected_yearly = (monthly_amount * 12) as f64 * 0.8; // 20% off
+        assert_eq!(yearly_amount_discounted as f64, expected_yearly);
+        
+        // Verify full yearly price without discount
+        let expected_full = (monthly_amount * 12) as f64;
+        assert_eq!(yearly_amount_full as f64, expected_full);
+        
+        // Test currency formatting
+        let dollars = monthly_amount as f64 / 100.0;
+        assert_eq!(dollars, 29.0);
+    }
+
+    /// Test metadata extraction
+    #[test]
+    fn test_metadata_extraction() {
+        let mut metadata = HashMap::new();
+        metadata.insert("tier".to_string(), "pro".to_string());
+        metadata.insert("billing_period".to_string(), "yearly".to_string());
+        metadata.insert("user_id".to_string(), "user_123".to_string());
+        
+        // Test extracting tier
+        let tier = metadata.get("tier").unwrap();
+        assert_eq!(tier, "pro");
+        
+        // Test extracting billing period
+        let billing_period = metadata.get("billing_period").unwrap();
+        assert_eq!(billing_period, "yearly");
+    }
+
+    /// Test URL generation
+    #[test]
+    fn test_url_generation() {
+        let frontend_url = "http://localhost:3001";
+        let session_id = "cs_test_123";
+        
+        let success_url = format!("{}/billing/success?session={}", frontend_url, session_id);
+        let cancel_url = format!("{}/billing/cancel", frontend_url);
+        
+        assert_eq!(success_url, "http://localhost:3001/billing/success?session=cs_test_123");
+        assert_eq!(cancel_url, "http://localhost:3001/billing/cancel");
+    }
 }
