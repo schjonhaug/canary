@@ -445,8 +445,12 @@ impl StripeBilling {
                 }
             }
             EventType::CustomerSubscriptionDeleted => {
-                if let Err(e) = self.handle_subscription_deleted(&event).await {
-                    tracing::warn!("Failed to process subscription deleted: {}", e);
+                match self.handle_subscription_deleted(&event).await {
+                    Ok(Some(update)) => subscription_updates.push(update),
+                    Ok(None) => {}, // No update needed
+                    Err(e) => {
+                        tracing::warn!("Failed to process subscription deleted: {}", e);
+                    }
                 }
             }
             _ => {
@@ -520,12 +524,46 @@ impl StripeBilling {
 
     async fn handle_subscription_updated(&self, event: &Event) -> Result<()> {
         tracing::info!("Subscription updated: {}", event.id);
+        // TODO: Handle subscription updates (plan changes, status changes)
+        // For now, just log - we mainly handle this through checkout completion
         Ok(())
     }
 
-    async fn handle_subscription_deleted(&self, event: &Event) -> Result<()> {
+    async fn handle_subscription_deleted(&self, event: &Event) -> Result<Option<SubscriptionUpdate>> {
         tracing::info!("Subscription deleted: {}", event.id);
-        Ok(())
+        
+        // When a subscription is deleted/cancelled, we should downgrade the user to Personal tier
+        match &event.data.object {
+            stripe::EventObject::Subscription(subscription) => {
+                tracing::info!("Processing subscription deletion: {}", subscription.id);
+                
+                // Extract customer ID to find the user
+                let customer_id_str = match &subscription.customer {
+                    stripe::Expandable::Id(customer_id) => customer_id.to_string(),
+                    stripe::Expandable::Object(customer) => customer.id.to_string(),
+                };
+                
+                tracing::info!("Subscription cancelled for customer: {}", customer_id_str);
+                
+                // When subscription is cancelled, user should keep access until it expires
+                // We'll update the status to "canceled" but NOT downgrade the tier yet
+                // The tier downgrade will happen when the subscription actually expires
+                let update = SubscriptionUpdate {
+                    user_id: format!("stripe_customer:{}", customer_id_str), // Special format to indicate lookup by customer ID
+                    subscription_tier: "keep_current".to_string(), // Special value to indicate keeping current tier
+                    subscription_status: "canceled".to_string(),
+                    stripe_subscription_id: Some(subscription.id.to_string()),
+                    subscription_started_at: None,
+                };
+                
+                return Ok(Some(update));
+            }
+            _ => {
+                tracing::warn!("Expected Subscription object in customer.subscription.deleted event, got different object type");
+            }
+        }
+        
+        Ok(None)
     }
 }
 

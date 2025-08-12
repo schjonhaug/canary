@@ -30,6 +30,7 @@ CREATE TABLE users (
     stripe_customer_id TEXT UNIQUE,
     stripe_subscription_id TEXT,
     subscription_started_at DATETIME,
+    subscription_ends_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME
 );

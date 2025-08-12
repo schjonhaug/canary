@@ -47,6 +47,7 @@ pub struct UserRecord {
     pub stripe_customer_id: Option<String>,
     pub stripe_subscription_id: Option<String>,
     pub subscription_started_at: Option<String>,
+    pub subscription_ends_at: Option<String>,
     pub created_at: String,
 }
 
@@ -1104,6 +1105,16 @@ impl MetadataDb {
                         u.subscription_tier
                  FROM wallets w 
                  JOIN users u ON w.user_id = u.id
+                 WHERE (
+                    -- Active subscriptions
+                    u.subscription_status = 'active'
+                    OR 
+                    -- Trial users within trial period  
+                    (u.subscription_status = 'trial' AND datetime(u.trial_ends_at) > datetime('now'))
+                    OR
+                    -- Cancelled users still within their paid period
+                    (u.subscription_status = 'canceled' AND u.subscription_ends_at IS NOT NULL AND datetime(u.subscription_ends_at) > datetime('now'))
+                 )
                  ORDER BY w.checksum"
             )?;
 
@@ -1327,7 +1338,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, created_at FROM users WHERE email = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE email = ?1")?
                 .query_row(params![&email], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -1343,7 +1354,8 @@ impl MetadataDb {
                         stripe_customer_id: row.get(10)?,
                         stripe_subscription_id: row.get(11)?,
                         subscription_started_at: row.get(12)?,
-                        created_at: row.get(13)?,
+                        subscription_ends_at: row.get(13)?,
+                        created_at: row.get(14)?,
                     })
                 })
                 .ok();
@@ -1358,7 +1370,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, created_at FROM users WHERE id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -1374,7 +1386,40 @@ impl MetadataDb {
                         stripe_customer_id: row.get(10)?,
                         stripe_subscription_id: row.get(11)?,
                         subscription_started_at: row.get(12)?,
-                        created_at: row.get(13)?,
+                        subscription_ends_at: row.get(13)?,
+                        created_at: row.get(14)?,
+                    })
+                })
+                .ok();
+            Ok(result)
+        }).await?
+    }
+
+    pub async fn get_user_by_stripe_customer_id(&self, stripe_customer_id: &str) -> Result<Option<UserRecord>> {
+        let pool = self.pool.clone();
+        let stripe_customer_id = stripe_customer_id.to_string();
+
+        spawn_blocking(move || -> Result<Option<UserRecord>> {
+            let conn = pool.get()?;
+            let result = conn
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE stripe_customer_id = ?1")?
+                .query_row(params![stripe_customer_id], |row| {
+                    Ok(UserRecord {
+                        id: row.get(0)?,
+                        email: row.get(1)?,
+                        password_hash: row.get(2)?,
+                        name: row.get(3)?,
+                        is_admin: row.get(4)?,
+                        email_verified: row.get(5)?,
+                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
+                        trial_started_at: row.get(7)?,
+                        trial_ends_at: row.get(8)?,
+                        subscription_status: row.get(9)?,
+                        stripe_customer_id: row.get(10)?,
+                        stripe_subscription_id: row.get(11)?,
+                        subscription_started_at: row.get(12)?,
+                        subscription_ends_at: row.get(13)?,
+                        created_at: row.get(14)?,
                     })
                 })
                 .ok();
@@ -1433,6 +1478,34 @@ impl MetadataDb {
             Ok(())
         })
         .await?
+    }
+
+    pub async fn update_user_subscription_status(
+        &self,
+        user_id: &str,
+        subscription_status: &str,
+        stripe_subscription_id: Option<&str>,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let subscription_status = subscription_status.to_string();
+        let stripe_subscription_id = stripe_subscription_id.map(|s| s.to_string());
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET 
+                    subscription_status = ?1,
+                    stripe_subscription_id = COALESCE(?2, stripe_subscription_id)
+                WHERE id = ?3",
+                params![
+                    subscription_status,
+                    stripe_subscription_id,
+                    user_id,
+                ],
+            )?;
+            Ok(())
+        }).await?
     }
 
     pub async fn update_user_subscription(
@@ -1873,5 +1946,60 @@ impl MetadataDb {
             Ok(deleted as u64)
         })
         .await?
+    }
+
+    /// Check for expired subscriptions and trials, mark users as expired (keep tier but stop syncing)
+    pub async fn process_expired_subscriptions(&self) -> Result<usize> {
+        let pool = self.pool.clone();
+
+        spawn_blocking(move || -> Result<usize> {
+            let conn = pool.get()?;
+
+            // Find users whose subscriptions have expired
+            let mut stmt = conn.prepare(
+                "SELECT id, email, subscription_tier, subscription_status, trial_ends_at, subscription_ends_at 
+                 FROM users 
+                 WHERE (
+                    -- Expired trials (users who didn't subscribe after trial ended)
+                    (subscription_status = 'trial' AND datetime(trial_ends_at) <= datetime('now'))
+                    OR 
+                    -- Expired cancelled subscriptions (users who cancelled and period ended)
+                    (subscription_status = 'canceled' AND subscription_ends_at IS NOT NULL AND datetime(subscription_ends_at) <= datetime('now'))
+                 )
+                 AND subscription_status != 'expired'"
+            )?;
+
+            let expired_users: Vec<(String, String, String, String)> = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?, // id
+                        row.get::<_, String>(1)?, // email
+                        row.get::<_, String>(2)?, // subscription_tier
+                        row.get::<_, String>(3)?, // subscription_status
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let count = expired_users.len();
+
+            // Mark users as expired but keep their tier (they just stop getting wallet syncing)
+            for (user_id, email, tier, status) in expired_users {
+                match conn.execute(
+                    "UPDATE users SET 
+                        subscription_status = 'expired'
+                     WHERE id = ?1",
+                    params![user_id],
+                ) {
+                    Ok(_) => {
+                        tracing::info!("📊 Marked user {} ({}) as expired - keeping {} tier but stopping sync", email, status, tier);
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to update user {} status: {}", email, e);
+                    }
+                }
+            }
+
+            Ok(count)
+        }).await?
     }
 }

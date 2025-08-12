@@ -2898,14 +2898,21 @@ pub async fn create_stripe_customer_portal(
     };
 
     // Create customer portal session
+    tracing::info!("Creating customer portal session for customer_id: {}, return_url: {}", customer_id, payload.return_url);
     match stripe_billing.create_customer_portal_session(customer_id, &payload.return_url).await {
-        Ok(session) => (StatusCode::OK, Json(session)).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to create customer portal session: {}", e),
-            }),
-        ).into_response(),
+        Ok(session) => {
+            tracing::info!("✅ Customer portal session created successfully: {}", session.url);
+            (StatusCode::OK, Json(session)).into_response()
+        },
+        Err(e) => {
+            tracing::error!("❌ Failed to create customer portal session: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to create customer portal session: {}", e),
+                }),
+            ).into_response()
+        },
     }
 }
 
@@ -3094,17 +3101,58 @@ pub async fn handle_stripe_webhook(
                 tracing::info!("Processing subscription update for user {}: {} -> {}", 
                     update.user_id, update.subscription_tier, update.subscription_status);
                 
-                if let Err(e) = wallet_manager.metadata_db.update_user_subscription(
-                    &update.user_id,
-                    &update.subscription_tier,
-                    &update.subscription_status,
-                    update.stripe_subscription_id.as_deref(),
-                    update.subscription_started_at.as_deref(),
-                ).await {
-                    tracing::error!("Failed to update user {} subscription: {}", update.user_id, e);
+                // Check if this is a customer ID lookup (from subscription cancellation)
+                let actual_user_id = if update.user_id.starts_with("stripe_customer:") {
+                    let customer_id = update.user_id.strip_prefix("stripe_customer:").unwrap();
+                    tracing::info!("Looking up user by Stripe customer ID: {}", customer_id);
+                    
+                    // Find user by Stripe customer ID
+                    match wallet_manager.metadata_db.get_user_by_stripe_customer_id(customer_id).await {
+                        Ok(Some(user)) => {
+                            tracing::info!("Found user {} for customer {}", user.id, customer_id);
+                            user.id
+                        },
+                        Ok(None) => {
+                            tracing::warn!("No user found for Stripe customer ID: {}", customer_id);
+                            continue; // Skip this update
+                        },
+                        Err(e) => {
+                            tracing::error!("Failed to lookup user by customer ID {}: {}", customer_id, e);
+                            continue; // Skip this update
+                        }
+                    }
                 } else {
-                    tracing::info!("✅ Updated user {} subscription to {} ({})", 
-                        update.user_id, update.subscription_tier, update.subscription_status);
+                    update.user_id.clone()
+                };
+                
+                // Handle special "keep_current" tier for cancellations
+                if update.subscription_tier == "keep_current" {
+                    // For cancellations, just update the status, not the tier
+                    // TODO: Also need to set subscription_ends_at based on Stripe subscription end date
+                    if let Err(e) = wallet_manager.metadata_db.update_user_subscription_status(
+                        &actual_user_id,
+                        &update.subscription_status,
+                        update.stripe_subscription_id.as_deref(),
+                    ).await {
+                        tracing::error!("Failed to update user {} subscription status: {}", actual_user_id, e);
+                    } else {
+                        tracing::info!("✅ Updated user {} subscription status to {} (keeping current tier)", 
+                            actual_user_id, update.subscription_status);
+                    }
+                } else {
+                    // Regular subscription update (tier + status)
+                    if let Err(e) = wallet_manager.metadata_db.update_user_subscription(
+                        &actual_user_id,
+                        &update.subscription_tier,
+                        &update.subscription_status,
+                        update.stripe_subscription_id.as_deref(),
+                        update.subscription_started_at.as_deref(),
+                    ).await {
+                        tracing::error!("Failed to update user {} subscription: {}", actual_user_id, e);
+                    } else {
+                        tracing::info!("✅ Updated user {} subscription to {} ({})", 
+                            actual_user_id, update.subscription_tier, update.subscription_status);
+                    }
                 }
             }
             

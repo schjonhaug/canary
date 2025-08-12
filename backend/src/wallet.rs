@@ -1308,6 +1308,11 @@ impl WalletManager {
     }
 
     pub async fn sync_wallets_due_for_sync(&mut self) -> Result<()> {
+        // First, check for expired subscriptions and downgrade users
+        if let Err(e) = self.process_expired_subscriptions().await {
+            tracing::error!("Failed to process expired subscriptions: {}", e);
+        }
+
         // Get wallets that are due for sync based on their owner's tier
         let due_wallets = self.metadata_db.get_wallets_due_for_sync().await?;
         
@@ -1331,6 +1336,23 @@ impl WalletManager {
             }
         }
 
+        Ok(())
+    }
+
+    /// Process expired subscriptions and mark users as expired (but keep their tier)
+    async fn process_expired_subscriptions(&mut self) -> Result<()> {
+        match self.metadata_db.process_expired_subscriptions().await {
+            Ok(count) if count > 0 => {
+                tracing::info!("📉 Processed {} expired subscriptions", count);
+            }
+            Ok(_) => {
+                // No expired subscriptions to process (normal case)
+            }
+            Err(e) => {
+                tracing::error!("Failed to process expired subscriptions: {}", e);
+                return Err(e);
+            }
+        }
         Ok(())
     }
 
