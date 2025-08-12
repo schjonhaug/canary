@@ -97,6 +97,79 @@ impl UserRecord {
             self.subscription_tier,
         )
     }
+    
+    /// Get the expiration date for this user's access (trial or cancelled subscription)
+    pub fn get_access_expires_at(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        match self.subscription_status.as_str() {
+            "trial" => {
+                chrono::DateTime::parse_from_rfc3339(&self.trial_ends_at)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&chrono::Utc))
+            }
+            "canceled" => {
+                self.subscription_ends_at
+                    .as_ref()
+                    .and_then(|ends_at| chrono::DateTime::parse_from_rfc3339(ends_at).ok())
+                    .map(|dt| dt.with_timezone(&chrono::Utc))
+            }
+            _ => None, // active/expired users don't have expiration dates
+        }
+    }
+    
+    /// Get days remaining for trial or cancelled subscription access
+    pub fn days_remaining(&self) -> i64 {
+        match self.get_access_expires_at() {
+            Some(expires_at) => {
+                let now = chrono::Utc::now();
+                (expires_at - now).num_days().max(0)
+            }
+            None => 0, // No expiration (active) or already expired
+        }
+    }
+    
+    /// Whether this user should get wallet syncing (has active access)
+    pub fn has_active_access(&self) -> bool {
+        match self.subscription_status.as_str() {
+            "active" => true,
+            "trial" => self.is_trial_active(),
+            "canceled" => {
+                // Cancelled users keep access until subscription_ends_at
+                if let Some(ends_at) = &self.subscription_ends_at {
+                    match chrono::DateTime::parse_from_rfc3339(ends_at) {
+                        Ok(expires) => {
+                            let now = chrono::Utc::now();
+                            now < expires.with_timezone(&chrono::Utc)
+                        }
+                        Err(_) => false,
+                    }
+                } else {
+                    false // No end date means expired
+                }
+            }
+            "expired" => false,
+            _ => false,
+        }
+    }
+    
+    /// Cleaner way to check if user is in trial period
+    pub fn is_in_trial(&self) -> bool {
+        self.subscription_status == "trial" && self.is_trial_active()
+    }
+    
+    /// Whether user needs subscription renewal (for UI prompts)
+    pub fn needs_subscription_renewal(&self) -> bool {
+        match self.subscription_status.as_str() {
+            "trial" => {
+                // Trial users with less than 7 days remaining should see renewal prompts
+                self.days_remaining_in_trial() <= 7
+            }
+            "canceled" => {
+                // Cancelled users with less than 7 days remaining should see reactivation prompts
+                self.days_remaining() <= 7
+            }
+            _ => false, // Active users don't need renewal prompts
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
