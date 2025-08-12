@@ -1247,9 +1247,8 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
-                "UPDATE current_block_header 
-                 SET height = ?1, timestamp = ?2, updated_at = datetime('now') 
-                 WHERE id = 1",
+                "INSERT OR REPLACE INTO current_block_header (id, height, timestamp, updated_at) 
+                 VALUES (1, ?1, ?2, datetime('now'))",
                 params![block_header.height, block_header.timestamp,],
             )?;
             Ok(())
