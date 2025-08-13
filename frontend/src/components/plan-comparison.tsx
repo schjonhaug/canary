@@ -289,17 +289,6 @@ function PlanComparisonContent({
               </CardFooter>
             )}
             
-            {isCurrentTier && !showCallToAction && (
-              <CardFooter>
-                <Button 
-                  className="w-full" 
-                  variant="outline"
-                  disabled
-                >
-                  Current Plan
-                </Button>
-              </CardFooter>
-            )}
           </Card>
         )
       })}
