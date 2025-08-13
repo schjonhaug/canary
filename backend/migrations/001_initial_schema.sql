@@ -24,7 +24,7 @@ CREATE TABLE users (
     -- Subscription fields (extensible for future Business tier)
     subscription_tier TEXT DEFAULT 'pro' CHECK (subscription_tier IN ('personal', 'pro', 'business')),
     trial_ends_at DATETIME DEFAULT (datetime('now', '+30 days')),
-    subscription_status TEXT DEFAULT 'trial' CHECK (subscription_status IN ('pending', 'trial', 'active', 'expired', 'cancelled')),
+    subscription_status TEXT DEFAULT 'trial' CHECK (subscription_status IN ('pending', 'trial', 'trialing', 'active', 'expired', 'cancelled')),
     -- Stripe integration
     stripe_customer_id TEXT UNIQUE,
     stripe_subscription_id TEXT,

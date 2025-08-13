@@ -35,13 +35,14 @@ base64 = "0.22"
 jsonwebtoken = "9.3"
 rand = "0.8"
 sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
 urlencoding = "2.1"
 argon2 = "0.5"
 uuid = { version = "1", features = ["v4"] }
 resend-rs = "0.16"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-async-stripe = { version = "0.41", features = ["runtime-tokio-hyper", "billing", "checkout", "webhook-endpoints"] }
 
 [dev-dependencies]
 http-body-util = "0.1"

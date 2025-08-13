@@ -259,19 +259,24 @@ Enable email/password authentication for multi-user support:
 Canary features a fully integrated Stripe billing system with automatic subscription management, proactive limit enforcement, and seamless user experience.
 
 ### Backend Integration (Rust)
-- **Stripe API Client**: Direct integration using `reqwest` for HTTP calls to Stripe API
+- **Custom Stripe Client**: Built with `reqwest` using Stripe API version `2025-07-30.basil` for latest compatibility
+- **Manual Webhook Verification**: HMAC-SHA256 signature verification compatible with 2025 API changes
+- **Dynamic Price Loading**: Loads all product tiers and pricing from Stripe on backend startup
+- **Native Trial Subscriptions**: Creates Stripe customers and trial subscriptions immediately on user registration
 - **Checkout Sessions**: `POST /api/checkout/create-session` - Creates Stripe Checkout sessions for plan upgrades
 - **Customer Portal**: `POST /api/billing/customer-portal` - Generates Stripe Customer Portal sessions for subscription management
 - **Webhook Processing**: `POST /api/stripe/webhook` - Processes Stripe webhooks for subscription lifecycle events
 - **Billing Status**: `GET /api/billing/status` - Returns current subscription status and billing information
 
 ### Stripe Webhook Events Handled
-- **`customer.subscription.created`** - New subscription activated, upgrades user tier
-- **`customer.subscription.updated`** - Subscription changes (plan, billing cycle)
+- **`customer.created`** - Customer created in Stripe
+- **`customer.subscription.created`** - Trial subscription activated, sets status to "trialing"  
+- **`customer.subscription.updated`** - Subscription changes, detects trial ending transitions
 - **`customer.subscription.deleted`** - Subscription cancelled, preserves access until expiration
+- **`customer.subscription.trial_will_end`** - Fired 3 days before trial ends for notifications
 - **`invoice.payment_succeeded`** - Successful payment, ensures continued access
 - **`invoice.payment_failed`** - Failed payment, may affect service access
-- **Idempotency**: All webhook events are tracked in `stripe_webhook_events` table to prevent duplicate processing
+- **Customer ID Lookup**: Automatically finds users by `stripe_customer_id` for webhook processing
 
 ### Frontend Billing Integration
 - **AuthContext Enhancement**: Integrated billing status into authentication context
@@ -282,14 +287,16 @@ Canary features a fully integrated Stripe billing system with automatic subscrip
 
 ### Subscription Lifecycle Management
 
-#### Trial Management
-- **30-day Free Trial**: All new users start with 30-day free trial on Personal tier
-- **Trial Tracking**: `trial_started_at` and `trial_ends_at` fields in users table
-- **Automatic Expiration**: Background process monitors and expires trials
-- **Grace Period**: Users retain access until trial expiration date
+#### Stripe Native Trial Management  
+- **Immediate Stripe Integration**: Users created as Stripe customers on registration with trial subscriptions
+- **30-day Pro Trial**: All new users start with 30-day trial on Pro tier (not Personal)
+- **Stripe Trial Handling**: Uses Stripe's native `trial_period_days: 30` for subscription creation
+- **Webhook-Driven Updates**: Trial status managed entirely through Stripe webhooks
+- **Frontend Trial Display**: Shows "Pro Trial: X days left" with Subscribe button during trial
 
 #### Subscription States
-- **`trial`** - Free 30-day trial period (new users)
+- **`pending`** - User created, waiting for Stripe webhook confirmation
+- **`trialing`** - Active 30-day trial period (Stripe native status)
 - **`active`** - Paid subscription in good standing
 - **`canceled`** - Subscription cancelled but access remains until `subscription_ends_at`
 - **`expired`** - Trial or cancelled subscription has expired, no wallet syncing
@@ -303,20 +310,21 @@ Canary features a fully integrated Stripe billing system with automatic subscrip
 ### Billing Configuration
 Set up Stripe integration with environment variables:
 ```bash
-# Stripe Configuration
+# Stripe Configuration (2025 API)
 STRIPE_SECRET_KEY=sk_test_... # or sk_live_...
-STRIPE_PUBLISHABLE_KEY=pk_test_... # or pk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
-# Price IDs (from Stripe Dashboard)
-STRIPE_PRO_MONTHLY_PRICE_ID=price_...
-STRIPE_PRO_YEARLY_PRICE_ID=price_...
-STRIPE_BUSINESS_MONTHLY_PRICE_ID=price_...
-STRIPE_BUSINESS_YEARLY_PRICE_ID=price_...
-
-# Frontend Environment
+# Frontend Environment  
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# Required: Stripe CLI for webhook forwarding in development
+# stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```
+
+**Product Setup in Stripe Dashboard:**
+- Create products with `metadata.tier` set to "personal", "pro", or "business"
+- Add monthly recurring prices to each product
+- Backend automatically loads all products and prices on startup
 
 ### Customer Portal Features
 - **Subscription Management**: Change plans, update billing frequency
@@ -335,28 +343,16 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```sql
 -- Enhanced users table with subscription fields
 CREATE TABLE users (
-    -- Subscription management
-    subscription_tier TEXT DEFAULT 'personal',
-    trial_started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- Subscription management (Pro trial by default)
+    subscription_tier TEXT DEFAULT 'pro' CHECK (subscription_tier IN ('personal', 'pro', 'business')),
     trial_ends_at DATETIME DEFAULT (datetime('now', '+30 days')),
-    subscription_status TEXT DEFAULT 'trial',
+    subscription_status TEXT DEFAULT 'trial' CHECK (subscription_status IN ('pending', 'trial', 'trialing', 'active', 'expired', 'cancelled')),
     
     -- Stripe integration
     stripe_customer_id TEXT UNIQUE,
     stripe_subscription_id TEXT,
     subscription_started_at DATETIME,
     subscription_ends_at DATETIME
-);
-
--- Webhook event tracking for idempotency
-CREATE TABLE stripe_webhook_events (
-    id TEXT PRIMARY KEY, -- Stripe event ID
-    event_type TEXT NOT NULL,
-    processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    user_id TEXT,
-    subscription_id TEXT,
-    customer_id TEXT,
-    metadata TEXT
 );
 ```
 
@@ -377,7 +373,7 @@ CREATE TABLE stripe_webhook_events (
    ```
 
 **Without Stripe CLI**: Users will register but remain in `pending` status (trial won't activate).
-**With Stripe CLI**: Users register → Stripe creates subscription → Webhook fires → Status updates to `trial`.
+**With Stripe CLI**: Users register → Stripe creates subscription → Webhook fires → Status updates to `trialing`.
 
 #### Development Features
 - **Test Mode**: Complete Stripe integration works in test mode
@@ -391,7 +387,8 @@ CREATE TABLE stripe_webhook_events (
 - **Monitoring**: Comprehensive logging of all Stripe interactions
 
 ### Security Considerations
-- **Webhook Verification**: All webhook payloads verified using Stripe webhook signatures
+- **Manual Webhook Verification**: Custom HMAC-SHA256 signature verification compatible with Stripe 2025 API
+- **Timestamp Validation**: Webhooks rejected if older than 5 minutes to prevent replay attacks  
 - **API Key Management**: Secure handling of Stripe API keys via environment variables
 - **Customer Data**: Minimal customer data stored locally, full details remain in Stripe
 - **PCI Compliance**: No credit card data stored locally, all handled by Stripe

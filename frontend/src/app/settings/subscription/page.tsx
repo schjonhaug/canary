@@ -61,7 +61,7 @@ export default function BillingPage() {
 
   const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
   const limits = billingStatus?.limits
-  const isTrialUser = billingStatus?.subscription_status === 'trial'
+  const isTrialUser = billingStatus?.subscription_status === 'trialing'
   
   // Calculate days remaining in trial
   const trialDaysRemaining = billingStatus?.trial_ends_at ? 

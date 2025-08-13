@@ -2842,11 +2842,17 @@ pub async fn create_stripe_checkout_session(
 
     // Create checkout session with auto-generated URLs
     let is_yearly = payload.is_yearly.unwrap_or(false);
+    let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
+    let success_url = "http://localhost:3001/settings/subscription?success=true"; // TODO: Make configurable
+    let cancel_url = "http://localhost:3001/settings/subscription?cancelled=true"; // TODO: Make configurable
+    
     match stripe_billing.create_checkout_session(
-        &user_record,
+        &user_record.id,
         tier,
-        is_yearly,
-        &manager.metadata_db,
+        billing_cycle,
+        success_url,
+        cancel_url,
+        None, // TODO: Add coupon support to API request
     ).await {
         Ok(session) => (StatusCode::OK, Json(session)).into_response(),
         Err(e) => (
