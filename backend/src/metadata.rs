@@ -415,6 +415,7 @@ impl MetadataDb {
                 
                 if !exists {
                     let (name, tier) = match *email {
+                        "delivered+admin@resend.dev" => ("Admin", "pro"),
                         "delivered+alice@resend.dev" => ("Alice", "personal"),
                         "delivered+bob@resend.dev" => ("Bob", "pro"),
                         _ => ("Test User", "personal"),

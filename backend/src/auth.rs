@@ -108,7 +108,8 @@ pub struct UpdateUserResponse {
 const DEV_MODE: bool = cfg!(debug_assertions);
 
 // Dev mode test email addresses (bypass email verification in dev mode)
-pub const DEV_TEST_EMAILS: [&str; 2] = [
+pub const DEV_TEST_EMAILS: [&str; 3] = [
+    "delivered+admin@resend.dev",    // Pro tier + Admin
     "delivered+alice@resend.dev",    // Personal tier
     "delivered+bob@resend.dev",      // Pro tier
 ];
