@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, CreditCard, Users, Calendar, TrendingUp, Zap } from "lucide-react"
 import { PlansModal } from "@/components/plans-modal"
 import { getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
+import { AppHeader } from "@/components/app-header"
+import { AppFooter } from "@/components/app-footer"
 
 export default function BillingPage() {
   const { user, billingStatus, isLoading, refreshBillingStatus } = useAuth()
@@ -40,16 +42,21 @@ export default function BillingPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">Loading billing information...</span>
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <AppHeader />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Loading billing information...</span>
+        </div>
+        <AppFooter />
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <AppHeader />
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold mb-4">Sign in to view billing</h1>
           <p className="text-muted-foreground mb-6">You need to be signed in to manage your billing and subscription.</p>
@@ -57,6 +64,7 @@ export default function BillingPage() {
             <a href="/sign-in">Sign In</a>
           </Button>
         </div>
+        <AppFooter />
       </div>
     )
   }
@@ -70,14 +78,22 @@ export default function BillingPage() {
     Math.max(0, Math.ceil((new Date(billingStatus.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))) : 0
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
-      {/* Page Header */}
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">Subscription</h1>
-      </div>
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <AppHeader />
+      
+      <div className="mt-8 space-y-8">
+        {/* Page Header */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div>
+                <h2 className="text-2xl font-semibold">Subscription</h2>
+              </div>
+            </div>
+          </div>
 
-      {/* Current Plan Overview */}
-      <Card>
+        {/* Current Plan Overview */}
+        <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="space-y-1">
@@ -165,18 +181,22 @@ export default function BillingPage() {
           )}
         </CardContent>
       </Card>
+        </section>
 
 
-      {/* Plans Modal */}
-      <PlansModal
-        isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        currentTier={currentTier}
-        currentWalletCount={billingStatus?.wallet_count || 0}
-        currentContactCount={billingStatus?.contact_count || 0}
-        limitType="wallets"
-        isTrialUser={isTrialUser}
-      />
+        {/* Plans Modal */}
+        <PlansModal
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+          currentTier={currentTier}
+          currentWalletCount={billingStatus?.wallet_count || 0}
+          currentContactCount={billingStatus?.contact_count || 0}
+          limitType="wallets"
+          isTrialUser={isTrialUser}
+        />
+      </div>
+      
+      <AppFooter />
     </div>
   )
 }
