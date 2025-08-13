@@ -16,9 +16,11 @@ export default function BillingPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   useEffect(() => {
-    // Refresh billing status when page loads
-    refreshBillingStatus()
-  }, [refreshBillingStatus])
+    // Only refresh billing status when auth is ready and user is logged in
+    if (!isLoading && user) {
+      refreshBillingStatus()
+    }
+  }, [refreshBillingStatus, isLoading, user])
 
   const handleManageBilling = async () => {
     if (!billingStatus?.stripe_customer_id) return

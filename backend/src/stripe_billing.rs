@@ -196,13 +196,11 @@ impl StripeBilling {
 
     pub async fn create_customer_portal_session(
         &self,
-        user_id: &str,
+        stripe_customer_id: &str,
         return_url: &str,
     ) -> Result<CustomerPortalResponse> {
-        let customer_id = format!("canary_user_{}", user_id);
-        
         let session = self.client.create_billing_portal_session(
-            customer_id,
+            stripe_customer_id.to_string(),
             return_url.to_string(),
         ).await?;
 

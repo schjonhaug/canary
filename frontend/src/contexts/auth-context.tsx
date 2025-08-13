@@ -94,14 +94,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { user: userData } = await api.getMe()
       setUser(userData)
-      // Also fetch billing status if user is authenticated
-      await fetchBillingStatus()
+      // Also fetch billing status if user is authenticated (but don't let it cause logout)
+      try {
+        await fetchBillingStatus()
+      } catch (billingError) {
+        console.error('Failed to fetch billing status (non-critical):', billingError)
+        // Don't throw - billing status failure shouldn't cause logout
+      }
     } catch (error) {
       console.error('Failed to fetch user:', error)
-      // Token invalid, clear it
-      localStorage.removeItem('auth_token')
-      setToken(null)
-      api.setAuthToken(null)
+      // Only clear auth on 401 Unauthorized - other errors might be temporary
+      if (error instanceof Error && error.message.includes('401')) {
+        console.log('Token appears invalid, logging out')
+        localStorage.removeItem('auth_token')
+        setToken(null)
+        api.setAuthToken(null)
+      } else {
+        console.log('Non-auth error, keeping user logged in:', error.message)
+        // Keep user data but mark as potentially stale
+      }
     } finally {
       setIsLoading(false)
     }
