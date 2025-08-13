@@ -493,15 +493,21 @@ impl StripeBilling {
                         if let Some(subscription_obj) = &data.object {
                             tracing::info!("📋 Processing customer.subscription.created");
                             
-                            // Parse subscription to extract trial info
+                            // Parse subscription to extract trial info and tier
                             if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(subscription_obj.clone()) {
                                 let status = subscription.get("status").and_then(|s| s.as_str());
                                 let trial_end = subscription.get("trial_end").and_then(|t| t.as_i64());
                                 let customer_id = subscription.get("customer").and_then(|c| c.as_str());
                                 let subscription_id = subscription.get("id").and_then(|s| s.as_str());
                                 
-                                tracing::info!("🆕 New subscription - Status: {:?}, Trial end: {:?}, Customer: {:?}", 
-                                    status, trial_end, customer_id);
+                                // Extract tier from subscription metadata
+                                let tier = subscription.get("metadata")
+                                    .and_then(|m| m.get("tier"))
+                                    .and_then(|t| t.as_str())
+                                    .unwrap_or("pro"); // Default to pro for trials
+                                
+                                tracing::info!("🆕 New subscription - Status: {:?}, Trial end: {:?}, Customer: {:?}, Tier: {}", 
+                                    status, trial_end, customer_id, tier);
                                 
                                 if let (Some(customer_id), Some(subscription_id)) = (customer_id, subscription_id) {
                                     // Convert trial_end timestamp to ISO string
@@ -513,8 +519,8 @@ impl StripeBilling {
                                     
                                     let update = SubscriptionUpdate {
                                         user_id: self.extract_user_id_from_customer(customer_id),
-                                        subscription_tier: "pro".to_string(), // Keep the actual tier (Pro for trials)
-                                        subscription_status: status.unwrap_or("unknown").to_string(), // "trialing" from Stripe
+                                        subscription_tier: tier.to_lowercase(), // Use actual tier from metadata
+                                        subscription_status: status.unwrap_or("unknown").to_string(), // "trialing" or "active" from Stripe
                                         stripe_subscription_id: Some(subscription_id.to_string()),
                                         subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
                                         trial_ends_at,
@@ -562,9 +568,25 @@ impl StripeBilling {
                     }
                 }
                 "customer.subscription.deleted" => {
-                    // Subscription cancelled/ended completely - stop wallet syncing
-                    tracing::info!("🗑️ Subscription cancelled/deleted");
-                    // TODO: Create update to stop wallet syncing
+                    // Subscription cancelled/ended completely - this happens when old trial subscriptions are cleaned up
+                    if let Some(data) = &event.data {
+                        if let Some(subscription_obj) = &data.object {
+                            if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(subscription_obj.clone()) {
+                                let customer_id = subscription.get("customer").and_then(|c| c.as_str());
+                                let subscription_id = subscription.get("id").and_then(|s| s.as_str());
+                                let status = subscription.get("status").and_then(|s| s.as_str());
+                                
+                                tracing::info!("🗑️ Subscription deleted - Customer: {:?}, Subscription: {:?}, Status: {:?}", 
+                                    customer_id, subscription_id, status);
+                                
+                                // Only process if it was a trialing subscription (cleanup of old trials)
+                                // Active subscriptions being deleted would be handled differently
+                                if status == Some("trialing") {
+                                    tracing::info!("🧹 Cleaned up old trial subscription: {:?}", subscription_id);
+                                }
+                            }
+                        }
+                    }
                 }
                 "invoice.payment_succeeded" => {
                     // Payment successful - ensure user has full access
@@ -613,10 +635,22 @@ impl StripeBilling {
         
         tracing::info!("📊 Found {} subscriptions for customer {}", subscriptions.len(), customer_id);
         
-        // Find and cancel trial subscriptions (keep only the new paid one)
+        // Extract tier from the new subscription's metadata
+        let mut tier = "personal".to_string(); // Default to personal if no metadata found
+        
+        // Find the new subscription and extract its tier
         for subscription in &subscriptions {
             if let Some(sub_id) = &subscription.id {
-                if sub_id != new_subscription_id {
+                if sub_id == new_subscription_id {
+                    // Extract tier from subscription metadata
+                    if let Some(metadata) = &subscription.metadata {
+                        if let Some(tier_from_metadata) = metadata.get("tier") {
+                            tier = tier_from_metadata.to_lowercase();
+                            tracing::info!("📋 Extracted tier '{}' from new subscription metadata", tier);
+                        }
+                    }
+                } else {
+                    // Cancel other trial subscriptions
                     if let Some(status) = &subscription.status {
                         if status == "trialing" {
                             tracing::info!("🗑️ Cancelling trial subscription: {}", sub_id);
@@ -637,9 +671,11 @@ impl StripeBilling {
         // Create update for the new paid subscription
         let user_id = self.extract_user_id_from_customer(customer_id);
         
+        tracing::info!("✅ Creating subscription update for user {} with tier {}", user_id, tier);
+        
         Ok(SubscriptionUpdate {
             user_id,
-            subscription_tier: "pro".to_string(), // Update based on the actual tier from checkout
+            subscription_tier: tier, // Use actual tier from subscription metadata
             subscription_status: "active".to_string(), // Paid subscription is active
             stripe_subscription_id: Some(new_subscription_id.to_string()),
             subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
