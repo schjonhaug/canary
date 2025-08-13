@@ -14,15 +14,16 @@ pub struct SubscriptionUpdate {
     pub subscription_status: String,
     pub stripe_subscription_id: Option<String>,
     pub subscription_started_at: Option<String>,
+    pub trial_ends_at: Option<String>,
 }
 use std::collections::HashMap;
 use std::str::FromStr;
 use stripe::{
-    CheckoutSession, CheckoutSessionMode, Client, CreateCheckoutSession,
-    CreateCheckoutSessionLineItems, CreateCustomer, BillingPortalSession, 
+    CheckoutSession, CheckoutSessionMode, CheckoutSessionPaymentMethodCollection, Client, CreateCheckoutSession,
+    CreateCheckoutSessionLineItems, CreateCheckoutSessionSubscriptionData, CreateCustomer, BillingPortalSession, 
     CreateBillingPortalSession, Event, EventType, Webhook, 
     CustomerId, PriceId, ProductId, Price, Product, ListPrices, ListProducts,
-    CouponId, CheckoutSessionId,
+    CouponId, CheckoutSessionId, Subscription, CreateSubscription,
 };
 use utoipa::ToSchema;
 
@@ -328,8 +329,8 @@ impl StripeBilling {
         // Auto-generate URLs based on frontend URL
         let frontend_url = std::env::var("FRONTEND_URL")
             .unwrap_or_else(|_| "http://localhost:3001".to_string());
-        let success_url = format!("{}/billing/success?session={{CHECKOUT_SESSION_ID}}", frontend_url);
-        let cancel_url = format!("{}/billing/cancel", frontend_url);
+        let success_url = format!("{}/settings/subscription/success?session={{CHECKOUT_SESSION_ID}}", frontend_url);
+        let cancel_url = format!("{}/settings/subscription/cancel", frontend_url);
 
         let mut create_session = CreateCheckoutSession::new();
         create_session.mode = Some(CheckoutSessionMode::Subscription);
@@ -343,12 +344,21 @@ impl StripeBilling {
             ..Default::default()
         }]);
 
+        // Handle trial users - but don't create new subscriptions if they already have one
+        let is_trial_user = user.subscription_status == "trial";
+        if is_trial_user && user.stripe_subscription_id.is_some() {
+            // User already has a Stripe subscription with trial
+            // Return an error - they should use customer portal to manage their existing subscription
+            return Err(anyhow::anyhow!("User already has an active Stripe subscription. Please use the customer portal to manage your subscription."));
+        }
+
         // Add metadata for tracking
         create_session.metadata = Some({
             let mut metadata = HashMap::new();
             metadata.insert("user_id".to_string(), user.id.clone());
             metadata.insert("tier".to_string(), tier.as_str().to_string());
             metadata.insert("billing_period".to_string(), if is_yearly { "yearly" } else { "monthly" }.to_string());
+            metadata.insert("is_trial_user".to_string(), is_trial_user.to_string());
             metadata
         });
 
@@ -421,6 +431,57 @@ impl StripeBilling {
         Ok(customer.id)
     }
 
+    /// Create a Stripe subscription with trial for a new user
+    pub async fn create_trial_subscription(
+        &self,
+        user: &UserRecord,
+        tier: SubscriptionTier,
+        metadata_db: &crate::metadata::MetadataDb,
+    ) -> Result<()> {
+        // Get or create Stripe customer
+        let customer_id = match &user.stripe_customer_id {
+            Some(id) => CustomerId::from_str(id)?,
+            None => self.create_customer(user, metadata_db).await?,
+        };
+
+        // Select the monthly price for the tier
+        let price_id = self.monthly_prices.get(&tier)
+            .ok_or_else(|| anyhow::anyhow!("No monthly price found for tier {:?}. Please configure in Stripe.", tier))?;
+
+        // Create subscription with 30-day trial
+        let mut create_subscription = CreateSubscription::new(customer_id);
+        create_subscription.items = Some(vec![
+            stripe::CreateSubscriptionItems {
+                price: Some(price_id.to_string()),
+                quantity: Some(1),
+                ..Default::default()
+            }
+        ]);
+        
+        // Set 30-day trial period
+        create_subscription.trial_period_days = Some(30);
+        
+        // For trials, allow subscription to be created immediately without payment method
+        create_subscription.payment_behavior = Some(stripe::SubscriptionPaymentBehavior::AllowIncomplete);
+        
+        // Add metadata for tracking
+        create_subscription.metadata = Some({
+            let mut metadata = HashMap::new();
+            metadata.insert("user_id".to_string(), user.id.clone());
+            metadata.insert("tier".to_string(), tier.as_str().to_string());
+            metadata.insert("source".to_string(), "registration_trial".to_string());
+            metadata
+        });
+
+        let subscription = Subscription::create(&self.client, create_subscription).await?;
+        
+        tracing::info!("✅ Created Stripe trial subscription {} for user {} ({})", 
+            subscription.id, user.email, tier.as_str());
+        tracing::info!("🎣 User status will be updated to 'trial' when Stripe webhook fires");
+        
+        Ok(())
+    }
+
     /// Create a customer portal session for subscription management
     pub async fn create_customer_portal_session(
         &self,
@@ -467,6 +528,23 @@ impl StripeBilling {
             EventType::InvoicePaymentFailed => {
                 if let Err(e) = self.handle_invoice_payment_failed(&event).await {
                     tracing::warn!("Failed to process invoice payment failed: {}", e);
+                }
+            }
+            EventType::CustomerSubscriptionCreated => {
+                tracing::info!("Processing CustomerSubscriptionCreated webhook for event {}", event.id);
+                match self.handle_subscription_created(&event).await {
+                    Ok(Some(update)) => {
+                        tracing::info!("Successfully processed subscription created, got update for user: {}", update.user_id);
+                        subscription_updates.push(update);
+                    },
+                    Ok(None) => {
+                        tracing::info!("Subscription created processed but no update needed");
+                    }, 
+                    Err(e) => {
+                        tracing::error!("Failed to process subscription created webhook {}: {}", event.id, e);
+                        tracing::error!("Event object type: {:?}", std::mem::discriminant(&event.data.object));
+                        return Err(e); // Return error to make webhook fail (so we can see it in Stripe CLI)
+                    }
                 }
             }
             EventType::CustomerSubscriptionUpdated => {
@@ -517,13 +595,28 @@ impl StripeBilling {
                             tracing::info!("Billing period: {}", billing_period);
                         }
 
+                        // Check if this was a trial user checkout
+                        let is_trial_user = metadata.get("is_trial_user")
+                            .map(|s| s == "true")
+                            .unwrap_or(false);
+
+                        // For trial users, subscription starts later - don't set subscription_started_at yet
+                        // For non-trial users, subscription starts immediately
+                        let subscription_started_at = if is_trial_user {
+                            tracing::info!("Trial user checkout completed - subscription will start after trial ends");
+                            None // Will be set when subscription actually activates
+                        } else {
+                            Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string())
+                        };
+
                         // Create subscription update to be processed by the API handler
                         let update = SubscriptionUpdate {
                             user_id: user_id.clone(),
                             subscription_tier: tier.as_str().to_string(),
                             subscription_status: "active".to_string(),
                             stripe_subscription_id: None, // For now, we don't have subscription ID from checkout
-                            subscription_started_at: Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()),
+                            subscription_started_at,
+                            trial_ends_at: None, // Trial end will be set when subscription is created
                         };
                         
                         return Ok(Some(update));
@@ -584,6 +677,7 @@ impl StripeBilling {
                     subscription_status: "canceled".to_string(),
                     stripe_subscription_id: Some(subscription.id.to_string()),
                     subscription_started_at: None,
+                    trial_ends_at: None, // Don't change trial end date on cancellation
                 };
                 
                 return Ok(Some(update));
@@ -594,6 +688,71 @@ impl StripeBilling {
         }
         
         Ok(None)
+    }
+
+    async fn handle_subscription_created(&self, event: &Event) -> Result<Option<SubscriptionUpdate>> {
+        tracing::info!("Processing subscription created webhook: {}", event.id);
+        
+        match &event.data.object {
+            stripe::EventObject::Subscription(subscription) => {
+                tracing::info!("Processing subscription creation: {}", subscription.id);
+                
+                // Get customer ID to find the user
+                let customer_id_str = match &subscription.customer {
+                    stripe::Expandable::Id(customer_id) => customer_id.to_string(),
+                    stripe::Expandable::Object(customer) => customer.id.to_string(),
+                };
+                
+                tracing::info!("Subscription created for customer: {}", customer_id_str);
+                
+                // Set subscription_started_at to when the subscription actually starts billing
+                let subscription_started_at = Some(
+                    chrono::DateTime::from_timestamp(subscription.current_period_start, 0)
+                        .unwrap_or_else(|| chrono::Utc::now())
+                        .format("%Y-%m-%d %H:%M:%S")
+                        .to_string()
+                );
+                
+                tracing::info!("Setting subscription start date: {:?}", subscription_started_at);
+                
+                // If subscription has trial, sync trial end date
+                let trial_ends_at = subscription.trial_end.map(|trial_end_timestamp| {
+                    chrono::DateTime::from_timestamp(trial_end_timestamp, 0)
+                        .unwrap_or_else(|| chrono::Utc::now())
+                        .format("%Y-%m-%d %H:%M:%S")
+                        .to_string()
+                });
+
+                if let Some(ref trial_end) = trial_ends_at {
+                    tracing::info!("Syncing trial end date from Stripe: {}", trial_end);
+                }
+                
+                // Determine status - if there's a trial, use "trial", otherwise "active"
+                let subscription_status = if trial_ends_at.is_some() {
+                    "trial".to_string()
+                } else {
+                    "active".to_string()
+                };
+                
+                // Update subscription with actual start date and trial end date
+                let update = SubscriptionUpdate {
+                    user_id: format!("stripe_customer:{}", customer_id_str), // Special format to indicate lookup by customer ID
+                    subscription_tier: "keep_current".to_string(), // Keep the tier that was set during checkout
+                    subscription_status,
+                    stripe_subscription_id: Some(subscription.id.to_string()),
+                    subscription_started_at,
+                    trial_ends_at,
+                };
+                
+                return Ok(Some(update));
+            }
+            obj => {
+                tracing::error!("Expected Subscription object in customer.subscription.created event");
+                tracing::error!("Got object: {:?}", obj);
+                tracing::error!("Event ID: {}, Event Type: {:?}", event.id, event.type_);
+                return Err(anyhow::anyhow!("Unexpected object type in subscription.created webhook"));
+            }
+        }
     }
 }
 
@@ -625,7 +784,8 @@ mod tests {
                     }),
                     features: HashMap::new(),
                 }
-            ]
+            ],
+            yearly_discount_percent: Some(20.0),
         };
 
         // Test serialization
@@ -769,10 +929,10 @@ mod tests {
         let frontend_url = "http://localhost:3001";
         let session_id = "cs_test_123";
         
-        let success_url = format!("{}/billing/success?session={}", frontend_url, session_id);
-        let cancel_url = format!("{}/billing/cancel", frontend_url);
+        let success_url = format!("{}/settings/subscription/success?session={}", frontend_url, session_id);
+        let cancel_url = format!("{}/settings/subscription/cancel", frontend_url);
         
-        assert_eq!(success_url, "http://localhost:3001/billing/success?session=cs_test_123");
-        assert_eq!(cancel_url, "http://localhost:3001/billing/cancel");
+        assert_eq!(success_url, "http://localhost:3001/settings/subscription/success?session=cs_test_123");
+        assert_eq!(cancel_url, "http://localhost:3001/settings/subscription/cancel");
     }
 }

@@ -82,7 +82,7 @@ export default function BillingSuccessPage() {
             </p>
             <div className="flex gap-3 justify-center">
               <Button asChild>
-                <Link href="/billing">View Billing</Link>
+                <Link href="/settings/subscription">View Subscription</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/wallets">Go to Wallets</Link>
@@ -181,7 +181,7 @@ export default function BillingSuccessPage() {
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/billing">Manage Billing</Link>
+              <Link href="/settings/subscription">Manage Subscription</Link>
             </Button>
           </div>
         </CardContent>

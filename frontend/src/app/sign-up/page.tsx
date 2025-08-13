@@ -52,7 +52,7 @@ export default function SignUpPage() {
             />
           </div>
           <CardTitle className="text-2xl font-bold text-center">
-            Start your 30-day free Pro trial
+            Start your 30-day free trial
           </CardTitle>
           <CardDescription className="text-center">
             30 days free, then continue with the plan of your choice

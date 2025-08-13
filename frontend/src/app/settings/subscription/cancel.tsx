@@ -34,7 +34,7 @@ export default function BillingCancelPage() {
             <h3 className="font-semibold">What would you like to do?</h3>
             <div className="grid gap-3">
               <Button asChild>
-                <a href="/billing">
+                <a href="/settings/subscription">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Try Again
                 </a>

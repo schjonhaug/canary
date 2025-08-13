@@ -6,15 +6,14 @@ import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CreditCard, Users, Calendar, TrendingUp } from "lucide-react"
-import { PlanComparison } from "@/components/plan-comparison"
+import { Loader2, CreditCard, Users, Calendar, TrendingUp, Zap } from "lucide-react"
+import { PlansModal } from "@/components/plans-modal"
 import { getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
 
 export default function BillingPage() {
   const { user, billingStatus, isLoading, refreshBillingStatus } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
-  const [isUpgrading, setIsUpgrading] = useState(false)
-  const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   useEffect(() => {
     // Refresh billing status when page loads
@@ -26,7 +25,7 @@ export default function BillingPage() {
 
     try {
       setIsPortalLoading(true)
-      const { url } = await api.createCustomerPortalSession(window.location.origin + '/billing')
+      const { url } = await api.createCustomerPortalSession(window.location.origin + '/settings/subscription')
       window.location.href = url
     } catch (error) {
       console.error('Failed to open customer portal:', error)
@@ -36,29 +35,6 @@ export default function BillingPage() {
     }
   }
 
-  const handleUpgrade = async (targetTier: string, isYearly: boolean = false) => {
-    try {
-      setIsUpgrading(true)
-      setUpgradingTier(targetTier)
-
-      // Create checkout session
-      const { url } = await api.createCheckoutSession(targetTier, isYearly)
-      
-      // Redirect to Stripe checkout
-      window.location.href = url
-
-    } catch (error) {
-      console.error('Failed to create checkout session:', error)
-      alert('Failed to start checkout. Please try again.')
-    } finally {
-      setIsUpgrading(false)
-      setUpgradingTier(null)
-    }
-  }
-
-  const handleContactSales = () => {
-    window.location.href = 'mailto:mail@canarybitcoin.com?subject=Business Plan Inquiry&body=Hi, I am interested in the Business plan for Canary. Please contact me to discuss.'
-  }
 
   if (isLoading) {
     return (
@@ -85,13 +61,17 @@ export default function BillingPage() {
 
   const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
   const limits = billingStatus?.limits
+  const isTrialUser = billingStatus?.subscription_status === 'trial'
+  
+  // Calculate days remaining in trial
+  const trialDaysRemaining = billingStatus?.trial_ends_at ? 
+    Math.max(0, Math.ceil((new Date(billingStatus.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))) : 0
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       {/* Page Header */}
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">Billing & Subscription</h1>
-        <p className="text-muted-foreground">Manage your subscription and billing settings</p>
+        <h1 className="text-3xl font-bold">Subscription</h1>
       </div>
 
       {/* Current Plan Overview */}
@@ -118,11 +98,28 @@ export default function BillingPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center gap-4">
-            <Badge variant="secondary" className="text-lg px-3 py-1">
-              {getTierDisplayName(currentTier)}
-            </Badge>
-            <span className="text-muted-foreground">{getTierDescription(currentTier)}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Badge variant="secondary" className="text-lg px-3 py-1">
+                {getTierDisplayName(currentTier)}
+              </Badge>
+              {isTrialUser && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-orange-600 border-orange-600">
+                    Trial: {trialDaysRemaining} days left
+                  </Badge>
+                </div>
+              )}
+              {!isTrialUser && (
+                <span className="text-muted-foreground">{getTierDescription(currentTier)}</span>
+              )}
+            </div>
+            {isTrialUser && (
+              <Button onClick={() => setShowUpgradeModal(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Zap className="mr-2 h-4 w-4" />
+                Subscribe
+              </Button>
+            )}
           </div>
 
           {limits && (
@@ -167,26 +164,17 @@ export default function BillingPage() {
         </CardContent>
       </Card>
 
-      {/* Upgrade Options */}
-      <div className="space-y-4">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold">Upgrade Your Plan</h2>
-          <p className="text-muted-foreground">Get more wallets, faster sync, and premium features</p>
-        </div>
 
-        <PlanComparison
-          currentTier={currentTier}
-          onUpgrade={handleUpgrade}
-          onContactSales={handleContactSales}
-          highlightUpgrades={true}
-          showPricing={true}
-          showBillingToggle={true}
-          isModal={false}
-          showCallToAction={false}
-          isLoading={isUpgrading}
-          loadingTier={upgradingTier}
-        />
-      </div>
+      {/* Plans Modal */}
+      <PlansModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        currentTier={currentTier}
+        currentWalletCount={billingStatus?.wallet_count || 0}
+        currentContactCount={billingStatus?.contact_count || 0}
+        limitType="wallets"
+        isTrialUser={isTrialUser}
+      />
     </div>
   )
 }

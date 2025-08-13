@@ -18,7 +18,10 @@ IMPORTANT: The app is unreleased, so no need for migration files or keep old cod
 
 ### Backend (Rust)
 ```bash
-# Run backend (regtest default)
+# REQUIRED: Start Stripe CLI webhook forwarding first
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+
+# Run backend (regtest default) - in separate terminal
 cd backend && cargo run
 
 # Other networks
@@ -358,9 +361,27 @@ CREATE TABLE stripe_webhook_events (
 ```
 
 ### Testing & Development
+
+#### Required: Stripe CLI for Development
+**IMPORTANT**: Stripe CLI is required for local development to receive webhooks that update user trial status.
+
+1. **Install Stripe CLI**: https://stripe.com/docs/stripe-cli
+2. **Login to Stripe**: `stripe login`
+3. **Start webhook forwarding** (required for user registration):
+   ```bash
+   stripe listen --forward-to localhost:3000/api/stripe/webhook
+   ```
+4. **Start backend** in separate terminal:
+   ```bash
+   cd backend && cargo run
+   ```
+
+**Without Stripe CLI**: Users will register but remain in `pending` status (trial won't activate).
+**With Stripe CLI**: Users register → Stripe creates subscription → Webhook fires → Status updates to `trial`.
+
+#### Development Features
 - **Test Mode**: Complete Stripe integration works in test mode
-- **Webhook Forwarding**: Use Stripe CLI for local webhook testing: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
-- **Mock Customer Portal**: Fully functional customer portal in test mode
+- **Mock Customer Portal**: Fully functional customer portal in test mode  
 - **Development Users**: Pre-configured test accounts with various subscription states
 
 ### Error Handling & Resilience

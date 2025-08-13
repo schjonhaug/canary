@@ -5,11 +5,11 @@ import userEvent from '@testing-library/user-event'
 // Create a test component that mimics the wallet detail page contact limit behavior
 import { hasReachedContactLimit, getContactLimit } from '../../lib/utils'
 
-// Mock the UpgradeModal component
-const MockUpgradeModal = ({ isOpen, onClose, limitType, currentContactCount }: any) => {
+// Mock the PlansModal component
+const MockPlansModal = ({ isOpen, onClose, limitType, currentContactCount }: any) => {
   if (!isOpen) return null
   return (
-    <div data-testid="upgrade-modal">
+    <div data-testid="plans-modal">
       <h2>Contact Limit Reached</h2>
       <p>Current usage: {currentContactCount} contacts</p>
       <p>Limit type: {limitType}</p>
@@ -40,14 +40,14 @@ const ContactLimitTestComponent = ({
   contacts?: any[]
 }) => {
   const [isAddContactModalOpen, setIsAddContactModalOpen] = React.useState(false)
-  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = React.useState(false)
+  const [isPlansModalOpen, setIsPlansModalOpen] = React.useState(false)
   
   const user = { subscription_tier: userTier }
   
   const handleAddContact = () => {
     // Check contact limits before opening create modal
     if (user && hasReachedContactLimit(contacts?.length || currentContactCount, user.subscription_tier)) {
-      setIsUpgradeModalOpen(true)
+      setIsPlansModalOpen(true)
       return
     }
     
@@ -74,9 +74,9 @@ const ContactLimitTestComponent = ({
         onClose={() => setIsAddContactModalOpen(false)}
       />
       
-      <MockUpgradeModal
-        isOpen={isUpgradeModalOpen}
-        onClose={() => setIsUpgradeModalOpen(false)}
+      <MockPlansModal
+        isOpen={isPlansModalOpen}
+        onClose={() => setIsPlansModalOpen(false)}
         limitType="contacts"
         currentContactCount={currentContactCount}
       />
@@ -148,7 +148,7 @@ describe('Contact Limit Enforcement', () => {
       await user.click(screen.getByTestId('add-contact-btn'))
 
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('upgrade-modal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
     it('shows upgrade modal when limit is reached (1 contact)', async () => {
@@ -164,7 +164,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
 
-      expect(screen.getByTestId('upgrade-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
       expect(screen.getByText('Contact Limit Reached')).toBeInTheDocument()
       expect(screen.getByText('Current usage: 1 contacts')).toBeInTheDocument()
       expect(screen.getByText('Limit type: contacts')).toBeInTheDocument()
@@ -182,7 +182,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
 
-      expect(screen.getByTestId('upgrade-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
       expect(screen.queryByTestId('contact-modal')).not.toBeInTheDocument()
     })
   })
@@ -202,7 +202,7 @@ describe('Contact Limit Enforcement', () => {
       await user.click(screen.getByTestId('add-contact-btn'))
 
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('upgrade-modal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
     it('shows contact modal when at limit minus 1', async () => {
@@ -217,7 +217,7 @@ describe('Contact Limit Enforcement', () => {
       await user.click(screen.getByTestId('add-contact-btn'))
 
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('upgrade-modal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
     it('shows upgrade modal when limit is reached (10 contacts)', async () => {
@@ -231,7 +231,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
 
-      expect(screen.getByTestId('upgrade-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
       expect(screen.getByText('Current usage: 10 contacts')).toBeInTheDocument()
       expect(screen.queryByTestId('contact-modal')).not.toBeInTheDocument()
     })
@@ -247,7 +247,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
 
-      expect(screen.getByTestId('upgrade-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
       expect(screen.queryByTestId('contact-modal')).not.toBeInTheDocument()
     })
   })
@@ -267,7 +267,7 @@ describe('Contact Limit Enforcement', () => {
       await user.click(screen.getByTestId('add-contact-btn'))
 
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('upgrade-modal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
     it('shows contact modal even with very high contact count', async () => {
@@ -282,7 +282,7 @@ describe('Contact Limit Enforcement', () => {
       await user.click(screen.getByTestId('add-contact-btn'))
 
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('upgrade-modal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
   })
 
@@ -331,7 +331,7 @@ describe('Contact Limit Enforcement', () => {
       // Should use contacts.length (2) instead of currentContactCount (0)
       await user.click(screen.getByTestId('add-contact-btn'))
 
-      expect(screen.getByTestId('upgrade-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
     })
 
     it('handles case insensitive tier names', async () => {
@@ -345,7 +345,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
 
-      expect(screen.getByTestId('upgrade-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
     })
   })
 
@@ -360,10 +360,10 @@ describe('Contact Limit Enforcement', () => {
       )
 
       await user.click(screen.getByTestId('add-contact-btn'))
-      expect(screen.getByTestId('upgrade-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
 
       await user.click(screen.getByText('Close'))
-      expect(screen.queryByTestId('upgrade-modal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
     it('can close contact modal', async () => {
@@ -395,7 +395,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('upgrade-modal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
     it('Alice scenario: personal user with 1 contact sees upgrade modal', async () => {
@@ -409,7 +409,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
       expect(screen.queryByTestId('contact-modal')).not.toBeInTheDocument()
-      expect(screen.getByTestId('upgrade-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
       expect(screen.getByText('Contact Limit Reached')).toBeInTheDocument()
     })
 
@@ -424,7 +424,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('upgrade-modal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
     it('Bob scenario: pro user with 10 contacts sees upgrade modal', async () => {
@@ -438,7 +438,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
       expect(screen.queryByTestId('contact-modal')).not.toBeInTheDocument()
-      expect(screen.getByTestId('upgrade-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
     })
 
     it('Business user never sees upgrade modal', async () => {
@@ -452,7 +452,7 @@ describe('Contact Limit Enforcement', () => {
 
       await user.click(screen.getByTestId('add-contact-btn'))
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('upgrade-modal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
   })
 })

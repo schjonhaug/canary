@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import { UpgradeModal } from '../upgrade-modal'
+import { PlansModal } from '../plans-modal'
 
 // Mock the api module
 jest.mock('../../lib/api', () => ({
@@ -22,7 +22,7 @@ jest.mock('../plan-comparison', () => ({
   PlanComparison: () => <div data-testid="plan-comparison">Plan Comparison</div>,
 }))
 
-describe('UpgradeModal Basic Functionality', () => {
+describe('PlansModal Basic Functionality', () => {
   const defaultProps = {
     isOpen: true,
     onClose: jest.fn(),
@@ -31,19 +31,19 @@ describe('UpgradeModal Basic Functionality', () => {
 
   describe('Modal Visibility', () => {
     it('renders when open', () => {
-      render(<UpgradeModal {...defaultProps} currentWalletCount={1} limitType="wallets" />)
+      render(<PlansModal {...defaultProps} currentWalletCount={1} limitType="wallets" />)
       expect(screen.getByText('Wallet Limit Reached')).toBeInTheDocument()
     })
 
     it('does not render when closed', () => {
-      render(<UpgradeModal {...defaultProps} isOpen={false} currentWalletCount={1} />)
+      render(<PlansModal {...defaultProps} isOpen={false} currentWalletCount={1} />)
       expect(screen.queryByText('Wallet Limit Reached')).not.toBeInTheDocument()
     })
   })
 
   describe('Wallet Limit Display', () => {
     it('shows wallet limit message for personal tier', () => {
-      render(<UpgradeModal {...defaultProps} currentWalletCount={1} limitType="wallets" />)
+      render(<PlansModal {...defaultProps} currentWalletCount={1} limitType="wallets" />)
       
       expect(screen.getByText('Wallet Limit Reached')).toBeInTheDocument()
       expect(screen.getByText(/You've reached your wallet limit of 1 wallet/)).toBeInTheDocument()
@@ -53,7 +53,7 @@ describe('UpgradeModal Basic Functionality', () => {
 
     it('shows plural form for pro tier wallets', () => {
       render(
-        <UpgradeModal 
+        <PlansModal 
           {...defaultProps}
           currentTier="pro"
           currentWalletCount={15}
@@ -69,7 +69,7 @@ describe('UpgradeModal Basic Functionality', () => {
 
   describe('Contact Limit Display', () => {
     it('shows contact limit message for personal tier', () => {
-      render(<UpgradeModal {...defaultProps} currentContactCount={1} limitType="contacts" />)
+      render(<PlansModal {...defaultProps} currentContactCount={1} limitType="contacts" />)
       
       expect(screen.getByText('Contact Limit Reached')).toBeInTheDocument()
       expect(screen.getByText(/You've reached your contact limit of 1 contact/)).toBeInTheDocument()
@@ -79,7 +79,7 @@ describe('UpgradeModal Basic Functionality', () => {
 
     it('shows plural form for pro tier contacts', () => {
       render(
-        <UpgradeModal 
+        <PlansModal 
           {...defaultProps}
           currentTier="pro"
           currentContactCount={10}
@@ -93,7 +93,7 @@ describe('UpgradeModal Basic Functionality', () => {
 
     it('handles business tier unlimited limits', () => {
       render(
-        <UpgradeModal 
+        <PlansModal 
           {...defaultProps}
           currentTier="business"
           currentContactCount={50}
@@ -109,48 +109,48 @@ describe('UpgradeModal Basic Functionality', () => {
 
   describe('Tier Badge Display', () => {
     it('displays Personal tier badge', () => {
-      render(<UpgradeModal {...defaultProps} currentWalletCount={1} />)
+      render(<PlansModal {...defaultProps} currentWalletCount={1} />)
       expect(screen.getByText('Personal')).toBeInTheDocument()
     })
 
     it('displays Pro tier badge', () => {
-      render(<UpgradeModal {...defaultProps} currentTier="pro" currentWalletCount={15} />)
+      render(<PlansModal {...defaultProps} currentTier="pro" currentWalletCount={15} />)
       expect(screen.getByText('Pro')).toBeInTheDocument()
     })
 
     it('displays Business tier badge', () => {
-      render(<UpgradeModal {...defaultProps} currentTier="business" currentWalletCount={100} />)
+      render(<PlansModal {...defaultProps} currentTier="business" currentWalletCount={100} />)
       expect(screen.getByText('Business')).toBeInTheDocument()
     })
   })
 
   describe('Default Props', () => {
     it('defaults to wallets limitType', () => {
-      render(<UpgradeModal {...defaultProps} />)
+      render(<PlansModal {...defaultProps} />)
       expect(screen.getByText('Wallet Limit Reached')).toBeInTheDocument()
     })
 
     it('defaults wallet count to 0', () => {
-      render(<UpgradeModal {...defaultProps} limitType="wallets" />)
+      render(<PlansModal {...defaultProps} limitType="wallets" />)
       expect(screen.getByText('Current usage: 0 / 1 wallets')).toBeInTheDocument()
     })
 
     it('defaults contact count to 0', () => {
-      render(<UpgradeModal {...defaultProps} limitType="contacts" />)
+      render(<PlansModal {...defaultProps} limitType="contacts" />)
       expect(screen.getByText('Current usage: 0 / 1 contacts')).toBeInTheDocument()
     })
   })
 
   describe('PlanComparison Integration', () => {
     it('renders PlanComparison component', () => {
-      render(<UpgradeModal {...defaultProps} currentWalletCount={1} />)
+      render(<PlansModal {...defaultProps} currentWalletCount={1} />)
       expect(screen.getByTestId('plan-comparison')).toBeInTheDocument()
     })
   })
 
   describe('Modal Content Structure', () => {
     it('contains all expected elements', () => {
-      render(<UpgradeModal {...defaultProps} currentContactCount={1} limitType="contacts" />)
+      render(<PlansModal {...defaultProps} currentContactCount={1} limitType="contacts" />)
       
       // Check for title with icon
       expect(screen.getByText('Contact Limit Reached')).toBeInTheDocument()
@@ -166,7 +166,7 @@ describe('UpgradeModal Basic Functionality', () => {
     })
 
     it('has proper modal attributes', () => {
-      render(<UpgradeModal {...defaultProps} currentWalletCount={1} />)
+      render(<PlansModal {...defaultProps} currentWalletCount={1} />)
       
       // Dialog should be present
       expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -176,13 +176,13 @@ describe('UpgradeModal Basic Functionality', () => {
   describe('Limit Type Flexibility', () => {
     it('correctly switches between wallet and contact modes', () => {
       const { rerender } = render(
-        <UpgradeModal {...defaultProps} currentWalletCount={1} limitType="wallets" />
+        <PlansModal {...defaultProps} currentWalletCount={1} limitType="wallets" />
       )
       expect(screen.getByText('Wallet Limit Reached')).toBeInTheDocument()
       expect(screen.getByText(/wallet limit/)).toBeInTheDocument()
 
       rerender(
-        <UpgradeModal {...defaultProps} currentContactCount={1} limitType="contacts" />
+        <PlansModal {...defaultProps} currentContactCount={1} limitType="contacts" />
       )
       expect(screen.getByText('Contact Limit Reached')).toBeInTheDocument()
       expect(screen.getByText(/contact limit/)).toBeInTheDocument()

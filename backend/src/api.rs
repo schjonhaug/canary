@@ -1927,7 +1927,7 @@ pub async fn get_wallet_detail(
     tag = "auth"
 )]
 pub async fn register(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
     Json(request): Json<RegisterRequest>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
@@ -2030,6 +2030,45 @@ pub async fn register(
         }
     };
 
+    // Create Stripe trial subscription for the user
+    {
+        // Get the created user to pass to Stripe
+        let user_record = match manager.metadata_db.get_user_by_id(&user_id).await {
+            Ok(Some(user)) => user,
+            Ok(None) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: "User was created but could not be retrieved".to_string(),
+                    }),
+                ).into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to retrieve user: {}", e),
+                    }),
+                ).into_response();
+            }
+        };
+
+        // Create Stripe subscription with trial (default to Pro tier) if Stripe is enabled
+        if let Some(stripe_service) = &stripe_billing {
+            if let Err(e) = stripe_service.create_trial_subscription(
+                &user_record,
+                crate::subscription::SubscriptionTier::Pro,
+                &manager.metadata_db,
+            ).await {
+                tracing::error!("Failed to create Stripe trial for user {}: {}", user_record.email, e);
+                // Don't fail registration if Stripe fails, but log the error
+                // User can still use the service, they just won't have Stripe integration
+            }
+        } else {
+            tracing::info!("Stripe not enabled, user {} will use database trials only", user_record.email);
+        }
+    }
+
     // Add to marketing audience if opted in
     if request.marketing_emails_opt_in {
         if let Some(email_service) = &auth_service.email_service {
@@ -2105,7 +2144,7 @@ pub async fn register(
     tag = "auth"
 )]
 pub async fn login(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
     Json(request): Json<LoginRequest>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
@@ -2270,7 +2309,7 @@ pub async fn login(
     tag = "auth"
 )]
 pub async fn verify_email(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
     Path(token): Path<String>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
@@ -2309,7 +2348,7 @@ pub async fn verify_email(
     tag = "auth"
 )]
 pub async fn forgot_password(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
     Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
     let manager = wallet_manager.lock().await;
@@ -2400,7 +2439,7 @@ pub async fn forgot_password(
     tag = "auth"
 )]
 pub async fn reset_password(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
     Path(token): Path<String>,
     Json(request): Json<ResetPasswordRequest>,
 ) -> Response {
@@ -2496,7 +2535,7 @@ pub async fn reset_password(
         ("bearer_auth" = [])
     )
 )]
-pub async fn logout(State(wallet_manager): State<AppState>, headers: HeaderMap) -> Response {
+pub async fn logout(State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>, headers: HeaderMap) -> Response {
     // Get the token from the Authorization header
     let auth_header = match headers.get("authorization").and_then(|h| h.to_str().ok()) {
         Some(header) => header,
@@ -2558,7 +2597,7 @@ pub async fn logout(State(wallet_manager): State<AppState>, headers: HeaderMap) 
         ("bearer_auth" = [])
     )
 )]
-pub async fn me(State(wallet_manager): State<AppState>, headers: HeaderMap) -> Response {
+pub async fn me(State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>, headers: HeaderMap) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -2622,7 +2661,7 @@ pub async fn me(State(wallet_manager): State<AppState>, headers: HeaderMap) -> R
     tag = "auth"
 )]
 pub async fn update_user(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
     headers: HeaderMap,
     Json(request): Json<UpdateUserRequest>,
 ) -> Response {
@@ -3147,6 +3186,7 @@ pub async fn handle_stripe_webhook(
                         &update.subscription_status,
                         update.stripe_subscription_id.as_deref(),
                         update.subscription_started_at.as_deref(),
+                        update.trial_ends_at.as_deref(),
                     ).await {
                         tracing::error!("Failed to update user {} subscription: {}", actual_user_id, e);
                     } else {
@@ -3268,7 +3308,7 @@ pub fn create_router(
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
         .route("/auth/user", put(update_user))
-        .with_state(wallet_manager.clone());
+        .with_state((wallet_manager.clone(), stripe_billing.clone()));
 
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet).get(get_wallets_list))

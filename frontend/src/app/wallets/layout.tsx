@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/auth-context"
 
 // Lazy load modal components for code splitting
 const AddWalletModal = lazy(() => import("@/components/create-wallet-modal").then(mod => ({ default: mod.CreateWalletModal })))
-const UpgradeModal = lazy(() => import("@/components/upgrade-modal").then(mod => ({ default: mod.UpgradeModal })))
+const PlansModal = lazy(() => import("@/components/plans-modal").then(mod => ({ default: mod.PlansModal })))
 
 export default function WalletsLayout({
   children,
@@ -85,7 +85,7 @@ export default function WalletsLayout({
       </Suspense>
 
       <Suspense fallback={null}>
-        <UpgradeModal
+        <PlansModal
           isOpen={isUpgradeModalOpen}
           onClose={() => setIsUpgradeModalOpen(false)}
           currentTier={user?.subscription_tier || 'personal'}

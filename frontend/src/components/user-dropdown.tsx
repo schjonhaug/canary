@@ -65,7 +65,7 @@ export function UserDropdown() {
         
         <DropdownMenuSeparator />
         
-        <Link href="/billing" className="block">
+        <Link href="/settings/subscription" className="block">
           <DropdownMenuItem className="cursor-pointer">
             <CreditCard className="mr-2 h-4 w-4" />
             <span>Billing & Plans</span>

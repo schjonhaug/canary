@@ -41,7 +41,6 @@ pub struct UserRecord {
     pub email_verified: bool,
     // Subscription fields
     pub subscription_tier: SubscriptionTier,
-    pub trial_started_at: String,
     pub trial_ends_at: String,
     pub subscription_status: String,
     pub stripe_customer_id: Option<String>,
@@ -428,9 +427,9 @@ impl MetadataDb {
                     
                     let user_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
-                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, trial_started_at, trial_ends_at, created_at) 
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), datetime('now', '+30 days'), datetime('now'))",
-                        params![&user_id, email, &password_hash, name, is_admin, true, tier, "active"], // Dev users skip trial
+                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at) 
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'))",
+                        params![&user_id, email, &password_hash, name, is_admin, true, tier, "active"], // Dev users are active
                     )?;
                     
                     println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
@@ -1256,8 +1255,8 @@ impl MetadataDb {
             
             // Create new user
             tx.execute(
-                "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, trial_started_at, trial_ends_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), datetime('now', '+30 days'))",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "pro", "trial"],
+                "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "pro", "pending"],
             )?;
             
             tx.commit()?;
@@ -1276,7 +1275,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE email = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE email = ?1")?
                 .query_row(params![&email], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -1286,14 +1285,13 @@ impl MetadataDb {
                         is_admin: row.get(4)?,
                         email_verified: row.get(5)?,
                         subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
-                        trial_started_at: row.get(7)?,
-                        trial_ends_at: row.get(8)?,
-                        subscription_status: row.get(9)?,
-                        stripe_customer_id: row.get(10)?,
-                        stripe_subscription_id: row.get(11)?,
-                        subscription_started_at: row.get(12)?,
-                        subscription_ends_at: row.get(13)?,
-                        created_at: row.get(14)?,
+                        trial_ends_at: row.get(7)?,
+                        subscription_status: row.get(8)?,
+                        stripe_customer_id: row.get(9)?,
+                        stripe_subscription_id: row.get(10)?,
+                        subscription_started_at: row.get(11)?,
+                        subscription_ends_at: row.get(12)?,
+                        created_at: row.get(13)?,
                     })
                 })
                 .ok();
@@ -1308,7 +1306,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -1318,14 +1316,13 @@ impl MetadataDb {
                         is_admin: row.get(4)?,
                         email_verified: row.get(5)?,
                         subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
-                        trial_started_at: row.get(7)?,
-                        trial_ends_at: row.get(8)?,
-                        subscription_status: row.get(9)?,
-                        stripe_customer_id: row.get(10)?,
-                        stripe_subscription_id: row.get(11)?,
-                        subscription_started_at: row.get(12)?,
-                        subscription_ends_at: row.get(13)?,
-                        created_at: row.get(14)?,
+                        trial_ends_at: row.get(7)?,
+                        subscription_status: row.get(8)?,
+                        stripe_customer_id: row.get(9)?,
+                        stripe_subscription_id: row.get(10)?,
+                        subscription_started_at: row.get(11)?,
+                        subscription_ends_at: row.get(12)?,
+                        created_at: row.get(13)?,
                     })
                 })
                 .ok();
@@ -1340,7 +1337,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_started_at, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE stripe_customer_id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE stripe_customer_id = ?1")?
                 .query_row(params![stripe_customer_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -1350,14 +1347,13 @@ impl MetadataDb {
                         is_admin: row.get(4)?,
                         email_verified: row.get(5)?,
                         subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
-                        trial_started_at: row.get(7)?,
-                        trial_ends_at: row.get(8)?,
-                        subscription_status: row.get(9)?,
-                        stripe_customer_id: row.get(10)?,
-                        stripe_subscription_id: row.get(11)?,
-                        subscription_started_at: row.get(12)?,
-                        subscription_ends_at: row.get(13)?,
-                        created_at: row.get(14)?,
+                        trial_ends_at: row.get(7)?,
+                        subscription_status: row.get(8)?,
+                        stripe_customer_id: row.get(9)?,
+                        stripe_subscription_id: row.get(10)?,
+                        subscription_started_at: row.get(11)?,
+                        subscription_ends_at: row.get(12)?,
+                        created_at: row.get(13)?,
                     })
                 })
                 .ok();
@@ -1453,6 +1449,7 @@ impl MetadataDb {
         subscription_status: &str,
         stripe_subscription_id: Option<&str>,
         subscription_started_at: Option<&str>,
+        trial_ends_at: Option<&str>,
     ) -> Result<()> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
@@ -1460,16 +1457,24 @@ impl MetadataDb {
         let subscription_status = subscription_status.to_string();
         let stripe_subscription_id = stripe_subscription_id.map(|s| s.to_string());
         let subscription_started_at = subscription_started_at.map(|s| s.to_string());
+        let trial_ends_at = trial_ends_at.map(|s| s.to_string());
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
-                "UPDATE users SET subscription_tier = ?1, subscription_status = ?2, stripe_subscription_id = ?3, subscription_started_at = ?4 WHERE id = ?5",
+                "UPDATE users SET 
+                    subscription_tier = ?1, 
+                    subscription_status = ?2, 
+                    stripe_subscription_id = ?3, 
+                    subscription_started_at = ?4,
+                    trial_ends_at = COALESCE(?5, trial_ends_at)
+                WHERE id = ?6",
                 params![
                     subscription_tier,
                     subscription_status,
                     stripe_subscription_id,
                     subscription_started_at,
+                    trial_ends_at,
                     user_id
                 ],
             )?;

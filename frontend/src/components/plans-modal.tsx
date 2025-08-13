@@ -15,23 +15,25 @@ import { PlanComparison } from "./plan-comparison"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 
-interface UpgradeModalProps {
+interface PlansModalProps {
   isOpen: boolean
   onClose: () => void
   currentTier: string
   currentWalletCount?: number
   currentContactCount?: number
   limitType?: 'wallets' | 'contacts'
+  isTrialUser?: boolean
 }
 
-export function UpgradeModal({
+export function PlansModal({
   isOpen,
   onClose,
   currentTier,
   currentWalletCount = 0,
   currentContactCount = 0,
   limitType = 'wallets',
-}: UpgradeModalProps) {
+  isTrialUser = false,
+}: PlansModalProps) {
   const { isAuthenticated, refreshBillingStatus } = useAuth()
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
@@ -87,30 +89,40 @@ export function UpgradeModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-500" />
-            {limitType === 'wallets' ? 'Wallet' : 'Contact'} Limit Reached
+            {isTrialUser ? 'Choose Your Plan' : `${limitType === 'wallets' ? 'Wallet' : 'Contact'} Limit Reached`}
           </DialogTitle>
           <DialogDescription>
-            You&apos;ve reached your {limitTypeText} limit of {currentLimit} {limitTypeText}{currentLimit !== 1 ? 's' : ''} on the{' '}
-            <Badge variant="outline" className="mx-1">
-              {getTierDisplayName(currentTier)}
-            </Badge>
-            plan. Compare plans and upgrade to add more {limitTypeText}s.
+            {isTrialUser ? (
+              'Subscribe today to ensure your wallet notifications continue uninterrupted when your trial ends. Keep your Bitcoin secure with continuous monitoring.'
+            ) : (
+              <>
+                You&apos;ve reached your {limitTypeText} limit of {currentLimit} {limitTypeText}{currentLimit !== 1 ? 's' : ''} on the{' '}
+                <Badge variant="outline" className="mx-1">
+                  {getTierDisplayName(currentTier)}
+                </Badge>
+                plan. Compare plans and upgrade to add more {limitTypeText}s.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="text-sm text-muted-foreground text-center">
-            Current usage: {currentCount} / {currentLimit} {limitTypeText}s
-          </div>
+          {!isTrialUser && (
+            <div className="text-sm text-muted-foreground text-center">
+              Current usage: {currentCount} / {currentLimit} {limitTypeText}s
+            </div>
+          )}
 
           <PlanComparison
             currentTier={currentTier.toLowerCase()}
             onUpgrade={handleUpgrade}
             onContactSales={handleContactSales}
-            highlightUpgrades={true}
+            highlightUpgrades={!isTrialUser}
             showPricing={true}
             showBillingToggle={true}
             isModal={true}
+            showAllTiers={isTrialUser}
+            isTrialUser={isTrialUser}
             isLoading={isUpgrading}
             loadingTier={upgradingTier}
           />

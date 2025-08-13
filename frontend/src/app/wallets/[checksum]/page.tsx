@@ -18,8 +18,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 
-// Lazy load UpgradeModal to avoid bundling it when not needed
-const UpgradeModal = lazy(() => import("@/components/upgrade-modal").then(mod => ({ default: mod.UpgradeModal })))
+// Lazy load PlansModal to avoid bundling it when not needed
+const PlansModal = lazy(() => import("@/components/plans-modal").then(mod => ({ default: mod.PlansModal })))
 
 // Note: checksum is now available directly from wallet.checksum and URL params
 
@@ -280,7 +280,7 @@ export default function WalletDetailPage() {
       />
 
       <Suspense fallback={null}>
-        <UpgradeModal
+        <PlansModal
           isOpen={isUpgradeModalOpen}
           onClose={() => setIsUpgradeModalOpen(false)}
           currentTier={user?.subscription_tier || 'personal'}

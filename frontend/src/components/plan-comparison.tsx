@@ -18,6 +18,8 @@ interface PlanComparisonProps {
   isModal?: boolean
   showCallToAction?: boolean
   showUnifiedTrialButton?: boolean
+  showAllTiers?: boolean
+  isTrialUser?: boolean
   isLoading?: boolean
   loadingTier?: string | null
 }
@@ -32,6 +34,8 @@ export function PlanComparison({
   isModal = false,
   showCallToAction = false,
   showUnifiedTrialButton = false,
+  showAllTiers = false,
+  isTrialUser = false,
   isLoading = false,
   loadingTier = null
 }: PlanComparisonProps) {
@@ -42,8 +46,8 @@ export function PlanComparison({
   // Only use Stripe pricing
   const sortedTiers = pricing ? sortTiers(pricing.tiers) : []
   
-  // Filter tiers to show only current tier and higher tiers for modal
-  const tiersToShow = isModal 
+  // Filter tiers to show only current tier and higher tiers for modal (unless showAllTiers is true)
+  const tiersToShow = isModal && !showAllTiers
     ? sortedTiers.filter(tier => {
         const currentIndex = sortedTiers.findIndex(t => t.tier === currentTier)
         const tierIndex = sortedTiers.findIndex(t => t.tier === tier.tier)
@@ -82,6 +86,7 @@ export function PlanComparison({
       showBillingToggle={showBillingToggle}
       showCallToAction={showCallToAction}
       showUnifiedTrialButton={showUnifiedTrialButton}
+      isTrialUser={isTrialUser}
       isYearly={isYearly}
       setIsYearly={setIsYearly}
       isModal={isModal}
@@ -108,6 +113,7 @@ interface PlanComparisonContentProps {
   showPricing: boolean
   showBillingToggle: boolean
   showCallToAction: boolean
+  isTrialUser: boolean
   isYearly: boolean
   setIsYearly: (value: boolean) => void
   isModal: boolean
@@ -127,6 +133,7 @@ function PlanComparisonContent({
   showBillingToggle,
   showCallToAction,
   showUnifiedTrialButton,
+  isTrialUser,
   isYearly,
   setIsYearly,
   isModal,
@@ -173,10 +180,17 @@ function PlanComparisonContent({
                 </span>
               </div>
             )}
-            {isCurrentTier && (
+            {isCurrentTier && !isTrialUser && (
               <div className="absolute -top-3 left-4">
                 <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
                   CURRENT PLAN
+                </span>
+              </div>
+            )}
+            {isCurrentTier && isTrialUser && (
+              <div className="absolute -top-3 left-4">
+                <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                  TRIAL PLAN
                 </span>
               </div>
             )}
@@ -255,7 +269,7 @@ function PlanComparisonContent({
               </CardFooter>
             )}
             
-            {onUpgrade && !isCurrentTier && !showCallToAction && (
+            {onUpgrade && (!isCurrentTier || isTrialUser) && !showCallToAction && (
               <CardFooter>
                 <Button 
                   className="w-full" 
@@ -270,7 +284,7 @@ function PlanComparisonContent({
                   disabled={isLoadingThisTier}
                 >
                   {isLoadingThisTier && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {tier.tier === "business" ? "Contact Sales" : `Upgrade to ${getTierDisplayName(tier.tier)}`}
+                  {tier.tier === "business" ? "Contact Sales" : isTrialUser ? `Subscribe to ${getTierDisplayName(tier.tier)}` : `Upgrade to ${getTierDisplayName(tier.tier)}`}
                 </Button>
               </CardFooter>
             )}
