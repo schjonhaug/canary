@@ -1,9 +1,9 @@
 // Shared feature definitions - used for both static and dynamic pricing
 export const allFeatures = [
   { id: 'trial', label: '30-day free trial', personal: true, pro: true },
-  { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', pro: '15 wallets', unique: { pro: true } },
+  { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', pro: '10 wallets', unique: { pro: true } },
   { id: 'contacts', label: 'Contacts per wallet', personal: '1 contact', pro: '10 contacts per wallet', unique: { pro: true } },
-  { id: 'sync', label: 'Sync interval', personal: '5 minute sync time', pro: '1 minute sync time', unique: { pro: true } },
+  { id: 'sync', label: 'Sync interval', personal: '10 minute sync time', pro: '1 minute sync time', unique: { pro: true } },
   { id: 'email', label: 'Email notifications', personal: true, pro: true },
   { id: 'sms', label: 'SMS notifications', personal: false, pro: true, unique: { pro: true } },
   { id: 'push', label: 'Push notifications', personal: false, pro: true, unique: { pro: true } },

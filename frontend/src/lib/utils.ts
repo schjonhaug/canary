@@ -121,7 +121,7 @@ export const successStyles = "p-3 bg-green-50 border border-green-200 rounded-lg
 // Subscription tier utilities
 export const SUBSCRIPTION_LIMITS = {
   personal: { wallets: 1, contacts: 1 },
-  pro: { wallets: 15, contacts: 10 },
+  pro: { wallets: 10, contacts: 10 },
 } as const
 
 export type SubscriptionTier = keyof typeof SUBSCRIPTION_LIMITS

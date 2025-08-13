@@ -23,13 +23,13 @@ impl SubscriptionTier {
             Self::Personal => TierLimits {
                 max_wallets: Some(1),
                 max_contacts_per_wallet: Some(1),
-                sync_interval_secs: 300, // 5 minutes
+                sync_interval_secs: 600, // 10 minutes
                 allows_sms: false,
                 allows_push: true, // ntfy is always enabled
                 allows_transaction_analysis: false,
             },
             Self::Pro => TierLimits {
-                max_wallets: Some(15),
+                max_wallets: Some(10),
                 max_contacts_per_wallet: Some(10),
                 sync_interval_secs: 60, // 1 minute
                 allows_sms: true,
