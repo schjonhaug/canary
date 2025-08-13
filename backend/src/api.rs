@@ -10,7 +10,7 @@ use crate::metadata::{
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
-use crate::stripe_billing::{CheckoutSessionResponse, CustomerPortalResponse, StripeBilling, PricingInfo, TierPricing, PriceDetails, CheckoutSessionDetails};
+use crate::stripe_billing::{CheckoutSessionResponse, CustomerPortalResponse, StripeBilling, PricingInfo, FrontendTierPricing, FrontendPriceInfo, CheckoutSessionDetails};
 use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletManager;
 use axum::{
@@ -3280,7 +3280,7 @@ pub async fn get_checkout_session_details(
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
         CreateCheckoutSessionRequest, CreateCustomerPortalRequest, BillingStatusResponse, CheckoutSessionResponse, CustomerPortalResponse,
-        PricingInfo, TierPricing, PriceDetails,
+        PricingInfo, FrontendTierPricing, FrontendPriceInfo,
         RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse
     )),
     tags(

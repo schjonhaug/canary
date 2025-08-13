@@ -27,8 +27,8 @@ pub struct SubscriptionUpdate {
 pub struct StripeBilling {
     client: StripeClientService,
     webhook_secret: String,
-    // Cache pricing info loaded from Stripe on startup
-    cached_prices: HashMap<SubscriptionTier, String>, // tier -> monthly price_id
+    // Cache full pricing info loaded from Stripe on startup
+    cached_pricing: PricingInfo,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -50,26 +50,28 @@ pub struct CheckoutSessionDetails {
     pub status: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PricingInfo {
-    pub tiers: Vec<TierPricing>,
+    pub tiers: Vec<FrontendTierPricing>,
     pub yearly_discount_percent: Option<f64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct TierPricing {
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FrontendTierPricing {
     pub tier: String,
     pub name: String,
-    pub monthly: Option<PriceDetails>,
-    pub yearly: Option<PriceDetails>,
+    pub description: Option<String>,
+    pub monthly_price: Option<FrontendPriceInfo>,
+    pub yearly_price: Option<FrontendPriceInfo>,
+    pub features: HashMap<String, String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct PriceDetails {
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FrontendPriceInfo {
     pub price_id: String,
-    pub unit_amount: i64,
+    pub amount: i64, // amount in cents
     pub currency: String,
-    pub formatted_amount: String,
+    pub interval: String,
 }
 
 impl StripeBilling {
@@ -85,7 +87,10 @@ impl StripeBilling {
         let mut billing = Self {
             client,
             webhook_secret,
-            cached_prices: HashMap::new(),
+            cached_pricing: PricingInfo {
+                tiers: Vec::new(),
+                yearly_discount_percent: None,
+            },
         };
         
         // Load products and prices from Stripe on startup
@@ -94,7 +99,7 @@ impl StripeBilling {
         Ok(billing)
     }
     
-    /// Load products and prices from Stripe based on metadata (like the old implementation)
+    /// Load products and prices from Stripe and build frontend pricing structure
     async fn load_products_and_prices(&mut self) -> Result<()> {
         tracing::info!("🔍 Loading products and prices from Stripe...");
         
@@ -103,6 +108,10 @@ impl StripeBilling {
         let products = product_list.data.unwrap_or_default();
         
         tracing::info!("📦 Found {} products in Stripe", products.len());
+        
+        let mut tiers: HashMap<String, FrontendTierPricing> = HashMap::new();
+        let mut monthly_amounts: Vec<i64> = Vec::new();
+        let mut yearly_amounts: Vec<i64> = Vec::new();
         
         for product in products {
             // Skip archived or inactive products
@@ -113,30 +122,57 @@ impl StripeBilling {
             // Check if product has tier metadata
             if let Some(metadata) = &product.metadata {
                 if let Some(tier_str) = metadata.get("tier") {
-                    let tier = SubscriptionTier::from(tier_str.as_str());
                     let product_id = product.id.clone().unwrap_or_default();
                     
-                    tracing::info!("🎯 Found product {} for tier {:?}", product_id, tier);
+                    tracing::info!("🎯 Found product {} for tier {}", product_id, tier_str);
                     
                     // Get all prices for this product
                     let price_list = self.client.list_prices(Some(100), Some(product_id)).await?;
                     let prices = price_list.data.unwrap_or_default();
                     
-                    // Store monthly price
+                    // Initialize tier pricing if not exists
+                    if !tiers.contains_key(tier_str) {
+                        tiers.insert(tier_str.clone(), FrontendTierPricing {
+                            tier: tier_str.clone(),
+                            name: self.get_tier_display_name(tier_str),
+                            description: self.get_tier_description(tier_str),
+                            monthly_price: None,
+                            yearly_price: None,
+                            features: self.get_tier_features(tier_str),
+                        });
+                    }
+                    
+                    let tier_pricing = tiers.get_mut(tier_str).unwrap();
+                    
+                    // Process all prices for this product
                     for price in prices {
                         if let Some(recurring) = &price.recurring {
                             let interval = recurring.interval.as_deref().unwrap_or("");
                             let interval_count = recurring.interval_count.unwrap_or(0);
+                            let price_id = price.id.clone().unwrap_or_default();
+                            let amount = price.unit_amount.unwrap_or(0);
+                            let currency = price.currency.as_deref().unwrap_or("USD").to_uppercase();
                             
                             if interval == "month" && interval_count == 1 {
-                                let price_id = price.id.clone().unwrap_or_default();
-                                let amount = price.unit_amount.unwrap_or(0);
-                                let currency = price.currency.as_deref().unwrap_or("USD");
-                                
-                                self.cached_prices.insert(tier, price_id.clone());
-                                tracing::info!("💰 Found monthly price for {:?}: ${:.2}/{} ({})", 
-                                    tier, amount as f64 / 100.0, currency.to_uppercase(), price_id);
-                                break;
+                                tier_pricing.monthly_price = Some(FrontendPriceInfo {
+                                    price_id: price_id.clone(),
+                                    amount,
+                                    currency: currency.clone(),
+                                    interval: "month".to_string(),
+                                });
+                                monthly_amounts.push(amount);
+                                tracing::info!("💰 Found monthly price for {}: ${:.2}/{} ({})", 
+                                    tier_str, amount as f64 / 100.0, currency, price_id);
+                            } else if interval == "year" && interval_count == 1 {
+                                tier_pricing.yearly_price = Some(FrontendPriceInfo {
+                                    price_id: price_id.clone(),
+                                    amount,
+                                    currency: currency.clone(),
+                                    interval: "year".to_string(),
+                                });
+                                yearly_amounts.push(amount);
+                                tracing::info!("💰 Found yearly price for {}: ${:.2}/{} ({})", 
+                                    tier_str, amount as f64 / 100.0, currency, price_id);
                             }
                         }
                     }
@@ -144,14 +180,112 @@ impl StripeBilling {
             }
         }
 
-        // Validate we have required prices
-        for tier in [SubscriptionTier::Personal, SubscriptionTier::Pro, SubscriptionTier::Business] {
-            if !self.cached_prices.contains_key(&tier) {
-                tracing::warn!("⚠️ No monthly price found for tier {:?} in Stripe. Please create product with metadata tier={} and a monthly price.", tier, tier.as_str());
+        // Get discount percentage from Stripe coupon if configured
+        let discount_percent = if let Ok(coupon_id) = std::env::var("STRIPE_YEARLY_COUPON_ID") {
+            match self.client.retrieve_coupon(&coupon_id).await {
+                Ok(coupon) => {
+                    if let Some(percent_off) = coupon.percent_off {
+                        tracing::info!("📊 Found yearly coupon '{}' with {}% discount", coupon_id, percent_off);
+                        Some(percent_off)
+                    } else {
+                        tracing::warn!("⚠️ Yearly coupon '{}' is not a percentage-based discount", coupon_id);
+                        None
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("⚠️ Failed to retrieve yearly coupon '{}': {}", coupon_id, e);
+                    None
+                }
             }
-        }
+        } else {
+            tracing::info!("📊 No yearly coupon configured (STRIPE_YEARLY_COUPON_ID not set)");
+            None
+        };
+
+        // Store the collected pricing data
+        self.cached_pricing = PricingInfo {
+            tiers: tiers.into_values().collect(),
+            yearly_discount_percent: discount_percent,
+        };
+
+        // Sort tiers by display order (Personal -> Pro -> Business)
+        self.cached_pricing.tiers.sort_by(|a, b| {
+            let order_a = match a.tier.to_lowercase().as_str() {
+                "personal" => 1,
+                "pro" => 2,
+                "business" => 3,
+                _ => 99,
+            };
+            let order_b = match b.tier.to_lowercase().as_str() {
+                "personal" => 1,
+                "pro" => 2,
+                "business" => 3,
+                _ => 99,
+            };
+            order_a.cmp(&order_b)
+        });
+
+        tracing::info!("✅ Loaded {} pricing tiers with {}% yearly discount", 
+            self.cached_pricing.tiers.len(), 
+            discount_percent.unwrap_or(0.0));
 
         Ok(())
+    }
+
+    fn get_tier_display_name(&self, tier: &str) -> String {
+        match tier.to_lowercase().as_str() {
+            "personal" => "Personal".to_string(),
+            "pro" => "Pro".to_string(),
+            "business" => "Business".to_string(),
+            _ => tier.to_string(),
+        }
+    }
+
+    fn get_tier_description(&self, tier: &str) -> Option<String> {
+        match tier.to_lowercase().as_str() {
+            "personal" => Some("For individual Bitcoin holders".to_string()),
+            "pro" => Some("For Uncle Jims & family guardians".to_string()),
+            "business" => Some("For businesses & services".to_string()),
+            _ => None,
+        }
+    }
+
+
+    fn get_tier_features(&self, tier: &str) -> HashMap<String, String> {
+        let mut features = HashMap::new();
+        
+        // Base features for all tiers
+        features.insert("trial".to_string(), "30-day free trial".to_string());
+        features.insert("email".to_string(), "Email notifications".to_string());
+
+        match tier.to_lowercase().as_str() {
+            "personal" => {
+                features.insert("wallets".to_string(), "1 wallet".to_string());
+                features.insert("contacts".to_string(), "1 contact".to_string());
+                features.insert("sync".to_string(), "5 minute sync time".to_string());
+            },
+            "pro" => {
+                features.insert("wallets".to_string(), "15 wallets".to_string());
+                features.insert("contacts".to_string(), "10 contacts per wallet".to_string());
+                features.insert("sync".to_string(), "1 minute sync time".to_string());
+                features.insert("sms".to_string(), "SMS notifications".to_string());
+                features.insert("push".to_string(), "Push notifications".to_string());
+                features.insert("analysis".to_string(), "Transaction analysis (RBF/CPFP)".to_string());
+            },
+            "business" => {
+                features.insert("wallets".to_string(), "Unlimited wallets".to_string());
+                features.insert("contacts".to_string(), "Unlimited contacts".to_string());
+                features.insert("sync".to_string(), "5 second sync time".to_string());
+                features.insert("sms".to_string(), "SMS notifications".to_string());
+                features.insert("push".to_string(), "Push notifications".to_string());
+                features.insert("analysis".to_string(), "Transaction analysis (RBF/CPFP)".to_string());
+                features.insert("api".to_string(), "REST API access".to_string());
+                features.insert("webhooks".to_string(), "Custom webhooks".to_string());
+            },
+            _ => {},
+        }
+
+        features
     }
 
     pub async fn create_checkout_session(
@@ -165,10 +299,20 @@ impl StripeBilling {
     ) -> Result<CheckoutSessionResponse> {
         tracing::info!("🛒 Creating checkout session for user {} with tier {:?}, billing: {}", user_id, tier, billing_cycle);
         
-        // Get price ID from cached prices (for now, only monthly)
-        let price_id = self.cached_prices.get(&tier)
-            .ok_or_else(|| anyhow::anyhow!("No price found for tier {:?}", tier))?
-            .clone();
+        // Get price ID from cached pricing data
+        let tier_str = tier.as_str();
+        let tier_pricing = self.cached_pricing.tiers.iter()
+            .find(|t| t.tier == tier_str)
+            .ok_or_else(|| anyhow::anyhow!("No pricing found for tier {:?}", tier))?;
+        
+        let price_info = match billing_cycle {
+            "yearly" => tier_pricing.yearly_price.as_ref()
+                .or(tier_pricing.monthly_price.as_ref()),
+            _ => tier_pricing.monthly_price.as_ref()
+                .or(tier_pricing.yearly_price.as_ref()),
+        }.ok_or_else(|| anyhow::anyhow!("No price found for tier {:?} with billing cycle {}", tier, billing_cycle))?;
+        
+        let price_id = price_info.price_id.clone();
         tracing::info!("💰 Using price ID: {}", price_id);
 
         // Use user_id as customer identifier for now
@@ -215,10 +359,17 @@ impl StripeBilling {
         tier: SubscriptionTier,
         metadata_db: &crate::metadata::MetadataDb,
     ) -> Result<()> {
-        // Get cached price ID for this tier
-        let price_id = self.cached_prices.get(&tier)
-            .ok_or_else(|| anyhow::anyhow!("No price found for tier {:?}. Make sure products are loaded from Stripe.", tier))?
-            .clone();
+        // Get cached price ID for this tier (default to monthly)
+        let tier_str = tier.as_str();
+        let tier_pricing = self.cached_pricing.tiers.iter()
+            .find(|t| t.tier == tier_str)
+            .ok_or_else(|| anyhow::anyhow!("No pricing found for tier {:?}. Make sure products are loaded from Stripe.", tier))?;
+        
+        let price_info = tier_pricing.monthly_price.as_ref()
+            .or(tier_pricing.yearly_price.as_ref())
+            .ok_or_else(|| anyhow::anyhow!("No price found for tier {:?}. Make sure products have prices in Stripe.", tier))?;
+        
+        let price_id = price_info.price_id.clone();
         
         tracing::info!("🆕 Creating trial subscription for user {} with tier {:?} (price: {})", user.email, tier, price_id);
         
@@ -387,12 +538,7 @@ impl StripeBilling {
     }
 
     pub fn get_pricing_for_frontend(&self) -> PricingInfo {
-        // TODO: Load pricing dynamically using our client service
-        // For now, return a placeholder
-        PricingInfo {
-            tiers: Vec::new(),
-            yearly_discount_percent: Some(20.0),
-        }
+        self.cached_pricing.clone()
     }
 
     // Helper method to extract user_id from Stripe customer_id

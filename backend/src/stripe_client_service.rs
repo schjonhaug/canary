@@ -76,6 +76,16 @@ pub struct PriceList {
     pub has_more: Option<bool>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Coupon {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub percent_off: Option<f64>,
+    pub amount_off: Option<i64>,
+    pub currency: Option<String>,
+    pub duration: Option<String>,
+    pub valid: Option<bool>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
@@ -273,6 +283,25 @@ impl StripeClientService {
         Ok(prices)
     }
 
+
+    pub async fn retrieve_coupon(&self, coupon_id: &str) -> Result<Coupon> {
+        let url = format!("https://api.stripe.com/v1/coupons/{}", coupon_id);
+        
+        let response = self.client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.secret_key))
+            .header("Stripe-Version", "2025-07-30.basil")
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Stripe API error: {}", error_text));
+        }
+
+        let coupon: Coupon = response.json().await?;
+        Ok(coupon)
+    }
 
     pub async fn parse_webhook_event(&self, payload: &str, signature: &str, webhook_secret: &str) -> Result<Event> {
         // Manual webhook signature verification for 2025 API compatibility
