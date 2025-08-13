@@ -61,7 +61,6 @@ export default function BillingCancelPage() {
             <div className="text-sm text-muted-foreground space-y-1">
               <p>• <strong>Personal:</strong> Perfect for individual users managing their own Bitcoin</p>
               <p>• <strong>Pro:</strong> Great for family guardians managing multiple wallets</p>
-              <p>• <strong>Business:</strong> Ideal for services requiring API access and webhooks</p>
             </div>
           </div>
         </CardContent>

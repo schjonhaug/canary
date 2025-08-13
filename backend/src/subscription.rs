@@ -5,7 +5,6 @@ use utoipa::ToSchema;
 pub enum SubscriptionTier {
     Personal,
     Pro,
-    Business,
 }
 
 #[derive(Debug, Clone)]
@@ -37,14 +36,6 @@ impl SubscriptionTier {
                 allows_push: true,
                 allows_transaction_analysis: true,
             },
-            Self::Business => TierLimits {
-                max_wallets: None, // unlimited
-                max_contacts_per_wallet: None,
-                sync_interval_secs: 5,
-                allows_sms: true,
-                allows_push: true,
-                allows_transaction_analysis: true,
-            },
         }
     }
     
@@ -52,7 +43,6 @@ impl SubscriptionTier {
         match self {
             Self::Personal => "personal",
             Self::Pro => "pro",
-            Self::Business => "business",
         }
     }
 }
@@ -62,7 +52,6 @@ impl From<&str> for SubscriptionTier {
         match s {
             "personal" => Self::Personal,
             "pro" => Self::Pro,
-            "business" => Self::Business,
             _ => Self::Personal, // Default fallback
         }
     }
@@ -90,7 +79,7 @@ impl std::fmt::Display for LimitError {
             self.resource, 
             self.current, 
             self.limit,
-            if self.tier == SubscriptionTier::Personal { "Pro" } else { "Business" },
+            "Pro",
             self.resource.to_lowercase()
         )
     }

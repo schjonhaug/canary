@@ -905,7 +905,7 @@ pub async fn create_wallet_contact(
                         StatusCode::FORBIDDEN,
                         Json(ErrorResponse {
                             error: format!(
-                                "SMS notifications are not available on {} tier. Upgrade to Pro or Business to enable SMS.",
+                                "SMS notifications are not available on {} tier. Upgrade to Pro to enable SMS.",
                                 user_record.subscription_tier.as_str()
                             ),
                         }),
@@ -2793,7 +2793,6 @@ pub async fn create_stripe_checkout_session(
     let tier = match payload.tier.as_str() {
         "personal" => SubscriptionTier::Personal,
         "pro" => SubscriptionTier::Pro,
-        "business" => SubscriptionTier::Business,
         _ => {
             return (
                 StatusCode::BAD_REQUEST,

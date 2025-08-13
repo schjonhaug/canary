@@ -10,7 +10,6 @@ import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
 interface PlanComparisonProps {
   currentTier: string
   onUpgrade?: (targetTier: string, isYearly: boolean) => void
-  onContactSales?: () => void
   highlightUpgrades?: boolean
   showPricing?: boolean
   isModal?: boolean
@@ -25,7 +24,6 @@ interface PlanComparisonProps {
 export function PlanComparison({ 
   currentTier, 
   onUpgrade, 
-  onContactSales,
   highlightUpgrades = true,
   showPricing = true,
   isModal = false,
@@ -76,7 +74,6 @@ export function PlanComparison({
       tiersToShow={tiersToShow}
       currentTier={currentTier}
       onUpgrade={onUpgrade}
-      onContactSales={onContactSales}
       highlightUpgrades={highlightUpgrades}
       showPricing={showPricing}
       showCallToAction={showCallToAction}
@@ -101,7 +98,6 @@ interface PlanComparisonContentProps {
   }>
   currentTier: string
   onUpgrade?: (targetTier: string, isYearly: boolean) => void
-  onContactSales?: () => void
   highlightUpgrades: boolean
   showPricing: boolean
   showCallToAction: boolean
@@ -117,7 +113,6 @@ function PlanComparisonContent({
   tiersToShow,
   currentTier,
   onUpgrade,
-  onContactSales,
   highlightUpgrades,
   showPricing,
   showCallToAction,
@@ -189,11 +184,6 @@ function PlanComparisonContent({
                   )}
                 </div>
               )}
-              {showPricing && !monthlyPrice && (
-                <div className="mt-3">
-                  <div className="text-lg text-muted-foreground">Contact Sales</div>
-                </div>
-              )}
             </CardHeader>
             
             <CardContent>
@@ -224,19 +214,6 @@ function PlanComparisonContent({
               </ul>
             </CardContent>
             
-            {showCallToAction && tier.tier === "business" && (
-              <CardFooter>
-                <Button 
-                  className="w-full" 
-                  variant="outline"
-                  onClick={onContactSales}
-                  disabled={isLoadingThisTier}
-                >
-                  {isLoadingThisTier && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Contact Sales
-                </Button>
-              </CardFooter>
-            )}
             
             {onUpgrade && (!isCurrentTier || isTrialUser) && !showCallToAction && (
               <CardFooter>
@@ -244,16 +221,14 @@ function PlanComparisonContent({
                   className="w-full" 
                   variant={isUpgrade ? "default" : "outline"}
                   onClick={() => {
-                    if (tier.tier === "business" && onContactSales) {
-                      onContactSales()
-                    } else if (onUpgrade) {
+                    if (onUpgrade) {
                       onUpgrade(tier.tier, false) // Always start with monthly (upsell will be shown in Stripe)
                     }
                   }}
                   disabled={isLoadingThisTier}
                 >
                   {isLoadingThisTier && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {tier.tier === "business" ? "Contact Sales" : isTrialUser ? `Subscribe to ${getTierDisplayName(tier.tier)}` : `Upgrade to ${getTierDisplayName(tier.tier)}`}
+                  {isTrialUser ? `Subscribe to ${getTierDisplayName(tier.tier)}` : `Upgrade to ${getTierDisplayName(tier.tier)}`}
                 </Button>
               </CardFooter>
             )}

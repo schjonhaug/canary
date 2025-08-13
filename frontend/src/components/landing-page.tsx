@@ -42,16 +42,12 @@ const faqs = [
 
   {
     question: "How fast are notifications?",
-    answer: "With our Pro and Business plans, you get near real-time notifications with sync intervals as fast as 5 seconds. Most notifications arrive within seconds of transaction confirmation."
+    answer: "With our Pro plan, you get near real-time notifications with sync intervals as fast as 1 minute. Most notifications arrive within seconds of transaction confirmation."
   },
   {
     question: "Can I upgrade or downgrade anytime?",
     answer: "Yes! You can change your plan at any time. Upgrades take effect immediately, and downgrades apply at the end of your billing cycle."
   },
-  {
-    question: "Is there an API available?",
-    answer: "Business plan subscribers get full REST API access for integrating Canary into their existing systems and workflows."
-  }
 ]
 
 export default function LandingPage() {
@@ -139,9 +135,6 @@ export default function LandingPage() {
         
         <PlanComparison
           currentTier=""
-          onContactSales={() => {
-            window.location.href = 'mailto:mail@canarybitcoin.com?subject=Business Plan Inquiry&body=Hi, I am interested in the Business plan for Canary. Please contact me to discuss.'
-          }}
           highlightUpgrades={false}
           showPricing={true}
           isModal={false}

@@ -122,43 +122,30 @@ export const successStyles = "p-3 bg-green-50 border border-green-200 rounded-lg
 export const SUBSCRIPTION_LIMITS = {
   personal: { wallets: 1, contacts: 1 },
   pro: { wallets: 15, contacts: 10 },
-  business: { wallets: null, contacts: null }, // null means unlimited
 } as const
 
 export type SubscriptionTier = keyof typeof SUBSCRIPTION_LIMITS
 
-export function getWalletLimit(tier: string): number | null {
+export function getWalletLimit(tier: string): number {
   const tierData = SUBSCRIPTION_LIMITS[tier.toLowerCase() as SubscriptionTier]
   return tierData ? tierData.wallets : 1 // Default to personal limit for unknown tiers
 }
 
 export function hasReachedWalletLimit(currentWalletCount: number, tier: string): boolean {
   const limit = getWalletLimit(tier)
-  if (limit === null) return false // unlimited
   return currentWalletCount >= limit
 }
 
-export function getContactLimit(tier: string): number | null {
+export function getContactLimit(tier: string): number {
   const tierData = SUBSCRIPTION_LIMITS[tier.toLowerCase() as SubscriptionTier]
   return tierData ? tierData.contacts : 1 // Default to personal limit for unknown tiers
 }
 
 export function hasReachedContactLimit(currentContactCount: number, tier: string): boolean {
   const limit = getContactLimit(tier)
-  if (limit === null) return false // unlimited
   return currentContactCount >= limit
 }
 
-export function getNextTier(currentTier: string): string | null {
-  switch (currentTier.toLowerCase()) {
-    case 'personal':
-      return 'pro'
-    case 'pro':
-      return 'business'
-    default:
-      return null
-  }
-}
 
 export function getTierDisplayName(tier: string): string {
   switch (tier.toLowerCase()) {
@@ -166,8 +153,6 @@ export function getTierDisplayName(tier: string): string {
       return 'Personal'
     case 'pro':
       return 'Pro'
-    case 'business':
-      return 'Business'
     default:
       return tier
   }

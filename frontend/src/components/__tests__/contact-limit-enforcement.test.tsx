@@ -90,7 +90,6 @@ describe('Contact Limit Enforcement', () => {
       it('returns correct limits for each tier', () => {
         expect(getContactLimit('personal')).toBe(1)
         expect(getContactLimit('pro')).toBe(10)
-        expect(getContactLimit('business')).toBe(null) // unlimited
       })
 
       it('handles case insensitive tier names', () => {
@@ -125,10 +124,6 @@ describe('Contact Limit Enforcement', () => {
         expect(hasReachedContactLimit(9, 'pro')).toBe(false)
       })
 
-      it('returns false for business tier (unlimited)', () => {
-        expect(hasReachedContactLimit(100, 'business')).toBe(false)
-        expect(hasReachedContactLimit(1000, 'business')).toBe(false)
-      })
     })
   })
 
@@ -252,39 +247,6 @@ describe('Contact Limit Enforcement', () => {
     })
   })
 
-  describe('Business Tier (Unlimited)', () => {
-    it('always shows contact modal regardless of count', async () => {
-      const user = userEvent.setup()
-      render(
-        <ContactLimitTestComponent 
-          userTier="business" 
-          currentContactCount={100} 
-        />
-      )
-
-      expect(screen.getByTestId('contact-limit')).toHaveTextContent('Contact limit: unlimited')
-
-      await user.click(screen.getByTestId('add-contact-btn'))
-
-      expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
-    })
-
-    it('shows contact modal even with very high contact count', async () => {
-      const user = userEvent.setup()
-      render(
-        <ContactLimitTestComponent 
-          userTier="business" 
-          currentContactCount={1000} 
-        />
-      )
-
-      await user.click(screen.getByTestId('add-contact-btn'))
-
-      expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
-    })
-  })
 
   describe('Edge Cases', () => {
     it('handles zero contacts correctly', async () => {
@@ -441,18 +403,5 @@ describe('Contact Limit Enforcement', () => {
       expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
     })
 
-    it('Business user never sees upgrade modal', async () => {
-      const user = userEvent.setup()
-      render(
-        <ContactLimitTestComponent 
-          userTier="business" 
-          currentContactCount={1000} 
-        />
-      )
-
-      await user.click(screen.getByTestId('add-contact-btn'))
-      expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
-      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
-    })
   })
 })

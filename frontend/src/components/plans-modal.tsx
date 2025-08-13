@@ -74,11 +74,6 @@ export function PlansModal({
     }
   }
 
-  const handleContactSales = () => {
-    // Open email client for business plan inquiries
-    window.location.href = 'mailto:mail@canarybitcoin.com?subject=Business Plan Inquiry&body=Hi, I am interested in the Business plan for Canary. Please contact me to discuss.'
-    onClose()
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -116,7 +111,6 @@ export function PlansModal({
           <PlanComparison
             currentTier={currentTier.toLowerCase()}
             onUpgrade={handleUpgrade}
-            onContactSales={handleContactSales}
             highlightUpgrades={!isTrialUser}
             showPricing={true}
             isModal={true}

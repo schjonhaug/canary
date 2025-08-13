@@ -227,18 +227,16 @@ impl StripeBilling {
             yearly_discount_percent: discount_percent,
         };
 
-        // Sort tiers by display order (Personal -> Pro -> Business)
+        // Sort tiers by display order (Personal -> Pro)
         self.cached_pricing.tiers.sort_by(|a, b| {
             let order_a = match a.tier.to_lowercase().as_str() {
                 "personal" => 1,
                 "pro" => 2,
-                "business" => 3,
                 _ => 99,
             };
             let order_b = match b.tier.to_lowercase().as_str() {
                 "personal" => 1,
                 "pro" => 2,
-                "business" => 3,
                 _ => 99,
             };
             order_a.cmp(&order_b)
@@ -255,7 +253,6 @@ impl StripeBilling {
         match tier.to_lowercase().as_str() {
             "personal" => "Personal".to_string(),
             "pro" => "Pro".to_string(),
-            "business" => "Business".to_string(),
             _ => tier.to_string(),
         }
     }
@@ -264,7 +261,6 @@ impl StripeBilling {
         match tier.to_lowercase().as_str() {
             "personal" => Some("For individual Bitcoin holders".to_string()),
             "pro" => Some("For Uncle Jims & family guardians".to_string()),
-            "business" => Some("For businesses & services".to_string()),
             _ => None,
         }
     }

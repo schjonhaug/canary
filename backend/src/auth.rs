@@ -108,11 +108,9 @@ pub struct UpdateUserResponse {
 const DEV_MODE: bool = cfg!(debug_assertions);
 
 // Dev mode test email addresses (bypass email verification in dev mode)
-pub const DEV_TEST_EMAILS: [&str; 4] = [
-    "delivered+admin@resend.dev",    // Admin user (Business tier)
+pub const DEV_TEST_EMAILS: [&str; 2] = [
     "delivered+alice@resend.dev",    // Personal tier
     "delivered+bob@resend.dev",      // Pro tier
-    "delivered+charlie@resend.dev",  // Business tier
 ];
 
 // Dev mode password for all test accounts

@@ -415,10 +415,8 @@ impl MetadataDb {
                 
                 if !exists {
                     let (name, tier) = match *email {
-                        "delivered+admin@resend.dev" => ("Admin", "business"), // Admin gets Business-tier limits
                         "delivered+alice@resend.dev" => ("Alice", "personal"),
                         "delivered+bob@resend.dev" => ("Bob", "pro"),
-                        "delivered+charlie@resend.dev" => ("Charlie", "business"),
                         _ => ("Test User", "personal"),
                     };
                     

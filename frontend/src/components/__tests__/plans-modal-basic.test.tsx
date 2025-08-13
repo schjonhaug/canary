@@ -91,20 +91,6 @@ describe('PlansModal Basic Functionality', () => {
       expect(screen.getByText('Current usage: 10 / 10 contacts')).toBeInTheDocument()
     })
 
-    it('handles business tier unlimited limits', () => {
-      render(
-        <PlansModal 
-          {...defaultProps}
-          currentTier="business"
-          currentContactCount={50}
-          limitType="contacts"
-        />
-      )
-      
-      expect(screen.getByText('Contact Limit Reached')).toBeInTheDocument()
-      // Business tier should show usage information (exact format may vary due to null limits)
-      expect(screen.getByText(/Current usage: 50/)).toBeInTheDocument()
-    })
   })
 
   describe('Tier Badge Display', () => {
@@ -118,10 +104,6 @@ describe('PlansModal Basic Functionality', () => {
       expect(screen.getByText('Pro')).toBeInTheDocument()
     })
 
-    it('displays Business tier badge', () => {
-      render(<PlansModal {...defaultProps} currentTier="business" currentWalletCount={100} />)
-      expect(screen.getByText('Business')).toBeInTheDocument()
-    })
   })
 
   describe('Default Props', () => {
