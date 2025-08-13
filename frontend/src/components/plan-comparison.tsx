@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Loader2 } from "lucide-react"
 import { allFeatures, getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
-import { BillingToggle } from "./billing-toggle"
 import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
 
 interface PlanComparisonProps {
@@ -14,7 +13,6 @@ interface PlanComparisonProps {
   onContactSales?: () => void
   highlightUpgrades?: boolean
   showPricing?: boolean
-  showBillingToggle?: boolean
   isModal?: boolean
   showCallToAction?: boolean
   showUnifiedTrialButton?: boolean
@@ -30,7 +28,6 @@ export function PlanComparison({
   onContactSales,
   highlightUpgrades = true,
   showPricing = true,
-  showBillingToggle = true,
   isModal = false,
   showCallToAction = false,
   showUnifiedTrialButton = false,
@@ -39,7 +36,6 @@ export function PlanComparison({
   isLoading = false,
   loadingTier = null
 }: PlanComparisonProps) {
-  const [isYearly, setIsYearly] = useState(false)
   const { pricing, loading, error } = usePricing()
   const discountPercent = pricing?.yearly_discount_percent || 20 // fallback to 20%
   
@@ -83,12 +79,9 @@ export function PlanComparison({
       onContactSales={onContactSales}
       highlightUpgrades={highlightUpgrades}
       showPricing={showPricing}
-      showBillingToggle={showBillingToggle}
       showCallToAction={showCallToAction}
       showUnifiedTrialButton={showUnifiedTrialButton}
       isTrialUser={isTrialUser}
-      isYearly={isYearly}
-      setIsYearly={setIsYearly}
       isModal={isModal}
       isLoading={isLoading}
       loadingTier={loadingTier}
@@ -111,11 +104,8 @@ interface PlanComparisonContentProps {
   onContactSales?: () => void
   highlightUpgrades: boolean
   showPricing: boolean
-  showBillingToggle: boolean
   showCallToAction: boolean
   isTrialUser: boolean
-  isYearly: boolean
-  setIsYearly: (value: boolean) => void
   isModal: boolean
   isLoading: boolean
   loadingTier: string | null
@@ -130,12 +120,9 @@ function PlanComparisonContent({
   onContactSales,
   highlightUpgrades,
   showPricing,
-  showBillingToggle,
   showCallToAction,
   showUnifiedTrialButton,
   isTrialUser,
-  isYearly,
-  setIsYearly,
   isModal,
   isLoading,
   loadingTier,

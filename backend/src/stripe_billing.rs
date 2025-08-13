@@ -314,7 +314,6 @@ impl StripeBilling {
         billing_cycle: &str, // "monthly" or "yearly"
         success_url: &str,
         cancel_url: &str,
-        coupon_id: Option<String>,
         metadata_db: &crate::metadata::MetadataDb,
     ) -> Result<CheckoutSessionResponse> {
         tracing::info!("🛒 Creating checkout session for user {} with tier {:?}, billing: {}", user_id, tier, billing_cycle);
@@ -360,7 +359,6 @@ impl StripeBilling {
             success_url.to_string(),
             cancel_url.to_string(),
             metadata,
-            coupon_id,
         ).await?;
         
         let checkout_url = session.url.unwrap_or_default();

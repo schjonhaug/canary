@@ -58,7 +58,7 @@ canary/
 │   └── migrations/  # Database schema migrations (001_initial_schema.sql)
 ├── frontend/        # Next.js app with React components
 │   ├── src/
-│   │   ├── components/  # UI components (plan-comparison.tsx, upgrade-modal.tsx, billing-toggle.tsx)
+│   │   ├── components/  # UI components (plan-comparison.tsx, plans-modal.tsx)
 │   │   ├── lib/        # Shared utilities (pricing-data.ts, utils.ts)
 │   │   └── contexts/   # React contexts (auth-context.tsx, wallets-context.tsx)
 ├── regtest-env/    # Docker Bitcoin + Fulcrum setup
@@ -143,7 +143,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Network Isolation**: Separate databases per Bitcoin network
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
 - **User Onboarding**: Guided wallet creation with BIP39 mnemonic generation
-- **Professional UX**: Comprehensive plan comparison modals with yearly/monthly billing toggle
+- **Professional UX**: Comprehensive plan comparison modals showing monthly prices with yearly savings
 - **Development Mode**: Quick login options for testing with pre-configured email accounts
 - **Clean Registration Flow**: Dedicated success page (/sign-up/success) after registration with clear email verification instructions
 
@@ -156,14 +156,14 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 
 ### Limit Enforcement
 - **Proactive Checking**: Limits checked before form display (not after submission)
-- **Smart Upgrade Modals**: Professional plan comparison with yearly/monthly pricing
+- **Smart Upgrade Modals**: Professional plan comparison with monthly pricing and yearly savings display
 - **Tier-based Sync**: Individual wallet sync intervals based on subscription tier
 - **Notification Filtering**: SMS notifications restricted to Pro/Business tiers
 - **Contact Sales**: Business tier requires sales consultation (features under development)
 
 ### Frontend Components
 - **Shared Pricing Data**: Single source of truth in `/src/lib/pricing-data.ts`
-- **Reusable Components**: `PlanComparison` and `BillingToggle` components
+- **Reusable Components**: `PlanComparison` and `PlansModal` components
 - **Upgrade Modal**: Wide modal (85vw) with comprehensive feature comparison
 - **Current Plan Highlighting**: Blue highlighting with "CURRENT PLAN" badge
 
@@ -323,8 +323,19 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 
 **Product Setup in Stripe Dashboard:**
 - Create products with `metadata.tier` set to "personal", "pro", or "business"
-- Add monthly recurring prices to each product
+- Add monthly recurring prices to each product (these will be the primary prices shown)
+- Add yearly recurring prices with built-in discounts (typically 20% off)
+- Configure yearly prices as "upsells" on the monthly prices in Stripe Dashboard
 - Backend automatically loads all products and prices on startup
+- Frontend displays monthly prices with yearly savings percentage calculated from price differences
+
+### Stripe Upsell Implementation
+- **Dashboard Configuration**: Yearly price upsells are configured directly in Stripe Dashboard on monthly prices
+- **No Programmatic Upsells**: Backend does not add upsell line items; relies on Stripe Dashboard configuration
+- **Price Discovery**: Backend automatically discovers both monthly and yearly prices for each tier
+- **Savings Calculation**: Frontend calculates percentage savings by comparing `(monthly * 12 - yearly) / (monthly * 12) * 100`
+- **Simplified UX**: Users see monthly price prominently with yearly savings displayed below
+- **Stripe Checkout Integration**: When users click "Subscribe", they see the configured upsells in Stripe's checkout flow
 
 ### Customer Portal Features
 - **Subscription Management**: Change plans, update billing frequency

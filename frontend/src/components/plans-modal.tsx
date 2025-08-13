@@ -119,7 +119,6 @@ export function PlansModal({
             onContactSales={handleContactSales}
             highlightUpgrades={!isTrialUser}
             showPricing={true}
-            showBillingToggle={true}
             isModal={true}
             showAllTiers={isTrialUser}
             isTrialUser={isTrialUser}

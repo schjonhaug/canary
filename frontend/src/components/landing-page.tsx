@@ -144,7 +144,6 @@ export default function LandingPage() {
           }}
           highlightUpgrades={false}
           showPricing={true}
-          showBillingToggle={true}
           isModal={false}
           showCallToAction={true}
           showUnifiedTrialButton={true}
