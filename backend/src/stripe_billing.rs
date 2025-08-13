@@ -343,6 +343,21 @@ impl StripeBilling {
             .ok_or_else(|| anyhow::anyhow!("User {} does not have a Stripe customer ID. Trial may not have been created properly.", user_id))?;
         
         tracing::info!("🔍 Using Stripe customer ID: {}", customer_id);
+        
+        // Check if user already has a paid subscription
+        let subscription_list = self.client.list_subscriptions(&customer_id).await?;
+        let subscriptions = subscription_list.data.unwrap_or_default();
+        
+        for subscription in &subscriptions {
+            if let Some(status) = &subscription.status {
+                if status == "active" || status == "past_due" {
+                    tracing::warn!("🚫 User {} already has a paid subscription ({}). Preventing checkout.", user_id, status);
+                    return Err(anyhow::anyhow!("User already has an active subscription"));
+                }
+            }
+        }
+        
+        tracing::info!("✅ User has no active paid subscription, proceeding with checkout");
 
         // Create subscription metadata
         let mut metadata = HashMap::new();
@@ -449,10 +464,27 @@ impl StripeBilling {
                 }
                 "checkout.session.completed" => {
                     if let Some(data) = &event.data {
-                        if let Some(_session_data) = &data.object {
-                            // Parse checkout session data
+                        if let Some(session_data) = &data.object {
                             tracing::info!("📋 Processing checkout.session.completed");
-                            // TODO: Extract subscription info and create update
+                            
+                            // Parse checkout session data
+                            if let Ok(session) = serde_json::from_value::<serde_json::Value>(session_data.clone()) {
+                                let customer_id = session.get("customer").and_then(|c| c.as_str());
+                                let new_subscription_id = session.get("subscription").and_then(|s| s.as_str());
+                                
+                                tracing::info!("🛒 Checkout completed - Customer: {:?}, New Subscription: {:?}", 
+                                    customer_id, new_subscription_id);
+                                
+                                if let (Some(customer_id), Some(new_subscription_id)) = (customer_id, new_subscription_id) {
+                                    // Handle duplicate subscription cleanup
+                                    if let Ok(cleanup_update) = self.handle_checkout_completion(
+                                        customer_id, 
+                                        new_subscription_id
+                                    ).await {
+                                        updates.push(cleanup_update);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -564,6 +596,54 @@ impl StripeBilling {
             customer_id: None,
             subscription_id: None,
             status: Some("pending".to_string()),
+        })
+    }
+
+    pub async fn handle_checkout_completion(
+        &self, 
+        customer_id: &str, 
+        new_subscription_id: &str
+    ) -> Result<SubscriptionUpdate> {
+        tracing::info!("🧹 Handling checkout completion for customer: {}, new subscription: {}", 
+            customer_id, new_subscription_id);
+        
+        // List all subscriptions for this customer
+        let subscription_list = self.client.list_subscriptions(customer_id).await?;
+        let subscriptions = subscription_list.data.unwrap_or_default();
+        
+        tracing::info!("📊 Found {} subscriptions for customer {}", subscriptions.len(), customer_id);
+        
+        // Find and cancel trial subscriptions (keep only the new paid one)
+        for subscription in &subscriptions {
+            if let Some(sub_id) = &subscription.id {
+                if sub_id != new_subscription_id {
+                    if let Some(status) = &subscription.status {
+                        if status == "trialing" {
+                            tracing::info!("🗑️ Cancelling trial subscription: {}", sub_id);
+                            match self.client.cancel_subscription(sub_id).await {
+                                Ok(_) => {
+                                    tracing::info!("✅ Successfully cancelled trial subscription: {}", sub_id);
+                                }
+                                Err(e) => {
+                                    tracing::error!("❌ Failed to cancel trial subscription {}: {}", sub_id, e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Create update for the new paid subscription
+        let user_id = self.extract_user_id_from_customer(customer_id);
+        
+        Ok(SubscriptionUpdate {
+            user_id,
+            subscription_tier: "pro".to_string(), // Update based on the actual tier from checkout
+            subscription_status: "active".to_string(), // Paid subscription is active
+            stripe_subscription_id: Some(new_subscription_id.to_string()),
+            subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
+            trial_ends_at: None, // No longer in trial
         })
     }
 

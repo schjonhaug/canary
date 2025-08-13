@@ -32,6 +32,13 @@ pub struct CheckoutSession {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionList {
+    pub object: Option<String>,
+    pub data: Option<Vec<Subscription>>,
+    pub has_more: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingPortalSession {
     pub id: Option<String>,
     pub url: Option<String>,
@@ -344,6 +351,41 @@ impl StripeClientService {
             .map_err(|e| anyhow::anyhow!("Failed to parse webhook event: {}", e))?;
         
         Ok(event)
+    }
+
+    pub async fn list_subscriptions(&self, customer_id: &str) -> Result<SubscriptionList> {
+        let url = format!("https://api.stripe.com/v1/subscriptions?customer={}", customer_id);
+        
+        let response = self.add_stripe_headers(self.client.get(&url))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            tracing::error!("❌ Stripe list subscriptions failed: {}", error_text);
+            return Err(anyhow::anyhow!("Stripe list subscriptions failed: {}", error_text));
+        }
+
+        let subscriptions: SubscriptionList = response.json().await?;
+        Ok(subscriptions)
+    }
+
+    pub async fn cancel_subscription(&self, subscription_id: &str) -> Result<Subscription> {
+        let url = format!("https://api.stripe.com/v1/subscriptions/{}", subscription_id);
+        
+        // Cancel immediately (no form data needed for DELETE)
+        let response = self.add_stripe_headers(self.client.delete(&url))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            tracing::error!("❌ Stripe cancel subscription failed: {}", error_text);
+            return Err(anyhow::anyhow!("Stripe cancel subscription failed: {}", error_text));
+        }
+
+        let subscription: Subscription = response.json().await?;
+        Ok(subscription)
     }
 
 }
