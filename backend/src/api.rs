@@ -2853,6 +2853,7 @@ pub async fn create_stripe_checkout_session(
         success_url,
         cancel_url,
         None, // TODO: Add coupon support to API request
+        &manager.metadata_db,
     ).await {
         Ok(session) => (StatusCode::OK, Json(session)).into_response(),
         Err(e) => (

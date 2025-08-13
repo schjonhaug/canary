@@ -59,6 +59,7 @@ pub struct Price {
     pub product: Option<String>,
     pub unit_amount: Option<i64>,
     pub currency: Option<String>,
+    pub active: Option<bool>,
     pub recurring: Option<PriceRecurring>,
     pub metadata: Option<HashMap<String, String>>,
 }
@@ -204,10 +205,19 @@ impl StripeClientService {
             form_data.push(("discounts[0][coupon]".to_string(), coupon));
         }
 
+        // Note: Upsells are now configured directly in Stripe Dashboard on the price,
+        // so we don't need to add them programmatically here
+
         let response = self.add_stripe_headers(self.client.post("https://api.stripe.com/v1/checkout/sessions"))
             .form(&form_data)
             .send()
             .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            tracing::error!("❌ Stripe checkout session creation failed: {}", error_text);
+            return Err(anyhow::anyhow!("Stripe checkout session creation failed: {}", error_text));
+        }
 
         let session: CheckoutSession = response.json().await?;
         Ok(session)

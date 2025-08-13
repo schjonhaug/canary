@@ -144,8 +144,13 @@ impl StripeBilling {
                     
                     let tier_pricing = tiers.get_mut(tier_str).unwrap();
                     
-                    // Process all prices for this product
+                    // Process all active prices for this product
                     for price in prices {
+                        // Skip archived prices
+                        if price.active != Some(true) {
+                            continue;
+                        }
+                        
                         if let Some(recurring) = &price.recurring {
                             let interval = recurring.interval.as_deref().unwrap_or("");
                             let interval_count = recurring.interval_count.unwrap_or(0);
@@ -154,25 +159,31 @@ impl StripeBilling {
                             let currency = price.currency.as_deref().unwrap_or("USD").to_uppercase();
                             
                             if interval == "month" && interval_count == 1 {
-                                tier_pricing.monthly_price = Some(FrontendPriceInfo {
-                                    price_id: price_id.clone(),
-                                    amount,
-                                    currency: currency.clone(),
-                                    interval: "month".to_string(),
-                                });
+                                // Prefer the most recent or lowest monthly price
+                                if tier_pricing.monthly_price.is_none() || amount < tier_pricing.monthly_price.as_ref().unwrap().amount {
+                                    tier_pricing.monthly_price = Some(FrontendPriceInfo {
+                                        price_id: price_id.clone(),
+                                        amount,
+                                        currency: currency.clone(),
+                                        interval: "month".to_string(),
+                                    });
+                                    tracing::info!("💰 Found monthly price for {}: ${:.2}/{} ({})", 
+                                        tier_str, amount as f64 / 100.0, currency, price_id);
+                                }
                                 monthly_amounts.push(amount);
-                                tracing::info!("💰 Found monthly price for {}: ${:.2}/{} ({})", 
-                                    tier_str, amount as f64 / 100.0, currency, price_id);
                             } else if interval == "year" && interval_count == 1 {
-                                tier_pricing.yearly_price = Some(FrontendPriceInfo {
-                                    price_id: price_id.clone(),
-                                    amount,
-                                    currency: currency.clone(),
-                                    interval: "year".to_string(),
-                                });
+                                // Prefer the lowest yearly price (discounted price)
+                                if tier_pricing.yearly_price.is_none() || amount < tier_pricing.yearly_price.as_ref().unwrap().amount {
+                                    tier_pricing.yearly_price = Some(FrontendPriceInfo {
+                                        price_id: price_id.clone(),
+                                        amount,
+                                        currency: currency.clone(),
+                                        interval: "year".to_string(),
+                                    });
+                                    tracing::info!("💰 Found yearly price for {}: ${:.2}/{} ({})", 
+                                        tier_str, amount as f64 / 100.0, currency, price_id);
+                                }
                                 yearly_amounts.push(amount);
-                                tracing::info!("💰 Found yearly price for {}: ${:.2}/{} ({})", 
-                                    tier_str, amount as f64 / 100.0, currency, price_id);
                             }
                         }
                     }
@@ -180,25 +191,33 @@ impl StripeBilling {
             }
         }
 
-        // Get discount percentage from Stripe coupon if configured
-        let discount_percent = if let Ok(coupon_id) = std::env::var("STRIPE_YEARLY_COUPON_ID") {
-            match self.client.retrieve_coupon(&coupon_id).await {
-                Ok(coupon) => {
-                    if let Some(percent_off) = coupon.percent_off {
-                        tracing::info!("📊 Found yearly coupon '{}' with {}% discount", coupon_id, percent_off);
-                        Some(percent_off)
-                    } else {
-                        tracing::warn!("⚠️ Yearly coupon '{}' is not a percentage-based discount", coupon_id);
-                        None
+        // Calculate discount percentage from actual price differences (now that yearly prices have discount built-in)
+        let discount_percent = if !monthly_amounts.is_empty() && !yearly_amounts.is_empty() {
+            let mut total_discount = 0.0;
+            let mut count = 0;
+            
+            // Calculate discount for each tier by comparing monthly*12 vs yearly price
+            for tier_pricing in tiers.values() {
+                if let (Some(monthly), Some(yearly)) = (&tier_pricing.monthly_price, &tier_pricing.yearly_price) {
+                    let monthly_total = (monthly.amount * 12) as f64;
+                    let yearly_price = yearly.amount as f64;
+                    
+                    if yearly_price < monthly_total {
+                        let discount = (monthly_total - yearly_price) / monthly_total * 100.0;
+                        total_discount += discount;
+                        count += 1;
+                        tracing::info!("📊 {} tier: {}% yearly discount (${:.2}/year vs ${:.2}/year)", 
+                            tier_pricing.tier, discount, yearly_price / 100.0, monthly_total / 100.0);
                     }
                 }
-                Err(e) => {
-                    tracing::warn!("⚠️ Failed to retrieve yearly coupon '{}': {}", coupon_id, e);
-                    None
-                }
+            }
+            
+            if count > 0 {
+                Some((total_discount / count as f64).round())
+            } else {
+                None
             }
         } else {
-            tracing::info!("📊 No yearly coupon configured (STRIPE_YEARLY_COUPON_ID not set)");
             None
         };
 
@@ -296,6 +315,7 @@ impl StripeBilling {
         success_url: &str,
         cancel_url: &str,
         coupon_id: Option<String>,
+        metadata_db: &crate::metadata::MetadataDb,
     ) -> Result<CheckoutSessionResponse> {
         tracing::info!("🛒 Creating checkout session for user {} with tier {:?}, billing: {}", user_id, tier, billing_cycle);
         
@@ -315,8 +335,19 @@ impl StripeBilling {
         let price_id = price_info.price_id.clone();
         tracing::info!("💰 Using price ID: {}", price_id);
 
-        // Use user_id as customer identifier for now
-        let customer_id = format!("canary_user_{}", user_id);
+        // Upsells are now configured directly in Stripe Dashboard on the monthly price
+        if billing_cycle != "yearly" {
+            tracing::info!("🎯 Using monthly price with Stripe Dashboard upsell configuration");
+        }
+
+        // Look up user's Stripe customer ID from database
+        let user = metadata_db.get_user_by_id(user_id).await?
+            .ok_or_else(|| anyhow::anyhow!("User not found: {}", user_id))?;
+        
+        let customer_id = user.stripe_customer_id
+            .ok_or_else(|| anyhow::anyhow!("User {} does not have a Stripe customer ID. Trial may not have been created properly.", user_id))?;
+        
+        tracing::info!("🔍 Using Stripe customer ID: {}", customer_id);
 
         // Create subscription metadata
         let mut metadata = HashMap::new();
@@ -332,9 +363,14 @@ impl StripeBilling {
             coupon_id,
         ).await?;
         
+        let checkout_url = session.url.unwrap_or_default();
+        let session_id = session.id.unwrap_or_default();
+        
+        tracing::info!("✅ Checkout session created: {} (URL: {})", session_id, checkout_url);
+        
         Ok(CheckoutSessionResponse {
-            url: session.url.unwrap_or_default(),
-            session_id: session.id.unwrap_or_default(),
+            url: checkout_url,
+            session_id,
         })
     }
 

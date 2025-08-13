@@ -143,14 +143,7 @@ function PlanComparisonContent({
 }: PlanComparisonContentProps) {
   return (
     <div className="space-y-6">
-      {showBillingToggle && showPricing && (
-        <BillingToggle 
-          isYearly={isYearly} 
-          onToggle={setIsYearly} 
-          discountPercent={discountPercent}
-          className="mt-6"
-        />
-      )}
+{/* Removed billing toggle - always show monthly with yearly savings */}
       
       <div className={`grid gap-6 ${tiersToShow.length === 3 ? 'md:grid-cols-3' : tiersToShow.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1'} ${isModal ? 'max-w-6xl mx-auto' : 'max-w-5xl mx-auto'}`}>
       {tiersToShow.map((tier) => {
@@ -198,31 +191,20 @@ function PlanComparisonContent({
             <CardHeader>
               <CardTitle className="text-lg">{getTierDisplayName(tier.tier)}</CardTitle>
               <CardDescription className="text-sm">{tier.description || getTierDescription(tier.tier)}</CardDescription>
-              {showPricing && (monthlyPrice || yearlyPrice) && (
+              {showPricing && monthlyPrice && (
                 <div className="mt-3">
-                  {isYearly && yearlyPrice ? (
-                    <>
-                      <span className="text-2xl font-bold">{formatPrice(Math.round(yearlyPrice.amount * (1 - discountPercent / 100)), yearlyPrice.currency)}</span>
-                      <span className="text-muted-foreground text-sm">/year</span>
-                      {monthlyPrice && (
-                        <div className="text-xs text-muted-foreground mt-1 line-through">
-                          {formatPrice(monthlyPrice.amount * 12, monthlyPrice.currency)}/year
-                        </div>
-                      )}
-                    </>
-                  ) : monthlyPrice ? (
-                    <>
-                      <span className="text-2xl font-bold">{formatPrice(monthlyPrice.amount, monthlyPrice.currency)}</span>
-                      <span className="text-muted-foreground text-sm">/month</span>
-                      {yearlyPrice && (
-                        <div className="text-xs text-green-600 font-medium mt-1">
-                          Save {Math.round(discountPercent)}% with yearly billing
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-lg text-muted-foreground">Contact Sales</div>
+                  <span className="text-2xl font-bold">{formatPrice(monthlyPrice.amount, monthlyPrice.currency)}</span>
+                  <span className="text-muted-foreground text-sm">/month</span>
+                  {yearlyPrice && (
+                    <div className="text-xs text-green-600 font-medium mt-1">
+                      Save {Math.round(((monthlyPrice.amount * 12 - yearlyPrice.amount) / (monthlyPrice.amount * 12)) * 100)}% with yearly billing
+                    </div>
                   )}
+                </div>
+              )}
+              {showPricing && !monthlyPrice && (
+                <div className="mt-3">
+                  <div className="text-lg text-muted-foreground">Contact Sales</div>
                 </div>
               )}
             </CardHeader>
@@ -278,7 +260,7 @@ function PlanComparisonContent({
                     if (tier.tier === "business" && onContactSales) {
                       onContactSales()
                     } else if (onUpgrade) {
-                      onUpgrade(tier.tier, isYearly)
+                      onUpgrade(tier.tier, false) // Always start with monthly (upsell will be shown in Stripe)
                     }
                   }}
                   disabled={isLoadingThisTier}
