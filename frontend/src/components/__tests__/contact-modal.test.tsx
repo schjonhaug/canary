@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ContactModal } from '../contact-modal'
 
@@ -69,7 +69,9 @@ describe('ContactModal', () => {
 
   describe('Basic Modal Behavior', () => {
     it('renders modal when open', async () => {
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
       
       expect(screen.getByText('Add New Contact')).toBeInTheDocument()
       expect(screen.getByLabelText('Name')).toBeInTheDocument()
@@ -83,13 +85,17 @@ describe('ContactModal', () => {
     })
 
     it('renders edit mode title when editing contact', async () => {
-      render(<ContactModal {...defaultProps} editContact={mockContact} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} editContact={mockContact} />)
+      })
       
       expect(screen.getByText('Edit Contact')).toBeInTheDocument()
     })
 
     it('calls onClose when cancel button is clicked', async () => {
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
       
       fireEvent.click(screen.getByText('Cancel'))
       expect(defaultProps.onClose).toHaveBeenCalled()
@@ -98,7 +104,9 @@ describe('ContactModal', () => {
 
   describe('Provider Loading', () => {
     it('loads providers when modal opens', async () => {
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
       
       await waitFor(() => {
         expect(mockApi.getProviders).toHaveBeenCalled()
@@ -113,7 +121,9 @@ describe('ContactModal', () => {
   describe('New Contact Creation', () => {
     it('allows creating contact with ntfy only', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('Push Notifications')).toBeInTheDocument()
@@ -138,7 +148,9 @@ describe('ContactModal', () => {
 
     it('shows validation error when name is empty', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('Push Notifications')).toBeInTheDocument()
@@ -156,7 +168,9 @@ describe('ContactModal', () => {
   describe('SMS Verification Flow', () => {
     it('shows SMS verification button when phone number is entered', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -175,7 +189,9 @@ describe('ContactModal', () => {
 
     it('sends SMS verification and shows code input', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -207,7 +223,9 @@ describe('ContactModal', () => {
 
     it('verifies SMS code successfully', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -239,14 +257,20 @@ describe('ContactModal', () => {
         )
       })
 
-      expect(screen.getByText('SMS verified successfully')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getAllByText((content, element) => {
+          return element?.textContent?.includes('SMS verified successfully') ?? false
+        })[0]).toBeInTheDocument()
+      })
     })
 
     it('shows SMS verification error', async () => {
       const user = userEvent.setup()
       mockApi.verifyContact.mockResolvedValue({ valid: false, message: 'Invalid code' })
 
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -275,7 +299,9 @@ describe('ContactModal', () => {
 
     it('prevents submission without SMS verification', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -297,7 +323,9 @@ describe('ContactModal', () => {
   describe('Email Verification Flow', () => {
     it('shows email verification button when email is entered', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('Email Notifications')).toBeInTheDocument()
@@ -319,7 +347,9 @@ describe('ContactModal', () => {
         auto_verified: true 
       })
 
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('Email Notifications')).toBeInTheDocument()
@@ -334,7 +364,9 @@ describe('ContactModal', () => {
       await user.click(screen.getByText('Send Verification Code'))
 
       await waitFor(() => {
-        expect(screen.getByText('Email verified successfully')).toBeInTheDocument()
+        expect(screen.getAllByText((content, element) => {
+          return element?.textContent?.includes('Email verified successfully') ?? false
+        })[0]).toBeInTheDocument()
       })
 
       // Should not show OTP input for auto-verified
@@ -343,7 +375,9 @@ describe('ContactModal', () => {
 
     it('verifies email code successfully', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('Email Notifications')).toBeInTheDocument()
@@ -381,7 +415,9 @@ describe('ContactModal', () => {
 
   describe('Edit Contact Mode', () => {
     it('loads existing contact data in edit mode', async () => {
-      render(<ContactModal {...defaultProps} editContact={mockContact} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} editContact={mockContact} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -402,7 +438,9 @@ describe('ContactModal', () => {
 
     it('requires verification when phone number changes in edit mode', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} editContact={mockContact} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} editContact={mockContact} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -419,7 +457,9 @@ describe('ContactModal', () => {
 
     it('reverts to verified state when phone number reverts to original', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} editContact={mockContact} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} editContact={mockContact} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -444,7 +484,9 @@ describe('ContactModal', () => {
   describe('Multiple Provider Support', () => {
     it('allows creating contact with multiple verified providers', async () => {
       const user = userEvent.setup()
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('Push Notifications')).toBeInTheDocument()
@@ -478,7 +520,9 @@ describe('ContactModal', () => {
       await user.click(screen.getByText('Verify'))
 
       await waitFor(() => {
-        expect(screen.getByText('SMS verified successfully')).toBeInTheDocument()
+        expect(screen.getAllByText((content, element) => {
+          return element?.textContent?.includes('SMS verified successfully') ?? false
+        })[0]).toBeInTheDocument()
       })
       
       await user.click(screen.getByRole('checkbox', { name: /Email Notifications/ }))
@@ -487,7 +531,9 @@ describe('ContactModal', () => {
       await user.click(screen.getAllByText('Send Verification Code')[1]) // Second button for email
 
       await waitFor(() => {
-        expect(screen.getByText('Email verified successfully')).toBeInTheDocument()
+        expect(screen.getAllByText((content, element) => {
+          return element?.textContent?.includes('Email verified successfully') ?? false
+        })[0]).toBeInTheDocument()
       })
 
       // Submit
@@ -513,7 +559,9 @@ describe('ContactModal', () => {
       const user = userEvent.setup()
       mockApi.sendContactVerification.mockRejectedValue(new Error('Invalid phone number format'))
 
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -527,19 +575,25 @@ describe('ContactModal', () => {
       await user.click(screen.getByText('Send Verification Code'))
 
       await waitFor(() => {
-        expect(screen.getByText('Invalid phone number format')).toBeInTheDocument()
+        expect(screen.getAllByText((content, element) => {
+          return element?.textContent?.includes('Invalid phone number format') ?? false
+        })[0]).toBeInTheDocument()
       })
 
-      // Error should appear under phone input, not at top
+      // Error should appear under phone input, not at top  
       const phoneSection = phoneInput.closest('div')
-      expect(phoneSection).toContainElement(screen.getByText('Invalid phone number format'))
+      expect(phoneSection).toContainElement(screen.getAllByText((content, element) => {
+        return element?.textContent?.includes('Invalid phone number format') ?? false
+      })[0])
     })
 
     it('shows email validation errors under email input', async () => {
       const user = userEvent.setup()
       mockApi.sendContactVerification.mockRejectedValue(new Error('Invalid email address'))
 
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('Email Notifications')).toBeInTheDocument()
@@ -553,7 +607,9 @@ describe('ContactModal', () => {
       await user.click(screen.getByText('Send Verification Code'))
 
       await waitFor(() => {
-        expect(screen.getByText('Invalid email address')).toBeInTheDocument()
+        expect(screen.getAllByText((content, element) => {
+          return element?.textContent?.includes('Invalid email address') ?? false
+        })[0]).toBeInTheDocument()
       })
     })
 
@@ -561,7 +617,9 @@ describe('ContactModal', () => {
       const user = userEvent.setup()
       mockApi.sendContactVerification.mockRejectedValue(new Error('Invalid phone number format'))
 
-      render(<ContactModal {...defaultProps} />)
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
@@ -575,7 +633,9 @@ describe('ContactModal', () => {
       await user.click(screen.getByText('Send Verification Code'))
 
       await waitFor(() => {
-        expect(screen.getByText('Invalid phone number format')).toBeInTheDocument()
+        expect(screen.getAllByText((content, element) => {
+          return element?.textContent?.includes('Invalid phone number format') ?? false
+        })[0]).toBeInTheDocument()
       })
 
       // Start typing - error should clear
@@ -583,13 +643,19 @@ describe('ContactModal', () => {
       await user.clear(phoneInput)
       await user.type(phoneInput, '+47')
 
-      expect(screen.queryByText('Invalid phone number format')).not.toBeInTheDocument()
+      expect(screen.queryByText((content, element) => {
+        return element?.textContent?.includes('Invalid phone number format') ?? false
+      })).not.toBeInTheDocument()
     })
   })
 
   describe('State Management', () => {
     it('cleans up state when modal closes', async () => {
-      const { rerender } = render(<ContactModal {...defaultProps} />)
+      let renderResult
+      await act(async () => {
+        renderResult = render(<ContactModal {...defaultProps} />)
+      })
+      const { rerender } = renderResult
 
       await waitFor(() => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()

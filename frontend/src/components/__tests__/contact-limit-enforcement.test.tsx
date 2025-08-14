@@ -102,7 +102,7 @@ describe('Contact Limit Enforcement', () => {
 
       it('handles case insensitive tier names', () => {
         expect(getContactLimit('PERSONAL')).toBe(1)
-        expect(getContactLimit('UNCLE_JIM')).toBe(5)
+        expect(getContactLimit('TEAM')).toBe(5)
       })
 
       it('defaults to personal limit for invalid tiers', () => {
@@ -121,14 +121,14 @@ describe('Contact Limit Enforcement', () => {
         expect(hasReachedContactLimit(0, 'personal')).toBe(false)
       })
 
-      it('returns true when pro limit is reached', () => {
+      it('returns true when team limit is reached', () => {
         expect(hasReachedContactLimit(5, 'team')).toBe(true)
         expect(hasReachedContactLimit(6, 'team')).toBe(true)
       })
 
-      it('returns false when pro limit is not reached', () => {
-        expect(hasReachedContactLimit(5, 'team')).toBe(false)
+      it('returns false when team limit is not reached', () => {
         expect(hasReachedContactLimit(4, 'team')).toBe(false)
+        expect(hasReachedContactLimit(3, 'team')).toBe(false)
       })
 
     })
@@ -195,11 +195,11 @@ describe('Contact Limit Enforcement', () => {
       render(
         <ContactLimitTestComponent 
           userTier="team" 
-          currentContactCount={5} 
+          currentContactCount={4} 
         />
       )
 
-      expect(screen.getByTestId('contact-limit')).toHaveTextContent('Contact limit: 10')
+      expect(screen.getByTestId('contact-limit')).toHaveTextContent('Contact limit: 5')
 
       await user.click(screen.getByTestId('add-contact-btn'))
 
@@ -212,7 +212,7 @@ describe('Contact Limit Enforcement', () => {
       render(
         <ContactLimitTestComponent 
           userTier="team" 
-          currentContactCount={9} 
+          currentContactCount={4} 
         />
       )
 
@@ -222,19 +222,19 @@ describe('Contact Limit Enforcement', () => {
       expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
-    it('shows upgrade modal when limit is reached (10 contacts)', async () => {
+    it('shows upgrade modal when limit is reached (5 contacts)', async () => {
       const user = userEvent.setup()
       render(
         <ContactLimitTestComponent 
           userTier="team" 
-          currentContactCount={10} 
+          currentContactCount={5} 
         />
       )
 
       await user.click(screen.getByTestId('add-contact-btn'))
 
       expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
-      expect(screen.getByText('Current usage: 10 contacts')).toBeInTheDocument()
+      expect(screen.getByText('Current usage: 5 contacts')).toBeInTheDocument()
       expect(screen.queryByTestId('contact-modal')).not.toBeInTheDocument()
     })
 
@@ -243,7 +243,7 @@ describe('Contact Limit Enforcement', () => {
       render(
         <ContactLimitTestComponent 
           userTier="team" 
-          currentContactCount={15} 
+          currentContactCount={6} 
         />
       )
 
@@ -382,12 +382,12 @@ describe('Contact Limit Enforcement', () => {
       expect(screen.getByText('Contact Limit Reached')).toBeInTheDocument()
     })
 
-    it('Bob scenario: pro user with 9 contacts can add', async () => {
+    it('Bob scenario: team user with 4 contacts can add', async () => {
       const user = userEvent.setup()
       render(
         <ContactLimitTestComponent 
           userTier="team" 
-          currentContactCount={9} 
+          currentContactCount={4} 
         />
       )
 
@@ -396,12 +396,12 @@ describe('Contact Limit Enforcement', () => {
       expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
-    it('Bob scenario: pro user with 10 contacts sees upgrade modal', async () => {
+    it('Bob scenario: team user with 5 contacts sees upgrade modal', async () => {
       const user = userEvent.setup()
       render(
         <ContactLimitTestComponent 
           userTier="team" 
-          currentContactCount={10} 
+          currentContactCount={5} 
         />
       )
 
