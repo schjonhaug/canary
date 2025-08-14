@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub enum SubscriptionTier {
     Personal,
-    Pro,
+    UncleJim,
 }
 
 #[derive(Debug, Clone)]
@@ -12,9 +12,6 @@ pub struct TierLimits {
     pub max_wallets: Option<usize>,
     pub max_contacts_per_wallet: Option<usize>,
     pub sync_interval_secs: u64,
-    pub allows_sms: bool,
-    pub allows_push: bool,
-    pub allows_transaction_analysis: bool,
 }
 
 impl SubscriptionTier {
@@ -24,17 +21,11 @@ impl SubscriptionTier {
                 max_wallets: Some(1),
                 max_contacts_per_wallet: Some(1),
                 sync_interval_secs: 600, // 10 minutes
-                allows_sms: false,
-                allows_push: true, // ntfy is always enabled
-                allows_transaction_analysis: false,
             },
-            Self::Pro => TierLimits {
-                max_wallets: Some(10),
-                max_contacts_per_wallet: Some(10),
+            Self::UncleJim => TierLimits {
+                max_wallets: Some(5),
+                max_contacts_per_wallet: Some(5),
                 sync_interval_secs: 60, // 1 minute
-                allows_sms: true,
-                allows_push: true,
-                allows_transaction_analysis: true,
             },
         }
     }
@@ -42,7 +33,7 @@ impl SubscriptionTier {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Personal => "personal",
-            Self::Pro => "pro",
+            Self::UncleJim => "uncle_jim",
         }
     }
 }
@@ -51,7 +42,7 @@ impl From<&str> for SubscriptionTier {
     fn from(s: &str) -> Self {
         match s {
             "personal" => Self::Personal,
-            "pro" => Self::Pro,
+            "uncle_jim" => Self::UncleJim,
             _ => Self::Personal, // Default fallback
         }
     }
@@ -79,7 +70,7 @@ impl std::fmt::Display for LimitError {
             self.resource, 
             self.current, 
             self.limit,
-            "Pro",
+            "Uncle Jim",
             self.resource.to_lowercase()
         )
     }

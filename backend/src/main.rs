@@ -353,16 +353,7 @@ async fn main() -> anyhow::Result<()> {
                         for provider_info in available_providers {
                             let provider_name = &provider_info.name;
                             
-                            // Filter providers based on subscription tier
-                            if let Some(tier) = user_tier {
-                                let tier_limits = tier.limits();
-                                
-                                // Skip SMS provider if not allowed for this tier
-                                if provider_name == "twilio" && !tier_limits.allows_sms {
-                                    println!("   ⚠️  Skipping SMS notifications - not available on {} tier", tier.as_str());
-                                    continue;
-                                }
-                            }
+                            // All notification types are now allowed for all tiers
                             if let Ok(results) = manager
                                 .send_notifications(
                                     provider_name,
@@ -443,12 +434,45 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let app = create_router(wallet_manager, notification_manager, stripe_billing);
+    let app = create_router(wallet_manager.clone(), notification_manager, stripe_billing);
+
+    // Apply subscription limits for all existing users at startup
+    tokio::spawn({
+        let wallet_manager = wallet_manager.clone();
+        async move {
+            if let Err(e) = apply_startup_subscription_limits(wallet_manager).await {
+                eprintln!("❌ Failed to apply startup subscription limits: {}", e);
+            }
+        }
+    });
 
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);
 
     axum::serve(listener, app).await?;
 
+    Ok(())
+}
+
+async fn apply_startup_subscription_limits(wallet_manager: std::sync::Arc<tokio::sync::Mutex<WalletManager>>) -> anyhow::Result<()> {
+    tracing::info!("🎯 Applying subscription limits for all users at startup");
+    
+    let manager = wallet_manager.lock().await;
+    
+    // Get all users from the database
+    let users = manager.metadata_db.get_all_users().await?;
+    
+    for user in users {
+        if let Err(e) = manager.apply_subscription_limits(&user.id, &user.subscription_tier.as_str(), user.is_admin).await {
+            tracing::error!("Failed to apply subscription limits for user {}: {}", user.id, e);
+        } else {
+            if user.is_admin {
+                tracing::info!("✅ Applied unlimited limits for admin user {}", user.id);
+            } else {
+                tracing::info!("✅ Applied {} tier limits for user {}", user.subscription_tier.as_str(), user.id);
+            }
+        }
+    }
+    
     Ok(())
 }

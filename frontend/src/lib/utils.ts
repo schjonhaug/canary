@@ -121,7 +121,7 @@ export const successStyles = "p-3 bg-green-50 border border-green-200 rounded-lg
 // Subscription tier utilities
 export const SUBSCRIPTION_LIMITS = {
   personal: { wallets: 1, contacts: 1 },
-  pro: { wallets: 10, contacts: 10 },
+  uncle_jim: { wallets: 5, contacts: 5 },
 } as const
 
 export type SubscriptionTier = keyof typeof SUBSCRIPTION_LIMITS
@@ -151,8 +151,8 @@ export function getTierDisplayName(tier: string): string {
   switch (tier.toLowerCase()) {
     case 'personal':
       return 'Personal'
-    case 'pro':
-      return 'Pro'
+    case 'uncle_jim':
+      return 'Uncle Jim'
     default:
       return tier
   }

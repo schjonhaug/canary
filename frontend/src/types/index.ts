@@ -10,6 +10,7 @@ export interface Wallet {
   balance_total: number
   last_activity: string | null
   contact_count: number
+  is_active: boolean
 }
 
 
@@ -50,6 +51,7 @@ export interface Contact {
   language: 'en' | 'no'
   notification_methods: NotificationMethod[]
   created_at: string
+  is_active: boolean
 }
 
 

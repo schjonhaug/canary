@@ -19,6 +19,7 @@ interface PlanComparisonProps {
   isTrialUser?: boolean
   isLoading?: boolean
   loadingTier?: string | null
+  hasPaidSubscription?: boolean
 }
 
 export function PlanComparison({ 
@@ -32,7 +33,8 @@ export function PlanComparison({
   showAllTiers = false,
   isTrialUser = false,
   isLoading = false,
-  loadingTier = null
+  loadingTier = null,
+  hasPaidSubscription = false
 }: PlanComparisonProps) {
   const { pricing, loading, error } = usePricing()
   const discountPercent = pricing?.yearly_discount_percent || 20 // fallback to 20%
@@ -83,6 +85,7 @@ export function PlanComparison({
       isLoading={isLoading}
       loadingTier={loadingTier}
       discountPercent={discountPercent}
+      hasPaidSubscription={hasPaidSubscription}
     />
   )
 }
@@ -107,6 +110,7 @@ interface PlanComparisonContentProps {
   loadingTier: string | null
   discountPercent: number
   showUnifiedTrialButton: boolean
+  hasPaidSubscription: boolean
 }
 
 function PlanComparisonContent({
@@ -121,7 +125,8 @@ function PlanComparisonContent({
   isModal,
   isLoading,
   loadingTier,
-  discountPercent
+  discountPercent,
+  hasPaidSubscription
 }: PlanComparisonContentProps) {
   return (
     <div className="space-y-6">
@@ -189,7 +194,7 @@ function PlanComparisonContent({
             <CardContent>
               <ul className="space-y-2.5">
                 {allFeatures.map((feature) => {
-                  const tierKey = tier.tier as 'personal' | 'pro' | 'business'
+                  const tierKey = tier.tier as 'personal' | 'uncle_jim'
                   const value = feature[tierKey]
                   const isUnique = feature.unique?.[tierKey] || false
                   
@@ -228,7 +233,7 @@ function PlanComparisonContent({
                   disabled={isLoadingThisTier}
                 >
                   {isLoadingThisTier && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isTrialUser ? `Subscribe to ${getTierDisplayName(tier.tier)}` : `Upgrade to ${getTierDisplayName(tier.tier)}`}
+                  {hasPaidSubscription ? 'Change Plan' : (isTrialUser ? `Subscribe to ${getTierDisplayName(tier.tier)}` : `Upgrade to ${getTierDisplayName(tier.tier)}`)}
                 </Button>
               </CardFooter>
             )}

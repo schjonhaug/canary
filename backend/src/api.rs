@@ -142,9 +142,6 @@ pub struct BillingTierLimits {
     pub max_wallets: i32, // -1 for unlimited
     pub max_contacts_per_wallet: i32, // -1 for unlimited  
     pub sync_interval_seconds: u64,
-    pub allows_sms: bool,
-    pub allows_push: bool,
-    pub allows_transaction_analysis: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -892,27 +889,12 @@ pub async fn create_wallet_contact(
         }
     }
 
-    // Process notification methods and check tier restrictions
+    // Process notification methods
     let mut processed_methods = Vec::new();
-    let tier_limits = user_record.subscription_tier.limits();
 
     for method in &payload.notification_methods {
         match method.provider_type {
             ProviderType::Sms => {
-                // Check if SMS is allowed for this tier
-                if !tier_limits.allows_sms {
-                    return (
-                        StatusCode::FORBIDDEN,
-                        Json(ErrorResponse {
-                            error: format!(
-                                "SMS notifications are not available on {} tier. Upgrade to Pro to enable SMS.",
-                                user_record.subscription_tier.as_str()
-                            ),
-                        }),
-                    )
-                        .into_response();
-                }
-                
                 // Validate and normalize the phone number
                 let normalized_phone = match validate_phone_number(&method.notification_target) {
                     Ok(phone) => phone,
@@ -2053,11 +2035,11 @@ pub async fn register(
             }
         };
 
-        // Create Stripe subscription with trial (default to Pro tier) if Stripe is enabled
+        // Create Stripe subscription with trial (default to Uncle Jim tier) if Stripe is enabled
         if let Some(stripe_service) = &stripe_billing {
             if let Err(e) = stripe_service.create_trial_subscription(
                 &user_record,
-                crate::subscription::SubscriptionTier::Pro,
+                crate::subscription::SubscriptionTier::UncleJim,
                 &manager.metadata_db,
             ).await {
                 tracing::error!("Failed to create Stripe trial for user {}: {}", user_record.email, e);
@@ -2792,7 +2774,7 @@ pub async fn create_stripe_checkout_session(
     // Parse subscription tier
     let tier = match payload.tier.as_str() {
         "personal" => SubscriptionTier::Personal,
-        "pro" => SubscriptionTier::Pro,
+        "uncle_jim" => SubscriptionTier::UncleJim,
         _ => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -3031,9 +3013,6 @@ pub async fn get_billing_status(
         max_wallets: tier_limits.max_wallets.map(|n| n as i32).unwrap_or(-1),
         max_contacts_per_wallet: tier_limits.max_contacts_per_wallet.map(|n| n as i32).unwrap_or(-1),
         sync_interval_seconds: tier_limits.sync_interval_secs,
-        allows_sms: tier_limits.allows_sms,
-        allows_push: tier_limits.allows_push,
-        allows_transaction_analysis: tier_limits.allows_transaction_analysis,
     };
 
     let response = BillingStatusResponse {
@@ -3197,6 +3176,28 @@ pub async fn handle_stripe_webhook(
                     } else {
                         tracing::info!("✅ Updated user {} subscription to {} ({})", 
                             actual_user_id, update.subscription_tier, update.subscription_status);
+                        
+                        // Apply subscription tier limits to wallets and contacts
+                        // First, get user record to check admin status
+                        match wallet_manager.metadata_db.get_user_by_id(&actual_user_id).await {
+                            Ok(Some(user_record)) => {
+                                if let Err(e) = wallet_manager.apply_subscription_limits(&actual_user_id, &update.subscription_tier, user_record.is_admin).await {
+                                    tracing::error!("Failed to apply subscription limits for user {}: {}", actual_user_id, e);
+                                } else {
+                                    if user_record.is_admin {
+                                        tracing::info!("✅ Applied unlimited limits for admin user {}", actual_user_id);
+                                    } else {
+                                        tracing::info!("✅ Applied {} tier limits for user {}", update.subscription_tier, actual_user_id);
+                                    }
+                                }
+                            },
+                            Ok(None) => {
+                                tracing::error!("User {} not found when applying limits", actual_user_id);
+                            },
+                            Err(e) => {
+                                tracing::error!("Failed to fetch user {} when applying limits: {}", actual_user_id, e);
+                            }
+                        }
                     }
                 }
             }

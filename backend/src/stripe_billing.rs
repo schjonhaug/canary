@@ -287,16 +287,6 @@ impl StripeBilling {
                 features.insert("push".to_string(), "Push notifications".to_string());
                 features.insert("analysis".to_string(), "Transaction analysis (RBF/CPFP)".to_string());
             },
-            "business" => {
-                features.insert("wallets".to_string(), "Unlimited wallets".to_string());
-                features.insert("contacts".to_string(), "Unlimited contacts".to_string());
-                features.insert("sync".to_string(), "5 second sync time".to_string());
-                features.insert("sms".to_string(), "SMS notifications".to_string());
-                features.insert("push".to_string(), "Push notifications".to_string());
-                features.insert("analysis".to_string(), "Transaction analysis (RBF/CPFP)".to_string());
-                features.insert("api".to_string(), "REST API access".to_string());
-                features.insert("webhooks".to_string(), "Custom webhooks".to_string());
-            },
             _ => {},
         }
 
@@ -344,20 +334,44 @@ impl StripeBilling {
         
         tracing::info!("🔍 Using Stripe customer ID: {}", customer_id);
         
-        // Check if user already has a paid subscription
+        // Check if user is trying to upgrade/downgrade their subscription
         let subscription_list = self.client.list_subscriptions(&customer_id).await?;
         let subscriptions = subscription_list.data.unwrap_or_default();
+        
+        let mut has_active_subscription = false;
+        let mut current_tier: Option<String> = None;
         
         for subscription in &subscriptions {
             if let Some(status) = &subscription.status {
                 if status == "active" || status == "past_due" {
-                    tracing::warn!("🚫 User {} already has a paid subscription ({}). Preventing checkout.", user_id, status);
-                    return Err(anyhow::anyhow!("User already has an active subscription"));
+                    has_active_subscription = true;
+                    
+                    // Extract current tier from subscription metadata
+                    if let Some(metadata) = &subscription.metadata {
+                        if let Some(tier_from_metadata) = metadata.get("tier") {
+                            current_tier = Some(tier_from_metadata.to_lowercase());
+                        }
+                    }
+                    break;
                 }
             }
         }
         
-        tracing::info!("✅ User has no active paid subscription, proceeding with checkout");
+        if has_active_subscription {
+            let target_tier = tier.as_str().to_lowercase();
+            if let Some(ref current) = current_tier {
+                if current == &target_tier {
+                    tracing::warn!("🚫 User {} already has {} tier subscription. Cannot checkout for same tier.", user_id, current);
+                    return Err(anyhow::anyhow!("You already have a {} subscription", current));
+                } else {
+                    tracing::info!("🔄 User {} upgrading from {} to {} tier", user_id, current, target_tier);
+                }
+            } else {
+                tracing::info!("🔄 User {} has active subscription, proceeding with tier change to {}", user_id, target_tier);
+            }
+        } else {
+            tracing::info!("✅ User has no active paid subscription, proceeding with checkout");
+        }
 
         // Create subscription metadata
         let mut metadata = HashMap::new();
@@ -500,11 +514,8 @@ impl StripeBilling {
                                 let customer_id = subscription.get("customer").and_then(|c| c.as_str());
                                 let subscription_id = subscription.get("id").and_then(|s| s.as_str());
                                 
-                                // Extract tier from subscription metadata
-                                let tier = subscription.get("metadata")
-                                    .and_then(|m| m.get("tier"))
-                                    .and_then(|t| t.as_str())
-                                    .unwrap_or("pro"); // Default to pro for trials
+                                // Determine tier from subscription items (more reliable than metadata)
+                                let tier = self.determine_tier_from_subscription_items(&subscription);
                                 
                                 tracing::info!("🆕 New subscription - Status: {:?}, Trial end: {:?}, Customer: {:?}, Tier: {}", 
                                     status, trial_end, customer_id, tier);
@@ -519,7 +530,7 @@ impl StripeBilling {
                                     
                                     let update = SubscriptionUpdate {
                                         user_id: self.extract_user_id_from_customer(customer_id),
-                                        subscription_tier: tier.to_lowercase(), // Use actual tier from metadata
+                                        subscription_tier: tier, // Use actual tier from subscription items
                                         subscription_status: status.unwrap_or("unknown").to_string(), // "trialing" or "active" from Stripe
                                         stripe_subscription_id: Some(subscription_id.to_string()),
                                         subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
@@ -532,35 +543,54 @@ impl StripeBilling {
                     }
                 }
                 "customer.subscription.updated" => {
-                    // Check if this is a trial ending (status change from trialing -> active/past_due)
+                    // Handle ALL subscription updates: tier changes, trial endings, etc.
                     if let Some(data) = &event.data {
                         if let Some(subscription_obj) = &data.object {
-                            // Parse the subscription object to check for trial ending
                             if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(subscription_obj.clone()) {
                                 let current_status = subscription.get("status").and_then(|s| s.as_str());
+                                let customer_id = subscription.get("customer").and_then(|c| c.as_str());
+                                let subscription_id = subscription.get("id").and_then(|s| s.as_str());
                                 
-                                // Check previous_attributes to see if status changed from "trialing"  
-                                if let Some(previous_attrs) = subscription.get("previous_attributes") {
-                                    if let Some(previous_status) = previous_attrs.get("status").and_then(|s| s.as_str()) {
-                                        if previous_status == "trialing" && current_status != Some("trialing") {
-                                            tracing::info!("🔄 TRIAL ENDED: Status changed from trialing to {:?}", current_status);
-                                            
-                                            // Extract customer and subscription info
-                                            if let Some(customer_id) = subscription.get("customer").and_then(|c| c.as_str()) {
-                                                if let Some(subscription_id) = subscription.get("id").and_then(|s| s.as_str()) {
-                                                    // Create update to stop wallet syncing for this user
-                                                    let update = SubscriptionUpdate {
-                                                        user_id: self.extract_user_id_from_customer(customer_id),
-                                                        subscription_tier: "trial_ended".to_string(),
-                                                        subscription_status: current_status.unwrap_or("unknown").to_string(),
-                                                        stripe_subscription_id: Some(subscription_id.to_string()),
-                                                        subscription_started_at: None,
-                                                        trial_ends_at: None,
-                                                    };
-                                                    updates.push(update);
-                                                }
+                                // Determine current tier from subscription items (more reliable than metadata)
+                                let current_tier = self.determine_tier_from_subscription_items(&subscription);
+                                
+                                tracing::info!("🔄 Subscription updated - Customer: {:?}, Status: {:?}, Tier: {}", 
+                                    customer_id, current_status, current_tier);
+                                
+                                if let (Some(customer_id), Some(subscription_id)) = (customer_id, subscription_id) {
+                                    let mut should_update = false;
+                                    let mut reason = String::new();
+                                    
+                                    // Check for trial ending
+                                    if let Some(previous_attrs) = subscription.get("previous_attributes") {
+                                        if let Some(previous_status) = previous_attrs.get("status").and_then(|s| s.as_str()) {
+                                            if previous_status == "trialing" && current_status != Some("trialing") {
+                                                should_update = true;
+                                                reason = "Trial ended".to_string();
                                             }
                                         }
+                                    }
+                                    
+                                    // Check for tier changes (items changed)
+                                    if let Some(previous_attrs) = subscription.get("previous_attributes") {
+                                        if previous_attrs.get("items").is_some() {
+                                            should_update = true;
+                                            reason = format!("Tier changed to {}", current_tier);
+                                        }
+                                    }
+                                    
+                                    if should_update {
+                                        tracing::info!("✅ Processing subscription update: {}", reason);
+                                        
+                                        let update = SubscriptionUpdate {
+                                            user_id: self.extract_user_id_from_customer(customer_id),
+                                            subscription_tier: current_tier,
+                                            subscription_status: current_status.unwrap_or("unknown").to_string(),
+                                            stripe_subscription_id: Some(subscription_id.to_string()),
+                                            subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
+                                            trial_ends_at: None, // Clear trial info for active subscriptions
+                                        };
+                                        updates.push(update);
                                     }
                                 }
                             }
@@ -696,5 +726,55 @@ impl StripeBilling {
             // For Stripe-generated customer IDs, return with prefix for lookup
             format!("stripe_customer:{}", customer_id)
         }
+    }
+
+    // Helper method to determine tier from subscription items (products/prices)
+    fn determine_tier_from_subscription_items(&self, subscription: &serde_json::Value) -> String {
+        if let Some(items) = subscription.get("items") {
+            if let Some(data) = items.get("data") {
+                if let Some(items_array) = data.as_array() {
+                    for item in items_array {
+                        if let Some(price) = item.get("price") {
+                            if let Some(product_id) = price.get("product").and_then(|p| p.as_str()) {
+                                // Check our cached pricing to find the tier for this product
+                                for tier_info in &self.cached_pricing.tiers {
+                                    if let Some(monthly_price) = &tier_info.monthly_price {
+                                        // Get product from our pricing cache (we need to check against the product)
+                                        // For now, use the price_id to determine tier
+                                        if let Some(price_id) = price.get("id").and_then(|id| id.as_str()) {
+                                            if monthly_price.price_id == price_id {
+                                                tracing::info!("🎯 Determined tier from price_id {}: {}", price_id, tier_info.tier);
+                                                return tier_info.tier.clone();
+                                            }
+                                        }
+                                        // Also check yearly price
+                                        if let Some(yearly_price) = &tier_info.yearly_price {
+                                            if let Some(price_id) = price.get("id").and_then(|id| id.as_str()) {
+                                                if yearly_price.price_id == price_id {
+                                                    tracing::info!("🎯 Determined tier from yearly price_id {}: {}", price_id, tier_info.tier);
+                                                    return tier_info.tier.clone();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                tracing::warn!("❓ Could not determine tier for product_id: {}", product_id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Fallback to metadata-based tier detection
+        if let Some(tier) = subscription.get("metadata")
+            .and_then(|m| m.get("tier"))
+            .and_then(|t| t.as_str()) {
+            tracing::info!("📋 Using tier from metadata: {}", tier);
+            return tier.to_lowercase();
+        }
+        
+        tracing::warn!("⚠️ Could not determine tier from subscription, defaulting to personal");
+        "personal".to_string()
     }
 }

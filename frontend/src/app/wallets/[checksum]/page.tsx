@@ -9,7 +9,7 @@ import { ContactModal } from "@/components/contact-modal"
 import { DeleteWalletModal } from "@/components/delete-wallet-modal"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Trash2, AlertCircle, Plus } from "lucide-react"
+import { ArrowLeft, Trash2, AlertCircle, Plus, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useWalletDetail } from "@/hooks/useWalletDetail"
 import { useWalletsContext } from "@/contexts/wallets-context"
@@ -28,7 +28,7 @@ export default function WalletDetailPage() {
   const params = useParams()
   const router = useRouter()
   const checksum = params.checksum as string
-  const { isAuthenticated, isLoading: authLoading, user } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user, billingStatus } = useAuth()
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
@@ -76,8 +76,9 @@ export default function WalletDetailPage() {
   }
 
   const handleAddContact = () => {
-    // Check contact limits before opening create modal
-    if (user && hasReachedContactLimit(contacts?.length || 0, user.subscription_tier)) {
+    // Check contact limits before opening create modal - use billing status as authoritative source
+    const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
+    if (hasReachedContactLimit(contacts?.length || 0, currentTier)) {
       setIsUpgradeModalOpen(true)
       return
     }
@@ -173,6 +174,25 @@ export default function WalletDetailPage() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Inactive Wallet Warning Banner */}
+      {wallet && wallet.is_active === false && (
+        <Alert className="mb-6 border-orange-200 bg-orange-50">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <AlertTitle className="text-orange-700">Wallet Inactive</AlertTitle>
+          <AlertDescription className="text-orange-600">
+            This wallet exceeds your subscription tier limits and won't sync automatically. 
+            Transaction history and balance shown may be outdated.
+            <span className="block mt-2">
+              <Link href="/settings/subscription">
+                <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
+                  Upgrade Plan
+                </Button>
+              </Link>
+            </span>
+          </AlertDescription>
+        </Alert>
+      )}
       
       <div className="space-y-8">
         {/* Header Section */}
@@ -219,6 +239,7 @@ export default function WalletDetailPage() {
                   walletChecksum={wallet.checksum}
                   contacts={contacts}
                   onContactsUpdated={handleWalletUpdated}
+                  isWalletActive={wallet.is_active !== false}
                 />
                 <div className="mt-3">
                   <Button
@@ -283,10 +304,11 @@ export default function WalletDetailPage() {
         <PlansModal
           isOpen={isUpgradeModalOpen}
           onClose={() => setIsUpgradeModalOpen(false)}
-          currentTier={user?.subscription_tier || 'personal'}
+          currentTier={billingStatus?.subscription_tier || user?.subscription_tier || 'personal'}
           currentWalletCount={1} // We're on a single wallet page
           currentContactCount={contacts?.length || 0}
           limitType="contacts" // Show that we're upgrading for contacts
+          billingStatus={billingStatus}
         />
       </Suspense>
     </>

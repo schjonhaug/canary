@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CreditCard, Users, Calendar, TrendingUp, Zap } from "lucide-react"
+import { Loader2, CreditCard, Users, Calendar, TrendingUp, Zap, AlertTriangle } from "lucide-react"
 import { PlansModal } from "@/components/plans-modal"
 import { getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
 import { AppHeader } from "@/components/app-header"
@@ -77,6 +77,11 @@ export default function BillingPage() {
   const trialDaysRemaining = billingStatus?.trial_ends_at ? 
     Math.max(0, Math.ceil((new Date(billingStatus.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))) : 0
 
+  // Check if limits are exceeded
+  const walletCount = billingStatus?.wallet_count || 0
+  const maxWallets = limits?.max_wallets || 1
+  const walletsExceeded = maxWallets !== -1 && walletCount > maxWallets
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <AppHeader />
@@ -116,6 +121,26 @@ export default function BillingPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {walletsExceeded && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-orange-600" />
+                <div className="font-medium text-orange-700">Subscription Limit Exceeded</div>
+              </div>
+              <div className="text-sm text-orange-600 mb-3">
+                You have {walletCount} wallets but your {getTierDisplayName(currentTier)} plan allows only {maxWallets}. 
+                Excess wallets won't sync automatically and some contacts may be inactive.
+              </div>
+              <Button 
+                onClick={() => setShowUpgradeModal(true)} 
+                size="sm" 
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                Upgrade Plan
+              </Button>
+            </div>
+          )}
+          
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Badge variant="secondary" className="text-lg px-3 py-1">
@@ -142,13 +167,24 @@ export default function BillingPage() {
 
           {limits && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <Users className="h-5 w-5 text-muted-foreground" />
+              <div className={`flex items-center gap-3 p-3 rounded-lg ${
+                walletsExceeded ? 'bg-orange-50 border border-orange-200' : 'bg-muted/50'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <Users className={`h-5 w-5 ${walletsExceeded ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                  {walletsExceeded && <AlertTriangle className="h-4 w-4 text-orange-600" />}
+                </div>
                 <div>
-                  <div className="font-medium">Wallets</div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className={`font-medium ${walletsExceeded ? 'text-orange-700' : ''}`}>Wallets</div>
+                  <div className={`text-sm ${walletsExceeded ? 'text-orange-600 font-medium' : 'text-muted-foreground'}`}>
                     {billingStatus?.wallet_count || 0} / {limits.max_wallets === -1 ? '∞' : limits.max_wallets}
+                    {walletsExceeded && <span className="ml-1 text-xs">(over limit)</span>}
                   </div>
+                  {walletsExceeded && (
+                    <div className="text-xs text-orange-600 mt-1">
+                      Some wallets are inactive
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -169,11 +205,7 @@ export default function BillingPage() {
                 <div>
                   <div className="font-medium">Features</div>
                   <div className="text-sm text-muted-foreground">
-                    {[
-                      limits.allows_sms && 'SMS',
-                      limits.allows_push && 'Push',
-                      limits.allows_transaction_analysis && 'Analysis'
-                    ].filter(Boolean).join(', ') || 'Email only'}
+                    SMS, Push, Email, Transaction Analysis
                   </div>
                 </div>
               </div>
@@ -193,6 +225,7 @@ export default function BillingPage() {
           currentContactCount={billingStatus?.contact_count || 0}
           limitType="wallets"
           isTrialUser={isTrialUser}
+          billingStatus={billingStatus}
         />
       </div>
       

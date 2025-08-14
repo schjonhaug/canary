@@ -89,13 +89,12 @@ describe('Contact Limit Enforcement', () => {
     describe('getContactLimit', () => {
       it('returns correct limits for each tier', () => {
         expect(getContactLimit('personal')).toBe(1)
-        expect(getContactLimit('pro')).toBe(10)
+        expect(getContactLimit('uncle_jim')).toBe(5)
       })
 
       it('handles case insensitive tier names', () => {
         expect(getContactLimit('PERSONAL')).toBe(1)
-        expect(getContactLimit('Pro')).toBe(10)
-        expect(getContactLimit('BUSINESS')).toBe(null)
+        expect(getContactLimit('UNCLE_JIM')).toBe(5)
       })
 
       it('defaults to personal limit for invalid tiers', () => {
@@ -115,13 +114,13 @@ describe('Contact Limit Enforcement', () => {
       })
 
       it('returns true when pro limit is reached', () => {
-        expect(hasReachedContactLimit(10, 'pro')).toBe(true)
-        expect(hasReachedContactLimit(15, 'pro')).toBe(true)
+        expect(hasReachedContactLimit(5, 'uncle_jim')).toBe(true)
+        expect(hasReachedContactLimit(6, 'uncle_jim')).toBe(true)
       })
 
       it('returns false when pro limit is not reached', () => {
-        expect(hasReachedContactLimit(5, 'pro')).toBe(false)
-        expect(hasReachedContactLimit(9, 'pro')).toBe(false)
+        expect(hasReachedContactLimit(5, 'uncle_jim')).toBe(false)
+        expect(hasReachedContactLimit(4, 'uncle_jim')).toBe(false)
       })
 
     })
@@ -187,7 +186,7 @@ describe('Contact Limit Enforcement', () => {
       const user = userEvent.setup()
       render(
         <ContactLimitTestComponent 
-          userTier="pro" 
+          userTier="uncle_jim" 
           currentContactCount={5} 
         />
       )
@@ -204,7 +203,7 @@ describe('Contact Limit Enforcement', () => {
       const user = userEvent.setup()
       render(
         <ContactLimitTestComponent 
-          userTier="pro" 
+          userTier="uncle_jim" 
           currentContactCount={9} 
         />
       )
@@ -219,7 +218,7 @@ describe('Contact Limit Enforcement', () => {
       const user = userEvent.setup()
       render(
         <ContactLimitTestComponent 
-          userTier="pro" 
+          userTier="uncle_jim" 
           currentContactCount={10} 
         />
       )
@@ -235,7 +234,7 @@ describe('Contact Limit Enforcement', () => {
       const user = userEvent.setup()
       render(
         <ContactLimitTestComponent 
-          userTier="pro" 
+          userTier="uncle_jim" 
           currentContactCount={15} 
         />
       )
@@ -379,7 +378,7 @@ describe('Contact Limit Enforcement', () => {
       const user = userEvent.setup()
       render(
         <ContactLimitTestComponent 
-          userTier="pro" 
+          userTier="uncle_jim" 
           currentContactCount={9} 
         />
       )
@@ -393,7 +392,7 @@ describe('Contact Limit Enforcement', () => {
       const user = userEvent.setup()
       render(
         <ContactLimitTestComponent 
-          userTier="pro" 
+          userTier="uncle_jim" 
           currentContactCount={10} 
         />
       )

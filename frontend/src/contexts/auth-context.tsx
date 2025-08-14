@@ -10,7 +10,7 @@ interface User {
   name?: string
   is_admin: boolean
   email_verified: boolean
-  subscription_tier?: 'personal' | 'pro' | 'business'
+  subscription_tier?: 'personal' | 'uncle_jim'
 }
 
 interface BillingStatus {
@@ -26,9 +26,6 @@ interface BillingStatus {
     max_wallets: number
     max_contacts_per_wallet: number
     sync_interval_seconds: number
-    allows_sms: boolean
-    allows_push: boolean
-    allows_transaction_analysis: boolean
   }
 }
 
@@ -71,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: 'Admin',
         is_admin: true,
         email_verified: true,
-        subscription_tier: 'business' as const
+        subscription_tier: 'uncle_jim' as const
       })
       setToken('foss-mode')
       setIsLoading(false)
@@ -124,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setBillingStatus(status)
       // Update user subscription tier if it differs
       if (user && status.subscription_tier !== user.subscription_tier) {
-        setUser(prev => prev ? { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'pro' | 'business' } : null)
+        setUser(prev => prev ? { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'uncle_jim' } : null)
       }
     } catch (error) {
       console.error('Failed to fetch billing status:', error)

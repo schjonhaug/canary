@@ -23,6 +23,10 @@ interface PlansModalProps {
   currentContactCount?: number
   limitType?: 'wallets' | 'contacts'
   isTrialUser?: boolean
+  billingStatus?: {
+    subscription_status: string
+    stripe_customer_id?: string
+  }
 }
 
 export function PlansModal({
@@ -33,6 +37,7 @@ export function PlansModal({
   currentContactCount = 0,
   limitType = 'wallets',
   isTrialUser = false,
+  billingStatus,
 }: PlansModalProps) {
   const { isAuthenticated, refreshBillingStatus } = useAuth()
   const [isUpgrading, setIsUpgrading] = useState(false)
@@ -74,6 +79,27 @@ export function PlansModal({
     }
   }
 
+  const handleManageSubscription = async () => {
+    if (!billingStatus?.stripe_customer_id) return
+
+    try {
+      setIsUpgrading(true)
+      const { url } = await api.createCustomerPortalSession(window.location.href)
+      window.location.href = url
+    } catch (error) {
+      console.error('Failed to open customer portal:', error)
+      alert('Failed to open subscription management. Please try again.')
+    } finally {
+      setIsUpgrading(false)
+    }
+  }
+
+  // Determine if user has an active paid subscription
+  const hasPaidSubscription = billingStatus?.subscription_status === 'active' && billingStatus?.stripe_customer_id
+
+  // Use customer portal for paid users, checkout for trial/new users
+  const handleSubscriptionAction = hasPaidSubscription ? handleManageSubscription : handleUpgrade
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -95,7 +121,7 @@ export function PlansModal({
                 <Badge variant="outline" className="mx-1">
                   {getTierDisplayName(currentTier)}
                 </Badge>
-                plan. Compare plans and upgrade to add more {limitTypeText}s.
+                {' '}plan. Compare plans and upgrade to add more {limitTypeText}s.
               </>
             )}
           </DialogDescription>
@@ -110,7 +136,7 @@ export function PlansModal({
 
           <PlanComparison
             currentTier={currentTier.toLowerCase()}
-            onUpgrade={handleUpgrade}
+            onUpgrade={handleSubscriptionAction}
             highlightUpgrades={!isTrialUser}
             showPricing={true}
             isModal={true}
@@ -118,6 +144,7 @@ export function PlansModal({
             isTrialUser={isTrialUser}
             isLoading={isUpgrading}
             loadingTier={upgradingTier}
+            hasPaidSubscription={hasPaidSubscription}
           />
         </div>
       </DialogContent>

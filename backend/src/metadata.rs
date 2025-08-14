@@ -111,6 +111,7 @@ pub struct WalletMetadata {
     pub last_activity: Option<String>,
     pub contact_count: Option<i64>,
     pub user_id: String,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -121,6 +122,7 @@ pub struct Contact {
     pub language: Language,
     pub notification_methods: Vec<NotificationMethod>,
     pub created_at: String,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -415,9 +417,9 @@ impl MetadataDb {
                 
                 if !exists {
                     let (name, tier) = match *email {
-                        "delivered+admin@resend.dev" => ("Admin", "pro"),
+                        "delivered+admin@resend.dev" => ("Admin", "uncle_jim"), // Admin flag will give unlimited access
                         "delivered+alice@resend.dev" => ("Alice", "personal"),
-                        "delivered+bob@resend.dev" => ("Bob", "pro"),
+                        "delivered+bob@resend.dev" => ("Bob", "uncle_jim"),
                         _ => ("Test User", "personal"),
                     };
                     
@@ -502,11 +504,11 @@ impl MetadataDb {
             match conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                        COUNT(c.id) as contact_count, w.user_id
+                        COUNT(c.id) as contact_count, w.user_id, w.is_active
                  FROM wallets w 
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                  WHERE w.descriptor = ?1 
-                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id",
+                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active",
                 params![descriptor],
                 |row| {
                     Ok(WalletMetadata {
@@ -519,6 +521,7 @@ impl MetadataDb {
                         last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
                         contact_count: Some(row.get(7)?),
                         user_id: row.get(8)?,
+                        is_active: row.get::<_, i64>(9).unwrap_or(1) != 0,
                     })
                 },
             ) {
@@ -538,11 +541,11 @@ impl MetadataDb {
             match conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                        COUNT(c.id) as contact_count, w.user_id
+                        COUNT(c.id) as contact_count, w.user_id, w.is_active
                  FROM wallets w 
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                  WHERE w.checksum = ?1 
-                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id",
+                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active",
                 params![checksum],
                 |row| {
                     Ok(WalletMetadata {
@@ -555,6 +558,7 @@ impl MetadataDb {
                         last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
                         contact_count: Some(row.get(7)?),
                         user_id: row.get(8)?,
+                        is_active: row.get::<_, i64>(9).unwrap_or(1) != 0,
                     })
                 },
             ) {
@@ -580,20 +584,20 @@ impl MetadataDb {
                 Some(_) => {
                     "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                             (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                            COUNT(c.id) as contact_count, w.user_id
+                            COUNT(c.id) as contact_count, w.user_id, w.is_active
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                      WHERE w.user_id = ?1
-                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id 
+                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active
                      ORDER BY w.created_at DESC"
                 }
                 None => {
                     "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                             (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                            COUNT(c.id) as contact_count, w.user_id
+                            COUNT(c.id) as contact_count, w.user_id, w.is_active
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
-                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id 
+                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active
                      ORDER BY w.created_at DESC"
                 }
             };
@@ -616,6 +620,50 @@ impl MetadataDb {
                     last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
                     contact_count: Some(row.get(7)?),
                     user_id: row.get(8)?,
+                    is_active: row.get::<_, i64>(9).unwrap_or(1) != 0, // SQLite stores bool as int
+                })
+            })?;
+
+            let mut wallets = Vec::new();
+            for wallet in wallet_iter {
+                wallets.push(wallet?);
+            }
+
+            Ok(wallets)
+        }).await?
+    }
+
+    /// Get wallets for a user ordered by creation time (oldest first) for subscription limits enforcement
+    pub async fn get_wallets_for_user_oldest_first(&self, user_id: &str) -> Result<Vec<WalletMetadata>> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+
+        spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
+            let conn = pool.get()?;
+            
+            let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
+                               (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
+                               COUNT(c.id) as contact_count, w.user_id, w.is_active
+                        FROM wallets w 
+                        LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                        WHERE w.user_id = ?1
+                        GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active
+                        ORDER BY w.created_at ASC"; // Oldest first for subscription limits
+            
+            let mut stmt = conn.prepare(query)?;
+            
+            let wallet_iter = stmt.query_map(&[&user_id], |row| {
+                Ok(WalletMetadata {
+                    checksum: row.get(0)?,
+                    name: row.get(1)?,
+                    descriptor: row.get(2)?,
+                    hex_color: row.get(3)?,
+                    created_at: row.get(4)?,
+                    balance_total: Some(row.get(5).unwrap_or(0)),
+                    last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
+                    contact_count: Some(row.get(7)?),
+                    user_id: row.get(8)?,
+                    is_active: row.get::<_, i64>(9).unwrap_or(1) != 0, // SQLite stores bool as int
                 })
             })?;
 
@@ -857,18 +905,22 @@ impl MetadataDb {
         &self,
         wallet_checksum: &str,
     ) -> Result<Vec<Contact>> {
+        self.get_contacts_with_notification_methods_filtered(wallet_checksum, false).await
+    }
+
+    /// Get contacts for subscription limits ordered by creation time (oldest first)
+    pub async fn get_contacts_oldest_first_for_limits(&self, wallet_checksum: &str) -> Result<Vec<Contact>> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
 
         spawn_blocking(move || -> Result<Vec<Contact>> {
             let conn = pool.get()?;
 
-            // First get all contacts for the wallet
-            let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, name, language, created_at 
-                 FROM contacts 
-                 WHERE wallet_checksum = ?1 ORDER BY name",
-            )?;
+            // Get ALL contacts ordered by created_at ASC (oldest first) for limits enforcement
+            let query = "SELECT id, wallet_checksum, name, language, created_at, is_active 
+                         FROM contacts 
+                         WHERE wallet_checksum = ?1 ORDER BY created_at ASC";
+            let mut stmt = conn.prepare(query)?;
 
             let contact_iter = stmt.query_map(params![checksum], |row| {
                 let language_str: String = row.get(3)?;
@@ -881,6 +933,81 @@ impl MetadataDb {
                         language: Language::from(language_str.as_str()),
                         notification_methods: Vec::new(), // Will be populated below
                         created_at: row.get(4)?,
+                        is_active: row.get::<_, i64>(5).unwrap_or(1) != 0, // SQLite stores bool as int
+                    },
+                ))
+            })?;
+
+            let mut contacts: std::collections::HashMap<String, Contact> =
+                std::collections::HashMap::new();
+            for result in contact_iter {
+                let (id, contact) = result?;
+                contacts.insert(id, contact);
+            }
+
+            // Get notification methods for each contact
+            for (contact_id, contact) in contacts.iter_mut() {
+                let methods_query = "SELECT id, provider_type, notification_target, created_at
+                                   FROM contact_notification_methods 
+                                   WHERE contact_id = ?1";
+                let mut methods_stmt = conn.prepare(methods_query)?;
+
+                let methods_iter = methods_stmt.query_map(params![contact_id], |row| {
+                    let provider_str: String = row.get(1)?;
+                    Ok(NotificationMethod {
+                        id: Some(row.get(0)?),
+                        contact_id: contact_id.clone(),
+                        provider_type: ProviderType::from(provider_str.as_str()),
+                        notification_target: row.get(2)?,
+                        display_target: None, // TODO: Add display_target logic if needed
+                        created_at: row.get(3)?,
+                    })
+                })?;
+
+                for method_result in methods_iter {
+                    contact.notification_methods.push(method_result?);
+                }
+            }
+
+            Ok(contacts.into_values().collect())
+        }).await?
+    }
+
+    pub async fn get_contacts_with_notification_methods_filtered(
+        &self,
+        wallet_checksum: &str,
+        include_inactive: bool,
+    ) -> Result<Vec<Contact>> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+
+        spawn_blocking(move || -> Result<Vec<Contact>> {
+            let conn = pool.get()?;
+
+            // Get contacts for the wallet (active only or all based on parameter)
+            let query = if include_inactive {
+                "SELECT id, wallet_checksum, name, language, created_at, is_active 
+                 FROM contacts 
+                 WHERE wallet_checksum = ?1 ORDER BY name"
+            } else {
+                "SELECT id, wallet_checksum, name, language, created_at, 1 as is_active
+                 FROM contacts 
+                 WHERE wallet_checksum = ?1 AND is_active = 1 ORDER BY name"
+            };
+            let mut stmt = conn.prepare(query)?;
+
+            let contact_iter = stmt.query_map(params![checksum], |row| {
+                let language_str: String = row.get(3)?;
+                Ok((
+                    row.get::<_, String>(0)?, // id as UUIDv4
+                    Contact {
+                        id: Some(row.get(0)?),
+                        wallet_checksum: row.get(1)?,
+                        name: row.get(2)?,
+                        language: Language::from(language_str.as_str()),
+                        notification_methods: Vec::new(), // Will be populated below
+                        created_at: row.get(4)?,
+                        is_active: row.get::<_, i64>(5).unwrap_or(1) != 0, // SQLite stores bool as int
                     },
                 ))
             })?;
@@ -1042,7 +1169,7 @@ impl MetadataDb {
                         u.subscription_tier
                  FROM wallets w 
                  JOIN users u ON w.user_id = u.id
-                 WHERE (
+                 WHERE w.is_active = 1 AND (
                     -- Active subscriptions
                     u.subscription_status = 'active'
                     OR 
@@ -1067,6 +1194,7 @@ impl MetadataDb {
                         contact_count: None, // Not counting contacts in this query
                         user_id: row.get(7)?,
                         created_at: row.get(8)?,
+                        is_active: true, // Query already filters for active wallets
                     },
                     SubscriptionTier::from(row.get::<_, String>(9)?),
                     row.get::<_, Option<String>>(6)?, // last_synced_at
@@ -1255,7 +1383,7 @@ impl MetadataDb {
             // Create new user
             tx.execute(
                 "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "pro", "pending"],
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "uncle_jim", "pending"],
             )?;
             
             tx.commit()?;
@@ -1372,6 +1500,48 @@ impl MetadataDb {
                 params![&current_time, user_id],
             )?;
             Ok(())
+        })
+        .await?
+    }
+
+    pub async fn get_all_users(&self) -> Result<Vec<UserRecord>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Vec<UserRecord>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, 
+                        subscription_status, trial_ends_at, subscription_started_at,
+                        stripe_customer_id, stripe_subscription_id, subscription_ends_at,
+                        created_at
+                 FROM users"
+            )?;
+            
+            let user_iter = stmt.query_map([], |row| {
+                Ok(UserRecord {
+                    id: row.get(0)?,
+                    email: row.get(1)?,
+                    password_hash: row.get(2)?,
+                    name: row.get(3)?,
+                    is_admin: row.get(4)?,
+                    email_verified: row.get(5)?,
+                    subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
+                    subscription_status: row.get(7)?,
+                    trial_ends_at: row.get(8)?,
+                    subscription_started_at: row.get(9)?,
+                    stripe_customer_id: row.get(10)?,
+                    stripe_subscription_id: row.get(11)?,
+                    subscription_ends_at: row.get(12)?,
+                    created_at: row.get(13)?,
+                })
+            })?;
+            
+            let mut users = Vec::new();
+            for user in user_iter {
+                users.push(user?);
+            }
+            
+            Ok(users)
         })
         .await?
     }
@@ -1897,5 +2067,43 @@ impl MetadataDb {
 
             Ok(count)
         }).await?
+    }
+
+    /// Update wallet active status for subscription tier limits
+    pub async fn update_wallet_active_status(&self, checksum: &str, is_active: bool) -> Result<()> {
+        let pool = self.pool.clone();
+        let checksum = checksum.to_string();
+        
+        tokio::task::spawn_blocking(move || {
+            let conn = pool.get()?;
+            
+            conn.execute(
+                "UPDATE wallets SET is_active = ? WHERE checksum = ?",
+                params![is_active, checksum],
+            )?;
+            
+            Ok::<(), anyhow::Error>(())
+        }).await??;
+        
+        Ok(())
+    }
+
+    /// Update contact active status for subscription tier limits
+    pub async fn update_contact_active_status(&self, contact_id: &str, is_active: bool) -> Result<()> {
+        let pool = self.pool.clone();
+        let contact_id = contact_id.to_string();
+        
+        tokio::task::spawn_blocking(move || {
+            let conn = pool.get()?;
+            
+            conn.execute(
+                "UPDATE contacts SET is_active = ? WHERE id = ?",
+                params![is_active, contact_id],
+            )?;
+            
+            Ok::<(), anyhow::Error>(())
+        }).await??;
+        
+        Ok(())
     }
 }

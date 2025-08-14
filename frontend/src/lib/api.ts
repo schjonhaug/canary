@@ -286,10 +286,7 @@ class ApiClient {
     limits: {
       max_wallets: number,
       max_contacts_per_wallet: number,
-      sync_interval_seconds: number,
-      allows_sms: boolean,
-      allows_push: boolean,
-      allows_transaction_analysis: boolean
+      sync_interval_seconds: number
     }
   }> {
     return this.request<{
@@ -304,10 +301,7 @@ class ApiClient {
       limits: {
         max_wallets: number,
         max_contacts_per_wallet: number,
-        sync_interval_seconds: number,
-        allows_sms: boolean,
-        allows_push: boolean,
-        allows_transaction_analysis: boolean
+        sync_interval_seconds: number
       }
     }>('/api/billing/status')
   }

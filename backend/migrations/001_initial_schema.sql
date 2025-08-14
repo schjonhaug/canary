@@ -22,7 +22,7 @@ CREATE TABLE users (
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     -- Subscription fields
-    subscription_tier TEXT DEFAULT 'pro' CHECK (subscription_tier IN ('personal', 'pro')),
+    subscription_tier TEXT DEFAULT 'uncle_jim' CHECK (subscription_tier IN ('personal', 'uncle_jim')),
     trial_ends_at DATETIME DEFAULT (datetime('now', '+30 days')),
     subscription_status TEXT DEFAULT 'trial' CHECK (subscription_status IN ('pending', 'trial', 'trialing', 'active', 'expired', 'cancelled')),
     -- Stripe integration
@@ -83,6 +83,7 @@ CREATE TABLE wallets (
     last_activity DATETIME,
     last_synced_at DATETIME,
     user_id TEXT NOT NULL, -- UUID reference
+    is_active BOOLEAN DEFAULT true, -- For subscription tier limit enforcement
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
@@ -107,6 +108,7 @@ CREATE TABLE contacts (
     wallet_checksum TEXT NOT NULL,
     name TEXT NOT NULL,
     language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no')),
+    is_active BOOLEAN DEFAULT true, -- For subscription tier limit enforcement
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (wallet_checksum) REFERENCES wallets (checksum) ON DELETE CASCADE
 );

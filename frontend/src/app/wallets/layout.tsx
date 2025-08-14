@@ -24,7 +24,7 @@ export default function WalletsLayout({
   const [walletSvg, setWalletSvg] = useState<string>("")
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null)
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, billingStatus } = useAuth()
   
   // Check if we're on a wallet detail page
   const isWalletDetailPage = pathname.startsWith('/wallets/') && pathname !== '/wallets'
@@ -48,8 +48,9 @@ export default function WalletsLayout({
   }, [isWalletDetailPage, currentWallet?.hex_color])
 
   const handleAddWallet = () => {
-    // Check wallet limits before opening create modal
-    if (user && hasReachedWalletLimit(wallets.length, user.subscription_tier)) {
+    // Check wallet limits before opening create modal - use billing status as authoritative source
+    const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
+    if (hasReachedWalletLimit(wallets.length, currentTier)) {
       setIsUpgradeModalOpen(true)
       return
     }
@@ -88,9 +89,10 @@ export default function WalletsLayout({
         <PlansModal
           isOpen={isUpgradeModalOpen}
           onClose={() => setIsUpgradeModalOpen(false)}
-          currentTier={user?.subscription_tier || 'personal'}
+          currentTier={billingStatus?.subscription_tier || user?.subscription_tier || 'personal'}
           currentWalletCount={wallets.length}
           limitType="wallets"
+          billingStatus={billingStatus}
         />
       </Suspense>
 
