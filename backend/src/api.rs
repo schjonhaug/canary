@@ -10,7 +10,10 @@ use crate::metadata::{
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
-use crate::stripe_billing::{CheckoutSessionResponse, CustomerPortalResponse, StripeBilling, PricingInfo, FrontendTierPricing, FrontendPriceInfo, CheckoutSessionDetails};
+use crate::stripe_billing::{
+    CheckoutSessionDetails, CheckoutSessionResponse, CustomerPortalResponse, FrontendPriceInfo,
+    FrontendTierPricing, PricingInfo, StripeBilling,
+};
 use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletManager;
 use axum::{
@@ -108,7 +111,6 @@ pub struct SendContactVerificationRequest {
     pub email_address: Option<String>,
 }
 
-
 #[derive(Serialize, ToSchema)]
 pub struct ProvidersResponse {
     /// Available notification providers
@@ -139,8 +141,8 @@ pub struct CreateCustomerPortalRequest {
 
 #[derive(Serialize, ToSchema)]
 pub struct BillingTierLimits {
-    pub max_wallets: i32, // -1 for unlimited
-    pub max_contacts_per_wallet: i32, // -1 for unlimited  
+    pub max_wallets: i32,             // -1 for unlimited
+    pub max_contacts_per_wallet: i32, // -1 for unlimited
     pub sync_interval_seconds: u64,
 }
 
@@ -253,12 +255,16 @@ pub async fn create_wallet(
     };
 
     let mut manager = wallet_manager.lock().await;
-    
+
     // Get user's subscription tier and check wallet limit
     match manager.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(user_record)) => {
             // Count existing wallets for the user
-            match manager.metadata_db.count_wallets_for_user(&user.user_id).await {
+            match manager
+                .metadata_db
+                .count_wallets_for_user(&user.user_id)
+                .await
+            {
                 Ok(wallet_count) => {
                     // Check limit based on subscription tier
                     let tier_limits = user_record.subscription_tier.limits();
@@ -860,7 +866,11 @@ pub async fn create_wallet_contact(
     };
 
     // Count existing contacts for the wallet and check limit
-    match manager.metadata_db.count_contacts_for_wallet(&wallet_checksum).await {
+    match manager
+        .metadata_db
+        .count_contacts_for_wallet(&wallet_checksum)
+        .await
+    {
         Ok(contact_count) => {
             let tier_limits = user_record.subscription_tier.limits();
             if let Err(limit_err) = check_limit(
@@ -1292,7 +1302,9 @@ pub async fn send_contact_verification(
     }
 
     // Determine verification type and validate input
-    let (provider_type, notification_target, is_dev_mode) = if let Some(phone_number) = &request.phone_number {
+    let (provider_type, notification_target, is_dev_mode) = if let Some(phone_number) =
+        &request.phone_number
+    {
         // SMS verification
         let normalized_phone = match validate_phone_number(phone_number) {
             Ok(phone) => phone,
@@ -1308,7 +1320,7 @@ pub async fn send_contact_verification(
     } else if let Some(email_address) = &request.email_address {
         // Email verification
         let email = email_address.trim().to_lowercase();
-        
+
         // Basic email validation
         if !email.contains('@') || email.len() < 5 {
             return (
@@ -1325,7 +1337,7 @@ pub async fn send_contact_verification(
             let jwt_secret = std::env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
             let auth_service = AuthService::new(jwt_secret.clone(), None);
-            
+
             if auth_service.should_skip_email_verification(&email, &user_record.email) {
                 // Auto-approve for user's own email
                 return Json(serde_json::json!({
@@ -1395,8 +1407,12 @@ pub async fn send_contact_verification(
     };
 
     // Store pending verification
-    let stored_code = if verification_code.is_empty() { None } else { Some(verification_code.as_str()) };
-    
+    let stored_code = if verification_code.is_empty() {
+        None
+    } else {
+        Some(verification_code.as_str())
+    };
+
     match manager
         .metadata_db
         .create_pending_contact_verification(
@@ -1424,7 +1440,7 @@ pub async fn send_contact_verification(
     // Send verification code
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
-    
+
     let result = if provider_type == "sms" {
         // SMS verification via Twilio
         let twilio_config = match load_twilio_config_from_env() {
@@ -1451,7 +1467,9 @@ pub async fn send_contact_verification(
         }
 
         let auth_service = AuthService::new(jwt_secret, None);
-        auth_service.send_contact_otp(&twilio_config, &notification_target).await
+        auth_service
+            .send_contact_otp(&twilio_config, &notification_target)
+            .await
     } else {
         // Email verification via Resend
         use crate::email_service::EmailService;
@@ -1469,7 +1487,9 @@ pub async fn send_contact_verification(
         };
 
         let auth_service = AuthService::new(jwt_secret, Some(email_service));
-        auth_service.send_email_contact_otp(&notification_target, &request.name, &verification_code).await
+        auth_service
+            .send_email_contact_otp(&notification_target, &request.name, &verification_code)
+            .await
     };
 
     match result {
@@ -1616,7 +1636,7 @@ pub async fn verify_contact(
     } else if let Some(email_address) = &request.email_address {
         // Email verification
         let email = email_address.trim().to_lowercase();
-        
+
         // Basic email validation
         if !email.contains('@') || email.len() < 5 {
             return (
@@ -2023,7 +2043,8 @@ pub async fn register(
                     Json(ErrorResponse {
                         error: "User was created but could not be retrieved".to_string(),
                     }),
-                ).into_response();
+                )
+                    .into_response();
             }
             Err(e) => {
                 return (
@@ -2031,23 +2052,34 @@ pub async fn register(
                     Json(ErrorResponse {
                         error: format!("Failed to retrieve user: {}", e),
                     }),
-                ).into_response();
+                )
+                    .into_response();
             }
         };
 
         // Create Stripe subscription with trial (default to Team tier) if Stripe is enabled
         if let Some(stripe_service) = &stripe_billing {
-            if let Err(e) = stripe_service.create_trial_subscription(
-                &user_record,
-                crate::subscription::SubscriptionTier::Team,
-                &manager.metadata_db,
-            ).await {
-                tracing::error!("Failed to create Stripe trial for user {}: {}", user_record.email, e);
+            if let Err(e) = stripe_service
+                .create_trial_subscription(
+                    &user_record,
+                    crate::subscription::SubscriptionTier::Team,
+                    &manager.metadata_db,
+                )
+                .await
+            {
+                tracing::error!(
+                    "Failed to create Stripe trial for user {}: {}",
+                    user_record.email,
+                    e
+                );
                 // Don't fail registration if Stripe fails, but log the error
                 // User can still use the service, they just won't have Stripe integration
             }
         } else {
-            tracing::info!("Stripe not enabled, user {} will use database trials only", user_record.email);
+            tracing::info!(
+                "Stripe not enabled, user {} will use database trials only",
+                user_record.email
+            );
         }
     }
 
@@ -2225,20 +2257,22 @@ pub async fn login(
     }
 
     // Generate JWT token
-    let token =
-        match auth_service.generate_token(&user_record.id, &user_record.email, user_record.is_admin)
-        {
-            Ok(t) => t,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to generate token: {}", e),
-                    }),
-                )
-                    .into_response();
-            }
-        };
+    let token = match auth_service.generate_token(
+        &user_record.id,
+        &user_record.email,
+        user_record.is_admin,
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to generate token: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
 
     // Create session
     let token_hash = AuthService::hash_token(&token);
@@ -2517,7 +2551,10 @@ pub async fn reset_password(
         ("bearer_auth" = [])
     )
 )]
-pub async fn logout(State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>, headers: HeaderMap) -> Response {
+pub async fn logout(
+    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    headers: HeaderMap,
+) -> Response {
     // Get the token from the Authorization header
     let auth_header = match headers.get("authorization").and_then(|h| h.to_str().ok()) {
         Some(header) => header,
@@ -2579,7 +2616,10 @@ pub async fn logout(State((wallet_manager, _stripe_billing)): State<(AppState, S
         ("bearer_auth" = [])
     )
 )]
-pub async fn me(State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>, headers: HeaderMap) -> Response {
+pub async fn me(
+    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    headers: HeaderMap,
+) -> Response {
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -2767,7 +2807,8 @@ pub async fn create_stripe_checkout_session(
                 Json(ErrorResponse {
                     error: "Authentication required".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -2781,12 +2822,13 @@ pub async fn create_stripe_checkout_session(
                 Json(ErrorResponse {
                     error: "Invalid subscription tier".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
     let manager = wallet_manager.lock().await;
-    
+
     // Get user record
     let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(user_record)) => user_record,
@@ -2796,7 +2838,8 @@ pub async fn create_stripe_checkout_session(
                 Json(ErrorResponse {
                     error: "User not found".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
         Err(e) => {
             return (
@@ -2804,7 +2847,8 @@ pub async fn create_stripe_checkout_session(
                 Json(ErrorResponse {
                     error: format!("Database error: {}", e),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -2817,7 +2861,8 @@ pub async fn create_stripe_checkout_session(
                 Json(ErrorResponse {
                     error: "Stripe billing not initialized".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -2826,22 +2871,26 @@ pub async fn create_stripe_checkout_session(
     let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
     let success_url = "http://localhost:3001/settings/subscription?success=true"; // TODO: Make configurable
     let cancel_url = "http://localhost:3001/settings/subscription?cancelled=true"; // TODO: Make configurable
-    
-    match stripe_billing.create_checkout_session(
-        &user_record.id,
-        tier,
-        billing_cycle,
-        success_url,
-        cancel_url,
-        &manager.metadata_db,
-    ).await {
+
+    match stripe_billing
+        .create_checkout_session(
+            &user_record.id,
+            tier,
+            billing_cycle,
+            success_url,
+            cancel_url,
+            &manager.metadata_db,
+        )
+        .await
+    {
         Ok(session) => (StatusCode::OK, Json(session)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: format!("Failed to create checkout session: {}", e),
             }),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -2870,12 +2919,13 @@ pub async fn create_stripe_customer_portal(
                 Json(ErrorResponse {
                     error: "Authentication required".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
     let manager = wallet_manager.lock().await;
-    
+
     // Get user record
     let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(user_record)) => user_record,
@@ -2885,7 +2935,8 @@ pub async fn create_stripe_customer_portal(
                 Json(ErrorResponse {
                     error: "User not found".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
         Err(e) => {
             return (
@@ -2893,7 +2944,8 @@ pub async fn create_stripe_customer_portal(
                 Json(ErrorResponse {
                     error: format!("Database error: {}", e),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -2904,9 +2956,11 @@ pub async fn create_stripe_customer_portal(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
-                    error: "No Stripe customer found. Please create a subscription first.".to_string(),
+                    error: "No Stripe customer found. Please create a subscription first."
+                        .to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -2919,17 +2973,28 @@ pub async fn create_stripe_customer_portal(
                 Json(ErrorResponse {
                     error: "Stripe billing not initialized".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
     // Create customer portal session
-    tracing::info!("Creating customer portal session for customer_id: {}, return_url: {}", customer_id, payload.return_url);
-    match stripe_billing.create_customer_portal_session(customer_id, &payload.return_url).await {
+    tracing::info!(
+        "Creating customer portal session for customer_id: {}, return_url: {}",
+        customer_id,
+        payload.return_url
+    );
+    match stripe_billing
+        .create_customer_portal_session(customer_id, &payload.return_url)
+        .await
+    {
         Ok(session) => {
-            tracing::info!("✅ Customer portal session created successfully: {}", session.url);
+            tracing::info!(
+                "✅ Customer portal session created successfully: {}",
+                session.url
+            );
             (StatusCode::OK, Json(session)).into_response()
-        },
+        }
         Err(e) => {
             tracing::error!("❌ Failed to create customer portal session: {}", e);
             (
@@ -2937,8 +3002,9 @@ pub async fn create_stripe_customer_portal(
                 Json(ErrorResponse {
                     error: format!("Failed to create customer portal session: {}", e),
                 }),
-            ).into_response()
-        },
+            )
+                .into_response()
+        }
     }
 }
 
@@ -2964,12 +3030,13 @@ pub async fn get_billing_status(
                 Json(ErrorResponse {
                     error: "Authentication required".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
     let manager = wallet_manager.lock().await;
-    
+
     // Get user record
     let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(user_record)) => user_record,
@@ -2979,7 +3046,8 @@ pub async fn get_billing_status(
                 Json(ErrorResponse {
                     error: "User not found".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
         Err(e) => {
             return (
@@ -2987,31 +3055,45 @@ pub async fn get_billing_status(
                 Json(ErrorResponse {
                     error: format!("Database error: {}", e),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
     // Get wallet count for this user
-    let wallet_count = manager.metadata_db.count_wallets_for_user(&user.user_id).await
+    let wallet_count = manager
+        .metadata_db
+        .count_wallets_for_user(&user.user_id)
+        .await
         .unwrap_or(0);
-    
+
     // Get contact count across all wallets for this user
     // For now, we'll get contacts per wallet and sum them up
-    let user_wallets = manager.metadata_db.get_wallets_for_user(Some(&user.user_id)).await
+    let user_wallets = manager
+        .metadata_db
+        .get_wallets_for_user(Some(&user.user_id))
+        .await
         .unwrap_or_default();
     let contact_count = {
         let mut total = 0;
         for wallet in &user_wallets {
-            total += manager.metadata_db.count_contacts_for_wallet(&wallet.checksum).await.unwrap_or(0);
+            total += manager
+                .metadata_db
+                .count_contacts_for_wallet(&wallet.checksum)
+                .await
+                .unwrap_or(0);
         }
         total
     };
-    
+
     // Get tier limits
     let tier_limits = user_record.subscription_tier.limits();
     let limits = BillingTierLimits {
         max_wallets: tier_limits.max_wallets.map(|n| n as i32).unwrap_or(-1),
-        max_contacts_per_wallet: tier_limits.max_contacts_per_wallet.map(|n| n as i32).unwrap_or(-1),
+        max_contacts_per_wallet: tier_limits
+            .max_contacts_per_wallet
+            .map(|n| n as i32)
+            .unwrap_or(-1),
         sync_interval_seconds: tier_limits.sync_interval_secs,
     };
 
@@ -3052,7 +3134,8 @@ pub async fn get_billing_pricing(
                 Json(ErrorResponse {
                     error: "Stripe billing not initialized".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -3088,7 +3171,8 @@ pub async fn handle_stripe_webhook(
                     Json(ErrorResponse {
                         error: "Invalid stripe-signature header".to_string(),
                     }),
-                ).into_response();
+                )
+                    .into_response();
             }
         },
         None => {
@@ -3097,7 +3181,8 @@ pub async fn handle_stripe_webhook(
                 Json(ErrorResponse {
                     error: "Missing stripe-signature header".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -3110,98 +3195,166 @@ pub async fn handle_stripe_webhook(
                 Json(ErrorResponse {
                     error: "Stripe billing not initialized".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
     // Handle the webhook
     tracing::info!("🎣 Processing Stripe webhook with signature: {}", signature);
-    match stripe_billing.handle_webhook(body.as_bytes(), signature).await {
+    match stripe_billing
+        .handle_webhook(body.as_bytes(), signature)
+        .await
+    {
         Ok(webhook_result) => {
             // Process any subscription updates
             let wallet_manager = _wallet_manager.lock().await;
             for update in webhook_result.subscription_updates {
-                tracing::info!("Processing subscription update for user {}: {} -> {}", 
-                    update.user_id, update.subscription_tier, update.subscription_status);
-                
+                tracing::info!(
+                    "Processing subscription update for user {}: {} -> {}",
+                    update.user_id,
+                    update.subscription_tier,
+                    update.subscription_status
+                );
+
                 // Check if this is a customer ID lookup (from subscription cancellation)
                 let actual_user_id = if update.user_id.starts_with("stripe_customer:") {
                     let customer_id = update.user_id.strip_prefix("stripe_customer:").unwrap();
                     tracing::info!("Looking up user by Stripe customer ID: {}", customer_id);
-                    
+
                     // Find user by Stripe customer ID
-                    match wallet_manager.metadata_db.get_user_by_stripe_customer_id(customer_id).await {
+                    match wallet_manager
+                        .metadata_db
+                        .get_user_by_stripe_customer_id(customer_id)
+                        .await
+                    {
                         Ok(Some(user)) => {
                             tracing::info!("Found user {} for customer {}", user.id, customer_id);
                             user.id
-                        },
+                        }
                         Ok(None) => {
                             tracing::warn!("No user found for Stripe customer ID: {}", customer_id);
                             continue; // Skip this update
-                        },
+                        }
                         Err(e) => {
-                            tracing::error!("Failed to lookup user by customer ID {}: {}", customer_id, e);
+                            tracing::error!(
+                                "Failed to lookup user by customer ID {}: {}",
+                                customer_id,
+                                e
+                            );
                             continue; // Skip this update
                         }
                     }
                 } else {
                     update.user_id.clone()
                 };
-                
+
                 // Handle special "keep_current" tier for cancellations
                 if update.subscription_tier == "keep_current" {
                     // For cancellations, just update the status, not the tier
                     // TODO: Also need to set subscription_ends_at based on Stripe subscription end date
-                    if let Err(e) = wallet_manager.metadata_db.update_user_subscription_status(
-                        &actual_user_id,
-                        &update.subscription_status,
-                        update.stripe_subscription_id.as_deref(),
-                    ).await {
-                        tracing::error!("Failed to update user {} subscription status: {}", actual_user_id, e);
+                    if let Err(e) = wallet_manager
+                        .metadata_db
+                        .update_user_subscription_status(
+                            &actual_user_id,
+                            &update.subscription_status,
+                            update.stripe_subscription_id.as_deref(),
+                        )
+                        .await
+                    {
+                        tracing::error!(
+                            "Failed to update user {} subscription status: {}",
+                            actual_user_id,
+                            e
+                        );
                     } else {
-                        tracing::info!("✅ Updated user {} subscription status to {} (keeping current tier)", 
-                            actual_user_id, update.subscription_status);
+                        tracing::info!(
+                            "✅ Updated user {} subscription status to {} (keeping current tier)",
+                            actual_user_id,
+                            update.subscription_status
+                        );
                     }
                 } else {
                     // Regular subscription update (tier + status)
-                    if let Err(e) = wallet_manager.metadata_db.update_user_subscription(
-                        &actual_user_id,
-                        &update.subscription_tier,
-                        &update.subscription_status,
-                        update.stripe_subscription_id.as_deref(),
-                        update.subscription_started_at.as_deref(),
-                        update.trial_ends_at.as_deref(),
-                    ).await {
-                        tracing::error!("Failed to update user {} subscription: {}", actual_user_id, e);
+                    if let Err(e) = wallet_manager
+                        .metadata_db
+                        .update_user_subscription(
+                            &actual_user_id,
+                            &update.subscription_tier,
+                            &update.subscription_status,
+                            update.stripe_subscription_id.as_deref(),
+                            update.subscription_started_at.as_deref(),
+                            update.trial_ends_at.as_deref(),
+                        )
+                        .await
+                    {
+                        tracing::error!(
+                            "Failed to update user {} subscription: {}",
+                            actual_user_id,
+                            e
+                        );
                     } else {
-                        tracing::info!("✅ Updated user {} subscription to {} ({})", 
-                            actual_user_id, update.subscription_tier, update.subscription_status);
-                        
+                        tracing::info!(
+                            "✅ Updated user {} subscription to {} ({})",
+                            actual_user_id,
+                            update.subscription_tier,
+                            update.subscription_status
+                        );
+
                         // Apply subscription tier limits to wallets and contacts
                         // First, get user record to check admin status
-                        match wallet_manager.metadata_db.get_user_by_id(&actual_user_id).await {
+                        match wallet_manager
+                            .metadata_db
+                            .get_user_by_id(&actual_user_id)
+                            .await
+                        {
                             Ok(Some(user_record)) => {
-                                if let Err(e) = wallet_manager.apply_subscription_limits(&actual_user_id, &update.subscription_tier, user_record.is_admin).await {
-                                    tracing::error!("Failed to apply subscription limits for user {}: {}", actual_user_id, e);
+                                if let Err(e) = wallet_manager
+                                    .apply_subscription_limits(
+                                        &actual_user_id,
+                                        &update.subscription_tier,
+                                        user_record.is_admin,
+                                    )
+                                    .await
+                                {
+                                    tracing::error!(
+                                        "Failed to apply subscription limits for user {}: {}",
+                                        actual_user_id,
+                                        e
+                                    );
                                 } else {
                                     if user_record.is_admin {
-                                        tracing::info!("✅ Applied unlimited limits for admin user {}", actual_user_id);
+                                        tracing::info!(
+                                            "✅ Applied unlimited limits for admin user {}",
+                                            actual_user_id
+                                        );
                                     } else {
-                                        tracing::info!("✅ Applied {} tier limits for user {}", update.subscription_tier, actual_user_id);
+                                        tracing::info!(
+                                            "✅ Applied {} tier limits for user {}",
+                                            update.subscription_tier,
+                                            actual_user_id
+                                        );
                                     }
                                 }
-                            },
+                            }
                             Ok(None) => {
-                                tracing::error!("User {} not found when applying limits", actual_user_id);
-                            },
+                                tracing::error!(
+                                    "User {} not found when applying limits",
+                                    actual_user_id
+                                );
+                            }
                             Err(e) => {
-                                tracing::error!("Failed to fetch user {} when applying limits: {}", actual_user_id, e);
+                                tracing::error!(
+                                    "Failed to fetch user {} when applying limits: {}",
+                                    actual_user_id,
+                                    e
+                                );
                             }
                         }
                     }
                 }
             }
-            
+
             tracing::info!("✅ Webhook processed successfully");
             (StatusCode::OK, "OK").into_response()
         }
@@ -3212,7 +3365,8 @@ pub async fn handle_stripe_webhook(
                 Json(ErrorResponse {
                     error: format!("Webhook processing failed: {}", e),
                 }),
-            ).into_response()
+            )
+                .into_response()
         }
     }
 }
@@ -3244,22 +3398,26 @@ pub async fn get_checkout_session_details(
                 Json(ErrorResponse {
                     error: "Stripe billing not initialized".to_string(),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
     // Get session details from Stripe
-    match stripe_billing.get_checkout_session_details(&session_id).await {
+    match stripe_billing
+        .get_checkout_session_details(&session_id)
+        .await
+    {
         Ok(details) => (StatusCode::OK, Json(details)).into_response(),
         Err(e) => (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: format!("Session not found: {}", e),
             }),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
-
 
 #[derive(OpenApi)]
 #[openapi(
@@ -3331,10 +3489,7 @@ pub fn create_router(
             "/wallets/{checksum}/contacts/send-verification",
             post(send_contact_verification),
         )
-        .route(
-            "/wallets/{checksum}/contacts/verify",
-            post(verify_contact),
-        )
+        .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
         .route(
             "/wallets/{wallet_checksum}/contacts/{contact_id}",
             axum::routing::delete(delete_wallet_contact),
@@ -3354,13 +3509,19 @@ pub fn create_router(
             .route("/stripe/webhook", post(handle_stripe_webhook))
             .route("/billing/status", get(get_billing_status))
             .route("/billing/pricing", get(get_billing_pricing))
-            .route("/billing/session/{session_id}", get(get_checkout_session_details))
+            .route(
+                "/billing/session/{session_id}",
+                get(get_checkout_session_details),
+            )
             .with_state((wallet_manager.clone(), stripe_billing.clone()))
     } else {
         Router::new() // Empty router if Stripe not configured
     };
 
-    let api_routes = auth_routes.merge(wallet_routes).merge(provider_routes).merge(stripe_routes);
+    let api_routes = auth_routes
+        .merge(wallet_routes)
+        .merge(provider_routes)
+        .merge(stripe_routes);
 
     Router::new()
         .nest("/api", api_routes)

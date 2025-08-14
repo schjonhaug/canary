@@ -2,11 +2,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use canary::{
-    api::create_router,
-    notifications::NotificationManager,
-    wallet::WalletManager,
-};
+use canary::{api::create_router, notifications::NotificationManager, wallet::WalletManager};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -19,10 +15,10 @@ async fn create_test_app() -> axum::Router {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
-    
+
     let (event_tx, _event_rx) = broadcast::channel::<canary::metadata::TransactionEvent>(100);
     let _current_block_header = Arc::new(Mutex::new(None::<canary::electrum::BlockHeader>));
-    
+
     let wallet_manager = Arc::new(Mutex::new(
         WalletManager::new(
             event_tx.clone(),
@@ -35,7 +31,7 @@ async fn create_test_app() -> axum::Router {
     ));
 
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
-    
+
     // No Stripe billing for basic tests (None means billing endpoints return 500)
     let stripe_billing = None;
 
@@ -53,7 +49,7 @@ async fn test_pricing_endpoint_without_stripe() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    
+
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
@@ -76,7 +72,7 @@ async fn test_checkout_endpoint_without_stripe() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    
+
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
@@ -92,7 +88,7 @@ async fn test_session_details_without_stripe() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    
+
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
@@ -111,13 +107,13 @@ async fn test_webhook_endpoint_without_stripe() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    
+
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 /// Test invalid JSON in checkout request
-#[tokio::test] 
+#[tokio::test]
 async fn test_checkout_invalid_json() {
     let app = create_test_app().await;
 
@@ -129,7 +125,7 @@ async fn test_checkout_invalid_json() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    
+
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
@@ -146,13 +142,13 @@ async fn test_checkout_missing_fields() {
 
     let request = Request::builder()
         .uri("/api/billing/checkout")
-        .method("POST") 
+        .method("POST")
         .header("content-type", "application/json")
         .body(Body::from(checkout_request.to_string()))
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    
+
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
@@ -170,12 +166,12 @@ async fn test_checkout_invalid_tier() {
     let request = Request::builder()
         .uri("/api/billing/checkout")
         .method("POST")
-        .header("content-type", "application/json") 
+        .header("content-type", "application/json")
         .body(Body::from(checkout_request.to_string()))
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    
+
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
@@ -192,15 +188,15 @@ async fn test_openapi_structure() {
 
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    
+
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let openapi_doc: Value = serde_json::from_slice(&body).unwrap();
-    
+
     // Check basic OpenAPI structure is present
     assert!(openapi_doc["openapi"].is_string());
     assert!(openapi_doc["info"].is_object());
     assert!(openapi_doc["paths"].is_object());
-    
+
     // Non-billing endpoints should be present
     let paths = &openapi_doc["paths"];
     assert!(paths["/api/wallets"].is_object());
@@ -217,9 +213,12 @@ async fn test_swagger_ui_accessible() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    
+
     // Should redirect to swagger-ui/ with trailing slash (303 See Other is also valid)
-    assert!(response.status() == StatusCode::MOVED_PERMANENTLY || response.status() == StatusCode::SEE_OTHER);
+    assert!(
+        response.status() == StatusCode::MOVED_PERMANENTLY
+            || response.status() == StatusCode::SEE_OTHER
+    );
 }
 
 #[tokio::test]
@@ -233,10 +232,10 @@ async fn test_swagger_ui_index() {
 
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    
+
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let html = String::from_utf8(body.to_vec()).unwrap();
-    
+
     // Should contain Swagger UI HTML
     assert!(html.contains("Swagger UI"));
 }
@@ -254,11 +253,13 @@ async fn test_cors_headers() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    
+
     // Check CORS headers are present (even on error responses)
     let headers = response.headers();
-    assert!(headers.contains_key("access-control-allow-origin") || 
-             headers.contains_key("Access-Control-Allow-Origin") ||
-             headers.contains_key("access-control-allow-headers") ||
-             headers.contains_key("Access-Control-Allow-Headers"));
+    assert!(
+        headers.contains_key("access-control-allow-origin")
+            || headers.contains_key("Access-Control-Allow-Origin")
+            || headers.contains_key("access-control-allow-headers")
+            || headers.contains_key("Access-Control-Allow-Headers")
+    );
 }

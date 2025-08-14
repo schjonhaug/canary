@@ -29,7 +29,7 @@ impl SubscriptionTier {
             },
         }
     }
-    
+
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Personal => "personal",
@@ -67,8 +67,8 @@ impl std::fmt::Display for LimitError {
         write!(
             f,
             "{} limit reached ({}/{}). Upgrade to {} for more {}.",
-            self.resource, 
-            self.current, 
+            self.resource,
+            self.current,
             self.limit,
             "Team",
             self.resource.to_lowercase()

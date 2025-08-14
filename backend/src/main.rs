@@ -33,7 +33,9 @@ use wallet::WalletManager;
 async fn main() -> anyhow::Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env().add_directive("canary=info".parse()?))
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env().add_directive("canary=info".parse()?),
+        )
         .init();
 
     // Load configuration
@@ -334,7 +336,10 @@ async fn main() -> anyhow::Result<()> {
                                 None
                             }
                             Err(e) => {
-                                eprintln!("Failed to get user for wallet {}: {}", wallet_info.name, e);
+                                eprintln!(
+                                    "Failed to get user for wallet {}: {}",
+                                    wallet_info.name, e
+                                );
                                 None
                             }
                         };
@@ -352,7 +357,7 @@ async fn main() -> anyhow::Result<()> {
                         let available_providers = manager.list_providers();
                         for provider_info in available_providers {
                             let provider_name = &provider_info.name;
-                            
+
                             // All notification types are now allowed for all tiers
                             if let Ok(results) = manager
                                 .send_notifications(
@@ -454,25 +459,38 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn apply_startup_subscription_limits(wallet_manager: std::sync::Arc<tokio::sync::Mutex<WalletManager>>) -> anyhow::Result<()> {
+async fn apply_startup_subscription_limits(
+    wallet_manager: std::sync::Arc<tokio::sync::Mutex<WalletManager>>,
+) -> anyhow::Result<()> {
     tracing::info!("🎯 Applying subscription limits for all users at startup");
-    
+
     let manager = wallet_manager.lock().await;
-    
+
     // Get all users from the database
     let users = manager.metadata_db.get_all_users().await?;
-    
+
     for user in users {
-        if let Err(e) = manager.apply_subscription_limits(&user.id, &user.subscription_tier.as_str(), user.is_admin).await {
-            tracing::error!("Failed to apply subscription limits for user {}: {}", user.id, e);
+        if let Err(e) = manager
+            .apply_subscription_limits(&user.id, &user.subscription_tier.as_str(), user.is_admin)
+            .await
+        {
+            tracing::error!(
+                "Failed to apply subscription limits for user {}: {}",
+                user.id,
+                e
+            );
         } else {
             if user.is_admin {
                 tracing::info!("✅ Applied unlimited limits for admin user {}", user.id);
             } else {
-                tracing::info!("✅ Applied {} tier limits for user {}", user.subscription_tier.as_str(), user.id);
+                tracing::info!(
+                    "✅ Applied {} tier limits for user {}",
+                    user.subscription_tier.as_str(),
+                    user.id
+                );
             }
         }
     }
-    
+
     Ok(())
 }

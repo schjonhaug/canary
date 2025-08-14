@@ -21,7 +21,6 @@ pub struct WalletManager {
 }
 
 impl WalletManager {
-
     pub async fn new(
         event_sender: broadcast::Sender<TransactionEvent>,
         wallet_dir: PathBuf,
@@ -79,7 +78,6 @@ impl WalletManager {
     pub fn get_network(&self) -> Network {
         self.network
     }
-
 
     /// Helper function to insert historical event without broadcasting (no notifications)
     pub async fn insert_historical_event_helper(
@@ -369,7 +367,7 @@ impl WalletManager {
                 .strip_suffix(".sqlite")
                 .unwrap_or(filename)
                 .to_string();
-            
+
             // Check if wallet already exists before adding
             if !self.wallets.iter().any(|(cs, _)| cs == &checksum) {
                 self.wallets.push((checksum, wallet));
@@ -511,13 +509,16 @@ impl WalletManager {
         Ok(wallet_metadata)
     }
 
-
     pub async fn sync_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<()> {
         // Similar to sync_all_wallets but for a single wallet
         let metadata_db = &self.metadata_db;
         let event_sender = &self.event_sender;
 
-        if let Some((_, wallet)) = self.wallets.iter_mut().find(|(checksum, _)| checksum == wallet_checksum) {
+        if let Some((_, wallet)) = self
+            .wallets
+            .iter_mut()
+            .find(|(checksum, _)| checksum == wallet_checksum)
+        {
             // Get balance before sync
             let balance_before = wallet.balance();
             let _trusted_pending_before = balance_before.trusted_pending;
@@ -569,11 +570,11 @@ impl WalletManager {
             for tx in wallet.transactions() {
                 if tx.chain_position.is_confirmed() {
                     let txid = tx.tx_node.txid.to_string();
-                    
+
                     // Check if this was an unconfirmed send that just got confirmed
                     if let Some((_, original_amount)) = unconfirmed_sends_before
                         .iter()
-                        .find(|(stored_txid, _)| stored_txid == &txid) 
+                        .find(|(stored_txid, _)| stored_txid == &txid)
                     {
                         // This is a send confirmation
                         let transaction_time = match &tx.chain_position {
@@ -618,7 +619,7 @@ impl WalletManager {
                             transaction_time,
                             notification_status: Vec::new(),
                         };
-                        
+
                         let _ = event_sender.send(event);
                     }
                 }
@@ -636,13 +637,13 @@ impl WalletManager {
 
         // Get wallets that are due for sync based on their owner's tier
         let due_wallets = self.metadata_db.get_wallets_due_for_sync().await?;
-        
+
         if due_wallets.is_empty() {
             return Ok(());
         }
 
         println!("🔄 Syncing {} wallets due for sync", due_wallets.len());
-        
+
         // Ensure all wallets are loaded first
         if let Err(e) = self.load_all_wallets().await {
             eprintln!("Failed to load wallets: {}", e);
@@ -651,7 +652,10 @@ impl WalletManager {
 
         for (wallet_metadata, tier) in due_wallets {
             // Sync the wallet
-            match self.sync_wallet_by_checksum(&wallet_metadata.checksum).await {
+            match self
+                .sync_wallet_by_checksum(&wallet_metadata.checksum)
+                .await
+            {
                 Ok(_) => println!("   ✅ Synced {} ({})", wallet_metadata.name, tier.as_str()),
                 Err(e) => eprintln!("   ❌ Failed to sync {}: {}", wallet_metadata.name, e),
             }
@@ -824,16 +828,24 @@ impl WalletManager {
     }
 
     /// Apply subscription tier limits by setting is_active status on wallets and contacts
-    pub async fn apply_subscription_limits(&self, user_id: &str, tier: &str, is_admin: bool) -> Result<()> {
+    pub async fn apply_subscription_limits(
+        &self,
+        user_id: &str,
+        tier: &str,
+        is_admin: bool,
+    ) -> Result<()> {
         if is_admin {
             tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
         } else {
             tracing::info!("🎯 Applying {} tier limits for user {}", tier, user_id);
         }
-        
+
         // Get all wallets for this user ordered by creation time (oldest first)
-        let wallets = self.metadata_db.get_wallets_for_user_oldest_first(user_id).await?;
-        
+        let wallets = self
+            .metadata_db
+            .get_wallets_for_user_oldest_first(user_id)
+            .await?;
+
         // Determine wallet limit based on tier or admin status
         let wallet_limit = if is_admin {
             usize::MAX // Unlimited for admin
@@ -844,23 +856,38 @@ impl WalletManager {
                 _ => 1, // Default to personal limits for unknown tiers
             }
         };
-        
+
         // Update wallet active status
         for (index, wallet) in wallets.iter().enumerate() {
             let should_be_active = index < wallet_limit;
-            
-            if let Err(e) = self.metadata_db.update_wallet_active_status(&wallet.checksum, should_be_active).await {
-                tracing::error!("Failed to update wallet {} active status: {}", wallet.checksum, e);
+
+            if let Err(e) = self
+                .metadata_db
+                .update_wallet_active_status(&wallet.checksum, should_be_active)
+                .await
+            {
+                tracing::error!(
+                    "Failed to update wallet {} active status: {}",
+                    wallet.checksum,
+                    e
+                );
             } else if !should_be_active {
-                tracing::info!("📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit", 
-                    wallet.name, index + 1, tier);
+                tracing::info!(
+                    "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
+                    wallet.name,
+                    index + 1,
+                    tier
+                );
             }
         }
-        
+
         // Handle contacts for each wallet
         for wallet in &wallets {
-            let contacts = self.metadata_db.get_contacts_oldest_first_for_limits(&wallet.checksum).await?;
-            
+            let contacts = self
+                .metadata_db
+                .get_contacts_oldest_first_for_limits(&wallet.checksum)
+                .await?;
+
             // Determine contact limit based on tier or admin status
             let contact_limit = if is_admin {
                 usize::MAX // Unlimited for admin
@@ -871,32 +898,52 @@ impl WalletManager {
                     _ => 1, // Default to personal limits
                 }
             };
-            
+
             for (index, contact) in contacts.iter().enumerate() {
                 let within_count_limit = index < contact_limit;
-                
+
                 let should_be_active = within_count_limit;
-                
+
                 if let Some(contact_id) = &contact.id {
                     tracing::debug!("🔍 Contact '{}' (index: {}, created_at: {:?}) - within_limit: {}, should_be_active: {}", 
                         contact.name, index, contact.created_at, within_count_limit, should_be_active);
-                    
-                    if let Err(e) = self.metadata_db.update_contact_active_status(contact_id, should_be_active).await {
-                        tracing::error!("Failed to update contact {} active status: {}", contact_id, e);
+
+                    if let Err(e) = self
+                        .metadata_db
+                        .update_contact_active_status(contact_id, should_be_active)
+                        .await
+                    {
+                        tracing::error!(
+                            "Failed to update contact {} active status: {}",
+                            contact_id,
+                            e
+                        );
                     } else if !should_be_active {
-                        let reason = format!("exceeds {} tier limit of {} contacts", tier, contact_limit);
-                        tracing::info!("📵 Deactivated contact '{}' in wallet '{}' - {}", 
-                            contact.name, wallet.name, reason);
+                        let reason =
+                            format!("exceeds {} tier limit of {} contacts", tier, contact_limit);
+                        tracing::info!(
+                            "📵 Deactivated contact '{}' in wallet '{}' - {}",
+                            contact.name,
+                            wallet.name,
+                            reason
+                        );
                     } else {
-                        tracing::info!("✅ Activated contact '{}' in wallet '{}' (within {} limit)", 
-                            contact.name, wallet.name, tier);
+                        tracing::info!(
+                            "✅ Activated contact '{}' in wallet '{}' (within {} limit)",
+                            contact.name,
+                            wallet.name,
+                            tier
+                        );
                     }
                 }
             }
         }
-        
-        tracing::info!("✅ Applied {} tier limits: {} wallets, checking contacts per wallet", 
-            tier, wallet_limit);
+
+        tracing::info!(
+            "✅ Applied {} tier limits: {} wallets, checking contacts per wallet",
+            tier,
+            wallet_limit
+        );
         Ok(())
     }
 }

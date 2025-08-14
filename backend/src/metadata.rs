@@ -491,7 +491,6 @@ impl MetadataDb {
         }).await?
     }
 
-
     pub async fn get_wallet_by_descriptor(
         &self,
         descriptor: &str,
@@ -634,7 +633,10 @@ impl MetadataDb {
     }
 
     /// Get wallets for a user ordered by creation time (oldest first) for subscription limits enforcement
-    pub async fn get_wallets_for_user_oldest_first(&self, user_id: &str) -> Result<Vec<WalletMetadata>> {
+    pub async fn get_wallets_for_user_oldest_first(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
 
@@ -682,12 +684,11 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<usize> {
             let conn = pool.get()?;
-            let count: i64 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM wallets WHERE user_id = ?1",
-                    params![user_id],
-                    |row| row.get(0),
-                )?;
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM wallets WHERE user_id = ?1",
+                params![user_id],
+                |row| row.get(0),
+            )?;
             Ok(count as usize)
         })
         .await?
@@ -699,12 +700,11 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<usize> {
             let conn = pool.get()?;
-            let count: i64 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM contacts WHERE wallet_checksum = ?1",
-                    params![checksum],
-                    |row| row.get(0),
-                )?;
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM contacts WHERE wallet_checksum = ?1",
+                params![checksum],
+                |row| row.get(0),
+            )?;
             Ok(count as usize)
         })
         .await?
@@ -905,11 +905,15 @@ impl MetadataDb {
         &self,
         wallet_checksum: &str,
     ) -> Result<Vec<Contact>> {
-        self.get_contacts_with_notification_methods_filtered(wallet_checksum, false).await
+        self.get_contacts_with_notification_methods_filtered(wallet_checksum, false)
+            .await
     }
 
     /// Get contacts for subscription limits ordered by creation time (oldest first)
-    pub async fn get_contacts_oldest_first_for_limits(&self, wallet_checksum: &str) -> Result<Vec<Contact>> {
+    pub async fn get_contacts_oldest_first_for_limits(
+        &self,
+        wallet_checksum: &str,
+    ) -> Result<Vec<Contact>> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
 
@@ -970,7 +974,8 @@ impl MetadataDb {
             }
 
             Ok(contacts.into_values().collect())
-        }).await?
+        })
+        .await?
     }
 
     pub async fn get_contacts_with_notification_methods_filtered(
@@ -1146,7 +1151,9 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
-            let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+            let current_time = chrono::Utc::now()
+                .format("%Y-%m-%d %H:%M:%S%.3f")
+                .to_string();
             conn.execute(
                 "UPDATE wallets SET last_synced_at = ?1 WHERE checksum = ?2",
                 params![current_time, checksum],
@@ -1156,7 +1163,9 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn get_wallets_due_for_sync(&self) -> Result<Vec<(WalletMetadata, SubscriptionTier)>> {
+    pub async fn get_wallets_due_for_sync(
+        &self,
+    ) -> Result<Vec<(WalletMetadata, SubscriptionTier)>> {
         let pool = self.pool.clone();
 
         spawn_blocking(move || -> Result<Vec<(WalletMetadata, SubscriptionTier)>> {
@@ -1457,7 +1466,10 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_user_by_stripe_customer_id(&self, stripe_customer_id: &str) -> Result<Option<UserRecord>> {
+    pub async fn get_user_by_stripe_customer_id(
+        &self,
+        stripe_customer_id: &str,
+    ) -> Result<Option<UserRecord>> {
         let pool = self.pool.clone();
         let stripe_customer_id = stripe_customer_id.to_string();
 
@@ -1506,7 +1518,7 @@ impl MetadataDb {
 
     pub async fn get_all_users(&self) -> Result<Vec<UserRecord>> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<Vec<UserRecord>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
@@ -1601,14 +1613,11 @@ impl MetadataDb {
                     subscription_status = ?1,
                     stripe_subscription_id = COALESCE(?2, stripe_subscription_id)
                 WHERE id = ?3",
-                params![
-                    subscription_status,
-                    stripe_subscription_id,
-                    user_id,
-                ],
+                params![subscription_status, stripe_subscription_id, user_id,],
             )?;
             Ok(())
-        }).await?
+        })
+        .await?
     }
 
     pub async fn update_user_subscription(
@@ -1651,7 +1660,6 @@ impl MetadataDb {
         })
         .await?
     }
-
 
     // Session management
     pub async fn create_session(
@@ -1730,7 +1738,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let token = token.to_string();
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        
+
         tracing::debug!("Verifying email token: {} at time: {}", token, current_time);
 
         spawn_blocking(move || -> Result<Option<String>> {
@@ -2073,37 +2081,43 @@ impl MetadataDb {
     pub async fn update_wallet_active_status(&self, checksum: &str, is_active: bool) -> Result<()> {
         let pool = self.pool.clone();
         let checksum = checksum.to_string();
-        
+
         tokio::task::spawn_blocking(move || {
             let conn = pool.get()?;
-            
+
             conn.execute(
                 "UPDATE wallets SET is_active = ? WHERE checksum = ?",
                 params![is_active, checksum],
             )?;
-            
+
             Ok::<(), anyhow::Error>(())
-        }).await??;
-        
+        })
+        .await??;
+
         Ok(())
     }
 
     /// Update contact active status for subscription tier limits
-    pub async fn update_contact_active_status(&self, contact_id: &str, is_active: bool) -> Result<()> {
+    pub async fn update_contact_active_status(
+        &self,
+        contact_id: &str,
+        is_active: bool,
+    ) -> Result<()> {
         let pool = self.pool.clone();
         let contact_id = contact_id.to_string();
-        
+
         tokio::task::spawn_blocking(move || {
             let conn = pool.get()?;
-            
+
             conn.execute(
                 "UPDATE contacts SET is_active = ? WHERE id = ?",
                 params![is_active, contact_id],
             )?;
-            
+
             Ok::<(), anyhow::Error>(())
-        }).await??;
-        
+        })
+        .await??;
+
         Ok(())
     }
 }

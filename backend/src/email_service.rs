@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
+use rand::Rng;
 use resend_rs::types::{ContactData, CreateEmailBaseOptions};
 use resend_rs::Resend;
-use rand::Rng;
 
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
