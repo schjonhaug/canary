@@ -34,6 +34,7 @@ fn create_test_contact(name: &str, language: Language) -> Contact {
         language,
         notification_methods: vec![],
         created_at: "2023-01-01 12:00:00".to_string(),
+        is_active: true,
     }
 }
 

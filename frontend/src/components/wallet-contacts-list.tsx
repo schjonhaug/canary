@@ -64,7 +64,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                 </div>
                 {shouldShowInactiveState && (
                   <div className="text-xs text-orange-600 mb-1">
-                    This contact exceeds your subscription tier limits and won't receive notifications
+                    This contact exceeds your subscription tier limits and won&apos;t receive notifications
                   </div>
                 )}
                 <div className="space-y-1">

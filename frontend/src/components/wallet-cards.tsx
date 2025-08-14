@@ -164,7 +164,7 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
                   </div>
                   {isInactive && (
                     <CardDescription className="text-xs text-orange-600 mt-1">
-                      This wallet exceeds your subscription tier limits and won't sync automatically
+                      This wallet exceeds your subscription tier limits and won&apos;t sync automatically
                     </CardDescription>
                   )}
                 </CardHeader>

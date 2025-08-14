@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [authEnabled])
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const { user: userData } = await api.getMe()
       setUser(userData)
@@ -107,13 +107,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(null)
         api.setAuthToken(null)
       } else {
-        console.log('Non-auth error, keeping user logged in:', error.message)
+        console.log('Non-auth error, keeping user logged in:', error instanceof Error ? error.message : String(error))
         // Keep user data but mark as potentially stale
       }
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   const fetchBillingStatus = useCallback(async () => {
     try {

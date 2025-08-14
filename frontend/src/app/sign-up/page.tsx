@@ -127,7 +127,7 @@ export default function SignUpPage() {
                 htmlFor="marketing" 
                 className="text-sm text-gray-600 cursor-pointer select-none"
               >
-                I'd like to receive occasional emails about updates to the service
+                I&apos;d like to receive occasional emails about updates to the service
               </Label>
             </div>
             <Button 

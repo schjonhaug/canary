@@ -1,12 +1,17 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // Create a test component that mimics the wallet detail page contact limit behavior
 import { hasReachedContactLimit, getContactLimit } from '../../lib/utils'
 
 // Mock the PlansModal component
-const MockPlansModal = ({ isOpen, onClose, limitType, currentContactCount }: any) => {
+const MockPlansModal = ({ isOpen, onClose, limitType, currentContactCount }: {
+  isOpen: boolean
+  onClose: () => void
+  limitType: string
+  currentContactCount: number
+}) => {
   if (!isOpen) return null
   return (
     <div data-testid="plans-modal">
@@ -19,7 +24,10 @@ const MockPlansModal = ({ isOpen, onClose, limitType, currentContactCount }: any
 }
 
 // Mock the ContactModal component
-const MockContactModal = ({ isOpen, onClose }: any) => {
+const MockContactModal = ({ isOpen, onClose }: {
+  isOpen: boolean
+  onClose: () => void
+}) => {
   if (!isOpen) return null
   return (
     <div data-testid="contact-modal">
@@ -37,7 +45,7 @@ const ContactLimitTestComponent = ({
 }: { 
   userTier: string
   currentContactCount: number
-  contacts?: any[]
+  contacts?: unknown[]
 }) => {
   const [isAddContactModalOpen, setIsAddContactModalOpen] = React.useState(false)
   const [isPlansModalOpen, setIsPlansModalOpen] = React.useState(false)
@@ -268,7 +276,7 @@ describe('Contact Limit Enforcement', () => {
         <ContactLimitTestComponent 
           userTier="personal" 
           currentContactCount={0}
-          contacts={undefined as any}
+          contacts={undefined as unknown[]}
         />
       )
 

@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Loader2 } from "lucide-react"
@@ -37,7 +36,6 @@ export function PlanComparison({
   hasPaidSubscription = false
 }: PlanComparisonProps) {
   const { pricing, loading, error } = usePricing()
-  const discountPercent = pricing?.yearly_discount_percent || 20 // fallback to 20%
   
   // Only use Stripe pricing
   const sortedTiers = pricing ? sortTiers(pricing.tiers) : []
@@ -84,7 +82,6 @@ export function PlanComparison({
       isModal={isModal}
       isLoading={isLoading}
       loadingTier={loadingTier}
-      discountPercent={discountPercent}
       hasPaidSubscription={hasPaidSubscription}
     />
   )
@@ -108,7 +105,6 @@ interface PlanComparisonContentProps {
   isModal: boolean
   isLoading: boolean
   loadingTier: string | null
-  discountPercent: number
   showUnifiedTrialButton: boolean
   hasPaidSubscription: boolean
 }
@@ -125,7 +121,6 @@ function PlanComparisonContent({
   isModal,
   isLoading,
   loadingTier,
-  discountPercent,
   hasPaidSubscription
 }: PlanComparisonContentProps) {
   return (
@@ -196,7 +191,7 @@ function PlanComparisonContent({
                 {allFeatures.map((feature) => {
                   const tierKey = tier.tier as 'personal' | 'team'
                   const value = feature[tierKey]
-                  const isUnique = feature.unique?.[tierKey] || false
+                  const isUnique = feature.unique?.[tierKey as keyof typeof feature.unique] || false
                   
                   if (value === false) {
                     return (

@@ -181,7 +181,7 @@ export default function WalletDetailPage() {
           <AlertTriangle className="h-4 w-4 text-orange-600" />
           <AlertTitle className="text-orange-700">Wallet Inactive</AlertTitle>
           <AlertDescription className="text-orange-600">
-            This wallet exceeds your subscription tier limits and won't sync automatically. 
+            This wallet exceeds your subscription tier limits and won&apos;t sync automatically. 
             Transaction history and balance shown may be outdated.
             <span className="block mt-2">
               <Link href="/settings/subscription">
@@ -308,7 +308,10 @@ export default function WalletDetailPage() {
           currentWalletCount={1} // We're on a single wallet page
           currentContactCount={contacts?.length || 0}
           limitType="contacts" // Show that we're upgrading for contacts
-          billingStatus={billingStatus}
+          billingStatus={billingStatus ? {
+            subscription_status: billingStatus.subscription_status,
+            stripe_customer_id: billingStatus.stripe_customer_id
+          } : undefined}
         />
       </Suspense>
     </>

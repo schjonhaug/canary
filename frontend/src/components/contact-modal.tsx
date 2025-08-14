@@ -203,7 +203,7 @@ export function ContactModal({
         fetchProviders()
       }
     }
-  }, [isOpen, editContact, fetchProviders])
+  }, [isOpen, editContact, fetchProviders, providers.length])
 
   const handleClose = () => {
     setError(null)
@@ -460,7 +460,7 @@ export function ContactModal({
           await api.deleteContact(walletChecksum, editContact.id)
         }
         
-        const notificationMethods = []
+        const notificationMethods: { provider_type: 'sms' | 'ntfy' | 'email'; notification_target: string }[] = []
         
         if (hasNtfy) {
           notificationMethods.push({ provider_type: 'ntfy', notification_target: '' })

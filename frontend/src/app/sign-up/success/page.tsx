@@ -22,7 +22,7 @@ export default function SignUpSuccessPage() {
             Check your email
           </CardTitle>
           <CardDescription className="text-center">
-            We've sent you a verification link
+            We&apos;ve sent you a verification link
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -34,7 +34,7 @@ export default function SignUpSuccessPage() {
           
           <div className="text-center space-y-2">
             <p className="text-sm text-gray-600">
-              Didn't receive an email? Check your spam folder or contact support.
+              Didn&apos;t receive an email? Check your spam folder or contact support.
             </p>
           </div>
 

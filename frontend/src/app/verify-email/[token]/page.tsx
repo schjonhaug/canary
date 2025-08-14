@@ -27,7 +27,7 @@ export default function VerifyEmailPage() {
           setStatus('error')
           setMessage(errorData.error || 'Email verification failed')
         }
-      } catch (error) {
+      } catch {
         setStatus('error')
         setMessage('Network error occurred during verification')
       }

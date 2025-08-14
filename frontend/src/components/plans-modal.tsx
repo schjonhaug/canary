@@ -95,7 +95,7 @@ export function PlansModal({
   }
 
   // Determine if user has an active paid subscription
-  const hasPaidSubscription = billingStatus?.subscription_status === 'active' && billingStatus?.stripe_customer_id
+  const hasPaidSubscription = billingStatus?.subscription_status === 'active' && !!billingStatus?.stripe_customer_id
 
   // Use customer portal for paid users, checkout for trial/new users
   const handleSubscriptionAction = hasPaidSubscription ? handleManageSubscription : handleUpgrade

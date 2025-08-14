@@ -129,7 +129,7 @@ export default function BillingPage() {
               </div>
               <div className="text-sm text-orange-600 mb-3">
                 You have {walletCount} wallets but your {getTierDisplayName(currentTier)} plan allows only {maxWallets}. 
-                Excess wallets won't sync automatically and some contacts may be inactive.
+                Excess wallets won&apos;t sync automatically and some contacts may be inactive.
               </div>
               <Button 
                 onClick={() => setShowUpgradeModal(true)} 
@@ -225,7 +225,10 @@ export default function BillingPage() {
           currentContactCount={billingStatus?.contact_count || 0}
           limitType="wallets"
           isTrialUser={isTrialUser}
-          billingStatus={billingStatus}
+          billingStatus={billingStatus ? {
+            subscription_status: billingStatus.subscription_status,
+            stripe_customer_id: billingStatus.stripe_customer_id
+          } : undefined}
         />
       </div>
       

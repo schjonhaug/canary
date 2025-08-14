@@ -92,7 +92,10 @@ export default function WalletsLayout({
           currentTier={billingStatus?.subscription_tier || user?.subscription_tier || 'personal'}
           currentWalletCount={wallets.length}
           limitType="wallets"
-          billingStatus={billingStatus}
+          billingStatus={billingStatus ? {
+            subscription_status: billingStatus.subscription_status,
+            stripe_customer_id: billingStatus.stripe_customer_id
+          } : undefined}
         />
       </Suspense>
 

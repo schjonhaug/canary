@@ -152,7 +152,7 @@ export default function SignInPage() {
                   className="w-full"
                   disabled={isLoading}
                 >
-                  Don't have an account? Sign up
+                  Don&apos;t have an account? Sign up
                 </Button>
               </Link>
               <Link href="/forgot-password">
