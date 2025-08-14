@@ -60,7 +60,7 @@ export default function BillingCancelPage() {
             <h4 className="font-medium text-sm">Need help choosing a plan?</h4>
             <div className="text-sm text-muted-foreground space-y-1">
               <p>• <strong>Personal:</strong> Perfect for individual users managing their own Bitcoin</p>
-              <p>• <strong>Pro:</strong> Great for family guardians managing multiple wallets</p>
+              <p>• <strong>Team:</strong> Great for family guardians managing multiple wallets</p>
             </div>
           </div>
         </CardContent>

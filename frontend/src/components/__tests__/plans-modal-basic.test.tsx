@@ -63,7 +63,7 @@ describe('PlansModal Basic Functionality', () => {
       
       expect(screen.getByText(/You've reached your wallet limit of 15 wallets/)).toBeInTheDocument()
       expect(screen.getByText('Current usage: 15 / 15 wallets')).toBeInTheDocument()
-      expect(screen.getByText('Pro')).toBeInTheDocument()
+      expect(screen.getByText('Team')).toBeInTheDocument()
     })
   })
 
@@ -77,11 +77,11 @@ describe('PlansModal Basic Functionality', () => {
       expect(screen.getByText(/upgrade to add more contacts/)).toBeInTheDocument()
     })
 
-    it('shows plural form for pro tier contacts', () => {
+    it('shows plural form for team tier contacts', () => {
       render(
         <PlansModal 
           {...defaultProps}
-          currentTier="pro"
+          currentTier="team"
           currentContactCount={10}
           limitType="contacts"
         />
@@ -99,9 +99,9 @@ describe('PlansModal Basic Functionality', () => {
       expect(screen.getByText('Personal')).toBeInTheDocument()
     })
 
-    it('displays Pro tier badge', () => {
-      render(<PlansModal {...defaultProps} currentTier="pro" currentWalletCount={15} />)
-      expect(screen.getByText('Pro')).toBeInTheDocument()
+    it('displays Team tier badge', () => {
+      render(<PlansModal {...defaultProps} currentTier="team" currentWalletCount={15} />)
+      expect(screen.getByText('Team')).toBeInTheDocument()
     })
 
   })

@@ -181,7 +181,7 @@ describe('Contact Limit Enforcement', () => {
     })
   })
 
-  describe('Pro Tier Contact Limits', () => {
+  describe('Team Tier Contact Limits', () => {
     it('shows contact modal when under limit', async () => {
       const user = userEvent.setup()
       render(
