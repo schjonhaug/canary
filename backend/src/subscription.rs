@@ -59,7 +59,6 @@ pub struct LimitError {
     pub resource: String,
     pub current: usize,
     pub limit: usize,
-    pub tier: SubscriptionTier,
 }
 
 impl std::fmt::Display for LimitError {
@@ -78,12 +77,11 @@ impl std::fmt::Display for LimitError {
 
 impl std::error::Error for LimitError {}
 
-/// Generic limit checker that works for any resource type and tier
+/// Generic limit checker that works for any resource type
 pub fn check_limit(
     current: usize,
     limit: Option<usize>,
     resource: &str,
-    tier: SubscriptionTier,
 ) -> Result<(), LimitError> {
     if let Some(max) = limit {
         if current >= max {
@@ -91,7 +89,6 @@ pub fn check_limit(
                 resource: resource.to_string(),
                 current,
                 limit: max,
-                tier,
             });
         }
     }

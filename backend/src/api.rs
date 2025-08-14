@@ -272,7 +272,6 @@ pub async fn create_wallet(
                         wallet_count,
                         tier_limits.max_wallets,
                         "Wallet",
-                        user_record.subscription_tier,
                     ) {
                         return (
                             StatusCode::FORBIDDEN,
@@ -877,7 +876,6 @@ pub async fn create_wallet_contact(
                 contact_count,
                 tier_limits.max_contacts_per_wallet,
                 "Contact",
-                user_record.subscription_tier,
             ) {
                 return (
                     StatusCode::FORBIDDEN,

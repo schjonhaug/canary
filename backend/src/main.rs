@@ -324,25 +324,6 @@ async fn main() -> anyhow::Result<()> {
                     .await
                 {
                     if !contacts.is_empty() {
-                        // Get user's subscription tier to filter notifications
-                        let user_tier = match wallet_manager_lock
-                            .metadata_db
-                            .get_user_by_id(&wallet_info.user_id)
-                            .await
-                        {
-                            Ok(Some(user_record)) => Some(user_record.subscription_tier),
-                            Ok(None) => {
-                                eprintln!("User not found for wallet {}", wallet_info.name);
-                                None
-                            }
-                            Err(e) => {
-                                eprintln!(
-                                    "Failed to get user for wallet {}: {}",
-                                    wallet_info.name, e
-                                );
-                                None
-                            }
-                        };
 
                         println!(
                             "🔔 Triggering notifications for {} contacts on wallet '{}'",
