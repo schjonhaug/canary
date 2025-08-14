@@ -1,24 +1,24 @@
 // Shared feature definitions - used for both static and dynamic pricing
 export const allFeatures = [
-  { id: 'trial', label: '30-day free trial', personal: true, uncle_jim: true },
-  { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', uncle_jim: '5 wallets', unique: { uncle_jim: true } },
-  { id: 'contacts', label: 'Contacts per wallet', personal: '1 contact', uncle_jim: '5 contacts per wallet', unique: { uncle_jim: true } },
-  { id: 'sync', label: 'Sync interval', personal: '10 minute sync time', uncle_jim: '1 minute sync time', unique: { uncle_jim: true } },
-  { id: 'email', label: 'Email notifications', personal: true, uncle_jim: true },
-  { id: 'sms', label: 'SMS notifications', personal: true, uncle_jim: true },
-  { id: 'push', label: 'Push notifications', personal: true, uncle_jim: true },
-  { id: 'analysis', label: 'Transaction analysis (RBF/CPFP)', personal: true, uncle_jim: true },
+  { id: 'trial', label: '30-day free trial', personal: true, team: true },
+  { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', team: '5 wallets', unique: { team: true } },
+  { id: 'contacts', label: 'Contacts per wallet', personal: '1 contact', team: '5 contacts per wallet', unique: { team: true } },
+  { id: 'sync', label: 'Sync interval', personal: '10 minute sync time', team: '1 minute sync time', unique: { team: true } },
+  { id: 'email', label: 'Email notifications', personal: true, team: true },
+  { id: 'sms', label: 'SMS notifications', personal: true, team: true },
+  { id: 'push', label: 'Push notifications', personal: true, team: true },
+  { id: 'analysis', label: 'Transaction analysis (RBF/CPFP)', personal: true, team: true },
 ]
 
 // Feature mapping for Stripe metadata to display features
-export const featureMapping: Record<string, { label: string, tiers: ('personal' | 'uncle_jim')[], unique?: Record<string, boolean> }> = {
-  'wallets': { label: 'Bitcoin wallets', tiers: ['personal', 'uncle_jim'], unique: { uncle_jim: true } },
-  'contacts_per_wallet': { label: 'Contacts per wallet', tiers: ['personal', 'uncle_jim'], unique: { uncle_jim: true } },
-  'sync_interval': { label: 'Sync interval', tiers: ['personal', 'uncle_jim'], unique: { uncle_jim: true } },
-  'email_notifications': { label: 'Email notifications', tiers: ['personal', 'uncle_jim'] },
-  'sms_notifications': { label: 'SMS notifications', tiers: ['personal', 'uncle_jim'] },
-  'push_notifications': { label: 'Push notifications', tiers: ['personal', 'uncle_jim'] },
-  'transaction_analysis': { label: 'Transaction analysis (RBF/CPFP)', tiers: ['personal', 'uncle_jim'] },
+export const featureMapping: Record<string, { label: string, tiers: ('personal' | 'team')[], unique?: Record<string, boolean> }> = {
+  'wallets': { label: 'Bitcoin wallets', tiers: ['personal', 'team'], unique: { team: true } },
+  'contacts_per_wallet': { label: 'Contacts per wallet', tiers: ['personal', 'team'], unique: { team: true } },
+  'sync_interval': { label: 'Sync interval', tiers: ['personal', 'team'], unique: { team: true } },
+  'email_notifications': { label: 'Email notifications', tiers: ['personal', 'team'] },
+  'sms_notifications': { label: 'SMS notifications', tiers: ['personal', 'team'] },
+  'push_notifications': { label: 'Push notifications', tiers: ['personal', 'team'] },
+  'transaction_analysis': { label: 'Transaction analysis (RBF/CPFP)', tiers: ['personal', 'team'] },
 }
 
 export const pricingTiers = [
@@ -33,8 +33,8 @@ export const pricingTiers = [
     highlighted: false
   },
   {
-    name: "Uncle Jim",
-    slug: "uncle_jim", 
+    name: "Team",
+    slug: "team", 
     monthlyPrice: 29,
     yearlyPrice: 278, // 20% discount: 29 * 12 * 0.8
     description: "For Uncle Jims & family guardians",
@@ -46,7 +46,7 @@ export const pricingTiers = [
 ]
 
 // Type definitions
-export type TierSlug = 'personal' | 'uncle_jim'
+export type TierSlug = 'personal' | 'team'
 export type PricingTier = typeof pricingTiers[0]
 export type Feature = typeof allFeatures[0]
 
@@ -54,7 +54,7 @@ export type Feature = typeof allFeatures[0]
 export function getTierDisplayName(tier: string): string {
   switch (tier.toLowerCase()) {
     case 'personal': return 'Personal'
-    case 'uncle_jim': return 'Uncle Jim'  
+    case 'team': return 'Team'  
     default: return tier
   }
 }
@@ -62,7 +62,7 @@ export function getTierDisplayName(tier: string): string {
 export function getTierDescription(tier: string): string {
   switch (tier.toLowerCase()) {
     case 'personal': return 'For individual Bitcoin holders'
-    case 'uncle_jim': return 'For Uncle Jims & family guardians'
+    case 'team': return 'For Uncle Jims & family guardians'
     default: return ''
   }
 }

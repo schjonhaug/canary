@@ -227,16 +227,16 @@ impl StripeBilling {
             yearly_discount_percent: discount_percent,
         };
 
-        // Sort tiers by display order (Personal -> Pro)
+        // Sort tiers by display order (Personal -> Team)
         self.cached_pricing.tiers.sort_by(|a, b| {
             let order_a = match a.tier.to_lowercase().as_str() {
                 "personal" => 1,
-                "pro" => 2,
+                "team" => 2,
                 _ => 99,
             };
             let order_b = match b.tier.to_lowercase().as_str() {
                 "personal" => 1,
-                "pro" => 2,
+                "team" => 2,
                 _ => 99,
             };
             order_a.cmp(&order_b)
@@ -252,7 +252,7 @@ impl StripeBilling {
     fn get_tier_display_name(&self, tier: &str) -> String {
         match tier.to_lowercase().as_str() {
             "personal" => "Personal".to_string(),
-            "pro" => "Pro".to_string(),
+            "team" => "Team".to_string(),
             _ => tier.to_string(),
         }
     }
@@ -260,7 +260,7 @@ impl StripeBilling {
     fn get_tier_description(&self, tier: &str) -> Option<String> {
         match tier.to_lowercase().as_str() {
             "personal" => Some("For individual Bitcoin holders".to_string()),
-            "pro" => Some("For Uncle Jims & family guardians".to_string()),
+            "team" => Some("For Uncle Jims & family guardians".to_string()),
             _ => None,
         }
     }
@@ -277,11 +277,11 @@ impl StripeBilling {
             "personal" => {
                 features.insert("wallets".to_string(), "1 wallet".to_string());
                 features.insert("contacts".to_string(), "1 contact".to_string());
-                features.insert("sync".to_string(), "5 minute sync time".to_string());
+                features.insert("sync".to_string(), "10 minute sync time".to_string());
             },
-            "pro" => {
-                features.insert("wallets".to_string(), "15 wallets".to_string());
-                features.insert("contacts".to_string(), "10 contacts per wallet".to_string());
+            "team" => {
+                features.insert("wallets".to_string(), "5 wallets".to_string());
+                features.insert("contacts".to_string(), "5 contacts per wallet".to_string());
                 features.insert("sync".to_string(), "1 minute sync time".to_string());
                 features.insert("sms".to_string(), "SMS notifications".to_string());
                 features.insert("push".to_string(), "Push notifications".to_string());

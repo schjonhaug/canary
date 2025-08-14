@@ -194,7 +194,7 @@ function PlanComparisonContent({
             <CardContent>
               <ul className="space-y-2.5">
                 {allFeatures.map((feature) => {
-                  const tierKey = tier.tier as 'personal' | 'uncle_jim'
+                  const tierKey = tier.tier as 'personal' | 'team'
                   const value = feature[tierKey]
                   const isUnique = feature.unique?.[tierKey] || false
                   

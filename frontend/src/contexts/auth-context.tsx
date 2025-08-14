@@ -10,7 +10,7 @@ interface User {
   name?: string
   is_admin: boolean
   email_verified: boolean
-  subscription_tier?: 'personal' | 'uncle_jim'
+  subscription_tier?: 'personal' | 'team'
 }
 
 interface BillingStatus {
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: 'Admin',
         is_admin: true,
         email_verified: true,
-        subscription_tier: 'uncle_jim' as const
+        subscription_tier: 'team' as const
       })
       setToken('foss-mode')
       setIsLoading(false)
@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setBillingStatus(status)
       // Update user subscription tier if it differs
       if (user && status.subscription_tier !== user.subscription_tier) {
-        setUser(prev => prev ? { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'uncle_jim' } : null)
+        setUser(prev => prev ? { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'team' } : null)
       }
     } catch (error) {
       console.error('Failed to fetch billing status:', error)

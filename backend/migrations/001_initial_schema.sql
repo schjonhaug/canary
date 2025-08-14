@@ -22,7 +22,7 @@ CREATE TABLE users (
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     -- Subscription fields
-    subscription_tier TEXT DEFAULT 'uncle_jim' CHECK (subscription_tier IN ('personal', 'uncle_jim')),
+    subscription_tier TEXT DEFAULT 'team' CHECK (subscription_tier IN ('personal', 'team')),
     trial_ends_at DATETIME DEFAULT (datetime('now', '+30 days')),
     subscription_status TEXT DEFAULT 'trial' CHECK (subscription_status IN ('pending', 'trial', 'trialing', 'active', 'expired', 'cancelled')),
     -- Stripe integration

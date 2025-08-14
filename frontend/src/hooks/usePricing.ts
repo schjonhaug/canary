@@ -84,11 +84,11 @@ export function calculateYearlyDiscount(monthlyAmount: number, yearlyAmount: num
   return Math.round((discountAmount / fullYearlyPrice) * 100)
 }
 
-// Helper function to get tier display order (personal -> uncle_jim)
+// Helper function to get tier display order (personal -> team)
 export function getTierOrder(tier: string): number {
   switch (tier.toLowerCase()) {
     case 'personal': return 1
-    case 'uncle_jim': return 2
+    case 'team': return 2
     default: return 99
   }
 }

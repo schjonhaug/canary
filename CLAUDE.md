@@ -128,7 +128,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 ## Key Features
 - **Optional Authentication**: Email/password authentication with email verification
 - **Multi-user Support**: JWT-based sessions with user isolation when auth is enabled
-- **Subscription Tiers**: Three-tier system (Personal, Pro, Business) with enforced limits and feature restrictions
+- **Subscription Tiers**: Two-tier system (Personal, Team) with capacity-based limits and all features enabled for both tiers
 - **Proactive Limit Enforcement**: Smart upgrade modals prevent users from hitting limits after form completion
 - **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh, Twilio SMS, and Resend email
 - **Multiple Notification Methods**: Each contact can have multiple notification methods (SMS + email + ntfy + future: telegram + webhooks)
@@ -138,7 +138,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
 - **Environment Configuration**: Provider selection via .env variables, no database config needed
 - **Performance**: Async SQLite with r2d2 connection pooling
-- **Tier-based Sync**: Individual wallet sync intervals based on user's subscription tier (Personal: 5min, Pro: 1min, Business: 5s)
+- **Tier-based Sync**: Individual wallet sync intervals based on user's subscription tier (Personal: 10min, Team: 1min)
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
 - **Network Isolation**: Separate databases per Bitcoin network
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
@@ -150,16 +150,17 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 ## Subscription Tiers & Limits
 
 ### Tier Structure
-- **Personal ($9/month)**: 1 wallet, 1 contact per wallet, 5-minute sync, email notifications only
-- **Pro ($29/month)**: 15 wallets, 10 contacts per wallet, 1-minute sync, all notification types, transaction analysis
-- **Business ($99/month)**: Unlimited wallets/contacts, 5-second sync, all features, API access, webhooks, SLA
+- **Personal ($9/month)**: 1 wallet, 1 contact per wallet, 10-minute sync, all features enabled
+- **Team ($29/month)**: 5 wallets, 5 contacts per wallet, 1-minute sync, all features enabled
+
+**Note**: All features (email/SMS/push notifications, transaction analysis) are available on both tiers. The difference is only in capacity limits and sync frequency.
 
 ### Limit Enforcement
 - **Proactive Checking**: Limits checked before form display (not after submission)
 - **Smart Upgrade Modals**: Professional plan comparison with monthly pricing and yearly savings display
 - **Tier-based Sync**: Individual wallet sync intervals based on subscription tier
-- **Notification Filtering**: SMS notifications restricted to Pro/Business tiers
-- **Contact Sales**: Business tier requires sales consultation (features under development)
+- **Contact Priority**: When subscription limits are exceeded, oldest contacts remain active (first-in-first-out principle)
+- **Admin Bypass**: Admin users have unlimited access regardless of subscription tier
 
 ### Frontend Components
 - **Shared Pricing Data**: Single source of truth in `/src/lib/pricing-data.ts`
@@ -169,10 +170,11 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 
 ### Database Schema
 ```sql
--- Users table includes subscription_tier column
+-- Users table includes subscription_tier and admin flag
 CREATE TABLE users (
     id TEXT PRIMARY KEY,
-    subscription_tier TEXT NOT NULL DEFAULT 'personal'
+    subscription_tier TEXT NOT NULL DEFAULT 'team' CHECK (subscription_tier IN ('personal', 'team')),
+    is_admin BOOLEAN NOT NULL DEFAULT 0
 );
 
 -- Wallets table includes last_synced_at for tier-based sync
@@ -180,6 +182,13 @@ CREATE TABLE wallets (
     last_synced_at DATETIME,
     user_id TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+-- Contacts table includes created_at for priority ordering
+CREATE TABLE contacts (
+    id TEXT PRIMARY KEY,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN NOT NULL DEFAULT 1
 );
 ```
 
@@ -289,10 +298,10 @@ Canary features a fully integrated Stripe billing system with automatic subscrip
 
 #### Stripe Native Trial Management  
 - **Immediate Stripe Integration**: Users created as Stripe customers on registration with trial subscriptions
-- **30-day Pro Trial**: All new users start with 30-day trial on Pro tier (not Personal)
+- **30-day Team Trial**: All new users start with 30-day trial on Team tier (not Personal)
 - **Stripe Trial Handling**: Uses Stripe's native `trial_period_days: 30` for subscription creation
 - **Webhook-Driven Updates**: Trial status managed entirely through Stripe webhooks
-- **Frontend Trial Display**: Shows "Pro Trial: X days left" with Subscribe button during trial
+- **Frontend Trial Display**: Shows "Team Trial: X days left" with Subscribe button during trial
 
 #### Subscription States
 - **`pending`** - User created, waiting for Stripe webhook confirmation
@@ -322,7 +331,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
 **Product Setup in Stripe Dashboard:**
-- Create products with `metadata.tier` set to "personal", "pro", or "business"
+- Create products with `metadata.tier` set to "personal" or "team"
 - Add monthly recurring prices to each product (these will be the primary prices shown)
 - Add yearly recurring prices with built-in discounts (typically 20% off)
 - Configure yearly prices as "upsells" on the monthly prices in Stripe Dashboard
@@ -354,10 +363,11 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```sql
 -- Enhanced users table with subscription fields
 CREATE TABLE users (
-    -- Subscription management (Pro trial by default)
-    subscription_tier TEXT DEFAULT 'pro' CHECK (subscription_tier IN ('personal', 'pro', 'business')),
+    -- Subscription management (Team trial by default)
+    subscription_tier TEXT DEFAULT 'team' CHECK (subscription_tier IN ('personal', 'team')),
     trial_ends_at DATETIME DEFAULT (datetime('now', '+30 days')),
     subscription_status TEXT DEFAULT 'trial' CHECK (subscription_status IN ('pending', 'trial', 'trialing', 'active', 'expired', 'cancelled')),
+    is_admin BOOLEAN NOT NULL DEFAULT 0,
     
     -- Stripe integration
     stripe_customer_id TEXT UNIQUE,
@@ -436,15 +446,14 @@ Comprehensive test coverage for subscription limits and user interactions:
 - **Contact Limit Enforcement Tests** (`contact-limit-enforcement.test.tsx`):
   - Utility function testing for `getContactLimit()` and `hasReachedContactLimit()`  
   - Personal tier: 1 contact limit enforcement
-  - Pro tier: 10 contact limit enforcement
-  - Business tier: Unlimited contact handling
+  - Team tier: 5 contact limit enforcement
   - Edge cases: Zero contacts, null arrays, case-insensitive tiers
-  - Integration scenarios: Alice (Personal), Bob (Pro), Business user workflows
+  - Integration scenarios: Alice (Personal), Bob (Team) user workflows
 
 - **Upgrade Modal Tests** (`upgrade-modal-basic.test.tsx`):
   - Modal visibility and state management
   - Dynamic content for wallet vs contact limits
-  - Tier badge display (Personal, Pro, Business)
+  - Tier badge display (Personal, Team)
   - Plural/singular form handling
   - Plan comparison integration
   - Default props and edge cases

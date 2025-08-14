@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub enum SubscriptionTier {
     Personal,
-    UncleJim,
+    Team,
 }
 
 #[derive(Debug, Clone)]
@@ -22,7 +22,7 @@ impl SubscriptionTier {
                 max_contacts_per_wallet: Some(1),
                 sync_interval_secs: 600, // 10 minutes
             },
-            Self::UncleJim => TierLimits {
+            Self::Team => TierLimits {
                 max_wallets: Some(5),
                 max_contacts_per_wallet: Some(5),
                 sync_interval_secs: 60, // 1 minute
@@ -33,7 +33,7 @@ impl SubscriptionTier {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Personal => "personal",
-            Self::UncleJim => "uncle_jim",
+            Self::Team => "team",
         }
     }
 }
@@ -42,7 +42,7 @@ impl From<&str> for SubscriptionTier {
     fn from(s: &str) -> Self {
         match s {
             "personal" => Self::Personal,
-            "uncle_jim" => Self::UncleJim,
+            "team" => Self::Team,
             _ => Self::Personal, // Default fallback
         }
     }
@@ -70,7 +70,7 @@ impl std::fmt::Display for LimitError {
             self.resource, 
             self.current, 
             self.limit,
-            "Uncle Jim",
+            "Team",
             self.resource.to_lowercase()
         )
     }

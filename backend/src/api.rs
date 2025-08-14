@@ -123,7 +123,7 @@ pub type StripeBillingState = Option<Arc<StripeBilling>>;
 #[derive(Deserialize, Serialize, ToSchema)]
 pub struct CreateCheckoutSessionRequest {
     /// The subscription tier to purchase
-    #[schema(example = "pro")]
+    #[schema(example = "team")]
     pub tier: String,
     /// Whether to use yearly billing (default is monthly)
     #[schema(example = false)]
@@ -2035,11 +2035,11 @@ pub async fn register(
             }
         };
 
-        // Create Stripe subscription with trial (default to Uncle Jim tier) if Stripe is enabled
+        // Create Stripe subscription with trial (default to Team tier) if Stripe is enabled
         if let Some(stripe_service) = &stripe_billing {
             if let Err(e) = stripe_service.create_trial_subscription(
                 &user_record,
-                crate::subscription::SubscriptionTier::UncleJim,
+                crate::subscription::SubscriptionTier::Team,
                 &manager.metadata_db,
             ).await {
                 tracing::error!("Failed to create Stripe trial for user {}: {}", user_record.email, e);
@@ -2774,7 +2774,7 @@ pub async fn create_stripe_checkout_session(
     // Parse subscription tier
     let tier = match payload.tier.as_str() {
         "personal" => SubscriptionTier::Personal,
-        "uncle_jim" => SubscriptionTier::UncleJim,
+        "team" => SubscriptionTier::Team,
         _ => {
             return (
                 StatusCode::BAD_REQUEST,

@@ -840,7 +840,7 @@ impl WalletManager {
         } else {
             match tier {
                 "personal" => 1,
-                "uncle_jim" => 5,
+                "team" => 5,
                 _ => 1, // Default to personal limits for unknown tiers
             }
         };
@@ -867,7 +867,7 @@ impl WalletManager {
             } else {
                 match tier {
                     "personal" => 1,
-                    "uncle_jim" => 5,
+                    "team" => 5,
                     _ => 1, // Default to personal limits
                 }
             };
@@ -878,12 +878,18 @@ impl WalletManager {
                 let should_be_active = within_count_limit;
                 
                 if let Some(contact_id) = &contact.id {
+                    tracing::debug!("🔍 Contact '{}' (index: {}, created_at: {:?}) - within_limit: {}, should_be_active: {}", 
+                        contact.name, index, contact.created_at, within_count_limit, should_be_active);
+                    
                     if let Err(e) = self.metadata_db.update_contact_active_status(contact_id, should_be_active).await {
                         tracing::error!("Failed to update contact {} active status: {}", contact_id, e);
                     } else if !should_be_active {
                         let reason = format!("exceeds {} tier limit of {} contacts", tier, contact_limit);
                         tracing::info!("📵 Deactivated contact '{}' in wallet '{}' - {}", 
                             contact.name, wallet.name, reason);
+                    } else {
+                        tracing::info!("✅ Activated contact '{}' in wallet '{}' (within {} limit)", 
+                            contact.name, wallet.name, tier);
                     }
                 }
             }

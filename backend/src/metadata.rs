@@ -417,9 +417,9 @@ impl MetadataDb {
                 
                 if !exists {
                     let (name, tier) = match *email {
-                        "delivered+admin@resend.dev" => ("Admin", "uncle_jim"), // Admin flag will give unlimited access
+                        "delivered+admin@resend.dev" => ("Admin", "team"), // Admin flag will give unlimited access
                         "delivered+alice@resend.dev" => ("Alice", "personal"),
-                        "delivered+bob@resend.dev" => ("Bob", "uncle_jim"),
+                        "delivered+bob@resend.dev" => ("Bob", "team"),
                         _ => ("Test User", "personal"),
                     };
                     
@@ -1383,7 +1383,7 @@ impl MetadataDb {
             // Create new user
             tx.execute(
                 "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "uncle_jim", "pending"],
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "team", "pending"],
             )?;
             
             tx.commit()?;
