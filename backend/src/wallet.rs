@@ -521,10 +521,10 @@ impl WalletManager {
         {
             // Get balance before sync
             let balance_before = wallet.balance();
-            let _trusted_pending_before = balance_before.trusted_pending;
-            let _untrusted_pending_before = balance_before.untrusted_pending;
-            let _confirmed_before = balance_before.confirmed;
-            let _total_before = balance_before.total();
+            let trusted_pending_before = balance_before.trusted_pending;
+            let untrusted_pending_before = balance_before.untrusted_pending;
+            let confirmed_before = balance_before.confirmed;
+            let total_before = balance_before.total();
 
             let unconfirmed_sends_before: Vec<(String, i64)> = wallet
                 .transactions()
@@ -558,6 +558,9 @@ impl WalletManager {
 
             // Get balance after sync
             let balance_after = wallet.balance();
+            let trusted_pending_after = balance_after.trusted_pending;
+            let untrusted_pending_after = balance_after.untrusted_pending;
+            let confirmed_after = balance_after.confirmed;
             let total_after = balance_after.total();
 
             // Update balance in metadata
@@ -565,62 +568,402 @@ impl WalletManager {
                 .update_wallet_balance_by_checksum(wallet_checksum, total_after.to_sat() as i64)
                 .await?;
 
-            // Check for confirmed transactions and send events
-            // (Similar logic to sync_all_wallets but for this single wallet)
-            for tx in wallet.transactions() {
-                if tx.chain_position.is_confirmed() {
-                    let txid = tx.tx_node.txid.to_string();
+            // Check which sends have now been confirmed
+            let mut total_confirmed_send_amount = 0i64;
+            for (txid, send_amount) in &unconfirmed_sends_before {
+                // Check if this transaction is now confirmed
+                if let Some(tx) = wallet
+                    .transactions()
+                    .find(|tx| tx.tx_node.txid.to_string() == *txid)
+                {
+                    if tx.chain_position.is_confirmed() {
+                        total_confirmed_send_amount += send_amount;
+                    }
+                }
+            }
 
-                    // Check if this was an unconfirmed send that just got confirmed
-                    if let Some((_, original_amount)) = unconfirmed_sends_before
-                        .iter()
-                        .find(|(stored_txid, _)| stored_txid == &txid)
+            // Check if any balance component changed
+            let has_changes = trusted_pending_before != trusted_pending_after
+                || untrusted_pending_before != untrusted_pending_after
+                || confirmed_before != confirmed_after
+                || total_before != total_after;
+
+            if has_changes {
+                // Get the user-friendly wallet name (wallet_checksum is now the checksum)
+                let wallet_metadata = metadata_db
+                    .get_wallet_by_checksum(wallet_checksum)
+                    .await
+                    .expect(&format!(
+                        "Failed to get wallet for checksum '{}'",
+                        wallet_checksum
+                    ))
+                    .expect(&format!(
+                        "Wallet with checksum '{}' should exist in metadata database",
+                        wallet_checksum
+                    ));
+                let wallet_name = wallet_metadata.name;
+
+                // Detect transaction types and broadcast events
+                let trusted_pending_increase =
+                    trusted_pending_after.to_sat() > trusted_pending_before.to_sat();
+                let trusted_pending_decrease =
+                    trusted_pending_after.to_sat() < trusted_pending_before.to_sat();
+                let untrusted_pending_increase =
+                    untrusted_pending_after.to_sat() > untrusted_pending_before.to_sat();
+                let untrusted_pending_decrease =
+                    untrusted_pending_after.to_sat() < untrusted_pending_before.to_sat();
+                let confirmed_increase =
+                    confirmed_after.to_sat() > confirmed_before.to_sat();
+                let confirmed_decrease =
+                    confirmed_after.to_sat() < confirmed_before.to_sat();
+                let total_increase = total_after.to_sat() > total_before.to_sat();
+                let total_decrease = total_after.to_sat() < total_before.to_sat();
+                let total_same = total_after.to_sat() == total_before.to_sat();
+                let confirmed_same = confirmed_after.to_sat() == confirmed_before.to_sat();
+
+                // First check for special transaction types (takes precedence over regular sending)
+                let mut is_special_tx = false;
+
+                // Check for CPFP (Child-Pays-For-Parent)
+                if !is_special_tx {
+                    if untrusted_pending_decrease && confirmed_same && total_decrease {
+                        let fee_paid = total_before.to_sat() - total_after.to_sat();
+                        let message = format!("🚀 CPFP fee: {:.8} BTC", fee_paid as f64 / 100_000_000.0);
+                        println!("{}", message);
+
+                        // Insert CPFP event to database and broadcast
+                        if let Err(e) = Self::insert_and_broadcast_event_helper(
+                            metadata_db,
+                            event_sender,
+                            &EventInsert {
+                                wallet_checksum: wallet_checksum.to_string(),
+                                event_type: EventType::Send,
+                                amount_sats: fee_paid as i64,
+                                is_confirmed: false,
+                                is_rbf: false,
+                                is_cpfp: true,
+                                balance_total: Some(total_after.to_sat() as i64),
+                                transaction_time: Self::get_current_timestamp(),
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to insert CPFP event: {}", e);
+                        }
+
+                        is_special_tx = true;
+                    }
+                }
+
+                // Check if this might be RBF by looking for existing unconfirmed transactions
+                let has_unconfirmed = wallet.transactions().any(|tx| {
+                    matches!(
+                        tx.chain_position,
+                        bdk_wallet::chain::ChainPosition::Unconfirmed { .. }
+                    )
+                });
+
+                // RBF detection: small amount change (just fee difference) with existing unconfirmed tx
+                if has_unconfirmed && total_decrease && !is_special_tx {
+                    let fee_increase = total_before.to_sat() - total_after.to_sat();
+
+                    // RBF pattern: trusted pending decreases (spending from change) with existing unconfirmed
+                    if trusted_pending_decrease && !confirmed_decrease {
+                        let message = format!("📤 RBF fee bump: +{:.8} BTC", fee_increase as f64 / 100_000_000.0);
+                        println!("{}", message);
+
+                        // Insert RBF event to database and broadcast
+                        if let Err(e) = Self::insert_and_broadcast_event_helper(
+                            metadata_db,
+                            event_sender,
+                            &EventInsert {
+                                wallet_checksum: wallet_checksum.to_string(),
+                                event_type: EventType::Send,
+                                amount_sats: fee_increase as i64,
+                                is_confirmed: false,
+                                is_rbf: true,
+                                is_cpfp: false,
+                                balance_total: Some(total_after.to_sat() as i64),
+                                transaction_time: Self::get_current_timestamp(),
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to insert RBF event: {}", e);
+                        }
+                    } else {
+                        // Regular sending logic continues below
+                        // Case 1: Spending from confirmed balance (first transaction)
+                        if trusted_pending_increase && confirmed_decrease {
+                            let confirmed_spent =
+                                confirmed_before.to_sat() - confirmed_after.to_sat();
+                            let change_received = trusted_pending_after.to_sat()
+                                - trusted_pending_before.to_sat();
+                            let sending_amount = confirmed_spent - change_received;
+
+                            let message = format!("📤 Sending {:.8} BTC", sending_amount as f64 / 100_000_000.0);
+                            println!("{}", message);
+
+                            // Insert sending event to database and broadcast
+                            if let Err(e) = Self::insert_and_broadcast_event_helper(
+                                metadata_db,
+                                event_sender,
+                                &EventInsert {
+                                    wallet_checksum: wallet_checksum.to_string(),
+                                    event_type: EventType::Send,
+                                    amount_sats: sending_amount as i64,
+                                    is_confirmed: false,
+                                    is_rbf: false,
+                                    is_cpfp: false,
+                                    balance_total: Some(total_after.to_sat() as i64),
+                                    transaction_time: Self::get_current_timestamp(),
+                                },
+                            )
+                            .await
+                            {
+                                eprintln!("Failed to insert sending event: {}", e);
+                            }
+                        }
+                        // Case 2: Spending from trusted pending balance (subsequent transactions)
+                        else if trusted_pending_decrease && confirmed_decrease {
+                            let trusted_spent = trusted_pending_before.to_sat()
+                                - trusted_pending_after.to_sat();
+                            let confirmed_spent =
+                                confirmed_before.to_sat() - confirmed_after.to_sat();
+                            let total_spent = trusted_spent + confirmed_spent;
+
+                            let message = format!("📤 Sending {:.8} BTC", total_spent as f64 / 100_000_000.0);
+                            println!("{}", message);
+
+                            // Insert sending event to database and broadcast
+                            if let Err(e) = Self::insert_and_broadcast_event_helper(
+                                metadata_db,
+                                event_sender,
+                                &EventInsert {
+                                    wallet_checksum: wallet_checksum.to_string(),
+                                    event_type: EventType::Send,
+                                    amount_sats: total_spent as i64,
+                                    is_confirmed: false,
+                                    is_rbf: false,
+                                    is_cpfp: false,
+                                    balance_total: Some(total_after.to_sat() as i64),
+                                    transaction_time: Self::get_current_timestamp(),
+                                },
+                            )
+                            .await
+                            {
+                                eprintln!("Failed to insert sending event: {}", e);
+                            }
+                        }
+                        // Case 3: Spending only from trusted pending (no confirmed funds used)
+                        else if trusted_pending_decrease && !confirmed_decrease {
+                            let trusted_spent = trusted_pending_before.to_sat()
+                                - trusted_pending_after.to_sat();
+                            let message = format!("📤 Sending {:.8} BTC", trusted_spent as f64 / 100_000_000.0);
+                            println!("{}", message);
+
+                            // Insert sending event to database and broadcast
+                            if let Err(e) = Self::insert_and_broadcast_event_helper(
+                                metadata_db,
+                                event_sender,
+                                &EventInsert {
+                                    wallet_checksum: wallet_checksum.to_string(),
+                                    event_type: EventType::Send,
+                                    amount_sats: trusted_spent as i64,
+                                    is_confirmed: false,
+                                    is_rbf: false,
+                                    is_cpfp: false,
+                                    balance_total: Some(total_after.to_sat() as i64),
+                                    transaction_time: Self::get_current_timestamp(),
+                                },
+                            )
+                            .await
+                            {
+                                eprintln!("Failed to insert sending event: {}", e);
+                            }
+                        }
+                    }
+                } else if !is_special_tx {
+                    // Regular sending logic (no existing unconfirmed transactions)
+                    // Case 1: Spending from confirmed balance (first transaction)
+                    if trusted_pending_increase && confirmed_decrease && total_decrease {
+                        let confirmed_spent =
+                            confirmed_before.to_sat() - confirmed_after.to_sat();
+                        let change_received = trusted_pending_after.to_sat()
+                            - trusted_pending_before.to_sat();
+                        let sending_amount = confirmed_spent - change_received;
+
+                        let message = format!("📤 Sending {:.8} BTC", sending_amount as f64 / 100_000_000.0);
+                        println!("{}", message);
+
+                        // Insert sending event to database and broadcast
+                        if let Err(e) = Self::insert_and_broadcast_event_helper(
+                            metadata_db,
+                            event_sender,
+                            &EventInsert {
+                                wallet_checksum: wallet_checksum.to_string(),
+                                event_type: EventType::Send,
+                                amount_sats: sending_amount as i64,
+                                is_confirmed: false,
+                                is_rbf: false,
+                                is_cpfp: false,
+                                balance_total: Some(total_after.to_sat() as i64),
+                                transaction_time: Self::get_current_timestamp(),
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to insert sending event: {}", e);
+                        }
+                    }
+                    // Case 2: Spending from trusted pending balance (subsequent transactions)
+                    else if trusted_pending_decrease
+                        && confirmed_decrease
+                        && total_decrease
                     {
-                        // This is a send confirmation
-                        let transaction_time = match &tx.chain_position {
-                            bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
-                                // For confirmed transactions, fetch block timestamp from Electrum
-                                if let Some(electrum_client) = &self.electrum_client {
-                                    match electrum_client.get_block_header(anchor.block_id.height) {
-                                        Ok(block_header) => block_header.timestamp,
-                                        Err(_) => {
-                                            // Fallback to current time if we can't fetch block header
-                                            std::time::SystemTime::now()
-                                                .duration_since(std::time::UNIX_EPOCH)
-                                                .unwrap()
-                                                .as_secs()
-                                        }
-                                    }
-                                } else {
-                                    // Fallback to current time if no Electrum client
-                                    std::time::SystemTime::now()
-                                        .duration_since(std::time::UNIX_EPOCH)
-                                        .unwrap()
-                                        .as_secs()
-                                }
-                            }
-                            _ => {
-                                // This shouldn't happen since we already checked is_confirmed()
-                                std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_secs()
-                            }
-                        };
-                        let event = TransactionEvent {
-                            id: Some(uuid::Uuid::new_v4().to_string()),
+                        let trusted_spent = trusted_pending_before.to_sat()
+                            - trusted_pending_after.to_sat();
+                        let confirmed_spent =
+                            confirmed_before.to_sat() - confirmed_after.to_sat();
+                        let total_spent = trusted_spent + confirmed_spent;
+
+                        let message = format!("📤 Sending {:.8} BTC", total_spent as f64 / 100_000_000.0);
+                        println!("{}", message);
+
+                        // Insert sending event to database and broadcast
+                        if let Err(e) = Self::insert_and_broadcast_event_helper(
+                            metadata_db,
+                            event_sender,
+                            &EventInsert {
+                                wallet_checksum: wallet_checksum.to_string(),
+                                event_type: EventType::Send,
+                                amount_sats: total_spent as i64,
+                                is_confirmed: false,
+                                is_rbf: false,
+                                is_cpfp: false,
+                                balance_total: Some(total_after.to_sat() as i64),
+                                transaction_time: Self::get_current_timestamp(),
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to insert sending event: {}", e);
+                        }
+                    }
+                    // Case 3: Spending only from trusted pending (no confirmed funds used)
+                    else if trusted_pending_decrease
+                        && !confirmed_decrease
+                        && total_decrease
+                    {
+                        let trusted_spent = trusted_pending_before.to_sat()
+                            - trusted_pending_after.to_sat();
+                        let message = format!("📤 Sending {:.8} BTC", trusted_spent as f64 / 100_000_000.0);
+                        println!("{}", message);
+
+                        // Insert sending event to database and broadcast
+                        if let Err(e) = Self::insert_and_broadcast_event_helper(
+                            metadata_db,
+                            event_sender,
+                            &EventInsert {
+                                wallet_checksum: wallet_checksum.to_string(),
+                                event_type: EventType::Send,
+                                amount_sats: trusted_spent as i64,
+                                is_confirmed: false,
+                                is_rbf: false,
+                                is_cpfp: false,
+                                balance_total: Some(total_after.to_sat() as i64),
+                                transaction_time: Self::get_current_timestamp(),
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to insert sending event: {}", e);
+                        }
+                    }
+                }
+
+                // Detect if this is a receiving transaction
+                if untrusted_pending_increase && confirmed_same && total_increase {
+                    let receiving_amount = untrusted_pending_after.to_sat()
+                        - untrusted_pending_before.to_sat();
+                    let message = format!("📥 Receiving {:.8} BTC", receiving_amount as f64 / 100_000_000.0);
+                    println!("{}", message);
+
+                    // Insert receiving event to database and broadcast
+                    if let Err(e) = Self::insert_and_broadcast_event_helper(
+                        metadata_db,
+                        event_sender,
+                        &EventInsert {
                             wallet_checksum: wallet_checksum.to_string(),
-                            event_type: EventType::Send,
-                            amount_sats: *original_amount,
+                            event_type: EventType::Receive,
+                            amount_sats: receiving_amount as i64,
+                            is_confirmed: false,
+                            is_rbf: false,
+                            is_cpfp: false,
+                            balance_total: Some(total_after.to_sat() as i64),
+                            transaction_time: Self::get_current_timestamp(),
+                        },
+                    )
+                    .await
+                    {
+                        eprintln!("Failed to insert receiving event: {}", e);
+                    }
+                }
+
+                // Detect if this is a sent transaction being confirmed
+                if trusted_pending_decrease && confirmed_increase && total_same {
+                    // Use transaction-level analysis result for send confirmation amount
+                    if total_confirmed_send_amount > 0 {
+                        let message = format!("✅ Sent confirmed: {:.8} BTC", total_confirmed_send_amount as f64 / 100_000_000.0);
+                        println!("{}", message);
+
+                        // Insert sent confirmation event to database and broadcast
+                        if let Err(e) = Self::insert_and_broadcast_event_helper(
+                            metadata_db,
+                            event_sender,
+                            &EventInsert {
+                                wallet_checksum: wallet_checksum.to_string(),
+                                event_type: EventType::Send,
+                                amount_sats: total_confirmed_send_amount,
+                                is_confirmed: true,
+                                is_rbf: false,
+                                is_cpfp: false,
+                                balance_total: Some(total_after.to_sat() as i64),
+                                transaction_time: Self::get_current_timestamp(),
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to insert sent confirmation event: {}", e);
+                        }
+                    }
+                }
+
+                // Detect if this is a received transaction being confirmed
+                if untrusted_pending_decrease && confirmed_increase && total_same {
+                    let confirmed_amount =
+                        confirmed_after.to_sat() - confirmed_before.to_sat();
+                    let message = format!("✅ Received confirmed: {:.8} BTC", confirmed_amount as f64 / 100_000_000.0);
+                    println!("{}", message);
+
+                    // Insert received confirmation event to database and broadcast
+                    if let Err(e) = Self::insert_and_broadcast_event_helper(
+                        metadata_db,
+                        event_sender,
+                        &EventInsert {
+                            wallet_checksum: wallet_checksum.to_string(),
+                            event_type: EventType::Receive,
+                            amount_sats: confirmed_amount as i64,
                             is_confirmed: true,
                             is_rbf: false,
                             is_cpfp: false,
                             balance_total: Some(total_after.to_sat() as i64),
-                            transaction_time,
-                            notification_status: Vec::new(),
-                        };
-
-                        let _ = event_sender.send(event);
+                            transaction_time: Self::get_current_timestamp(),
+                        },
+                    )
+                    .await
+                    {
+                        eprintln!("Failed to insert received confirmation event: {}", e);
                     }
                 }
             }
@@ -824,6 +1167,42 @@ impl WalletManager {
 
         println!("  Updated wallet name to: {}", name);
 
+        Ok(())
+    }
+
+    /// Helper function to get current timestamp
+    fn get_current_timestamp() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
+
+    /// Helper function to insert event and broadcast it
+    async fn insert_and_broadcast_event_helper(
+        metadata_db: &MetadataDb,
+        event_sender: &broadcast::Sender<TransactionEvent>,
+        event_insert: &EventInsert,
+    ) -> Result<()> {
+        // Insert to database
+        metadata_db.insert_event(event_insert).await?;
+
+        // Create event for broadcasting
+        let event = TransactionEvent {
+            id: Some(uuid::Uuid::new_v4().to_string()),
+            wallet_checksum: event_insert.wallet_checksum.clone(),
+            event_type: event_insert.event_type.clone(),
+            amount_sats: event_insert.amount_sats,
+            is_confirmed: event_insert.is_confirmed,
+            is_rbf: event_insert.is_rbf,
+            is_cpfp: event_insert.is_cpfp,
+            balance_total: event_insert.balance_total,
+            transaction_time: event_insert.transaction_time,
+            notification_status: Vec::new(),
+        };
+
+        // Broadcast event
+        let _ = event_sender.send(event);
         Ok(())
     }
 
