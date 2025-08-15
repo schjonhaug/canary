@@ -603,6 +603,92 @@ impl WalletManager {
                     ));
                 let wallet_name = wallet_metadata.name;
 
+                // Print debug table showing balance changes
+                println!(); // Add blank line before wallet output
+                println!("{:-<85}", "");
+                println!(
+                    "{:>22} | {:<18} | {:<18} | {:<18}",
+                    format!("Wallet {}", wallet_name),
+                    "Before",
+                    "After",
+                    "Diff"
+                );
+                println!("{:-<85}", "");
+                let fmt = |amt: bdk_wallet::bitcoin::Amount| {
+                    let btc = amt.to_sat() as f64 / 100_000_000.0;
+                    if btc == 0.0 {
+                        "".to_string()
+                    } else {
+                        format!("{:>13.8} BTC", btc)
+                    }
+                };
+                let fmt_diff =
+                    |before: bdk_wallet::bitcoin::Amount,
+                     after: bdk_wallet::bitcoin::Amount| {
+                        let diff_sats = after.to_sat() as i64 - before.to_sat() as i64;
+                        let diff_btc = diff_sats as f64 / 100_000_000.0;
+                        if diff_btc == 0.0 {
+                            "".to_string()
+                        } else {
+                            format!("{:>+13.8} BTC", diff_btc)
+                        }
+                    };
+
+                // Only print non-zero values
+                if trusted_pending_before.to_sat() > 0 || trusted_pending_after.to_sat() > 0
+                {
+                    println!(
+                        "{:>22} | {:<18} | {:<18} | {:<18}",
+                        "Trusted pending",
+                        fmt(trusted_pending_before),
+                        fmt(trusted_pending_after),
+                        fmt_diff(trusted_pending_before, trusted_pending_after)
+                    );
+                } else {
+                    println!(
+                        "{:>22} | {:<18} | {:<18} | {:<18}",
+                        "Trusted pending", "", "", ""
+                    );
+                }
+                if untrusted_pending_before.to_sat() > 0
+                    || untrusted_pending_after.to_sat() > 0
+                {
+                    println!(
+                        "{:>22} | {:<18} | {:<18} | {:<18}",
+                        "Unconfirmed pending",
+                        fmt(untrusted_pending_before),
+                        fmt(untrusted_pending_after),
+                        fmt_diff(untrusted_pending_before, untrusted_pending_after)
+                    );
+                } else {
+                    println!(
+                        "{:>22} | {:<18} | {:<18} | {:<18}",
+                        "Unconfirmed pending", "", "", ""
+                    );
+                }
+                if confirmed_before.to_sat() > 0 || confirmed_after.to_sat() > 0 {
+                    println!(
+                        "{:>22} | {:<18} | {:<18} | {:<18}",
+                        "Confirmed",
+                        fmt(confirmed_before),
+                        fmt(confirmed_after),
+                        fmt_diff(confirmed_before, confirmed_after)
+                    );
+                } else {
+                    println!("{:>22} | {:<18} | {:<18} | {:<18}", "Confirmed", "", "", "");
+                }
+
+                // Add separator before Total
+                println!("{:-<85}", "");
+                println!(
+                    "{:>22} | {:<18} | {:<18} | {:<18}",
+                    "Total",
+                    fmt(total_before),
+                    fmt(total_after),
+                    fmt_diff(total_before, total_after)
+                );
+                println!("{:-<85}", "");
+
                 // Detect transaction types and broadcast events
                 let trusted_pending_increase =
                     trusted_pending_after.to_sat() > trusted_pending_before.to_sat();
@@ -966,6 +1052,8 @@ impl WalletManager {
                         eprintln!("Failed to insert received confirmation event: {}", e);
                     }
                 }
+
+                println!(); // Add spacing between wallets
             }
         }
 
