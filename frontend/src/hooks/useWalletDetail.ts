@@ -2,9 +2,6 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Wallet, TransactionEvent, Contact } from '../types';
 import { useAuth } from '../contexts/auth-context';
 
-// Get polling interval from environment variable (in seconds), default to 60
-const POLLING_INTERVAL = (parseInt(process.env.NEXT_PUBLIC_SYNC_INTERVAL || '60') || 60) * 1000;
-
 interface WalletDetailResponse {
   timestamp: number;
   wallet: Wallet;
@@ -20,9 +17,15 @@ export function useWalletDetail(walletChecksum: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, billingStatus } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get polling interval from billing status sync interval or default to 60 seconds
+  const getPollingInterval = useCallback(() => {
+    const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60;
+    return syncIntervalSeconds * 1000; // Convert to milliseconds
+  }, [billingStatus?.limits?.sync_interval_seconds]);
 
   const fetchWalletDetail = useCallback(async () => {
     // Only fetch data if user is authenticated, has a token, and walletChecksum is provided
@@ -93,10 +96,11 @@ export function useWalletDetail(walletChecksum: string | null) {
     // Load initial data immediately
     fetchWalletDetail();
 
-    // Set up polling interval
+    // Set up polling interval using dynamic interval
+    const intervalMs = getPollingInterval();
     pollingIntervalRef.current = setInterval(() => {
       fetchWalletDetail();
-    }, POLLING_INTERVAL);
+    }, intervalMs);
 
     // Cleanup on unmount or walletChecksum change
     return () => {
@@ -104,7 +108,7 @@ export function useWalletDetail(walletChecksum: string | null) {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [fetchWalletDetail, walletChecksum]);
+  }, [fetchWalletDetail, walletChecksum, getPollingInterval]);
 
   return { 
     wallet,

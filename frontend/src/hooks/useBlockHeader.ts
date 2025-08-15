@@ -2,17 +2,20 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { BlockHeader } from '../types';
 import { useAuth } from '../contexts/auth-context';
 
-// Get polling interval from environment variable (in seconds), default to 60
-const POLLING_INTERVAL = (parseInt(process.env.NEXT_PUBLIC_SYNC_INTERVAL || '60') || 60) * 1000;
-
 export function useBlockHeader() {
   const [blockHeader, setBlockHeader] = useState<BlockHeader | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, billingStatus } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get polling interval from billing status sync interval or default to 60 seconds
+  const getPollingInterval = useCallback(() => {
+    const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60;
+    return syncIntervalSeconds * 1000; // Convert to milliseconds
+  }, [billingStatus?.limits?.sync_interval_seconds]);
 
   const fetchBlockHeader = useCallback(async () => {
     // Only fetch data if user is authenticated and has a token
@@ -68,10 +71,11 @@ export function useBlockHeader() {
     // Load initial data immediately
     fetchBlockHeader();
 
-    // Set up polling interval
+    // Set up polling interval using dynamic interval
+    const intervalMs = getPollingInterval();
     pollingIntervalRef.current = setInterval(() => {
       fetchBlockHeader();
-    }, POLLING_INTERVAL);
+    }, intervalMs);
 
     // Cleanup on unmount
     return () => {
@@ -79,7 +83,7 @@ export function useBlockHeader() {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [fetchBlockHeader]);
+  }, [fetchBlockHeader, getPollingInterval]);
 
   return { 
     blockHeader,
