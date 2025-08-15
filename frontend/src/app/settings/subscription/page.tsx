@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CreditCard, Users, Calendar, TrendingUp, Zap, AlertTriangle } from "lucide-react"
+import { Loader2, CreditCard, Users, Calendar, TrendingUp, Zap, AlertTriangle, Clock, XCircle } from "lucide-react"
 import { PlansModal } from "@/components/plans-modal"
 import { getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
 import { AppHeader } from "@/components/app-header"
@@ -137,6 +137,68 @@ export default function BillingPage() {
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 Upgrade Plan
+              </Button>
+            </div>
+          )}
+
+          {/* Pending Status - Trial Not Started */}
+          {billingStatus?.subscription_status === 'pending' && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+                <div className="font-medium text-blue-700">Trial Not Started</div>
+              </div>
+              <div className="text-sm text-blue-600 mb-3">
+                Your 30-day Team trial will begin when you add your first wallet. No syncing is active until then.
+              </div>
+              <Button 
+                onClick={() => window.location.href = '/wallets'} 
+                size="sm" 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Add Your First Wallet
+              </Button>
+            </div>
+          )}
+
+          {/* Expired Status - Subscription Ended */}
+          {billingStatus?.subscription_status === 'expired' && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="h-5 w-5 text-red-600" />
+                <div className="font-medium text-red-700">Subscription Expired</div>
+              </div>
+              <div className="text-sm text-red-600 mb-3">
+                Your subscription has expired. Wallet syncing has stopped completely, but your data is preserved.
+              </div>
+              <Button 
+                onClick={() => setShowUpgradeModal(true)} 
+                size="sm" 
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Reactivate Subscription
+              </Button>
+            </div>
+          )}
+
+          {/* Past Due Status - Payment Failed */}
+          {billingStatus?.subscription_status === 'past_due' && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-orange-600" />
+                <div className="font-medium text-orange-700">Payment Failed - Syncing Stopped</div>
+              </div>
+              <div className="text-sm text-orange-600 mb-3">
+                Your last payment failed and wallet syncing has been stopped immediately. Update your payment method to resume service.
+              </div>
+              <Button 
+                onClick={handleManageBilling}
+                disabled={isPortalLoading}
+                size="sm" 
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Update Payment Method
               </Button>
             </div>
           )}

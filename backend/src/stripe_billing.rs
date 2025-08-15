@@ -20,6 +20,7 @@ pub struct SubscriptionUpdate {
     pub subscription_status: String,
     pub stripe_subscription_id: Option<String>,
     pub subscription_started_at: Option<String>,
+    pub subscription_ends_at: Option<String>,
     pub trial_ends_at: Option<String>,
 }
 
@@ -482,6 +483,45 @@ impl StripeBilling {
         })
     }
 
+    /// Create only a Stripe customer (no subscription) during registration
+    pub async fn create_stripe_customer_only(
+        &self,
+        user: &UserRecord,
+        metadata_db: &crate::metadata::MetadataDb,
+    ) -> Result<String> {
+        let mut customer_metadata = HashMap::new();
+        customer_metadata.insert("user_id".to_string(), user.id.clone());
+
+        tracing::info!(
+            "🆕 Creating Stripe customer (no subscription yet) for user {}",
+            user.email
+        );
+
+        let customer = self
+            .client
+            .create_customer(
+                user.email.clone(),
+                user.name.clone(),
+                customer_metadata,
+            )
+            .await?;
+
+        let customer_id = customer.id.unwrap_or_default();
+
+        // Update user with Stripe customer ID in database
+        metadata_db
+            .update_user_stripe_customer(&user.id, &customer_id)
+            .await?;
+
+        tracing::info!(
+            "✅ Stripe customer created successfully for user {} (ID: {})",
+            user.email,
+            customer_id
+        );
+        
+        Ok(customer_id)
+    }
+
     pub async fn create_trial_subscription(
         &self,
         user: &UserRecord,
@@ -655,6 +695,7 @@ impl StripeBilling {
                                         subscription_started_at: Some(
                                             chrono::Utc::now().to_rfc3339(),
                                         ),
+                                        subscription_ends_at: None,
                                         trial_ends_at,
                                     };
                                     updates.push(update);
@@ -735,6 +776,7 @@ impl StripeBilling {
                                             subscription_started_at: Some(
                                                 chrono::Utc::now().to_rfc3339(),
                                             ),
+                                            subscription_ends_at: None,
                                             trial_ends_at: None, // Clear trial info for active subscriptions
                                         };
                                         updates.push(update);
@@ -745,7 +787,7 @@ impl StripeBilling {
                     }
                 }
                 "customer.subscription.deleted" => {
-                    // Subscription cancelled/ended completely - this happens when old trial subscriptions are cleaned up
+                    // Subscription cancelled/ended completely - mark user as expired immediately
                     if let Some(data) = &event.data {
                         if let Some(subscription_obj) = &data.object {
                             if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(
@@ -760,12 +802,22 @@ impl StripeBilling {
                                 tracing::info!("🗑️ Subscription deleted - Customer: {:?}, Subscription: {:?}, Status: {:?}", 
                                     customer_id, subscription_id, status);
 
-                                // Only process if it was a trialing subscription (cleanup of old trials)
-                                // Active subscriptions being deleted would be handled differently
-                                if status == Some("trialing") {
+                                if let Some(customer_id) = customer_id {
+                                    // Mark user as expired immediately (trial ended or subscription cancelled)
+                                    let update = SubscriptionUpdate {
+                                        user_id: format!("stripe_customer:{}", customer_id),
+                                        subscription_tier: "team".to_string(), // Keep current tier
+                                        subscription_status: "expired".to_string(),
+                                        stripe_subscription_id: None, // Clear subscription ID
+                                        subscription_started_at: None,
+                                        subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
+                                        trial_ends_at: None,
+                                    };
+                                    updates.push(update);
+                                    
                                     tracing::info!(
-                                        "🧹 Cleaned up old trial subscription: {:?}",
-                                        subscription_id
+                                        "📉 Marked user as expired for customer: {}",
+                                        customer_id
                                     );
                                 }
                             }
@@ -886,6 +938,7 @@ impl StripeBilling {
             subscription_status: "active".to_string(), // Paid subscription is active
             stripe_subscription_id: Some(new_subscription_id.to_string()),
             subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
+            subscription_ends_at: None,
             trial_ends_at: None, // No longer in trial
         })
     }

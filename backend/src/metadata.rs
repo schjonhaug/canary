@@ -41,7 +41,7 @@ pub struct UserRecord {
     pub email_verified: bool,
     // Subscription fields
     pub subscription_tier: SubscriptionTier,
-    pub trial_ends_at: String,
+    pub trial_ends_at: Option<String>,
     pub subscription_status: String,
     pub stripe_customer_id: Option<String>,
     pub stripe_subscription_id: Option<String>,
@@ -430,7 +430,7 @@ impl MetadataDb {
                     conn.execute(
                         "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at) 
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'))",
-                        params![&user_id, email, &password_hash, name, is_admin, true, tier, "active"], // Dev users are active
+                        params![&user_id, email, &password_hash, name, is_admin, true, tier, "pending"], // Dev users follow same flow as real users
                     )?;
                     
                     println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
@@ -1183,7 +1183,7 @@ impl MetadataDb {
                     u.subscription_status = 'active'
                     OR 
                     -- Trial users within trial period  
-                    (u.subscription_status = 'trial' AND datetime(u.trial_ends_at) > datetime('now'))
+                    (u.subscription_status = 'trialing' AND datetime(u.trial_ends_at) > datetime('now'))
                     OR
                     -- Cancelled users still within their paid period
                     (u.subscription_status = 'canceled' AND u.subscription_ends_at IS NOT NULL AND datetime(u.subscription_ends_at) > datetime('now'))
@@ -1595,6 +1595,30 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn update_user_trial_status(
+        &self,
+        user_id: &str,
+        subscription_status: &str,
+        trial_ends_at: Option<String>,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let subscription_status = subscription_status.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET 
+                    subscription_status = ?1,
+                    trial_ends_at = ?2
+                WHERE id = ?3",
+                params![subscription_status, trial_ends_at, user_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     pub async fn update_user_subscription_status(
         &self,
         user_id: &str,
@@ -1627,6 +1651,7 @@ impl MetadataDb {
         subscription_status: &str,
         stripe_subscription_id: Option<&str>,
         subscription_started_at: Option<&str>,
+        subscription_ends_at: Option<&str>,
         trial_ends_at: Option<&str>,
     ) -> Result<()> {
         let pool = self.pool.clone();
@@ -1635,6 +1660,7 @@ impl MetadataDb {
         let subscription_status = subscription_status.to_string();
         let stripe_subscription_id = stripe_subscription_id.map(|s| s.to_string());
         let subscription_started_at = subscription_started_at.map(|s| s.to_string());
+        let subscription_ends_at = subscription_ends_at.map(|s| s.to_string());
         let trial_ends_at = trial_ends_at.map(|s| s.to_string());
 
         spawn_blocking(move || -> Result<()> {
@@ -1645,13 +1671,15 @@ impl MetadataDb {
                     subscription_status = ?2, 
                     stripe_subscription_id = ?3, 
                     subscription_started_at = ?4,
-                    trial_ends_at = COALESCE(?5, trial_ends_at)
-                WHERE id = ?6",
+                    subscription_ends_at = ?5,
+                    trial_ends_at = COALESCE(?6, trial_ends_at)
+                WHERE id = ?7",
                 params![
                     subscription_tier,
                     subscription_status,
                     stripe_subscription_id,
                     subscription_started_at,
+                    subscription_ends_at,
                     trial_ends_at,
                     user_id
                 ],
@@ -2035,7 +2063,7 @@ impl MetadataDb {
                  FROM users 
                  WHERE (
                     -- Expired trials (users who didn't subscribe after trial ended)
-                    (subscription_status = 'trial' AND datetime(trial_ends_at) <= datetime('now'))
+                    (subscription_status = 'trialing' AND datetime(trial_ends_at) <= datetime('now'))
                     OR 
                     -- Expired cancelled subscriptions (users who cancelled and period ended)
                     (subscription_status = 'canceled' AND subscription_ends_at IS NOT NULL AND datetime(subscription_ends_at) <= datetime('now'))

@@ -23,8 +23,8 @@ CREATE TABLE users (
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     -- Subscription fields
     subscription_tier TEXT DEFAULT 'team' CHECK (subscription_tier IN ('personal', 'team')),
-    trial_ends_at DATETIME DEFAULT (datetime('now', '+30 days')),
-    subscription_status TEXT DEFAULT 'trial' CHECK (subscription_status IN ('pending', 'trial', 'trialing', 'active', 'expired', 'cancelled')),
+    trial_ends_at DATETIME DEFAULT NULL, -- Set when trial starts (first wallet)
+    subscription_status TEXT DEFAULT 'pending' CHECK (subscription_status IN ('pending', 'trialing', 'active', 'past_due', 'canceled', 'expired')),
     -- Stripe integration
     stripe_customer_id TEXT UNIQUE,
     stripe_subscription_id TEXT,

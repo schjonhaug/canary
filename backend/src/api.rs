@@ -410,6 +410,40 @@ pub async fn create_wallet(
                 });
             }
 
+            // Check if this is the user's first wallet and they're in 'pending' status
+            // If so, activate their trial now!
+            let user_record = manager.metadata_db.get_user_by_id(&user.user_id).await.ok().flatten();
+            if let Some(user_record) = user_record {
+                if user_record.subscription_status == "pending" {
+                    // Count their wallets (should be 1 now after creation)
+                    let wallet_count = manager.metadata_db.count_wallets_for_user(&user.user_id).await.unwrap_or(0);
+                    
+                    if wallet_count == 1 {
+                        tracing::info!("🎉 Activating trial for user {} on first wallet creation", user_record.email);
+                        
+                        // Calculate trial end date (30 days from now)
+                        let trial_ends_at = chrono::Utc::now() + chrono::Duration::days(30);
+                        
+                        // Update user status to 'trialing' in database
+                        if let Err(e) = manager.metadata_db.update_user_trial_status(
+                            &user.user_id,
+                            "trialing",
+                            Some(trial_ends_at.to_rfc3339())
+                        ).await {
+                            tracing::error!("Failed to update user trial status: {}", e);
+                        }
+                        
+                        // If Stripe is available and user has a customer ID, create the trial subscription
+                        if let Some(stripe_customer_id) = &user_record.stripe_customer_id {
+                            // Get stripe_billing from the app state - need to modify function signature for this
+                            // For now, skip creating Stripe subscription - it will be handled by the frontend when they access billing
+                            tracing::info!("User {} has Stripe customer ID {}, trial subscription will be created when needed", 
+                                user_record.email, stripe_customer_id);
+                        }
+                    }
+                }
+            }
+
             (
                 StatusCode::CREATED,
                 Json(CreateWalletResponse {
@@ -2055,18 +2089,14 @@ pub async fn register(
             }
         };
 
-        // Create Stripe subscription with trial (default to Team tier) if Stripe is enabled
+        // Create Stripe customer (but not subscription yet - that starts when they add their first wallet)
         if let Some(stripe_service) = &stripe_billing {
             if let Err(e) = stripe_service
-                .create_trial_subscription(
-                    &user_record,
-                    crate::subscription::SubscriptionTier::Team,
-                    &manager.metadata_db,
-                )
+                .create_stripe_customer_only(&user_record, &manager.metadata_db)
                 .await
             {
                 tracing::error!(
-                    "Failed to create Stripe trial for user {}: {}",
+                    "Failed to create Stripe customer for user {}: {}",
                     user_record.email,
                     e
                 );
@@ -2075,7 +2105,7 @@ pub async fn register(
             }
         } else {
             tracing::info!(
-                "Stripe not enabled, user {} will use database trials only",
+                "Stripe not enabled, user {} registered without Stripe integration",
                 user_record.email
             );
         }
@@ -3099,7 +3129,7 @@ pub async fn get_billing_status(
         user_id: user.user_id.clone(),
         subscription_tier: user_record.subscription_tier.as_str().to_string(),
         subscription_status: user_record.subscription_status,
-        trial_ends_at: Some(user_record.trial_ends_at),
+        trial_ends_at: user_record.trial_ends_at,
         subscription_started_at: user_record.subscription_started_at,
         stripe_customer_id: user_record.stripe_customer_id,
         wallet_count,
@@ -3282,6 +3312,7 @@ pub async fn handle_stripe_webhook(
                             &update.subscription_status,
                             update.stripe_subscription_id.as_deref(),
                             update.subscription_started_at.as_deref(),
+                            update.subscription_ends_at.as_deref(),
                             update.trial_ends_at.as_deref(),
                         )
                         .await

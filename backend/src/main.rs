@@ -443,7 +443,7 @@ async fn main() -> anyhow::Result<()> {
 async fn apply_startup_subscription_limits(
     wallet_manager: std::sync::Arc<tokio::sync::Mutex<WalletManager>>,
 ) -> anyhow::Result<()> {
-    tracing::info!("🎯 Applying subscription limits for all users at startup");
+    tracing::info!("🎯 Applying subscription limits for active users at startup");
 
     let manager = wallet_manager.lock().await;
 
@@ -451,6 +451,18 @@ async fn apply_startup_subscription_limits(
     let users = manager.metadata_db.get_all_users().await?;
 
     for user in users {
+        // Only apply limits to users who are eligible for syncing
+        // Skip users in 'pending', 'expired', 'past_due' states
+        let should_apply_limits = match user.subscription_status.as_str() {
+            "trialing" | "active" => true,
+            _ => false, // Skip pending, expired, past_due, canceled
+        };
+
+        if !should_apply_limits {
+            tracing::debug!("⏭️  Skipping limits for user {} (status: {})", user.id, user.subscription_status);
+            continue;
+        }
+
         if let Err(e) = manager
             .apply_subscription_limits(&user.id, &user.subscription_tier.as_str(), user.is_admin)
             .await

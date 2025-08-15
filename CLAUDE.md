@@ -1,4 +1,6 @@
-# Claude Code Configuration
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 **Development Status**: This project is in unreleased developer mode. Backwards compatibility is not a priority at this stage.
 
@@ -39,7 +41,8 @@ cd backend && cargo fmt && cargo clippy
 cd frontend && npm run dev     # http://localhost:3001
 cd frontend && npm run build
 cd frontend && npm run lint
-cd frontend && npm test
+cd frontend && npm test        # Run all tests
+cd frontend && npm run test:watch  # Run tests in watch mode
 ```
 
 ### Docker (Regtest Environment)
@@ -473,6 +476,11 @@ Comprehensive test coverage for subscription limits and user interactions:
 - **Contact Management**: Multi-provider notification setup and verification
 - **Error Handling**: Graceful error states and user feedback
 - **Edge Cases**: Boundary conditions and invalid input handling
+
+### Backend Testing
+- **Integration Tests**: Stripe webhook processing and billing flows (`backend/tests/stripe_integration_tests.rs`)
+- **Unit Tests**: Metadata operations (`backend/src/tests/metadata.rs`)
+- **Test Execution**: Must use `--test-threads=1` to prevent SQLite database conflicts
 
 ## Code Standards
 - No commented-out code (use git history)  
