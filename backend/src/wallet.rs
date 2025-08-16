@@ -519,6 +519,11 @@ impl WalletManager {
             .iter_mut()
             .find(|(checksum, _)| checksum == wallet_checksum)
         {
+            // Extract electrum client reference before mutable operations
+            let electrum_client = self.electrum_client.as_ref();
+            
+            // Get latest transaction timestamp for new events
+            let latest_tx_timestamp = Self::get_latest_transaction_timestamp_static(electrum_client, wallet);
             // Get balance before sync
             let balance_before = wallet.balance();
             let trusted_pending_before = balance_before.trusted_pending;
@@ -570,6 +575,7 @@ impl WalletManager {
 
             // Check which sends have now been confirmed
             let mut total_confirmed_send_amount = 0i64;
+            let mut confirmed_send_txid: Option<String> = None;
             for (txid, send_amount) in &unconfirmed_sends_before {
                 // Check if this transaction is now confirmed
                 if let Some(tx) = wallet
@@ -578,6 +584,7 @@ impl WalletManager {
                 {
                     if tx.chain_position.is_confirmed() {
                         total_confirmed_send_amount += send_amount;
+                        confirmed_send_txid = Some(txid.clone());
                     }
                 }
             }
@@ -729,7 +736,7 @@ impl WalletManager {
                                 is_rbf: false,
                                 is_cpfp: true,
                                 balance_total: Some(total_after.to_sat() as i64),
-                                transaction_time: Self::get_current_timestamp(),
+                                transaction_time: latest_tx_timestamp,
                             },
                         )
                         .await
@@ -770,7 +777,7 @@ impl WalletManager {
                                 is_rbf: true,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64),
-                                transaction_time: Self::get_current_timestamp(),
+                                transaction_time: latest_tx_timestamp,
                             },
                         )
                         .await
@@ -802,7 +809,7 @@ impl WalletManager {
                                     is_rbf: false,
                                     is_cpfp: false,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    transaction_time: Self::get_current_timestamp(),
+                                    transaction_time: latest_tx_timestamp,
                                 },
                             )
                             .await
@@ -833,7 +840,7 @@ impl WalletManager {
                                     is_rbf: false,
                                     is_cpfp: false,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    transaction_time: Self::get_current_timestamp(),
+                                    transaction_time: latest_tx_timestamp,
                                 },
                             )
                             .await
@@ -860,7 +867,7 @@ impl WalletManager {
                                     is_rbf: false,
                                     is_cpfp: false,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    transaction_time: Self::get_current_timestamp(),
+                                    transaction_time: latest_tx_timestamp,
                                 },
                             )
                             .await
@@ -894,7 +901,7 @@ impl WalletManager {
                                 is_rbf: false,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64),
-                                transaction_time: Self::get_current_timestamp(),
+                                transaction_time: latest_tx_timestamp,
                             },
                         )
                         .await
@@ -928,7 +935,7 @@ impl WalletManager {
                                 is_rbf: false,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64),
-                                transaction_time: Self::get_current_timestamp(),
+                                transaction_time: latest_tx_timestamp,
                             },
                         )
                         .await
@@ -958,7 +965,7 @@ impl WalletManager {
                                 is_rbf: false,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64),
-                                transaction_time: Self::get_current_timestamp(),
+                                transaction_time: latest_tx_timestamp,
                             },
                         )
                         .await
@@ -987,7 +994,7 @@ impl WalletManager {
                             is_rbf: false,
                             is_cpfp: false,
                             balance_total: Some(total_after.to_sat() as i64),
-                            transaction_time: Self::get_current_timestamp(),
+                            transaction_time: latest_tx_timestamp,
                         },
                     )
                     .await
@@ -1003,6 +1010,13 @@ impl WalletManager {
                         let message = format!("✅ Sent confirmed: {:.8} BTC", total_confirmed_send_amount as f64 / 100_000_000.0);
                         println!("{}", message);
 
+                        // Get the proper transaction timestamp
+                        let transaction_time = if let Some(ref txid) = confirmed_send_txid {
+                            Self::get_transaction_timestamp_static(electrum_client, wallet, txid)
+                        } else {
+                            latest_tx_timestamp
+                        };
+
                         // Insert sent confirmation event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
                             metadata_db,
@@ -1015,7 +1029,7 @@ impl WalletManager {
                                 is_rbf: false,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64),
-                                transaction_time: Self::get_current_timestamp(),
+                                transaction_time,
                             },
                         )
                         .await
@@ -1044,7 +1058,7 @@ impl WalletManager {
                             is_rbf: false,
                             is_cpfp: false,
                             balance_total: Some(total_after.to_sat() as i64),
-                            transaction_time: Self::get_current_timestamp(),
+                            transaction_time: latest_tx_timestamp,
                         },
                     )
                     .await
@@ -1266,18 +1280,104 @@ impl WalletManager {
             .as_secs()
     }
 
+    /// Helper function to get transaction timestamp from BDK transaction data
+    fn get_transaction_timestamp_static(
+        electrum_client: Option<&crate::electrum::ElectrumClient>,
+        wallet: &PersistedWallet<Connection>,
+        txid: &str,
+    ) -> u64 {
+        // Find the transaction in the wallet
+        if let Some(tx) = wallet.transactions().find(|tx| tx.tx_node.txid.to_string() == txid) {
+            match &tx.chain_position {
+                bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                    // For confirmed transactions, fetch block timestamp from Electrum
+                    if let Some(electrum_client) = electrum_client {
+                        match electrum_client.get_block_header(anchor.block_id.height) {
+                            Ok(header) => header.timestamp,
+                            Err(_) => {
+                                // Fallback to current time if we can't fetch block header
+                                Self::get_current_timestamp()
+                            }
+                        }
+                    } else {
+                        // No Electrum client, use current time as fallback
+                        Self::get_current_timestamp()
+                    }
+                }
+                bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => {
+                    // For unconfirmed transactions, use first_seen if available
+                    first_seen.unwrap_or_else(|| Self::get_current_timestamp())
+                }
+            }
+        } else {
+            // Transaction not found, use current time as fallback
+            Self::get_current_timestamp()
+        }
+    }
+
+    /// Helper function to find the most recent transaction that could have caused a balance change
+    fn get_latest_transaction_timestamp_static(
+        electrum_client: Option<&crate::electrum::ElectrumClient>,
+        wallet: &PersistedWallet<Connection>,
+    ) -> u64 {
+        // Find the most recent transaction (by timestamp) that affects our balance
+        let mut latest_timestamp = 0u64;
+        
+        for tx in wallet.transactions() {
+            let sent = wallet.sent_and_received(&tx.tx_node).0;
+            let received = wallet.sent_and_received(&tx.tx_node).1;
+            let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+            
+            // Skip transactions that don't affect our balance
+            if net_amount == 0 {
+                continue;
+            }
+            
+            let tx_timestamp = match &tx.chain_position {
+                bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                    // For confirmed transactions, get block timestamp
+                    if let Some(electrum_client) = electrum_client {
+                        if let Ok(header) = electrum_client.get_block_header(anchor.block_id.height) {
+                            header.timestamp
+                        } else {
+                            continue; // Skip if we can't get block header
+                        }
+                    } else {
+                        continue; // Skip if no electrum client
+                    }
+                }
+                bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => {
+                    // For unconfirmed transactions, use first_seen timestamp
+                    first_seen.unwrap_or_else(|| Self::get_current_timestamp())
+                }
+            };
+            
+            // Keep track of the latest transaction timestamp
+            if tx_timestamp > latest_timestamp {
+                latest_timestamp = tx_timestamp;
+            }
+        }
+        
+        // If no transactions found or no valid timestamps, use current time
+        if latest_timestamp == 0 {
+            latest_timestamp = Self::get_current_timestamp();
+        }
+        
+        latest_timestamp
+    }
+
     /// Helper function to insert event and broadcast it
     async fn insert_and_broadcast_event_helper(
         metadata_db: &MetadataDb,
         event_sender: &broadcast::Sender<TransactionEvent>,
         event_insert: &EventInsert,
     ) -> Result<()> {
-        // Insert to database
-        metadata_db.insert_event(event_insert).await?;
+        // Insert to database and get the generated event ID
+        let event_id = metadata_db.insert_event(event_insert).await?;
 
-        // Create event for broadcasting
+        // Create event for broadcasting using the database event ID
         let event = TransactionEvent {
-            id: Some(uuid::Uuid::new_v4().to_string()),
+            id: Some(event_id),
             wallet_checksum: event_insert.wallet_checksum.clone(),
             event_type: event_insert.event_type.clone(),
             amount_sats: event_insert.amount_sats,
