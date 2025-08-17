@@ -204,9 +204,10 @@ async fn main() -> anyhow::Result<()> {
     // Spawn wallet sync worker with tier-based intervals
     let sync_wallet_manager = Arc::clone(&wallet_manager);
     let sync_current_block_header = Arc::clone(&current_block_header);
-    // Check every 5 seconds for wallets due for sync (fastest tier syncs every 5 seconds)
+    // Check interval based on environment: 5s for dev (Team syncs every 5s), 60s for prod (Team syncs every 60s)
+    let sync_check_interval = if cfg!(debug_assertions) { 5 } else { 60 };
     tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(5));
+        let mut interval = interval(Duration::from_secs(sync_check_interval));
 
         loop {
             interval.tick().await;
