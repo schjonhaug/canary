@@ -16,16 +16,23 @@ pub struct TierLimits {
 
 impl SubscriptionTier {
     pub fn limits(&self) -> TierLimits {
+        // Use faster sync intervals for development (debug builds)
+        let (personal_sync, team_sync) = if cfg!(debug_assertions) {
+            (10, 5) // Development: 10s Personal, 5s Team
+        } else {
+            (600, 60) // Production: 10min Personal, 1min Team
+        };
+
         match self {
             Self::Personal => TierLimits {
                 max_wallets: Some(1),
                 max_contacts_per_wallet: Some(1),
-                sync_interval_secs: 600, // 10 minutes
+                sync_interval_secs: personal_sync,
             },
             Self::Team => TierLimits {
                 max_wallets: Some(5),
                 max_contacts_per_wallet: Some(5),
-                sync_interval_secs: 60, // 1 minute
+                sync_interval_secs: team_sync,
             },
         }
     }

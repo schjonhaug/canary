@@ -62,6 +62,11 @@ async fn main() -> anyhow::Result<()> {
         if auth_enabled { "ENABLED" } else { "DISABLED" }
     );
 
+    // Log development mode sync intervals
+    if cfg!(debug_assertions) {
+        println!("🚀 Development mode: Fast sync intervals (Personal: 10s, Team: 5s)");
+    }
+
     // Create wallet manager with sync worker
     println!("Creating wallet sync worker...");
 

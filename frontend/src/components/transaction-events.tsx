@@ -192,19 +192,45 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
                   </TableCell>
                   <TableCell className="text-sm">
                     {event.notification_status && event.notification_status.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {event.notification_status.map((notification, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center gap-1"
-                            title={notification.error_message || `${notification.provider_name} ${notification.status}`}
-                          >
-                            {notification.status === 'failed' && <span>❌</span>}
-                            {notification.status === 'sent' && <span>✅</span>}
-                            <span>{notification.contact_name}</span>
-                            {index < event.notification_status.length - 1 && <span>,</span>}
-                          </span>
-                        ))}
+                      <div className="flex items-center gap-2">
+                        {/* Group notifications by contact name to avoid duplicates */}
+                        {Object.entries(
+                          event.notification_status.reduce((acc, notification) => {
+                            if (!acc[notification.contact_name]) {
+                              acc[notification.contact_name] = []
+                            }
+                            acc[notification.contact_name].push(notification)
+                            return acc
+                          }, {} as Record<string, typeof event.notification_status>)
+                        ).map(([contactName, notifications]) => {
+                          // Get appropriate icon for provider
+                          const getProviderIcon = (providerName: string) => {
+                            switch (providerName.toLowerCase()) {
+                              case 'email':
+                                return <Mail className="h-3 w-3" />
+                              case 'sms':
+                                return <Smartphone className="h-3 w-3" />
+                              case 'ntfy':
+                              default:
+                                return <Bell className="h-3 w-3" />
+                            }
+                          }
+
+                          return (
+                            <span
+                              key={contactName}
+                              className="inline-flex items-center gap-1"
+                              title={notifications.map(n => `${n.provider_name} ${n.status}`).join(', ')}
+                            >
+                              <span className="text-xs">{contactName}</span>
+                              {notifications.map((notification, idx) => (
+                                <span key={idx}>
+                                  {getProviderIcon(notification.provider_name)}
+                                </span>
+                              ))}
+                            </span>
+                          )
+                        })}
                       </div>
                     ) : (
                       "None"
