@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, Clock, HandCoins, Baby } from "lucide-react"
+import { CheckCircle, Clock, HandCoins, Baby, Mail, Smartphone, Bell } from "lucide-react"
 import { TransactionEvent } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 

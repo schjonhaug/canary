@@ -361,7 +361,7 @@ async fn main() -> anyhow::Result<()> {
                                         if let Some(ref event_id) = event.id {
                                             let status =
                                                 if result.success { "sent" } else { "failed" };
-                                            let _ = wallet_manager_lock
+                                            if let Err(e) = wallet_manager_lock
                                                 .metadata_db
                                                 .insert_notification_log_for_method(
                                                     event_id,
@@ -372,8 +372,17 @@ async fn main() -> anyhow::Result<()> {
                                                     result.error_message.as_deref(),
                                                     &message,
                                                 )
-                                                .await;
+                                                .await
+                                            {
+                                                eprintln!("❌ Failed to log notification to database: {}", e);
+                                            } else {
+                                                println!("✅ Logged notification to database for event {} method {}", event_id, method_id);
+                                            }
+                                        } else {
+                                            println!("⚠️  Cannot log notification: event has no ID");
                                         }
+                                    } else {
+                                        println!("⚠️  Cannot log notification: method has no ID");
                                     }
 
                                     // Find the contact name for logging (need to find the contact that owns this method)
