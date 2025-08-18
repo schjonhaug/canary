@@ -3192,8 +3192,8 @@ pub async fn handle_stripe_webhook(
     // Debug: Log all headers
     tracing::info!("Webhook headers received: {:?}", headers);
     
-    // Get Stripe signature from headers
-    let signature = match headers.get("Stripe-Signature") {
+    // Get Stripe signature from headers (case-insensitive lookup)
+    let signature = match headers.get("stripe-signature") {
         Some(sig) => match sig.to_str() {
             Ok(s) => s,
             Err(_) => {

@@ -64,6 +64,12 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers['authorization'] = authorization;
     }
 
+    // Forward Stripe webhook signature header
+    const stripeSignature = request.headers.get('stripe-signature');
+    if (stripeSignature) {
+      headers['stripe-signature'] = stripeSignature;
+    }
+
     let body: BodyInit | undefined;
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       body = await request.text();
