@@ -87,10 +87,6 @@ impl AppConfig {
             config.bind_address = bind_address_env;
         }
 
-        // Special handling for Railway - use PORT env var if available
-        if let Ok(port) = std::env::var("PORT") {
-            config.bind_address = format!("0.0.0.0:{}", port);
-        }
 
         if let Ok(data_dir_env) = std::env::var("CANARY_DATA_DIR") {
             config.data_dir = data_dir_env;
