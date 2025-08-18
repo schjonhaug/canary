@@ -177,6 +177,9 @@ function PlanComparisonContent({
                 <div className="mt-3">
                   <span className="text-2xl font-bold">{formatPrice(monthlyPrice.amount, monthlyPrice.currency)}</span>
                   <span className="text-muted-foreground text-sm">/month</span>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Plus applicable taxes
+                  </div>
                   {yearlyPrice && (
                     <div className="text-xs text-green-600 font-medium mt-1">
                       Save {Math.round(((monthlyPrice.amount * 12 - yearlyPrice.amount) / (monthlyPrice.amount * 12)) * 100)}% with yearly billing
