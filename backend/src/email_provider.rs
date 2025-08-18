@@ -72,7 +72,7 @@ impl NotificationProvider for EmailProvider {
                         .await
                         {
                             Ok(_) => {
-                                println!("✅ Email sent successfully to {}", email_address);
+                                // Email success will be logged in main summary
                             }
                             Err(e) => {
                                 eprintln!("❌ Failed to send email to {}: {}", email_address, e);

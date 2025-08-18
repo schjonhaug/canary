@@ -330,15 +330,11 @@ async fn main() -> anyhow::Result<()> {
                     .await
                 {
                     if !contacts.is_empty() {
-
-                        println!(
-                            "🔔 Triggering notifications for {} contacts on wallet '{}'",
-                            contacts.len(),
-                            wallet_info.name
-                        );
-
                         // Generate message content once (same for all providers)
-                        let mut message_printed = false;
+                        let mut message_content = String::new();
+                        let mut provider_counts = std::collections::HashMap::new();
+                        let mut failed_count = 0;
+                        let mut total_sent = 0;
 
                         // Try to send notifications using all available providers, filtered by subscription tier
                         let available_providers = manager.list_providers();
@@ -356,13 +352,12 @@ async fn main() -> anyhow::Result<()> {
                                 .await
                             {
                                 for (notification_method, result, message) in results {
-                                    // Print message content only once
-                                    if !message_printed {
-                                        println!("   📄 Message: {}", message);
-                                        message_printed = true;
+                                    // Store message content for summary (same for all providers)
+                                    if message_content.is_empty() {
+                                        message_content = message.clone();
                                     }
 
-                                    // Log the notification attempt to database
+                                    // Log the notification attempt to database (keep this for audit)
                                     if let Some(ref method_id) = notification_method.id {
                                         if let Some(ref event_id) = event.id {
                                             let status =
@@ -381,52 +376,78 @@ async fn main() -> anyhow::Result<()> {
                                                 .await
                                             {
                                                 eprintln!("❌ Failed to log notification to database: {}", e);
-                                            } else {
-                                                println!("✅ Logged notification to database for event {} method {}", event_id, method_id);
                                             }
-                                        } else {
-                                            println!("⚠️  Cannot log notification: event has no ID");
                                         }
-                                    } else {
-                                        println!("⚠️  Cannot log notification: method has no ID");
                                     }
 
-                                    // Find the contact name for logging (need to find the contact that owns this method)
-                                    let contact_name = contacts
-                                        .iter()
-                                        .find(|c| {
-                                            c.notification_methods
-                                                .iter()
-                                                .any(|m| m.id == notification_method.id)
-                                        })
-                                        .map(|c| c.name.as_str())
-                                        .unwrap_or("Unknown");
-
+                                    // Count results by provider
                                     if result.success {
-                                        let display_target = notification_method
-                                            .display_target
-                                            .as_ref()
-                                            .unwrap_or(&notification_method.notification_target);
-                                        println!(
-                                            "   ✅ {} → {} via {}",
-                                            contact_name, display_target, provider_name
-                                        );
+                                        *provider_counts.entry(provider_name.clone()).or_insert(0) += 1;
+                                        total_sent += 1;
                                     } else {
-                                        let display_target = notification_method
-                                            .display_target
-                                            .as_ref()
-                                            .unwrap_or(&notification_method.notification_target);
-                                        println!(
-                                            "   ❌ {} → {} via {} - {}",
-                                            contact_name,
-                                            display_target,
-                                            provider_name,
-                                            result
-                                                .error_message
-                                                .unwrap_or_else(|| "Unknown error".to_string())
-                                        );
+                                        failed_count += 1;
                                     }
                                 }
+                            }
+                        }
+
+                        // Print concise summary
+                        if total_sent > 0 || failed_count > 0 {
+                            let mut provider_summary = Vec::new();
+                            for (provider, count) in provider_counts.iter() {
+                                provider_summary.push(format!("{}×{}", count, provider));
+                            }
+                            let provider_str = provider_summary.join(", ");
+
+                            // Extract clean transaction summary from message
+                            let transaction_summary = if message_content.contains("📤") {
+                                // Extract amount from sending message, looking for " BTC" pattern
+                                if let Some(btc_pos) = message_content.find(" BTC") {
+                                    let before_btc = &message_content[..btc_pos];
+                                    if let Some(space_pos) = before_btc.rfind(' ') {
+                                        let amount = &before_btc[space_pos + 1..];
+                                        format!("📤 Sending {} BTC", amount)
+                                    } else {
+                                        "📤 Sending".to_string()
+                                    }
+                                } else {
+                                    "📤 Sending".to_string()
+                                }
+                            } else if message_content.contains("📥") {
+                                // Extract amount from receiving message
+                                if let Some(btc_pos) = message_content.find(" BTC") {
+                                    let before_btc = &message_content[..btc_pos];
+                                    if let Some(space_pos) = before_btc.rfind(' ') {
+                                        let amount = &before_btc[space_pos + 1..];
+                                        format!("📥 Received {} BTC", amount)
+                                    } else {
+                                        "📥 Received".to_string()
+                                    }
+                                } else {
+                                    "📥 Received".to_string()
+                                }
+                            } else {
+                                "Transaction".to_string()
+                            };
+
+                            if failed_count == 0 {
+                                println!(
+                                    "🔔 Notified {} contacts for {}: {} ({})",
+                                    contacts.len(),
+                                    wallet_info.name,
+                                    transaction_summary,
+                                    provider_str
+                                );
+                            } else {
+                                println!(
+                                    "🔔 Notified {}/{} contacts for {}: {} ({}, {}×failed)",
+                                    total_sent,
+                                    total_sent + failed_count,
+                                    wallet_info.name,
+                                    transaction_summary,
+                                    provider_str,
+                                    failed_count
+                                );
                             }
                         }
                     }
