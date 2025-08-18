@@ -3,6 +3,7 @@ use crate::metadata::{
     EventInsert, EventType, MetadataDb, TransactionEvent, WalletDetailResponse, WalletMetadata,
     WalletsListResponse,
 };
+use crate::subscription::SubscriptionTier;
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, PersistedWallet, Wallet};
@@ -322,7 +323,10 @@ impl WalletManager {
             }
         }
 
-        println!("Loaded {} wallets from disk", self.wallets.len());
+        // Only log if wallets were actually loaded
+        if !self.wallets.is_empty() {
+            println!("📂 Loaded {} wallets", self.wallets.len());
+        }
 
         // Clean up expired sessions on startup
         match self.metadata_db.cleanup_expired_sessions().await {
@@ -345,8 +349,6 @@ impl WalletManager {
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
 
-        println!("Loading wallet from file: {}", filename);
-
         // Open the SQLite connection
         let mut db = self.create_sqlite_connection(wallet_path)?;
 
@@ -358,8 +360,6 @@ impl WalletManager {
             .map_err(|e| anyhow!("Failed to load wallet: {}", e))?;
 
         if let Some(wallet) = wallet_opt {
-            println!("    - Network: {:?}", wallet.network());
-            println!("    - Loaded from disk (sync will happen in background loop)");
 
             // Extract checksum from filename (remove .sqlite extension)
             // Since we now use checksums as filenames, this is already the checksum
@@ -1087,7 +1087,25 @@ impl WalletManager {
             return Ok(());
         }
 
-        println!("🔄 Syncing {} wallets due for sync", due_wallets.len());
+        // Count wallets by tier for summary
+        let mut personal_count = 0;
+        let mut team_count = 0;
+        for (_, tier) in &due_wallets {
+            match tier {
+                SubscriptionTier::Personal => personal_count += 1,
+                SubscriptionTier::Team => team_count += 1,
+            }
+        }
+
+        let tier_summary = if personal_count > 0 && team_count > 0 {
+            format!("{}P/{}T", personal_count, team_count)
+        } else if personal_count > 0 {
+            format!("{}P", personal_count)
+        } else {
+            format!("{}T", team_count)
+        };
+
+        println!("🔄 Syncing {} wallets ({})", due_wallets.len(), tier_summary);
 
         // Ensure all wallets are loaded first
         if let Err(e) = self.load_all_wallets().await {
@@ -1095,15 +1113,27 @@ impl WalletManager {
             return Ok(());
         }
 
-        for (wallet_metadata, tier) in due_wallets {
+        let mut synced = 0;
+        let mut failed = 0;
+
+        for (wallet_metadata, _tier) in due_wallets {
             // Sync the wallet
             match self
                 .sync_wallet_by_checksum(&wallet_metadata.checksum)
                 .await
             {
-                Ok(_) => println!("   ✅ Synced {} ({})", wallet_metadata.name, tier.as_str()),
-                Err(e) => eprintln!("   ❌ Failed to sync {}: {}", wallet_metadata.name, e),
+                Ok(_) => synced += 1,
+                Err(e) => {
+                    failed += 1;
+                    eprintln!("❌ Failed to sync {}: {}", wallet_metadata.name, e);
+                }
             }
+        }
+
+        if failed == 0 {
+            println!("✅ Synced {} wallets", synced);
+        } else {
+            println!("⚠️  Synced {}, failed {}", synced, failed);
         }
 
         Ok(())

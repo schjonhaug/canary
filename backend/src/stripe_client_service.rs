@@ -148,39 +148,6 @@ impl StripeClientService {
         Ok(customer)
     }
 
-    pub async fn create_subscription(
-        &self,
-        customer_id: String,
-        price_id: String,
-        trial_period_days: Option<i32>,
-        metadata: HashMap<String, String>,
-    ) -> Result<Subscription> {
-        let mut form_data = vec![
-            ("customer".to_string(), customer_id),
-            ("items[0][price]".to_string(), price_id),
-        ];
-
-        if let Some(trial_days) = trial_period_days {
-            form_data.push(("trial_period_days".to_string(), trial_days.to_string()));
-            form_data.push((
-                "payment_behavior".to_string(),
-                "allow_incomplete".to_string(),
-            ));
-        }
-
-        for (key, value) in metadata {
-            form_data.push((format!("metadata[{}]", key), value));
-        }
-
-        let response = self
-            .add_stripe_headers(self.client.post("https://api.stripe.com/v1/subscriptions"))
-            .form(&form_data)
-            .send()
-            .await?;
-
-        let subscription: Subscription = response.json().await?;
-        Ok(subscription)
-    }
 
     pub async fn create_checkout_session(
         &self,
