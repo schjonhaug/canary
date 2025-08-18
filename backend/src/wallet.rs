@@ -19,6 +19,10 @@ pub struct WalletManager {
     pub metadata_db: MetadataDb,
     pub event_sender: broadcast::Sender<TransactionEvent>,
     network: Network,
+    // Sync tracking for periodic summaries
+    sync_counter: u32,
+    syncs_with_changes: u32,
+    sync_errors: u32,
 }
 
 impl WalletManager {
@@ -65,6 +69,9 @@ impl WalletManager {
             metadata_db,
             event_sender,
             network,
+            sync_counter: 0,
+            syncs_with_changes: 0,
+            sync_errors: 0,
         };
 
         // Load all existing wallets
@@ -306,6 +313,7 @@ impl WalletManager {
 
     async fn load_all_wallets(&mut self) -> Result<()> {
         let entries = fs::read_dir(&self.wallet_dir)?;
+        let wallets_before = self.wallets.len();
 
         for entry in entries {
             let entry = entry?;
@@ -323,9 +331,10 @@ impl WalletManager {
             }
         }
 
-        // Only log if wallets were actually loaded
-        if !self.wallets.is_empty() {
-            println!("📂 Loaded {} wallets", self.wallets.len());
+        // Only log if new wallets were actually loaded from disk
+        let newly_loaded = self.wallets.len() - wallets_before;
+        if newly_loaded > 0 {
+            println!("📂 Loaded {} wallets from disk", newly_loaded);
         }
 
         // Clean up expired sessions on startup
@@ -509,10 +518,11 @@ impl WalletManager {
         Ok(wallet_metadata)
     }
 
-    pub async fn sync_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<()> {
+    pub async fn sync_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<bool> {
         // Similar to sync_all_wallets but for a single wallet
         let metadata_db = &self.metadata_db;
         let event_sender = &self.event_sender;
+        let mut has_changes = false;
 
         // Create wallet path for persistence (used later in persist function)
 
@@ -574,7 +584,7 @@ impl WalletManager {
                 let sync_result = client.sync_wallet_incremental(wallet);
                 if let Err(e) = sync_result {
                     eprintln!("Failed to sync wallet {}: {}", wallet_checksum, e);
-                    return Ok(());
+                    return Ok(false);
                 }
             }
 
@@ -626,7 +636,7 @@ impl WalletManager {
             }
 
             // Check if any balance component changed
-            let has_changes = trusted_pending_before != trusted_pending_after
+            has_changes = trusted_pending_before != trusted_pending_after
                 || untrusted_pending_before != untrusted_pending_after
                 || confirmed_before != confirmed_after
                 || total_before != total_after;
@@ -1118,7 +1128,7 @@ impl WalletManager {
         // Persist wallet changes to the database after sync and event processing
         self.persist_wallet_by_checksum(wallet_checksum).await?;
 
-        Ok(())
+        Ok(has_changes)
     }
 
     /// Helper function to persist a specific wallet by checksum
@@ -1163,7 +1173,7 @@ impl WalletManager {
             }
         }
 
-        let tier_summary = if personal_count > 0 && team_count > 0 {
+        let _tier_summary = if personal_count > 0 && team_count > 0 {
             format!("{}P/{}T", personal_count, team_count)
         } else if personal_count > 0 {
             format!("{}P", personal_count)
@@ -1171,16 +1181,15 @@ impl WalletManager {
             format!("{}T", team_count)
         };
 
-        println!("🔄 Syncing {} wallets ({})", due_wallets.len(), tier_summary);
-
         // Ensure all wallets are loaded first
         if let Err(e) = self.load_all_wallets().await {
             eprintln!("Failed to load wallets: {}", e);
             return Ok(());
         }
 
-        let mut synced = 0;
+        let mut _synced = 0;
         let mut failed = 0;
+        let mut had_changes = false;
 
         for (wallet_metadata, _tier) in due_wallets {
             // Sync the wallet
@@ -1188,7 +1197,12 @@ impl WalletManager {
                 .sync_wallet_by_checksum(&wallet_metadata.checksum)
                 .await
             {
-                Ok(_) => synced += 1,
+                Ok(wallet_had_changes) => {
+                    _synced += 1;
+                    if wallet_had_changes {
+                        had_changes = true;
+                    }
+                }
                 Err(e) => {
                     failed += 1;
                     eprintln!("❌ Failed to sync {}: {}", wallet_metadata.name, e);
@@ -1196,10 +1210,19 @@ impl WalletManager {
             }
         }
 
-        if failed == 0 {
-            println!("✅ Synced {} wallets", synced);
-        } else {
-            println!("⚠️  Synced {}, failed {}", synced, failed);
+        // Update counters
+        self.sync_counter += 1;
+        self.sync_errors += failed;
+        if had_changes {
+            self.syncs_with_changes += 1;
+        }
+        
+        // Show periodic summary every 10 sync cycles
+        if self.sync_counter % 10 == 0 {
+            println!(
+                "📊 Sync summary: {} cycles completed, {} with changes, {} errors",
+                self.sync_counter, self.syncs_with_changes, self.sync_errors
+            );
         }
 
         Ok(())

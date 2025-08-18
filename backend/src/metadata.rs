@@ -804,7 +804,15 @@ impl MetadataDb {
                 "SELECT te.id, te.wallet_checksum, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.transaction_time 
                  FROM transaction_events te 
                  JOIN wallets w ON te.wallet_checksum = w.checksum 
-                 ORDER BY te.transaction_time DESC, te.id DESC"
+                 ORDER BY te.transaction_time DESC, 
+                          CASE te.event_type 
+                            WHEN 'receiving' THEN 1 
+                            WHEN 'received' THEN 2 
+                            WHEN 'sending' THEN 3 
+                            WHEN 'sent' THEN 4 
+                            ELSE 5 
+                          END ASC, 
+                          te.id DESC"
             )?;
 
             let event_iter = stmt.query_map([], |row| {
