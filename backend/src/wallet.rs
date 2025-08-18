@@ -514,6 +514,8 @@ impl WalletManager {
         let metadata_db = &self.metadata_db;
         let event_sender = &self.event_sender;
 
+        // Create wallet path for persistence (used later in persist function)
+
         if let Some((_, wallet)) = self
             .wallets
             .iter_mut()
@@ -540,6 +542,24 @@ impl WalletManager {
                         let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
                         if net_amount < 0 {
                             Some((tx.tx_node.txid.to_string(), net_amount.abs()))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            let unconfirmed_receives_before: Vec<(String, i64)> = wallet
+                .transactions()
+                .filter_map(|tx| {
+                    if !tx.chain_position.is_confirmed() {
+                        let sent = wallet.sent_and_received(&tx.tx_node).0;
+                        let received = wallet.sent_and_received(&tx.tx_node).1;
+                        let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+                        if net_amount > 0 {
+                            Some((tx.tx_node.txid.to_string(), net_amount))
                         } else {
                             None
                         }
@@ -585,6 +605,22 @@ impl WalletManager {
                     if tx.chain_position.is_confirmed() {
                         total_confirmed_send_amount += send_amount;
                         confirmed_send_txid = Some(txid.clone());
+                    }
+                }
+            }
+
+            // Check which receives have now been confirmed
+            let mut total_confirmed_receive_amount = 0i64;
+            let mut confirmed_receive_txid: Option<String> = None;
+            for (txid, receive_amount) in &unconfirmed_receives_before {
+                // Check if this transaction is now confirmed
+                if let Some(tx) = wallet
+                    .transactions()
+                    .find(|tx| tx.tx_node.txid.to_string() == *txid)
+                {
+                    if tx.chain_position.is_confirmed() {
+                        total_confirmed_receive_amount += receive_amount;
+                        confirmed_receive_txid = Some(txid.clone());
                     }
                 }
             }
@@ -1041,29 +1077,37 @@ impl WalletManager {
 
                 // Detect if this is a received transaction being confirmed
                 if untrusted_pending_decrease && confirmed_increase && total_same {
-                    let confirmed_amount =
-                        confirmed_after.to_sat() - confirmed_before.to_sat();
-                    let message = format!("✅ Received confirmed: {:.8} BTC", confirmed_amount as f64 / 100_000_000.0);
-                    println!("{}", message);
+                    // Use transaction-level analysis result for receive confirmation amount
+                    if total_confirmed_receive_amount > 0 {
+                        let message = format!("✅ Received confirmed: {:.8} BTC", total_confirmed_receive_amount as f64 / 100_000_000.0);
+                        println!("{}", message);
 
-                    // Insert received confirmation event to database and broadcast
-                    if let Err(e) = Self::insert_and_broadcast_event_helper(
-                        metadata_db,
-                        event_sender,
-                        &EventInsert {
-                            wallet_checksum: wallet_checksum.to_string(),
-                            event_type: EventType::Receive,
-                            amount_sats: confirmed_amount as i64,
-                            is_confirmed: true,
-                            is_rbf: false,
-                            is_cpfp: false,
-                            balance_total: Some(total_after.to_sat() as i64),
-                            transaction_time: latest_tx_timestamp,
-                        },
-                    )
-                    .await
-                    {
-                        eprintln!("Failed to insert received confirmation event: {}", e);
+                        // Get the proper transaction timestamp
+                        let transaction_time = if let Some(ref txid) = confirmed_receive_txid {
+                            Self::get_transaction_timestamp_static(electrum_client, wallet, txid)
+                        } else {
+                            latest_tx_timestamp
+                        };
+
+                        // Insert received confirmation event to database and broadcast
+                        if let Err(e) = Self::insert_and_broadcast_event_helper(
+                            metadata_db,
+                            event_sender,
+                            &EventInsert {
+                                wallet_checksum: wallet_checksum.to_string(),
+                                event_type: EventType::Receive,
+                                amount_sats: total_confirmed_receive_amount,
+                                is_confirmed: true,
+                                is_rbf: false,
+                                is_cpfp: false,
+                                balance_total: Some(total_after.to_sat() as i64),
+                                transaction_time,
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to insert received confirmation event: {}", e);
+                        }
                     }
                 }
 
@@ -1071,6 +1115,28 @@ impl WalletManager {
             }
         }
 
+        // Persist wallet changes to the database after sync and event processing
+        self.persist_wallet_by_checksum(wallet_checksum).await?;
+
+        Ok(())
+    }
+
+    /// Helper function to persist a specific wallet by checksum
+    async fn persist_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<()> {
+        let wallet_filename = format!("{}.sqlite", wallet_checksum);
+        let wallet_path = self.wallet_dir.join(&wallet_filename);
+        let mut db = self.create_sqlite_connection(&wallet_path)?;
+        
+        if let Some((_, wallet)) = self
+            .wallets
+            .iter_mut()
+            .find(|(checksum, _)| checksum == wallet_checksum)
+        {
+            wallet
+                .persist(&mut db)
+                .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
+        }
+        
         Ok(())
     }
 
