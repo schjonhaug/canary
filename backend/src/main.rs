@@ -72,9 +72,6 @@ async fn main() -> anyhow::Result<()> {
 
     let (event_tx, _event_rx) = broadcast::channel::<TransactionEvent>(100);
 
-    // Create shared state for current block header
-    let current_block_header = Arc::new(Mutex::new(None::<electrum::BlockHeader>));
-
     let wallet_manager = Arc::new(Mutex::new(
         WalletManager::new(
             event_tx.clone(),
@@ -85,6 +82,13 @@ async fn main() -> anyhow::Result<()> {
         )
         .await,
     ));
+
+    // Create shared state for current block header and load existing header from database
+    let existing_header = {
+        let manager = wallet_manager.lock().await;
+        manager.metadata_db.get_current_block_header().await.unwrap_or(None)
+    };
+    let current_block_header = Arc::new(Mutex::new(existing_header));
 
     // Create notification manager and register providers based on configuration
     let mut notification_manager = NotificationManager::new();
