@@ -50,6 +50,21 @@ cd regtest-env && docker-compose up -d
 ./docker-utils.sh fund <addr> 1.0  # Fund address
 ```
 
+## Configuration
+
+### Environment Setup
+All configuration is explicit via environment variables - no hardcoded defaults.
+
+**Quick Start:**
+- **FOSS mode**: `cp .env.example.foss .env`
+- **SAAS mode**: `cp .env.example.saas .env`
+
+**Configuration Files:**
+- `.env.example.foss` - Self-hosted single-user configuration
+- `.env.example.saas` - Hosted service with billing configuration  
+
+The backend will fail fast with clear error messages if required variables are missing.
+
 ## Code Architecture
 
 ### Backend Structure
