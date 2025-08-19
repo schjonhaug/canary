@@ -585,12 +585,18 @@ impl StripeBilling {
         let subscription_id = subscription.id.unwrap_or_default();
 
         // Update user's subscription info in database
+        let now = chrono::Utc::now();
+        let trial_end = now + chrono::Duration::days(30);
+        
         metadata_db
             .update_user_subscription(
                 &user.id,
-                Some(&subscription_id),
                 &format!("{:?}", tier).to_lowercase(),
                 "trialing",
+                Some(&subscription_id),
+                Some(&now.to_rfc3339()),
+                None, // subscription_ends_at - not set for trials
+                Some(&trial_end.to_rfc3339()),
             )
             .await?;
 
