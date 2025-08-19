@@ -137,9 +137,6 @@ NEXT_PUBLIC_CANARY_MODE=saas   # or 'foss' for self-hosted mode
 
 # Backend API URL (required)
 NEXT_PUBLIC_API_URL=http://localhost:3000
-
-# Stripe configuration (SAAS mode only)
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
 ### Operating Mode Details

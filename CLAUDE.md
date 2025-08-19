@@ -330,9 +330,6 @@ Set up Stripe integration with environment variables:
 STRIPE_SECRET_KEY=sk_test_... # or sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
-# Frontend Environment  
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
-
 # Required: Stripe CLI for webhook forwarding in development
 # stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```

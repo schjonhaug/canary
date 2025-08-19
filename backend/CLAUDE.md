@@ -148,7 +148,6 @@ RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 
 ### Frontend Environment Variables
 ```bash
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 NEXT_PUBLIC_SYNC_INTERVAL=60000
 ```
 
