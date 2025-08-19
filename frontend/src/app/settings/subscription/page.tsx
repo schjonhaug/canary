@@ -11,9 +11,10 @@ import { PlansModal } from "@/components/plans-modal"
 import { getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
+import Link from "next/link"
 
 export default function BillingPage() {
-  const { user, billingStatus, isLoading, refreshBillingStatus, isSaasMode, isFossMode } = useAuth()
+  const { user, billingStatus, isLoading, refreshBillingStatus, isFossMode } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
@@ -51,7 +52,7 @@ export default function BillingPage() {
             This is a FOSS (self-hosted) installation with no subscription billing.
           </p>
           <Button asChild>
-            <a href="/wallets">Go to Wallets</a>
+            <Link href="/wallets">Go to Wallets</Link>
           </Button>
         </div>
         <AppFooter />
@@ -80,7 +81,7 @@ export default function BillingPage() {
           <h1 className="text-2xl font-bold mb-4">Sign in to view billing</h1>
           <p className="text-muted-foreground mb-6">You need to be signed in to manage your billing and subscription.</p>
           <Button asChild>
-            <a href="/sign-in">Sign In</a>
+            <Link href="/sign-in">Sign In</Link>
           </Button>
         </div>
         <AppFooter />

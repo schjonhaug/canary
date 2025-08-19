@@ -17,7 +17,7 @@ export default function SignInPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login, isSaasMode, isFossMode } = useAuth()
+  const { login, isFossMode } = useAuth()
   const router = useRouter()
 
   // Redirect to wallets in FOSS mode

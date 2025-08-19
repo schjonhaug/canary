@@ -463,7 +463,7 @@ describe('Contact Limit Enforcement', () => {
       }
 
       // Test SAAS mode (default) - should show upgrade modal
-      const { rerender, unmount } = render(
+      const { unmount } = render(
         <ContactLimitTestComponent {...props} />
       )
 

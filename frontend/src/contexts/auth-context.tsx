@@ -62,46 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isFossMode = mode === 'foss'
   
 
-  // Check for existing session on mount
-  useEffect(() => {
-    // In FOSS mode, set a default user and skip auth
-    if (isFossMode) {
-      setUser({
-        id: 1,
-        email: 'admin@local',
-        name: 'Admin',
-        is_admin: true,
-        email_verified: true,
-        subscription_tier: 'team' as const
-      })
-      setToken('foss-mode')
-      setIsLoading(false)
-      return
-    }
-
-    const storedToken = localStorage.getItem('auth_token')
-    if (storedToken) {
-      setToken(storedToken)
-      // Set token in API client
-      api.setAuthToken(storedToken)
-      // Fetch user info
-      fetchUser()
-    } else {
-      setIsLoading(false)
-    }
-  }, [isFossMode])
-
   const fetchUser = useCallback(async () => {
     try {
       const { user: userData } = await api.getMe()
       setUser(userData)
-      // Also fetch billing status if user is authenticated (but don't let it cause logout)
-      try {
-        await fetchBillingStatus()
-      } catch (billingError) {
-        console.error('Failed to fetch billing status (non-critical):', billingError)
-        // Don't throw - billing status failure shouldn't cause logout
-      }
     } catch (error) {
       console.error('Failed to fetch user:', error)
       // Only clear auth on 401 Unauthorized - other errors might be temporary
@@ -132,6 +96,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Don't throw - billing status is optional
     }
   }, [user])
+
+  // Check for existing session on mount
+  useEffect(() => {
+    // In FOSS mode, set a default user and skip auth
+    if (isFossMode) {
+      setUser({
+        id: 1,
+        email: 'admin@local',
+        name: 'Admin',
+        is_admin: true,
+        email_verified: true,
+        subscription_tier: 'team' as const
+      })
+      setToken('foss-mode')
+      setIsLoading(false)
+      return
+    }
+
+    const storedToken = localStorage.getItem('auth_token')
+    if (storedToken) {
+      setToken(storedToken)
+      // Set token in API client
+      api.setAuthToken(storedToken)
+      // Fetch user info
+      fetchUser()
+    } else {
+      setIsLoading(false)
+    }
+  }, [isFossMode, fetchUser])
+
+  // Fetch billing status after user is loaded
+  useEffect(() => {
+    if (user && isSaasMode) {
+      fetchBillingStatus().catch(error => {
+        console.error('Failed to fetch billing status (non-critical):', error)
+      })
+    }
+  }, [user, isSaasMode, fetchBillingStatus])
 
   const refreshBillingStatus = useCallback(async () => {
     if (!token) return

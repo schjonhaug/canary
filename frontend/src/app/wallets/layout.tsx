@@ -24,7 +24,7 @@ export default function WalletsLayout({
   const [walletSvg, setWalletSvg] = useState<string>("")
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null)
   const pathname = usePathname()
-  const { user, billingStatus, isSaasMode, isFossMode } = useAuth()
+  const { user, billingStatus, isFossMode } = useAuth()
   
   // Check if we're on a wallet detail page
   const isWalletDetailPage = pathname.startsWith('/wallets/') && pathname !== '/wallets'

@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Plus, Info, Clock, Sparkles } from "lucide-react"
+import { Plus, Clock, Sparkles } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 interface User {
@@ -17,7 +17,7 @@ interface WalletOnboardingProps {
 }
 
 export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
-  const { billingStatus, isSaasMode, isFossMode } = useAuth()
+  const { billingStatus, isSaasMode } = useAuth()
   const isPending = isSaasMode && billingStatus?.subscription_status === 'pending'
   
   // If user is in pending status (SAAS mode only), show trial activation message + wallet descriptor info

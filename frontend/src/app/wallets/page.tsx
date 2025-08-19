@@ -12,7 +12,7 @@ import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
   const { wallets, error, lastUpdate, isConnected, onAddWallet } = useWalletsContext()
-  const { isAuthenticated, isLoading, user, isSaasMode, isFossMode } = useAuth()
+  const { isAuthenticated, isLoading, user, isSaasMode } = useAuth()
   const router = useRouter()
 
   const getTotalBalance = () => {
