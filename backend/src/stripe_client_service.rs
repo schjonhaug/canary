@@ -401,4 +401,47 @@ impl StripeClientService {
         let subscription: Subscription = response.json().await?;
         Ok(subscription)
     }
+
+    pub async fn create_subscription(
+        &self,
+        customer_id: String,
+        price_id: String,
+        trial_days: Option<u32>,
+        metadata: HashMap<String, String>,
+    ) -> Result<Subscription> {
+        let mut form_data = vec![
+            ("customer".to_string(), customer_id),
+            ("items[0][price]".to_string(), price_id),
+            ("payment_behavior".to_string(), "allow_incomplete".to_string()),
+            ("payment_settings[save_default_payment_method]".to_string(), "on_subscription".to_string()),
+        ];
+
+        // Add trial period if specified
+        if let Some(days) = trial_days {
+            form_data.push(("trial_period_days".to_string(), days.to_string()));
+        }
+
+        // Add metadata
+        for (key, value) in metadata {
+            form_data.push((format!("metadata[{}]", key), value));
+        }
+
+        let response = self
+            .add_stripe_headers(self.client.post("https://api.stripe.com/v1/subscriptions"))
+            .form(&form_data)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            tracing::error!("❌ Stripe create subscription failed: {}", error_text);
+            return Err(anyhow::anyhow!(
+                "Stripe create subscription failed: {}",
+                error_text
+            ));
+        }
+
+        let subscription: Subscription = response.json().await?;
+        Ok(subscription)
+    }
 }

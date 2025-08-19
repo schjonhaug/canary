@@ -254,7 +254,7 @@ fn authenticate_user_mode_aware(config: &AppConfig, auth_header: Option<&str>) -
     )
 )]
 pub async fn create_wallet(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Json(payload): Json<CreateWalletRequest>,
 ) -> Response {
@@ -447,12 +447,35 @@ pub async fn create_wallet(
                             tracing::error!("Failed to update user trial status: {}", e);
                         }
                         
-                        // If Stripe is available and user has a customer ID, create the trial subscription
-                        if let Some(stripe_customer_id) = &user_record.stripe_customer_id {
-                            // Get stripe_billing from the app state - need to modify function signature for this
-                            // For now, skip creating Stripe subscription - it will be handled by the frontend when they access billing
-                            tracing::info!("User {} has Stripe customer ID {}, trial subscription will be created when needed", 
-                                user_record.email, stripe_customer_id);
+                        // If Stripe is available, create the trial subscription
+                        if let Some(stripe_service) = &stripe_billing {
+                            // Create trial subscription for Team tier
+                            if let Err(e) = stripe_service
+                                .create_trial_subscription(
+                                    &user_record,
+                                    crate::subscription::SubscriptionTier::Team,
+                                    &manager.metadata_db,
+                                )
+                                .await
+                            {
+                                tracing::error!(
+                                    "Failed to create Stripe trial subscription for user {}: {}",
+                                    user_record.email,
+                                    e
+                                );
+                                // Don't fail wallet creation if Stripe fails, but log the error
+                                // User can still use the service with database-only trial
+                            } else {
+                                tracing::info!(
+                                    "✅ Stripe trial subscription created successfully for user {}",
+                                    user_record.email
+                                );
+                            }
+                        } else if user_record.stripe_customer_id.is_some() {
+                            tracing::warn!(
+                                "User {} has Stripe customer ID but Stripe service is not available",
+                                user_record.email
+                            );
                         }
                     }
                 }
@@ -499,7 +522,7 @@ pub async fn create_wallet(
     )
 )]
 pub async fn delete_wallet(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
 ) -> Response {
@@ -605,7 +628,7 @@ pub async fn delete_wallet(
     )
 )]
 pub async fn update_wallet(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
     Json(payload): Json<UpdateWalletRequest>,
@@ -720,7 +743,7 @@ pub async fn update_wallet(
     )
 )]
 pub async fn get_wallet(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
 ) -> Response {
@@ -811,7 +834,7 @@ pub async fn get_wallet(
     )
 )]
 pub async fn create_wallet_contact(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(payload): Json<CreateContactWithMethodsRequest>,
@@ -1036,7 +1059,7 @@ pub async fn create_wallet_contact(
     )
 )]
 pub async fn delete_wallet_contact(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path((wallet_checksum, contact_id)): Path<(String, String)>,
 ) -> Response {
@@ -1157,7 +1180,7 @@ pub async fn delete_wallet_contact(
     )
 )]
 pub async fn get_wallet_contacts(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
 ) -> Response {
@@ -1270,7 +1293,7 @@ pub async fn get_wallet_contacts(
     )
 )]
 pub async fn send_contact_verification(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(request): Json<SendContactVerificationRequest>,
@@ -1592,7 +1615,7 @@ pub struct VerifyContactResponse {
     )
 )]
 pub async fn verify_contact(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(request): Json<VerifyContactRequest>,
@@ -1835,7 +1858,7 @@ pub async fn verify_contact(
     ),
     tag = "blockchain"
 )]
-pub async fn get_current_block_header(State((wallet_manager, _config)): State<(AppState, ConfigState)>) -> Response {
+pub async fn get_current_block_header(State((wallet_manager, _stripe_billing, _config)): State<(AppState, StripeBillingState, ConfigState)>) -> Response {
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
     match manager.metadata_db.get_current_block_header().await {
@@ -1871,7 +1894,7 @@ pub async fn get_current_block_header(State((wallet_manager, _config)): State<(A
     )
 )]
 pub async fn get_wallets_list(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
 ) -> Response {
     // Authenticate user based on operating mode
@@ -1924,7 +1947,7 @@ pub async fn get_wallets_list(
     )
 )]
 pub async fn get_wallet_detail(
-    State((wallet_manager, config)): State<(AppState, ConfigState)>,
+    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
     Path(checksum): Path<String>,
     headers: HeaderMap,
 ) -> Response {
@@ -3544,7 +3567,7 @@ pub fn create_router(
             axum::routing::delete(delete_wallet_contact),
         )
         .route("/block-headers/current", get(get_current_block_header))
-        .with_state((wallet_manager.clone(), config_state.clone()));
+        .with_state((wallet_manager.clone(), stripe_billing.clone(), config_state.clone()));
 
     let provider_routes = Router::new()
         .route("/providers", get(get_providers))

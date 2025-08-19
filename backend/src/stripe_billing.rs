@@ -522,6 +522,87 @@ impl StripeBilling {
         Ok(customer_id)
     }
 
+    /// Create a trial subscription for a user (called when they add their first wallet)
+    pub async fn create_trial_subscription(
+        &self,
+        user: &UserRecord,
+        tier: SubscriptionTier,
+        metadata_db: &crate::metadata::MetadataDb,
+    ) -> Result<()> {
+        // Ensure pricing is loaded
+        if self.cached_pricing.tiers.is_empty() {
+            return Err(anyhow::anyhow!("No pricing data available. Please ensure Stripe products are configured."));
+        }
+
+        // Find the tier pricing
+        let tier_pricing = self
+            .cached_pricing
+            .tiers
+            .iter()
+            .find(|t| t.tier.to_lowercase() == format!("{:?}", tier).to_lowercase())
+            .ok_or_else(|| anyhow::anyhow!("No pricing found for tier {:?}", tier))?;
+
+        // Get the monthly price ID for the tier (trials should use monthly pricing)
+        let price_info = tier_pricing
+            .monthly_price
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No monthly price found for tier {:?}", tier))?;
+
+        let price_id = price_info.price_id.clone();
+
+        // Get or create Stripe customer
+        let customer_id = match &user.stripe_customer_id {
+            Some(id) => id.clone(),
+            None => {
+                // Create customer first if they don't have one
+                self.create_stripe_customer_only(user, metadata_db).await?
+            }
+        };
+
+        tracing::info!(
+            "🎉 Creating 30-day trial subscription for user {} (customer: {}) with tier {:?}",
+            user.email,
+            customer_id,
+            tier
+        );
+
+        // Create subscription metadata
+        let mut metadata = HashMap::new();
+        metadata.insert("user_id".to_string(), user.id.clone());
+        metadata.insert("tier".to_string(), format!("{:?}", tier));
+
+        // Create subscription with 30-day trial
+        let subscription = self
+            .client
+            .create_subscription(
+                customer_id.clone(),
+                price_id.clone(),
+                Some(30), // 30-day trial
+                metadata,
+            )
+            .await?;
+
+        let subscription_id = subscription.id.unwrap_or_default();
+
+        // Update user's subscription info in database
+        metadata_db
+            .update_user_subscription(
+                &user.id,
+                Some(&subscription_id),
+                &format!("{:?}", tier).to_lowercase(),
+                "trialing",
+            )
+            .await?;
+
+        tracing::info!(
+            "✅ Trial subscription created successfully for user {} (ID: {})",
+            user.email,
+            subscription_id
+        );
+
+        Ok(())
+    }
+
 
     pub async fn handle_webhook(&self, payload: &[u8], signature: &str) -> Result<WebhookResult> {
         // Use stripe library for webhook verification (security critical)
