@@ -2,7 +2,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use canary::{api::create_router, notifications::NotificationManager, wallet::WalletManager};
+use canary::{api::create_router, config::{AppConfig, NetworkConfig}, notifications::NotificationManager, wallet::WalletManager};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -16,6 +16,14 @@ async fn create_test_app() -> axum::Router {
     let temp_path = temp_dir.path().to_str().unwrap();
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
 
+    // Create test config
+    let test_config = AppConfig {
+        network: NetworkConfig::Regtest,
+        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
+        bind_address: "127.0.0.1:3000".to_string(),
+        data_dir: temp_path.to_string(),
+    };
+
     let (event_tx, _event_rx) = broadcast::channel::<canary::metadata::TransactionEvent>(100);
     let _current_block_header = Arc::new(Mutex::new(None::<canary::electrum::BlockHeader>));
 
@@ -26,6 +34,7 @@ async fn create_test_app() -> axum::Router {
             &test_db_path,
             bdk_wallet::bitcoin::Network::Regtest,
             "tcp://127.0.0.1:50001", // Test electrum
+            &test_config,
         )
         .await,
     ));
@@ -35,7 +44,7 @@ async fn create_test_app() -> axum::Router {
     // No Stripe billing for basic tests (None means billing endpoints return 500)
     let stripe_billing = None;
 
-    create_router(wallet_manager, notification_manager, stripe_billing)
+    create_router(wallet_manager, notification_manager, stripe_billing, test_config)
 }
 
 /// Test pricing endpoint without Stripe billing

@@ -1,10 +1,20 @@
 use crate::metadata::{Language, MetadataDb};
+use crate::config::{AppConfig, NetworkConfig};
 use tempfile::tempdir;
 
 async fn create_test_db() -> (MetadataDb, tempfile::TempDir) {
     let temp_dir = tempdir().unwrap();
     let db_path = temp_dir.path().join("test.db");
-    let db = MetadataDb::new(db_path.to_str().unwrap()).await.unwrap();
+    
+    // Create test config
+    let test_config = AppConfig {
+        network: NetworkConfig::Regtest,
+        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
+        bind_address: "127.0.0.1:3000".to_string(),
+        data_dir: temp_dir.path().to_string_lossy().to_string(),
+    };
+    
+    let db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await.unwrap();
     (db, temp_dir) // Return both to keep temp_dir alive
 }
 
