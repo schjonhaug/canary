@@ -836,14 +836,54 @@ impl StripeBilling {
                     }
                 }
                 "invoice.payment_succeeded" => {
-                    // Payment successful - ensure user has full access
-                    tracing::info!("💰 Payment succeeded - subscription is active");
-                    // TODO: Ensure user has full access and wallet syncing
+                    // Parse invoice data to provide clearer logging for $0 trial invoices vs actual payments
+                    if let Some(data) = &event.data {
+                        if let Some(invoice_obj) = &data.object {
+                            if let Ok(invoice) = serde_json::from_value::<serde_json::Value>(invoice_obj.clone()) {
+                                let amount_paid = invoice.get("amount_paid").and_then(|a| a.as_i64()).unwrap_or(0);
+                                let amount_due = invoice.get("amount_due").and_then(|a| a.as_i64()).unwrap_or(0);
+                                let billing_reason = invoice.get("billing_reason").and_then(|r| r.as_str());
+                                let customer_id = invoice.get("customer").and_then(|c| c.as_str());
+                                
+                                if amount_paid == 0 && amount_due == 0 {
+                                    // This is a $0 invoice (likely a trial start)
+                                    if billing_reason == Some("subscription_create") {
+                                        tracing::info!("✅ Trial started - $0 invoice processed for customer {}", 
+                                            customer_id.unwrap_or("unknown"));
+                                    } else {
+                                        tracing::info!("✅ $0 invoice processed for customer {}", 
+                                            customer_id.unwrap_or("unknown"));
+                                    }
+                                } else {
+                                    // Actual payment was collected
+                                    let amount_dollars = amount_paid as f64 / 100.0;
+                                    tracing::info!("💰 Payment succeeded - ${:.2} collected from customer {}", 
+                                        amount_dollars, customer_id.unwrap_or("unknown"));
+                                }
+                            } else {
+                                // Fallback if we can't parse the invoice
+                                tracing::info!("💰 Payment succeeded - subscription is active");
+                            }
+                        }
+                    }
                 }
                 "invoice.payment_failed" => {
-                    // Payment failed - subscription may go to past_due
-                    tracing::info!("❌ Payment failed - subscription may be suspended");
-                    // TODO: Handle payment failure appropriately
+                    // Parse invoice data to show the failed amount
+                    if let Some(data) = &event.data {
+                        if let Some(invoice_obj) = &data.object {
+                            if let Ok(invoice) = serde_json::from_value::<serde_json::Value>(invoice_obj.clone()) {
+                                let amount_due = invoice.get("amount_due").and_then(|a| a.as_i64()).unwrap_or(0);
+                                let customer_id = invoice.get("customer").and_then(|c| c.as_str());
+                                let amount_dollars = amount_due as f64 / 100.0;
+                                
+                                tracing::info!("❌ Payment failed - ${:.2} payment failed for customer {}", 
+                                    amount_dollars, customer_id.unwrap_or("unknown"));
+                            } else {
+                                // Fallback if we can't parse the invoice
+                                tracing::info!("❌ Payment failed - subscription may be suspended");
+                            }
+                        }
+                    }
                 }
                 _ => {
                     tracing::debug!("🔄 Ignoring webhook event type: {}", event_type);
