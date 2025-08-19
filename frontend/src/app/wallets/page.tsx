@@ -12,7 +12,7 @@ import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
   const { wallets, error, lastUpdate, isConnected, onAddWallet } = useWalletsContext()
-  const { isAuthenticated, isLoading, user } = useAuth()
+  const { isAuthenticated, isLoading, user, isSaasMode, isFossMode } = useAuth()
   const router = useRouter()
 
   const getTotalBalance = () => {
@@ -21,15 +21,12 @@ export default function WalletsPage() {
     }, 0)
   }
 
-  // Check if auth is enabled
-  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
-
-  // Redirect unauthenticated users to sign-in when auth is enabled
+  // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
-    if (authEnabled && !isLoading && !isAuthenticated) {
+    if (isSaasMode && !isLoading && !isAuthenticated) {
       router.push('/sign-in')
     }
-  }, [authEnabled, isAuthenticated, isLoading, router])
+  }, [isSaasMode, isAuthenticated, isLoading, router])
 
   // Show loading state while auth is loading
   if (isLoading) {
@@ -43,12 +40,12 @@ export default function WalletsPage() {
     )
   }
 
-  // Return null while redirecting unauthenticated users
-  if (authEnabled && !isAuthenticated) {
+  // Return null while redirecting unauthenticated users in SAAS mode
+  if (isSaasMode && !isAuthenticated) {
     return null
   }
 
-  // Show dashboard for authenticated users or when auth is disabled
+  // Show dashboard for authenticated users or in FOSS mode
   return (
     <>
       {/* Connection Warning Banner */}

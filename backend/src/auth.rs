@@ -342,19 +342,6 @@ impl AuthService {
 }
 
 pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
-    // Check if auth is enabled via environment variable
-    let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
-        .map(|v| v.to_lowercase() == "true" || v == "1")
-        .unwrap_or(false);
-
-    if !auth_enabled {
-        // Self-hosted mode: always return admin user
-        return Ok(AuthUser {
-            user_id: "00000000-0000-0000-0000-000000000001".to_string(), // Fixed UUID for self-hosted admin
-            is_admin: true,
-        });
-    }
-
     // SAAS mode: validate JWT token
     let auth_header = auth_header.ok_or_else(|| anyhow!("Authorization header required"))?;
 

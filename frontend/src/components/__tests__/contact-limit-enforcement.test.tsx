@@ -41,11 +41,13 @@ const MockContactModal = ({ isOpen, onClose }: {
 const ContactLimitTestComponent = ({ 
   userTier, 
   currentContactCount, 
-  contacts = [] 
+  contacts = [],
+  isFossMode = false
 }: { 
   userTier: string
   currentContactCount: number
   contacts?: unknown[]
+  isFossMode?: boolean
 }) => {
   const [isAddContactModalOpen, setIsAddContactModalOpen] = React.useState(false)
   const [isPlansModalOpen, setIsPlansModalOpen] = React.useState(false)
@@ -53,6 +55,12 @@ const ContactLimitTestComponent = ({
   const user = { subscription_tier: userTier }
   
   const handleAddContact = () => {
+    // In FOSS mode, no limits - always allow adding contacts
+    if (isFossMode) {
+      setIsAddContactModalOpen(true)
+      return
+    }
+    
     // Check contact limits before opening create modal
     if (user && hasReachedContactLimit(contacts?.length || currentContactCount, user.subscription_tier)) {
       setIsPlansModalOpen(true)
@@ -410,5 +418,68 @@ describe('Contact Limit Enforcement', () => {
       expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
     })
 
+  })
+
+  describe('FOSS Mode Behavior', () => {
+    it('ignores contact limits in FOSS mode - personal tier with many contacts', async () => {
+      const user = userEvent.setup()
+      render(
+        <ContactLimitTestComponent 
+          userTier="personal" 
+          currentContactCount={10} // Way over personal limit of 1
+          isFossMode={true}
+        />
+      )
+
+      await user.click(screen.getByTestId('add-contact-btn'))
+      
+      // Should always show contact modal, never upgrade modal
+      expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
+    })
+
+    it('ignores contact limits in FOSS mode - team tier with many contacts', async () => {
+      const user = userEvent.setup()
+      render(
+        <ContactLimitTestComponent 
+          userTier="team" 
+          currentContactCount={20} // Way over team limit of 5
+          isFossMode={true}
+        />
+      )
+
+      await user.click(screen.getByTestId('add-contact-btn'))
+      
+      // Should always show contact modal, never upgrade modal
+      expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
+    })
+
+    it('compares FOSS vs SAAS behavior for same user data', async () => {
+      const user = userEvent.setup()
+      const props = {
+        userTier: "personal" as const,
+        currentContactCount: 2 // Over personal limit
+      }
+
+      // Test SAAS mode (default) - should show upgrade modal
+      const { rerender, unmount } = render(
+        <ContactLimitTestComponent {...props} />
+      )
+
+      await user.click(screen.getByTestId('add-contact-btn'))
+      expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
+      expect(screen.queryByTestId('contact-modal')).not.toBeInTheDocument()
+
+      // Unmount and re-mount with FOSS mode to reset state
+      unmount()
+      render(
+        <ContactLimitTestComponent {...props} isFossMode={true} />
+      )
+
+      await user.click(screen.getByTestId('add-contact-btn'))
+      expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
+      expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
+    })
   })
 })

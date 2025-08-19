@@ -13,7 +13,7 @@ import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 
 export default function BillingPage() {
-  const { user, billingStatus, isLoading, refreshBillingStatus } = useAuth()
+  const { user, billingStatus, isLoading, refreshBillingStatus, isSaasMode, isFossMode } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
@@ -39,6 +39,25 @@ export default function BillingPage() {
     }
   }
 
+
+  // Hide billing page in FOSS mode
+  if (isFossMode) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <AppHeader />
+        <div className="text-center py-12">
+          <h1 className="text-2xl font-bold mb-4">Billing Not Available</h1>
+          <p className="text-muted-foreground mb-6">
+            This is a FOSS (self-hosted) installation with no subscription billing.
+          </p>
+          <Button asChild>
+            <a href="/wallets">Go to Wallets</a>
+          </Button>
+        </div>
+        <AppFooter />
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (

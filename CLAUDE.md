@@ -118,14 +118,14 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 
 **Configuration methods:**
 - CLI: `cargo run -- --network mainnet --electrum-url ssl://electrum.blockstream.info:50002`
-- Environment: `CANARY_NETWORK=mainnet`, `CANARY_ELECTRUM_URL=...`, `CANARY_SYNC_INTERVAL=60`
+- Environment: `CANARY_NETWORK=mainnet`, `CANARY_ELECTRUM_URL=...`
 - `.env` file in backend directory
 
 **Defaults:**
 - Regtest: tcp://127.0.0.1:50001
 - Testnet: ssl://electrum.blockstream.info:60002  
 - Mainnet: ssl://electrum.blockstream.info:50002
-- Sync interval: 60 seconds (configurable via CANARY_SYNC_INTERVAL)
+- Sync intervals: Tier-based (Personal: 10min, Team: 1min)
 - Frontend polling: 60 seconds (configurable via NEXT_PUBLIC_SYNC_INTERVAL)
 
 ## Key Features
@@ -218,7 +218,7 @@ CREATE TABLE contacts (
 ### Resend Email (Optional)
 1. Set environment variables in `.env`:
    ```
-   CANARY_ENABLE_AUTH=true
+   CANARY_MODE=saas
    RESEND_API_KEY=re_your-resend-api-key
    RESEND_FROM_EMAIL=notifications@canarybitcoin.com
    RESEND_FROM_NAME=Canary Wallet
@@ -238,7 +238,7 @@ CREATE TABLE contacts (
 Enable email/password authentication for multi-user support:
 1. Set environment variables in `.env`:
    ```
-   CANARY_ENABLE_AUTH=true
+   CANARY_MODE=saas
    JWT_SECRET=your_secure_jwt_secret_here
    # Email service for verification emails (optional in dev mode)
    SMTP_HOST=smtp.gmail.com

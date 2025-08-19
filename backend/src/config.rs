@@ -120,14 +120,15 @@ impl AppConfig {
 
     /// Check if Twilio SMS provider should be enabled
     pub fn is_twilio_enabled(&self) -> bool {
-        // Only allow Twilio in SAAS mode
+        // Only allow Twilio in SAAS mode, and only if configured
         if self.is_foss_mode() {
             return false;
         }
         
-        std::env::var("CANARY_ENABLE_TWILIO")
-            .map(|v| v.to_lowercase() == "true" || v == "1")
-            .unwrap_or(false)
+        // Check if Twilio environment variables are configured
+        std::env::var("TWILIO_ACCOUNT_SID").is_ok() && 
+        std::env::var("TWILIO_AUTH_TOKEN").is_ok() && 
+        std::env::var("TWILIO_MESSAGING_SERVICE_SID").is_ok()
     }
 
     /// Check if email provider should be enabled
@@ -136,12 +137,72 @@ impl AppConfig {
         self.is_saas_mode()
     }
 
-    /// Get wallet sync interval in seconds
-    pub fn sync_interval_secs(&self) -> u64 {
-        std::env::var("CANARY_SYNC_INTERVAL")
-            .ok()
-            .and_then(|v| v.parse::<u64>().ok())
-            .unwrap_or(60) // Default to 60 seconds for public servers
+    /// Validate that all required environment variables are set for the current mode
+    pub fn validate_required_config(&self) -> Result<(), String> {
+        if self.is_saas_mode() {
+            self.validate_saas_config()
+        } else {
+            // FOSS mode has no strict requirements beyond basic config
+            Ok(())
+        }
+    }
+
+    /// Validate required SAAS mode configuration
+    fn validate_saas_config(&self) -> Result<(), String> {
+        let mut missing = Vec::new();
+
+        // JWT Secret is required for authentication
+        if std::env::var("JWT_SECRET").is_err() {
+            missing.push("JWT_SECRET - Required for user authentication");
+        }
+
+        // Stripe configuration is required for billing
+        if std::env::var("STRIPE_SECRET_KEY").is_err() {
+            missing.push("STRIPE_SECRET_KEY - Required for subscription billing");
+        }
+        if std::env::var("STRIPE_WEBHOOK_SECRET").is_err() {
+            missing.push("STRIPE_WEBHOOK_SECRET - Required for webhook verification");
+        }
+
+        // Twilio configuration is required for SMS notifications
+        if std::env::var("TWILIO_ACCOUNT_SID").is_err() {
+            missing.push("TWILIO_ACCOUNT_SID - Required for SMS notifications");
+        }
+        if std::env::var("TWILIO_AUTH_TOKEN").is_err() {
+            missing.push("TWILIO_AUTH_TOKEN - Required for SMS notifications");
+        }
+        if std::env::var("TWILIO_MESSAGING_SERVICE_SID").is_err() {
+            missing.push("TWILIO_MESSAGING_SERVICE_SID - Required for SMS notifications");
+        }
+
+        // Resend configuration is required for email notifications and auth emails
+        if std::env::var("RESEND_API_KEY").is_err() {
+            missing.push("RESEND_API_KEY - Required for email notifications and verification");
+        }
+        if std::env::var("RESEND_FROM_EMAIL").is_err() {
+            missing.push("RESEND_FROM_EMAIL - Required for sending emails");
+        }
+        if std::env::var("RESEND_FROM_NAME").is_err() {
+            missing.push("RESEND_FROM_NAME - Required for email sender name");
+        }
+
+        // Frontend URL is required for email links
+        if std::env::var("FRONTEND_URL").is_err() {
+            missing.push("FRONTEND_URL - Required for email verification and reset links");
+        }
+
+        if missing.is_empty() {
+            Ok(())
+        } else {
+            let error_msg = format!(
+                "SAAS mode requires the following environment variables:\n{}",
+                missing.into_iter()
+                    .map(|var| format!("  - {}", var))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
+            Err(error_msg)
+        }
     }
 
     pub fn electrum_url(&self) -> String {

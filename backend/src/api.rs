@@ -499,18 +499,18 @@ pub async fn create_wallet(
     )
 )]
 pub async fn delete_wallet(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -605,19 +605,19 @@ pub async fn delete_wallet(
     )
 )]
 pub async fn update_wallet(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
     Json(payload): Json<UpdateWalletRequest>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -720,18 +720,18 @@ pub async fn update_wallet(
     )
 )]
 pub async fn get_wallet(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -811,19 +811,19 @@ pub async fn get_wallet(
     )
 )]
 pub async fn create_wallet_contact(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(payload): Json<CreateContactWithMethodsRequest>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -1036,18 +1036,18 @@ pub async fn create_wallet_contact(
     )
 )]
 pub async fn delete_wallet_contact(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
     Path((wallet_checksum, contact_id)): Path<(String, String)>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -1157,18 +1157,18 @@ pub async fn delete_wallet_contact(
     )
 )]
 pub async fn get_wallet_contacts(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -1270,19 +1270,19 @@ pub async fn get_wallet_contacts(
     )
 )]
 pub async fn send_contact_verification(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(request): Json<SendContactVerificationRequest>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -1592,19 +1592,19 @@ pub struct VerifyContactResponse {
     )
 )]
 pub async fn verify_contact(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(request): Json<VerifyContactRequest>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -1835,7 +1835,7 @@ pub async fn verify_contact(
     ),
     tag = "blockchain"
 )]
-pub async fn get_current_block_header(State(wallet_manager): State<AppState>) -> Response {
+pub async fn get_current_block_header(State((wallet_manager, _config)): State<(AppState, ConfigState)>) -> Response {
     #[allow(unused_mut)]
     let manager = wallet_manager.lock().await;
     match manager.metadata_db.get_current_block_header().await {
@@ -1871,17 +1871,17 @@ pub async fn get_current_block_header(State(wallet_manager): State<AppState>) ->
     )
 )]
 pub async fn get_wallets_list(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -1924,18 +1924,18 @@ pub async fn get_wallets_list(
     )
 )]
 pub async fn get_wallet_detail(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     Path(checksum): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -3521,7 +3521,7 @@ pub fn create_router(
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
         .route("/auth/user", put(update_user))
-        .with_state((wallet_manager.clone(), stripe_billing.clone(), config_state.clone()));
+        .with_state((wallet_manager.clone(), stripe_billing.clone()));
 
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet).get(get_wallets_list))
@@ -3562,7 +3562,7 @@ pub fn create_router(
                 "/billing/session/{session_id}",
                 get(get_checkout_session_details),
             )
-            .with_state((wallet_manager.clone(), stripe_billing.clone(), config_state.clone()))
+            .with_state((wallet_manager.clone(), stripe_billing.clone()))
     } else {
         Router::new() // Empty router if Stripe not configured
     };

@@ -46,9 +46,9 @@ npm run test:watch    # Run tests in watch mode
 - **Type-safe requests**: Full TypeScript interfaces for all API responses
 - **Automatic token handling**: JWT tokens automatically included in requests when authenticated
 
-#### Authentication Modes
-- **FOSS Mode**: When `NEXT_PUBLIC_AUTH_ENABLED` is false, sets default admin user without backend auth
-- **Full Auth Mode**: Complete email/password authentication with JWT, billing integration, and subscription management
+#### Operating Modes  
+- **FOSS Mode**: When `NEXT_PUBLIC_CANARY_MODE=foss`, single hardcoded admin user with no authentication, billing, or subscription limits
+- **SAAS Mode**: When `NEXT_PUBLIC_CANARY_MODE=saas` (default), complete email/password authentication with JWT, billing integration, and subscription management
 
 #### Subscription Management
 - **Tiered billing system**: Personal ($9/month) vs Team ($29/month) tiers with different limits
@@ -122,8 +122,8 @@ npm test -- --watch contact-modal.test.tsx
 
 ### Required Environment Variables
 ```bash
-# Enable authentication mode
-NEXT_PUBLIC_AUTH_ENABLED=true
+# Set operating mode (defaults to 'saas' if not specified)
+NEXT_PUBLIC_CANARY_MODE=saas   # or 'foss' for self-hosted mode
 
 # Stripe configuration (for billing features)
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
@@ -132,10 +132,18 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
 ```
 
-### Authentication Modes
-- **Development**: Pre-configured test users (admin@resend.dev, alice@resend.dev, bob@resend.dev) with password `password123`
-- **FOSS Mode**: Single admin user without authentication requirements
-- **Production**: Full email/password authentication with email verification
+### Operating Mode Details
+- **SAAS Mode** (`NEXT_PUBLIC_CANARY_MODE=saas`):
+  - Full multi-user authentication with email/password
+  - Stripe subscription billing and tier-based limits
+  - Multiple notification providers (SMS, email, ntfy)
+  - Development: Pre-configured test users (admin@resend.dev, alice@resend.dev, bob@resend.dev) with password `password123`
+  - Production: Email verification required for new accounts
+- **FOSS Mode** (`NEXT_PUBLIC_CANARY_MODE=foss`):
+  - Single hardcoded admin user (no authentication)  
+  - No subscription billing or limits
+  - Only ntfy notifications (self-hostable)
+  - Users provide their own Bitcoin/Electrum nodes
 
 ## Key Integration Points
 

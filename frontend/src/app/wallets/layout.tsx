@@ -24,7 +24,7 @@ export default function WalletsLayout({
   const [walletSvg, setWalletSvg] = useState<string>("")
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null)
   const pathname = usePathname()
-  const { user, billingStatus } = useAuth()
+  const { user, billingStatus, isSaasMode, isFossMode } = useAuth()
   
   // Check if we're on a wallet detail page
   const isWalletDetailPage = pathname.startsWith('/wallets/') && pathname !== '/wallets'
@@ -48,6 +48,12 @@ export default function WalletsLayout({
   }, [isWalletDetailPage, currentWallet?.hex_color])
 
   const handleAddWallet = () => {
+    // In FOSS mode, no limits - always allow adding wallets
+    if (isFossMode) {
+      setIsAddWalletOpen(true)
+      return
+    }
+    
     // Check wallet limits before opening create modal - use billing status as authoritative source
     const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
     if (hasReachedWalletLimit(wallets.length, currentTier)) {

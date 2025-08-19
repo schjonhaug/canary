@@ -4,10 +4,10 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Accept build arguments
-ARG NEXT_PUBLIC_AUTH_ENABLED
+ARG NEXT_PUBLIC_CANARY_MODE
 
 # Set environment variables for build
-ENV NEXT_PUBLIC_AUTH_ENABLED=$NEXT_PUBLIC_AUTH_ENABLED
+ENV NEXT_PUBLIC_CANARY_MODE=$NEXT_PUBLIC_CANARY_MODE
 
 # Copy package files
 COPY package*.json ./

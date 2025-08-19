@@ -50,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
     println!("  Bind address: {}", config.bind_address);
     println!("  Wallet directory: {}", config.effective_wallet_dir());
     println!("  Metadata DB: {}", config.effective_metadata_db());
-    println!("  Sync interval: {} seconds", config.sync_interval_secs());
+    println!("  Sync intervals: tier-based (Personal: 10min, Team: 1min)");
 
     // Log operating mode
     println!("🏢 Operating mode: {}", config.operating_mode().to_uppercase());
@@ -63,6 +63,17 @@ async fn main() -> anyhow::Result<()> {
         println!("   - No billing/subscriptions");
         println!("   - ntfy-only notifications");
     }
+
+    // Validate required configuration for the selected mode
+    if let Err(error) = config.validate_required_config() {
+        eprintln!("❌ Configuration validation failed:");
+        eprintln!("{}", error);
+        eprintln!("");
+        eprintln!("Please check your .env file and ensure all required variables are set.");
+        eprintln!("See backend/.env.example for configuration examples.");
+        std::process::exit(1);
+    }
+    println!("✅ Configuration validated successfully");
 
     // Log development mode sync intervals
     if cfg!(debug_assertions) {

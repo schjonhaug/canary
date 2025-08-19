@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +17,15 @@ export default function SignInPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login } = useAuth()
+  const { login, isSaasMode, isFossMode } = useAuth()
+  const router = useRouter()
+
+  // Redirect to wallets in FOSS mode
+  useEffect(() => {
+    if (isFossMode) {
+      router.push('/wallets')
+    }
+  }, [isFossMode, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,6 +54,11 @@ export default function SignInPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Don't render anything while redirecting in FOSS mode
+  if (isFossMode) {
+    return null
   }
 
   return (

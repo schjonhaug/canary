@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,15 @@ export default function SignUpPage() {
   const [marketingEmails, setMarketingEmails] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { register } = useAuth()
+  const { register, isSaasMode, isFossMode } = useAuth()
   const router = useRouter()
+
+  // Redirect to wallets in FOSS mode
+  useEffect(() => {
+    if (isFossMode) {
+      router.push('/wallets')
+    }
+  }, [isFossMode, router])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,6 +43,11 @@ export default function SignUpPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Don't render anything while redirecting in FOSS mode
+  if (isFossMode) {
+    return null
   }
 
   return (

@@ -16,14 +16,11 @@ import { getTierDisplayName } from '@/lib/pricing-data'
 import Link from 'next/link'
 
 export function UserDropdown() {
-  const { user, billingStatus, logout } = useAuth()
+  const { user, billingStatus, logout, isSaasMode, isFossMode } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
 
-  // Check if auth is enabled
-  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false'
-  
   // In FOSS mode or if no user, don't show anything
-  if (!authEnabled || !user) {
+  if (isFossMode || !user) {
     return null
   }
 
@@ -63,31 +60,35 @@ export function UserDropdown() {
           </div>
         </div>
         
-        <DropdownMenuSeparator />
-        
-        <Link href="/settings/subscription" className="block">
-          <DropdownMenuItem className="cursor-pointer">
-            <CreditCard className="mr-2 h-4 w-4" />
-            <span>Subscription</span>
-          </DropdownMenuItem>
-        </Link>
-        
-        {billingStatus && (
-          <div className="px-2 py-1">
-            <div className="text-xs text-muted-foreground space-y-1">
-              <div className="flex justify-between">
-                <span>Wallets:</span>
-                <span>{billingStatus.wallet_count} / {billingStatus.limits?.max_wallets === -1 ? '∞' : billingStatus.limits?.max_wallets}</span>
+        {isSaasMode && (
+          <>
+            <DropdownMenuSeparator />
+            
+            <Link href="/settings/subscription" className="block">
+              <DropdownMenuItem className="cursor-pointer">
+                <CreditCard className="mr-2 h-4 w-4" />
+                <span>Subscription</span>
+              </DropdownMenuItem>
+            </Link>
+            
+            {billingStatus && (
+              <div className="px-2 py-1">
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div className="flex justify-between">
+                    <span>Wallets:</span>
+                    <span>{billingStatus.wallet_count} / {billingStatus.limits?.max_wallets === -1 ? '∞' : billingStatus.limits?.max_wallets}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Sync:</span>
+                    <span>{billingStatus.limits?.sync_interval_seconds < 60 ? `${billingStatus.limits.sync_interval_seconds}s` : `${Math.round(billingStatus.limits.sync_interval_seconds / 60)}min`}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>Sync:</span>
-                <span>{billingStatus.limits?.sync_interval_seconds < 60 ? `${billingStatus.limits.sync_interval_seconds}s` : `${Math.round(billingStatus.limits.sync_interval_seconds / 60)}min`}</span>
-              </div>
-            </div>
-          </div>
+            )}
+            
+            <DropdownMenuSeparator />
+          </>
         )}
-        
-        <DropdownMenuSeparator />
         
         <DropdownMenuItem
           className="cursor-pointer"

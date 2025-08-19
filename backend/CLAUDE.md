@@ -110,7 +110,7 @@ CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
 CANARY_SYNC_INTERVAL=60
 
 # Authentication (optional)
-CANARY_ENABLE_AUTH=true
+CANARY_MODE=saas
 JWT_SECRET=your_secure_jwt_secret
 
 # Stripe billing
@@ -118,7 +118,10 @@ STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
 # Notification providers
-CANARY_ENABLE_TWILIO=true
+# Twilio will be auto-enabled in SAAS mode if configured
+TWILIO_ACCOUNT_SID=your_account_sid
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_MESSAGING_SERVICE_SID=your_service_sid
 TWILIO_ACCOUNT_SID=...
 TWILIO_AUTH_TOKEN=...
 TWILIO_MESSAGING_SERVICE_SID=...

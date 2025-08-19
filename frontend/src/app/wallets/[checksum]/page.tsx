@@ -28,21 +28,18 @@ export default function WalletDetailPage() {
   const params = useParams()
   const router = useRouter()
   const checksum = params.checksum as string
-  const { isAuthenticated, isLoading: authLoading, user, billingStatus } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user, billingStatus, isSaasMode, isFossMode } = useAuth()
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
 
-  // Check if auth is enabled
-  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
-
-  // Redirect unauthenticated users to sign-in when auth is enabled
+  // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
-    if (authEnabled && !authLoading && !isAuthenticated) {
+    if (isSaasMode && !authLoading && !isAuthenticated) {
       router.push('/sign-in')
     }
-  }, [authEnabled, isAuthenticated, authLoading, router])
+  }, [isSaasMode, isAuthenticated, authLoading, router])
 
   // Get wallet detail data directly using checksum
   const { wallet, events, contacts, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
@@ -76,6 +73,12 @@ export default function WalletDetailPage() {
   }
 
   const handleAddContact = () => {
+    // In FOSS mode, no limits - always allow adding contacts
+    if (isFossMode) {
+      setIsAddContactModalOpen(true)
+      return
+    }
+    
     // Check contact limits before opening create modal - use billing status as authoritative source
     const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
     if (hasReachedContactLimit(contacts?.length || 0, currentTier)) {
@@ -98,8 +101,8 @@ export default function WalletDetailPage() {
     )
   }
 
-  // Return null while redirecting unauthenticated users
-  if (authEnabled && !isAuthenticated) {
+  // Return null while redirecting unauthenticated users in SAAS mode
+  if (isSaasMode && !isAuthenticated) {
     return null
   }
 
@@ -175,8 +178,8 @@ export default function WalletDetailPage() {
         </Alert>
       )}
 
-      {/* Inactive Wallet Warning Banner */}
-      {wallet && wallet.is_active === false && (
+      {/* Inactive Wallet Warning Banner - only in SAAS mode */}
+      {isSaasMode && wallet && wallet.is_active === false && (
         <Alert className="mb-6 border-orange-200 bg-orange-50">
           <AlertTriangle className="h-4 w-4 text-orange-600" />
           <AlertTitle className="text-orange-700">Wallet Inactive</AlertTitle>

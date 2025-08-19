@@ -1351,11 +1351,6 @@ impl MetadataDb {
         let password_hash = password_hash.to_string();
         let name = name.map(|n| n.to_string());
 
-        // Check if auth is enabled to determine admin logic
-        let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
-            .map(|v| v.to_lowercase() == "true" || v == "1")
-            .unwrap_or(false);
-
         let result = spawn_blocking(move || -> Result<(String, bool)> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
@@ -1371,27 +1366,20 @@ impl MetadataDb {
                 return Err(anyhow::anyhow!("User with this email already exists"));
             }
             
-            // Determine if this user should be admin
-            let mut final_is_admin = false;
+            // Determine if this user should be admin (first user becomes admin)
+            let admin_count: i64 = tx.query_row(
+                "SELECT COUNT(*) FROM users WHERE is_admin = 1",
+                [],
+                |row| row.get(0)
+            )?;
             
-            if auth_enabled {
-                // AUTH=true: Check if any admin users already exist  
-                let admin_count: i64 = tx.query_row(
-                    "SELECT COUNT(*) FROM users WHERE is_admin = 1",
-                    [],
-                    |row| row.get(0)
-                )?;
-                
-                println!("DEBUG: User {} - current admin_count={}, auth_enabled={}", email, admin_count, auth_enabled);
-                
-                if admin_count == 0 {
-                    final_is_admin = true;
-                    println!("No admin users exist, creating first admin user: {}", email);
-                } else {
-                    println!("Admin users already exist (count={}), creating regular user: {}", admin_count, email);
-                }
+            let final_is_admin = admin_count == 0;
+            
+            if final_is_admin {
+                println!("Creating first admin user: {}", email);
+            } else {
+                println!("Creating regular user: {} (existing admins: {})", email, admin_count);
             }
-            // Note: When AUTH=false, we don't create users through this function
             
             let user_name = name;
             

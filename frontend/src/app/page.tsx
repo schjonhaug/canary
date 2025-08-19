@@ -6,16 +6,15 @@ import { useAuth } from '@/contexts/auth-context'
 import LandingPage from '@/components/landing-page'
 
 export default function HomePage() {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, isSaasMode, isFossMode } = useAuth()
   const router = useRouter()
-  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
 
   useEffect(() => {
-    // If user is authenticated, redirect to wallets
-    if (!isLoading && isAuthenticated) {
+    // If user is authenticated or in FOSS mode, redirect to wallets
+    if (!isLoading && (isAuthenticated || isFossMode)) {
       router.push('/wallets')
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isAuthenticated, isLoading, isFossMode, router])
 
   // Show loading while checking auth
   if (isLoading) {
@@ -29,14 +28,14 @@ export default function HomePage() {
     )
   }
 
-  // When auth is disabled, redirect to wallets
-  if (!authEnabled) {
+  // FOSS mode: redirect directly to wallets (no landing page)
+  if (isFossMode) {
     router.push('/wallets')
     return null
   }
 
-  // Show landing page for unauthenticated users when auth is enabled
-  if (authEnabled && !isAuthenticated) {
+  // SAAS mode: Show landing page for unauthenticated users
+  if (isSaasMode && !isAuthenticated) {
     return <LandingPage />
   }
 
