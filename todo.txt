@@ -1,0 +1,38 @@
+# TODO
+
+## Fix Wallet Loading Architecture
+
+### Current Problem
+The wallet loading system has a design flaw where it loads ALL `.sqlite` files from the wallet directory on startup, regardless of what's in the database. This creates inconsistencies.
+
+### Current Architecture
+1. **Database (`wallets` table)**: Stores wallet metadata (checksum, name, descriptor, balance, user_id, etc.)
+2. **Filesystem (`/wallets/*.sqlite`)**: Stores the actual BDK wallet data (keys, transactions, etc.)
+3. **Memory (`WalletManager.wallets`)**: Holds loaded wallets as a Vec of (checksum, PersistedWallet)
+
+The **checksum** links all three:
+- Database: `wallets.checksum` (primary key)
+- Filesystem: filename is `{checksum}.sqlite`
+- Memory: tuple contains checksum string
+
+### Issues with Current Approach
+- **Orphaned files**: Database wiped but files remain on disk
+- **Missing wallets**: Files deleted but database entries remain
+- **Untracked wallets**: Files exist but aren't registered in database
+- **No user validation**: Loads wallets without checking ownership
+
+### Proposed Solution
+Change `load_all_wallets()` in `wallet.rs` to be database-driven:
+
+1. Query the database for active wallets: `SELECT checksum FROM wallets WHERE is_active = true`
+2. Load only wallet files that match database entries
+3. Report missing files as errors (wallet in DB but file not found)
+4. Optionally clean up orphaned files (files with no DB entry)
+5. Validate user ownership before loading
+
+### Benefits
+- Database becomes the source of truth for wallet ownership
+- Prevents loading orphaned/unauthorized wallets
+- Maintains consistency between database and filesystem
+- Better error handling for missing wallet files
+- Cleaner separation of concerns
