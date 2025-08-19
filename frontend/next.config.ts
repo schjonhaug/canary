@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
   },
   // Disable strict mode to avoid double renders in development
   reactStrictMode: false,
+  
+  webpack: (config, { isServer }) => {
+    // Generate build info on server side during build
+    if (isServer) {
+      const generateBuildInfo = require('./scripts/generate-build-info');
+      generateBuildInfo();
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

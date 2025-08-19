@@ -3,6 +3,7 @@
 import Image from "next/image"
 import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { useRelativeTime } from "@/hooks/useRelativeTime"
+import { BuildInfo } from "./build-info"
 
 export function AppFooter() {
   const { blockHeader } = useBlockHeader()
@@ -39,21 +40,7 @@ export function AppFooter() {
           </div>
         )}
         
-        <a 
-          href="https://github.com/schjonhaug/canary" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-muted-foreground hover:text-accent transition-colors flex items-center gap-2"
-        >
-          <Image
-            src="/images/github.svg"
-            alt="GitHub"
-            width={20}
-            height={20}
-            className="h-5 w-5"
-          />
-          <span>GitHub</span>
-        </a>
+        <BuildInfo />
       </div>
     </footer>
   )
