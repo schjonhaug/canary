@@ -204,6 +204,9 @@ impl AppConfig {
         if std::env::var("TWILIO_MESSAGING_SERVICE_SID").is_err() {
             missing.push("TWILIO_MESSAGING_SERVICE_SID - Required for SMS notifications");
         }
+        if std::env::var("TWILIO_VERIFY_SERVICE_SID").is_err() {
+            missing.push("TWILIO_VERIFY_SERVICE_SID - Required for SMS contact verification");
+        }
 
         // Resend configuration is required for email notifications and auth emails
         if std::env::var("RESEND_API_KEY").is_err() {
