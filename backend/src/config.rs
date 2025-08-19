@@ -46,21 +46,29 @@ impl std::str::FromStr for NetworkConfig {
 #[derive(Debug, Clone, Parser)]
 #[command(name = "canary")]
 #[command(about = "Bitcoin wallet management service")]
-pub struct AppConfig {
+struct AppConfigArgs {
     /// Bitcoin network to use
-    #[arg(long, value_enum, default_value = "regtest")]
-    pub network: NetworkConfig,
+    #[arg(long, value_enum)]
+    pub network: Option<NetworkConfig>,
 
     /// Electrum server URL to connect to
     #[arg(long)]
     pub electrum_url: Option<String>,
 
     /// Server bind address
-    #[arg(long, default_value = "127.0.0.1:3000")]
-    pub bind_address: String,
+    #[arg(long)]
+    pub bind_address: Option<String>,
 
     /// Data directory path
-    #[arg(long, default_value = "./database")]
+    #[arg(long)]
+    pub data_dir: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AppConfig {
+    pub network: NetworkConfig,
+    pub electrum_url: Option<String>,
+    pub bind_address: String,
     pub data_dir: String,
 }
 
@@ -72,27 +80,49 @@ impl AppConfig {
         }
 
         // Parse command line arguments
-        let mut config = Self::parse();
+        let args = AppConfigArgs::parse();
 
-        // Override with environment variables if present
-        if let Ok(network_env) = std::env::var("CANARY_NETWORK") {
-            config.network = network_env.parse()?;
-        }
+        // Resolve network configuration (CLI args override env vars)
+        let network = match args.network.or_else(|| {
+            std::env::var("CANARY_NETWORK").ok().and_then(|v| v.parse().ok())
+        }) {
+            Some(network) => network,
+            None => {
+                return Err(anyhow!(
+                    "CANARY_NETWORK is required. Set it via --network CLI arg or CANARY_NETWORK environment variable.\nValid values: regtest, testnet, mainnet"
+                ));
+            }
+        };
 
-        if let Ok(electrum_url_env) = std::env::var("CANARY_ELECTRUM_URL") {
-            config.electrum_url = Some(electrum_url_env);
-        }
+        // Resolve electrum URL (CLI args override env vars)
+        let electrum_url = args.electrum_url.or_else(|| std::env::var("CANARY_ELECTRUM_URL").ok());
 
-        if let Ok(bind_address_env) = std::env::var("CANARY_BIND_ADDRESS") {
-            config.bind_address = bind_address_env;
-        }
+        // Resolve bind address
+        let bind_address = match args.bind_address.or_else(|| std::env::var("CANARY_BIND_ADDRESS").ok()) {
+            Some(addr) => addr,
+            None => {
+                return Err(anyhow!(
+                    "CANARY_BIND_ADDRESS is required. Set it via --bind-address CLI arg or CANARY_BIND_ADDRESS environment variable.\nExample: 127.0.0.1:3000"
+                ));
+            }
+        };
 
+        // Resolve data directory
+        let data_dir = match args.data_dir.or_else(|| std::env::var("CANARY_DATA_DIR").ok()) {
+            Some(dir) => dir,
+            None => {
+                return Err(anyhow!(
+                    "CANARY_DATA_DIR is required. Set it via --data-dir CLI arg or CANARY_DATA_DIR environment variable.\nExample: ./database"
+                ));
+            }
+        };
 
-        if let Ok(data_dir_env) = std::env::var("CANARY_DATA_DIR") {
-            config.data_dir = data_dir_env;
-        }
-
-        Ok(config)
+        Ok(AppConfig {
+            network,
+            electrum_url,
+            bind_address,
+            data_dir,
+        })
     }
 
     /// Get the operating mode (saas or foss)
