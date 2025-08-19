@@ -95,18 +95,45 @@ impl AppConfig {
         Ok(config)
     }
 
+    /// Get the operating mode (saas or foss)
+    pub fn operating_mode(&self) -> String {
+        std::env::var("CANARY_MODE")
+            .unwrap_or_else(|_| "saas".to_string()) // Default to SAAS if not specified
+            .to_lowercase()
+    }
+
+    /// Check if running in SAAS mode
+    pub fn is_saas_mode(&self) -> bool {
+        self.operating_mode() == "saas"
+    }
+
+    /// Check if running in FOSS mode
+    pub fn is_foss_mode(&self) -> bool {
+        self.operating_mode() == "foss"
+    }
+
     /// Check if ntfy provider should be enabled
     pub fn is_ntfy_enabled(&self) -> bool {
-        std::env::var("CANARY_ENABLE_NTFY")
-            .map(|v| v.to_lowercase() == "true" || v == "1")
-            .unwrap_or(true) // Default to enabled
+        // ntfy is always available, but in FOSS mode it's the only provider
+        true
     }
 
     /// Check if Twilio SMS provider should be enabled
     pub fn is_twilio_enabled(&self) -> bool {
+        // Only allow Twilio in SAAS mode
+        if self.is_foss_mode() {
+            return false;
+        }
+        
         std::env::var("CANARY_ENABLE_TWILIO")
             .map(|v| v.to_lowercase() == "true" || v == "1")
-            .unwrap_or(false) // Default to disabled unless explicitly enabled
+            .unwrap_or(false)
+    }
+
+    /// Check if email provider should be enabled
+    pub fn is_email_enabled(&self) -> bool {
+        // Only allow email in SAAS mode
+        self.is_saas_mode()
     }
 
     /// Get wallet sync interval in seconds

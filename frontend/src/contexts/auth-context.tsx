@@ -35,6 +35,8 @@ interface AuthContextType {
   billingStatus: BillingStatus | null
   isLoading: boolean
   isAuthenticated: boolean
+  isSaasMode: boolean
+  isFossMode: boolean
   register: (email: string, password: string, name: string, marketingEmails?: boolean) => Promise<void>
   login: (email: string, password: string) => Promise<void>
   setAuth: (token: string, user: User) => Promise<void>
@@ -54,17 +56,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  // Check if auth is enabled
-  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
+  // Check operating mode
+  const mode = process.env.NEXT_PUBLIC_CANARY_MODE || 'saas'
+  const isSaasMode = mode === 'saas'
+  const isFossMode = mode === 'foss'
   
 
   // Check for existing session on mount
   useEffect(() => {
     // In FOSS mode, set a default user and skip auth
-    if (!authEnabled) {
+    if (isFossMode) {
       setUser({
         id: 1,
-        email: 'admin@foss.mode',
+        email: 'admin@local',
         name: 'Admin',
         is_admin: true,
         email_verified: true,
@@ -85,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsLoading(false)
     }
-  }, [authEnabled])
+  }, [isFossMode])
 
   const fetchUser = useCallback(async () => {
     try {
@@ -214,6 +218,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         billingStatus,
         isLoading,
         isAuthenticated: !!token,
+        isSaasMode,
+        isFossMode,
         register,
         login,
         setAuth,

@@ -1,3 +1,4 @@
+use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
 use crate::migrations::MigrationRunner;
 use crate::subscription::SubscriptionTier;
@@ -304,7 +305,7 @@ pub struct MetadataDb {
 }
 
 impl MetadataDb {
-    pub async fn new(db_path: &str) -> Result<Self> {
+    pub async fn new(db_path: &str, config: &AppConfig) -> Result<Self> {
         // Create parent directory if it doesn't exist
         if let Some(parent) = std::path::Path::new(db_path).parent() {
             if let Err(e) = std::fs::create_dir_all(parent) {
@@ -349,45 +350,47 @@ impl MetadataDb {
             pool: Arc::new(pool),
         };
 
-        // Initialize admin user based on auth configuration
-        db.initialize_admin_user().await?;
+        // Initialize user based on operating mode
+        db.initialize_user_for_mode(config).await?;
 
         Ok(db)
     }
 
-    async fn initialize_admin_user(&self) -> Result<()> {
-        // Check if auth is enabled
-        let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
-            .map(|v| v.to_lowercase() == "true" || v == "1")
-            .unwrap_or(false);
-
-        if !auth_enabled {
-            // AUTH=false: Create default admin user (id=1) for self-hosted mode
-            self.ensure_default_admin_user().await?;
+    async fn initialize_user_for_mode(&self, config: &AppConfig) -> Result<()> {
+        if config.is_foss_mode() {
+            // FOSS mode: Create hardcoded "foss-user" admin
+            self.ensure_foss_user().await?;
         } else if cfg!(debug_assertions) {
-            // AUTH=true in dev mode: Create hardcoded dev test users
+            // SAAS mode in dev: Create hardcoded dev test users
             self.ensure_dev_test_users().await?;
         }
+        // SAAS mode in production: Users created via registration
 
         Ok(())
     }
 
-    async fn ensure_default_admin_user(&self) -> Result<()> {
+    async fn ensure_foss_user(&self) -> Result<()> {
         let pool = self.pool.clone();
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
 
-            // Check if admin user already exists
-            let admin_exists: bool = conn.query_row(
-                "SELECT EXISTS(SELECT 1 FROM users WHERE id = 1)",
+            // Check if foss-user already exists
+            let foss_user_exists: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE id = 'foss-user')",
                 [],
                 |row| row.get(0),
             )?;
 
-            if !admin_exists {
-                // Admin user will be created dynamically when auth is enabled
-                println!("No admin user exists yet - will be created on first registration");
+            if !foss_user_exists {
+                // Create the hardcoded FOSS user
+                conn.execute(
+                    "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at) 
+                     VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 1, 'team', 'active', datetime('now'))",
+                    [],
+                )?;
+                
+                println!("✅ Created FOSS user: admin@local (foss-user)");
             }
 
             Ok(())

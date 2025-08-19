@@ -1,8 +1,9 @@
 use crate::auth::{
     authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUserResponse,
     ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateUserRequest,
-    UpdateUserResponse,
+    UpdateUserResponse, AuthUser,
 };
+use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
 use crate::email_service::EmailService;
 use crate::metadata::{
@@ -120,6 +121,7 @@ pub struct ProvidersResponse {
 pub type AppState = Arc<Mutex<WalletManager>>;
 pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
+pub type ConfigState = Arc<AppConfig>;
 
 // Stripe billing request/response structures
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -220,6 +222,22 @@ fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> Str
     }
 }
 
+/// Authenticate user based on operating mode
+/// In SAAS mode: authenticate using JWT token
+/// In FOSS mode: return hardcoded foss-user
+fn authenticate_user_mode_aware(config: &AppConfig, auth_header: Option<&str>) -> Result<AuthUser, String> {
+    if config.is_foss_mode() {
+        // FOSS mode: return hardcoded user
+        Ok(AuthUser {
+            user_id: "foss-user".to_string(),
+            is_admin: true,
+        })
+    } else {
+        // SAAS mode: authenticate using JWT
+        authenticate_user(auth_header).map_err(|_| "Authentication required".to_string())
+    }
+}
+
 #[utoipa::path(
     post,
     path = "/api/wallets",
@@ -236,18 +254,18 @@ fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> Str
     )
 )]
 pub async fn create_wallet(
-    State(wallet_manager): State<AppState>,
+    State((wallet_manager, config)): State<(AppState, ConfigState)>,
     headers: HeaderMap,
     Json(payload): Json<CreateWalletRequest>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
-        Err(_) => {
+        Err(err) => {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: err,
                 }),
             )
                 .into_response();
@@ -318,12 +336,8 @@ pub async fn create_wallet(
         .await
     {
         Ok(wallet_metadata) => {
-            // Check if AUTH is enabled - if so, auto-add user as contact
-            let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
-                .map(|v| v.to_lowercase() == "true" || v == "1")
-                .unwrap_or(false);
-
-            if auth_enabled {
+            // Check if SAAS mode - if so, auto-add user as contact
+            if config.is_saas_mode() {
                 // Log the received language from frontend
                 eprintln!(
                     "Received preferred_language from frontend: {:?}",
@@ -3493,7 +3507,10 @@ pub fn create_router(
     wallet_manager: AppState,
     notification_manager: NotificationManagerState,
     stripe_billing: StripeBillingState,
+    config: AppConfig,
 ) -> Router {
+    let config_state = Arc::new(config);
+    
     // Auth routes (public)
     let auth_routes = Router::new()
         .route("/auth/register", post(register))
@@ -3504,7 +3521,7 @@ pub fn create_router(
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
         .route("/auth/user", put(update_user))
-        .with_state((wallet_manager.clone(), stripe_billing.clone()));
+        .with_state((wallet_manager.clone(), stripe_billing.clone(), config_state.clone()));
 
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet).get(get_wallets_list))
@@ -3527,7 +3544,7 @@ pub fn create_router(
             axum::routing::delete(delete_wallet_contact),
         )
         .route("/block-headers/current", get(get_current_block_header))
-        .with_state(wallet_manager.clone());
+        .with_state((wallet_manager.clone(), config_state.clone()));
 
     let provider_routes = Router::new()
         .route("/providers", get(get_providers))
@@ -3545,7 +3562,7 @@ pub fn create_router(
                 "/billing/session/{session_id}",
                 get(get_checkout_session_details),
             )
-            .with_state((wallet_manager.clone(), stripe_billing.clone()))
+            .with_state((wallet_manager.clone(), stripe_billing.clone(), config_state.clone()))
     } else {
         Router::new() // Empty router if Stripe not configured
     };

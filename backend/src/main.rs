@@ -52,15 +52,17 @@ async fn main() -> anyhow::Result<()> {
     println!("  Metadata DB: {}", config.effective_metadata_db());
     println!("  Sync interval: {} seconds", config.sync_interval_secs());
 
-    // Log authentication status
-    let auth_enabled = std::env::var("CANARY_ENABLE_AUTH")
-        .unwrap_or_else(|_| "false".to_string())
-        .to_lowercase()
-        == "true";
-    println!(
-        "🔐 Authentication: {}",
-        if auth_enabled { "ENABLED" } else { "DISABLED" }
-    );
+    // Log operating mode
+    println!("🏢 Operating mode: {}", config.operating_mode().to_uppercase());
+    if config.is_saas_mode() {
+        println!("   - Multi-user with authentication");
+        println!("   - Subscription billing enabled");
+        println!("   - All notification providers available");
+    } else {
+        println!("   - Single-user mode (no authentication)");
+        println!("   - No billing/subscriptions");
+        println!("   - ntfy-only notifications");
+    }
 
     // Log development mode sync intervals
     if cfg!(debug_assertions) {
@@ -79,6 +81,7 @@ async fn main() -> anyhow::Result<()> {
             &config.effective_metadata_db(),
             config.network(),
             &config.electrum_url(),
+            &config,
         )
         .await,
     ));
@@ -90,49 +93,65 @@ async fn main() -> anyhow::Result<()> {
     };
     let current_block_header = Arc::new(Mutex::new(existing_header));
 
-    // Create notification manager and register providers based on configuration
+    // Create notification manager and register providers based on operating mode
     let mut notification_manager = NotificationManager::new();
 
-    // Register ntfy provider if enabled
-    if config.is_ntfy_enabled() {
-        println!("🔔 Registering ntfy notification provider");
+    if config.is_foss_mode() {
+        // FOSS mode: Only ntfy provider
+        println!("🔔 FOSS mode: Registering ntfy-only notifications");
         notification_manager.register_provider(Arc::new(NtfyProvider::new()));
-    }
+    } else {
+        // SAAS mode: Register all configured providers
+        println!("🔔 SAAS mode: Registering all notification providers");
+        
+        // Register ntfy provider (always available)
+        if config.is_ntfy_enabled() {
+            println!("  - ntfy notification provider");
+            notification_manager.register_provider(Arc::new(NtfyProvider::new()));
+        }
 
-    // Register Twilio SMS provider if enabled and configured
-    if config.is_twilio_enabled() {
-        match TwilioProvider::from_env() {
-            Some(twilio_provider) => {
-                println!("📱 Registering Twilio SMS notification provider");
-                notification_manager.register_provider(Arc::new(twilio_provider));
-            }
-            None => {
-                println!("⚠️  Twilio provider enabled but missing environment variables:");
-                println!("    - TWILIO_ACCOUNT_SID");
-                println!("    - TWILIO_AUTH_TOKEN");
-                println!("    - TWILIO_MESSAGING_SERVICE_SID");
+        // Register Twilio SMS provider if enabled and configured
+        if config.is_twilio_enabled() {
+            match TwilioProvider::from_env() {
+                Some(twilio_provider) => {
+                    println!("  - Twilio SMS notification provider");
+                    notification_manager.register_provider(Arc::new(twilio_provider));
+                }
+                None => {
+                    println!("⚠️  Twilio provider enabled but missing environment variables:");
+                    println!("    - TWILIO_ACCOUNT_SID");
+                    println!("    - TWILIO_AUTH_TOKEN");
+                    println!("    - TWILIO_MESSAGING_SERVICE_SID");
+                }
             }
         }
-    }
 
-    // Register email provider (always register, it will check if configured internally)
-    println!("📧 Registering email notification provider");
-    notification_manager.register_provider(Arc::new(EmailProvider::new()));
+        // Register email provider if in SAAS mode
+        if config.is_email_enabled() {
+            println!("  - Email notification provider");
+            notification_manager.register_provider(Arc::new(EmailProvider::new()));
+        }
+    }
 
     let notification_manager = Arc::new(Mutex::new(notification_manager));
 
-    // Initialize Stripe billing (load products/prices once at startup)
-    println!("🏦 Initializing Stripe billing...");
-    let stripe_billing = match StripeBilling::new().await {
-        Ok(billing) => {
-            println!("✅ Stripe billing initialized successfully");
-            Some(Arc::new(billing))
+    // Initialize Stripe billing only in SAAS mode
+    let stripe_billing = if config.is_saas_mode() {
+        println!("🏦 SAAS mode: Initializing Stripe billing...");
+        match StripeBilling::new().await {
+            Ok(billing) => {
+                println!("✅ Stripe billing initialized successfully");
+                Some(Arc::new(billing))
+            }
+            Err(e) => {
+                println!("⚠️  Stripe billing initialization failed: {}", e);
+                println!("   Billing endpoints will not be available");
+                None
+            }
         }
-        Err(e) => {
-            println!("⚠️  Stripe billing initialization failed: {}", e);
-            println!("   Billing endpoints will not be available");
-            None
-        }
+    } else {
+        println!("💵 FOSS mode: Stripe billing disabled");
+        None
     };
 
     // Try to fetch initial block header in background with timeout
@@ -460,17 +479,21 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let app = create_router(wallet_manager.clone(), notification_manager, stripe_billing);
+    let app = create_router(wallet_manager.clone(), notification_manager, stripe_billing, config.clone());
 
-    // Apply subscription limits for all existing users at startup
-    tokio::spawn({
-        let wallet_manager = wallet_manager.clone();
-        async move {
-            if let Err(e) = apply_startup_subscription_limits(wallet_manager).await {
-                eprintln!("❌ Failed to apply startup subscription limits: {}", e);
+    // Apply subscription limits for all existing users at startup (SAAS mode only)
+    if config.is_saas_mode() {
+        tokio::spawn({
+            let wallet_manager = wallet_manager.clone();
+            async move {
+                if let Err(e) = apply_startup_subscription_limits(wallet_manager).await {
+                    eprintln!("❌ Failed to apply startup subscription limits: {}", e);
+                }
             }
-        }
-    });
+        });
+    } else {
+        println!("🔓 FOSS mode: Skipping subscription limit enforcement");
+    }
 
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);

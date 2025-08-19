@@ -1,3 +1,4 @@
+use crate::config::AppConfig;
 use crate::electrum::ElectrumClient;
 use crate::metadata::{
     EventInsert, EventType, MetadataDb, TransactionEvent, WalletDetailResponse, WalletMetadata,
@@ -32,6 +33,7 @@ impl WalletManager {
         metadata_db_path: &str,
         network: Network,
         electrum_url: &str,
+        config: &AppConfig,
     ) -> Self {
         if let Err(e) = std::fs::create_dir_all(&wallet_dir) {
             eprintln!("Warning: Failed to create wallet directory: {}", e);
@@ -54,7 +56,7 @@ impl WalletManager {
         };
 
         // Initialize metadata database
-        let metadata_db = match MetadataDb::new(metadata_db_path).await {
+        let metadata_db = match MetadataDb::new(metadata_db_path, config).await {
             Ok(db) => db,
             Err(e) => {
                 eprintln!("Warning: Failed to create metadata database: {}", e);
