@@ -170,6 +170,8 @@ impl StripeClientService {
             ("line_items[0][quantity]".to_string(), "1".to_string()),
             // Enable automatic tax calculation
             ("automatic_tax[enabled]".to_string(), "true".to_string()),
+            // Allow customer to update address during checkout for tax calculation
+            ("customer_update[address]".to_string(), "auto".to_string()),
         ];
 
         for (key, value) in metadata {
