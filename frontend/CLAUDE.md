@@ -120,16 +120,26 @@ npm test -- --watch contact-modal.test.tsx
 
 ## Environment Configuration
 
-### Required Environment Variables
+### Quick Start
+Choose your deployment mode and copy the appropriate configuration:
+
+- **FOSS mode**: `cp .env.example.foss .env.local`
+- **SAAS mode**: `cp .env.example.saas .env.local`
+
+### Configuration Files
+- `.env.example.foss` - Self-hosted single-user frontend configuration
+- `.env.example.saas` - Hosted service frontend configuration with Stripe billing
+
+### Environment Variables
 ```bash
-# Set operating mode (defaults to 'saas' if not specified)
+# Operating mode (required)
 NEXT_PUBLIC_CANARY_MODE=saas   # or 'foss' for self-hosted mode
 
-# Stripe configuration (for billing features)
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+# Backend API URL (required)
+NEXT_PUBLIC_API_URL=http://localhost:3000
 
-# Backend API URL (defaults to http://localhost:3000)
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+# Stripe configuration (SAAS mode only)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
 ### Operating Mode Details

@@ -121,6 +121,10 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Environment: `CANARY_NETWORK=mainnet`, `CANARY_ELECTRUM_URL=...`
 - `.env` file in backend directory
 
+**Configuration templates:**
+- **FOSS mode**: Copy `backend/.env.example.foss` → `backend/.env` and `frontend/.env.example.foss` → `frontend/.env.local`
+- **SAAS mode**: Copy `backend/.env.example.saas` → `backend/.env` and `frontend/.env.example.saas` → `frontend/.env.local`
+
 **Defaults:**
 - Regtest: tcp://127.0.0.1:50001
 - Testnet: ssl://electrum.blockstream.info:60002  
