@@ -18,11 +18,12 @@ import { api } from "@/lib/api"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { Wallet } from "@/types"
 
 interface CreateWalletModalProps {
   isOpen: boolean
   onClose: () => void
-  onWalletCreated: () => void
+  onWalletCreated: (wallet?: Wallet) => void
   isFirstWallet?: boolean
 }
 
@@ -80,8 +81,8 @@ export function CreateWalletModal({
     modal.clearError()
 
     try {
-      await api.createWallet(name.trim(), descriptor.trim())
-      onWalletCreated()
+      const wallet = await api.createWallet(name.trim(), descriptor.trim())
+      onWalletCreated(wallet)
       handleClose()
     } catch (err) {
       modal.setError(err instanceof Error ? err.message : "Failed to add wallet")

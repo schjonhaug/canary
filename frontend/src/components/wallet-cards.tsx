@@ -141,7 +141,48 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
           const isInactive = wallet.is_active === false
+          const isSyncing = wallet.balance_total === 0 && !wallet.last_activity
           
+          // If wallet is syncing, render non-clickable card with skeleton content
+          if (isSyncing) {
+            return (
+              <Card key={wallet.checksum} className="transition-all duration-200 border-blue-200 bg-blue-50/30">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <WalletIcon wallet={wallet} />
+                      <CardTitle className="text-lg truncate" title={wallet.name}>
+                        {wallet.name}
+                      </CardTitle>
+                    </div>
+                    <Badge variant="outline" className="text-xs text-blue-600 border-blue-600 bg-blue-50">
+                      <div className="h-3 w-3 mr-1 animate-spin rounded-full border border-blue-600 border-t-transparent" />
+                      Syncing...
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Balance</div>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-6 w-32" />
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-muted-foreground">
+                      <Skeleton className="h-3 w-24" />
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        <span>{wallet.contact_count || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          }
+          
+          // Render normal clickable card
           return (
             <Link key={wallet.checksum} href={`/wallets/${wallet.checksum}`} prefetch={true}>
               <Card className={`transition-all duration-200 hover:shadow-md hover:bg-muted/50 cursor-pointer ${

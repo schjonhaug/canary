@@ -31,7 +31,7 @@ export default function WalletsLayout({
   
   // Only fetch wallets list on the main wallets page, not on detail pages
   const shouldFetchWallets = pathname === '/wallets'
-  const { wallets, error, lastUpdate, isConnected, refresh: refetchWallets } = useWalletsList(shouldFetchWallets)
+  const { wallets, error, lastUpdate, isConnected, refresh: refetchWallets, addWallet } = useWalletsList(shouldFetchWallets)
   
   // Load SVG when current wallet data is available for detail pages
   useEffect(() => {
@@ -64,9 +64,13 @@ export default function WalletsLayout({
     setIsAddWalletOpen(true)
   }
 
-  const handleWalletAdded = () => {
+  const handleWalletAdded = (wallet?: Wallet) => {
     setIsAddWalletOpen(false)
-    refetchWallets()
+    if (wallet) {
+      addWallet(wallet)
+    } else {
+      refetchWallets()
+    }
   }
 
   return (

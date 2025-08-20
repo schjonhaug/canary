@@ -55,10 +55,12 @@ class ApiClient {
       ? navigator.language
       : 'en'
     
-    return this.request<Wallet>('/api/wallets', {
+    const response = await this.request<{ message: string; wallet: Wallet }>('/api/wallets', {
       method: 'POST',
       body: JSON.stringify({ name, descriptor, preferred_language: browserLanguage }),
     })
+    
+    return response.wallet
   }
 
   async updateWallet(checksum: string, name: string): Promise<Wallet> {
