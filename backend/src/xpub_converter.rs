@@ -183,6 +183,11 @@ impl XpubConverter {
                         eprintln!("Failed to check address {}: {} (failure {}/{})", 
                                 address, e, failed_checks, max_failed_checks);
                         
+                        // Add more context for common errors
+                        if e.to_string().contains("validation") {
+                            eprintln!("    → This might be a network mismatch between Node.js address generation and Rust validation");
+                        }
+                        
                         // Stop early if we have too many consecutive failures
                         if failed_checks >= max_failed_checks {
                             eprintln!("Too many failures, stopping address checks for this script type");
@@ -223,12 +228,24 @@ impl XpubConverter {
     /// Check if an address has activity using Electrum
     /// Returns (has_activity, activity_score) where score is based on tx count and balance
     async fn check_address_activity(&self, electrum_client: &ElectrumClient, address: &str) -> Result<(bool, f32)> {
-        // Parse the address to validate it's correct for the network
-        let addr = address.parse::<bdk_wallet::bitcoin::Address<bdk_wallet::bitcoin::address::NetworkUnchecked>>()?
-            .require_network(self.network)?;
+        // Parse the address - for regtest, we need to be more flexible since Node.js generates testnet addresses
+        let addr = address.parse::<bdk_wallet::bitcoin::Address<bdk_wallet::bitcoin::address::NetworkUnchecked>>()?;
+        
+        // For regtest, accept both regtest and testnet addresses since they're compatible
+        let validated_addr = match self.network {
+            Network::Regtest => {
+                // Try regtest first, then testnet as fallback
+                addr.clone().require_network(Network::Regtest)
+                    .or_else(|_| addr.require_network(Network::Testnet))
+                    .map_err(|e| anyhow!("Address validation failed for both regtest and testnet: {}", e))?
+            },
+            _ => {
+                addr.require_network(self.network)?
+            }
+        };
         
         // Get the script pubkey for Electrum queries
-        let script = addr.script_pubkey();
+        let script = validated_addr.script_pubkey();
         
         // Get the raw client for direct API calls
         let raw_client = electrum_client.raw_client();
