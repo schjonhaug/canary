@@ -1,0 +1,261 @@
+use anyhow::{anyhow, Result};
+use bdk_wallet::bitcoin::Network;
+use miniscript::descriptor::checksum::desc_checksum;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::process::Command;
+use std::time::Duration;
+use tokio::time::timeout;
+
+use crate::electrum::ElectrumClient;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ScriptType {
+    P2PKH,     // Legacy
+    P2SH,      // Nested SegWit
+    P2WPKH,    // Native SegWit
+    P2TR,      // Taproot
+}
+
+impl ScriptType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ScriptType::P2PKH => "Legacy (P2PKH)",
+            ScriptType::P2SH => "Nested SegWit (P2SH-P2WPKH)",
+            ScriptType::P2WPKH => "Native SegWit (P2WPKH)",
+            ScriptType::P2TR => "Taproot (P2TR)",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AddressInfo {
+    pub path: String,
+    pub address: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ScriptTypeInfo {
+    pub descriptor_template: String,
+    pub receiving_addresses: Vec<AddressInfo>,
+    pub change_addresses: Vec<AddressInfo>,
+    pub all_addresses: Vec<AddressInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DerivedAddresses {
+    pub xpub: String,
+    pub network: String,
+    pub script_types: HashMap<String, ScriptTypeInfo>,
+}
+
+pub struct ConversionResult {
+    pub descriptor: String,
+    pub detected_type: ScriptType,
+    pub confidence: f32,
+    pub addresses_checked: usize,
+    pub active_addresses: usize,
+}
+
+pub struct XpubConverter {
+    network: Network,
+    electrum_client: Option<ElectrumClient>,
+}
+
+impl XpubConverter {
+    pub fn new(network: Network, electrum_client: Option<&ElectrumClient>) -> Self {
+        Self {
+            network,
+            electrum_client: electrum_client.cloned(),
+        }
+    }
+
+    /// Check if the input looks like an extended public key (xpub/ypub/zpub format)
+    pub fn is_xpub(input: &str) -> bool {
+        // Regex for extended public keys
+        let xpub_regex = regex::Regex::new(r"^[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{107,108}$").unwrap();
+        xpub_regex.is_match(input.trim())
+    }
+
+    /// Detect the likely script type based on the xpub prefix
+    pub fn detect_type_from_prefix(xpub: &str) -> ScriptType {
+        let prefix = &xpub[0..4];
+        match prefix {
+            "xpub" | "tpub" => ScriptType::P2WPKH, // Default to modern SegWit for xpub
+            "ypub" | "upub" => ScriptType::P2SH,   // Nested SegWit
+            "zpub" | "vpub" => ScriptType::P2WPKH, // Native SegWit
+            _ => ScriptType::P2WPKH, // Default fallback
+        }
+    }
+
+    /// Call the Node.js script to derive addresses for all script types
+    async fn derive_addresses(&self, xpub: &str) -> Result<DerivedAddresses> {
+        let network_str = match self.network {
+            Network::Bitcoin => "mainnet",
+            Network::Testnet | Network::Signet | Network::Regtest => "testnet",
+            _ => "testnet", // Default fallback for other networks
+        };
+
+        let script_path = std::env::current_dir()?
+            .join("scripts")
+            .join("xpub_converter.js");
+
+        if !script_path.exists() {
+            return Err(anyhow!("Node.js converter script not found at: {}", script_path.display()));
+        }
+
+        // Run the Node.js script with a timeout
+        let result = timeout(
+            Duration::from_secs(30), // 30 second timeout
+            tokio::task::spawn_blocking({
+                let xpub = xpub.to_string();
+                let network_str = network_str.to_string();
+                let script_path = script_path.clone();
+                move || {
+                    Command::new("node")
+                        .arg(script_path)
+                        .arg(&xpub)
+                        .arg(&network_str)
+                        .arg("5") // Generate 5 addresses per type
+                        .output()
+                }
+            })
+        ).await??;
+
+        let output = result?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!("Node.js script failed: {}", stderr));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let derived: DerivedAddresses = serde_json::from_str(&stdout)
+            .map_err(|e| anyhow!("Failed to parse Node.js output: {}", e))?;
+
+        Ok(derived)
+    }
+
+    /// Score addresses based on Electrum activity (transactions, balance)
+    /// For now, this is simplified and doesn't actually check the blockchain
+    /// TODO: Implement proper Electrum address checking
+    async fn score_addresses(&self, _addresses: &[String]) -> Result<(usize, f32)> {
+        // For now, we'll return default values since we don't have the proper
+        // Electrum methods implemented. This will fallback to using prefix hints.
+        Ok((0, 0.0))
+    }
+
+    /// Convert XPUB to a multipath descriptor by probing different script types
+    pub async fn convert_to_descriptor(&self, xpub: &str) -> Result<ConversionResult> {
+        println!("Converting XPUB to descriptor: {}", xpub);
+
+        // First, derive addresses for all script types
+        let derived = self.derive_addresses(xpub).await?;
+
+        let mut best_type = ScriptType::P2WPKH;
+        let mut best_score = 0.0;
+        let mut best_active = 0;
+        let mut total_checked = 0;
+
+        // Score each script type based on blockchain activity
+        for (type_name, type_info) in &derived.script_types {
+            if type_info.error.is_some() {
+                continue; // Skip types that failed to generate
+            }
+
+            let addresses: Vec<String> = type_info.all_addresses
+                .iter()
+                .map(|addr| addr.address.clone())
+                .collect();
+
+            total_checked += addresses.len();
+
+            let script_type = match type_name.as_str() {
+                "p2pkh" => ScriptType::P2PKH,
+                "p2sh" => ScriptType::P2SH,
+                "p2wpkh" => ScriptType::P2WPKH,
+                "p2tr" => ScriptType::P2TR,
+                _ => continue,
+            };
+
+            match self.score_addresses(&addresses).await {
+                Ok((active_count, score)) => {
+                    println!("Script type {:?}: {} active addresses, score: {:.8}", 
+                             script_type, active_count, score);
+
+                    // Prefer types with more active addresses, then higher balance/tx count
+                    let combined_score = (active_count as f32 * 1000.0) + score;
+                    
+                    if combined_score > best_score {
+                        best_score = combined_score;
+                        best_type = script_type;
+                        best_active = active_count;
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to score addresses for {:?}: {}", script_type, e);
+                }
+            }
+        }
+
+        // If no activity found, use prefix hint as fallback
+        if best_score == 0.0 {
+            best_type = Self::detect_type_from_prefix(xpub);
+            println!("No activity detected, using prefix hint: {:?}", best_type);
+        }
+
+        // Generate the descriptor for the best script type
+        let descriptor = self.generate_descriptor_for_type(xpub, &best_type)?;
+
+        let confidence = if best_score > 0.0 {
+            (best_active as f32 / 10.0).min(1.0) // Max confidence with 10+ active addresses
+        } else {
+            0.5 // Medium confidence when using prefix hint
+        };
+
+        println!("Selected script type: {:?} (confidence: {:.1}%)", 
+                 best_type, confidence * 100.0);
+
+        Ok(ConversionResult {
+            descriptor,
+            detected_type: best_type,
+            confidence,
+            addresses_checked: total_checked,
+            active_addresses: best_active,
+        })
+    }
+
+    /// Generate a multipath descriptor for a given script type
+    fn generate_descriptor_for_type(&self, xpub: &str, script_type: &ScriptType) -> Result<String> {
+        // For simplicity, we'll use the xpub directly (rust-bitcoin should handle it)
+        // In practice, you might need to normalize ypub/zpub to xpub format
+        let normalized_xpub = self.normalize_xpub(xpub)?;
+
+        let descriptor_without_checksum = match script_type {
+            ScriptType::P2PKH => format!("pkh({}/<0;1>/*)", normalized_xpub),
+            ScriptType::P2SH => format!("sh(wpkh({}/<0;1>/*))", normalized_xpub),
+            ScriptType::P2WPKH => format!("wpkh({}/<0;1>/*)", normalized_xpub),
+            ScriptType::P2TR => format!("tr({}/<0;1>/*)", normalized_xpub),
+        };
+
+        // Calculate checksum and append it to the descriptor
+        let checksum = desc_checksum(&descriptor_without_checksum)
+            .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
+        
+        let descriptor_with_checksum = format!("{}#{}", descriptor_without_checksum, checksum);
+        
+        println!("Generated descriptor: {}", descriptor_with_checksum);
+        
+        Ok(descriptor_with_checksum)
+    }
+
+    /// Normalize ypub/zpub to xpub format for rust-bitcoin compatibility
+    /// This is a simplified version - in practice you might need more robust conversion
+    fn normalize_xpub(&self, extended_key: &str) -> Result<String> {
+        // For now, just return as-is since rust-bitcoin might handle it
+        // TODO: Implement proper version byte conversion if needed
+        Ok(extended_key.to_string())
+    }
+}

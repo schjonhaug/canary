@@ -26,6 +26,7 @@ interface CreateWalletModalProps {
   isFirstWallet?: boolean
 }
 
+
 export function CreateWalletModal({
   isOpen,
   onClose,
@@ -71,7 +72,7 @@ export function CreateWalletModal({
     }
     
     if (!descriptor.trim()) {
-      modal.setError("Output descriptor is required")
+      modal.setError("Output descriptor or extended public key is required")
       return
     }
 
@@ -97,7 +98,7 @@ export function CreateWalletModal({
             Add Wallet for Monitoring
           </DialogTitle>
           <DialogDescription>
-            Add an existing wallet for monitoring by providing a name and output descriptor.
+            Add an existing wallet for monitoring by providing a name and output descriptor or extended public key (XPUB).
           </DialogDescription>
         </DialogHeader>
 
@@ -117,11 +118,11 @@ export function CreateWalletModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="output-descriptor">Output Descriptor</Label>
+            <Label htmlFor="output-descriptor">Output Descriptor or Extended Public Key</Label>
             <Textarea
               ref={descriptorRef}
               id="output-descriptor"
-              placeholder="Enter multipath output descriptor (e.g., wpkh([fingerprint/derivation_path]xpub.../0/*)"
+              placeholder="Enter output descriptor (wpkh(xpub.../<0;1>/*)) or extended public key (xpub/ypub/zpub...)"
               value={descriptor}
               onChange={(e) => setDescriptor(e.target.value)}
               disabled={modal.isLoading}
@@ -129,9 +130,10 @@ export function CreateWalletModal({
               className="font-mono text-sm break-all whitespace-pre-wrap resize-none"
               autoFocus={!!shouldFocusDescriptor}
             />
-            <p className="text-xs text-muted-foreground">
-              Must be a valid multipath output descriptor with checksum
-            </p>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>• <strong>Output descriptor</strong>: wpkh([fingerprint/path]xpub.../&#60;0;1&#62;/*)</p>
+              <p>• <strong>Extended public key</strong>: xpub/ypub/zpub... (will auto-detect script type)</p>
+            </div>
           </div>
 
           {modal.error && (

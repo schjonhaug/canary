@@ -1,0 +1,14 @@
+{
+  "name": "canary-xpub-converter",
+  "version": "1.0.0",
+  "description": "Node.js wrapper for xpub-lib to convert XPUBs to descriptors",
+  "private": true,
+  "dependencies": {
+    "@swan-bitcoin/xpub-lib": "^0.3.0",
+    "tiny-secp256k1": "^2.2.4",
+    "bip32": "^4.0.0"
+  },
+  "scripts": {
+    "convert": "node scripts/xpub_converter.js"
+  }
+}
