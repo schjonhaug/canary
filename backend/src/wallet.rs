@@ -391,24 +391,42 @@ impl WalletManager {
     }
 
     /// Strip key origin information from descriptor to prevent duplicates
-    /// Converts [fingerprint/path]xpub to just xpub
+    /// Converts [fingerprint/path]xpub to just xpub, handles script-wrapped descriptors
     pub fn strip_key_origin(&self, descriptor_str: &str) -> Result<String> {
         use regex::Regex;
         
-        // Pattern to match [fingerprint/derivation/path] at the beginning of xpub/tpub/etc.
-        let key_origin_pattern = Regex::new(r"\[([0-9a-fA-F]{8})(/\d+'?)*\]([xyztuv]pub[1-9A-HJ-NP-Za-km-z]+)").unwrap();
-        
-        // Strip key origin if present
-        let stripped = if key_origin_pattern.is_match(descriptor_str) {
-            let result = key_origin_pattern.replace_all(descriptor_str, "$3");
-            println!("  Stripped key origin: {} -> {}", descriptor_str, result);
-            result.to_string()
+        // First strip any existing checksum (everything after #)
+        let without_checksum = if let Some(pos) = descriptor_str.find('#') {
+            &descriptor_str[..pos]
         } else {
-            // No key origin found, return as-is
-            descriptor_str.to_string()
+            descriptor_str
         };
         
-        Ok(stripped)
+        // Pattern to match [fingerprint/derivation/path] anywhere in the descriptor
+        // This handles both bare xpubs and script-wrapped descriptors like wpkh([fingerprint/path]xpub...)
+        // Supports both 'h' and '\'' for hardened paths
+        let key_origin_pattern = Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h']?)*\]").unwrap();
+        
+        // Strip key origin if present
+        let stripped_without_checksum = if key_origin_pattern.is_match(without_checksum) {
+            let result = key_origin_pattern.replace_all(without_checksum, "");
+            println!("  Stripped key origin: {} -> {}", without_checksum, result);
+            result.to_string()
+        } else {
+            // No key origin found, return without checksum
+            without_checksum.to_string()
+        };
+        
+        // Parse the stripped descriptor to recalculate checksum
+        let descriptor: Descriptor<DescriptorPublicKey> = stripped_without_checksum
+            .parse()
+            .map_err(|e| anyhow!("Invalid stripped descriptor: {}", e))?;
+        
+        // Convert back to string with new checksum
+        let final_descriptor = descriptor.to_string();
+        println!("  Final normalized descriptor: {}", final_descriptor);
+        
+        Ok(final_descriptor)
     }
 
     /// Parse and validate multipath descriptor

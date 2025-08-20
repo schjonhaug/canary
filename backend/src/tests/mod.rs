@@ -4,3 +4,5 @@ mod message_formatter;
 mod metadata;
 #[cfg(test)]
 mod notifications;
+#[cfg(test)]
+mod wallet;

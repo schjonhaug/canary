@@ -15,7 +15,10 @@
       "WebFetch(domain:docs.rs)",
       "WebFetch(domain:bitcoin.stackexchange.com)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)",
+      "Bash(cargo test:*)"
     ],
     "deny": []
   }
