@@ -20,6 +20,7 @@ pub const BATCH_SIZE: usize = 5;
 #[derive(Clone)]
 pub struct ElectrumClient {
     pub client: Arc<BdkElectrumClient<electrum_client::Client>>,
+    pub raw_client: Arc<electrum_client::Client>,
 }
 
 impl ElectrumClient {
@@ -31,11 +32,49 @@ impl ElectrumClient {
             ));
         }
 
-        let electrum_client = electrum_client::Client::new(url)?;
-        let client = BdkElectrumClient::new(electrum_client);
+        // Create two separate clients - one for BDK, one for raw API access
+        let bdk_electrum_client = electrum_client::Client::new(url)?;
+        let raw_electrum_client = electrum_client::Client::new(url)?;
+        let client = BdkElectrumClient::new(bdk_electrum_client);
         Ok(ElectrumClient {
             client: Arc::new(client),
+            raw_client: Arc::new(raw_electrum_client),
         })
+    }
+
+    /// Get access to the raw Electrum client for direct API calls
+    /// This allows calling methods like script_get_history() and script_get_balance()
+    pub fn raw_client(&self) -> &electrum_client::Client {
+        &self.raw_client
+    }
+
+    /// Convert a Bitcoin script to an Electrum script hash
+    /// Electrum uses SHA256 hash of the script, reversed for little-endian
+    pub fn script_to_scripthash(&self, script: &bdk_wallet::bitcoin::Script) -> String {
+        use bdk_wallet::bitcoin::hashes::{sha256, Hash};
+        
+        // Calculate SHA256 hash of the script
+        let hash = sha256::Hash::hash(script.as_bytes());
+        
+        // Electrum uses the hash in reverse byte order (little-endian)
+        let mut hash_bytes = hash.to_byte_array();
+        hash_bytes.reverse();
+        
+        // Convert to hex string using the hex crate
+        hex::encode(hash_bytes)
+    }
+
+    /// Convert a Bitcoin address to an Electrum script hash
+    pub fn address_to_scripthash(&self, address: &str, network: bdk_wallet::bitcoin::Network) -> Result<String> {
+        // Parse the address
+        let addr = address.parse::<bdk_wallet::bitcoin::Address<bdk_wallet::bitcoin::address::NetworkUnchecked>>()?
+            .require_network(network)?;
+        
+        // Get the script pubkey
+        let script = addr.script_pubkey();
+        
+        // Convert to script hash
+        Ok(self.script_to_scripthash(&script))
     }
 
     /// Get the highest address index that has been used (has transactions)
