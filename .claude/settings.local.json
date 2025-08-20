@@ -20,7 +20,8 @@
       "Bash(kill:*)",
       "Bash(cargo test:*)",
       "Bash(cargo doc:*)",
-      "Bash(cargo:*)"
+      "Bash(cargo:*)",
+      "Bash(npm test:*)"
     ],
     "deny": []
   }

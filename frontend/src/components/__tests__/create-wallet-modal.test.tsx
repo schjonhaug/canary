@@ -71,7 +71,7 @@ describe('CreateWalletModal', () => {
       
       expect(screen.getByText('Add Wallet for Monitoring')).toBeInTheDocument()
       expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
-      expect(screen.getByLabelText('Output Descriptor')).toBeInTheDocument()
+      expect(screen.getByLabelText('Output Descriptor or Extended Public Key')).toBeInTheDocument()
     })
 
     it('does not render when closed', () => {
@@ -143,7 +143,7 @@ describe('CreateWalletModal', () => {
     it('focuses descriptor field when name is prefilled (first wallet with auth)', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
       
-      const descriptorTextarea = screen.getByLabelText('Output Descriptor')
+      const descriptorTextarea = screen.getByLabelText('Output Descriptor or Extended Public Key')
       expect(document.activeElement).toBe(descriptorTextarea)
     })
 
@@ -169,7 +169,7 @@ describe('CreateWalletModal', () => {
       render(<CreateWalletModal {...defaultProps} />)
       
       const nameInput = screen.getByLabelText('Wallet Name')
-      const descriptorInput = screen.getByLabelText('Output Descriptor')
+      const descriptorInput = screen.getByLabelText('Output Descriptor or Extended Public Key')
       const submitButton = screen.getByText('Add Wallet')
       
       fireEvent.change(nameInput, { target: { value: 'My Wallet' } })
@@ -195,7 +195,7 @@ describe('CreateWalletModal', () => {
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
       
-      const descriptorInput = screen.getByLabelText('Output Descriptor')
+      const descriptorInput = screen.getByLabelText('Output Descriptor or Extended Public Key')
       const submitButton = screen.getByText('Add Wallet')
       
       // Name should be prefilled, just add descriptor
@@ -220,7 +220,7 @@ describe('CreateWalletModal', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
       
       const nameInput = screen.getByLabelText('Wallet Name')
-      const descriptorInput = screen.getByLabelText('Output Descriptor')
+      const descriptorInput = screen.getByLabelText('Output Descriptor or Extended Public Key')
       const submitButton = screen.getByText('Add Wallet')
       
       // Modify the prefilled name
@@ -244,7 +244,7 @@ describe('CreateWalletModal', () => {
     it('shows error when wallet name is empty', async () => {
       render(<CreateWalletModal {...defaultProps} />)
       
-      const descriptorInput = screen.getByLabelText('Output Descriptor')
+      const descriptorInput = screen.getByLabelText('Output Descriptor or Extended Public Key')
       const submitButton = screen.getByText('Add Wallet')
       
       fireEvent.change(descriptorInput, { 
@@ -265,7 +265,7 @@ describe('CreateWalletModal', () => {
       fireEvent.change(nameInput, { target: { value: 'My Wallet' } })
       fireEvent.click(submitButton)
       
-      expect(mockUseModal.setError).toHaveBeenCalledWith('Output descriptor is required')
+      expect(mockUseModal.setError).toHaveBeenCalledWith('Output descriptor or extended public key is required')
     })
   })
 
