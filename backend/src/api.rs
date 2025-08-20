@@ -17,6 +17,7 @@ use crate::stripe_billing::{
 };
 use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletManager;
+use crate::xpub_converter::{XpubConverter, ScriptType};
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
@@ -331,8 +332,48 @@ pub async fn create_wallet(
         }
     }
 
+    // Check if input is an XPUB and convert to descriptor if needed
+    let descriptor = if XpubConverter::is_xpub(&payload.descriptor) {
+        println!("Detected XPUB format, converting to descriptor: {}", payload.descriptor);
+        
+        // Create XPUB converter
+        let network = manager.get_network();
+        let electrum_client = manager.electrum_client.as_ref();
+        let converter = XpubConverter::new(network, electrum_client);
+        
+        match converter.convert_to_descriptor(&payload.descriptor).await {
+            Ok(conversion_result) => {
+                println!(
+                    "Successfully converted XPUB to descriptor: {} (detected: {}, confidence: {:.1}%)",
+                    conversion_result.descriptor,
+                    conversion_result.detected_type.as_str(),
+                    conversion_result.confidence * 100.0
+                );
+                conversion_result.descriptor
+            }
+            Err(e) => {
+                eprintln!("Failed to convert XPUB, using fallback: {}", e);
+                
+                // Fallback: Use prefix hints to generate descriptor
+                let script_type = XpubConverter::detect_type_from_prefix(&payload.descriptor);
+                let fallback_descriptor = match script_type {
+                    ScriptType::P2PKH => format!("pkh({}/<0;1>/*)", payload.descriptor),
+                    ScriptType::P2SH => format!("sh(wpkh({}/<0;1>/*))", payload.descriptor),
+                    ScriptType::P2WPKH => format!("wpkh({}/<0;1>/*)", payload.descriptor),
+                    ScriptType::P2TR => format!("tr({}/<0;1>/*)", payload.descriptor),
+                };
+                
+                println!("Using fallback descriptor based on prefix: {}", fallback_descriptor);
+                fallback_descriptor
+            }
+        }
+    } else {
+        // Input is already a descriptor
+        payload.descriptor.clone()
+    };
+
     match manager
-        .create_from_multipath(&payload.name, &payload.descriptor, &user.user_id)
+        .create_from_multipath(&payload.name, &descriptor, &user.user_id)
         .await
     {
         Ok(wallet_metadata) => {

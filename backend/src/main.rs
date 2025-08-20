@@ -14,6 +14,7 @@ mod stripe_client_service;
 mod subscription;
 mod twilio_provider;
 mod wallet;
+mod xpub_converter;
 
 use api::create_router;
 use config::AppConfig;

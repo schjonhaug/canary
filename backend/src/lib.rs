@@ -16,6 +16,7 @@ pub mod stripe_client_service;
 pub mod subscription;
 pub mod twilio_provider;
 pub mod wallet;
+pub mod xpub_converter;
 
 // Re-export commonly used types
 pub use config::AppConfig;
@@ -38,6 +39,7 @@ pub use stripe_billing::{
 };
 pub use twilio_provider::TwilioProvider;
 pub use wallet::WalletManager;
+pub use xpub_converter::{ConversionResult, ScriptType, XpubConverter};
 
 // Test modules
 #[cfg(test)]
