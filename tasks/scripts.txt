@@ -1,0 +1,148 @@
+# Script Type Detection and Deep Scanning Improvements
+
+## Problem Statement
+When importing a wallet via XPUB with funds at a high address index (e.g., index 234), the current system fails to:
+1. Detect the correct script type (only checks addresses 0-10)
+2. Find the funds (stops scanning at gap limit ~20)
+3. Handle fresh wallets with unknown script types
+
+## Current Architecture
+
+### Three Types of Scanning
+
+1. **Historical Transaction Extraction**
+   - Purpose: Convert BDK transactions to UI events in metadata DB
+   - When: After initial scan (existing wallets only)
+   - Can skip for fresh wallets
+
+2. **Initial Scan (full_scan)**
+   - Purpose: Discover which addresses have been used
+   - When: First time adding existing wallet
+   - Problem: Stops at gap limit (20 unused addresses)
+
+3. **Continuous Scan (sync_with_revealed_spks)**
+   - Purpose: Check known addresses for new transactions
+   - When: Every 10 minutes (tier-based)
+   - Only updates, doesn't discover new addresses
+
+## Solution Design
+
+### Import Rules
+- **XPUB + Fresh**: MUST ask user for script type
+- **Descriptor + Fresh**: Has everything, skip scanning
+- **XPUB + Existing**: Auto-detect via blockchain
+- **Descriptor + Existing**: Just needs scanning
+
+### Interleaved Script Detection
+Instead of checking 1000 addresses per script type sequentially:
+```
+Round 0: Check 0-9 for P2WPKH, P2SH, P2TR, P2PKH
+Round 1: Check 10-19 for each type
+Round 2: Check 20-29 for each type
+...
+```
+
+Priority order (by 2024 usage):
+1. P2WPKH (Native SegWit) ~60%
+2. P2SH (Nested SegWit) ~25%
+3. P2TR (Taproot) ~10%
+4. P2PKH (Legacy) ~5%
+
+### Deep Scanning
+When user indicates wallet has funds but normal scan finds nothing:
+```
+for batch in 0..10:  // Up to 1000 addresses
+    reveal_addresses(batch * 100..(batch + 1) * 100)
+    scan()
+    if balance > 0: break
+```
+
+## Implementation Plan
+
+### Phase 1: Quick Fix
+- Increase initial reveal: 50 → 250 addresses
+- Increase max iterations: 10 → 20
+- Increase detection range: 10 → 50 addresses
+
+### Phase 2: Backend API Changes
+
+**Update CreateWalletRequest:**
+```rust
+pub struct CreateWalletRequest {
+    pub name: String,
+    pub descriptor: String,
+    pub is_fresh_wallet: Option<bool>,
+    pub script_type: Option<String>,  // Required for fresh XPUB
+}
+```
+
+**XPUB Converter Enhancement:**
+- Implement interleaved detection
+- Handle forced script type for fresh wallets
+- Deep scan up to index 500 for detection
+
+**Wallet Creation Flow:**
+```rust
+if is_fresh_wallet {
+    // Skip all scanning
+    reveal_addresses(20);
+} else {
+    // Try normal scan
+    full_scan();
+    if balance == 0 {
+        // Deep scan
+        perform_deep_scan();
+    }
+    extract_historical_transactions();
+}
+```
+
+### Phase 3: Frontend UI Changes
+
+**Import Modal Updates:**
+```tsx
+// Always show
+□ This is a fresh wallet (no transaction history)
+
+// Only show for fresh XPUB
+Address Type: [Select type ▼]
+  - Native SegWit (bc1...)
+  - Nested SegWit (3...)
+  - Taproot (bc1p...)
+  - Legacy (1...)
+
+// Show for existing XPUB
+ℹ️ Address type will be detected automatically
+```
+
+### Phase 4: Testing Scenarios
+1. Wallet with funds at index 234
+2. Fresh wallet with each script type
+3. Empty existing wallet
+4. Wallet with multiple script types used
+
+## Expected Outcomes
+
+1. **Fresh XPUB wallets**: User selects script type, no scanning
+2. **Existing wallets**: Auto-detect type, find funds up to index 1000
+3. **Edge case (index 234)**: Successfully detected and synced
+4. **Performance**: Interleaved detection reduces API calls by ~90%
+
+## Files to Modify
+
+Backend:
+- `/opt/canary/backend/src/api.rs` - API request structure
+- `/opt/canary/backend/src/xpub_converter.rs` - Detection logic
+- `/opt/canary/backend/src/wallet.rs` - Async creation flow
+- `/opt/canary/backend/src/electrum.rs` - Deep scanning
+
+Frontend:
+- `/opt/canary/frontend/src/components/create-wallet-modal.tsx` - UI
+- `/opt/canary/frontend/src/lib/api.ts` - API client
+
+## Notes
+
+- Script type detection is impossible for fresh wallets (no blockchain data)
+- Interleaving script types during detection is more efficient than sequential
+- Deep scanning should have reasonable limits (1000 addresses max)
+- Progress feedback important for long scans
