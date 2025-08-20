@@ -161,19 +161,15 @@ impl XpubConverter {
                 ).await;
                 
                 match check_result {
-                    Ok(Ok((has_activity, score))) => {
+                    Ok(Ok((has_activity, score, tx_count, balance_sats))) => {
                         if has_activity {
                             active_count += 1;
                         }
                         total_score += score;
                         
-                        // Also collect individual stats for logging
-                        if score > 1000.0 {
-                            total_txs += (score / 1000.0) as usize;
-                        }
-                        if score > 0.0 {
-                            total_balance += (score % 1000.0 * 1000.0) as u64;
-                        }
+                        // Collect actual stats instead of trying to reverse-engineer from score
+                        total_txs += tx_count;
+                        total_balance += balance_sats;
                         
                         // Reset failure counter on success
                         failed_checks = 0;
@@ -226,8 +222,8 @@ impl XpubConverter {
     }
     
     /// Check if an address has activity using Electrum
-    /// Returns (has_activity, activity_score) where score is based on tx count and balance
-    async fn check_address_activity(&self, electrum_client: &ElectrumClient, address: &str) -> Result<(bool, f32)> {
+    /// Returns (has_activity, activity_score, tx_count, balance_sats) for detailed tracking
+    async fn check_address_activity(&self, electrum_client: &ElectrumClient, address: &str) -> Result<(bool, f32, usize, u64)> {
         // Parse the address - for regtest, we need to be more flexible since Node.js generates testnet addresses
         let addr = address.parse::<bdk_wallet::bitcoin::Address<bdk_wallet::bitcoin::address::NetworkUnchecked>>()?;
         
@@ -255,7 +251,7 @@ impl XpubConverter {
             Ok(history) => history,
             Err(e) => {
                 eprintln!("Failed to get history for address {}: {}", address, e);
-                return Ok((false, 0.0));
+                return Ok((false, 0.0, 0, 0));
             }
         };
         
@@ -264,7 +260,7 @@ impl XpubConverter {
             Ok(balance) => balance,
             Err(e) => {
                 eprintln!("Failed to get balance for address {}: {}", address, e);
-                return Ok((false, 0.0));
+                return Ok((false, 0.0, 0, 0));
             }
         };
         
@@ -286,7 +282,7 @@ impl XpubConverter {
                      address, tx_count, total_balance_sats, activity_score);
         }
         
-        Ok((has_activity, activity_score))
+        Ok((has_activity, activity_score, tx_count, total_balance_sats))
     }
 
     /// Convert XPUB to a multipath descriptor by probing different script types

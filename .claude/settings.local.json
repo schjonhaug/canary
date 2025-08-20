@@ -19,7 +19,8 @@
       "Bash(lsof:*)",
       "Bash(kill:*)",
       "Bash(cargo test:*)",
-      "Bash(cargo doc:*)"
+      "Bash(cargo doc:*)",
+      "Bash(cargo:*)"
     ],
     "deny": []
   }
