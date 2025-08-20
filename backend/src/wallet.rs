@@ -390,6 +390,27 @@ impl WalletManager {
         Ok(())
     }
 
+    /// Strip key origin information from descriptor to prevent duplicates
+    /// Converts [fingerprint/path]xpub to just xpub
+    pub fn strip_key_origin(&self, descriptor_str: &str) -> Result<String> {
+        use regex::Regex;
+        
+        // Pattern to match [fingerprint/derivation/path] at the beginning of xpub/tpub/etc.
+        let key_origin_pattern = Regex::new(r"\[([0-9a-fA-F]{8})(/\d+'?)*\]([xyztuv]pub[1-9A-HJ-NP-Za-km-z]+)").unwrap();
+        
+        // Strip key origin if present
+        let stripped = if key_origin_pattern.is_match(descriptor_str) {
+            let result = key_origin_pattern.replace_all(descriptor_str, "$3");
+            println!("  Stripped key origin: {} -> {}", descriptor_str, result);
+            result.to_string()
+        } else {
+            // No key origin found, return as-is
+            descriptor_str.to_string()
+        };
+        
+        Ok(stripped)
+    }
+
     /// Parse and validate multipath descriptor
     pub fn parse_multipath_descriptor(&self, descriptor_str: &str) -> Result<(String, String)> {
         // Parse the descriptor
@@ -432,17 +453,20 @@ impl WalletManager {
         println!("  Name: {}", name);
         println!("  Input descriptor: {}", descriptor_str);
 
-        // Check if descriptor already exists
-        if self.metadata_db.descriptor_exists(descriptor_str).await? {
+        // Strip key origin to prevent duplicate wallets with same XPUB
+        let normalized_descriptor = self.strip_key_origin(descriptor_str)?;
+        
+        // Check if normalized descriptor already exists
+        if self.metadata_db.descriptor_exists(&normalized_descriptor).await? {
             return Err(anyhow!("This wallet has already been added. Ask the wallet owner to add you as a contact for notifications."));
         }
 
-        // Parse and validate the multipath descriptor first
+        // Parse and validate the normalized multipath descriptor
         let (receive_descriptor, change_descriptor) =
-            self.parse_multipath_descriptor(descriptor_str)?;
+            self.parse_multipath_descriptor(&normalized_descriptor)?;
 
-        // Extract checksum from the descriptor for consistent filename
-        let checksum = self.metadata_db.extract_checksum(descriptor_str);
+        // Extract checksum from the normalized descriptor for consistent filename
+        let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
         let wallet_filename_with_ext = format!("{}.sqlite", checksum);
         println!("  Wallet filename: {}", wallet_filename_with_ext);
 
@@ -472,10 +496,10 @@ impl WalletManager {
             eprintln!("Warning: Failed to sync wallet during creation: {}", e);
         }
 
-        // Save wallet metadata (checksum used directly as filename)
+        // Save wallet metadata using normalized descriptor (checksum used directly as filename)
         let wallet_checksum = self
             .metadata_db
-            .insert_wallet(name, descriptor_str, user_id)
+            .insert_wallet(name, &normalized_descriptor, user_id)
             .await?;
         println!("  Metadata saved with checksum: {}", wallet_checksum);
 
@@ -510,10 +534,10 @@ impl WalletManager {
         // Add wallet to the in-memory manager (using checksum as key)
         self.wallets.push((checksum.clone(), wallet));
 
-        // Retrieve and return the created wallet metadata
+        // Retrieve and return the created wallet metadata using normalized descriptor
         let wallet_metadata = self
             .metadata_db
-            .get_wallet_by_descriptor(descriptor_str)
+            .get_wallet_by_descriptor(&normalized_descriptor)
             .await?
             .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
 

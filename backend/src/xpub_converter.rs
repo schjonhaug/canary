@@ -99,6 +99,7 @@ impl XpubConverter {
         };
 
         let script_path = std::env::current_dir()?
+            .join("xpub-tools")
             .join("scripts")
             .join("xpub_converter.js");
 
@@ -227,10 +228,10 @@ impl XpubConverter {
         })
     }
 
-    /// Generate a multipath descriptor for a given script type
+    /// Generate a multipath descriptor for a given script type (without key origin)
     fn generate_descriptor_for_type(&self, xpub: &str, script_type: &ScriptType) -> Result<String> {
-        // For simplicity, we'll use the xpub directly (rust-bitcoin should handle it)
-        // In practice, you might need to normalize ypub/zpub to xpub format
+        // For watch-only wallets, we strip key origin to prevent duplicate wallets
+        // Same XPUB with different fingerprints would create different checksums
         let normalized_xpub = self.normalize_xpub(xpub)?;
 
         let descriptor_without_checksum = match script_type {
@@ -246,7 +247,7 @@ impl XpubConverter {
         
         let descriptor_with_checksum = format!("{}#{}", descriptor_without_checksum, checksum);
         
-        println!("Generated descriptor: {}", descriptor_with_checksum);
+        println!("Generated descriptor (no key origin): {}", descriptor_with_checksum);
         
         Ok(descriptor_with_checksum)
     }
