@@ -92,4 +92,42 @@ mod tests {
 
         println!("✅ All tests passed!");
     }
+
+    #[test]
+    fn test_xpub_normalization() {
+        use crate::xpub_converter::XpubConverter;
+        use bdk_wallet::bitcoin::Network;
+
+        // Test normalization for different networks and extended key formats
+        let test_cases = vec![
+            // Mainnet cases
+            (Network::Bitcoin, "xpub6BmTxpDFqy", "xpub6BmTxpDFqy"), // Already normalized
+            (Network::Bitcoin, "ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNpj7MmV", "xpub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNpj7MmV"),
+            (Network::Bitcoin, "zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs", "xpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs"),
+            
+            // Testnet cases
+            (Network::Testnet, "tpub6BmTxpDFqy", "tpub6BmTxpDFqy"), // Already normalized
+            (Network::Testnet, "upub5EFU65HtV5TeiSHmZZm7FUffBGy8UKeqp7vw43jYbvjNECs", "tpub5EFU65HtV5TeiSHmZZm7FUffBGy8UKeqp7vw43jYbvjNECs"),
+            (Network::Testnet, "vpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc", "tpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc"),
+            
+            // Cross-network normalization (mainnet keys on testnet)
+            (Network::Testnet, "xpub6BmTxpDFqy", "tpub6BmTxpDFqy"),
+            (Network::Testnet, "ypub6Ww3ibxVfGzL", "tpub6Ww3ibxVfGzL"),
+            (Network::Testnet, "zpub6rFR7y4Q2Aij", "tpub6rFR7y4Q2Aij"),
+            
+            // Regtest (uses testnet format)
+            (Network::Regtest, "xpub6BmTxpDFqy", "tpub6BmTxpDFqy"),
+            (Network::Regtest, "tpub6BmTxpDFqy", "tpub6BmTxpDFqy"),
+        ];
+
+        for (network, input, expected) in test_cases {
+            let converter = XpubConverter::new(network, None);
+            let result = converter.normalize_xpub(input).unwrap();
+            assert_eq!(result, expected, 
+                "Network: {:?}, Input: {} -> Expected: {}, Got: {}", 
+                network, input, expected, result);
+        }
+
+        println!("✅ XPUB normalization tests passed!");
+    }
 }

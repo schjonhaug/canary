@@ -476,7 +476,8 @@ impl WalletManager {
         
         // Check if normalized descriptor already exists
         if self.metadata_db.descriptor_exists(&normalized_descriptor).await? {
-            return Err(anyhow!("This wallet has already been added. Ask the wallet owner to add you as a contact for notifications."));
+            let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+            return Err(anyhow!("This wallet has already been added with ID: {}. Ask the wallet owner to add you as a contact for notifications.", checksum));
         }
 
         // Parse and validate the normalized multipath descriptor

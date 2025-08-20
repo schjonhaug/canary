@@ -9,6 +9,7 @@ use tokio::time::timeout;
 
 use crate::electrum::ElectrumClient;
 
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScriptType {
     P2PKH,     // Legacy
@@ -55,8 +56,6 @@ pub struct ConversionResult {
     pub descriptor: String,
     pub detected_type: ScriptType,
     pub confidence: f32,
-    pub addresses_checked: usize,
-    pub active_addresses: usize,
 }
 
 pub struct XpubConverter {
@@ -140,12 +139,54 @@ impl XpubConverter {
     }
 
     /// Score addresses based on Electrum activity (transactions, balance)
-    /// For now, this is simplified and doesn't actually check the blockchain
-    /// TODO: Implement proper Electrum address checking
-    async fn score_addresses(&self, _addresses: &[String]) -> Result<(usize, f32)> {
-        // For now, we'll return default values since we don't have the proper
-        // Electrum methods implemented. This will fallback to using prefix hints.
-        Ok((0, 0.0))
+    /// Returns (active_addresses_count, total_activity_score)
+    async fn score_addresses(&self, addresses: &[String]) -> Result<(usize, f32)> {
+        if let Some(ref electrum_client) = self.electrum_client {
+            let mut active_count = 0;
+            let mut total_score = 0.0;
+            
+            println!("Script type {}: {} active addresses, score: {:.8}", 
+                     "P2WPKH", active_count, total_score); // This will be updated by caller
+            
+            for address in addresses.iter().take(5) { // Only check first 5 addresses for performance
+                match self.check_address_activity(&electrum_client, address).await {
+                    Ok((has_activity, score)) => {
+                        if has_activity {
+                            active_count += 1;
+                        }
+                        total_score += score;
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to check address {}: {}", address, e);
+                        // Continue checking other addresses
+                    }
+                }
+            }
+            
+            Ok((active_count, total_score))
+        } else {
+            // No Electrum client available, fallback to prefix hints
+            Ok((0, 0.0))
+        }
+    }
+    
+    /// Check if an address has activity using Electrum
+    /// This is a simplified implementation that validates addresses but doesn't check activity
+    async fn check_address_activity(&self, _electrum_client: &ElectrumClient, address: &str) -> Result<(bool, f32)> {
+        // Parse the address to validate it's correct for the network
+        let _addr = address.parse::<bdk_wallet::bitcoin::Address<bdk_wallet::bitcoin::address::NetworkUnchecked>>()?
+            .require_network(self.network)?;
+        
+        // TODO: In a full implementation, we would:
+        // 1. Calculate the script hash from the address
+        // 2. Query Electrum for script history: electrum_client.script_get_history()  
+        // 3. Query Electrum for balance: electrum_client.script_get_balance()
+        // 4. Calculate activity score based on transaction count and balance
+        //
+        // For now, this is a placeholder that validates addresses but doesn't check activity
+        // This maintains the fallback to prefix-based detection while providing the infrastructure
+        
+        Ok((false, 0.0)) // No activity detected (placeholder)
     }
 
     /// Convert XPUB to a multipath descriptor by probing different script types
@@ -158,7 +199,6 @@ impl XpubConverter {
         let mut best_type = ScriptType::P2WPKH;
         let mut best_score = 0.0;
         let mut best_active = 0;
-        let mut total_checked = 0;
 
         // Score each script type based on blockchain activity
         for (type_name, type_info) in &derived.script_types {
@@ -170,8 +210,6 @@ impl XpubConverter {
                 .iter()
                 .map(|addr| addr.address.clone())
                 .collect();
-
-            total_checked += addresses.len();
 
             let script_type = match type_name.as_str() {
                 "p2pkh" => ScriptType::P2PKH,
@@ -223,8 +261,6 @@ impl XpubConverter {
             descriptor,
             detected_type: best_type,
             confidence,
-            addresses_checked: total_checked,
-            active_addresses: best_active,
         })
     }
 
@@ -252,11 +288,64 @@ impl XpubConverter {
         Ok(descriptor_with_checksum)
     }
 
-    /// Normalize ypub/zpub to xpub format for rust-bitcoin compatibility
-    /// This is a simplified version - in practice you might need more robust conversion
-    fn normalize_xpub(&self, extended_key: &str) -> Result<String> {
-        // For now, just return as-is since rust-bitcoin might handle it
-        // TODO: Implement proper version byte conversion if needed
-        Ok(extended_key.to_string())
+    /// Normalize different extended key formats to standard xpub format
+    /// Converts ypub/zpub/tpub/upub/vpub to xpub/tpub format for consistency
+    pub fn normalize_xpub(&self, extended_key: &str) -> Result<String> {
+        if extended_key.len() < 4 {
+            return Ok(extended_key.to_string());
+        }
+        
+        let prefix = &extended_key[..4];
+        let rest = &extended_key[4..];
+        
+        match self.network {
+            Network::Bitcoin => {
+                match prefix {
+                    "xpub" => Ok(extended_key.to_string()), // Already normalized
+                    "ypub" => Ok(format!("xpub{}", rest)), // Convert ypub to xpub
+                    "zpub" => Ok(format!("xpub{}", rest)), // Convert zpub to xpub
+                    _ => Ok(extended_key.to_string()), // Return as-is for unknown formats
+                }
+            }
+            Network::Testnet => {
+                match prefix {
+                    "tpub" => Ok(extended_key.to_string()), // Already normalized
+                    "upub" => Ok(format!("tpub{}", rest)), // Convert upub to tpub
+                    "vpub" => Ok(format!("tpub{}", rest)), // Convert vpub to tpub
+                    "xpub" => Ok(format!("tpub{}", rest)), // Convert mainnet xpub to testnet
+                    "ypub" => Ok(format!("tpub{}", rest)), // Convert mainnet ypub to testnet
+                    "zpub" => Ok(format!("tpub{}", rest)), // Convert mainnet zpub to testnet
+                    _ => Ok(extended_key.to_string()), // Return as-is for unknown formats
+                }
+            }
+            Network::Regtest => {
+                // For regtest, use testnet format
+                match prefix {
+                    "tpub" => Ok(extended_key.to_string()), // Already correct format
+                    "upub" => Ok(format!("tpub{}", rest)),
+                    "vpub" => Ok(format!("tpub{}", rest)),
+                    "xpub" => Ok(format!("tpub{}", rest)),
+                    "ypub" => Ok(format!("tpub{}", rest)),
+                    "zpub" => Ok(format!("tpub{}", rest)),
+                    _ => Ok(extended_key.to_string()),
+                }
+            }
+            Network::Signet => {
+                // For signet, use testnet format
+                match prefix {
+                    "tpub" => Ok(extended_key.to_string()),
+                    "upub" => Ok(format!("tpub{}", rest)),
+                    "vpub" => Ok(format!("tpub{}", rest)),
+                    "xpub" => Ok(format!("tpub{}", rest)),
+                    "ypub" => Ok(format!("tpub{}", rest)),
+                    "zpub" => Ok(format!("tpub{}", rest)),
+                    _ => Ok(extended_key.to_string()),
+                }
+            }
+            _ => {
+                // For unknown networks, return as-is
+                Ok(extended_key.to_string())
+            }
+        }
     }
 }
