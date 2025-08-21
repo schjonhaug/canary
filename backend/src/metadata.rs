@@ -381,14 +381,6 @@ impl MetadataDb {
         Ok(())
     }
 
-    pub fn test_foreign_key_enforcement(&self) -> Result<bool> {
-        let pool = self.pool.clone();
-        let conn = pool.get()?;
-        let foreign_keys_enabled: i32 = conn.prepare("PRAGMA foreign_keys")?.query_row([], |row| {
-            row.get(0)
-        })?;
-        Ok(foreign_keys_enabled == 1)
-    }
 
     async fn ensure_foss_user(&self) -> Result<()> {
         let pool = self.pool.clone();

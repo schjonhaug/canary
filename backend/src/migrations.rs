@@ -1,6 +1,5 @@
 use anyhow::Result;
 use bdk_wallet::rusqlite::{Connection, Result as SqliteResult};
-use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
