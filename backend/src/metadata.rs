@@ -302,10 +302,9 @@ pub fn calculate_wallet_color(descriptor: &str) -> String {
 #[derive(Debug)]
 struct ForeignKeyEnabler;
 
-impl CustomizeConnection<Connection, r2d2_sqlite::Error> for ForeignKeyEnabler {
-    fn on_acquire(&self, conn: &mut Connection) -> Result<(), r2d2_sqlite::Error> {
+impl CustomizeConnection<Connection, bdk_wallet::rusqlite::Error> for ForeignKeyEnabler {
+    fn on_acquire(&self, conn: &mut Connection) -> Result<(), bdk_wallet::rusqlite::Error> {
         conn.execute_batch("PRAGMA foreign_keys = ON")
-            .map_err(r2d2_sqlite::Error::SqliteError)
     }
 }
 
@@ -380,6 +379,15 @@ impl MetadataDb {
         // SAAS mode in production: Users created via registration
 
         Ok(())
+    }
+
+    pub fn test_foreign_key_enforcement(&self) -> Result<bool> {
+        let pool = self.pool.clone();
+        let conn = pool.get()?;
+        let foreign_keys_enabled: i32 = conn.prepare("PRAGMA foreign_keys")?.query_row([], |row| {
+            row.get(0)
+        })?;
+        Ok(foreign_keys_enabled == 1)
     }
 
     async fn ensure_foss_user(&self) -> Result<()> {
