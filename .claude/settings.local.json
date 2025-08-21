@@ -34,7 +34,8 @@
       "Bash(npm run lint)",
       "Bash(timeout 10s cargo run)",
       "Bash(sqlite3:*)",
-      "Bash(rustc:*)"
+      "Bash(rustc:*)",
+      "Bash(git log:*)"
     ],
     "deny": []
   }

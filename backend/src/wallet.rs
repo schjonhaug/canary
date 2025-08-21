@@ -429,7 +429,8 @@ impl WalletManager {
         if let Err(e) = Self::extract_historical_transactions_for_background(
             &wallet, 
             &checksum, 
-            &metadata_db
+            &metadata_db,
+            electrum_client.as_ref()
         ).await {
             eprintln!("Warning: Failed to extract historical transactions: {}", e);
         }
@@ -455,6 +456,7 @@ impl WalletManager {
         wallet: &PersistedWallet<Connection>,
         wallet_checksum: &str,
         metadata_db: &MetadataDb,
+        electrum_client: Option<&crate::electrum::ElectrumClient>,
     ) -> Result<()> {
         println!("Extracting historical transactions for wallet checksum: {}", wallet_checksum);
 
@@ -535,12 +537,28 @@ impl WalletManager {
 
             // Determine transaction timestamp
             let transaction_time = match &tx.chain_position {
-                bdk_wallet::chain::ChainPosition::Confirmed { .. } => {
-                    // Use current time for historical transactions (block timestamp lookup would be expensive here)
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs()
+                bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                    // Fetch actual block timestamp from Electrum
+                    if let Some(electrum_client) = electrum_client {
+                        match electrum_client.get_block_header(anchor.block_id.height) {
+                            Ok(header) => header.timestamp,
+                            Err(e) => {
+                                eprintln!("Failed to fetch block header for height {}: {}", 
+                                         anchor.block_id.height, e);
+                                // Fallback to current time only if fetch fails
+                                std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs()
+                            }
+                        }
+                    } else {
+                        // No electrum client available, use current time as fallback
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs()
+                    }
                 }
                 bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => {
                     first_seen.unwrap_or_else(|| {
