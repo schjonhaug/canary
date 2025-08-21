@@ -285,6 +285,43 @@ impl XpubConverter {
         Ok((has_activity, activity_score, tx_count, total_balance_sats))
     }
 
+    /// Convert XPUB to a multipath descriptor with forced script type (for fresh wallets)
+    pub fn convert_to_descriptor_with_forced_type(&self, xpub: &str, script_type: &str) -> Result<ConversionResult> {
+        println!("\n=== XPUB Conversion (Forced Script Type) ===");
+        println!("Input XPUB: {}", xpub);
+        println!("Forced script type: {}", script_type);
+        
+        // Normalize the XPUB
+        let normalized_xpub = self.normalize_xpub(xpub)?;
+        if normalized_xpub != xpub {
+            println!("Normalized XPUB: {} -> {}", xpub, normalized_xpub);
+        }
+        
+        // Parse the forced script type
+        let forced_type = match script_type.to_lowercase().as_str() {
+            "p2pkh" | "legacy" => ScriptType::P2PKH,
+            "p2sh" | "nested_segwit" | "nested-segwit" => ScriptType::P2SH,
+            "p2wpkh" | "native_segwit" | "native-segwit" => ScriptType::P2WPKH,
+            "p2tr" | "taproot" => ScriptType::P2TR,
+            _ => return Err(anyhow!("Invalid script type: {}. Valid options: p2pkh, p2sh, p2wpkh, p2tr", script_type)),
+        };
+        
+        println!("Parsed script type: {}", forced_type.as_str());
+        
+        // Generate descriptor for the forced type
+        let descriptor = self.generate_descriptor_for_type(xpub, &forced_type)
+            .map_err(|e| anyhow!("Failed to generate descriptor for {:?}: {}", forced_type, e))?;
+        
+        println!("Generated descriptor: {}", descriptor);
+        println!("=== End XPUB Conversion (Forced) ===\n");
+        
+        Ok(ConversionResult {
+            descriptor,
+            detected_type: forced_type,
+            confidence: 1.0, // 100% confidence since user provided the type
+        })
+    }
+
     /// Convert XPUB to a multipath descriptor by probing different script types
     pub async fn convert_to_descriptor(&self, xpub: &str) -> Result<ConversionResult> {
         println!("\n=== XPUB Conversion Analysis ===");

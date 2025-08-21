@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useModal } from "@/hooks/useModal"
 import { api } from "@/lib/api"
 import { ErrorDisplay } from "@/components/ui/error-display"
@@ -36,6 +38,8 @@ export function CreateWalletModal({
 }: CreateWalletModalProps) {
   const [name, setName] = useState("")
   const [descriptor, setDescriptor] = useState("")
+  const [isFreshWallet, setIsFreshWallet] = useState(false)
+  const [scriptType, setScriptType] = useState("")
   const modal = useModal()
   const { user } = useAuth()
   const descriptorRef = useRef<HTMLTextAreaElement>(null)
@@ -51,6 +55,12 @@ export function CreateWalletModal({
     }
   }, [isOpen, isFirstWallet, authEnabled, user?.name])
   
+  // Helper function to detect XPUB format
+  const isXpubFormat = (input: string): boolean => {
+    const xpubRegex = /^[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{107,108}$/
+    return xpubRegex.test(input.trim())
+  }
+
   // Determine which field should be auto-focused
   const shouldFocusDescriptor = isOpen && isFirstWallet && authEnabled && user?.name
   const shouldFocusName = isOpen && !shouldFocusDescriptor
@@ -59,6 +69,8 @@ export function CreateWalletModal({
     if (!modal.isLoading) {
       setName("")
       setDescriptor("")
+      setIsFreshWallet(false)
+      setScriptType("")
       modal.reset()
       onClose()
     }
@@ -77,11 +89,22 @@ export function CreateWalletModal({
       return
     }
 
+    // Validate script type for fresh XPUB wallets
+    if (isFreshWallet && isXpubFormat(descriptor) && !scriptType) {
+      modal.setError("Script type is required for fresh XPUB wallets")
+      return
+    }
+
     modal.setLoading(true)
     modal.clearError()
 
     try {
-      const wallet = await api.createWallet(name.trim(), descriptor.trim())
+      const wallet = await api.createWallet({
+        name: name.trim(),
+        descriptor: descriptor.trim(),
+        isFreshWallet: isFreshWallet || undefined,
+        scriptType: (isFreshWallet && isXpubFormat(descriptor)) ? scriptType : undefined,
+      })
       onWalletCreated(wallet)
       handleClose()
     } catch (err) {
@@ -136,6 +159,51 @@ export function CreateWalletModal({
               <p>• <strong>Extended public key</strong>: xpub/ypub/zpub... (will auto-detect script type)</p>
             </div>
           </div>
+
+          {/* Fresh wallet checkbox - only show for XPUB inputs */}
+          {isXpubFormat(descriptor) && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="fresh-wallet"
+                checked={isFreshWallet}
+                onCheckedChange={setIsFreshWallet}
+                disabled={modal.isLoading}
+              />
+              <Label
+                htmlFor="fresh-wallet"
+                className="text-sm font-normal cursor-pointer"
+              >
+                This is a fresh wallet (no transaction history)
+              </Label>
+            </div>
+          )}
+
+          {/* Script type dropdown - only show for fresh XPUB wallets */}
+          {isFreshWallet && isXpubFormat(descriptor) && (
+            <div className="space-y-2">
+              <Label htmlFor="script-type">Address Type</Label>
+              <Select value={scriptType} onValueChange={setScriptType} disabled={modal.isLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select address type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="p2wpkh">Native SegWit (bc1...) - Most common</SelectItem>
+                  <SelectItem value="p2sh">Nested SegWit (3...) - Legacy compatibility</SelectItem>
+                  <SelectItem value="p2tr">Taproot (bc1p...) - Modern</SelectItem>
+                  <SelectItem value="p2pkh">Legacy (1...) - Oldest</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Info message for existing XPUB wallets */}
+          {!isFreshWallet && isXpubFormat(descriptor) && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                ℹ️ Address type will be detected automatically by scanning the blockchain
+              </p>
+            </div>
+          )}
 
           {modal.error && (
             <ErrorDisplay message={modal.error} variant="inline" />

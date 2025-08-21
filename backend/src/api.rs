@@ -39,7 +39,7 @@ pub struct CreateWalletRequest {
     /// The name of the wallet
     #[schema(example = "My Bitcoin Wallet")]
     pub name: String,
-    /// The multipath output descriptor for the wallet
+    /// The multipath output descriptor for the wallet or extended public key (XPUB)
     #[schema(
         example = "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)"
     )]
@@ -48,6 +48,14 @@ pub struct CreateWalletRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(example = "en")]
     pub preferred_language: Option<String>,
+    /// Whether this is a fresh wallet with no transaction history (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(example = false)]
+    pub is_fresh_wallet: Option<bool>,
+    /// Script type for fresh XPUB wallets (required when is_fresh_wallet=true and descriptor is XPUB)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(example = "p2wpkh")]
+    pub script_type: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -341,30 +349,69 @@ pub async fn create_wallet(
         let electrum_client = manager.electrum_client.as_ref();
         let converter = XpubConverter::new(network, electrum_client);
         
-        match converter.convert_to_descriptor(&payload.descriptor).await {
-            Ok(conversion_result) => {
-                println!(
-                    "Successfully converted XPUB to descriptor: {} (detected: {}, confidence: {:.1}%)",
-                    conversion_result.descriptor,
-                    conversion_result.detected_type.as_str(),
-                    conversion_result.confidence * 100.0
-                );
-                conversion_result.descriptor
+        // Check if user indicated this is a fresh wallet
+        if payload.is_fresh_wallet == Some(true) {
+            // Fresh wallet - use provided script type
+            match &payload.script_type {
+                Some(script_type) => {
+                    println!("Fresh wallet detected, using provided script type: {}", script_type);
+                    match converter.convert_to_descriptor_with_forced_type(&payload.descriptor, script_type) {
+                        Ok(conversion_result) => {
+                            println!(
+                                "Successfully converted fresh XPUB to descriptor: {} (type: {})",
+                                conversion_result.descriptor,
+                                conversion_result.detected_type.as_str()
+                            );
+                            conversion_result.descriptor
+                        }
+                        Err(e) => {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(ErrorResponse {
+                                    error: format!("Failed to create descriptor with provided script type: {}", e),
+                                }),
+                            )
+                                .into_response();
+                        }
+                    }
+                }
+                None => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse {
+                            error: "script_type is required for fresh XPUB wallets".to_string(),
+                        }),
+                    )
+                        .into_response();
+                }
             }
-            Err(e) => {
-                eprintln!("Failed to convert XPUB, using fallback: {}", e);
-                
-                // Fallback: Use prefix hints to generate descriptor
-                let script_type = XpubConverter::detect_type_from_prefix(&payload.descriptor);
-                let fallback_descriptor = match script_type {
-                    ScriptType::P2PKH => format!("pkh({}/<0;1>/*)", payload.descriptor),
-                    ScriptType::P2SH => format!("sh(wpkh({}/<0;1>/*))", payload.descriptor),
-                    ScriptType::P2WPKH => format!("wpkh({}/<0;1>/*)", payload.descriptor),
-                    ScriptType::P2TR => format!("tr({}/<0;1>/*)", payload.descriptor),
-                };
-                
-                println!("Using fallback descriptor based on prefix: {}", fallback_descriptor);
-                fallback_descriptor
+        } else {
+            // Existing wallet - try auto-detection
+            match converter.convert_to_descriptor(&payload.descriptor).await {
+                Ok(conversion_result) => {
+                    println!(
+                        "Successfully converted XPUB to descriptor: {} (detected: {}, confidence: {:.1}%)",
+                        conversion_result.descriptor,
+                        conversion_result.detected_type.as_str(),
+                        conversion_result.confidence * 100.0
+                    );
+                    conversion_result.descriptor
+                }
+                Err(e) => {
+                    eprintln!("Failed to convert XPUB, using fallback: {}", e);
+                    
+                    // Fallback: Use prefix hints to generate descriptor
+                    let script_type = XpubConverter::detect_type_from_prefix(&payload.descriptor);
+                    let fallback_descriptor = match script_type {
+                        ScriptType::P2PKH => format!("pkh({}/<0;1>/*)", payload.descriptor),
+                        ScriptType::P2SH => format!("sh(wpkh({}/<0;1>/*))", payload.descriptor),
+                        ScriptType::P2WPKH => format!("wpkh({}/<0;1>/*)", payload.descriptor),
+                        ScriptType::P2TR => format!("tr({}/<0;1>/*)", payload.descriptor),
+                    };
+                    
+                    println!("Using fallback descriptor based on prefix: {}", fallback_descriptor);
+                    fallback_descriptor
+                }
             }
         }
     } else {
