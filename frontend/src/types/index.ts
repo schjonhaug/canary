@@ -9,6 +9,7 @@ export interface Wallet {
   created_at: string
   balance_total: number
   last_activity: string | null
+  sync_status: string // 'pending' | 'ready'
   contact_count: number
   is_active: boolean
 }

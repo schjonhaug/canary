@@ -110,6 +110,7 @@ pub struct WalletMetadata {
     pub created_at: String,
     pub balance_total: Option<i64>,
     pub last_activity: Option<String>,
+    pub sync_status: String,
     pub contact_count: Option<i64>,
     pub user_id: String,
     pub is_active: bool,
@@ -487,8 +488,8 @@ impl MetadataDb {
                 .to_string();
             
             conn.execute(
-                "INSERT INTO wallets (checksum, name, descriptor, hex_color, balance_total, last_activity, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![&checksum, &name, &descriptor, &hex_color, "0", &current_time, user_id],
+                "INSERT INTO wallets (checksum, name, descriptor, hex_color, balance_total, last_activity, sync_status, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![&checksum, &name, &descriptor, &hex_color, "0", &current_time, "pending", user_id],
             )?;
             Ok(checksum)
         }).await?
@@ -506,11 +507,11 @@ impl MetadataDb {
             match conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                        COUNT(c.id) as contact_count, w.user_id, w.is_active
+                        w.sync_status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                  FROM wallets w 
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                  WHERE w.descriptor = ?1 
-                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active",
+                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.sync_status, w.user_id, w.is_active",
                 params![descriptor],
                 |row| {
                     Ok(WalletMetadata {
@@ -521,9 +522,10 @@ impl MetadataDb {
                         created_at: row.get(4)?,
                         balance_total: row.get(5).ok(),
                         last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
-                        contact_count: Some(row.get(7)?),
-                        user_id: row.get(8)?,
-                        is_active: row.get::<_, i64>(9).unwrap_or(1) != 0,
+                        sync_status: row.get(7)?,
+                        contact_count: Some(row.get(8)?),
+                        user_id: row.get(9)?,
+                        is_active: row.get::<_, i64>(10).unwrap_or(1) != 0,
                     })
                 },
             ) {
@@ -543,11 +545,11 @@ impl MetadataDb {
             match conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                         (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                        COUNT(c.id) as contact_count, w.user_id, w.is_active
+                        w.sync_status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                  FROM wallets w 
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                  WHERE w.checksum = ?1 
-                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active",
+                 GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.sync_status, w.user_id, w.is_active",
                 params![checksum],
                 |row| {
                     Ok(WalletMetadata {
@@ -558,9 +560,10 @@ impl MetadataDb {
                         created_at: row.get(4)?,
                         balance_total: row.get(5).ok(),
                         last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
-                        contact_count: Some(row.get(7)?),
-                        user_id: row.get(8)?,
-                        is_active: row.get::<_, i64>(9).unwrap_or(1) != 0,
+                        sync_status: row.get(7)?,
+                        contact_count: Some(row.get(8)?),
+                        user_id: row.get(9)?,
+                        is_active: row.get::<_, i64>(10).unwrap_or(1) != 0,
                     })
                 },
             ) {
@@ -586,20 +589,20 @@ impl MetadataDb {
                 Some(_) => {
                     "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                             (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                            COUNT(c.id) as contact_count, w.user_id, w.is_active
+                            w.sync_status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                      WHERE w.user_id = ?1
-                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active
+                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.sync_status, w.user_id, w.is_active
                      ORDER BY w.created_at DESC"
                 }
                 None => {
                     "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                             (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                            COUNT(c.id) as contact_count, w.user_id, w.is_active
+                            w.sync_status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
-                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active
+                     GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.sync_status, w.user_id, w.is_active
                      ORDER BY w.created_at DESC"
                 }
             };
@@ -620,9 +623,10 @@ impl MetadataDb {
                     created_at: row.get(4)?,
                     balance_total: Some(row.get(5).unwrap_or(0)),
                     last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
-                    contact_count: Some(row.get(7)?),
-                    user_id: row.get(8)?,
-                    is_active: row.get::<_, i64>(9).unwrap_or(1) != 0, // SQLite stores bool as int
+                    sync_status: row.get(7)?,
+                    contact_count: Some(row.get(8)?),
+                    user_id: row.get(9)?,
+                    is_active: row.get::<_, i64>(10).unwrap_or(1) != 0, // SQLite stores bool as int
                 })
             })?;
 
@@ -648,11 +652,11 @@ impl MetadataDb {
             
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
                                (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
-                               COUNT(c.id) as contact_count, w.user_id, w.is_active
+                               w.sync_status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                         FROM wallets w 
                         LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
                         WHERE w.user_id = ?1
-                        GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.user_id, w.is_active
+                        GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.sync_status, w.user_id, w.is_active
                         ORDER BY w.created_at ASC"; // Oldest first for subscription limits
             
             let mut stmt = conn.prepare(query)?;
@@ -666,9 +670,10 @@ impl MetadataDb {
                     created_at: row.get(4)?,
                     balance_total: Some(row.get(5).unwrap_or(0)),
                     last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
-                    contact_count: Some(row.get(7)?),
-                    user_id: row.get(8)?,
-                    is_active: row.get::<_, i64>(9).unwrap_or(1) != 0, // SQLite stores bool as int
+                    sync_status: row.get(7)?,
+                    contact_count: Some(row.get(8)?),
+                    user_id: row.get(9)?,
+                    is_active: row.get::<_, i64>(10).unwrap_or(1) != 0, // SQLite stores bool as int
                 })
             })?;
 
@@ -1174,6 +1179,22 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn update_wallet_sync_status(&self, checksum: &str, status: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let checksum = checksum.to_string();
+        let status = status.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE wallets SET sync_status = ?1 WHERE checksum = ?2",
+                params![status, checksum],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     pub async fn get_wallets_due_for_sync(
         &self,
     ) -> Result<Vec<(WalletMetadata, SubscriptionTier)>> {
@@ -1185,11 +1206,11 @@ impl MetadataDb {
             
             let mut stmt = conn.prepare(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.balance_total, 
-                        w.last_activity, w.last_synced_at, w.user_id, w.created_at,
+                        w.last_activity, w.last_synced_at, w.sync_status, w.user_id, w.created_at,
                         u.subscription_tier
                  FROM wallets w 
                  JOIN users u ON w.user_id = u.id
-                 WHERE w.is_active = 1 AND (
+                 WHERE w.is_active = 1 AND w.sync_status = 'ready' AND (
                     -- Active subscriptions
                     u.subscription_status = 'active'
                     OR 
@@ -1211,12 +1232,13 @@ impl MetadataDb {
                         hex_color: row.get(3)?,
                         balance_total: row.get(4)?,
                         last_activity: row.get(5)?,
+                        sync_status: row.get(7)?,
                         contact_count: None, // Not counting contacts in this query
-                        user_id: row.get(7)?,
-                        created_at: row.get(8)?,
+                        user_id: row.get(8)?,
+                        created_at: row.get(9)?,
                         is_active: true, // Query already filters for active wallets
                     },
-                    SubscriptionTier::from(row.get::<_, String>(9)?),
+                    SubscriptionTier::from(row.get::<_, String>(10)?),
                     row.get::<_, Option<String>>(6)?, // last_synced_at
                 ))
             })?;

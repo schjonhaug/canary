@@ -386,31 +386,26 @@ pub async fn create_wallet(
                 }
             }
         } else {
-            // Existing wallet - try auto-detection
-            match converter.convert_to_descriptor(&payload.descriptor).await {
-                Ok(conversion_result) => {
-                    println!(
-                        "Successfully converted XPUB to descriptor: {} (detected: {}, confidence: {:.1}%)",
-                        conversion_result.descriptor,
-                        conversion_result.detected_type.as_str(),
-                        conversion_result.confidence * 100.0
-                    );
-                    conversion_result.descriptor
+            // Existing wallet - use fast prefix-based detection for immediate response
+            // The background task will do the expensive blockchain analysis and deep scanning
+            println!("Detected XPUB format, using fast prefix-based conversion for immediate response");
+            let script_type = XpubConverter::detect_type_from_prefix(&payload.descriptor);
+            match converter.generate_descriptor_for_type(&payload.descriptor, &script_type) {
+                Ok(fast_descriptor) => {
+                    println!("Fast conversion result: {} -> {} -> {}", 
+                             payload.descriptor, 
+                             script_type.as_str(), 
+                             fast_descriptor);
+                    fast_descriptor
                 }
                 Err(e) => {
-                    eprintln!("Failed to convert XPUB, using fallback: {}", e);
-                    
-                    // Fallback: Use prefix hints to generate descriptor
-                    let script_type = XpubConverter::detect_type_from_prefix(&payload.descriptor);
-                    let fallback_descriptor = match script_type {
-                        ScriptType::P2PKH => format!("pkh({}/<0;1>/*)", payload.descriptor),
-                        ScriptType::P2SH => format!("sh(wpkh({}/<0;1>/*))", payload.descriptor),
-                        ScriptType::P2WPKH => format!("wpkh({}/<0;1>/*)", payload.descriptor),
-                        ScriptType::P2TR => format!("tr({}/<0;1>/*)", payload.descriptor),
-                    };
-                    
-                    println!("Using fallback descriptor based on prefix: {}", fallback_descriptor);
-                    fallback_descriptor
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse {
+                            error: format!("Failed to generate descriptor: {}", e),
+                        }),
+                    )
+                        .into_response();
                 }
             }
         }

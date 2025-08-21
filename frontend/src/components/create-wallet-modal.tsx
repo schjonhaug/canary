@@ -55,6 +55,13 @@ export function CreateWalletModal({
     }
   }, [isOpen, isFirstWallet, authEnabled, user?.name])
   
+  // Set default script type for fresh XPUB wallets
+  useEffect(() => {
+    if (isXpubFormat(descriptor) && isFreshWallet && !scriptType) {
+      setScriptType("p2wpkh") // Default to Native SegWit (most common)
+    }
+  }, [descriptor, isFreshWallet, scriptType])
+  
   // Helper function to detect XPUB format
   const isXpubFormat = (input: string): boolean => {
     const xpubRegex = /^[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{107,108}$/
@@ -154,10 +161,6 @@ export function CreateWalletModal({
               className="font-mono text-sm break-all whitespace-pre-wrap resize-none"
               autoFocus={!!shouldFocusDescriptor}
             />
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>• <strong>Output descriptor</strong>: wpkh([fingerprint/path]xpub.../&#60;0;1&#62;/*)</p>
-              <p>• <strong>Extended public key</strong>: xpub/ypub/zpub... (will auto-detect script type)</p>
-            </div>
           </div>
 
           {/* Fresh wallet checkbox - only show for XPUB inputs */}
@@ -193,15 +196,6 @@ export function CreateWalletModal({
                   <SelectItem value="p2pkh">Legacy (1...) - Oldest</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          )}
-
-          {/* Info message for existing XPUB wallets */}
-          {!isFreshWallet && isXpubFormat(descriptor) && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800">
-                ℹ️ Address type will be detected automatically by scanning the blockchain
-              </p>
             </div>
           )}
 

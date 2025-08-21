@@ -478,7 +478,7 @@ impl XpubConverter {
     }
 
     /// Generate a multipath descriptor for a given script type (without key origin)
-    fn generate_descriptor_for_type(&self, xpub: &str, script_type: &ScriptType) -> Result<String> {
+    pub fn generate_descriptor_for_type(&self, xpub: &str, script_type: &ScriptType) -> Result<String> {
         // For watch-only wallets, we strip key origin to prevent duplicate wallets
         // Same XPUB with different fingerprints would create different checksums
         let normalized_xpub = self.normalize_xpub(xpub)?;

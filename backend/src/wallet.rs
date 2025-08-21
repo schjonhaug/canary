@@ -437,6 +437,13 @@ impl WalletManager {
             eprintln!("Warning: Failed to update wallet last synced: {}", e);
         }
         
+        // Mark wallet as ready after deep scan and transaction extraction is complete
+        if let Err(e) = metadata_db.update_wallet_sync_status(&checksum, "ready").await {
+            eprintln!("Warning: Failed to mark wallet as ready: {}", e);
+        } else {
+            println!("✅ Wallet {} marked as ready - available for frontend display", checksum);
+        }
+        
         println!("Background wallet creation completed for checksum: {}", checksum);
         Ok(())
     }
