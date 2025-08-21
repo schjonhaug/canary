@@ -163,23 +163,21 @@ export function CreateWalletModal({
             />
           </div>
 
-          {/* Fresh wallet checkbox - only show for XPUB inputs */}
-          {isXpubFormat(descriptor) && (
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="fresh-wallet"
-                checked={isFreshWallet}
-                onCheckedChange={setIsFreshWallet}
-                disabled={modal.isLoading}
-              />
-              <Label
-                htmlFor="fresh-wallet"
-                className="text-sm font-normal cursor-pointer"
-              >
-                This is a fresh wallet (no transaction history)
-              </Label>
-            </div>
-          )}
+          {/* Fresh wallet checkbox - always show */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="fresh-wallet"
+              checked={isFreshWallet}
+              onCheckedChange={setIsFreshWallet}
+              disabled={modal.isLoading}
+            />
+            <Label
+              htmlFor="fresh-wallet"
+              className="text-sm font-normal cursor-pointer"
+            >
+              This is a fresh wallet (no transaction history)
+            </Label>
+          </div>
 
           {/* Script type dropdown - only show for fresh XPUB wallets */}
           {isFreshWallet && isXpubFormat(descriptor) && (
