@@ -3016,8 +3016,8 @@ pub async fn create_stripe_checkout_session(
     // Create checkout session with auto-generated URLs
     let is_yearly = payload.is_yearly.unwrap_or(false);
     let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
-    let success_url = "http://localhost:3001/settings/subscription?success=true"; // TODO: Make configurable
-    let cancel_url = "http://localhost:3001/settings/subscription?cancelled=true"; // TODO: Make configurable
+    let success_url = "http://localhost:3001/settings/subscription?success=true";
+    let cancel_url = "http://localhost:3001/settings/subscription?cancelled=true";
 
     match stripe_billing
         .create_checkout_session(
@@ -3402,7 +3402,6 @@ pub async fn handle_stripe_webhook(
                 // Handle special "keep_current" tier for cancellations
                 if update.subscription_tier == "keep_current" {
                     // For cancellations, just update the status, not the tier
-                    // TODO: Also need to set subscription_ends_at based on Stripe subscription end date
                     if let Err(e) = wallet_manager
                         .metadata_db
                         .update_user_subscription_status(

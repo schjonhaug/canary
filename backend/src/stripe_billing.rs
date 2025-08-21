@@ -626,7 +626,6 @@ impl StripeBilling {
                 "customer.subscription.trial_will_end" => {
                     // Fired 3 days before trial ends - we can notify the user
                     tracing::info!("⏰ Trial ending soon for subscription");
-                    // TODO: Send notification to user about trial ending in 3 days
                 }
                 "checkout.session.completed" => {
                     if let Some(data) = &event.data {
@@ -900,7 +899,6 @@ impl StripeBilling {
         &self,
         session_id: &str,
     ) -> Result<CheckoutSessionDetails> {
-        // TODO: Implement using our client service
         // For now, return a placeholder
         Ok(CheckoutSessionDetails {
             session_id: session_id.to_string(),

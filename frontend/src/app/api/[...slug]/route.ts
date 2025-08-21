@@ -33,7 +33,6 @@ export async function DELETE(
 }
 
 async function proxyToBackend(request: NextRequest, slug: string[]) {
-  // Note: SSE endpoints are no longer supported - system uses polling instead
   if (slug.includes('stream')) {
     return new Response('Stream endpoints not supported - system uses polling', { status: 404 });
   }

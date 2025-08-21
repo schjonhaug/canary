@@ -979,7 +979,7 @@ impl MetadataDb {
                         contact_id: contact_id.clone(),
                         provider_type: ProviderType::from(provider_str.as_str()),
                         notification_target: row.get(2)?,
-                        display_target: None, // TODO: Add display_target logic if needed
+                        display_target: None,
                         created_at: row.get(3)?,
                     })
                 })?;

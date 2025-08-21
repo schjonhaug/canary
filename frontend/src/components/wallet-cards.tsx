@@ -8,7 +8,6 @@ import { Users, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
-// Note: checksum is now directly available from wallet.checksum
 import { Wallet } from "../types"
 
 interface WalletCardsProps {
