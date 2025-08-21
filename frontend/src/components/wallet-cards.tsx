@@ -49,15 +49,9 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
       return () => { isMounted = false }
     }, [wallet.hex_color, cachedSvg])
     
-    const checksumTitle = useMemo(() => 
-      `Checksum: #${wallet.checksum}`, 
-      [wallet.checksum]
-    )
-    
     return (
       <div 
-        className="w-6 h-6 cursor-help flex-shrink-0"
-        title={checksumTitle}
+        className="w-6 h-6 flex-shrink-0"
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
     )
