@@ -19,13 +19,10 @@ serde_json = "1.0"
 utoipa = { version = "5.4", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
 anyhow = "1.0"
-secp256k1 = "0.31"
 chrono = "0.4"
 clap = { version = "4.0", features = ["derive"] }
 dotenvy = "0.15"
 phonenumber = "0.3"
-tokio-stream = { version = "0.1", features = ["sync"] }
-futures-util = "0.3"
 num-format = "0.4"
 r2d2 = "0.8"
 r2d2_sqlite = "0.24"
@@ -37,7 +34,6 @@ rand = "0.8"
 sha2 = "0.10"
 hmac = "0.12"
 hex = "0.4"
-urlencoding = "2.1"
 argon2 = "0.5"
 uuid = { version = "1", features = ["v4"] }
 resend-rs = "0.16"
@@ -48,5 +44,4 @@ regex = "1.10"
 [dev-dependencies]
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
-mime = "0.3"
 tempfile = "3.3"

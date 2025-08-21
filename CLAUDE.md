@@ -2,15 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Development Status**: This project is in unreleased developer mode. Backwards compatibility is not a priority at this stage.
-
 ## Project Overview
 Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, and optional email/password authentication with email verification.
 
 ## Architecture
 Built with a plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with email/password and email verification for multi-user support. SMS verification via Twilio Verify is still used for contact verification when adding SMS contacts. Uses polling-based frontend updates rather than server-sent events.
-
-IMPORTANT: The app is unreleased, so no need for migration files or keep old code around for backwards compatability.
 
 ## Development Commands
 

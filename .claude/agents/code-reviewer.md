@@ -49,4 +49,4 @@ Provide specific, actionable feedback with:
 - **Style Consistency**: Adherence to project patterns and conventions
 - **Testing Suggestions**: Areas needing test coverage or edge case handling
 
-Always consider the project's development status (unreleased, no backwards compatibility needed) and focus on code that will be maintainable and secure for a Bitcoin wallet application.
+Always focus on code that will be maintainable and secure for a Bitcoin wallet application.
