@@ -52,7 +52,7 @@ impl EmailService {
     ) -> Result<()> {
         let verification_url = format!(
             "{}/verify-email/{}",
-            std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3001".to_string()),
+            std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set"),
             verification_token
         );
 
@@ -138,7 +138,7 @@ This verification link will expire in 24 hours. If you didn't create an account,
     ) -> Result<()> {
         let reset_url = format!(
             "{}/reset-password/{}",
-            std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3001".to_string()),
+            std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set"),
             reset_token
         );
 

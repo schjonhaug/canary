@@ -3013,19 +3013,20 @@ pub async fn create_stripe_checkout_session(
         }
     };
 
-    // Create checkout session with auto-generated URLs
+    // Create checkout session with configurable URLs
     let is_yearly = payload.is_yearly.unwrap_or(false);
     let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
-    let success_url = "http://localhost:3001/settings/subscription?success=true";
-    let cancel_url = "http://localhost:3001/settings/subscription?cancelled=true";
+    let frontend_url = std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
+    let success_url = format!("{}/settings/subscription?success=true", frontend_url);
+    let cancel_url = format!("{}/settings/subscription?cancelled=true", frontend_url);
 
     match stripe_billing
         .create_checkout_session(
             &user_record.id,
             tier,
             billing_cycle,
-            success_url,
-            cancel_url,
+            &success_url,
+            &cancel_url,
             &manager.metadata_db,
         )
         .await
