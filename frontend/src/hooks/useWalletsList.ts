@@ -13,19 +13,19 @@ export function useWalletsList(shouldFetch: boolean = true) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
-  const [pendingWallets, setPendingWallets] = useState<Wallet[]>([]);
   const { token, isAuthenticated, billingStatus } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get polling interval - faster when there are pending wallets, otherwise use tier-based
   const getPollingInterval = useCallback(() => {
-    if (pendingWallets.length > 0) {
+    const hasPendingWallets = wallets.some(wallet => wallet.sync_status === 'pending');
+    if (hasPendingWallets) {
       return 1000; // 1 second when wallets are syncing
     }
     const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60;
     return syncIntervalSeconds * 1000; // Convert to milliseconds
-  }, [billingStatus?.limits?.sync_interval_seconds, pendingWallets.length]);
+  }, [billingStatus?.limits?.sync_interval_seconds, wallets]);
 
   const fetchWallets = useCallback(async () => {
     // Only fetch data if user is authenticated, has a token, and should fetch
@@ -51,15 +51,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
       if (response.ok) {
         const data: WalletsListResponse = await response.json();
         
-        // Check if any pending wallets are now fully loaded (have balance and/or last_activity)
-        if (pendingWallets.length > 0) {
-          const updatedPending = pendingWallets.filter(pending => {
-            const updated = data.wallets.find(w => w.checksum === pending.checksum);
-            // Remove from pending if wallet now has balance > 0 OR has last_activity
-            return updated && updated.balance_total === 0 && !updated.last_activity;
-          });
-          setPendingWallets(updatedPending);
-        }
+        // Note: We now rely on backend's sync_status field instead of client-side pending tracking
         
         setWallets(data.wallets);
         setLastUpdate(data.timestamp);
@@ -77,7 +69,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
     } finally {
       setIsLoading(false);
     }
-  }, [token, isAuthenticated, shouldFetch, pendingWallets]);
+  }, [token, isAuthenticated, shouldFetch]);
 
   const refresh = useCallback(() => {
     fetchWallets();
@@ -87,14 +79,10 @@ export function useWalletsList(shouldFetch: boolean = true) {
   const addWallet = useCallback((wallet: Wallet) => {
     // Add to regular wallets list immediately
     setWallets(prev => [...prev, wallet]);
-    
-    // If wallet appears to be pending (no balance, no activity), add to pending list for fast polling
-    if (wallet.balance_total === 0 && !wallet.last_activity) {
-      setPendingWallets(prev => [...prev, wallet]);
-    }
+    // Note: Polling interval will automatically adjust based on wallet.sync_status
   }, []);
 
-  // Return combined list of regular + pending wallets for UI
+  // Return wallets for UI
   const allWallets = useMemo(() => {
     return [...wallets];
   }, [wallets]);
@@ -137,6 +125,6 @@ export function useWalletsList(shouldFetch: boolean = true) {
     isConnected,
     refresh, // Manual refresh function
     addWallet, // Add new wallet immediately
-    hasPendingWallets: pendingWallets.length > 0,
+    hasPendingWallets: wallets.some(wallet => wallet.sync_status === 'pending'),
   };
 }
