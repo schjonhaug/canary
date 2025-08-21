@@ -180,10 +180,12 @@ describe('CreateWalletModal', () => {
       fireEvent.click(submitButton)
       
       await waitFor(() => {
-        expect(mockApi.createWallet).toHaveBeenCalledWith(
-          'My Wallet',
-          'wpkh([fingerprint/derivation]xpub.../0/*)#checksum'
-        )
+        expect(mockApi.createWallet).toHaveBeenCalledWith({
+          name: 'My Wallet',
+          descriptor: 'wpkh([fingerprint/derivation]xpub.../0/*)#checksum',
+          isFreshWallet: undefined,
+          scriptType: undefined
+        })
       })
       
       expect(defaultProps.onWalletCreated).toHaveBeenCalled()
@@ -206,10 +208,12 @@ describe('CreateWalletModal', () => {
       fireEvent.click(submitButton)
       
       await waitFor(() => {
-        expect(mockApi.createWallet).toHaveBeenCalledWith(
-          'Alice Johnson',
-          'wpkh([fingerprint/derivation]xpub.../0/*)#checksum'
-        )
+        expect(mockApi.createWallet).toHaveBeenCalledWith({
+          name: 'Alice Johnson',
+          descriptor: 'wpkh([fingerprint/derivation]xpub.../0/*)#checksum',
+          isFreshWallet: undefined,
+          scriptType: undefined
+        })
       })
     })
 
@@ -232,10 +236,12 @@ describe('CreateWalletModal', () => {
       fireEvent.click(submitButton)
       
       await waitFor(() => {
-        expect(mockApi.createWallet).toHaveBeenCalledWith(
-          'My Personal Wallet',
-          'wpkh([fingerprint/derivation]xpub.../0/*)#checksum'
-        )
+        expect(mockApi.createWallet).toHaveBeenCalledWith({
+          name: 'My Personal Wallet',
+          descriptor: 'wpkh([fingerprint/derivation]xpub.../0/*)#checksum',
+          isFreshWallet: undefined,
+          scriptType: undefined
+        })
       })
     })
   })
