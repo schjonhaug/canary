@@ -168,7 +168,7 @@ export function CreateWalletModal({
             <Checkbox
               id="fresh-wallet"
               checked={isFreshWallet}
-              onCheckedChange={setIsFreshWallet}
+              onCheckedChange={(checked) => setIsFreshWallet(checked === true)}
               disabled={modal.isLoading}
             />
             <Label
