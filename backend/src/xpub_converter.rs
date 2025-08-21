@@ -56,11 +56,13 @@ pub struct DerivedAddresses {
 pub struct ConversionResult {
     pub descriptor: String,
     pub detected_type: ScriptType,
+    #[allow(dead_code)]
     pub confidence: f32,
 }
 
 pub struct XpubConverter {
     network: Network,
+    #[allow(dead_code)]
     electrum_client: Option<ElectrumClient>,
 }
 
@@ -91,6 +93,7 @@ impl XpubConverter {
     }
 
     /// Call the Node.js script to derive addresses for all script types
+    #[allow(dead_code)]
     async fn derive_addresses(&self, xpub: &str) -> Result<DerivedAddresses> {
         let network_str = match self.network {
             Network::Bitcoin => "mainnet",
@@ -141,6 +144,7 @@ impl XpubConverter {
 
     /// Score addresses based on Electrum activity (transactions, balance)
     /// Returns (active_addresses_count, total_activity_score)
+    #[allow(dead_code)]
     async fn score_addresses(&self, addresses: &[String]) -> Result<(usize, f32)> {
         if let Some(ref electrum_client) = self.electrum_client {
             let mut active_count = 0;
@@ -223,6 +227,7 @@ impl XpubConverter {
     
     /// Check if an address has activity using Electrum
     /// Returns (has_activity, activity_score, tx_count, balance_sats) for detailed tracking
+    #[allow(dead_code)]
     async fn check_address_activity(&self, electrum_client: &ElectrumClient, address: &str) -> Result<(bool, f32, usize, u64)> {
         // Parse the address - for regtest, we need to be more flexible since Node.js generates testnet addresses
         let addr = address.parse::<bdk_wallet::bitcoin::Address<bdk_wallet::bitcoin::address::NetworkUnchecked>>()?;
@@ -323,6 +328,7 @@ impl XpubConverter {
     }
 
     /// Convert XPUB to a multipath descriptor by probing different script types
+    #[allow(dead_code)]
     pub async fn convert_to_descriptor(&self, xpub: &str) -> Result<ConversionResult> {
         println!("\n=== XPUB Conversion Analysis ===");
         println!("Input XPUB: {}", xpub);
@@ -502,6 +508,7 @@ impl XpubConverter {
     }
 
     /// Get priority score for script types (higher = preferred for tie-breaking)
+    #[allow(dead_code)]
     fn script_type_priority(&self, script_type: &ScriptType) -> u8 {
         match script_type {
             ScriptType::P2TR => 4,    // Newest and most efficient

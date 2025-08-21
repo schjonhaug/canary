@@ -17,7 +17,7 @@ use crate::stripe_billing::{
 };
 use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletManager;
-use crate::xpub_converter::{XpubConverter, ScriptType};
+use crate::xpub_converter::XpubConverter;
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
@@ -342,7 +342,6 @@ pub async fn create_wallet(
 
     // Check if input is an XPUB and convert to descriptor if needed
     let descriptor = if XpubConverter::is_xpub(&payload.descriptor) {
-        println!("Detected XPUB format, converting to descriptor: {}", payload.descriptor);
         
         // Create XPUB converter
         let network = manager.get_network();

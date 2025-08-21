@@ -25,7 +25,10 @@
       "Bash(npm run build:*)",
       "Bash(./docker-utils.sh:*)",
       "Bash(RUST_LOG=info cargo run)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(time curl:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

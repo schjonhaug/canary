@@ -20,6 +20,7 @@ pub const BATCH_SIZE: usize = 5;
 #[derive(Clone)]
 pub struct ElectrumClient {
     pub client: Arc<BdkElectrumClient<electrum_client::Client>>,
+    #[allow(dead_code)]
     pub raw_client: Arc<electrum_client::Client>,
 }
 
@@ -44,6 +45,7 @@ impl ElectrumClient {
 
     /// Get access to the raw Electrum client for direct API calls
     /// This allows calling methods like script_get_history() and script_get_balance()
+    #[allow(dead_code)]
     pub fn raw_client(&self) -> &electrum_client::Client {
         &self.raw_client
     }
