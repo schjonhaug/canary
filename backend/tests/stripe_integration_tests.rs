@@ -74,7 +74,7 @@ async fn test_checkout_endpoint_without_stripe() {
     });
 
     let request = Request::builder()
-        .uri("/api/billing/checkout")
+        .uri("/api/stripe/checkout")
         .method("POST")
         .header("content-type", "application/json")
         .body(Body::from(checkout_request.to_string()))
@@ -108,7 +108,7 @@ async fn test_webhook_endpoint_without_stripe() {
     let app = create_test_app().await;
 
     let request = Request::builder()
-        .uri("/api/billing/webhook")
+        .uri("/api/stripe/webhook")
         .method("POST")
         .header("content-type", "application/json")
         .header("stripe-signature", "t=123456,v1=fake_signature")
@@ -127,7 +127,7 @@ async fn test_checkout_invalid_json() {
     let app = create_test_app().await;
 
     let request = Request::builder()
-        .uri("/api/billing/checkout")
+        .uri("/api/stripe/checkout")
         .method("POST")
         .header("content-type", "application/json")
         .body(Body::from("invalid json"))
@@ -150,7 +150,7 @@ async fn test_checkout_missing_fields() {
     });
 
     let request = Request::builder()
-        .uri("/api/billing/checkout")
+        .uri("/api/stripe/checkout")
         .method("POST")
         .header("content-type", "application/json")
         .body(Body::from(checkout_request.to_string()))
@@ -173,7 +173,7 @@ async fn test_checkout_invalid_tier() {
     });
 
     let request = Request::builder()
-        .uri("/api/billing/checkout")
+        .uri("/api/stripe/checkout")
         .method("POST")
         .header("content-type", "application/json")
         .body(Body::from(checkout_request.to_string()))
