@@ -74,7 +74,7 @@ npm run test:watch    # Run tests in watch mode
 ### Type System
 
 #### Core Types (`src/types/index.ts`)
-- **Wallet**: Complete wallet metadata including balance, contacts, and activity
+- **Wallet**: Complete wallet metadata including balance, contacts, activity, and sync_status ('pending'|'ready')
 - **Contact**: User contacts with multi-provider notification methods (SMS, email, ntfy)
 - **NotificationMethod**: Flexible notification system supporting multiple providers per contact
 - **TransactionEvent**: Transaction history with RBF/CPFP analysis and delivery status
@@ -187,3 +187,5 @@ The frontend communicates with these main API categories:
 2. **Handle auth automatically**: JWT tokens are managed automatically by the API client
 3. **Type responses**: Use existing types or add new ones to `src/types/index.ts`
 4. **Error handling**: Follow existing error handling patterns in components
+5. **Wallet creation**: Use object parameters: `createWallet({name, descriptor, isFreshWallet?, scriptType?})`
+6. **Test API calls**: Ensure test mocks match actual API signatures (use object parameters, not positional)

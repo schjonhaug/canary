@@ -28,7 +28,10 @@
       "Bash(curl:*)",
       "Bash(npx shadcn@latest add:*)",
       "Bash(time curl:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npm run test:*)",
+      "Bash(grep:*)",
+      "Bash(npm run lint)"
     ],
     "deny": []
   }

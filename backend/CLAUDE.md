@@ -187,7 +187,12 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - **Admin Bypass**: Admin users have unlimited access regardless of subscription
 - **Contact Priority**: Oldest contacts remain active when limits exceeded
 
-### Address Management
+### Address Management & Deep Scanning
+- **Deep Scanning System**: Progressive address revelation up to 500 addresses in batches (100, 200, 300, 400, 500)
+- **Fast Wallet Creation**: POST responses in ~1.5s using prefix-based script type detection for immediate UX
+- **Background Processing**: Async deep scanning after wallet creation with 'pending' → 'ready' state management
+- **Script Type Detection**: Intelligent P2WPKH, P2SH, P2TR, P2PKH detection from XPUB prefixes
+- **High Index Support**: Successfully detects funds at high address indexes (tested to 250+)
 - **Dynamic Revelation**: BDK automatically reveals addresses to maintain 20 unused addresses
 - **Stop Gap**: Always ensures 20 consecutive unused addresses are revealed
 - **No Index Limits**: Handles transactions at any address index (150, 200+)

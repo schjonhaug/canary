@@ -4,10 +4,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Development Status**: This project is in unreleased developer mode. Backwards compatibility is not a priority at this stage.
 
-**License**: Open Source (FOSS)
-
-**Version**: 0.6.0
-
 ## Project Overview
 Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, and optional email/password authentication with email verification.
 
@@ -148,7 +144,10 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Tier-based Sync**: Individual wallet sync intervals based on user's subscription tier (Personal: 10min, Team: 1min)
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
 - **Network Isolation**: Separate databases per Bitcoin network
+- **Deep Scanning & Script Detection**: Advanced wallet analysis that detects funds at high address indexes (200+) with fast API responses
 - **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
+- **Script Type Detection**: Intelligent detection of P2WPKH, P2SH, P2TR, P2PKH from XPUBs with defaults for fresh wallets
+- **Async Wallet Creation**: Fast POST responses (~1.5s) with background deep scanning and skeleton UI states
 - **User Onboarding**: Guided wallet creation with BIP39 mnemonic generation
 - **Professional UX**: Comprehensive plan comparison modals showing monthly prices with yearly savings
 - **Development Mode**: Quick login options for testing with pre-configured email accounts
@@ -184,9 +183,10 @@ CREATE TABLE users (
     is_admin BOOLEAN NOT NULL DEFAULT 0
 );
 
--- Wallets table includes last_synced_at for tier-based sync
+-- Wallets table includes sync management fields
 CREATE TABLE wallets (
     last_synced_at DATETIME,
+    sync_status TEXT DEFAULT 'pending' CHECK (sync_status IN ('pending', 'ready')),
     user_id TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
@@ -431,8 +431,17 @@ This is separate from the main authentication system and only used when users ad
 - **Schema**: Single migration file (001_initial_schema.sql) with normalized design for extensible notification methods, multi-user support, and email authentication
 - **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
 
-## Address Management
-The service uses BDK's address revelation mechanism with a stop gap of 20:
+## Address Management & Deep Scanning
+The service uses BDK's address revelation mechanism with advanced deep scanning capabilities:
+
+### Deep Scanning System
+- **Fast Initial Response**: Wallet creation POST returns in ~1.5s using prefix-based script type detection
+- **Background Deep Scan**: Progressive address revelation in batches (100, 200, 300, 400, 500 addresses)
+- **Wallet State Management**: 'pending' → 'ready' transition with skeleton UI support
+- **High Index Detection**: Successfully finds funds at any address index (tested up to index 250+)
+- **Script Type Intelligence**: P2WPKH (Native SegWit) default for fresh XPUB wallets
+
+### Address Revelation Mechanics  
 - **Initial Sync**: Starts with 50 addresses, dynamically reveals more until finding 20 consecutive unused addresses
 - **Incremental Sync**: After each sync, checks the highest used address index and ensures 20+ unused addresses are revealed beyond it
 - **No Address Limits**: Automatically adapts to any wallet usage pattern, detecting transactions at any index (e.g., index 150, 200+)
