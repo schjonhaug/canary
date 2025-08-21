@@ -22,6 +22,11 @@ cd backend && cargo run
 cd backend && cargo run -- --network testnet
 cd backend && cargo run -- --network mainnet
 
+# Alternative: Override environment directly (useful for deep scan testing)
+cd backend && CANARY_NETWORK=mainnet CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002 cargo run
+cd backend && CANARY_NETWORK=testnet CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:60002 cargo run
+cd backend && CANARY_NETWORK=regtest CANARY_ELECTRUM_URL=tcp://127.0.0.1:50001 cargo run
+
 # Build, test, lint
 cd backend && cargo build
 cd backend && cargo test -- --test-threads=1
