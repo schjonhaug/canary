@@ -420,7 +420,7 @@ pub async fn create_wallet(
     };
 
     match manager
-        .create_from_multipath(&payload.name, &descriptor, &user.user_id)
+        .create_from_multipath(&payload.name, &descriptor, &user.user_id, payload.is_fresh_wallet.unwrap_or(false))
         .await
     {
         Ok(wallet_metadata) => {

@@ -254,6 +254,7 @@ impl WalletManager {
         name: &str,
         descriptor_str: &str,
         user_id: &str,
+        is_fresh_wallet: bool,
     ) -> Result<WalletMetadata> {
         println!("Creating wallet from multipath descriptor:");
         println!("  Name: {}", name);
@@ -315,6 +316,7 @@ impl WalletManager {
                 electrum_client_clone,
                 metadata_db_clone,
                 checksum_clone,
+                is_fresh_wallet,
             ).await {
                 eprintln!("Background wallet creation failed for {}: {}", wallet_checksum, e);
             }
@@ -332,6 +334,7 @@ impl WalletManager {
         electrum_client: Option<ElectrumClient>,
         metadata_db: MetadataDb,
         checksum: String,
+        is_fresh_wallet: bool,
     ) -> Result<()> {
         println!("Starting background wallet creation for checksum: {}", checksum);
         
@@ -363,6 +366,53 @@ impl WalletManager {
                 // Persist after sync
                 if let Err(e) = wallet.persist(&mut db) {
                     eprintln!("Warning: Failed to persist wallet after sync: {}", e);
+                }
+                
+                // Deep scanning for existing wallets with no funds
+                if !is_fresh_wallet && wallet.balance().total().to_sat() == 0 {
+                    println!("No funds found in initial scan, starting deep scan...");
+                    
+                    // Deep scan in batches up to 500 addresses
+                    for batch in 1..=5 {
+                        let reveal_to = batch * 100;
+                        println!("Deep scan batch {}: checking addresses up to index {}", batch, reveal_to);
+                        
+                        // Reveal more addresses for both keychains
+                        let ext_revealed: Vec<_> = wallet
+                            .reveal_addresses_to(bdk_wallet::KeychainKind::External, reveal_to)
+                            .collect();
+                        let int_revealed: Vec<_> = wallet
+                            .reveal_addresses_to(bdk_wallet::KeychainKind::Internal, reveal_to)
+                            .collect();
+                        
+                        println!("  Revealed {} external, {} internal addresses (total: {} each)", 
+                                ext_revealed.len(), int_revealed.len(), reveal_to + 1);
+                        
+                        // Sync the newly revealed addresses
+                        if let Err(e) = client.sync_wallet_incremental(&mut wallet) {
+                            eprintln!("Warning: Failed to sync during deep scan batch {}: {}", batch, e);
+                            continue;
+                        }
+                        
+                        // Check if we found funds
+                        let balance_after_batch = wallet.balance().total().to_sat();
+                        if balance_after_batch > 0 {
+                            println!("✅ Found {} sats during deep scan batch {}! Stopping deep scan.", 
+                                    balance_after_batch, batch);
+                            
+                            // Persist the wallet with discovered funds
+                            if let Err(e) = wallet.persist(&mut db) {
+                                eprintln!("Warning: Failed to persist wallet after deep scan: {}", e);
+                            }
+                            break;
+                        } else {
+                            println!("  Batch {} complete - no funds found yet", batch);
+                        }
+                    }
+                    
+                    if wallet.balance().total().to_sat() == 0 {
+                        println!("Deep scan completed - no funds found up to index 500");
+                    }
                 }
             }
         }

@@ -22,7 +22,10 @@
       "Bash(cargo doc:*)",
       "Bash(cargo:*)",
       "Bash(npm test:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(./docker-utils.sh:*)",
+      "Bash(RUST_LOG=info cargo run)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
