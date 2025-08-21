@@ -104,31 +104,48 @@ impl WalletManager {
 
 
     async fn load_all_wallets(&mut self) -> Result<()> {
-        let entries = fs::read_dir(&self.wallet_dir)?;
+        // Get only ready wallets from database (source of truth)
+        let ready_wallets = self.metadata_db.get_ready_wallets().await?;
+        
         let wallets_before = self.wallets.len();
-
-        for entry in entries {
-            let entry = entry?;
-            let path = entry.path();
-
-            // Only process .sqlite files
-            if path.extension().and_then(|s| s.to_str()) == Some("sqlite") {
-                if let Err(e) = self.load_wallet_from_file(&path).await {
+        let mut loaded = 0;
+        let mut missing = 0;
+        
+        for wallet_metadata in ready_wallets {
+            let wallet_path = self.wallet_dir.join(format!("{}.sqlite", wallet_metadata.checksum));
+            
+            if wallet_path.exists() {
+                if let Err(e) = self.load_wallet_from_file(&wallet_path).await {
                     eprintln!(
-                        "Warning: Failed to load wallet from {}: {}",
-                        path.display(),
+                        "Warning: Failed to load wallet {} from {}: {}",
+                        wallet_metadata.checksum,
+                        wallet_path.display(),
                         e
                     );
+                } else {
+                    loaded += 1;
                 }
+            } else {
+                eprintln!(
+                    "Warning: Wallet file missing for {} ({}). Expected at: {}",
+                    wallet_metadata.name,
+                    wallet_metadata.checksum,
+                    wallet_path.display()
+                );
+                missing += 1;
             }
         }
-
+        
         // Only log if new wallets were actually loaded from disk
         let newly_loaded = self.wallets.len() - wallets_before;
         if newly_loaded > 0 {
-            println!("📂 Loaded {} wallets from disk", newly_loaded);
+            println!("📂 Loaded {} ready wallets from disk", newly_loaded);
         }
-
+        
+        if missing > 0 {
+            eprintln!("⚠️  {} wallet files were missing", missing);
+        }
+        
         // Clean up expired sessions on startup
         match self.metadata_db.cleanup_expired_sessions().await {
             Ok(deleted) => {
@@ -141,6 +158,43 @@ impl WalletManager {
             }
         }
 
+        Ok(())
+    }
+
+    /// Optional cleanup function to identify orphaned wallet files
+    /// (files that exist but aren't registered in the database)
+    #[allow(dead_code)]
+    async fn cleanup_orphaned_wallet_files(&self) -> Result<()> {
+        let entries = fs::read_dir(&self.wallet_dir)?;
+        let mut orphaned = Vec::new();
+        
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+            
+            if path.extension().and_then(|s| s.to_str()) == Some("sqlite") {
+                let filename = path.file_stem()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                
+                // Check if this wallet exists in the database
+                if let Ok(None) = self.metadata_db.get_wallet_by_checksum(filename).await {
+                    orphaned.push((filename.to_string(), path.clone()));
+                }
+            }
+        }
+        
+        if !orphaned.is_empty() {
+            println!("⚠️  Found {} orphaned wallet files:", orphaned.len());
+            for (checksum, path) in orphaned {
+                println!("  - {} at {}", checksum, path.display());
+                // Optionally delete or move to backup directory
+                // fs::remove_file(&path)?;
+            }
+        } else {
+            println!("✅ No orphaned wallet files found");
+        }
+        
         Ok(())
     }
 
