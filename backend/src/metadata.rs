@@ -2,7 +2,7 @@ use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
 use crate::migrations::MigrationRunner;
 use crate::subscription::SubscriptionTier;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
 use chrono;
 use phonenumber::PhoneNumber;
@@ -1320,7 +1320,7 @@ impl MetadataDb {
                         .flatten()
                         .map(|t| t.to_string()),
                     sync_status: row.get(7)?,
-                    contact_count: row.get(8).unwrap_or(0),
+                    contact_count: row.get(8).unwrap_or(Some(0)),
                     user_id: row.get(9)?,
                     is_active: row.get(10)?,
                 })

@@ -108,7 +108,6 @@ impl WalletManager {
         let ready_wallets = self.metadata_db.get_ready_wallets().await?;
         
         let wallets_before = self.wallets.len();
-        let mut loaded = 0;
         let mut missing = 0;
         
         for wallet_metadata in ready_wallets {
@@ -122,8 +121,6 @@ impl WalletManager {
                         wallet_path.display(),
                         e
                     );
-                } else {
-                    loaded += 1;
                 }
             } else {
                 eprintln!(
