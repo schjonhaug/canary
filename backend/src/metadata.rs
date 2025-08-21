@@ -6,8 +6,9 @@ use anyhow::{Context, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
 use chrono;
 use phonenumber::PhoneNumber;
-use r2d2::Pool;
+use r2d2::{Pool, CustomizeConnection};
 use r2d2_sqlite::SqliteConnectionManager;
+use bdk_wallet::rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::num::Wrapping;
 use std::str::FromStr;
@@ -298,6 +299,16 @@ pub fn calculate_wallet_color(descriptor: &str) -> String {
     checksum_to_hex_color(&checksum)
 }
 
+#[derive(Debug)]
+struct ForeignKeyEnabler;
+
+impl CustomizeConnection<Connection, r2d2_sqlite::Error> for ForeignKeyEnabler {
+    fn on_acquire(&self, conn: &mut Connection) -> Result<(), r2d2_sqlite::Error> {
+        conn.execute_batch("PRAGMA foreign_keys = ON")
+            .map_err(r2d2_sqlite::Error::SqliteError)
+    }
+}
+
 type DbPool = Pool<SqliteConnectionManager>;
 
 #[derive(Clone)]
@@ -340,10 +351,11 @@ impl MetadataDb {
         let conn = migration_runner.get_connection();
         drop(conn);
 
-        // Create connection pool
+        // Create connection pool with foreign key enforcement
         let manager = SqliteConnectionManager::file(db_path);
         let pool = Pool::builder()
             .max_size(16)
+            .connection_customizer(Box::new(ForeignKeyEnabler))
             .build(manager)
             .context("Failed to create database pool")?;
 
