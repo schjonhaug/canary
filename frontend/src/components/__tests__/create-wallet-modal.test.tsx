@@ -88,20 +88,20 @@ describe('CreateWalletModal', () => {
     })
   })
 
-  describe('Wallet Name Prefilling - AUTH Enabled', () => {
+  describe('Wallet Name Prefilling - SAAS Mode', () => {
     beforeEach(() => {
-      process.env.NEXT_PUBLIC_AUTH_ENABLED = 'true'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'saas'
       mockUseAuth.mockReturnValue({ user: mockUser })
     })
 
-    it('prefills wallet name with user name when first wallet and auth enabled', () => {
+    it('prefills wallet name with user name when first wallet and in SAAS mode', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
       
       const nameInput = screen.getByLabelText('Wallet Name') as HTMLInputElement
       expect(nameInput.value).toBe('Alice Johnson')
     })
 
-    it('does not prefill name for subsequent wallets even with auth enabled', () => {
+    it('does not prefill name for subsequent wallets even in SAAS mode', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={false} />)
       
       const nameInput = screen.getByLabelText('Wallet Name') as HTMLInputElement
@@ -120,13 +120,13 @@ describe('CreateWalletModal', () => {
     })
   })
 
-  describe('Wallet Name Prefilling - AUTH Disabled', () => {
+  describe('Wallet Name Prefilling - FOSS Mode', () => {
     beforeEach(() => {
-      process.env.NEXT_PUBLIC_AUTH_ENABLED = 'false'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'foss'
       mockUseAuth.mockReturnValue({ user: mockUser })
     })
 
-    it('does not prefill name when auth is disabled even for first wallet', () => {
+    it('does not prefill name in FOSS mode even for first wallet', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
       
       const nameInput = screen.getByLabelText('Wallet Name') as HTMLInputElement
@@ -136,11 +136,11 @@ describe('CreateWalletModal', () => {
 
   describe('Focus Management', () => {
     beforeEach(() => {
-      process.env.NEXT_PUBLIC_AUTH_ENABLED = 'true'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'saas'
       mockUseAuth.mockReturnValue({ user: mockUser })
     })
 
-    it('focuses descriptor field when name is prefilled (first wallet with auth)', () => {
+    it('focuses descriptor field when name is prefilled (first wallet in SAAS mode)', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
       
       const descriptorTextarea = screen.getByLabelText('Output Descriptor or Extended Public Key')
@@ -154,8 +154,8 @@ describe('CreateWalletModal', () => {
       expect(document.activeElement).toBe(nameInput)
     })
 
-    it('focuses name field when auth is disabled', () => {
-      process.env.NEXT_PUBLIC_AUTH_ENABLED = 'false'
+    it('focuses name field in FOSS mode', () => {
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'foss'
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
       
@@ -192,7 +192,7 @@ describe('CreateWalletModal', () => {
     })
 
     it('adds wallet with prefilled name when user submits', async () => {
-      process.env.NEXT_PUBLIC_AUTH_ENABLED = 'true'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'saas'
       mockUseAuth.mockReturnValue({ user: mockUser })
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
@@ -218,7 +218,7 @@ describe('CreateWalletModal', () => {
     })
 
     it('user can modify prefilled name before submission', async () => {
-      process.env.NEXT_PUBLIC_AUTH_ENABLED = 'true'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'saas'
       mockUseAuth.mockReturnValue({ user: mockUser })
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
@@ -275,9 +275,9 @@ describe('CreateWalletModal', () => {
     })
   })
 
-  describe('Different Auth States', () => {
-    it('handles FOSS mode (auth disabled)', () => {
-      process.env.NEXT_PUBLIC_AUTH_ENABLED = 'false'
+  describe('Different Canary Modes', () => {
+    it('handles FOSS mode', () => {
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'foss'
       mockUseAuth.mockReturnValue({ 
         user: { id: 1, phone_number: 'FOSS', name: 'Admin', is_admin: true } 
       })
@@ -290,7 +290,7 @@ describe('CreateWalletModal', () => {
     })
 
     it('handles missing environment variable', () => {
-      delete process.env.NEXT_PUBLIC_AUTH_ENABLED
+      delete process.env.NEXT_PUBLIC_CANARY_MODE
       mockUseAuth.mockReturnValue({ user: mockUser })
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
