@@ -21,7 +21,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
   // Get polling interval - faster when there are pending wallets, otherwise use tier-based
   const getPollingInterval = useCallback(() => {
     if (pendingWallets.length > 0) {
-      return 2000; // 2 seconds when wallets are syncing
+      return 1000; // 1 second when wallets are syncing
     }
     const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60;
     return syncIntervalSeconds * 1000; // Convert to milliseconds
@@ -110,6 +110,12 @@ export function useWalletsList(shouldFetch: boolean = true) {
 
     // Set up polling interval using dynamic interval
     const intervalMs = getPollingInterval();
+    
+    // Clear existing interval before setting new one
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    
     pollingIntervalRef.current = setInterval(() => {
       fetchWallets();
     }, intervalMs);
@@ -118,6 +124,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
   }, [fetchWallets, shouldFetch, getPollingInterval]);
