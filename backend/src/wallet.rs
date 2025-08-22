@@ -1777,12 +1777,13 @@ impl WalletManager {
         use crate::xpub_converter::{XpubConverter, ScriptType};
         use std::collections::HashMap;
         
-        // Create a temporary checksum for logging (will use first 8 chars of XPUB for now)
-        let temp_log_id = if xpub.len() >= 12 { &xpub[4..12] } else { &xpub[0..4] };
+        // Create meaningful probe ID using wallet name + XPUB prefix
+        let xpub_prefix = if xpub.len() >= 10 { &xpub[..10] } else { xpub };
+        let probe_id = format!("{}_{}", name, xpub_prefix);
         
-        println!("[{}] Creating wallet from XPUB with intelligent script type probing", temp_log_id);
-        println!("[{}] Name: {}", temp_log_id, name);
-        println!("[{}] XPUB: {}", temp_log_id, xpub);
+        println!("[{}] Creating wallet from XPUB with intelligent script type probing", probe_id);
+        println!("[{}] Name: {}", probe_id, name);
+        println!("[{}] XPUB: {}", probe_id, xpub);
 
         // Create XPUB converter
         let network = self.get_network();
@@ -1799,17 +1800,17 @@ impl WalletManager {
         let mut temp_wallets: HashMap<ScriptType, (Wallet, String)> = HashMap::new();
         let mut winning_wallet: Option<(String, ScriptType)> = None;
 
-        println!("[{}] === Phase 1: Quick Script Type Detection ===", temp_log_id);
+        println!("[{}] === Phase 1: Quick Script Type Detection ===", probe_id);
         
         // Try each script type with limited scanning
         for script_type in script_types {
-            println!("[{}] 🔍 Trying {} ({:?})...", temp_log_id, script_type.as_str(), script_type);
+            println!("[{}] 🔍 Trying {} ({:?})...", probe_id, script_type.as_str(), script_type);
             
             // Generate descriptor for this script type
             let descriptor = match converter.generate_descriptor_for_type(xpub, &script_type) {
                 Ok(desc) => desc,
                 Err(e) => {
-                    println!("[{}] ❌ Failed to generate descriptor for {:?}: {}", temp_log_id, script_type, e);
+                    println!("[{}] ❌ Failed to generate descriptor for {:?}: {}", probe_id, script_type, e);
                     continue;
                 }
             };
@@ -1818,7 +1819,7 @@ impl WalletManager {
             let (receive_descriptor, change_descriptor) = match self.parse_multipath_descriptor(&descriptor) {
                 Ok((recv, change)) => (recv, change),
                 Err(e) => {
-                    println!("[{}] ❌ Failed to parse descriptor for {:?}: {}", temp_log_id, script_type, e);
+                    println!("[{}] ❌ Failed to parse descriptor for {:?}: {}", probe_id, script_type, e);
                     continue;
                 }
             };
@@ -1827,14 +1828,14 @@ impl WalletManager {
             let receive_desc: Descriptor<DescriptorPublicKey> = match receive_descriptor.parse() {
                 Ok(desc) => desc,
                 Err(e) => {
-                    println!("[{}] ❌ Failed to parse receive descriptor for {:?}: {}", temp_log_id, script_type, e);
+                    println!("[{}] ❌ Failed to parse receive descriptor for {:?}: {}", probe_id, script_type, e);
                     continue;
                 }
             };
             let change_desc: Descriptor<DescriptorPublicKey> = match change_descriptor.parse() {
                 Ok(desc) => desc,
                 Err(e) => {
-                    println!("[{}] ❌ Failed to parse change descriptor for {:?}: {}", temp_log_id, script_type, e);
+                    println!("[{}] ❌ Failed to parse change descriptor for {:?}: {}", probe_id, script_type, e);
                     continue;
                 }
             };
@@ -1846,7 +1847,7 @@ impl WalletManager {
             {
                 Ok(wallet) => wallet,
                 Err(e) => {
-                    println!("[{}] ❌ Failed to create temp wallet for {:?}: {}", temp_log_id, script_type, e);
+                    println!("[{}] ❌ Failed to create temp wallet for {:?}: {}", probe_id, script_type, e);
                     continue;
                 }
             };
@@ -1862,7 +1863,7 @@ impl WalletManager {
                 match electrum_client.client.full_scan(request, 10, 50, false) {
                     Ok(update) => {
                         if let Err(e) = temp_wallet.apply_update(update) {
-                            println!("[{}] ❌ Failed to apply update for {:?}: {}", temp_log_id, script_type, e);
+                            println!("[{}] ❌ Failed to apply update for {:?}: {}", probe_id, script_type, e);
                             continue;
                         }
                         
@@ -1871,19 +1872,19 @@ impl WalletManager {
                         let has_balance = temp_wallet.balance().total().to_sat() > 0;
                         
                         if has_transactions || has_balance {
-                            println!("[{}] ✅ Found activity! Script type: {}", temp_log_id, script_type.as_str());
-                            println!("[{}] Transactions: {}", temp_log_id, temp_wallet.transactions().count());
-                            println!("[{}] Balance: {} sats", temp_log_id, temp_wallet.balance().total());
+                            println!("[{}] ✅ Found activity! Script type: {}", probe_id, script_type.as_str());
+                            println!("[{}] Transactions: {}", probe_id, temp_wallet.transactions().count());
+                            println!("[{}] Balance: {} sats", probe_id, temp_wallet.balance().total());
                             
                             // Winner found!
                             winning_wallet = Some((descriptor, script_type));
                             break;
                         } else {
-                            println!("[{}] ⚪ No activity found in first 50 addresses", temp_log_id);
+                            println!("[{}] ⚪ No activity found in first 50 addresses", probe_id);
                         }
                     }
                     Err(e) => {
-                        println!("[{}] ❌ Failed to scan for {:?}: {}", temp_log_id, script_type, e);
+                        println!("[{}] ❌ Failed to scan for {:?}: {}", probe_id, script_type, e);
                         continue;
                     }
                 }
@@ -1892,20 +1893,20 @@ impl WalletManager {
 
         // Determine final descriptor
         let final_descriptor = if let Some((descriptor, script_type)) = &winning_wallet {
-            println!("[{}] ✅ Winner found: {} with activity!", temp_log_id, script_type.as_str());
+            println!("[{}] ✅ Winner found: {} with activity!", probe_id, script_type.as_str());
             descriptor.clone()
         } else {
             // Phase 2: Deep scanning for edge cases
-            println!("[{}] === Phase 2: Deep Scanning (No Activity Found in Quick Scan) ===", temp_log_id);
+            println!("[{}] === Phase 2: Deep Scanning (No Activity Found in Quick Scan) ===", probe_id);
             
             for script_type in script_types {
                 if temp_wallets.contains_key(&script_type) {
-                    println!("[{}] 🔍 Deep scanning {} ({:?})...", temp_log_id, script_type.as_str(), script_type);
+                    println!("[{}] 🔍 Deep scanning {} ({:?})...", probe_id, script_type.as_str(), script_type);
                     
                     if let Some(ref electrum_client) = self.electrum_client {
                         // Incremental deep scan
                         for batch in [100, 200, 300, 400, 500] {
-                            println!("[{}] Scanning up to {} addresses...", temp_log_id, batch);
+                            println!("[{}] Scanning up to {} addresses...", probe_id, batch);
                             
                             // Get mutable reference to temp_wallet and descriptor
                             let (temp_wallet, descriptor) = temp_wallets.get_mut(&script_type).unwrap();
@@ -1919,7 +1920,7 @@ impl WalletManager {
                             match electrum_client.client.full_scan(request, 20, 50, false) {
                                 Ok(update) => {
                                     if let Err(e) = temp_wallet.apply_update(update) {
-                                        println!("[{}] ❌ Failed to apply update: {}", temp_log_id, e);
+                                        println!("[{}] ❌ Failed to apply update: {}", probe_id, e);
                                         break;
                                     }
                                     
@@ -1928,13 +1929,13 @@ impl WalletManager {
                                     let has_balance = temp_wallet.balance().total().to_sat() > 0;
                                     
                                     if has_transactions || has_balance {
-                                        println!("[{}] ✅ Found activity at depth {}! Script type: {}", temp_log_id, batch, script_type.as_str());
+                                        println!("[{}] ✅ Found activity at depth {}! Script type: {}", probe_id, batch, script_type.as_str());
                                         winning_wallet = Some((descriptor.clone(), script_type));
                                         break;
                                     }
                                 }
                                 Err(e) => {
-                                    println!("[{}] ❌ Failed deep scan at batch {}: {}", temp_log_id, batch, e);
+                                    println!("[{}] ❌ Failed deep scan at batch {}: {}", probe_id, batch, e);
                                     break;
                                 }
                             }
@@ -1948,11 +1949,11 @@ impl WalletManager {
             }
             
             if let Some((descriptor, script_type)) = &winning_wallet {
-                println!("[{}] ✅ Winner found in deep scan: {}", temp_log_id, script_type.as_str());
+                println!("[{}] ✅ Winner found in deep scan: {}", probe_id, script_type.as_str());
                 descriptor.clone()
             } else {
                 // No activity found anywhere - create fresh P2WPKH wallet
-                println!("[{}] ⚠️ No activity found in any script type. Creating fresh P2WPKH wallet.", temp_log_id);
+                println!("[{}] ⚠️ No activity found in any script type. Creating fresh P2WPKH wallet.", probe_id);
                 converter.generate_descriptor_for_type(xpub, &ScriptType::P2WPKH)?
             }
         };
@@ -1968,12 +1969,16 @@ impl WalletManager {
 
         // Extract checksum and create metadata
         let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
-        let wallet_checksum = self
+        
+        // Show transition from probe ID to real wallet checksum
+        println!("[{}] → [{}] Script type determined, using wallet checksum", probe_id, checksum);
+        
+        let _wallet_checksum = self
             .metadata_db
             .insert_wallet(name, &normalized_descriptor, user_id)
             .await?;
         
-        println!("[{}] ✅ Wallet metadata saved with checksum: {}", wallet_checksum, wallet_checksum);
+        println!("[{}] ✅ Wallet metadata saved", checksum);
 
         // Get wallet metadata to return
         let wallet_metadata = self
@@ -2064,7 +2069,6 @@ impl WalletManager {
             
             // For existing wallets (those that had activity), extract historical transactions
             if has_activity {
-                println!("[{}] Extracting historical transactions", checksum);
                 if let Err(e) = Self::extract_historical_transactions_for_background(
                     &wallet,
                     &checksum,
@@ -2072,8 +2076,6 @@ impl WalletManager {
                     electrum_client.as_ref(),
                 ).await {
                     eprintln!("[{}] Warning: Failed to extract historical transactions: {}", checksum, e);
-                } else {
-                    println!("[{}] Historical transaction extraction completed", checksum);
                 }
             }
         }

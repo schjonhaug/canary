@@ -500,3 +500,8 @@ Comprehensive test coverage for subscription limits and user interactions:
 - Generic database design supporting multiple notification providers
 - Proper error handling with user-friendly messages
 - Type-safe API contracts between frontend and backend
+
+
+## Committnig code to git
+
+Always build both the frontend and backend and run and verify all tests before commiting. In case of errors, they need to be fixed.
