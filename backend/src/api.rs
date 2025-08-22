@@ -385,28 +385,10 @@ pub async fn create_wallet(
                 }
             }
         } else {
-            // Existing wallet - use fast prefix-based detection for immediate response
-            // The background task will do the expensive blockchain analysis and deep scanning
-            println!("Detected XPUB format, using fast prefix-based conversion for immediate response");
-            let script_type = XpubConverter::detect_type_from_prefix(&payload.descriptor);
-            match converter.generate_descriptor_for_type(&payload.descriptor, &script_type) {
-                Ok(fast_descriptor) => {
-                    println!("Fast conversion result: {} -> {} -> {}", 
-                             payload.descriptor, 
-                             script_type.as_str(), 
-                             fast_descriptor);
-                    fast_descriptor
-                }
-                Err(e) => {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse {
-                            error: format!("Failed to generate descriptor: {}", e),
-                        }),
-                    )
-                        .into_response();
-                }
-            }
+            // Existing wallet - pass XPUB directly to background task for smart script detection
+            // The background task will use BDK wallets to probe for the correct script type
+            println!("Detected XPUB format for existing wallet, will probe script types in background");
+            payload.descriptor.clone()
         }
     } else {
         // Input is already a descriptor

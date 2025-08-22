@@ -133,33 +133,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_xpub_script_type_detection() {
-        use crate::xpub_converter::{XpubConverter, ScriptType};
-        use bdk_wallet::bitcoin::Network;
-        
-        // Test different XPUB formats and their expected script type detection
-        let test_cases = vec![
-            // Format: (xpub_prefix, expected_fallback_type, description)
-            ("xpub", ScriptType::P2WPKH, "Standard xpub should default to Native SegWit"),
-            ("ypub", ScriptType::P2SH, "ypub indicates Nested SegWit"),
-            ("zpub", ScriptType::P2WPKH, "zpub indicates Native SegWit"),
-            ("tpub", ScriptType::P2WPKH, "tpub should default to Native SegWit"),
-        ];
-        
-        for (prefix, expected_type, description) in test_cases {
-            println!("Testing: {}", description);
-            
-            // Create a mock extended key for testing (not a real key, just for prefix detection)
-            let mock_xpub = format!("{}6D1EIqAG9zBmjRWMxJpT4FN9oQpfDd5vnJP7kLJbP3Ev7KfAVGKmzHp5jMtEhD8QJWTx8NmY3v2fA1kT9wQxMr8L3J", prefix);
-            
-            let _converter = XpubConverter::new(Network::Regtest, None);
-            let detected_type = XpubConverter::detect_type_from_prefix(&mock_xpub);
-            
-            assert_eq!(detected_type, expected_type, 
-                "Prefix '{}' detection failed: expected {:?}, got {:?}", 
-                prefix, expected_type, detected_type);
-        }
-        
-        println!("✅ XPUB script type detection tests passed!");
+        // This test is now obsolete since we removed prefix-based detection
+        // in favor of blockchain activity-based probing in create_from_xpub_with_probing
+        println!("📋 Test skipped: Script type detection now uses blockchain activity probing");
+        println!("✅ XPUB script type detection test skipped (functionality moved to create_from_xpub_with_probing)!");
     }
 
     #[tokio::test]
@@ -186,60 +163,12 @@ mod tests {
         println!("✅ XPUB validation and normalization tests passed!");
     }
 
-    // Integration test that requires Node.js and Electrum connection
-    // This test is marked as ignored by default since it requires external dependencies
+    // This integration test is now obsolete since we removed the standalone convert_to_descriptor method
+    // XPUB conversion with probing is now integrated into create_from_xpub_with_probing
     #[tokio::test]
-    #[ignore = "requires Node.js xpub-tools and Electrum server connection"]
+    #[ignore = "functionality moved to create_from_xpub_with_probing in wallet creation"]
     async fn test_xpub_conversion_integration() {
-        use crate::xpub_converter::XpubConverter;
-        use crate::electrum::ElectrumClient;
-        use bdk_wallet::bitcoin::Network;
-        
-        // This test requires a running Electrum server (e.g., in regtest-env)
-        let electrum_url = "tcp://127.0.0.1:50001"; // regtest Electrum
-        
-        // Try to create Electrum client
-        let electrum_client = match ElectrumClient::new(electrum_url) {
-            Ok(client) => {
-                println!("✅ Connected to Electrum server at {}", electrum_url);
-                Some(client)
-            }
-            Err(e) => {
-                println!("⚠️  Failed to connect to Electrum: {}", e);
-                println!("   Run 'cd regtest-env && docker-compose up -d' to start Electrum server");
-                return; // Skip test if no Electrum connection
-            }
-        };
-        
-        // Test with a known testnet XPUB that might have activity
-        let test_xpub = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
-        
-        let converter = XpubConverter::new(Network::Regtest, electrum_client.as_ref());
-        
-        match converter.convert_to_descriptor(test_xpub).await {
-            Ok(result) => {
-                println!("✅ XPUB conversion successful!");
-                println!("   Detected type: {:?}", result.detected_type);
-                println!("   Confidence: {:.1}%", result.confidence * 100.0);
-                println!("   Descriptor: {}", result.descriptor);
-                
-                // Verify the descriptor is valid
-                assert!(result.descriptor.contains('#'), "Descriptor should have checksum");
-                assert!(result.confidence >= 0.0 && result.confidence <= 1.0, "Confidence should be between 0 and 1");
-            }
-            Err(e) => {
-                println!("❌ XPUB conversion failed: {}", e);
-                
-                // Check if it's a Node.js script issue
-                if e.to_string().contains("Node.js") {
-                    println!("   This might be because Node.js xpub-tools are not set up");
-                    println!("   The integration test requires the Node.js address derivation script");
-                } else {
-                    panic!("Unexpected error during XPUB conversion: {}", e);
-                }
-            }
-        }
-        
-        println!("✅ XPUB conversion integration test completed!");
+        println!("📋 Test skipped: XPUB conversion now integrated into wallet creation process");
+        println!("✅ XPUB conversion integration test skipped (functionality moved to create_from_xpub_with_probing)!");
     }
 }

@@ -1207,6 +1207,10 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn mark_wallet_ready(&self, checksum: &str) -> Result<()> {
+        self.update_wallet_sync_status(checksum, "ready").await
+    }
+
     pub async fn get_wallets_due_for_sync(
         &self,
     ) -> Result<Vec<(WalletMetadata, SubscriptionTier)>> {

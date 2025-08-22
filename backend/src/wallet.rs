@@ -7,7 +7,7 @@ use crate::metadata::{
 use crate::subscription::SubscriptionTier;
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
-use bdk_wallet::{bitcoin::Network, PersistedWallet, Wallet};
+use bdk_wallet::{bitcoin::Network, PersistedWallet, Wallet, KeychainKind};
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::fs;
 use std::path::PathBuf;
@@ -309,9 +309,17 @@ impl WalletManager {
         user_id: &str,
         is_fresh_wallet: bool,
     ) -> Result<WalletMetadata> {
+        use crate::xpub_converter::XpubConverter;
+        
         println!("Creating wallet from multipath descriptor:");
         println!("  Name: {}", name);
         println!("  Input descriptor: {}", descriptor_str);
+
+        // Check if input is an XPUB that needs script type probing
+        if XpubConverter::is_xpub(descriptor_str) && !is_fresh_wallet {
+            // For existing XPUB wallets, we need to probe for the correct script type
+            return self.create_from_xpub_with_probing(name, descriptor_str, user_id).await;
+        }
 
         // Strip key origin to prevent duplicate wallets with same XPUB
         let normalized_descriptor = self.strip_key_origin(descriptor_str)?;
@@ -1756,5 +1764,353 @@ impl WalletManager {
             wallet_limit
         );
         Ok(())
+    }
+
+    /// Create wallet from XPUB with intelligent script type probing
+    pub async fn create_from_xpub_with_probing(
+        &mut self,
+        name: &str,
+        xpub: &str,
+        user_id: &str,
+    ) -> Result<WalletMetadata> {
+        use crate::xpub_converter::{XpubConverter, ScriptType};
+        use std::collections::HashMap;
+        
+        println!("Creating wallet from XPUB with intelligent script type probing:");
+        println!("  Name: {}", name);
+        println!("  XPUB: {}", xpub);
+
+        // Create XPUB converter
+        let network = self.get_network();
+        let converter = XpubConverter::new(network, self.electrum_client.as_ref());
+
+        // Script types to try, in popularity order
+        let script_types = [
+            ScriptType::P2WPKH,  // Native SegWit ~60% (most popular)
+            ScriptType::P2SH,    // Nested SegWit ~25%
+            ScriptType::P2PKH,   // Legacy ~15%
+            ScriptType::P2TR,    // Taproot (future-proofing)
+        ];
+
+        let mut temp_wallets: HashMap<ScriptType, (Wallet, String)> = HashMap::new();
+        let mut winning_wallet: Option<(String, ScriptType)> = None;
+
+        println!("\n=== Phase 1: Quick Script Type Detection ===");
+        
+        // Try each script type with limited scanning
+        for script_type in script_types {
+            println!("\n🔍 Trying {} ({:?})...", script_type.as_str(), script_type);
+            
+            // Generate descriptor for this script type
+            let descriptor = match converter.generate_descriptor_for_type(xpub, &script_type) {
+                Ok(desc) => desc,
+                Err(e) => {
+                    println!("❌ Failed to generate descriptor for {:?}: {}", script_type, e);
+                    continue;
+                }
+            };
+
+            // Parse multipath descriptor
+            let (receive_descriptor, change_descriptor) = match self.parse_multipath_descriptor(&descriptor) {
+                Ok((recv, change)) => (recv, change),
+                Err(e) => {
+                    println!("❌ Failed to parse descriptor for {:?}: {}", script_type, e);
+                    continue;
+                }
+            };
+
+            // Create in-memory BDK wallet
+            let receive_desc: Descriptor<DescriptorPublicKey> = match receive_descriptor.parse() {
+                Ok(desc) => desc,
+                Err(e) => {
+                    println!("❌ Failed to parse receive descriptor for {:?}: {}", script_type, e);
+                    continue;
+                }
+            };
+            let change_desc: Descriptor<DescriptorPublicKey> = match change_descriptor.parse() {
+                Ok(desc) => desc,
+                Err(e) => {
+                    println!("❌ Failed to parse change descriptor for {:?}: {}", script_type, e);
+                    continue;
+                }
+            };
+
+            // Create temporary in-memory wallet (no persistence)
+            let temp_wallet = match Wallet::create(receive_desc, change_desc)
+                .network(network)
+                .create_wallet_no_persist()
+            {
+                Ok(wallet) => wallet,
+                Err(e) => {
+                    println!("❌ Failed to create temp wallet for {:?}: {}", script_type, e);
+                    continue;
+                }
+            };
+
+            // Store temp wallet for potential Phase 2 use
+            temp_wallets.insert(script_type, (temp_wallet, descriptor.clone()));
+            
+            // Quick scan with limited addresses (50)
+            let temp_wallet = &mut temp_wallets.get_mut(&script_type).unwrap().0;
+            if let Some(ref electrum_client) = self.electrum_client {
+                // Scan with small stop gap for quick detection
+                let request = temp_wallet.start_full_scan();
+                match electrum_client.client.full_scan(request, 10, 50, false) {
+                    Ok(update) => {
+                        if let Err(e) = temp_wallet.apply_update(update) {
+                            println!("❌ Failed to apply update for {:?}: {}", script_type, e);
+                            continue;
+                        }
+                        
+                        // Check for any activity
+                        let has_transactions = temp_wallet.transactions().count() > 0;
+                        let has_balance = temp_wallet.balance().total().to_sat() > 0;
+                        
+                        if has_transactions || has_balance {
+                            println!("✅ Found activity! Script type: {}", script_type.as_str());
+                            println!("  Transactions: {}", temp_wallet.transactions().count());
+                            println!("  Balance: {} sats", temp_wallet.balance().total());
+                            
+                            // Winner found!
+                            winning_wallet = Some((descriptor, script_type));
+                            break;
+                        } else {
+                            println!("⚪ No activity found in first 50 addresses");
+                        }
+                    }
+                    Err(e) => {
+                        println!("❌ Failed to scan for {:?}: {}", script_type, e);
+                        continue;
+                    }
+                }
+            }
+        }
+
+        // Determine final descriptor
+        let final_descriptor = if let Some((descriptor, script_type)) = &winning_wallet {
+            println!("\n✅ Winner found: {} with activity!", script_type.as_str());
+            descriptor.clone()
+        } else {
+            // Phase 2: Deep scanning for edge cases
+            println!("\n=== Phase 2: Deep Scanning (No Activity Found in Quick Scan) ===");
+            
+            for script_type in script_types {
+                if temp_wallets.contains_key(&script_type) {
+                    println!("\n🔍 Deep scanning {} ({:?})...", script_type.as_str(), script_type);
+                    
+                    if let Some(ref electrum_client) = self.electrum_client {
+                        // Incremental deep scan
+                        for batch in [100, 200, 300, 400, 500] {
+                            println!("  Scanning up to {} addresses...", batch);
+                            
+                            // Get mutable reference to temp_wallet and descriptor
+                            let (temp_wallet, descriptor) = temp_wallets.get_mut(&script_type).unwrap();
+                            
+                            // Reveal more addresses  
+                            let _external_addresses: Vec<_> = temp_wallet.reveal_addresses_to(KeychainKind::External, batch).collect();
+                            let _internal_addresses: Vec<_> = temp_wallet.reveal_addresses_to(KeychainKind::Internal, batch).collect();
+                            
+                            // Scan with normal stop gap
+                            let request = temp_wallet.start_full_scan();
+                            match electrum_client.client.full_scan(request, 20, 50, false) {
+                                Ok(update) => {
+                                    if let Err(e) = temp_wallet.apply_update(update) {
+                                        println!("❌ Failed to apply update: {}", e);
+                                        break;
+                                    }
+                                    
+                                    // Check for activity
+                                    let has_transactions = temp_wallet.transactions().count() > 0;
+                                    let has_balance = temp_wallet.balance().total().to_sat() > 0;
+                                    
+                                    if has_transactions || has_balance {
+                                        println!("✅ Found activity at depth {}! Script type: {}", batch, script_type.as_str());
+                                        winning_wallet = Some((descriptor.clone(), script_type));
+                                        break;
+                                    }
+                                }
+                                Err(e) => {
+                                    println!("❌ Failed deep scan at batch {}: {}", batch, e);
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if winning_wallet.is_some() {
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if let Some((descriptor, script_type)) = &winning_wallet {
+                println!("✅ Winner found in deep scan: {}", script_type.as_str());
+                descriptor.clone()
+            } else {
+                // No activity found anywhere - create fresh P2WPKH wallet
+                println!("⚠️ No activity found in any script type. Creating fresh P2WPKH wallet.");
+                converter.generate_descriptor_for_type(xpub, &ScriptType::P2WPKH)?
+            }
+        };
+
+        // Strip key origin from final descriptor for consistency
+        let normalized_descriptor = self.strip_key_origin(&final_descriptor)?;
+        
+        // Check if this wallet already exists
+        if self.metadata_db.descriptor_exists(&normalized_descriptor).await? {
+            let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+            return Err(anyhow!("This wallet has already been added with ID: {}. Ask the wallet owner to add you as a contact for notifications.", checksum));
+        }
+
+        // Extract checksum and create metadata
+        let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+        let wallet_checksum = self
+            .metadata_db
+            .insert_wallet(name, &normalized_descriptor, user_id)
+            .await?;
+        
+        println!("✅ Wallet metadata saved with checksum: {}", wallet_checksum);
+
+        // Get wallet metadata to return
+        let wallet_metadata = self
+            .metadata_db
+            .get_wallet_by_descriptor(&normalized_descriptor)
+            .await?
+            .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
+
+        // Spawn background task to create persistent wallet
+        let wallet_dir = self.wallet_dir.clone();
+        let electrum_client_clone = self.electrum_client.clone();
+        let metadata_db_clone = self.metadata_db.clone();
+        let network = self.get_network();
+        let checksum_clone = checksum.clone();
+        let final_descriptor_clone = normalized_descriptor.clone();
+        
+        let has_activity = winning_wallet.is_some();
+        tokio::spawn(async move {
+            let checksum_for_error = checksum_clone.clone();
+            if let Err(e) = Self::complete_wallet_creation_from_probed_xpub(
+                wallet_dir,
+                final_descriptor_clone,
+                network,
+                electrum_client_clone,
+                metadata_db_clone,
+                checksum_clone,
+                has_activity,
+            ).await {
+                eprintln!("Background wallet creation failed for {}: {}", checksum_for_error, e);
+            }
+        });
+
+        Ok(wallet_metadata)
+    }
+
+    /// Background task to complete wallet creation from probed XPUB
+    async fn complete_wallet_creation_from_probed_xpub(
+        wallet_dir: PathBuf,
+        descriptor: String,
+        network: Network,
+        electrum_client: Option<ElectrumClient>,
+        metadata_db: MetadataDb,
+        checksum: String,
+        has_activity: bool,
+    ) -> Result<()> {
+        
+        println!("Starting background wallet creation from probed XPUB for checksum: {}", checksum);
+        
+        let wallet_filename = format!("{}.sqlite", checksum);
+        let wallet_path = wallet_dir.join(&wallet_filename);
+        
+        // Create SQLite connection
+        let mut db = Connection::open(&wallet_path)
+            .map_err(|e| anyhow!("Failed to create connection to {}: {}", wallet_path.display(), e))?;
+        
+        // Parse descriptor
+        let (receive_descriptor, change_descriptor) = 
+            WalletManager::parse_multipath_descriptor_static(&descriptor)?;
+        
+        let receive_desc: Descriptor<DescriptorPublicKey> = receive_descriptor.parse()
+            .map_err(|e| anyhow!("Failed to parse receive descriptor: {}", e))?;
+        let change_desc: Descriptor<DescriptorPublicKey> = change_descriptor.parse()
+            .map_err(|e| anyhow!("Failed to parse change descriptor: {}", e))?;
+        
+        // Create persistent wallet
+        let mut wallet = Wallet::create(receive_desc, change_desc)
+            .network(network)
+            .create_wallet(&mut db)
+            .map_err(|e| anyhow!("Failed to create persistent wallet: {}", e))?;
+        
+        // For wallets with activity, we've already done the probing work
+        // Just start with a normal sync - BDK will handle address revelation as needed
+        
+        // Persist initial wallet state
+        wallet.persist(&mut db)
+            .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
+        
+        // Sync with electrum
+        if let Some(ref client) = electrum_client {
+            if let Err(e) = client.sync_wallet(&mut wallet) {
+                eprintln!("Warning: Failed to sync wallet during background creation: {}", e);
+            } else {
+                // Persist after sync
+                if let Err(e) = wallet.persist(&mut db) {
+                    eprintln!("Warning: Failed to persist wallet after sync: {}", e);
+                }
+            }
+            
+            // For existing wallets (those that had activity), extract historical transactions
+            if has_activity {
+                println!("Extracting historical transactions for wallet checksum: {}", checksum);
+                if let Err(e) = Self::extract_historical_transactions_for_background(
+                    &wallet,
+                    &checksum,
+                    &metadata_db,
+                    electrum_client.as_ref(),
+                ).await {
+                    eprintln!("Warning: Failed to extract historical transactions: {}", e);
+                } else {
+                    println!("Historical transaction extraction completed");
+                }
+            }
+        }
+        
+        // Mark wallet as ready
+        if let Err(e) = metadata_db.mark_wallet_ready(&checksum).await {
+            eprintln!("Warning: Failed to mark wallet as ready: {}", e);
+        } else {
+            println!("✅ Wallet {} marked as ready - available for frontend display", checksum);
+        }
+        
+        Ok(())
+    }
+
+    /// Static version of parse_multipath_descriptor for background tasks
+    fn parse_multipath_descriptor_static(descriptor_str: &str) -> Result<(String, String)> {
+        use miniscript::{Descriptor, DescriptorPublicKey};
+        
+        // Parse the multipath descriptor
+        let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str.parse()
+            .map_err(|e| anyhow!("Failed to parse multipath descriptor: {}", e))?;
+
+        // Check if it's a multipath descriptor
+        if !descriptor.is_multipath() {
+            return Err(anyhow!("Descriptor is not a multipath descriptor"));
+        }
+
+        // Split multipath descriptor into receive and change descriptors
+        let descriptors = descriptor
+            .into_single_descriptors()
+            .map_err(|e| anyhow!("Failed to split multipath descriptor: {}", e))?;
+
+        if descriptors.len() != 2 {
+            return Err(anyhow!(
+                "Multipath descriptor must have exactly 2 paths (receive and change)"
+            ));
+        }
+
+        let receive_descriptor = descriptors[0].to_string();
+        let change_descriptor = descriptors[1].to_string();
+
+        Ok((receive_descriptor, change_descriptor))
     }
 }
