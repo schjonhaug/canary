@@ -52,10 +52,14 @@ pub struct CreateWalletRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(example = false)]
     pub is_fresh_wallet: Option<bool>,
-    /// Script type for fresh XPUB wallets (required when is_fresh_wallet=true and descriptor is XPUB)
+    /// Script type for XPUB wallets (required when is_fresh_wallet=true and descriptor is XPUB, optional for advanced settings)
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(example = "p2wpkh")]
     pub script_type: Option<String>,
+    /// Stop gap for advanced users (auto, 250, 500, 750, 1000)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(example = "auto")]
+    pub stop_gap: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -281,6 +285,38 @@ pub async fn create_wallet(
         }
     };
 
+    // Validate advanced settings: custom stop gap requires specific script type
+    if let Some(stop_gap) = &payload.stop_gap {
+        if stop_gap != "auto" {
+            // Custom stop gap requires specific script type
+            match &payload.script_type {
+                Some(script_type) if script_type != "auto" => {
+                    // Valid: custom stop gap with specific script type
+                }
+                _ => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse {
+                            error: "Custom stop gap requires selecting a specific script type (not auto)".to_string(),
+                        }),
+                    )
+                        .into_response();
+                }
+            }
+            
+            // Validate stop gap values
+            if !["250", "500", "750", "1000"].contains(&stop_gap.as_str()) {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse {
+                        error: "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000".to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+    }
+
     let mut manager = wallet_manager.lock().await;
 
     // Get user's subscription tier and check wallet limit
@@ -396,7 +432,14 @@ pub async fn create_wallet(
     };
 
     match manager
-        .create_from_multipath(&payload.name, &descriptor, &user.user_id, payload.is_fresh_wallet.unwrap_or(false))
+        .create_from_multipath(
+            &payload.name, 
+            &descriptor, 
+            &user.user_id, 
+            payload.is_fresh_wallet.unwrap_or(false),
+            payload.script_type.as_deref(),
+            payload.stop_gap.as_deref(),
+        )
         .await
     {
         Ok(wallet_metadata) => {

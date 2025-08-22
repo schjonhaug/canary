@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { ChevronDown } from "lucide-react"
 import { useModal } from "@/hooks/useModal"
 import { api } from "@/lib/api"
 import { ErrorDisplay } from "@/components/ui/error-display"
@@ -40,6 +42,8 @@ export function CreateWalletModal({
   const [descriptor, setDescriptor] = useState("")
   const [isFreshWallet, setIsFreshWallet] = useState(false)
   const [scriptType, setScriptType] = useState("")
+  const [stopGap, setStopGap] = useState("")
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const modal = useModal()
   const { user } = useAuth()
   const descriptorRef = useRef<HTMLTextAreaElement>(null)
@@ -68,6 +72,22 @@ export function CreateWalletModal({
     return xpubRegex.test(input.trim())
   }
 
+  // Helper function to detect output descriptor format
+  const isDescriptorFormat = (input: string): boolean => {
+    const descriptorRegex = /^(wpkh|sh|pkh|tr)\(/
+    return descriptorRegex.test(input.trim())
+  }
+
+  // Helper function to extract script type from descriptor
+  const getDescriptorScriptType = (input: string): string => {
+    const trimmed = input.trim()
+    if (trimmed.startsWith('wpkh(')) return 'p2wpkh'
+    if (trimmed.startsWith('sh(wpkh(')) return 'p2sh'
+    if (trimmed.startsWith('pkh(')) return 'p2pkh'
+    if (trimmed.startsWith('tr(')) return 'p2tr'
+    return ''
+  }
+
   // Determine which field should be auto-focused
   const shouldFocusDescriptor = isOpen && isFirstWallet && authEnabled && user?.name
   const shouldFocusName = isOpen && !shouldFocusDescriptor
@@ -78,6 +98,8 @@ export function CreateWalletModal({
       setDescriptor("")
       setIsFreshWallet(false)
       setScriptType("")
+      setStopGap("")
+      setShowAdvancedSettings(false)
       modal.reset()
       onClose()
     }
@@ -102,15 +124,39 @@ export function CreateWalletModal({
       return
     }
 
+    // Validate stop gap: custom stop gap requires specific script type
+    if (stopGap && stopGap !== "auto") {
+      if (!scriptType || scriptType === "auto") {
+        modal.setError("Custom stop gap requires selecting a specific script type (not auto)")
+        return
+      }
+    }
+
     modal.setLoading(true)
     modal.clearError()
 
     try {
+      // Determine script type to send
+      let finalScriptType: string | undefined
+      
+      if (isFreshWallet && isXpubFormat(descriptor)) {
+        // Fresh XPUB: always send script type
+        finalScriptType = scriptType
+      } else if (!isFreshWallet && isXpubFormat(descriptor) && scriptType && scriptType !== "auto") {
+        // Existing XPUB with manually selected script type
+        finalScriptType = scriptType
+      } else if (isDescriptorFormat(descriptor)) {
+        // Descriptor: extract script type for display purposes but don't send "auto"
+        const extractedType = getDescriptorScriptType(descriptor)
+        finalScriptType = extractedType || undefined
+      }
+
       const wallet = await api.createWallet({
         name: name.trim(),
         descriptor: descriptor.trim(),
         isFreshWallet: isFreshWallet || undefined,
-        scriptType: (isFreshWallet && isXpubFormat(descriptor)) ? scriptType : undefined,
+        scriptType: finalScriptType,
+        stopGap: stopGap || undefined,
       })
       onWalletCreated(wallet)
       handleClose()
@@ -196,6 +242,77 @@ export function CreateWalletModal({
               </Select>
             </div>
           )}
+
+          {/* Advanced Settings */}
+          <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost" 
+                type="button"
+                className="flex items-center justify-between w-full p-0 h-auto font-normal"
+                disabled={modal.isLoading}
+              >
+                <span className="text-sm font-medium">Advanced settings</span>
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAdvancedSettings ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 pt-4">
+              {/* Script Type for advanced mode */}
+              <div className="space-y-2">
+                <Label htmlFor="advanced-script-type">Script Type</Label>
+                <Select 
+                  value={isDescriptorFormat(descriptor) ? getDescriptorScriptType(descriptor) : (scriptType || "auto")} 
+                  onValueChange={(value) => setScriptType(value)}
+                  disabled={modal.isLoading || isDescriptorFormat(descriptor)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Auto-detect" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto-detect (recommended)</SelectItem>
+                    <SelectItem value="p2wpkh">Native SegWit (bc1...)</SelectItem>
+                    <SelectItem value="p2sh">Nested SegWit (3...)</SelectItem>
+                    <SelectItem value="p2pkh">Legacy (1...)</SelectItem>
+                    <SelectItem value="p2tr">Taproot (bc1p...)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isDescriptorFormat(descriptor) && (
+                  <p className="text-xs text-muted-foreground">
+                    Script type detected from descriptor and cannot be changed
+                  </p>
+                )}
+              </div>
+
+              {/* Stop Gap */}
+              <div className="space-y-2">
+                <Label htmlFor="stop-gap">Stop Gap</Label>
+                <Select 
+                  value={stopGap || "auto"} 
+                  onValueChange={(value) => setStopGap(value)}
+                  disabled={modal.isLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Default (20 consecutive unused)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Default (20 consecutive unused)</SelectItem>
+                    <SelectItem value="250">Extended (250 consecutive unused)</SelectItem>
+                    <SelectItem value="500">Deep (500 consecutive unused)</SelectItem>
+                    <SelectItem value="750">Deeper (750 consecutive unused)</SelectItem>
+                    <SelectItem value="1000">Maximum (1000 consecutive unused)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Number of consecutive unused addresses to check before stopping. Increase if your wallet has addresses used at random high indices (e.g., BTCPay Server)
+                </p>
+                {stopGap && stopGap !== "auto" && (!scriptType || scriptType === "auto") && (
+                  <p className="text-xs text-red-500">
+                    Custom stop gap requires selecting a specific script type
+                  </p>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {modal.error && (
             <ErrorDisplay message={modal.error} variant="inline" />

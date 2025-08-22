@@ -308,6 +308,8 @@ impl WalletManager {
         descriptor_str: &str,
         user_id: &str,
         is_fresh_wallet: bool,
+        script_type: Option<&str>,
+        stop_gap: Option<&str>,
     ) -> Result<WalletMetadata> {
         use crate::xpub_converter::XpubConverter;
         
@@ -315,10 +317,19 @@ impl WalletManager {
         println!("  Name: {}", name);
         println!("  Input descriptor: {}", descriptor_str);
 
-        // Check if input is an XPUB that needs script type probing
+        // Check if input is an XPUB
         if XpubConverter::is_xpub(descriptor_str) && !is_fresh_wallet {
-            // For existing XPUB wallets, we need to probe for the correct script type (synchronous)
-            return self.create_from_xpub_with_probing(name, descriptor_str, user_id).await;
+            // Check if script type was provided (fast path)
+            if let Some(script_type_str) = script_type {
+                if script_type_str != "auto" {
+                    // Fast path: XPUB + known script type = skip probing
+                    println!("Fast path: XPUB with known script type '{}'", script_type_str);
+                    return self.create_from_xpub_with_known_type(name, descriptor_str, user_id, script_type_str, stop_gap).await;
+                }
+            }
+            
+            // Auto script type: need to probe for the correct script type
+            return self.create_from_xpub_with_probing(name, descriptor_str, user_id, stop_gap).await;
         }
 
         // Strip key origin to prevent duplicate wallets with same XPUB
@@ -367,9 +378,10 @@ impl WalletManager {
         let metadata_db_clone = self.metadata_db.clone();
         let network = self.get_network();
         let checksum_clone = checksum.clone();
+        let stop_gap_clone = stop_gap.map(|s| s.to_string());
         
         tokio::spawn(async move {
-            if let Err(e) = Self::complete_wallet_creation_background(
+            if let Err(e) = Self::complete_wallet_creation_with_stop_gap(
                 wallet_path,
                 receive_descriptor,
                 change_descriptor,
@@ -378,6 +390,7 @@ impl WalletManager {
                 metadata_db_clone,
                 checksum_clone,
                 is_fresh_wallet,
+                stop_gap_clone.as_deref(),
             ).await {
                 eprintln!("[{}] Background wallet creation failed: {}", wallet_checksum, e);
             }
@@ -386,6 +399,95 @@ impl WalletManager {
         Ok(wallet_metadata)
     }
 
+    /// Fast path: Create wallet from XPUB with known script type (skip probing)
+    pub async fn create_from_xpub_with_known_type(
+        &mut self,
+        name: &str,
+        xpub: &str,
+        user_id: &str,
+        script_type_str: &str,
+        stop_gap: Option<&str>,
+    ) -> Result<WalletMetadata> {
+        use crate::xpub_converter::{XpubConverter, ScriptType};
+        
+        println!("Creating XPUB wallet with known script type: {}", script_type_str);
+        
+        // Parse script type
+        let script_type = match script_type_str {
+            "p2wpkh" => ScriptType::P2WPKH,
+            "p2sh" => ScriptType::P2SH,
+            "p2pkh" => ScriptType::P2PKH,
+            "p2tr" => ScriptType::P2TR,
+            _ => return Err(anyhow!("Invalid script type: {}", script_type_str)),
+        };
+        
+        // Create converter and generate descriptor
+        let network = self.get_network();
+        let converter = XpubConverter::new(network, self.electrum_client.as_ref());
+        let descriptor = converter.generate_descriptor_for_type(xpub, &script_type)?;
+        
+        println!("Generated descriptor: {}", descriptor);
+        
+        // Strip key origin for consistency
+        let normalized_descriptor = self.strip_key_origin(&descriptor)?;
+        
+        // Check if this descriptor already exists
+        if self.metadata_db.descriptor_exists(&normalized_descriptor).await? {
+            let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+            return Err(anyhow!("This wallet has already been added with ID: {}. Ask the wallet owner to add you as a contact for notifications.", checksum));
+        }
+        
+        // Parse multipath descriptor
+        let (receive_descriptor, change_descriptor) = self.parse_multipath_descriptor(&normalized_descriptor)?;
+        
+        // Extract checksum
+        let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+        let wallet_filename_with_ext = format!("{}.sqlite", checksum);
+        let wallet_path = self.wallet_dir.join(&wallet_filename_with_ext);
+        
+        // Check if wallet file already exists
+        if wallet_path.exists() {
+            return Err(anyhow!("Wallet file already exists"));
+        }
+        
+        // Save wallet metadata immediately
+        let wallet_checksum = self
+            .metadata_db
+            .insert_wallet(name, &normalized_descriptor, user_id)
+            .await?;
+        
+        // Get wallet metadata to return immediately
+        let wallet_metadata = self
+            .metadata_db
+            .get_wallet_by_descriptor(&normalized_descriptor)
+            .await?
+            .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
+        
+        // Create wallet and apply scan depth
+        let electrum_client_clone = self.electrum_client.clone();
+        let metadata_db_clone = self.metadata_db.clone();
+        let network = self.get_network();
+        let checksum_clone = checksum.clone();
+        let stop_gap_clone = stop_gap.map(|s| s.to_string());
+        
+        tokio::spawn(async move {
+            if let Err(e) = Self::complete_wallet_creation_with_stop_gap(
+                wallet_path,
+                receive_descriptor,
+                change_descriptor,
+                network,
+                electrum_client_clone,
+                metadata_db_clone,
+                checksum_clone,
+                false, // not fresh wallet
+                stop_gap_clone.as_deref(),
+            ).await {
+                eprintln!("[{}] Background wallet creation failed: {}", wallet_checksum, e);
+            }
+        });
+        
+        Ok(wallet_metadata)
+    }
 
     /// Background task to complete wallet creation (slow operations)
     async fn complete_wallet_creation_background(
@@ -420,10 +522,10 @@ impl WalletManager {
         wallet.persist(&mut db)
             .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
         
-        // Sync with electrum
+        // Full scan with electrum
         if let Some(ref client) = electrum_client {
-            if let Err(e) = client.sync_wallet(&mut wallet) {
-                eprintln!("[{}] Warning: Failed to sync wallet during background creation: {}", checksum, e);
+            if let Err(e) = client.full_scan_wallet(&mut wallet, None) {
+                eprintln!("[{}] Warning: Failed to full scan wallet during background creation: {}", checksum, e);
             } else {
                 // Persist after sync
                 if let Err(e) = wallet.persist(&mut db) {
@@ -451,7 +553,7 @@ impl WalletManager {
                                 checksum, ext_revealed.len(), int_revealed.len(), reveal_to + 1);
                         
                         // Sync the newly revealed addresses
-                        if let Err(e) = client.sync_wallet_incremental(&mut wallet) {
+                        if let Err(e) = client.sync_wallet(&mut wallet) {
                             eprintln!("[{}] Warning: Failed to sync during deep scan batch {}: {}", checksum, batch, e);
                             continue;
                         }
@@ -508,6 +610,152 @@ impl WalletManager {
         }
         
         println!("[{}] Background wallet creation completed", checksum);
+        Ok(())
+    }
+
+    /// Background task to complete wallet creation with scan depth support
+    async fn complete_wallet_creation_with_stop_gap(
+        wallet_path: PathBuf,
+        receive_descriptor: String,
+        change_descriptor: String,
+        network: Network,
+        electrum_client: Option<ElectrumClient>,
+        metadata_db: MetadataDb,
+        checksum: String,
+        is_fresh_wallet: bool,
+        stop_gap: Option<&str>,
+    ) -> Result<()> {
+        println!("[{}] Starting background wallet creation with stop gap: {:?}", checksum, stop_gap);
+        
+        // Create SQLite connection
+        let mut db = Connection::open(&wallet_path)
+            .map_err(|e| anyhow!("Failed to create connection to {}: {}", wallet_path.display(), e))?;
+        
+        // Parse descriptors
+        let receive_desc: Descriptor<DescriptorPublicKey> = receive_descriptor.parse()
+            .map_err(|e| anyhow!("Failed to parse receive descriptor: {}", e))?;
+        let change_desc: Descriptor<DescriptorPublicKey> = change_descriptor.parse() 
+            .map_err(|e| anyhow!("Failed to parse change descriptor: {}", e))?;
+        
+        // Create new wallet
+        let mut wallet = Wallet::create(receive_desc, change_desc)
+            .network(network)
+            .create_wallet(&mut db)
+            .map_err(|e| anyhow!("Failed to create wallet: {}", e))?;
+        
+        // Persist initial wallet state
+        wallet.persist(&mut db)
+            .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
+        
+        // Apply stop gap if specified
+        if let Some(stop_gap_str) = stop_gap {
+            if stop_gap_str != "auto" {
+                if let Ok(max_index) = stop_gap_str.parse::<u32>() {
+                    println!("[{}] Applying custom stop gap: {} addresses", checksum, max_index);
+                    
+                    // Reveal addresses up to the specified index
+                    let _external_addresses: Vec<_> = wallet.reveal_addresses_to(KeychainKind::External, max_index).collect();
+                    let _internal_addresses: Vec<_> = wallet.reveal_addresses_to(KeychainKind::Internal, max_index).collect();
+                    
+                    // Persist the revealed addresses
+                    if let Err(e) = wallet.persist(&mut db) {
+                        eprintln!("[{}] Warning: Failed to persist revealed addresses: {}", checksum, e);
+                    }
+                }
+            }
+        }
+        
+        // Full scan with electrum (using custom stop gap if specified)
+        if let Some(ref client) = electrum_client {
+            let custom_stop_gap = if let Some(stop_gap_str) = stop_gap {
+                if stop_gap_str != "auto" {
+                    stop_gap_str.parse::<usize>().ok()
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            
+            if let Err(e) = client.full_scan_wallet(&mut wallet, custom_stop_gap) {
+                eprintln!("[{}] Warning: Failed to full scan wallet during background creation: {}", checksum, e);
+            } else {
+                // Persist after sync
+                if let Err(e) = wallet.persist(&mut db) {
+                    eprintln!("[{}] Warning: Failed to persist wallet after sync: {}", checksum, e);
+                }
+                
+                // Deep scanning for existing wallets with no funds (only if stop_gap is auto)
+                if !is_fresh_wallet && wallet.balance().total().to_sat() == 0 && stop_gap.unwrap_or("auto") == "auto" {
+                    println!("[{}] No funds found in initial scan, starting deep scan...", checksum);
+                    
+                    // Deep scan in batches up to 500 addresses (only for auto mode)
+                    for batch in 1..=5 {
+                        let reveal_to = batch * 100;
+                        println!("[{}] Deep scan batch {}: checking addresses up to index {}", checksum, batch, reveal_to);
+                        
+                        // Reveal more addresses for both keychains
+                        let ext_revealed: Vec<_> = wallet
+                            .reveal_addresses_to(bdk_wallet::KeychainKind::External, reveal_to)
+                            .collect();
+                        let int_revealed: Vec<_> = wallet
+                            .reveal_addresses_to(bdk_wallet::KeychainKind::Internal, reveal_to)
+                            .collect();
+                        
+                        println!("[{}] Revealed {} external, {} internal addresses (total: {} each)", 
+                                checksum, ext_revealed.len(), int_revealed.len(), reveal_to + 1);
+                        
+                        // Sync the newly revealed addresses
+                        if let Err(e) = client.sync_wallet(&mut wallet) {
+                            eprintln!("[{}] Warning: Failed to sync during deep scan batch {}: {}", checksum, batch, e);
+                            break;
+                        }
+                        
+                        // Check if we found any activity - if so, we should continue scanning
+                        let current_balance = wallet.balance().total().to_sat();
+                        if current_balance > 0 {
+                            println!("[{}] Found activity during deep scan! Balance: {} sats", checksum, current_balance);
+                            // Continue scanning to find all transactions
+                        }
+                    }
+                    
+                    // Final persistence after deep scanning
+                    if let Err(e) = wallet.persist(&mut db) {
+                        eprintln!("[{}] Warning: Failed to persist after deep scan: {}", checksum, e);
+                    }
+                }
+            }
+        }
+        
+        // Update balance in metadata database
+        let balance = wallet.balance().total().to_sat() as i64;
+        if let Err(e) = metadata_db.update_wallet_balance_by_checksum(&checksum, balance).await {
+            eprintln!("[{}] Warning: Failed to update wallet balance: {}", checksum, e);
+        }
+        
+        // Extract historical transactions after sync
+        if let Err(e) = Self::extract_historical_transactions_for_background(
+            &wallet, 
+            &checksum, 
+            &metadata_db,
+            electrum_client.as_ref()
+        ).await {
+            eprintln!("[{}] Warning: Failed to extract historical transactions: {}", checksum, e);
+        }
+
+        // Update last synced timestamp
+        if let Err(e) = metadata_db.update_wallet_last_synced(&checksum).await {
+            eprintln!("[{}] Warning: Failed to update wallet last synced: {}", checksum, e);
+        }
+        
+        // Mark wallet as ready after deep scan and transaction extraction is complete
+        if let Err(e) = metadata_db.update_wallet_sync_status(&checksum, "ready").await {
+            eprintln!("[{}] Warning: Failed to mark wallet as ready: {}", checksum, e);
+        } else {
+            println!("[{}] ✅ Wallet marked as ready - available for frontend display", checksum);
+        }
+        
+        println!("[{}] Background wallet creation with scan depth completed", checksum);
         Ok(())
     }
 
@@ -575,6 +823,9 @@ impl WalletManager {
             initial_balance as f64 / 100_000_000.0
         );
 
+        // Collect all events first for batch insertion
+        let mut events_to_insert = Vec::new();
+        
         // Process each transaction chronologically
         for tx in all_transactions {
             let sent = wallet.sent_and_received(&tx.tx_node).0;
@@ -643,9 +894,14 @@ impl WalletManager {
                 transaction_time,
             };
 
-            // Insert historical event (no broadcasting for historical data)
-            if let Err(e) = metadata_db.insert_event(&event_insert).await {
-                eprintln!("[{}] Failed to insert historical event: {}", wallet_checksum, e);
+            // Collect event for batch insertion
+            events_to_insert.push(event_insert);
+        }
+        
+        // Batch insert all events
+        if !events_to_insert.is_empty() {
+            if let Err(e) = metadata_db.insert_events_batch(events_to_insert).await {
+                eprintln!("[{}] Failed to batch insert historical events: {}", wallet_checksum, e);
             }
         }
 
@@ -716,7 +972,7 @@ impl WalletManager {
 
             // Perform the sync
             if let Some(ref client) = self.electrum_client {
-                let sync_result = client.sync_wallet_incremental(wallet);
+                let sync_result = client.sync_wallet(wallet);
                 if let Err(e) = sync_result {
                     eprintln!("[{}] Failed to sync wallet: {}", wallet_checksum, e);
                     return Ok(false);
@@ -1431,12 +1687,8 @@ impl WalletManager {
             }
         }
 
-        // Get transaction events for this specific wallet
-        let mut events = self.metadata_db.get_all_events_with_wallets().await?;
-        events.retain(|event| event.wallet_checksum == wallet_checksum);
-
-        // Limit to recent events for performance (already ordered by ID desc in SQL)
-        events.truncate(100);
+        // Get transaction events for this specific wallet (optimized query)
+        let events = self.metadata_db.get_events_by_wallet_checksum(wallet_checksum, Some(100)).await?;
 
         // Get contacts for this wallet (including inactive ones for UI)
         let contacts = self
@@ -1774,6 +2026,7 @@ impl WalletManager {
         name: &str,
         xpub: &str,
         user_id: &str,
+        stop_gap: Option<&str>,
     ) -> Result<WalletMetadata> {
         use crate::xpub_converter::{XpubConverter, ScriptType};
         use std::collections::HashMap;
@@ -1907,75 +2160,7 @@ impl WalletManager {
             }
         }
 
-        // If no winner found in quick scan, proceed with incremental deep scanning
-        if winning_wallet.is_none() {
-            println!("[{}] === Phase 2: Incremental Deep Scanning ===", probe_id);
-            
-            for script_type in script_types {
-                if probe_wallets.contains_key(&script_type) {
-                    println!("[{}] 🔍 Deep scanning {} ({:?})...", probe_id, script_type.as_str(), script_type);
-                    
-                    if let Some(ref electrum_client) = self.electrum_client {
-                        // Incremental reveal and scan (50 addresses at a time up to 500)
-                        let increments = [100, 150, 200, 250, 300, 350, 400, 450, 500];
-                        for target_addresses in increments {
-                            println!("[{}] Revealing up to {} addresses...", probe_id, target_addresses);
-                            
-                            // Get mutable reference to wallet components
-                            let (temp_wallet, temp_db, temp_path, _) = probe_wallets.get_mut(&script_type).unwrap();
-                            
-                            // Reveal addresses incrementally
-                            let _external_addresses: Vec<_> = temp_wallet.reveal_addresses_to(KeychainKind::External, target_addresses).collect();
-                            let _internal_addresses: Vec<_> = temp_wallet.reveal_addresses_to(KeychainKind::Internal, target_addresses).collect();
-                            
-                            // Persist the revealed addresses
-                            if let Err(e) = temp_wallet.persist(temp_db) {
-                                println!("[{}] ❌ Failed to persist revealed addresses: {}", probe_id, e);
-                                break;
-                            }
-                            
-                            // Use sync to check ALL revealed addresses (not full_scan with stop_gap)
-                            let request = temp_wallet.start_sync_with_revealed_spks();
-                            match electrum_client.client.sync(request, 50, false) {
-                                Ok(update) => {
-                                    if let Err(e) = temp_wallet.apply_update(update) {
-                                        println!("[{}] ❌ Failed to apply update: {}", probe_id, e);
-                                        break;
-                                    }
-                                    
-                                    // Persist the update
-                                    if let Err(e) = temp_wallet.persist(temp_db) {
-                                        println!("[{}] ❌ Failed to persist wallet update: {}", probe_id, e);
-                                    }
-                                    
-                                    // Check for activity
-                                    let has_transactions = temp_wallet.transactions().count() > 0;
-                                    let has_balance = temp_wallet.balance().total().to_sat() > 0;
-                                    
-                                    if has_transactions || has_balance {
-                                        println!("[{}] ✅ Found activity at {} addresses! Script type: {}", probe_id, target_addresses, script_type.as_str());
-                                        println!("[{}] Transactions: {}", probe_id, temp_wallet.transactions().count());
-                                        println!("[{}] Balance: {} sats", probe_id, temp_wallet.balance().total());
-                                        
-                                        // Winner found!
-                                        winning_wallet = Some((script_type, temp_path.clone()));
-                                        break;
-                                    }
-                                }
-                                Err(e) => {
-                                    println!("[{}] ❌ Failed scan at {} addresses: {}", probe_id, target_addresses, e);
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        if winning_wallet.is_some() {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        // No deep scanning during probing - scan depth will be applied after winner is found
 
         // Determine final descriptor and handle winning wallet
         let final_descriptor = if let Some((winning_script_type, _winning_temp_path)) = &winning_wallet {
@@ -2052,21 +2237,52 @@ impl WalletManager {
             .await?
             .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
 
-        // If we have a winning wallet, extract historical transactions before marking ready
+        // If we have a winning wallet, apply scan depth and extract transactions before marking ready
         if winning_wallet.is_some() {
-            println!("[{}] Extracting historical transactions from winning wallet", checksum);
+            println!("[{}] Processing winning wallet with stop gap: {:?}", checksum, stop_gap);
             
-            // Load the wallet from its final location to extract historical transactions
+            // Load the wallet from its final location
             let wallet_path = self.wallet_dir.join(format!("{}.sqlite", checksum));
             let mut db = Connection::open(&wallet_path)
                 .map_err(|e| anyhow!("Failed to open wallet database at {}: {}", wallet_path.display(), e))?;
             
-            let wallet = Wallet::load()
+            let mut wallet = Wallet::load()
                 .extract_keys()
                 .check_network(self.get_network())
                 .load_wallet(&mut db)
                 .map_err(|e| anyhow!("Failed to load wallet: {}", e))?
                 .ok_or_else(|| anyhow!("Wallet not found in database"))?;
+            
+            // Apply stop gap if specified (this is where we solve the original problem!)
+            if let Some(stop_gap_str) = stop_gap {
+                if stop_gap_str != "auto" {
+                    if let Ok(max_index) = stop_gap_str.parse::<u32>() {
+                        println!("[{}] Applying custom stop gap: {} addresses", checksum, max_index);
+                        
+                        // Reveal addresses up to the specified index
+                        let _external_addresses: Vec<_> = wallet.reveal_addresses_to(KeychainKind::External, max_index).collect();
+                        let _internal_addresses: Vec<_> = wallet.reveal_addresses_to(KeychainKind::Internal, max_index).collect();
+                        
+                        // Persist the revealed addresses
+                        if let Err(e) = wallet.persist(&mut db) {
+                            println!("[{}] ⚠️ Failed to persist revealed addresses: {}", checksum, e);
+                        }
+                        
+                        // Full scan the newly revealed addresses with custom stop gap
+                        if let Some(ref client) = self.electrum_client {
+                            let custom_stop_gap = Some(max_index as usize);
+                            if let Err(e) = client.full_scan_wallet(&mut wallet, custom_stop_gap) {
+                                println!("[{}] ⚠️ Failed to full scan with custom stop gap: {}", checksum, e);
+                            } else {
+                                // Persist after sync
+                                if let Err(e) = wallet.persist(&mut db) {
+                                    println!("[{}] ⚠️ Failed to persist after custom scan: {}", checksum, e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             
             // Extract historical transactions
             if let Err(e) = Self::extract_historical_transactions_for_background(
@@ -2161,16 +2377,24 @@ impl WalletManager {
             .map_err(|e| anyhow!("Failed to create persistent wallet: {}", e))?;
         
         // For wallets with activity, we've already done the probing work
-        // Just start with a normal sync - BDK will handle address revelation as needed
+        // Use larger stop gap since probing found activity
         
         // Persist initial wallet state
         wallet.persist(&mut db)
             .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
         
-        // Sync with electrum
+        // Full scan with electrum (use larger stop gap if activity was found during probing)
         if let Some(ref client) = electrum_client {
-            if let Err(e) = client.sync_wallet(&mut wallet) {
-                eprintln!("[{}] Warning: Failed to sync wallet during background creation: {}", checksum, e);
+            let stop_gap = if has_activity {
+                // Probing found activity, so use larger stop gap to ensure we catch transactions at higher indices
+                Some(100)
+            } else {
+                // No activity found during probing, use default stop gap
+                None
+            };
+            
+            if let Err(e) = client.full_scan_wallet(&mut wallet, stop_gap) {
+                eprintln!("[{}] Warning: Failed to full scan wallet during background creation: {}", checksum, e);
             } else {
                 // Persist after sync
                 if let Err(e) = wallet.persist(&mut db) {

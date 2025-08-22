@@ -54,6 +54,7 @@ class ApiClient {
     descriptor: string;
     isFreshWallet?: boolean;
     scriptType?: string;
+    stopGap?: string;
   }): Promise<Wallet> {
     // Send raw browser language - backend will map to supported languages
     const browserLanguage = typeof window !== 'undefined' 
@@ -68,6 +69,7 @@ class ApiClient {
         preferred_language: browserLanguage,
         is_fresh_wallet: params.isFreshWallet,
         script_type: params.scriptType,
+        stop_gap: params.stopGap,
       }),
     })
     

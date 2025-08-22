@@ -815,6 +815,42 @@ impl MetadataDb {
         }).await?
     }
 
+    pub async fn insert_events_batch(&self, events: Vec<EventInsert>) -> Result<Vec<i64>> {
+        let pool = self.pool.clone();
+        
+        spawn_blocking(move || -> Result<Vec<i64>> {
+            let conn = pool.get()?;
+            let mut event_ids = Vec::new();
+            
+            // Use a transaction for better performance
+            let tx = conn.unchecked_transaction()?;
+            
+            for event in events {
+                let event_id_str = uuid::Uuid::new_v4().to_string();
+                tx.execute(
+                    "INSERT INTO transaction_events (id, wallet_checksum, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    [
+                        &event_id_str,
+                        &event.wallet_checksum,
+                        event.event_type.as_str(),
+                        &event.amount_sats.to_string(),
+                        &(event.is_confirmed as i32).to_string(),
+                        &(event.is_rbf as i32).to_string(),
+                        &(event.is_cpfp as i32).to_string(),
+                        &event.balance_total.map(|b| b.to_string()).unwrap_or_else(|| "NULL".to_string()),
+                        &event.transaction_time.to_string(),
+                    ],
+                )?;
+                // For return value, we need to parse the ID but sqlite rowid starts from 1
+                event_ids.push(1); // Placeholder since we're not using the returned IDs
+            }
+            
+            tx.commit()?;
+            Ok(event_ids)
+        }).await?
+    }
+
     pub async fn get_all_events_with_wallets(&self) -> Result<Vec<TransactionEventWithWallet>> {
         let pool = self.pool.clone();
 
@@ -868,7 +904,7 @@ impl MetadataDb {
                          ORDER BY nl.created_at DESC"
                     )?;
                     
-                    let log_iter = log_stmt.query_map([event_id], |row| {
+                    let log_iter = log_stmt.query_map([event_id.clone()], |row| {
                         Ok(NotificationStatus {
                             contact_name: row.get(3)?,
                             provider_name: row.get(0)?,
@@ -877,6 +913,82 @@ impl MetadataDb {
                         })
                     })?;
                     
+                    for log in log_iter {
+                        notification_status.push(log?);
+                    }
+                    
+                    event.notification_status = notification_status;
+                }
+                
+                events.push(event);
+            }
+
+            Ok(events)
+        }).await?
+    }
+
+    pub async fn get_events_by_wallet_checksum(&self, wallet_checksum: &str, limit: Option<usize>) -> Result<Vec<TransactionEventWithWallet>> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let limit = limit.unwrap_or(100);
+
+        spawn_blocking(move || -> Result<Vec<TransactionEventWithWallet>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT te.id, te.wallet_checksum, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.transaction_time 
+                 FROM transaction_events te 
+                 JOIN wallets w ON te.wallet_checksum = w.checksum 
+                 WHERE te.wallet_checksum = ?1
+                 ORDER BY te.transaction_time DESC, 
+                          CASE te.event_type 
+                            WHEN 'receiving' THEN 1 
+                            WHEN 'received' THEN 2 
+                            WHEN 'sending' THEN 3 
+                            WHEN 'sent' THEN 4 
+                            ELSE 5 
+                          END ASC, 
+                          te.id DESC
+                 LIMIT ?2"
+            )?;
+
+            let event_iter = stmt.query_map([&checksum, &limit.to_string()], |row| {
+                Ok(TransactionEventWithWallet {
+                    id: Some(row.get(0)?),
+                    wallet_checksum: row.get(1)?,
+                    wallet_name: row.get(2)?,
+                    event_type: EventType::from(row.get::<_, String>(3)?.as_str()),
+                    amount_sats: row.get(4)?,
+                    is_confirmed: row.get(5)?,
+                    is_rbf: row.get(6)?,
+                    is_cpfp: row.get(7)?,
+                    balance_total: row.get(8).ok(),
+                    transaction_time: row.get(9)?,
+                    notification_status: Vec::new(), // Will be populated later
+                })
+            })?;
+
+            let mut events = Vec::new();
+            for event_result in event_iter {
+                let mut event = event_result?;
+                
+                // Get notification logs for this event
+                if let Some(ref event_id) = event.id {
+                    let mut log_stmt = conn.prepare(
+                        "SELECT provider_type, status, error_message 
+                         FROM notification_logs 
+                         WHERE event_id = ?1"
+                    )?;
+                    
+                    let log_iter = log_stmt.query_map([event_id.clone()], |row| {
+                        Ok(NotificationStatus {
+                            contact_name: String::new(), // We don't have contact name in this context
+                            provider_name: row.get(0)?,
+                            status: row.get(1)?,
+                            error_message: row.get(2)?,
+                        })
+                    })?;
+                    
+                    let mut notification_status = Vec::new();
                     for log in log_iter {
                         notification_status.push(log?);
                     }

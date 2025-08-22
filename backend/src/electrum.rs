@@ -117,8 +117,8 @@ impl ElectrumClient {
         }
     }
 
-    pub fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
-        println!("Syncing with electrum...");
+    pub fn full_scan_wallet(&self, wallet: &mut PersistedWallet<Connection>, custom_stop_gap: Option<usize>) -> Result<()> {
+        println!("Full scanning with electrum...");
 
         // Print initial balance
         let balance_before = wallet.balance();
@@ -161,10 +161,12 @@ impl ElectrumClient {
                 }
             });
 
-            // Perform the full scan
+            // Perform the full scan with custom or default stop gap
+            let stop_gap = custom_stop_gap.unwrap_or(STOP_GAP);
+            println!("Using stop gap: {}", stop_gap);
             let update = self
                 .client
-                .full_scan(request, STOP_GAP, BATCH_SIZE, false)
+                .full_scan(request, stop_gap, BATCH_SIZE, false)
                 .map_err(|e| anyhow!("Full scan failed: {}", e))?;
 
             println!(); // New line after scan progress
@@ -206,7 +208,7 @@ impl ElectrumClient {
         Ok(())
     }
 
-    pub fn sync_wallet_incremental(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
+    pub fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
         // Populate the electrum client's transaction cache
         self.client
             .populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
