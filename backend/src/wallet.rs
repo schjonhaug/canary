@@ -337,11 +337,11 @@ impl WalletManager {
         // Extract checksum from the normalized descriptor for consistent filename
         let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
         let wallet_filename_with_ext = format!("{}.sqlite", checksum);
-        println!("  Wallet filename: {}", wallet_filename_with_ext);
+        println!("[{}] Wallet filename: {}", checksum, wallet_filename_with_ext);
 
         // Create wallet file path
         let wallet_path = self.wallet_dir.join(&wallet_filename_with_ext);
-        println!("  Wallet file path: {}", wallet_path.display());
+        println!("[{}] Wallet file path: {}", checksum, wallet_path.display());
 
         // Check if wallet file already exists
         if wallet_path.exists() {
@@ -353,7 +353,7 @@ impl WalletManager {
             .metadata_db
             .insert_wallet(name, &normalized_descriptor, user_id)
             .await?;
-        println!("  Metadata saved with checksum: {}", wallet_checksum);
+        println!("[{}] Metadata saved with checksum: {}", checksum, wallet_checksum);
 
         // Get wallet metadata to return immediately
         let wallet_metadata = self
@@ -379,7 +379,7 @@ impl WalletManager {
                 checksum_clone,
                 is_fresh_wallet,
             ).await {
-                eprintln!("Background wallet creation failed for {}: {}", wallet_checksum, e);
+                eprintln!("[{}] Background wallet creation failed: {}", wallet_checksum, e);
             }
         });
 
@@ -397,7 +397,7 @@ impl WalletManager {
         checksum: String,
         is_fresh_wallet: bool,
     ) -> Result<()> {
-        println!("Starting background wallet creation for checksum: {}", checksum);
+        println!("[{}] Starting background wallet creation", checksum);
         
         // Create SQLite connection
         let mut db = Connection::open(&wallet_path)
@@ -422,21 +422,21 @@ impl WalletManager {
         // Sync with electrum
         if let Some(ref client) = electrum_client {
             if let Err(e) = client.sync_wallet(&mut wallet) {
-                eprintln!("Warning: Failed to sync wallet during background creation: {}", e);
+                eprintln!("[{}] Warning: Failed to sync wallet during background creation: {}", checksum, e);
             } else {
                 // Persist after sync
                 if let Err(e) = wallet.persist(&mut db) {
-                    eprintln!("Warning: Failed to persist wallet after sync: {}", e);
+                    eprintln!("[{}] Warning: Failed to persist wallet after sync: {}", checksum, e);
                 }
                 
                 // Deep scanning for existing wallets with no funds
                 if !is_fresh_wallet && wallet.balance().total().to_sat() == 0 {
-                    println!("No funds found in initial scan, starting deep scan...");
+                    println!("[{}] No funds found in initial scan, starting deep scan...", checksum);
                     
                     // Deep scan in batches up to 500 addresses
                     for batch in 1..=5 {
                         let reveal_to = batch * 100;
-                        println!("Deep scan batch {}: checking addresses up to index {}", batch, reveal_to);
+                        println!("[{}] Deep scan batch {}: checking addresses up to index {}", checksum, batch, reveal_to);
                         
                         // Reveal more addresses for both keychains
                         let ext_revealed: Vec<_> = wallet
@@ -446,33 +446,33 @@ impl WalletManager {
                             .reveal_addresses_to(bdk_wallet::KeychainKind::Internal, reveal_to)
                             .collect();
                         
-                        println!("  Revealed {} external, {} internal addresses (total: {} each)", 
-                                ext_revealed.len(), int_revealed.len(), reveal_to + 1);
+                        println!("[{}] Revealed {} external, {} internal addresses (total: {} each)", 
+                                checksum, ext_revealed.len(), int_revealed.len(), reveal_to + 1);
                         
                         // Sync the newly revealed addresses
                         if let Err(e) = client.sync_wallet_incremental(&mut wallet) {
-                            eprintln!("Warning: Failed to sync during deep scan batch {}: {}", batch, e);
+                            eprintln!("[{}] Warning: Failed to sync during deep scan batch {}: {}", checksum, batch, e);
                             continue;
                         }
                         
                         // Check if we found funds
                         let balance_after_batch = wallet.balance().total().to_sat();
                         if balance_after_batch > 0 {
-                            println!("✅ Found {} sats during deep scan batch {}! Stopping deep scan.", 
-                                    balance_after_batch, batch);
+                            println!("[{}] ✅ Found {} sats during deep scan batch {}! Stopping deep scan.", 
+                                    checksum, balance_after_batch, batch);
                             
                             // Persist the wallet with discovered funds
                             if let Err(e) = wallet.persist(&mut db) {
-                                eprintln!("Warning: Failed to persist wallet after deep scan: {}", e);
+                                eprintln!("[{}] Warning: Failed to persist wallet after deep scan: {}", checksum, e);
                             }
                             break;
                         } else {
-                            println!("  Batch {} complete - no funds found yet", batch);
+                            println!("[{}] Batch {} complete - no funds found yet", checksum, batch);
                         }
                     }
                     
                     if wallet.balance().total().to_sat() == 0 {
-                        println!("Deep scan completed - no funds found up to index 500");
+                        println!("[{}] Deep scan completed - no funds found up to index 500", checksum);
                     }
                 }
             }
@@ -481,7 +481,7 @@ impl WalletManager {
         // Update balance in metadata database
         let balance = wallet.balance().total().to_sat() as i64;
         if let Err(e) = metadata_db.update_wallet_balance_by_checksum(&checksum, balance).await {
-            eprintln!("Warning: Failed to update wallet balance: {}", e);
+            eprintln!("[{}] Warning: Failed to update wallet balance: {}", checksum, e);
         }
         
         // Extract historical transactions after sync
@@ -491,22 +491,22 @@ impl WalletManager {
             &metadata_db,
             electrum_client.as_ref()
         ).await {
-            eprintln!("Warning: Failed to extract historical transactions: {}", e);
+            eprintln!("[{}] Warning: Failed to extract historical transactions: {}", checksum, e);
         }
 
         // Update last synced timestamp
         if let Err(e) = metadata_db.update_wallet_last_synced(&checksum).await {
-            eprintln!("Warning: Failed to update wallet last synced: {}", e);
+            eprintln!("[{}] Warning: Failed to update wallet last synced: {}", checksum, e);
         }
         
         // Mark wallet as ready after deep scan and transaction extraction is complete
         if let Err(e) = metadata_db.update_wallet_sync_status(&checksum, "ready").await {
-            eprintln!("Warning: Failed to mark wallet as ready: {}", e);
+            eprintln!("[{}] Warning: Failed to mark wallet as ready: {}", checksum, e);
         } else {
-            println!("✅ Wallet {} marked as ready - available for frontend display", checksum);
+            println!("[{}] ✅ Wallet marked as ready - available for frontend display", checksum);
         }
         
-        println!("Background wallet creation completed for checksum: {}", checksum);
+        println!("[{}] Background wallet creation completed", checksum);
         Ok(())
     }
 
@@ -517,7 +517,7 @@ impl WalletManager {
         metadata_db: &MetadataDb,
         electrum_client: Option<&crate::electrum::ElectrumClient>,
     ) -> Result<()> {
-        println!("Extracting historical transactions for wallet checksum: {}", wallet_checksum);
+        println!("[{}] Extracting historical transactions", wallet_checksum);
 
         // Collect all transactions and sort them chronologically
         let mut all_transactions: Vec<_> = wallet.transactions().collect();
@@ -548,7 +548,7 @@ impl WalletManager {
             }
         });
 
-        println!("Found {} historical transactions to process", all_transactions.len());
+        println!("[{}] Found {} historical transactions to process", wallet_checksum, all_transactions.len());
 
         // Get current wallet balance
         let current_balance = wallet.balance().total().to_sat() as i64;
@@ -568,7 +568,8 @@ impl WalletManager {
         let mut running_balance = initial_balance;
 
         println!(
-            "Current balance: {:.8} BTC, Initial balance: {:.8} BTC",
+            "[{}] Current balance: {:.8} BTC, Initial balance: {:.8} BTC",
+            wallet_checksum,
             current_balance as f64 / 100_000_000.0,
             initial_balance as f64 / 100_000_000.0
         );
@@ -602,8 +603,8 @@ impl WalletManager {
                         match electrum_client.get_block_header(anchor.block_id.height) {
                             Ok(header) => header.timestamp,
                             Err(e) => {
-                                eprintln!("Failed to fetch block header for height {}: {}", 
-                                         anchor.block_id.height, e);
+                                eprintln!("[{}] Failed to fetch block header for height {}: {}", 
+                                         wallet_checksum, anchor.block_id.height, e);
                                 // Fallback to current time only if fetch fails
                                 std::time::SystemTime::now()
                                     .duration_since(std::time::UNIX_EPOCH)
@@ -643,11 +644,11 @@ impl WalletManager {
 
             // Insert historical event (no broadcasting for historical data)
             if let Err(e) = metadata_db.insert_event(&event_insert).await {
-                eprintln!("Failed to insert historical event: {}", e);
+                eprintln!("[{}] Failed to insert historical event: {}", wallet_checksum, e);
             }
         }
 
-        println!("Historical transaction extraction completed");
+        println!("[{}] Historical transaction extraction completed", wallet_checksum);
         Ok(())
     }
 
@@ -716,7 +717,7 @@ impl WalletManager {
             if let Some(ref client) = self.electrum_client {
                 let sync_result = client.sync_wallet_incremental(wallet);
                 if let Err(e) = sync_result {
-                    eprintln!("Failed to sync wallet {}: {}", wallet_checksum, e);
+                    eprintln!("[{}] Failed to sync wallet: {}", wallet_checksum, e);
                     return Ok(false);
                 }
             }
@@ -901,7 +902,7 @@ impl WalletManager {
                     if untrusted_pending_decrease && confirmed_same && total_decrease {
                         let fee_paid = total_before.to_sat() - total_after.to_sat();
                         let message = format!("🚀 CPFP fee: {:.8} BTC", fee_paid as f64 / 100_000_000.0);
-                        println!("{}", message);
+                        println!("[{}] {}", wallet_checksum, message);
 
                         // Insert CPFP event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -920,7 +921,7 @@ impl WalletManager {
                         )
                         .await
                         {
-                            eprintln!("Failed to insert CPFP event: {}", e);
+                            eprintln!("[{}] Failed to insert CPFP event: {}", wallet_checksum, e);
                         }
 
                         is_special_tx = true;
@@ -942,7 +943,7 @@ impl WalletManager {
                     // RBF pattern: trusted pending decreases (spending from change) with existing unconfirmed
                     if trusted_pending_decrease && !confirmed_decrease {
                         let message = format!("📤 RBF fee bump: +{:.8} BTC", fee_increase as f64 / 100_000_000.0);
-                        println!("{}", message);
+                        println!("[{}] {}", wallet_checksum, message);
 
                         // Insert RBF event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -961,7 +962,7 @@ impl WalletManager {
                         )
                         .await
                         {
-                            eprintln!("Failed to insert RBF event: {}", e);
+                            eprintln!("[{}] Failed to insert RBF event: {}", wallet_checksum, e);
                         }
                     } else {
                         // Regular sending logic continues below
@@ -974,7 +975,7 @@ impl WalletManager {
                             let sending_amount = confirmed_spent - change_received;
 
                             let message = format!("📤 Sending {:.8} BTC", sending_amount as f64 / 100_000_000.0);
-                            println!("{}", message);
+                            println!("[{}] {}", wallet_checksum, message);
 
                             // Insert sending event to database and broadcast
                             if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -993,7 +994,7 @@ impl WalletManager {
                             )
                             .await
                             {
-                                eprintln!("Failed to insert sending event: {}", e);
+                                eprintln!("[{}] Failed to insert sending event: {}", wallet_checksum, e);
                             }
                         }
                         // Case 2: Spending from trusted pending balance (subsequent transactions)
@@ -1005,7 +1006,7 @@ impl WalletManager {
                             let total_spent = trusted_spent + confirmed_spent;
 
                             let message = format!("📤 Sending {:.8} BTC", total_spent as f64 / 100_000_000.0);
-                            println!("{}", message);
+                            println!("[{}] {}", wallet_checksum, message);
 
                             // Insert sending event to database and broadcast
                             if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -1024,7 +1025,7 @@ impl WalletManager {
                             )
                             .await
                             {
-                                eprintln!("Failed to insert sending event: {}", e);
+                                eprintln!("[{}] Failed to insert sending event: {}", wallet_checksum, e);
                             }
                         }
                         // Case 3: Spending only from trusted pending (no confirmed funds used)
@@ -1032,7 +1033,7 @@ impl WalletManager {
                             let trusted_spent = trusted_pending_before.to_sat()
                                 - trusted_pending_after.to_sat();
                             let message = format!("📤 Sending {:.8} BTC", trusted_spent as f64 / 100_000_000.0);
-                            println!("{}", message);
+                            println!("[{}] {}", wallet_checksum, message);
 
                             // Insert sending event to database and broadcast
                             if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -1051,7 +1052,7 @@ impl WalletManager {
                             )
                             .await
                             {
-                                eprintln!("Failed to insert sending event: {}", e);
+                                eprintln!("[{}] Failed to insert sending event: {}", wallet_checksum, e);
                             }
                         }
                     }
@@ -1066,7 +1067,7 @@ impl WalletManager {
                         let sending_amount = confirmed_spent - change_received;
 
                         let message = format!("📤 Sending {:.8} BTC", sending_amount as f64 / 100_000_000.0);
-                        println!("{}", message);
+                        println!("[{}] {}", wallet_checksum, message);
 
                         // Insert sending event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -1100,7 +1101,7 @@ impl WalletManager {
                         let total_spent = trusted_spent + confirmed_spent;
 
                         let message = format!("📤 Sending {:.8} BTC", total_spent as f64 / 100_000_000.0);
-                        println!("{}", message);
+                        println!("[{}] {}", wallet_checksum, message);
 
                         // Insert sending event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -1130,7 +1131,7 @@ impl WalletManager {
                         let trusted_spent = trusted_pending_before.to_sat()
                             - trusted_pending_after.to_sat();
                         let message = format!("📤 Sending {:.8} BTC", trusted_spent as f64 / 100_000_000.0);
-                        println!("{}", message);
+                        println!("[{}] {}", wallet_checksum, message);
 
                         // Insert sending event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -1159,7 +1160,7 @@ impl WalletManager {
                     let receiving_amount = untrusted_pending_after.to_sat()
                         - untrusted_pending_before.to_sat();
                     let message = format!("📥 Receiving {:.8} BTC", receiving_amount as f64 / 100_000_000.0);
-                    println!("{}", message);
+                    println!("[{}] {}", wallet_checksum, message);
 
                     // Insert receiving event to database and broadcast
                     if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -1178,7 +1179,7 @@ impl WalletManager {
                     )
                     .await
                     {
-                        eprintln!("Failed to insert receiving event: {}", e);
+                        eprintln!("[{}] Failed to insert receiving event: {}", wallet_checksum, e);
                     }
                 }
 
@@ -1187,7 +1188,7 @@ impl WalletManager {
                     // Use transaction-level analysis result for send confirmation amount
                     if total_confirmed_send_amount > 0 {
                         let message = format!("✅ Sent confirmed: {:.8} BTC", total_confirmed_send_amount as f64 / 100_000_000.0);
-                        println!("{}", message);
+                        println!("[{}] {}", wallet_checksum, message);
 
                         // Get the proper transaction timestamp
                         let transaction_time = if let Some(ref txid) = confirmed_send_txid {
@@ -1213,7 +1214,7 @@ impl WalletManager {
                         )
                         .await
                         {
-                            eprintln!("Failed to insert sent confirmation event: {}", e);
+                            eprintln!("[{}] Failed to insert sent confirmation event: {}", wallet_checksum, e);
                         }
                     }
                 }
@@ -1223,7 +1224,7 @@ impl WalletManager {
                     // Use transaction-level analysis result for receive confirmation amount
                     if total_confirmed_receive_amount > 0 {
                         let message = format!("✅ Received confirmed: {:.8} BTC", total_confirmed_receive_amount as f64 / 100_000_000.0);
-                        println!("{}", message);
+                        println!("[{}] {}", wallet_checksum, message);
 
                         // Get the proper transaction timestamp
                         let transaction_time = if let Some(ref txid) = confirmed_receive_txid {
@@ -1249,7 +1250,7 @@ impl WalletManager {
                         )
                         .await
                         {
-                            eprintln!("Failed to insert received confirmation event: {}", e);
+                            eprintln!("[{}] Failed to insert received confirmation event: {}", wallet_checksum, e);
                         }
                     }
                 }
@@ -1338,7 +1339,7 @@ impl WalletManager {
                 }
                 Err(e) => {
                     failed += 1;
-                    eprintln!("❌ Failed to sync {}: {}", wallet_metadata.name, e);
+                    eprintln!("[{}] ❌ Failed to sync {}: {}", wallet_metadata.checksum, wallet_metadata.name, e);
                 }
             }
         }
@@ -1458,7 +1459,7 @@ impl WalletManager {
     }
 
     pub async fn delete_wallet_by_checksum(&mut self, checksum: &str) -> Result<()> {
-        println!("Deleting wallet with checksum: {}", checksum);
+        println!("[{}] Deleting wallet", checksum);
 
         // Get the descriptor and filename for this wallet checksum and delete from metadata
         let (descriptor, wallet_filename) =
@@ -1467,8 +1468,8 @@ impl WalletManager {
                 None => return Err(anyhow!("Wallet not found")),
             };
 
-        println!("  Found descriptor: {}", descriptor);
-        println!("  Wallet filename: {}", wallet_filename);
+        println!("[{}] Found descriptor: {}", checksum, descriptor);
+        println!("[{}] Wallet filename: {}", checksum, wallet_filename);
 
         // Find and remove wallet from in-memory manager (checksum is the key now)
         let wallet_index = self
@@ -1479,9 +1480,9 @@ impl WalletManager {
         if let Some(index) = wallet_index {
             // Remove wallet from in-memory storage (this unloads it from BDK)
             self.wallets.remove(index);
-            println!("  Unloaded wallet from memory");
+            println!("[{}] Unloaded wallet from memory", checksum);
         } else {
-            println!("  Warning: Wallet not found in memory (may have been manually removed)");
+            println!("[{}] Warning: Wallet not found in memory (may have been manually removed)", checksum);
         }
 
         // Delete wallet database file from disk
@@ -1494,21 +1495,21 @@ impl WalletManager {
                     e
                 )
             })?;
-            println!("  Deleted wallet file: {}", wallet_path.display());
+            println!("[{}] Deleted wallet file: {}", checksum, wallet_path.display());
         } else {
             println!(
-                "  Warning: Wallet file not found on disk: {}",
-                wallet_path.display()
+                "[{}] Warning: Wallet file not found on disk: {}",
+                checksum, wallet_path.display()
             );
         }
 
-        println!("Wallet deletion completed successfully");
+        println!("[{}] Wallet deletion completed successfully", checksum);
 
         Ok(())
     }
 
     pub async fn update_wallet(&self, checksum: &str, name: &str) -> Result<()> {
-        println!("Updating wallet with checksum: {}", checksum);
+        println!("[{}] Updating wallet", checksum);
 
         // Update wallet name in metadata database
         let updated = self
@@ -1519,7 +1520,7 @@ impl WalletManager {
             return Err(anyhow!("Wallet not found"));
         }
 
-        println!("  Updated wallet name to: {}", name);
+        println!("[{}] Updated wallet name to: {}", checksum, name);
 
         Ok(())
     }
@@ -1776,9 +1777,12 @@ impl WalletManager {
         use crate::xpub_converter::{XpubConverter, ScriptType};
         use std::collections::HashMap;
         
-        println!("Creating wallet from XPUB with intelligent script type probing:");
-        println!("  Name: {}", name);
-        println!("  XPUB: {}", xpub);
+        // Create a temporary checksum for logging (will use first 8 chars of XPUB for now)
+        let temp_log_id = if xpub.len() >= 12 { &xpub[4..12] } else { &xpub[0..4] };
+        
+        println!("[{}] Creating wallet from XPUB with intelligent script type probing", temp_log_id);
+        println!("[{}] Name: {}", temp_log_id, name);
+        println!("[{}] XPUB: {}", temp_log_id, xpub);
 
         // Create XPUB converter
         let network = self.get_network();
@@ -1795,17 +1799,17 @@ impl WalletManager {
         let mut temp_wallets: HashMap<ScriptType, (Wallet, String)> = HashMap::new();
         let mut winning_wallet: Option<(String, ScriptType)> = None;
 
-        println!("\n=== Phase 1: Quick Script Type Detection ===");
+        println!("[{}] === Phase 1: Quick Script Type Detection ===", temp_log_id);
         
         // Try each script type with limited scanning
         for script_type in script_types {
-            println!("\n🔍 Trying {} ({:?})...", script_type.as_str(), script_type);
+            println!("[{}] 🔍 Trying {} ({:?})...", temp_log_id, script_type.as_str(), script_type);
             
             // Generate descriptor for this script type
             let descriptor = match converter.generate_descriptor_for_type(xpub, &script_type) {
                 Ok(desc) => desc,
                 Err(e) => {
-                    println!("❌ Failed to generate descriptor for {:?}: {}", script_type, e);
+                    println!("[{}] ❌ Failed to generate descriptor for {:?}: {}", temp_log_id, script_type, e);
                     continue;
                 }
             };
@@ -1814,7 +1818,7 @@ impl WalletManager {
             let (receive_descriptor, change_descriptor) = match self.parse_multipath_descriptor(&descriptor) {
                 Ok((recv, change)) => (recv, change),
                 Err(e) => {
-                    println!("❌ Failed to parse descriptor for {:?}: {}", script_type, e);
+                    println!("[{}] ❌ Failed to parse descriptor for {:?}: {}", temp_log_id, script_type, e);
                     continue;
                 }
             };
@@ -1823,14 +1827,14 @@ impl WalletManager {
             let receive_desc: Descriptor<DescriptorPublicKey> = match receive_descriptor.parse() {
                 Ok(desc) => desc,
                 Err(e) => {
-                    println!("❌ Failed to parse receive descriptor for {:?}: {}", script_type, e);
+                    println!("[{}] ❌ Failed to parse receive descriptor for {:?}: {}", temp_log_id, script_type, e);
                     continue;
                 }
             };
             let change_desc: Descriptor<DescriptorPublicKey> = match change_descriptor.parse() {
                 Ok(desc) => desc,
                 Err(e) => {
-                    println!("❌ Failed to parse change descriptor for {:?}: {}", script_type, e);
+                    println!("[{}] ❌ Failed to parse change descriptor for {:?}: {}", temp_log_id, script_type, e);
                     continue;
                 }
             };
@@ -1842,7 +1846,7 @@ impl WalletManager {
             {
                 Ok(wallet) => wallet,
                 Err(e) => {
-                    println!("❌ Failed to create temp wallet for {:?}: {}", script_type, e);
+                    println!("[{}] ❌ Failed to create temp wallet for {:?}: {}", temp_log_id, script_type, e);
                     continue;
                 }
             };
@@ -1858,7 +1862,7 @@ impl WalletManager {
                 match electrum_client.client.full_scan(request, 10, 50, false) {
                     Ok(update) => {
                         if let Err(e) = temp_wallet.apply_update(update) {
-                            println!("❌ Failed to apply update for {:?}: {}", script_type, e);
+                            println!("[{}] ❌ Failed to apply update for {:?}: {}", temp_log_id, script_type, e);
                             continue;
                         }
                         
@@ -1867,19 +1871,19 @@ impl WalletManager {
                         let has_balance = temp_wallet.balance().total().to_sat() > 0;
                         
                         if has_transactions || has_balance {
-                            println!("✅ Found activity! Script type: {}", script_type.as_str());
-                            println!("  Transactions: {}", temp_wallet.transactions().count());
-                            println!("  Balance: {} sats", temp_wallet.balance().total());
+                            println!("[{}] ✅ Found activity! Script type: {}", temp_log_id, script_type.as_str());
+                            println!("[{}] Transactions: {}", temp_log_id, temp_wallet.transactions().count());
+                            println!("[{}] Balance: {} sats", temp_log_id, temp_wallet.balance().total());
                             
                             // Winner found!
                             winning_wallet = Some((descriptor, script_type));
                             break;
                         } else {
-                            println!("⚪ No activity found in first 50 addresses");
+                            println!("[{}] ⚪ No activity found in first 50 addresses", temp_log_id);
                         }
                     }
                     Err(e) => {
-                        println!("❌ Failed to scan for {:?}: {}", script_type, e);
+                        println!("[{}] ❌ Failed to scan for {:?}: {}", temp_log_id, script_type, e);
                         continue;
                     }
                 }
@@ -1888,20 +1892,20 @@ impl WalletManager {
 
         // Determine final descriptor
         let final_descriptor = if let Some((descriptor, script_type)) = &winning_wallet {
-            println!("\n✅ Winner found: {} with activity!", script_type.as_str());
+            println!("[{}] ✅ Winner found: {} with activity!", temp_log_id, script_type.as_str());
             descriptor.clone()
         } else {
             // Phase 2: Deep scanning for edge cases
-            println!("\n=== Phase 2: Deep Scanning (No Activity Found in Quick Scan) ===");
+            println!("[{}] === Phase 2: Deep Scanning (No Activity Found in Quick Scan) ===", temp_log_id);
             
             for script_type in script_types {
                 if temp_wallets.contains_key(&script_type) {
-                    println!("\n🔍 Deep scanning {} ({:?})...", script_type.as_str(), script_type);
+                    println!("[{}] 🔍 Deep scanning {} ({:?})...", temp_log_id, script_type.as_str(), script_type);
                     
                     if let Some(ref electrum_client) = self.electrum_client {
                         // Incremental deep scan
                         for batch in [100, 200, 300, 400, 500] {
-                            println!("  Scanning up to {} addresses...", batch);
+                            println!("[{}] Scanning up to {} addresses...", temp_log_id, batch);
                             
                             // Get mutable reference to temp_wallet and descriptor
                             let (temp_wallet, descriptor) = temp_wallets.get_mut(&script_type).unwrap();
@@ -1915,7 +1919,7 @@ impl WalletManager {
                             match electrum_client.client.full_scan(request, 20, 50, false) {
                                 Ok(update) => {
                                     if let Err(e) = temp_wallet.apply_update(update) {
-                                        println!("❌ Failed to apply update: {}", e);
+                                        println!("[{}] ❌ Failed to apply update: {}", temp_log_id, e);
                                         break;
                                     }
                                     
@@ -1924,13 +1928,13 @@ impl WalletManager {
                                     let has_balance = temp_wallet.balance().total().to_sat() > 0;
                                     
                                     if has_transactions || has_balance {
-                                        println!("✅ Found activity at depth {}! Script type: {}", batch, script_type.as_str());
+                                        println!("[{}] ✅ Found activity at depth {}! Script type: {}", temp_log_id, batch, script_type.as_str());
                                         winning_wallet = Some((descriptor.clone(), script_type));
                                         break;
                                     }
                                 }
                                 Err(e) => {
-                                    println!("❌ Failed deep scan at batch {}: {}", batch, e);
+                                    println!("[{}] ❌ Failed deep scan at batch {}: {}", temp_log_id, batch, e);
                                     break;
                                 }
                             }
@@ -1944,11 +1948,11 @@ impl WalletManager {
             }
             
             if let Some((descriptor, script_type)) = &winning_wallet {
-                println!("✅ Winner found in deep scan: {}", script_type.as_str());
+                println!("[{}] ✅ Winner found in deep scan: {}", temp_log_id, script_type.as_str());
                 descriptor.clone()
             } else {
                 // No activity found anywhere - create fresh P2WPKH wallet
-                println!("⚠️ No activity found in any script type. Creating fresh P2WPKH wallet.");
+                println!("[{}] ⚠️ No activity found in any script type. Creating fresh P2WPKH wallet.", temp_log_id);
                 converter.generate_descriptor_for_type(xpub, &ScriptType::P2WPKH)?
             }
         };
@@ -1969,7 +1973,7 @@ impl WalletManager {
             .insert_wallet(name, &normalized_descriptor, user_id)
             .await?;
         
-        println!("✅ Wallet metadata saved with checksum: {}", wallet_checksum);
+        println!("[{}] ✅ Wallet metadata saved with checksum: {}", wallet_checksum, wallet_checksum);
 
         // Get wallet metadata to return
         let wallet_metadata = self
@@ -1998,7 +2002,7 @@ impl WalletManager {
                 checksum_clone,
                 has_activity,
             ).await {
-                eprintln!("Background wallet creation failed for {}: {}", checksum_for_error, e);
+                eprintln!("[{}] Background wallet creation failed: {}", checksum_for_error, e);
             }
         });
 
@@ -2016,7 +2020,7 @@ impl WalletManager {
         has_activity: bool,
     ) -> Result<()> {
         
-        println!("Starting background wallet creation from probed XPUB for checksum: {}", checksum);
+        println!("[{}] Starting background wallet creation from probed XPUB", checksum);
         
         let wallet_filename = format!("{}.sqlite", checksum);
         let wallet_path = wallet_dir.join(&wallet_filename);
@@ -2050,26 +2054,26 @@ impl WalletManager {
         // Sync with electrum
         if let Some(ref client) = electrum_client {
             if let Err(e) = client.sync_wallet(&mut wallet) {
-                eprintln!("Warning: Failed to sync wallet during background creation: {}", e);
+                eprintln!("[{}] Warning: Failed to sync wallet during background creation: {}", checksum, e);
             } else {
                 // Persist after sync
                 if let Err(e) = wallet.persist(&mut db) {
-                    eprintln!("Warning: Failed to persist wallet after sync: {}", e);
+                    eprintln!("[{}] Warning: Failed to persist wallet after sync: {}", checksum, e);
                 }
             }
             
             // For existing wallets (those that had activity), extract historical transactions
             if has_activity {
-                println!("Extracting historical transactions for wallet checksum: {}", checksum);
+                println!("[{}] Extracting historical transactions", checksum);
                 if let Err(e) = Self::extract_historical_transactions_for_background(
                     &wallet,
                     &checksum,
                     &metadata_db,
                     electrum_client.as_ref(),
                 ).await {
-                    eprintln!("Warning: Failed to extract historical transactions: {}", e);
+                    eprintln!("[{}] Warning: Failed to extract historical transactions: {}", checksum, e);
                 } else {
-                    println!("Historical transaction extraction completed");
+                    println!("[{}] Historical transaction extraction completed", checksum);
                 }
             }
         }
@@ -2078,17 +2082,17 @@ impl WalletManager {
         if has_activity {
             let current_balance = wallet.balance().total().to_sat() as i64;
             if let Err(e) = metadata_db.update_wallet_balance_by_checksum(&checksum, current_balance).await {
-                eprintln!("Warning: Failed to update wallet balance in metadata: {}", e);
+                eprintln!("[{}] Warning: Failed to update wallet balance in metadata: {}", checksum, e);
             } else {
-                println!("📊 Updated wallet metadata: balance={} sats", current_balance);
+                println!("[{}] 📊 Updated wallet metadata: balance={} sats", checksum, current_balance);
             }
         }
         
         // Mark wallet as ready (only after balance and transactions are fully processed)
         if let Err(e) = metadata_db.mark_wallet_ready(&checksum).await {
-            eprintln!("Warning: Failed to mark wallet as ready: {}", e);
+            eprintln!("[{}] Warning: Failed to mark wallet as ready: {}", checksum, e);
         } else {
-            println!("✅ Wallet {} marked as ready - available for frontend display", checksum);
+            println!("[{}] ✅ Wallet marked as ready - available for frontend display", checksum);
         }
         
         Ok(())
