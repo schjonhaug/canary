@@ -2051,9 +2051,43 @@ impl WalletManager {
             .await?
             .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
 
-        // If we have a winning wallet, no background task needed - wallet is already complete!
+        // If we have a winning wallet, extract historical transactions before marking ready
         if winning_wallet.is_some() {
-            // Mark wallet as ready immediately since it's already fully synced
+            println!("[{}] Extracting historical transactions from winning wallet", checksum);
+            
+            // Load the wallet from its final location to extract historical transactions
+            let wallet_path = self.wallet_dir.join(format!("{}.sqlite", checksum));
+            let mut db = Connection::open(&wallet_path)
+                .map_err(|e| anyhow!("Failed to open wallet database at {}: {}", wallet_path.display(), e))?;
+            
+            let wallet = Wallet::load()
+                .extract_keys()
+                .check_network(self.get_network())
+                .load_wallet(&mut db)
+                .map_err(|e| anyhow!("Failed to load wallet: {}", e))?
+                .ok_or_else(|| anyhow!("Wallet not found in database"))?;
+            
+            // Extract historical transactions
+            if let Err(e) = Self::extract_historical_transactions_for_background(
+                &wallet,
+                &checksum,
+                &self.metadata_db,
+                self.electrum_client.as_ref(),
+            ).await {
+                println!("[{}] ⚠️ Failed to extract historical transactions: {}", checksum, e);
+            } else {
+                println!("[{}] ✅ Historical transactions extracted", checksum);
+            }
+            
+            // Update wallet balance in metadata
+            let current_balance = wallet.balance().total().to_sat() as i64;
+            if let Err(e) = self.metadata_db.update_wallet_balance_by_checksum(&checksum, current_balance).await {
+                println!("[{}] ⚠️ Failed to update wallet balance in metadata: {}", checksum, e);
+            } else {
+                println!("[{}] 📊 Updated wallet metadata: balance={} sats", checksum, current_balance);
+            }
+            
+            // Mark wallet as ready after transaction extraction
             if let Err(e) = self.metadata_db.mark_wallet_ready(&checksum).await {
                 println!("[{}] ⚠️ Failed to mark wallet as ready: {}", checksum, e);
             } else {
