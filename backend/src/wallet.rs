@@ -1797,8 +1797,8 @@ impl WalletManager {
             ScriptType::P2TR,    // Taproot (future-proofing)
         ];
 
-        let mut temp_wallets: HashMap<ScriptType, (Wallet, String)> = HashMap::new();
-        let mut winning_wallet: Option<(String, ScriptType)> = None;
+        let mut probe_wallets: HashMap<ScriptType, (PersistedWallet<Connection>, Connection, String, String)> = HashMap::new(); // (wallet, db, path, descriptor)
+        let mut winning_wallet: Option<(ScriptType, String)> = None; // (script_type, temp_wallet_path)
 
         println!("[{}] === Phase 1: Quick Script Type Detection ===", probe_id);
         
@@ -1840,23 +1840,33 @@ impl WalletManager {
                 }
             };
 
-            // Create temporary in-memory wallet (no persistence)
-            let temp_wallet = match Wallet::create(receive_desc, change_desc)
-                .network(network)
-                .create_wallet_no_persist()
-            {
-                Ok(wallet) => wallet,
+            // Create persistent wallet in /tmp for probing
+            let temp_wallet_path = format!("/tmp/canary_probe_{}_{:?}.sqlite", probe_id, script_type);
+            let mut db = match Connection::open(&temp_wallet_path) {
+                Ok(connection) => connection,
                 Err(e) => {
-                    println!("[{}] ❌ Failed to create temp wallet for {:?}: {}", probe_id, script_type, e);
+                    println!("[{}] ❌ Failed to create database at {}: {}", probe_id, temp_wallet_path, e);
                     continue;
                 }
             };
 
-            // Store temp wallet for potential Phase 2 use
-            temp_wallets.insert(script_type, (temp_wallet, descriptor.clone()));
+            let temp_wallet = match Wallet::create(receive_desc, change_desc)
+                .network(network)
+                .create_wallet(&mut db)
+            {
+                Ok(wallet) => wallet,
+                Err(e) => {
+                    println!("[{}] ❌ Failed to create persistent wallet for {:?}: {}", probe_id, script_type, e);
+                    let _ = std::fs::remove_file(&temp_wallet_path); // Clean up
+                    continue;
+                }
+            };
+
+            // Store probe wallet with its database connection and path
+            probe_wallets.insert(script_type, (temp_wallet, db, temp_wallet_path.clone(), descriptor.clone()));
             
             // Quick scan with limited addresses (50)
-            let temp_wallet = &mut temp_wallets.get_mut(&script_type).unwrap().0;
+            let (temp_wallet, temp_db, temp_path, _) = probe_wallets.get_mut(&script_type).unwrap();
             if let Some(ref electrum_client) = self.electrum_client {
                 // Scan with small stop gap for quick detection
                 let request = temp_wallet.start_full_scan();
@@ -1865,6 +1875,11 @@ impl WalletManager {
                         if let Err(e) = temp_wallet.apply_update(update) {
                             println!("[{}] ❌ Failed to apply update for {:?}: {}", probe_id, script_type, e);
                             continue;
+                        }
+                        
+                        // Persist the updated wallet
+                        if let Err(e) = temp_wallet.persist(temp_db) {
+                            println!("[{}] ❌ Failed to persist wallet for {:?}: {}", probe_id, script_type, e);
                         }
                         
                         // Check for any activity
@@ -1877,7 +1892,7 @@ impl WalletManager {
                             println!("[{}] Balance: {} sats", probe_id, temp_wallet.balance().total());
                             
                             // Winner found!
-                            winning_wallet = Some((descriptor, script_type));
+                            winning_wallet = Some((script_type, temp_path.clone()));
                             break;
                         } else {
                             println!("[{}] ⚪ No activity found in first 50 addresses", probe_id);
@@ -1891,31 +1906,34 @@ impl WalletManager {
             }
         }
 
-        // Determine final descriptor
-        let final_descriptor = if let Some((descriptor, script_type)) = &winning_wallet {
-            println!("[{}] ✅ Winner found: {} with activity!", probe_id, script_type.as_str());
-            descriptor.clone()
-        } else {
-            // Phase 2: Deep scanning for edge cases
-            println!("[{}] === Phase 2: Deep Scanning (No Activity Found in Quick Scan) ===", probe_id);
+        // If no winner found in quick scan, proceed with incremental deep scanning
+        if winning_wallet.is_none() {
+            println!("[{}] === Phase 2: Incremental Deep Scanning ===", probe_id);
             
             for script_type in script_types {
-                if temp_wallets.contains_key(&script_type) {
+                if probe_wallets.contains_key(&script_type) {
                     println!("[{}] 🔍 Deep scanning {} ({:?})...", probe_id, script_type.as_str(), script_type);
                     
                     if let Some(ref electrum_client) = self.electrum_client {
-                        // Incremental deep scan
-                        for batch in [100, 200, 300, 400, 500] {
-                            println!("[{}] Scanning up to {} addresses...", probe_id, batch);
+                        // Incremental reveal and scan (50 addresses at a time up to 500)
+                        let increments = [100, 150, 200, 250, 300, 350, 400, 450, 500];
+                        for target_addresses in increments {
+                            println!("[{}] Revealing up to {} addresses...", probe_id, target_addresses);
                             
-                            // Get mutable reference to temp_wallet and descriptor
-                            let (temp_wallet, descriptor) = temp_wallets.get_mut(&script_type).unwrap();
+                            // Get mutable reference to wallet components
+                            let (temp_wallet, temp_db, temp_path, _) = probe_wallets.get_mut(&script_type).unwrap();
                             
-                            // Reveal more addresses  
-                            let _external_addresses: Vec<_> = temp_wallet.reveal_addresses_to(KeychainKind::External, batch).collect();
-                            let _internal_addresses: Vec<_> = temp_wallet.reveal_addresses_to(KeychainKind::Internal, batch).collect();
+                            // Reveal addresses incrementally
+                            let _external_addresses: Vec<_> = temp_wallet.reveal_addresses_to(KeychainKind::External, target_addresses).collect();
+                            let _internal_addresses: Vec<_> = temp_wallet.reveal_addresses_to(KeychainKind::Internal, target_addresses).collect();
                             
-                            // Scan with normal stop gap
+                            // Persist the revealed addresses
+                            if let Err(e) = temp_wallet.persist(temp_db) {
+                                println!("[{}] ❌ Failed to persist revealed addresses: {}", probe_id, e);
+                                break;
+                            }
+                            
+                            // Full scan with normal stop gap (20)
                             let request = temp_wallet.start_full_scan();
                             match electrum_client.client.full_scan(request, 20, 50, false) {
                                 Ok(update) => {
@@ -1924,18 +1942,27 @@ impl WalletManager {
                                         break;
                                     }
                                     
+                                    // Persist the update
+                                    if let Err(e) = temp_wallet.persist(temp_db) {
+                                        println!("[{}] ❌ Failed to persist wallet update: {}", probe_id, e);
+                                    }
+                                    
                                     // Check for activity
                                     let has_transactions = temp_wallet.transactions().count() > 0;
                                     let has_balance = temp_wallet.balance().total().to_sat() > 0;
                                     
                                     if has_transactions || has_balance {
-                                        println!("[{}] ✅ Found activity at depth {}! Script type: {}", probe_id, batch, script_type.as_str());
-                                        winning_wallet = Some((descriptor.clone(), script_type));
+                                        println!("[{}] ✅ Found activity at {} addresses! Script type: {}", probe_id, target_addresses, script_type.as_str());
+                                        println!("[{}] Transactions: {}", probe_id, temp_wallet.transactions().count());
+                                        println!("[{}] Balance: {} sats", probe_id, temp_wallet.balance().total());
+                                        
+                                        // Winner found!
+                                        winning_wallet = Some((script_type, temp_path.clone()));
                                         break;
                                     }
                                 }
                                 Err(e) => {
-                                    println!("[{}] ❌ Failed deep scan at batch {}: {}", probe_id, batch, e);
+                                    println!("[{}] ❌ Failed scan at {} addresses: {}", probe_id, target_addresses, e);
                                     break;
                                 }
                             }
@@ -1947,15 +1974,18 @@ impl WalletManager {
                     }
                 }
             }
-            
-            if let Some((descriptor, script_type)) = &winning_wallet {
-                println!("[{}] ✅ Winner found in deep scan: {}", probe_id, script_type.as_str());
-                descriptor.clone()
-            } else {
-                // No activity found anywhere - create fresh P2WPKH wallet
-                println!("[{}] ⚠️ No activity found in any script type. Creating fresh P2WPKH wallet.", probe_id);
-                converter.generate_descriptor_for_type(xpub, &ScriptType::P2WPKH)?
-            }
+        }
+
+        // Determine final descriptor and handle winning wallet
+        let final_descriptor = if let Some((winning_script_type, _winning_temp_path)) = &winning_wallet {
+            // Get the descriptor from the winning wallet
+            let (_, _, _, descriptor) = probe_wallets.get(winning_script_type).unwrap();
+            println!("[{}] ✅ Winner found: {} with activity!", probe_id, winning_script_type.as_str());
+            descriptor.clone()
+        } else {
+            // No activity found anywhere - create fresh P2WPKH wallet
+            println!("[{}] ⚠️ No activity found in any script type. Creating fresh P2WPKH wallet.", probe_id);
+            converter.generate_descriptor_for_type(xpub, &ScriptType::P2WPKH)?
         };
 
         // Strip key origin from final descriptor for consistency
@@ -1980,6 +2010,40 @@ impl WalletManager {
         
         println!("[{}] ✅ Wallet metadata saved", checksum);
 
+        // Handle winning wallet: move from /tmp to final location and clean up
+        if let Some((_winning_script_type, winning_temp_path)) = &winning_wallet {
+            // Move winning wallet from /tmp to final location
+            let final_wallet_path = self.wallet_dir.join(format!("{}.sqlite", checksum));
+            
+            println!("[{}] Moving winning wallet from {} to {}", checksum, winning_temp_path, final_wallet_path.display());
+            if let Err(e) = std::fs::rename(winning_temp_path, &final_wallet_path) {
+                println!("[{}] ❌ Failed to move winning wallet: {}", checksum, e);
+                // Clean up all probe wallets on error
+                for (_, (_, _, path, _)) in probe_wallets {
+                    let _ = std::fs::remove_file(path);
+                }
+                return Err(anyhow!("Failed to move winning wallet to final location: {}", e));
+            }
+            
+            println!("[{}] ✅ Winning wallet moved to final location", checksum);
+        }
+        
+        // Clean up non-winning wallets from /tmp
+        for (script_type, (_, _, path, _)) in probe_wallets {
+            // Skip the winning wallet (already moved)
+            if let Some((winning_script_type, _)) = &winning_wallet {
+                if script_type == *winning_script_type {
+                    continue;
+                }
+            }
+            
+            if let Err(e) = std::fs::remove_file(&path) {
+                println!("[{}] ⚠️ Failed to clean up probe wallet {}: {}", checksum, path, e);
+            } else {
+                println!("[{}] 🗑️ Cleaned up probe wallet: {}", checksum, path);
+            }
+        }
+
         // Get wallet metadata to return
         let wallet_metadata = self
             .metadata_db
@@ -1987,7 +2051,19 @@ impl WalletManager {
             .await?
             .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
 
-        // Spawn background task to create persistent wallet
+        // If we have a winning wallet, no background task needed - wallet is already complete!
+        if winning_wallet.is_some() {
+            // Mark wallet as ready immediately since it's already fully synced
+            if let Err(e) = self.metadata_db.mark_wallet_ready(&checksum).await {
+                println!("[{}] ⚠️ Failed to mark wallet as ready: {}", checksum, e);
+            } else {
+                println!("[{}] ✅ Wallet marked as ready - available for frontend display", checksum);
+            }
+
+            return Ok(wallet_metadata);
+        }
+
+        // No winning wallet found - spawn background task to create fresh P2WPKH wallet
         let wallet_dir = self.wallet_dir.clone();
         let electrum_client_clone = self.electrum_client.clone();
         let metadata_db_clone = self.metadata_db.clone();
