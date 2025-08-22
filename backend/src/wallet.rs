@@ -2074,7 +2074,17 @@ impl WalletManager {
             }
         }
         
-        // Mark wallet as ready
+        // Update wallet metadata with current balance and activity before marking ready
+        if has_activity {
+            let current_balance = wallet.balance().total().to_sat() as i64;
+            if let Err(e) = metadata_db.update_wallet_balance_by_checksum(&checksum, current_balance).await {
+                eprintln!("Warning: Failed to update wallet balance in metadata: {}", e);
+            } else {
+                println!("📊 Updated wallet metadata: balance={} sats", current_balance);
+            }
+        }
+        
+        // Mark wallet as ready (only after balance and transactions are fully processed)
         if let Err(e) = metadata_db.mark_wallet_ready(&checksum).await {
             eprintln!("Warning: Failed to mark wallet as ready: {}", e);
         } else {
