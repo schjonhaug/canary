@@ -1933,9 +1933,9 @@ impl WalletManager {
                                 break;
                             }
                             
-                            // Full scan with normal stop gap (20)
-                            let request = temp_wallet.start_full_scan();
-                            match electrum_client.client.full_scan(request, 20, 50, false) {
+                            // Use sync to check ALL revealed addresses (not full_scan with stop_gap)
+                            let request = temp_wallet.start_sync_with_revealed_spks();
+                            match electrum_client.client.sync(request, 50, false) {
                                 Ok(update) => {
                                     if let Err(e) = temp_wallet.apply_update(update) {
                                         println!("[{}] ❌ Failed to apply update: {}", probe_id, e);
