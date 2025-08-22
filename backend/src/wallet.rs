@@ -317,7 +317,7 @@ impl WalletManager {
 
         // Check if input is an XPUB that needs script type probing
         if XpubConverter::is_xpub(descriptor_str) && !is_fresh_wallet {
-            // For existing XPUB wallets, we need to probe for the correct script type
+            // For existing XPUB wallets, we need to probe for the correct script type (synchronous)
             return self.create_from_xpub_with_probing(name, descriptor_str, user_id).await;
         }
 
@@ -385,6 +385,7 @@ impl WalletManager {
 
         Ok(wallet_metadata)
     }
+
 
     /// Background task to complete wallet creation (slow operations)
     async fn complete_wallet_creation_background(
