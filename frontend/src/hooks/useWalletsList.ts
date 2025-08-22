@@ -13,19 +13,10 @@ export function useWalletsList(shouldFetch: boolean = true) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
+  const [currentPollingInterval, setCurrentPollingInterval] = useState(60000); // Default 60 seconds
   const { token, isAuthenticated, billingStatus } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Get polling interval - faster when there are pending wallets, otherwise use tier-based
-  const getPollingInterval = useCallback(() => {
-    const hasPendingWallets = wallets.some(wallet => wallet.sync_status === 'pending');
-    if (hasPendingWallets) {
-      return 1000; // 1 second when wallets are syncing
-    }
-    const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60;
-    return syncIntervalSeconds * 1000; // Convert to milliseconds
-  }, [billingStatus?.limits?.sync_interval_seconds, wallets]);
 
   const fetchWallets = useCallback(async () => {
     // Only fetch data if user is authenticated, has a token, and should fetch
@@ -71,6 +62,24 @@ export function useWalletsList(shouldFetch: boolean = true) {
     }
   }, [token, isAuthenticated, shouldFetch]);
 
+  // Update polling interval when wallets or billing status changes
+  useEffect(() => {
+    const hasPendingWallets = wallets.some(wallet => wallet.sync_status === 'pending');
+    let newInterval: number;
+    
+    if (hasPendingWallets) {
+      newInterval = 1000; // 1 second when wallets are syncing
+    } else {
+      const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60;
+      newInterval = syncIntervalSeconds * 1000; // Convert to milliseconds
+    }
+    
+    // Only update if interval actually changed to avoid unnecessary re-renders
+    if (newInterval !== currentPollingInterval) {
+      setCurrentPollingInterval(newInterval);
+    }
+  }, [wallets, billingStatus?.limits?.sync_interval_seconds, currentPollingInterval]);
+
   const refresh = useCallback(() => {
     fetchWallets();
   }, [fetchWallets]);
@@ -87,35 +96,47 @@ export function useWalletsList(shouldFetch: boolean = true) {
     return [...wallets];
   }, [wallets]);
 
+  // Set up initial fetch when auth changes
   useEffect(() => {
     // Only set up polling if we should fetch
     if (!shouldFetch) {
       return;
     }
 
-    // Load initial data immediately
+    // Load initial data immediately when component mounts or auth changes
     fetchWallets();
+  }, [fetchWallets, shouldFetch]);
 
-    // Set up polling interval using dynamic interval
-    const intervalMs = getPollingInterval();
-    
+  // Set up polling interval - separate effect to avoid recreating interval unnecessarily
+  useEffect(() => {
+    // Only set up polling if we should fetch AND we have wallets to monitor
+    if (!shouldFetch || wallets.length === 0) {
+      // Clear any existing interval if we don't need to poll
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
+    }
+
     // Clear existing interval before setting new one
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
     }
     
+    // Set up new interval with current polling interval
     pollingIntervalRef.current = setInterval(() => {
       fetchWallets();
-    }, intervalMs);
+    }, currentPollingInterval);
 
-    // Cleanup on unmount
+    // Cleanup on unmount or interval change
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
     };
-  }, [fetchWallets, shouldFetch, getPollingInterval]);
+  }, [fetchWallets, shouldFetch, currentPollingInterval, wallets.length]);
 
   return { 
     wallets: allWallets, 
