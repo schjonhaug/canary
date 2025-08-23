@@ -974,7 +974,7 @@ impl MetadataDb {
                 // Get notification logs for this event
                 if let Some(ref event_id) = event.id {
                     let mut log_stmt = conn.prepare(
-                        "SELECT provider_type, status, error_message 
+                        "SELECT provider_name, status, error_message 
                          FROM notification_logs 
                          WHERE event_id = ?1"
                     )?;
