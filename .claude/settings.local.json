@@ -39,7 +39,8 @@
       "WebFetch(domain:bookofbdk.com)",
       "Bash(timeout 10s cargo run -- --network mainnet --electrum-url ssl://electrum.blockstream.info:50002)",
       "Bash(git push:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }
