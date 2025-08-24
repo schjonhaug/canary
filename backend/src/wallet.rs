@@ -1484,7 +1484,7 @@ impl WalletManager {
         // Note: This is still limited by the fact that each wallet sync needs mutable access to self
         // Future improvement: extract sync logic to avoid mutable self dependency
         
-        println!("🚀 Starting PARALLEL sync of {} wallets", due_wallets.len());
+        println!("🔄 Starting sequential sync of {} wallets", due_wallets.len());
         
         // Create a vector to store sync tasks - but for now process in batches to avoid mutable borrow issues
         const MAX_CONCURRENT: usize = 3; // Limit concurrent syncs to avoid overwhelming the system
