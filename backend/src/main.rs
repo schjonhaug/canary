@@ -116,7 +116,6 @@ async fn main() -> anyhow::Result<()> {
         let manager = wallet_manager.lock().await;
         Arc::new(api::AppServices {
             metadata_db: manager.metadata_db.clone(),
-            wallet_sync_manager: wallet_manager.clone(),
         })
     };
 

@@ -134,7 +134,6 @@ pub struct ProvidersResponse {
 // New architecture: Separate web serving from wallet sync operations
 pub struct AppServices {
     pub metadata_db: MetadataDb,  // Fast access for web endpoints (no mutex needed)
-    pub wallet_sync_manager: Arc<Mutex<WalletManager>>,  // Heavy wallet operations
 }
 
 impl AppServices {
@@ -3705,14 +3704,6 @@ pub async fn get_checkout_session_details(
 )]
 pub struct ApiDoc;
 
-pub fn create_router(
-    wallet_manager: AppState,
-    notification_manager: NotificationManagerState,
-    stripe_billing: StripeBillingState,
-    config: AppConfig,
-) -> Router {
-    create_router_with_services(wallet_manager, None, notification_manager, stripe_billing, config)
-}
 
 pub fn create_router_with_services(
     wallet_manager: AppState,

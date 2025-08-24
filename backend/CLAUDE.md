@@ -77,8 +77,11 @@ The backend will fail fast with clear error messages if required variables are m
 - **Notifications**: Plugin-based system with provider modules (`src/ntfy_provider.rs`, etc.)
 
 **Key Patterns:**
+- **Non-blocking Web Architecture**: `AppServices` struct provides fast metadata access without wallet mutex locks
+- **Dual State Management**: Web endpoints use `AppServices`, sync operations use `WalletManager` with Arc<Mutex<T>>
+- **Background Sync Tasks**: Heavy wallet operations run in separate async tasks to avoid blocking web serving
+- **Performance Monitoring**: Comprehensive timing logs for mutex wait times and sync operations
 - Plugin-based notification architecture with trait objects
-- Arc<Mutex<T>> for shared state management across async tasks
 - Tier-based wallet sync intervals (Personal: 10min, Team: 1min)
 - Network-specific SQLite databases in `database/{network}/`
 
