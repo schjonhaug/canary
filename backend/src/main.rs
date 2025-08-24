@@ -16,13 +16,13 @@ mod twilio_provider;
 mod wallet;
 mod xpub_converter;
 
-use api::create_router;
 use config::AppConfig;
 use email_provider::EmailProvider;
 use metadata::TransactionEvent;
 use notifications::NotificationManager;
 use ntfy_provider::NtfyProvider;
 use std::sync::Arc;
+use std::time::Instant;
 use stripe_billing::StripeBilling;
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::{interval, Duration};
@@ -110,6 +110,15 @@ async fn main() -> anyhow::Result<()> {
         )
         .await,
     ));
+    
+    // Create new non-blocking architecture: Separate metadata access from heavy wallet operations
+    let app_services = {
+        let manager = wallet_manager.lock().await;
+        Arc::new(api::AppServices {
+            metadata_db: manager.metadata_db.clone(),
+            wallet_sync_manager: wallet_manager.clone(),
+        })
+    };
 
     // Create shared state for current block header and load existing header from database
     let existing_header = {
@@ -260,7 +269,14 @@ async fn main() -> anyhow::Result<()> {
         loop {
             interval.tick().await;
 
+            let mutex_wait_start = Instant::now();
             let mut manager = sync_wallet_manager.lock().await;
+            let mutex_wait_time = mutex_wait_start.elapsed();
+            
+            if mutex_wait_time.as_millis() > 10 {
+                println!("🔒 Sync task waited {:?} for wallet manager mutex", mutex_wait_time);
+            }
+            
             // Use tier-based sync instead of syncing all wallets
             if let Err(e) = manager.sync_wallets_due_for_sync().await {
                 eprintln!("Tier-based sync failed: {}", e);
@@ -330,6 +346,11 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
             }
+            
+            // Explicitly release the mutex and log timing
+            let mutex_hold_duration = mutex_wait_start.elapsed();
+            drop(manager);
+            println!("🔓 Released wallet manager mutex after {:?} (sync + block check)", mutex_hold_duration);
         }
     });
 
@@ -504,7 +525,13 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let app = create_router(wallet_manager.clone(), notification_manager, stripe_billing, config.clone());
+    let app = api::create_router_with_services(
+        wallet_manager.clone(), 
+        Some(app_services.clone()), 
+        notification_manager, 
+        stripe_billing, 
+        config.clone()
+    );
 
     // Apply subscription limits for all existing users at startup (SAAS mode only)
     if config.is_saas_mode() {

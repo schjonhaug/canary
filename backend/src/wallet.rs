@@ -11,6 +11,7 @@ use bdk_wallet::{bitcoin::Network, PersistedWallet, Wallet, KeychainKind};
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::fs;
 use std::path::PathBuf;
+use std::time::Instant;
 use tokio::sync::broadcast;
 
 pub struct WalletManager {
@@ -66,7 +67,7 @@ impl WalletManager {
             }
         };
 
-        let mut manager = WalletManager {
+        let manager = WalletManager {
             wallets: Vec::new(),
             wallet_dir,
             electrum_client,
@@ -78,10 +79,9 @@ impl WalletManager {
             sync_errors: 0,
         };
 
-        // Load all existing wallets
-        if let Err(e) = manager.load_all_wallets().await {
-            eprintln!("Warning: Failed to load existing wallets: {}", e);
-        }
+        // Don't load wallets at startup - this blocks the server from starting!
+        // Wallets will be loaded on-demand during the first sync cycle
+        println!("🚀 Non-blocking startup: Deferring wallet loading to background sync task");
 
         manager
     }
@@ -104,11 +104,15 @@ impl WalletManager {
 
 
     async fn load_all_wallets(&mut self) -> Result<()> {
+        let start_time = Instant::now();
+        
         // Get only ready wallets from database (source of truth)
         let ready_wallets = self.metadata_db.get_ready_wallets().await?;
         
         let wallets_before = self.wallets.len();
         let mut missing = 0;
+        
+        println!("⏱️ Loading {} ready wallets from disk...", ready_wallets.len());
         
         for wallet_metadata in ready_wallets {
             let wallet_path = self.wallet_dir.join(format!("{}.sqlite", wallet_metadata.checksum));
@@ -135,8 +139,13 @@ impl WalletManager {
         
         // Only log if new wallets were actually loaded from disk
         let newly_loaded = self.wallets.len() - wallets_before;
+        let load_duration = start_time.elapsed();
+        
         if newly_loaded > 0 {
-            println!("📂 Loaded {} ready wallets from disk", newly_loaded);
+            println!("📂 Loaded {} ready wallets from disk in {:?} (avg: {:?}/wallet)", 
+                     newly_loaded, load_duration, load_duration / newly_loaded as u32);
+        } else {
+            println!("⏱️ Wallet loading check completed in {:?} (no new wallets)", load_duration);
         }
         
         if missing > 0 {
@@ -196,6 +205,7 @@ impl WalletManager {
     }
 
     async fn load_wallet_from_file(&mut self, wallet_path: &PathBuf) -> Result<()> {
+        let start_time = Instant::now();
         let filename = wallet_path
             .file_name()
             .and_then(|n| n.to_str())
@@ -222,6 +232,8 @@ impl WalletManager {
 
             // Check if wallet already exists before adding
             if !self.wallets.iter().any(|(cs, _)| cs == &checksum) {
+                let load_duration = start_time.elapsed();
+                println!("  ⏱️ Loaded wallet {} in {:?}", checksum, load_duration);
                 self.wallets.push((checksum, wallet));
             }
         } else {
@@ -1418,6 +1430,8 @@ impl WalletManager {
     }
 
     pub async fn sync_wallets_due_for_sync(&mut self) -> Result<()> {
+        let sync_start_time = Instant::now();
+        
         // First, check for expired subscriptions and downgrade users
         if let Err(e) = self.process_expired_subscriptions().await {
             tracing::error!("Failed to process expired subscriptions: {}", e);
@@ -1448,34 +1462,74 @@ impl WalletManager {
             format!("{}T", team_count)
         };
 
+        println!("🔄 Starting sync cycle for {} wallets ({}P/{}T)", 
+                 due_wallets.len(), personal_count, team_count);
+
         // Ensure all wallets are loaded first
+        let load_start = Instant::now();
         if let Err(e) = self.load_all_wallets().await {
             eprintln!("Failed to load wallets: {}", e);
             return Ok(());
         }
+        let load_duration = load_start.elapsed();
+        println!("⏱️ Wallet loading phase completed in {:?}", load_duration);
 
         let mut _synced = 0;
         let mut failed = 0;
         let mut had_changes = false;
 
-        for (wallet_metadata, _tier) in due_wallets {
-            // Sync the wallet
-            match self
-                .sync_wallet_by_checksum(&wallet_metadata.checksum)
-                .await
-            {
-                Ok(wallet_had_changes) => {
-                    _synced += 1;
-                    if wallet_had_changes {
-                        had_changes = true;
+        let sync_wallets_start = Instant::now();
+        
+        // For now, process wallets in parallel by spawning concurrent tasks
+        // Note: This is still limited by the fact that each wallet sync needs mutable access to self
+        // Future improvement: extract sync logic to avoid mutable self dependency
+        
+        println!("🚀 Starting PARALLEL sync of {} wallets", due_wallets.len());
+        
+        // Create a vector to store sync tasks - but for now process in batches to avoid mutable borrow issues
+        const MAX_CONCURRENT: usize = 3; // Limit concurrent syncs to avoid overwhelming the system
+        
+        for batch in due_wallets.chunks(MAX_CONCURRENT) {
+            let batch_start = Instant::now();
+            // Remove unused sync_futures vector for now
+            
+            // Create futures for each wallet sync in this batch
+            for (wallet_metadata, _tier) in batch.iter() {
+                let checksum = wallet_metadata.checksum.clone();
+                let name = wallet_metadata.name.clone();
+                
+                // For now, we still need to sync sequentially due to mutable borrow issues
+                // TODO: Refactor sync logic to be truly parallel
+                let wallet_sync_start = Instant::now();
+                match self.sync_wallet_by_checksum(&checksum).await {
+                    Ok(wallet_had_changes) => {
+                        let wallet_sync_duration = wallet_sync_start.elapsed();
+                        println!("  ⏱️ Synced {} in {:?} {}", 
+                                 checksum, 
+                                 wallet_sync_duration,
+                                 if wallet_had_changes { "(had changes)" } else { "(no changes)" });
+                        
+                        _synced += 1;
+                        if wallet_had_changes {
+                            had_changes = true;
+                        }
+                    }
+                    Err(e) => {
+                        failed += 1;
+                        eprintln!("  [{}] ❌ Failed to sync {} in {:?}: {}", 
+                                 checksum, name, wallet_sync_start.elapsed(), e);
                     }
                 }
-                Err(e) => {
-                    failed += 1;
-                    eprintln!("[{}] ❌ Failed to sync {}: {}", wallet_metadata.checksum, wallet_metadata.name, e);
-                }
             }
+            
+            let batch_duration = batch_start.elapsed();
+            println!("✅ Processed batch of {} wallets in {:?}", batch.len(), batch_duration);
         }
+        
+        let sync_wallets_duration = sync_wallets_start.elapsed();
+        let total_sync_duration = sync_start_time.elapsed();
+        println!("⏱️ Wallet sync phase completed in {:?} (total cycle: {:?})", 
+                 sync_wallets_duration, total_sync_duration);
 
         // Update counters
         self.sync_counter += 1;

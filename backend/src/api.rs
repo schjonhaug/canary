@@ -7,7 +7,7 @@ use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
 use crate::email_service::EmailService;
 use crate::metadata::{
-    Contact, EventType, Language, NotificationMethod, ProviderType, TransactionEventWithWallet,
+    Contact, EventType, Language, MetadataDb, NotificationMethod, ProviderType, TransactionEventWithWallet,
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
@@ -131,7 +131,38 @@ pub struct ProvidersResponse {
     pub providers: Vec<ProviderInfo>,
 }
 
-pub type AppState = Arc<Mutex<WalletManager>>;
+// New architecture: Separate web serving from wallet sync operations
+pub struct AppServices {
+    pub metadata_db: MetadataDb,  // Fast access for web endpoints (no mutex needed)
+    pub wallet_sync_manager: Arc<Mutex<WalletManager>>,  // Heavy wallet operations
+}
+
+impl AppServices {
+    /// Non-blocking version that only uses metadata database
+    pub async fn get_wallets_list_for_user_fast(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<WalletsListResponse, anyhow::Error> {
+        // Get current timestamp
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Get wallets based on user permissions - directly from metadata DB
+        let wallets = if is_admin {
+            self.metadata_db.get_all_wallets().await?
+        } else {
+            self.metadata_db.get_wallets_for_user(Some(user_id)).await?
+        };
+
+        Ok(WalletsListResponse { timestamp, wallets })
+    }
+}
+
+pub type AppState = Arc<Mutex<WalletManager>>;  // Keep for compatibility during migration
+pub type AppServicesState = Arc<AppServices>;   // New non-blocking architecture
 pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
@@ -2035,6 +2066,47 @@ pub async fn get_wallets_list(
     }
 }
 
+/// NEW NON-BLOCKING VERSION: Get wallets list without blocking on wallet sync operations
+pub async fn get_wallets_list_fast(
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    headers: HeaderMap,
+) -> Response {
+    let start_time = std::time::Instant::now();
+    
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(err) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: err,
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // No mutex blocking! Direct access to metadata database
+    match app_services
+        .get_wallets_list_for_user_fast(&user.user_id, user.is_admin)
+        .await
+    {
+        Ok(wallets_response) => {
+            let response_time = start_time.elapsed();
+            println!("⚡ Non-blocking wallet list served in {:?}", response_time);
+            (StatusCode::OK, Json(wallets_response)).into_response()
+        },
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to get wallets list: {}", e),
+            }),
+        )
+            .into_response(),
+    }
+}
+
 #[utoipa::path(
     get,
     path = "/api/wallets/{id}/detail",
@@ -3639,6 +3711,16 @@ pub fn create_router(
     stripe_billing: StripeBillingState,
     config: AppConfig,
 ) -> Router {
+    create_router_with_services(wallet_manager, None, notification_manager, stripe_billing, config)
+}
+
+pub fn create_router_with_services(
+    wallet_manager: AppState,
+    app_services: Option<AppServicesState>,
+    notification_manager: NotificationManagerState,
+    stripe_billing: StripeBillingState,
+    config: AppConfig,
+) -> Router {
     let config_state = Arc::new(config);
     
     // Auth routes (public)
@@ -3697,10 +3779,19 @@ pub fn create_router(
         Router::new() // Empty router if Stripe not configured
     };
 
-    let api_routes = auth_routes
+    let mut api_routes = auth_routes
         .merge(wallet_routes)
         .merge(provider_routes)
         .merge(stripe_routes);
+    
+    // Add non-blocking fast routes if app_services is available
+    if let Some(services) = app_services {
+        let fast_routes = Router::new()
+            .route("/wallets-fast", get(get_wallets_list_fast))
+            .with_state((services, stripe_billing.clone(), config_state.clone()));
+        
+        api_routes = api_routes.merge(fast_routes);
+    }
 
     Router::new()
         .nest("/api", api_routes)
