@@ -526,7 +526,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = api::create_router_with_services(
         wallet_manager.clone(), 
-        Some(app_services.clone()), 
+        app_services.clone(), 
         notification_manager, 
         stripe_billing, 
         config.clone()

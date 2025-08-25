@@ -159,6 +159,114 @@ impl AppServices {
 
         Ok(WalletsListResponse { timestamp, wallets })
     }
+
+    /// Apply subscription tier limits by setting is_active status on wallets and contacts
+    /// Non-blocking version that only uses metadata database (no wallet mutex)
+    pub async fn apply_subscription_limits(
+        &self,
+        user_id: &str,
+        tier: &str,
+        is_admin: bool,
+    ) -> Result<(), anyhow::Error> {
+        if is_admin {
+            tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
+        } else {
+            tracing::info!("🎯 Applying {} tier limits for user {}", tier, user_id);
+        }
+
+        // Get all wallets for this user ordered by creation time (oldest first)
+        let wallets = self
+            .metadata_db
+            .get_wallets_for_user_oldest_first(user_id)
+            .await?;
+
+        // Determine wallet limit based on tier or admin status
+        let wallet_limit = if is_admin {
+            usize::MAX // Unlimited for admin
+        } else {
+            match tier {
+                "personal" => 1,
+                "team" => 5,
+                _ => 1, // Default to personal limits for unknown tiers
+            }
+        };
+
+        // Update wallet active status
+        for (index, wallet) in wallets.iter().enumerate() {
+            let should_be_active = index < wallet_limit;
+
+            if let Err(e) = self
+                .metadata_db
+                .update_wallet_active_status(&wallet.checksum, should_be_active)
+                .await
+            {
+                tracing::error!(
+                    "Failed to update wallet {} active status: {}",
+                    wallet.checksum,
+                    e
+                );
+            } else if !should_be_active {
+                tracing::info!(
+                    "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
+                    wallet.name,
+                    index + 1,
+                    tier
+                );
+            }
+        }
+
+        // Handle contacts for each wallet
+        for wallet in &wallets {
+            let contacts = self
+                .metadata_db
+                .get_contacts_oldest_first_for_limits(&wallet.checksum)
+                .await?;
+
+            // Determine contact limit based on tier or admin status
+            let contact_limit = if is_admin {
+                usize::MAX // Unlimited for admin
+            } else {
+                match tier {
+                    "personal" => 1,
+                    "team" => 5,
+                    _ => 1, // Default to personal limits
+                }
+            };
+
+            for (index, contact) in contacts.iter().enumerate() {
+                let within_count_limit = index < contact_limit;
+                let should_be_active = within_count_limit;
+
+                if let Some(contact_id) = &contact.id {
+                    tracing::debug!("🔍 Contact '{}' (index: {}, created_at: {:?}) - within_limit: {}, should_be_active: {}", 
+                        contact.name, index, contact.created_at, within_count_limit, should_be_active);
+
+                    if let Err(e) = self
+                        .metadata_db
+                        .update_contact_active_status(contact_id, should_be_active)
+                        .await
+                    {
+                        tracing::error!(
+                            "Failed to update contact {} active status: {}",
+                            contact_id,
+                            e
+                        );
+                    } else if !should_be_active {
+                        let reason =
+                            format!("exceeds {} tier limit of {} contacts", tier, contact_limit);
+                        tracing::info!(
+                            "📵 Deactivated contact '{}' in wallet '{}' - {}",
+                            contact.name,
+                            wallet.name,
+                            reason
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 pub type AppState = Arc<Mutex<WalletManager>>;  // Keep for compatibility during migration
@@ -495,7 +603,7 @@ pub async fn create_wallet(
                     let manager = manager_clone.lock().await;
 
                     // Get user details from database
-                    match app_services.metadata_db.get_user_by_id(&user_id).await {
+                    match manager.metadata_db.get_user_by_id(&user_id).await {
                         Ok(Some(user_record)) => {
                             // Map browser language to supported languages
                             let language = match preferred_language.as_deref() {
@@ -524,7 +632,7 @@ pub async fn create_wallet(
                             let notification_methods =
                                 vec![(ProviderType::Email, user_record.email)];
 
-                            match app_services
+                            match manager
                                 .metadata_db
                                 .insert_contact_with_notification_methods(
                                     &wallet_checksum,
@@ -690,7 +798,7 @@ pub async fn delete_wallet(
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
-                match app_services
+                match manager
                     .metadata_db
                     .is_wallet_owned_by_user(&checksum, &user.user_id)
                     .await
@@ -1457,11 +1565,12 @@ pub async fn get_wallet_contacts(
     )
 )]
 pub async fn send_contact_verification(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(request): Json<SendContactVerificationRequest>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -1476,11 +1585,8 @@ pub async fn send_contact_verification(
         }
     };
 
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-
-    // Check if wallet exists and user has access
-    match manager
+    // Check if wallet exists and user has access - no mutex blocking!
+    match app_services
         .metadata_db
         .get_wallet_by_checksum(&wallet_checksum)
         .await
@@ -1565,8 +1671,8 @@ pub async fn send_contact_verification(
                 .into_response();
         }
 
-        // Check if email matches current user's account email (skip verification)
-        if let Ok(Some(user_record)) = manager.metadata_db.get_user_by_id(&user.user_id).await {
+        // Check if email matches current user's account email (skip verification) - no mutex blocking!
+        if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await {
             let jwt_secret = std::env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
             let auth_service = AuthService::new(jwt_secret.clone(), None);
@@ -1595,9 +1701,9 @@ pub async fn send_contact_verification(
             .into_response();
     };
 
-    // Check rate limit (skip for dev mode)
+    // Check rate limit (skip for dev mode) - no mutex blocking!
     if !is_dev_mode {
-        match manager
+        match app_services
             .metadata_db
             .check_rate_limit(&notification_target)
             .await
@@ -1625,8 +1731,8 @@ pub async fn send_contact_verification(
         }
     }
 
-    // Clean up any expired verifications first
-    let _ = manager.metadata_db.cleanup_expired_verifications().await;
+    // Clean up any expired verifications first - no mutex blocking!
+    let _ = app_services.metadata_db.cleanup_expired_verifications().await;
 
     // Generate verification code
     let verification_code = if is_dev_mode {
@@ -1646,7 +1752,7 @@ pub async fn send_contact_verification(
         Some(verification_code.as_str())
     };
 
-    match manager
+    match app_services
         .metadata_db
         .create_pending_contact_verification(
             &wallet_checksum,
@@ -1725,14 +1831,14 @@ pub async fn send_contact_verification(
             .await
     };
 
-    match result {
+    let final_result = match result {
         Ok(_) => Json(serde_json::json!({
             "message": "Verification code sent successfully"
         }))
         .into_response(),
         Err(e) => {
-            // Clean up pending verification on error
-            let _ = manager.metadata_db.cleanup_expired_verifications().await;
+            // Clean up pending verification on error - no mutex blocking!
+            let _ = app_services.metadata_db.cleanup_expired_verifications().await;
 
             (
                 StatusCode::BAD_REQUEST,
@@ -1742,7 +1848,11 @@ pub async fn send_contact_verification(
             )
                 .into_response()
         }
-    }
+    };
+    
+    let elapsed = start_time.elapsed();
+    info!("send_contact_verification completed in {:?}", elapsed);
+    final_result
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -1779,11 +1889,12 @@ pub struct VerifyContactResponse {
     )
 )]
 pub async fn verify_contact(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(request): Json<VerifyContactRequest>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -1798,11 +1909,8 @@ pub async fn verify_contact(
         }
     };
 
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-
-    // Check if wallet exists and user has access
-    match manager
+    // Check if wallet exists and user has access - no mutex blocking!
+    match app_services
         .metadata_db
         .get_wallet_by_checksum(&wallet_checksum)
         .await
@@ -1891,8 +1999,8 @@ pub async fn verify_contact(
             .into_response();
     };
 
-    // Look up the pending verification
-    let (verification_id, _contact_name, _language, verification_code) = match manager
+    // Look up the pending verification - no mutex blocking!
+    let (verification_id, _contact_name, _language, verification_code) = match app_services
         .metadata_db
         .get_pending_verification(&wallet_checksum, &notification_target)
         .await
@@ -1975,14 +2083,14 @@ pub async fn verify_contact(
     };
 
     if is_valid {
-        // Clear rate limit on successful verification
-        let _ = manager
+        // Clear rate limit on successful verification - no mutex blocking!
+        let _ = app_services
             .metadata_db
             .clear_rate_limit(&notification_target)
             .await;
 
-        // Delete pending verification
-        let _ = manager
+        // Delete pending verification - no mutex blocking!
+        let _ = app_services
             .metadata_db
             .delete_pending_verification(verification_id)
             .await;
@@ -1993,6 +2101,9 @@ pub async fn verify_contact(
             "Phone number verified successfully"
         };
 
+        let elapsed = start_time.elapsed();
+        info!("verify_contact completed in {:?}", elapsed);
+        
         (
             StatusCode::OK,
             Json(VerifyContactResponse {
@@ -2002,6 +2113,9 @@ pub async fn verify_contact(
         )
             .into_response()
     } else {
+        let elapsed = start_time.elapsed();
+        info!("verify_contact completed in {:?}", elapsed);
+        
         (
             StatusCode::BAD_REQUEST,
             Json(VerifyContactResponse {
@@ -2254,10 +2368,10 @@ pub async fn get_wallet_detail(
     tag = "auth"
 )]
 pub async fn register(
-    State((wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Json(request): Json<RegisterRequest>,
 ) -> Response {
-    let manager = wallet_manager.lock().await;
+    let start_time = std::time::Instant::now();
 
     // Validate email format
     if !request.email.contains('@') || request.email.len() < 5 {
@@ -2281,8 +2395,8 @@ pub async fn register(
             .into_response();
     }
 
-    // Check if user already exists
-    match manager.metadata_db.get_user_by_email(&request.email).await {
+    // Check if user already exists - no mutex blocking!
+    match app_services.metadata_db.get_user_by_email(&request.email).await {
         Ok(Some(_)) => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -2334,8 +2448,8 @@ pub async fn register(
     // For dev mode, auto-verify emails. For production, require verification.
     let email_verified = is_dev_email;
 
-    // Create user
-    let user_id = match manager
+    // Create user - no mutex blocking!
+    let user_id = match app_services
         .metadata_db
         .create_user(
             &request.email,
@@ -2359,8 +2473,8 @@ pub async fn register(
 
     // Create Stripe trial subscription for the user
     {
-        // Get the created user to pass to Stripe
-        let user_record = match manager.metadata_db.get_user_by_id(&user_id).await {
+        // Get the created user to pass to Stripe - no mutex blocking!
+        let user_record = match app_services.metadata_db.get_user_by_id(&user_id).await {
             Ok(Some(user)) => user,
             Ok(None) => {
                 return (
@@ -2385,7 +2499,7 @@ pub async fn register(
         // Create Stripe customer (but not subscription yet - that starts when they add their first wallet)
         if let Some(stripe_service) = &stripe_billing {
             if let Err(e) = stripe_service
-                .create_stripe_customer_only(&user_record, &manager.metadata_db)
+                .create_stripe_customer_only(&user_record, &app_services.metadata_db)
                 .await
             {
                 tracing::error!(
@@ -2424,8 +2538,8 @@ pub async fn register(
     if !is_dev_email {
         let token = auth_service.generate_verification_token();
 
-        // Store verification token
-        if let Err(e) = manager
+        // Store verification token - no mutex blocking!
+        if let Err(e) = app_services
             .metadata_db
             .create_email_verification_token(&user_id, &token)
             .await
@@ -2453,12 +2567,18 @@ pub async fn register(
                 .into_response();
         }
 
+        let elapsed = start_time.elapsed();
+        info!("register completed in {:?}", elapsed);
+        
         Json(serde_json::json!({
             "message": "Registration successful. Please check your email to verify your account."
         }))
         .into_response()
     } else {
         // Dev mode: return success immediately
+        let elapsed = start_time.elapsed();
+        info!("register completed in {:?}", elapsed);
+        
         Json(serde_json::json!({
             "message": "Registration successful (dev mode - no email verification required)."
         }))
@@ -2650,12 +2770,13 @@ pub async fn login(
     tag = "auth"
 )]
 pub async fn verify_email(
-    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Path(token): Path<String>,
 ) -> Response {
-    let manager = wallet_manager.lock().await;
-
-    match manager.metadata_db.verify_email_token(&token).await {
+    let start_time = std::time::Instant::now();
+    
+    // Direct metadata access - no mutex blocking!
+    let result = match app_services.metadata_db.verify_email_token(&token).await {
         Ok(Some(_user_id)) => Json(serde_json::json!({
             "message": "Email verified successfully. You can now log in."
         }))
@@ -2674,7 +2795,11 @@ pub async fn verify_email(
             }),
         )
             .into_response(),
-    }
+    };
+    
+    let elapsed = start_time.elapsed();
+    info!("verify_email completed in {:?}", elapsed);
+    result
 }
 
 #[utoipa::path(
@@ -2689,13 +2814,13 @@ pub async fn verify_email(
     tag = "auth"
 )]
 pub async fn forgot_password(
-    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
-    let manager = wallet_manager.lock().await;
-
-    // Check if user exists
-    let user_record = match manager.metadata_db.get_user_by_email(&request.email).await {
+    let start_time = std::time::Instant::now();
+    
+    // Check if user exists - no mutex blocking!
+    let user_record = match app_services.metadata_db.get_user_by_email(&request.email).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             // Don't reveal whether user exists or not
@@ -2726,8 +2851,8 @@ pub async fn forgot_password(
     let auth_service = AuthService::new(jwt_secret, email_service);
     let token = auth_service.generate_verification_token();
 
-    // Store password reset token
-    if let Err(e) = manager
+    // Store password reset token - no mutex blocking!
+    if let Err(e) = app_services
         .metadata_db
         .create_password_reset_token(&user_record.id, &token)
         .await
@@ -2759,6 +2884,9 @@ pub async fn forgot_password(
             .into_response();
     }
 
+    let elapsed = start_time.elapsed();
+    info!("forgot_password completed in {:?}", elapsed);
+    
     Json(serde_json::json!({
         "message": "If an account with that email exists, a password reset link has been sent."
     }))
@@ -2780,11 +2908,11 @@ pub async fn forgot_password(
     tag = "auth"
 )]
 pub async fn reset_password(
-    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Path(token): Path<String>,
     Json(request): Json<ResetPasswordRequest>,
 ) -> Response {
-    let manager = wallet_manager.lock().await;
+    let start_time = std::time::Instant::now();
 
     // Validate password strength
     if request.password.len() < 6 {
@@ -2797,8 +2925,8 @@ pub async fn reset_password(
             .into_response();
     }
 
-    // Verify token and get user ID
-    let user_id = match manager
+    // Verify token and get user ID - no mutex blocking!
+    let user_id = match app_services
         .metadata_db
         .verify_password_reset_token(&token)
         .await
@@ -2843,8 +2971,8 @@ pub async fn reset_password(
         }
     };
 
-    // Update password and clear reset tokens
-    if let Err(e) = manager
+    // Update password and clear reset tokens - no mutex blocking!
+    if let Err(e) = app_services
         .metadata_db
         .update_user_password(user_id, &password_hash)
         .await
@@ -2858,6 +2986,9 @@ pub async fn reset_password(
             .into_response();
     }
 
+    let elapsed = start_time.elapsed();
+    info!("reset_password completed in {:?}", elapsed);
+    
     Json(serde_json::json!({
         "message": "Password reset successfully. You can now log in with your new password."
     }))
@@ -3015,10 +3146,11 @@ pub async fn me(
     tag = "auth"
 )]
 pub async fn update_user(
-    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
     Json(request): Json<UpdateUserRequest>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -3044,10 +3176,8 @@ pub async fn update_user(
             .into_response();
     }
 
-    // Update user name in database
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-    if let Err(e) = manager
+    // Update user name in database - no mutex blocking!
+    if let Err(e) = app_services
         .metadata_db
         .update_user_name(&user.user_id, request.name.trim())
         .await
@@ -3061,8 +3191,8 @@ pub async fn update_user(
             .into_response();
     }
 
-    // Get updated user info
-    let user_info = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+    // Get updated user info - no mutex blocking!
+    let user_info = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(db_user)) => AuthUserResponse {
             id: db_user.id,
             email: db_user.email,
@@ -3092,6 +3222,9 @@ pub async fn update_user(
         }
     };
 
+    let elapsed = start_time.elapsed();
+    info!("update_user completed in {:?}", elapsed);
+    
     Json(UpdateUserResponse { user: user_info }).into_response()
 }
 
@@ -3126,10 +3259,11 @@ pub async fn get_providers(
     )
 )]
 pub async fn create_stripe_checkout_session(
-    State((wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
     Json(payload): Json<CreateCheckoutSessionRequest>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -3159,10 +3293,8 @@ pub async fn create_stripe_checkout_session(
         }
     };
 
-    let manager = wallet_manager.lock().await;
-
-    // Get user record
-    let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+    // Get user record - no mutex blocking!
+    let user_record = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(user_record)) => user_record,
         Ok(None) => {
             return (
@@ -3205,16 +3337,21 @@ pub async fn create_stripe_checkout_session(
     let success_url = format!("{}/settings/subscription?success=true", frontend_url);
     let cancel_url = format!("{}/settings/subscription?cancelled=true", frontend_url);
 
-    match stripe_billing
+    let result = stripe_billing
         .create_checkout_session(
             &user_record.id,
             tier,
             billing_cycle,
             &success_url,
             &cancel_url,
-            &manager.metadata_db,
+            &app_services.metadata_db,
         )
-        .await
+        .await;
+    
+    let elapsed = start_time.elapsed();
+    info!("create_stripe_checkout_session completed in {:?}", elapsed);
+    
+    match result
     {
         Ok(session) => (StatusCode::OK, Json(session)).into_response(),
         Err(e) => (
@@ -3239,10 +3376,11 @@ pub async fn create_stripe_checkout_session(
     )
 )]
 pub async fn create_stripe_customer_portal(
-    State((wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
     Json(payload): Json<CreateCustomerPortalRequest>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -3257,10 +3395,8 @@ pub async fn create_stripe_customer_portal(
         }
     };
 
-    let manager = wallet_manager.lock().await;
-
-    // Get user record
-    let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+    // Get user record - no mutex blocking!
+    let user_record = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(user_record)) => user_record,
         Ok(None) => {
             return (
@@ -3326,10 +3462,14 @@ pub async fn create_stripe_customer_portal(
                 "✅ Customer portal session created successfully: {}",
                 session.url
             );
+            let elapsed = start_time.elapsed();
+            info!("create_stripe_customer_portal completed in {:?}", elapsed);
             (StatusCode::OK, Json(session)).into_response()
         }
         Err(e) => {
             tracing::error!("❌ Failed to create customer portal session: {}", e);
+            let elapsed = start_time.elapsed();
+            info!("create_stripe_customer_portal completed in {:?}", elapsed);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
@@ -3458,7 +3598,7 @@ pub async fn get_billing_status(
     tag = "Billing"
 )]
 pub async fn get_billing_pricing(
-    State((_wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((_app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
 ) -> Response {
     // Get Stripe billing from state
     let stripe_billing = match stripe_billing.as_ref() {
@@ -3492,10 +3632,11 @@ pub async fn get_billing_pricing(
     tag = "Billing"
 )]
 pub async fn handle_stripe_webhook(
-    State((_wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
     body: String,
 ) -> Response {
+    let _start_time = std::time::Instant::now();
     // Debug: Log all headers
     tracing::info!("Webhook headers received: {:?}", headers);
     
@@ -3545,8 +3686,7 @@ pub async fn handle_stripe_webhook(
         .await
     {
         Ok(webhook_result) => {
-            // Process any subscription updates
-            let wallet_manager = _wallet_manager.lock().await;
+            // Process any subscription updates - no mutex blocking!
             for update in webhook_result.subscription_updates {
                 tracing::info!(
                     "Processing subscription update for user {}: {} -> {}",
@@ -3560,8 +3700,8 @@ pub async fn handle_stripe_webhook(
                     let customer_id = update.user_id.strip_prefix("stripe_customer:").unwrap();
                     tracing::info!("Looking up user by Stripe customer ID: {}", customer_id);
 
-                    // Find user by Stripe customer ID
-                    match wallet_manager
+                    // Find user by Stripe customer ID - no mutex blocking!
+                    match app_services
                         .metadata_db
                         .get_user_by_stripe_customer_id(customer_id)
                         .await
@@ -3589,8 +3729,8 @@ pub async fn handle_stripe_webhook(
 
                 // Handle special "keep_current" tier for cancellations
                 if update.subscription_tier == "keep_current" {
-                    // For cancellations, just update the status, not the tier
-                    if let Err(e) = wallet_manager
+                    // For cancellations, just update the status, not the tier - no mutex blocking!
+                    if let Err(e) = app_services
                         .metadata_db
                         .update_user_subscription_status(
                             &actual_user_id,
@@ -3612,8 +3752,8 @@ pub async fn handle_stripe_webhook(
                         );
                     }
                 } else {
-                    // Regular subscription update (tier + status)
-                    if let Err(e) = wallet_manager
+                    // Regular subscription update (tier + status) - no mutex blocking!
+                    if let Err(e) = app_services
                         .metadata_db
                         .update_user_subscription(
                             &actual_user_id,
@@ -3640,14 +3780,14 @@ pub async fn handle_stripe_webhook(
                         );
 
                         // Apply subscription tier limits to wallets and contacts
-                        // First, get user record to check admin status
-                        match wallet_manager
+                        // First, get user record to check admin status - no mutex blocking!
+                        match app_services
                             .metadata_db
                             .get_user_by_id(&actual_user_id)
                             .await
                         {
                             Ok(Some(user_record)) => {
-                                if let Err(e) = wallet_manager
+                                if let Err(e) = app_services
                                     .apply_subscription_limits(
                                         &actual_user_id,
                                         &update.subscription_tier,
@@ -3724,7 +3864,7 @@ pub async fn handle_stripe_webhook(
     tag = "Billing"
 )]
 pub async fn get_checkout_session_details(
-    State((_wallet_manager, stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((_app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Path(session_id): Path<String>,
 ) -> Response {
     // Get Stripe billing from state
@@ -3798,7 +3938,7 @@ pub struct ApiDoc;
 
 pub fn create_router_with_services(
     wallet_manager: AppState,
-    app_services: Option<AppServicesState>,
+    app_services: AppServicesState,
     notification_manager: NotificationManagerState,
     stripe_billing: StripeBillingState,
     config: AppConfig,
@@ -3806,13 +3946,23 @@ pub fn create_router_with_services(
     let config_state = Arc::new(config);
     
     // Auth routes (public) - only routes that still use wallet_manager
-    let auth_routes = Router::new()
+    // AppServices routes (non-blocking, metadata operations only)
+    let app_routes_2param = Router::new()
         .route("/auth/register", post(register))
         .route("/auth/verify-email/{token}", get(verify_email))
         .route("/auth/forgot-password", post(forgot_password))
         .route("/auth/reset-password/{token}", post(reset_password))
         .route("/auth/user", put(update_user))
-        .with_state((wallet_manager.clone(), stripe_billing.clone()));
+        .with_state((app_services.clone(), stripe_billing.clone()));
+
+    // Contact verification routes (non-blocking)
+    let app_routes_3param = Router::new()
+        .route(
+            "/wallets/{checksum}/contacts/send-verification",
+            post(send_contact_verification),
+        )
+        .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
+        .with_state((app_services.clone(), stripe_billing.clone(), config_state.clone()));
 
     let wallet_routes = Router::new()
         .route("/wallets", post(create_wallet))
@@ -3820,11 +3970,6 @@ pub fn create_router_with_services(
             "/wallets/{checksum}",
             axum::routing::delete(delete_wallet),
         )
-        .route(
-            "/wallets/{checksum}/contacts/send-verification",
-            post(send_contact_verification),
-        )
-        .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
         .with_state((wallet_manager.clone(), stripe_billing.clone(), config_state.clone()));
 
     let provider_routes = Router::new()
@@ -3842,39 +3987,36 @@ pub fn create_router_with_services(
                 "/billing/session/{session_id}",
                 get(get_checkout_session_details),
             )
-            .with_state((wallet_manager.clone(), stripe_billing.clone()))
+            .with_state((app_services.clone(), stripe_billing.clone()))
     } else {
         Router::new() // Empty router if Stripe not configured
     };
 
-    let mut api_routes = auth_routes
+    // Add the remaining AppServices routes
+    let app_routes_metadata = Router::new()
+        .route("/wallets", get(get_wallets_list))
+        .route("/wallets/{checksum}", get(get_wallet).put(update_wallet))
+        .route("/wallets/{checksum}/detail", get(get_wallet_detail))
+        .route("/wallets/{checksum}/contacts", get(get_wallet_contacts))
+        .route("/wallets/{checksum}/contacts", post(create_wallet_contact))
+        .route("/wallets/{wallet_checksum}/contacts/{contact_id}", axum::routing::delete(delete_wallet_contact))
+        .route("/auth/login", post(login))
+        .route("/block-headers/current", get(get_current_block_header))
+        .with_state((app_services.clone(), stripe_billing.clone(), config_state.clone()));
+    
+    let app_routes_auth = Router::new()
+        .route("/auth/logout", post(logout))
+        .route("/auth/me", get(me))
+        .route("/billing/status", get(get_billing_status))
+        .with_state((app_services.clone(), stripe_billing.clone()));
+    
+    let api_routes = app_routes_2param
+        .merge(app_routes_3param)
+        .merge(app_routes_metadata)
+        .merge(app_routes_auth)
         .merge(wallet_routes)
         .merge(provider_routes)
         .merge(stripe_routes);
-    
-    // Add non-blocking routes using AppServices if available
-    if let Some(services) = app_services {
-        // Routes that need (AppServices, StripeBilling, Config) state
-        let app_routes_3param = Router::new()
-            .route("/wallets", get(get_wallets_list))
-            .route("/wallets/{checksum}", get(get_wallet).put(update_wallet))
-            .route("/wallets/{checksum}/detail", get(get_wallet_detail))
-            .route("/wallets/{checksum}/contacts", get(get_wallet_contacts))
-            .route("/wallets/{checksum}/contacts", post(create_wallet_contact))
-            .route("/wallets/{wallet_checksum}/contacts/{contact_id}", axum::routing::delete(delete_wallet_contact))
-            .route("/auth/login", post(login))
-            .route("/block-headers/current", get(get_current_block_header))
-            .with_state((services.clone(), stripe_billing.clone(), config_state.clone()));
-        
-        // Routes that need (AppServices, StripeBilling) state
-        let app_routes_2param = Router::new()
-            .route("/auth/logout", post(logout))
-            .route("/auth/me", get(me))
-            .route("/billing/status", get(get_billing_status))
-            .with_state((services, stripe_billing.clone()));
-        
-        api_routes = api_routes.merge(app_routes_3param).merge(app_routes_2param);
-    }
 
     Router::new()
         .nest("/api", api_routes)
