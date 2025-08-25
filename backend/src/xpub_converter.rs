@@ -11,23 +11,7 @@ pub enum ScriptType {
     P2TR,      // Taproot
 }
 
-impl ScriptType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ScriptType::P2PKH => "Legacy (P2PKH)",
-            ScriptType::P2SH => "Nested SegWit (P2SH-P2WPKH)",
-            ScriptType::P2WPKH => "Native SegWit (P2WPKH)",
-            ScriptType::P2TR => "Taproot (P2TR)",
-        }
-    }
-}
 
-pub struct ConversionResult {
-    pub descriptor: String,
-    pub detected_type: ScriptType,
-    #[allow(dead_code)]
-    pub confidence: f32,
-}
 
 pub struct XpubConverter {
     network: Network,
@@ -51,42 +35,6 @@ impl XpubConverter {
 
     
 
-    /// Convert XPUB to a multipath descriptor with forced script type (for fresh wallets)
-    pub fn convert_to_descriptor_with_forced_type(&self, xpub: &str, script_type: &str) -> Result<ConversionResult> {
-        println!("\n=== XPUB Conversion (Forced Script Type) ===");
-        println!("Input XPUB: {}", xpub);
-        println!("Forced script type: {}", script_type);
-        
-        // Normalize the XPUB
-        let normalized_xpub = self.normalize_xpub(xpub)?;
-        if normalized_xpub != xpub {
-            println!("Normalized XPUB: {} -> {}", xpub, normalized_xpub);
-        }
-        
-        // Parse the forced script type
-        let forced_type = match script_type.to_lowercase().as_str() {
-            "p2pkh" | "legacy" => ScriptType::P2PKH,
-            "p2sh" | "nested_segwit" | "nested-segwit" => ScriptType::P2SH,
-            "p2wpkh" | "native_segwit" | "native-segwit" => ScriptType::P2WPKH,
-            "p2tr" | "taproot" => ScriptType::P2TR,
-            _ => return Err(anyhow!("Invalid script type: {}. Valid options: p2pkh, p2sh, p2wpkh, p2tr", script_type)),
-        };
-        
-        println!("Parsed script type: {}", forced_type.as_str());
-        
-        // Generate descriptor for the forced type
-        let descriptor = self.generate_descriptor_for_type(xpub, &forced_type)
-            .map_err(|e| anyhow!("Failed to generate descriptor for {:?}: {}", forced_type, e))?;
-        
-        println!("Generated descriptor: {}", descriptor);
-        println!("=== End XPUB Conversion (Forced) ===\n");
-        
-        Ok(ConversionResult {
-            descriptor,
-            detected_type: forced_type,
-            confidence: 1.0, // 100% confidence since user provided the type
-        })
-    }
 
 
     /// Generate a multipath descriptor for a given script type (without key origin)

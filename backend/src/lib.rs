@@ -39,7 +39,7 @@ pub use stripe_billing::{
 };
 pub use twilio_provider::TwilioProvider;
 pub use wallet::{WalletManager, WalletCreationService};
-pub use xpub_converter::{ConversionResult, ScriptType, XpubConverter};
+pub use xpub_converter::{ScriptType, XpubConverter};
 
 // Test modules
 #[cfg(test)]

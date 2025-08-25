@@ -82,12 +82,6 @@ impl SubscriptionTier {
         )
     }
 
-    /// Legacy method for backward compatibility - uses Regtest intervals
-    /// This is deprecated and will be removed once all callers are updated
-    #[deprecated(note = "Use limits(network) instead to get proper network-aware intervals")]
-    pub fn limits_legacy(&self) -> TierLimits {
-        self.limits(&NetworkConfig::Regtest)
-    }
 
     /// Get limits for API limit checking - uses reasonable default intervals
     /// This is used by API endpoints where network config isn't available
