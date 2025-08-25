@@ -1772,6 +1772,11 @@ impl WalletManager {
             tracing::error!("Failed to process expired subscriptions: {}", e);
         }
 
+        // Second, cleanup deleted wallets (background cleanup from soft deletes)
+        if let Err(e) = self.cleanup_deleted_wallets().await {
+            tracing::error!("Failed to cleanup deleted wallets: {}", e);
+        }
+
         // Get wallets that are due for sync based on their owner's tier
         let network_config = self.bdk_network_to_config();
         let due_wallets = self.metadata_db.get_wallets_due_for_sync(&network_config).await?;
@@ -1957,6 +1962,60 @@ impl WalletManager {
 
         println!("[{}] Wallet deletion completed successfully", checksum);
 
+        Ok(())
+    }
+
+    /// Cleanup wallets marked as deleted (background cleanup for soft deletes)
+    pub async fn cleanup_deleted_wallets(&mut self) -> Result<()> {
+        // Get wallets marked as deleted
+        let deleted_wallets = self.metadata_db.get_deleted_wallets().await?;
+        
+        if deleted_wallets.is_empty() {
+            return Ok(());
+        }
+        
+        println!("🗑️  Cleaning up {} deleted wallets", deleted_wallets.len());
+        
+        for (checksum, _descriptor) in deleted_wallets {
+            println!("[{}] Cleaning up deleted wallet", checksum);
+            
+            // Remove from in-memory wallets if present
+            let wallet_index = self
+                .wallets
+                .iter()
+                .position(|(stored_checksum, _)| stored_checksum == &checksum);
+
+            if let Some(index) = wallet_index {
+                self.wallets.remove(index);
+                println!("[{}] Removed from in-memory storage", checksum);
+            }
+            
+            // Delete wallet database file from disk
+            let wallet_filename = format!("{}.sqlite", checksum);
+            let wallet_path = self.wallet_dir.join(&wallet_filename);
+            if wallet_path.exists() {
+                if let Err(e) = fs::remove_file(&wallet_path) {
+                    eprintln!(
+                        "[{}] Warning: Failed to delete wallet file {}: {}",
+                        checksum, wallet_path.display(), e
+                    );
+                } else {
+                    println!("[{}] Deleted wallet file: {}", checksum, wallet_path.display());
+                }
+            }
+            
+            // Finally, delete from metadata database (hard delete)
+            if let Err(e) = self.metadata_db.delete_wallet_by_checksum(&checksum).await {
+                eprintln!(
+                    "[{}] Warning: Failed to delete from metadata database: {}",
+                    checksum, e
+                );
+            } else {
+                println!("[{}] Deleted from metadata database", checksum);
+            }
+        }
+        
+        println!("✅ Completed cleanup of deleted wallets");
         Ok(())
     }
 

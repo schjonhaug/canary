@@ -1115,7 +1115,7 @@ pub async fn create_wallet_non_blocking(
     )
 )]
 pub async fn delete_wallet(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
 ) -> Response {
@@ -1133,14 +1133,13 @@ pub async fn delete_wallet(
         }
     };
 
-    let mut manager = wallet_manager.lock().await;
-
+    // NON-BLOCKING: Use AppServices metadata_db directly (no wallet mutex)
     // Check if wallet exists and belongs to user (or user is admin)
-    match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
+    match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
-                match manager
+                match app_services
                     .metadata_db
                     .is_wallet_owned_by_user(&checksum, &user.user_id)
                     .await
@@ -1187,16 +1186,30 @@ pub async fn delete_wallet(
         }
     }
 
-    match manager.delete_wallet_by_checksum(&checksum).await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+    // SOFT DELETE: Mark wallet as deleted instead of immediate deletion
+    // This allows for instant response while background cleanup happens during next sync cycle
+    match app_services.metadata_db.mark_wallet_as_deleted(&checksum).await {
+        Ok(true) => {
+            println!("[{}] Wallet marked as deleted (soft delete)", checksum);
+            StatusCode::NO_CONTENT.into_response()
+        }
+        Ok(false) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
         Err(e) => {
-            let error_msg = e.to_string();
-            let status_code = match error_msg.as_str() {
-                "Wallet not found" => StatusCode::NOT_FOUND,
-                _ => StatusCode::INTERNAL_SERVER_ERROR,
-            };
-
-            (status_code, Json(ErrorResponse { error: error_msg })).into_response()
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response();
         }
     }
 }
@@ -4335,12 +4348,7 @@ pub fn create_router_with_services(
         .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
         .with_state((app_services.clone(), stripe_billing.clone(), config_state.clone()));
 
-    let wallet_routes = Router::new()
-        .route(
-            "/wallets/{checksum}",
-            axum::routing::delete(delete_wallet),
-        )
-        .with_state((wallet_manager.clone(), stripe_billing.clone(), config_state.clone()));
+    // Delete wallet route moved to app_services_routes for non-blocking operation
 
     let provider_routes = Router::new()
         .route("/providers", get(get_providers))
@@ -4365,7 +4373,7 @@ pub fn create_router_with_services(
     // Add the remaining AppServices routes
     let app_routes_metadata = Router::new()
         .route("/wallets", get(get_wallets_list).post(create_wallet_non_blocking))
-        .route("/wallets/{checksum}", get(get_wallet).put(update_wallet))
+        .route("/wallets/{checksum}", get(get_wallet).put(update_wallet).delete(delete_wallet))
         .route("/wallets/{checksum}/detail", get(get_wallet_detail))
         .route("/wallets/{checksum}/contacts", get(get_wallet_contacts))
         .route("/wallets/{checksum}/contacts", post(create_wallet_contact))
@@ -4384,7 +4392,6 @@ pub fn create_router_with_services(
         .merge(app_routes_3param)
         .merge(app_routes_metadata)
         .merge(app_routes_auth)
-        .merge(wallet_routes)
         .merge(provider_routes)
         .merge(stripe_routes);
 

@@ -604,7 +604,7 @@ impl MetadataDb {
                             w.sync_status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
-                     WHERE w.user_id = ?1
+                     WHERE w.user_id = ?1 AND w.sync_status != 'deleted'
                      GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.sync_status, w.user_id, w.is_active
                      ORDER BY w.created_at DESC"
                 }
@@ -614,6 +614,7 @@ impl MetadataDb {
                             w.sync_status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                     WHERE w.sync_status != 'deleted'
                      GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.sync_status, w.user_id, w.is_active
                      ORDER BY w.created_at DESC"
                 }
@@ -745,6 +746,48 @@ impl MetadataDb {
                 .prepare("SELECT 1 FROM wallets WHERE checksum = ?1 AND user_id = ?2")?
                 .exists(params![checksum, user_id])?;
             Ok(exists)
+        })
+        .await?
+    }
+
+    /// Mark a wallet as deleted (soft delete) - used for non-blocking deletion
+    pub async fn mark_wallet_as_deleted(&self, checksum: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let checksum = checksum.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let changes = conn.execute(
+                "UPDATE wallets SET sync_status = 'deleted' WHERE checksum = ?1",
+                params![checksum],
+            )?;
+            Ok(changes > 0)
+        })
+        .await?
+    }
+
+    /// Get wallets marked as deleted for background cleanup
+    pub async fn get_deleted_wallets(&self) -> Result<Vec<(String, String)>> { // (checksum, descriptor)
+        let pool = self.pool.clone();
+
+        spawn_blocking(move || -> Result<Vec<(String, String)>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT checksum, descriptor FROM wallets WHERE sync_status = 'deleted'"
+            )?;
+            
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>("checksum")?,
+                    row.get::<_, String>("descriptor")?,
+                ))
+            })?;
+            
+            let mut wallets = Vec::new();
+            for row in rows {
+                wallets.push(row?);
+            }
+            Ok(wallets)
         })
         .await?
     }
