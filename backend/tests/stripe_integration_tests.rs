@@ -3,10 +3,10 @@ use axum::{
     http::{Request, StatusCode},
 };
 use canary::{
-    api::create_router,
+    api::{create_router_with_services, AppServices},
     config::{AppConfig, NetworkConfig},
     notifications::NotificationManager,
-    wallet::WalletManager,
+    wallet::{WalletManager, WalletCreationService},
 };
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
@@ -44,13 +44,28 @@ async fn create_test_app() -> axum::Router {
         .await,
     ));
 
+    // Create AppServices for non-blocking architecture
+    let app_services = {
+        let manager = wallet_manager.lock().await;
+        let wallet_creation_service = WalletCreationService::new(
+            manager.wallet_dir.clone(),
+            manager.metadata_db.clone(),
+            manager.electrum_client.clone(),
+            manager.get_network(),
+        );
+        Arc::new(AppServices {
+            metadata_db: manager.metadata_db.clone(),
+            wallet_creation_service,
+        })
+    };
+
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
 
     // No Stripe billing for basic tests (None means billing endpoints return 500)
     let stripe_billing = None;
 
-    create_router(
-        wallet_manager,
+    create_router_with_services(
+        app_services,
         notification_manager,
         stripe_billing,
         test_config,
