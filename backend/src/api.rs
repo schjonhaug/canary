@@ -2314,6 +2314,35 @@ pub async fn get_wallet_detail(
         }
     }
 
+    // Check if wallet is pending - if so, return minimal data only
+    if wallet.sync_status == "pending" {
+        // Get contacts - these are available even for pending wallets
+        let contacts = match app_services.metadata_db.get_contacts_with_notification_methods(&wallet.checksum).await {
+            Ok(contacts) => contacts,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to get contacts: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        };
+
+        let response_time = start_time.elapsed();
+        println!("⚡ Non-blocking wallet detail (pending) served in {:?}", response_time);
+
+        let wallet_detail = WalletDetailResponse {
+            timestamp,
+            wallet,
+            events: vec![], // Empty events for pending wallets
+            contacts,
+        };
+
+        return (StatusCode::OK, Json(wallet_detail)).into_response();
+    }
+
     // Get transaction events - no mutex blocking!
     let events = match app_services.metadata_db.get_events_by_wallet_checksum(&wallet.checksum, None).await {
         Ok(events) => events,

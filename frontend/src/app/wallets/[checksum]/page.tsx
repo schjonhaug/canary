@@ -159,6 +159,41 @@ export default function WalletDetailPage() {
     )
   }
 
+  // If wallet is pending, show syncing message
+  if (wallet.sync_status === 'pending') {
+    return (
+      <>
+        <div className="mb-6">
+          <Link href="/wallets">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft size={16} />
+              Back to Wallets
+            </Button>
+          </Link>
+        </div>
+        
+        <Alert className="border-blue-200 bg-blue-50">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-blue-700">Wallet Still Syncing</AlertTitle>
+          <AlertDescription className="text-blue-600">
+            <strong>{wallet.name}</strong> is still syncing and scanning for historical transactions. 
+            This process can take a few minutes for wallets with transaction history.
+            <span className="block mt-2">
+              Please return to the wallets page and wait for the syncing to complete.
+            </span>
+            <div className="mt-3">
+              <Link href="/wallets">
+                <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+                  Back to Wallets
+                </Button>
+              </Link>
+            </div>
+          </AlertDescription>
+        </Alert>
+      </>
+    )
+  }
+
   return (
     <>
       {/* Connection Warning Banner */}
