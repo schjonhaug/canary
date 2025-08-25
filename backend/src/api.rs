@@ -3,6 +3,7 @@ use crate::auth::{
     ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateUserRequest,
     UpdateUserResponse, AuthUser,
 };
+use tracing::info;
 use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
 use crate::email_service::EmailService;
@@ -138,7 +139,7 @@ pub struct AppServices {
 
 impl AppServices {
     /// Non-blocking version that only uses metadata database
-    pub async fn get_wallets_list_for_user_fast(
+    pub async fn get_wallets_list_for_user(
         &self,
         user_id: &str,
         is_admin: bool,
@@ -301,6 +302,7 @@ pub async fn create_wallet(
     headers: HeaderMap,
     Json(payload): Json<CreateWalletRequest>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -347,6 +349,7 @@ pub async fn create_wallet(
         }
     }
 
+    // Single mutex lock for the entire operation - create_from_multipath returns quickly
     let mut manager = wallet_manager.lock().await;
 
     // Get user's subscription tier and check wallet limit
@@ -492,7 +495,7 @@ pub async fn create_wallet(
                     let manager = manager_clone.lock().await;
 
                     // Get user details from database
-                    match manager.metadata_db.get_user_by_id(&user_id).await {
+                    match app_services.metadata_db.get_user_by_id(&user_id).await {
                         Ok(Some(user_record)) => {
                             // Map browser language to supported languages
                             let language = match preferred_language.as_deref() {
@@ -521,7 +524,7 @@ pub async fn create_wallet(
                             let notification_methods =
                                 vec![(ProviderType::Email, user_record.email)];
 
-                            match manager
+                            match app_services
                                 .metadata_db
                                 .insert_contact_with_notification_methods(
                                     &wallet_checksum,
@@ -618,6 +621,9 @@ pub async fn create_wallet(
                 }
             }
 
+            let elapsed = start_time.elapsed();
+            info!("create_wallet completed in {:?}", elapsed);
+            
             (
                 StatusCode::CREATED,
                 Json(CreateWalletResponse {
@@ -684,7 +690,7 @@ pub async fn delete_wallet(
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
-                match manager
+                match app_services
                     .metadata_db
                     .is_wallet_owned_by_user(&checksum, &user.user_id)
                     .await
@@ -765,7 +771,7 @@ pub async fn delete_wallet(
     )
 )]
 pub async fn update_wallet(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
     Json(payload): Json<UpdateWalletRequest>,
@@ -794,14 +800,14 @@ pub async fn update_wallet(
             .into_response();
     }
 
-    let manager = wallet_manager.lock().await;
+    let start_time = std::time::Instant::now();
 
-    // Check if wallet exists and belongs to user (or user is admin)
-    match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
+    // Direct metadata access - no mutex blocking!
+    match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
-                match manager
+                match app_services
                     .metadata_db
                     .is_wallet_owned_by_user(&checksum, &user.user_id)
                     .await
@@ -848,17 +854,25 @@ pub async fn update_wallet(
         }
     }
 
-    match manager.update_wallet(&checksum, &payload.name).await {
-        Ok(()) => StatusCode::OK.into_response(),
-        Err(e) => {
-            let error_msg = e.to_string();
-            let status_code = match error_msg.as_str() {
-                "Wallet not found" => StatusCode::NOT_FOUND,
-                _ => StatusCode::BAD_REQUEST,
-            };
-
-            (status_code, Json(ErrorResponse { error: error_msg })).into_response()
-        }
+    let update_result = app_services.metadata_db.update_wallet_by_checksum(&checksum, &payload.name).await;
+    
+    let elapsed = start_time.elapsed();
+    info!("update_wallet completed in {:?}", elapsed);
+    
+    match update_result {
+        Ok(true) => StatusCode::OK.into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "Wallet not found".to_string(),
+            }),
+        ).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Database error: {}", e),
+            }),
+        ).into_response(),
     }
 }
 
@@ -880,10 +894,12 @@ pub async fn update_wallet(
     )
 )]
 pub async fn get_wallet(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
+    
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -898,13 +914,12 @@ pub async fn get_wallet(
         }
     };
 
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-    match manager.metadata_db.get_wallet_by_checksum(&checksum).await {
+    // No mutex blocking! Direct access to metadata database
+    match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
         Ok(Some(wallet)) => {
             // Check if user has access to this wallet
             if !user.is_admin {
-                match manager
+                match app_services
                     .metadata_db
                     .is_wallet_owned_by_user(&checksum, &user.user_id)
                     .await
@@ -930,6 +945,9 @@ pub async fn get_wallet(
                     }
                 }
             }
+            
+            let response_time = start_time.elapsed();
+            println!("⚡ Non-blocking wallet metadata served in {:?}", response_time);
             (StatusCode::OK, Json(wallet)).into_response()
         }
         Ok(None) => (
@@ -971,11 +989,13 @@ pub async fn get_wallet(
     )
 )]
 pub async fn create_wallet_contact(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(payload): Json<CreateContactWithMethodsRequest>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
+    
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -990,18 +1010,15 @@ pub async fn create_wallet_contact(
         }
     };
 
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-
-    // Check if wallet exists and user has access
-    let wallet = match manager
+    // Direct metadata access - no mutex blocking!
+    let wallet = match app_services
         .metadata_db
         .get_wallet_by_checksum(&wallet_checksum)
         .await
     {
         Ok(Some(wallet)) => {
             if !user.is_admin {
-                match manager
+                match app_services
                     .metadata_db
                     .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
@@ -1050,7 +1067,7 @@ pub async fn create_wallet_contact(
     };
 
     // Get user's subscription tier and check contact limit
-    let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+    let user_record = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(record)) => record,
         Ok(None) => {
             return (
@@ -1073,7 +1090,7 @@ pub async fn create_wallet_contact(
     };
 
     // Count existing contacts for the wallet and check limit
-    match manager
+    match app_services
         .metadata_db
         .count_contacts_for_wallet(&wallet_checksum)
         .await
@@ -1147,7 +1164,7 @@ pub async fn create_wallet_contact(
             .into_response();
     }
 
-    match manager
+    let create_result = app_services
         .metadata_db
         .insert_contact_with_notification_methods(
             &wallet_checksum,
@@ -1155,8 +1172,12 @@ pub async fn create_wallet_contact(
             &payload.language,
             processed_methods,
         )
-        .await
-    {
+        .await;
+    
+    let elapsed = start_time.elapsed();
+    info!("create_wallet_contact completed in {:?}", elapsed);
+    
+    match create_result {
         Ok(contact_id) => (
             StatusCode::CREATED,
             Json(CreateContactResponse {
@@ -1196,10 +1217,12 @@ pub async fn create_wallet_contact(
     )
 )]
 pub async fn delete_wallet_contact(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path((wallet_checksum, contact_id)): Path<(String, String)>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
+    
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -1214,18 +1237,15 @@ pub async fn delete_wallet_contact(
         }
     };
 
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-
-    // Check if wallet exists and user has access
-    match manager
+    // Direct metadata access - no mutex blocking!
+    match app_services
         .metadata_db
         .get_wallet_by_checksum(&wallet_checksum)
         .await
     {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager
+                match app_services
                     .metadata_db
                     .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
@@ -1272,11 +1292,15 @@ pub async fn delete_wallet_contact(
         }
     }
 
-    match manager
+    let delete_result = app_services
         .metadata_db
         .delete_wallet_contact(&wallet_checksum, &contact_id)
-        .await
-    {
+        .await;
+    
+    let elapsed = start_time.elapsed();
+    info!("delete_wallet_contact completed in {:?}", elapsed);
+    
+    match delete_result {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
@@ -1317,10 +1341,12 @@ pub async fn delete_wallet_contact(
     )
 )]
 pub async fn get_wallet_contacts(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
 ) -> Response {
+    let start_time = std::time::Instant::now();
+    
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -1335,18 +1361,15 @@ pub async fn get_wallet_contacts(
         }
     };
 
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-
-    // Check if wallet exists and user has access
-    match manager
+    // Direct metadata access - no mutex blocking!
+    match app_services
         .metadata_db
         .get_wallet_by_checksum(&wallet_checksum)
         .await
     {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager
+                match app_services
                     .metadata_db
                     .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
@@ -1393,11 +1416,15 @@ pub async fn get_wallet_contacts(
         }
     }
 
-    match manager
+    let contacts_result = app_services
         .metadata_db
         .get_contacts_with_notification_methods(&wallet_checksum)
-        .await
-    {
+        .await;
+    
+    let elapsed = start_time.elapsed();
+    info!("get_wallet_contacts completed in {:?}", elapsed);
+    
+    match contacts_result {
         Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1460,7 +1487,7 @@ pub async fn send_contact_verification(
     {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager
+                match app_services
                     .metadata_db
                     .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
@@ -1782,7 +1809,7 @@ pub async fn verify_contact(
     {
         Ok(Some(_)) => {
             if !user.is_admin {
-                match manager
+                match app_services
                     .metadata_db
                     .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
                     .await
@@ -1995,10 +2022,15 @@ pub async fn verify_contact(
     ),
     tag = "blockchain"
 )]
-pub async fn get_current_block_header(State((wallet_manager, _stripe_billing, _config)): State<(AppState, StripeBillingState, ConfigState)>) -> Response {
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-    match manager.metadata_db.get_current_block_header().await {
+pub async fn get_current_block_header(State((app_services, _stripe_billing, _config)): State<(AppServicesState, StripeBillingState, ConfigState)>) -> Response {
+    let start_time = std::time::Instant::now();
+    
+    let result = app_services.metadata_db.get_current_block_header().await;
+    
+    let elapsed = start_time.elapsed();
+    info!("get_current_block_header completed in {:?}", elapsed);
+    
+    match result {
         Ok(Some(block_header)) => (StatusCode::OK, Json(block_header)).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -2030,43 +2062,8 @@ pub async fn get_current_block_header(State((wallet_manager, _stripe_billing, _c
         ("bearer_auth" = [])
     )
 )]
+
 pub async fn get_wallets_list(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
-    headers: HeaderMap,
-) -> Response {
-    // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
-        Ok(user) => user,
-        Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
-        }
-    };
-
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-    match manager
-        .get_wallets_list_for_user(&user.user_id, user.is_admin)
-        .await
-    {
-        Ok(wallets_response) => (StatusCode::OK, Json(wallets_response)).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to get wallets list: {}", e),
-            }),
-        )
-            .into_response(),
-    }
-}
-
-/// NEW NON-BLOCKING VERSION: Get wallets list without blocking on wallet sync operations
-pub async fn get_wallets_list_fast(
     State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     headers: HeaderMap,
 ) -> Response {
@@ -2088,7 +2085,7 @@ pub async fn get_wallets_list_fast(
 
     // No mutex blocking! Direct access to metadata database
     match app_services
-        .get_wallets_list_for_user_fast(&user.user_id, user.is_admin)
+        .get_wallets_list_for_user(&user.user_id, user.is_admin)
         .await
     {
         Ok(wallets_response) => {
@@ -2125,10 +2122,12 @@ pub async fn get_wallets_list_fast(
     )
 )]
 pub async fn get_wallet_detail(
-    State((wallet_manager, _stripe_billing, config)): State<(AppState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     Path(checksum): Path<String>,
     headers: HeaderMap,
 ) -> Response {
+    let start_time = std::time::Instant::now();
+    
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -2143,24 +2142,103 @@ pub async fn get_wallet_detail(
         }
     };
 
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-    match manager
-        .get_wallet_detail_for_user(&checksum, &user.user_id, user.is_admin)
-        .await
-    {
-        Ok(wallet_detail) => (StatusCode::OK, Json(wallet_detail)).into_response(),
-        Err(e) => {
-            let error_msg = e.to_string();
-            let status_code = match error_msg.as_str() {
-                "Wallet not found" => StatusCode::NOT_FOUND,
-                "Access denied to wallet" => StatusCode::FORBIDDEN,
-                _ => StatusCode::INTERNAL_SERVER_ERROR,
-            };
+    // Get current timestamp
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
 
-            (status_code, Json(ErrorResponse { error: error_msg })).into_response()
+    // Get the specific wallet - no mutex blocking!
+    let wallet = match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
+        Ok(Some(wallet)) => wallet,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Check if user has permission to access this wallet
+    if !user.is_admin {
+        match app_services
+            .metadata_db
+            .is_wallet_owned_by_user(&checksum, &user.user_id)
+            .await
+        {
+            Ok(true) => {} // User owns the wallet
+            Ok(false) => {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(ErrorResponse {
+                        error: "Access denied to wallet".to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Database error: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
         }
     }
+
+    // Get transaction events - no mutex blocking!
+    let events = match app_services.metadata_db.get_events_by_wallet_checksum(&wallet.checksum, None).await {
+        Ok(events) => events,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get events: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Get contacts - no mutex blocking!
+    let contacts = match app_services.metadata_db.get_contacts_with_notification_methods(&wallet.checksum).await {
+        Ok(contacts) => contacts,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get contacts: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let response_time = start_time.elapsed();
+    println!("⚡ Non-blocking wallet detail served in {:?}", response_time);
+
+    let wallet_detail = WalletDetailResponse {
+        timestamp,
+        wallet,
+        events,
+        contacts,
+    };
+
+    (StatusCode::OK, Json(wallet_detail)).into_response()
 }
 
 // Auth endpoints
@@ -2401,13 +2479,13 @@ pub async fn register(
     tag = "auth"
 )]
 pub async fn login(
-    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, _stripe_billing, _config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
     Json(request): Json<LoginRequest>,
 ) -> Response {
-    let manager = wallet_manager.lock().await;
+    let start_time = std::time::Instant::now();
 
-    // Check if user exists
-    let user_record = match manager.metadata_db.get_user_by_email(&request.email).await {
+    // Check if user exists - no mutex blocking!
+    let user_record = match app_services.metadata_db.get_user_by_email(&request.email).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             return (
@@ -2492,7 +2570,7 @@ pub async fn login(
     }
 
     // Update last login
-    if let Err(e) = manager.metadata_db.update_last_login(&user_record.id).await {
+    if let Err(e) = app_services.metadata_db.update_last_login(&user_record.id).await {
         eprintln!(
             "Failed to update last login for user {}: {:?}",
             user_record.id, e
@@ -2521,7 +2599,7 @@ pub async fn login(
     let token_hash = AuthService::hash_token(&token);
     let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
 
-    if let Err(e) = manager
+    if let Err(e) = app_services
         .metadata_db
         .create_session(&user_record.id, &token_hash, expires_at)
         .await
@@ -2546,6 +2624,9 @@ pub async fn login(
         created_at: user_record.created_at,
     };
 
+    let response_time = start_time.elapsed();
+    println!("⚡ Non-blocking login completed in {:?}", response_time);
+    
     Json(AuthResponse {
         token,
         user: user_info,
@@ -2553,6 +2634,7 @@ pub async fn login(
     })
     .into_response()
 }
+
 
 #[utoipa::path(
     get,
@@ -2795,9 +2877,11 @@ pub async fn reset_password(
     )
 )]
 pub async fn logout(
-    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
 ) -> Response {
+    let start_time = std::time::Instant::now();
+    
     // Get the token from the Authorization header
     let auth_header = match headers.get("authorization").and_then(|h| h.to_str().ok()) {
         Some(header) => header,
@@ -2827,11 +2911,13 @@ pub async fn logout(
     // Hash the token to find it in the database
     let token_hash = AuthService::hash_token(token);
 
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-
-    // Delete the session from the database
-    if let Err(e) = manager.metadata_db.delete_session(&token_hash).await {
+    // Direct metadata access - no mutex blocking!
+    let result = app_services.metadata_db.delete_session(&token_hash).await;
+    
+    let elapsed = start_time.elapsed();
+    info!("logout completed in {:?}", elapsed);
+    
+    if let Err(e) = result {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -2860,9 +2946,11 @@ pub async fn logout(
     )
 )]
 pub async fn me(
-    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
 ) -> Response {
+    let start_time = std::time::Instant::now();
+    
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -2877,10 +2965,8 @@ pub async fn me(
         }
     };
 
-    // Get user info from database
-    #[allow(unused_mut)]
-    let manager = wallet_manager.lock().await;
-    let user_info = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+    // Get user info from database - no mutex blocking!
+    let user_info = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(db_user)) => AuthUserResponse {
             id: db_user.id,
             email: db_user.email,
@@ -2909,6 +2995,9 @@ pub async fn me(
                 .into_response();
         }
     };
+
+    let elapsed = start_time.elapsed();
+    info!("me completed in {:?}", elapsed);
 
     Json(serde_json::json!({ "user": user_info })).into_response()
 }
@@ -3262,9 +3351,11 @@ pub async fn create_stripe_customer_portal(
     )
 )]
 pub async fn get_billing_status(
-    State((wallet_manager, _stripe_billing)): State<(AppState, StripeBillingState)>,
+    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
 ) -> Response {
+    let start_time = std::time::Instant::now();
+    
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -3279,10 +3370,8 @@ pub async fn get_billing_status(
         }
     };
 
-    let manager = wallet_manager.lock().await;
-
-    // Get user record
-    let user_record = match manager.metadata_db.get_user_by_id(&user.user_id).await {
+    // Direct metadata access - no mutex blocking!
+    let user_record = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(user_record)) => user_record,
         Ok(None) => {
             return (
@@ -3305,15 +3394,14 @@ pub async fn get_billing_status(
     };
 
     // Get wallet count for this user
-    let wallet_count = manager
+    let wallet_count = app_services
         .metadata_db
         .count_wallets_for_user(&user.user_id)
         .await
         .unwrap_or(0);
 
     // Get contact count across all wallets for this user
-    // For now, we'll get contacts per wallet and sum them up
-    let user_wallets = manager
+    let user_wallets = app_services
         .metadata_db
         .get_wallets_for_user(Some(&user.user_id))
         .await
@@ -3321,7 +3409,7 @@ pub async fn get_billing_status(
     let contact_count = {
         let mut total = 0;
         for wallet in &user_wallets {
-            total += manager
+            total += app_services
                 .metadata_db
                 .count_contacts_for_wallet(&wallet.checksum)
                 .await
@@ -3352,6 +3440,9 @@ pub async fn get_billing_status(
         contact_count,
         limits,
     };
+
+    let elapsed = start_time.elapsed();
+    info!("get_billing_status completed in {:?}", elapsed);
 
     (StatusCode::OK, Json(response)).into_response()
 }
@@ -3714,39 +3805,26 @@ pub fn create_router_with_services(
 ) -> Router {
     let config_state = Arc::new(config);
     
-    // Auth routes (public)
+    // Auth routes (public) - only routes that still use wallet_manager
     let auth_routes = Router::new()
         .route("/auth/register", post(register))
-        .route("/auth/login", post(login))
         .route("/auth/verify-email/{token}", get(verify_email))
         .route("/auth/forgot-password", post(forgot_password))
         .route("/auth/reset-password/{token}", post(reset_password))
-        .route("/auth/logout", post(logout))
-        .route("/auth/me", get(me))
         .route("/auth/user", put(update_user))
         .with_state((wallet_manager.clone(), stripe_billing.clone()));
 
     let wallet_routes = Router::new()
-        .route("/wallets", post(create_wallet).get(get_wallets_list))
+        .route("/wallets", post(create_wallet))
         .route(
             "/wallets/{checksum}",
-            get(get_wallet).put(update_wallet).delete(delete_wallet),
-        )
-        .route("/wallets/{checksum}/detail", get(get_wallet_detail))
-        .route(
-            "/wallets/{checksum}/contacts",
-            post(create_wallet_contact).get(get_wallet_contacts),
+            axum::routing::delete(delete_wallet),
         )
         .route(
             "/wallets/{checksum}/contacts/send-verification",
             post(send_contact_verification),
         )
         .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
-        .route(
-            "/wallets/{wallet_checksum}/contacts/{contact_id}",
-            axum::routing::delete(delete_wallet_contact),
-        )
-        .route("/block-headers/current", get(get_current_block_header))
         .with_state((wallet_manager.clone(), stripe_billing.clone(), config_state.clone()));
 
     let provider_routes = Router::new()
@@ -3759,7 +3837,6 @@ pub fn create_router_with_services(
             .route("/stripe/checkout", post(create_stripe_checkout_session))
             .route("/stripe/portal", post(create_stripe_customer_portal))
             .route("/stripe/webhook", post(handle_stripe_webhook))
-            .route("/billing/status", get(get_billing_status))
             .route("/billing/pricing", get(get_billing_pricing))
             .route(
                 "/billing/session/{session_id}",
@@ -3775,13 +3852,28 @@ pub fn create_router_with_services(
         .merge(provider_routes)
         .merge(stripe_routes);
     
-    // Add non-blocking fast routes if app_services is available
+    // Add non-blocking routes using AppServices if available
     if let Some(services) = app_services {
-        let fast_routes = Router::new()
-            .route("/wallets-fast", get(get_wallets_list_fast))
-            .with_state((services, stripe_billing.clone(), config_state.clone()));
+        // Routes that need (AppServices, StripeBilling, Config) state
+        let app_routes_3param = Router::new()
+            .route("/wallets", get(get_wallets_list))
+            .route("/wallets/{checksum}", get(get_wallet).put(update_wallet))
+            .route("/wallets/{checksum}/detail", get(get_wallet_detail))
+            .route("/wallets/{checksum}/contacts", get(get_wallet_contacts))
+            .route("/wallets/{checksum}/contacts", post(create_wallet_contact))
+            .route("/wallets/{wallet_checksum}/contacts/{contact_id}", axum::routing::delete(delete_wallet_contact))
+            .route("/auth/login", post(login))
+            .route("/block-headers/current", get(get_current_block_header))
+            .with_state((services.clone(), stripe_billing.clone(), config_state.clone()));
         
-        api_routes = api_routes.merge(fast_routes);
+        // Routes that need (AppServices, StripeBilling) state
+        let app_routes_2param = Router::new()
+            .route("/auth/logout", post(logout))
+            .route("/auth/me", get(me))
+            .route("/billing/status", get(get_billing_status))
+            .with_state((services, stripe_billing.clone()));
+        
+        api_routes = api_routes.merge(app_routes_3param).merge(app_routes_2param);
     }
 
     Router::new()

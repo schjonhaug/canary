@@ -1,8 +1,7 @@
 use crate::config::AppConfig;
 use crate::electrum::ElectrumClient;
 use crate::metadata::{
-    EventInsert, EventType, MetadataDb, TransactionEvent, WalletDetailResponse, WalletMetadata,
-    WalletsListResponse,
+    EventInsert, EventType, MetadataDb, TransactionEvent, WalletMetadata,
 };
 use crate::subscription::SubscriptionTier;
 use anyhow::{anyhow, Result};
@@ -1566,73 +1565,6 @@ impl WalletManager {
         Ok(())
     }
 
-    pub async fn get_wallets_list_for_user(
-        &self,
-        user_id: &str,
-        is_admin: bool,
-    ) -> Result<WalletsListResponse> {
-        // Get current timestamp
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        // Get wallets based on user permissions
-        let wallets = if is_admin {
-            self.metadata_db.get_all_wallets().await?
-        } else {
-            self.metadata_db.get_wallets_for_user(Some(user_id)).await?
-        };
-
-        Ok(WalletsListResponse { timestamp, wallets })
-    }
-
-    pub async fn get_wallet_detail_for_user(
-        &self,
-        wallet_checksum: &str,
-        user_id: &str,
-        is_admin: bool,
-    ) -> Result<WalletDetailResponse> {
-        // Get current timestamp
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        // Get the specific wallet
-        let wallet = self
-            .metadata_db
-            .get_wallet_by_checksum(wallet_checksum)
-            .await?
-            .ok_or_else(|| anyhow!("Wallet not found"))?;
-
-        // Check if user has permission to access this wallet
-        if !is_admin {
-            let user_wallets = self.metadata_db.get_wallets_for_user(Some(user_id)).await?;
-            let user_wallet_checksums: Vec<&str> =
-                user_wallets.iter().map(|w| w.checksum.as_str()).collect();
-
-            if !user_wallet_checksums.contains(&wallet_checksum) {
-                return Err(anyhow!("Access denied to wallet"));
-            }
-        }
-
-        // Get transaction events for this specific wallet (optimized query)
-        let events = self.metadata_db.get_events_by_wallet_checksum(wallet_checksum, Some(100)).await?;
-
-        // Get contacts for this wallet (including inactive ones for UI)
-        let contacts = self
-            .metadata_db
-            .get_contacts_with_notification_methods_filtered(wallet_checksum, true)
-            .await?;
-
-        Ok(WalletDetailResponse {
-            timestamp,
-            wallet,
-            events,
-            contacts,
-        })
-    }
 
     pub async fn get_wallet_by_checksum(&self, checksum: &str) -> Result<Option<WalletMetadata>> {
         self.metadata_db
