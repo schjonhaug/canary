@@ -2,7 +2,12 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use canary::{api::create_router, config::{AppConfig, NetworkConfig}, notifications::NotificationManager, wallet::WalletManager};
+use canary::{
+    api::create_router,
+    config::{AppConfig, NetworkConfig},
+    notifications::NotificationManager,
+    wallet::WalletManager,
+};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -44,7 +49,12 @@ async fn create_test_app() -> axum::Router {
     // No Stripe billing for basic tests (None means billing endpoints return 500)
     let stripe_billing = None;
 
-    create_router(wallet_manager, notification_manager, stripe_billing, test_config)
+    create_router(
+        wallet_manager,
+        notification_manager,
+        stripe_billing,
+        test_config,
+    )
 }
 
 /// Test pricing endpoint without Stripe billing

@@ -2,26 +2,24 @@ use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::Network;
 use miniscript::descriptor::checksum::desc_checksum;
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScriptType {
-    P2PKH,     // Legacy
-    P2SH,      // Nested SegWit
-    P2WPKH,    // Native SegWit
-    P2TR,      // Taproot
+    P2PKH,  // Legacy
+    P2SH,   // Nested SegWit
+    P2WPKH, // Native SegWit
+    P2TR,   // Taproot
 }
-
-
 
 pub struct XpubConverter {
     network: Network,
 }
 
 impl XpubConverter {
-    pub fn new(network: Network, _electrum_client: Option<&crate::electrum::ElectrumClient>) -> Self {
-        Self {
-            network,
-        }
+    pub fn new(
+        network: Network,
+        _electrum_client: Option<&crate::electrum::ElectrumClient>,
+    ) -> Self {
+        Self { network }
     }
 
     /// Check if the input looks like an extended public key (xpub/ypub/zpub format)
@@ -31,14 +29,12 @@ impl XpubConverter {
         xpub_regex.is_match(input.trim())
     }
 
-
-
-    
-
-
-
     /// Generate a multipath descriptor for a given script type (without key origin)
-    pub fn generate_descriptor_for_type(&self, xpub: &str, script_type: &ScriptType) -> Result<String> {
+    pub fn generate_descriptor_for_type(
+        &self,
+        xpub: &str,
+        script_type: &ScriptType,
+    ) -> Result<String> {
         // For watch-only wallets, we strip key origin to prevent duplicate wallets
         // Same XPUB with different fingerprints would create different checksums
         let normalized_xpub = self.normalize_xpub(xpub)?;
@@ -53,14 +49,16 @@ impl XpubConverter {
         // Calculate checksum and append it to the descriptor
         let checksum = desc_checksum(&descriptor_without_checksum)
             .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
-        
+
         let descriptor_with_checksum = format!("{}#{}", descriptor_without_checksum, checksum);
-        
-        println!("Generated descriptor (no key origin): {}", descriptor_with_checksum);
-        
+
+        println!(
+            "Generated descriptor (no key origin): {}",
+            descriptor_with_checksum
+        );
+
         Ok(descriptor_with_checksum)
     }
-
 
     /// Normalize different extended key formats to standard xpub format
     /// Converts ypub/zpub/tpub/upub/vpub to xpub/tpub format for consistency
@@ -68,28 +66,28 @@ impl XpubConverter {
         if extended_key.len() < 4 {
             return Ok(extended_key.to_string());
         }
-        
+
         let prefix = &extended_key[..4];
         let rest = &extended_key[4..];
-        
+
         match self.network {
             Network::Bitcoin => {
                 match prefix {
                     "xpub" => Ok(extended_key.to_string()), // Already normalized
-                    "ypub" => Ok(format!("xpub{}", rest)), // Convert ypub to xpub
-                    "zpub" => Ok(format!("xpub{}", rest)), // Convert zpub to xpub
-                    _ => Ok(extended_key.to_string()), // Return as-is for unknown formats
+                    "ypub" => Ok(format!("xpub{}", rest)),  // Convert ypub to xpub
+                    "zpub" => Ok(format!("xpub{}", rest)),  // Convert zpub to xpub
+                    _ => Ok(extended_key.to_string()),      // Return as-is for unknown formats
                 }
             }
             Network::Testnet => {
                 match prefix {
                     "tpub" => Ok(extended_key.to_string()), // Already normalized
-                    "upub" => Ok(format!("tpub{}", rest)), // Convert upub to tpub
-                    "vpub" => Ok(format!("tpub{}", rest)), // Convert vpub to tpub
-                    "xpub" => Ok(format!("tpub{}", rest)), // Convert mainnet xpub to testnet
-                    "ypub" => Ok(format!("tpub{}", rest)), // Convert mainnet ypub to testnet
-                    "zpub" => Ok(format!("tpub{}", rest)), // Convert mainnet zpub to testnet
-                    _ => Ok(extended_key.to_string()), // Return as-is for unknown formats
+                    "upub" => Ok(format!("tpub{}", rest)),  // Convert upub to tpub
+                    "vpub" => Ok(format!("tpub{}", rest)),  // Convert vpub to tpub
+                    "xpub" => Ok(format!("tpub{}", rest)),  // Convert mainnet xpub to testnet
+                    "ypub" => Ok(format!("tpub{}", rest)),  // Convert mainnet ypub to testnet
+                    "zpub" => Ok(format!("tpub{}", rest)),  // Convert mainnet zpub to testnet
+                    _ => Ok(extended_key.to_string()),      // Return as-is for unknown formats
                 }
             }
             Network::Regtest => {

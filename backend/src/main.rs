@@ -17,7 +17,6 @@ mod wallet;
 mod xpub_converter;
 
 use config::AppConfig;
-use subscription::SubscriptionTier;
 use email_provider::EmailProvider;
 use metadata::TransactionEvent;
 use notifications::NotificationManager;
@@ -25,6 +24,7 @@ use ntfy_provider::NtfyProvider;
 use std::sync::Arc;
 use std::time::Instant;
 use stripe_billing::StripeBilling;
+use subscription::SubscriptionTier;
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::{interval, Duration};
 use tracing_subscriber;
@@ -44,7 +44,8 @@ async fn main() -> anyhow::Result<()> {
     let config = AppConfig::load()?;
 
     // Display ASCII art
-    println!(r#"
+    println!(
+        r#"
  ▄████████    ▄████████ ███▄▄▄▄      ▄████████    ▄████████ ▄██   ▄  
 ███    ███   ███    ███ ███▀▀▀██▄   ███    ███   ███    ███ ███   ██▄
 ███    █▀    ███    ███ ███   ███   ███    ███   ███    ███ ███▄▄▄███
@@ -54,7 +55,8 @@ async fn main() -> anyhow::Result<()> {
 ███    ███   ███    ███ ███   ███   ███    ███   ███    ███ ███   ███
 ████████▀    ███    █▀   ▀█   █▀    ███    █▀    ███    ███  ▀█████▀ 
                                                  ███    ███          
-    "#);
+    "#
+    );
 
     println!(
         "Starting Canary v{} with configuration:",
@@ -66,12 +68,19 @@ async fn main() -> anyhow::Result<()> {
     println!("  Wallet directory: {}", config.effective_wallet_dir());
     println!("  Metadata DB: {}", config.effective_metadata_db());
     // Display network-appropriate sync intervals
-    let (personal_sync, _team_sync) = SubscriptionTier::Personal.get_sync_intervals(&config.network);
+    let (personal_sync, _team_sync) =
+        SubscriptionTier::Personal.get_sync_intervals(&config.network);
     let (_, team_sync_team) = SubscriptionTier::Team.get_sync_intervals(&config.network);
-    println!("  Sync intervals: Personal={}s, Team={}s (network: {:?})", personal_sync, team_sync_team, config.network);
+    println!(
+        "  Sync intervals: Personal={}s, Team={}s (network: {:?})",
+        personal_sync, team_sync_team, config.network
+    );
 
     // Log operating mode
-    println!("🏢 Operating mode: {}", config.operating_mode().to_uppercase());
+    println!(
+        "🏢 Operating mode: {}",
+        config.operating_mode().to_uppercase()
+    );
     if config.is_saas_mode() {
         println!("   - Multi-user with authentication");
         println!("   - Subscription billing enabled");
@@ -93,7 +102,6 @@ async fn main() -> anyhow::Result<()> {
     }
     println!("✅ Configuration validated successfully");
 
-
     // Create wallet manager with sync worker
     println!("Creating wallet sync worker...");
 
@@ -110,7 +118,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .await,
     ));
-    
+
     // Create new non-blocking architecture: Separate metadata access from heavy wallet operations
     let app_services = {
         let manager = wallet_manager.lock().await;
@@ -129,7 +137,11 @@ async fn main() -> anyhow::Result<()> {
     // Create shared state for current block header and load existing header from database
     let existing_header = {
         let manager = wallet_manager.lock().await;
-        manager.metadata_db.get_current_block_header().await.unwrap_or(None)
+        manager
+            .metadata_db
+            .get_current_block_header()
+            .await
+            .unwrap_or(None)
     };
     let current_block_header = Arc::new(Mutex::new(existing_header));
 
@@ -143,7 +155,7 @@ async fn main() -> anyhow::Result<()> {
     } else {
         // SAAS mode: Register all configured providers
         println!("🔔 SAAS mode: Registering all notification providers");
-        
+
         // Register ntfy provider (always available)
         if config.is_ntfy_enabled() {
             println!("  - ntfy notification provider");
@@ -271,8 +283,11 @@ async fn main() -> anyhow::Result<()> {
     // This should be faster than the fastest wallet sync interval to ensure timely checks
     let (_, team_sync_interval) = SubscriptionTier::Team.get_sync_intervals(&config.network);
     let sync_check_interval = std::cmp::min(team_sync_interval / 2, 30); // Check at least every 30 seconds
-    
-    println!("🕐 Sync checker interval: {}s (network: {:?})", sync_check_interval, config.network);
+
+    println!(
+        "🕐 Sync checker interval: {}s (network: {:?})",
+        sync_check_interval, config.network
+    );
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(sync_check_interval));
 
@@ -282,11 +297,14 @@ async fn main() -> anyhow::Result<()> {
             let mutex_wait_start = Instant::now();
             let mut manager = sync_wallet_manager.lock().await;
             let mutex_wait_time = mutex_wait_start.elapsed();
-            
+
             if mutex_wait_time.as_millis() > 10 {
-                println!("🔒 Sync task waited {:?} for wallet manager mutex", mutex_wait_time);
+                println!(
+                    "🔒 Sync task waited {:?} for wallet manager mutex",
+                    mutex_wait_time
+                );
             }
-            
+
             // Use tier-based sync instead of syncing all wallets
             if let Err(e) = manager.sync_wallets_due_for_sync().await {
                 eprintln!("Tier-based sync failed: {}", e);
@@ -356,11 +374,14 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
             }
-            
+
             // Explicitly release the mutex and log timing
             let mutex_hold_duration = mutex_wait_start.elapsed();
             drop(manager);
-            println!("🔓 Released wallet manager mutex after {:?} (sync + block check)", mutex_hold_duration);
+            println!(
+                "🔓 Released wallet manager mutex after {:?} (sync + block check)",
+                mutex_hold_duration
+            );
         }
     });
 
@@ -454,14 +475,19 @@ async fn main() -> anyhow::Result<()> {
                                                 )
                                                 .await
                                             {
-                                                eprintln!("❌ Failed to log notification to database: {}", e);
+                                                eprintln!(
+                                                    "❌ Failed to log notification to database: {}",
+                                                    e
+                                                );
                                             }
                                         }
                                     }
 
                                     // Count results by provider
                                     if result.success {
-                                        *provider_counts.entry(provider_name.clone()).or_insert(0) += 1;
+                                        *provider_counts
+                                            .entry(provider_name.clone())
+                                            .or_insert(0) += 1;
                                         total_sent += 1;
                                     } else {
                                         failed_count += 1;
@@ -536,10 +562,10 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let app = api::create_router_with_services(
-        app_services.clone(), 
-        notification_manager, 
-        stripe_billing, 
-        config.clone()
+        app_services.clone(),
+        notification_manager,
+        stripe_billing,
+        config.clone(),
     );
 
     // Apply subscription limits for all existing users at startup (SAAS mode only)
@@ -583,7 +609,11 @@ async fn apply_startup_subscription_limits(
         };
 
         if !should_apply_limits {
-            tracing::debug!("⏭️  Skipping limits for user {} (status: {})", user.id, user.subscription_status);
+            tracing::debug!(
+                "⏭️  Skipping limits for user {} (status: {})",
+                user.id,
+                user.subscription_status
+            );
             continue;
         }
 

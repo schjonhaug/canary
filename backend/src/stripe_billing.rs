@@ -499,11 +499,7 @@ impl StripeBilling {
 
         let customer = self
             .client
-            .create_customer(
-                user.email.clone(),
-                user.name.clone(),
-                customer_metadata,
-            )
+            .create_customer(user.email.clone(), user.name.clone(), customer_metadata)
             .await?;
 
         let customer_id = customer.id.unwrap_or_default();
@@ -518,7 +514,7 @@ impl StripeBilling {
             user.email,
             customer_id
         );
-        
+
         Ok(customer_id)
     }
 
@@ -531,7 +527,9 @@ impl StripeBilling {
     ) -> Result<()> {
         // Ensure pricing is loaded
         if self.cached_pricing.tiers.is_empty() {
-            return Err(anyhow::anyhow!("No pricing data available. Please ensure Stripe products are configured."));
+            return Err(anyhow::anyhow!(
+                "No pricing data available. Please ensure Stripe products are configured."
+            ));
         }
 
         // Find the tier pricing
@@ -587,7 +585,7 @@ impl StripeBilling {
         // Update user's subscription info in database
         let now = chrono::Utc::now();
         let trial_end = now + chrono::Duration::days(30);
-        
+
         metadata_db
             .update_user_subscription(
                 &user.id,
@@ -608,7 +606,6 @@ impl StripeBilling {
 
         Ok(())
     }
-
 
     pub async fn handle_webhook(&self, payload: &[u8], signature: &str) -> Result<WebhookResult> {
         // Use stripe library for webhook verification (security critical)
@@ -824,7 +821,7 @@ impl StripeBilling {
                                         trial_ends_at: None,
                                     };
                                     updates.push(update);
-                                    
+
                                     tracing::info!(
                                         "📉 Marked user as expired for customer: {}",
                                         customer_id
@@ -838,26 +835,40 @@ impl StripeBilling {
                     // Parse invoice data to provide clearer logging for $0 trial invoices vs actual payments
                     if let Some(data) = &event.data {
                         if let Some(invoice_obj) = &data.object {
-                            if let Ok(invoice) = serde_json::from_value::<serde_json::Value>(invoice_obj.clone()) {
-                                let amount_paid = invoice.get("amount_paid").and_then(|a| a.as_i64()).unwrap_or(0);
-                                let amount_due = invoice.get("amount_due").and_then(|a| a.as_i64()).unwrap_or(0);
-                                let billing_reason = invoice.get("billing_reason").and_then(|r| r.as_str());
+                            if let Ok(invoice) =
+                                serde_json::from_value::<serde_json::Value>(invoice_obj.clone())
+                            {
+                                let amount_paid = invoice
+                                    .get("amount_paid")
+                                    .and_then(|a| a.as_i64())
+                                    .unwrap_or(0);
+                                let amount_due = invoice
+                                    .get("amount_due")
+                                    .and_then(|a| a.as_i64())
+                                    .unwrap_or(0);
+                                let billing_reason =
+                                    invoice.get("billing_reason").and_then(|r| r.as_str());
                                 let customer_id = invoice.get("customer").and_then(|c| c.as_str());
-                                
+
                                 if amount_paid == 0 && amount_due == 0 {
                                     // This is a $0 invoice (likely a trial start)
                                     if billing_reason == Some("subscription_create") {
                                         tracing::info!("✅ Trial started - $0 invoice processed for customer {}", 
                                             customer_id.unwrap_or("unknown"));
                                     } else {
-                                        tracing::info!("✅ $0 invoice processed for customer {}", 
-                                            customer_id.unwrap_or("unknown"));
+                                        tracing::info!(
+                                            "✅ $0 invoice processed for customer {}",
+                                            customer_id.unwrap_or("unknown")
+                                        );
                                     }
                                 } else {
                                     // Actual payment was collected
                                     let amount_dollars = amount_paid as f64 / 100.0;
-                                    tracing::info!("💰 Payment succeeded - ${:.2} collected from customer {}", 
-                                        amount_dollars, customer_id.unwrap_or("unknown"));
+                                    tracing::info!(
+                                        "💰 Payment succeeded - ${:.2} collected from customer {}",
+                                        amount_dollars,
+                                        customer_id.unwrap_or("unknown")
+                                    );
                                 }
                             } else {
                                 // Fallback if we can't parse the invoice
@@ -870,13 +881,21 @@ impl StripeBilling {
                     // Parse invoice data to show the failed amount
                     if let Some(data) = &event.data {
                         if let Some(invoice_obj) = &data.object {
-                            if let Ok(invoice) = serde_json::from_value::<serde_json::Value>(invoice_obj.clone()) {
-                                let amount_due = invoice.get("amount_due").and_then(|a| a.as_i64()).unwrap_or(0);
+                            if let Ok(invoice) =
+                                serde_json::from_value::<serde_json::Value>(invoice_obj.clone())
+                            {
+                                let amount_due = invoice
+                                    .get("amount_due")
+                                    .and_then(|a| a.as_i64())
+                                    .unwrap_or(0);
                                 let customer_id = invoice.get("customer").and_then(|c| c.as_str());
                                 let amount_dollars = amount_due as f64 / 100.0;
-                                
-                                tracing::info!("❌ Payment failed - ${:.2} payment failed for customer {}", 
-                                    amount_dollars, customer_id.unwrap_or("unknown"));
+
+                                tracing::info!(
+                                    "❌ Payment failed - ${:.2} payment failed for customer {}",
+                                    amount_dollars,
+                                    customer_id.unwrap_or("unknown")
+                                );
                             } else {
                                 // Fallback if we can't parse the invoice
                                 tracing::info!("❌ Payment failed - subscription may be suspended");

@@ -3,12 +3,12 @@ use crate::electrum::BlockHeader;
 use crate::migrations::MigrationRunner;
 use crate::subscription::SubscriptionTier;
 use anyhow::{anyhow, Context, Result};
+use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
 use chrono;
 use phonenumber::PhoneNumber;
-use r2d2::{Pool, CustomizeConnection};
+use r2d2::{CustomizeConnection, Pool};
 use r2d2_sqlite::SqliteConnectionManager;
-use bdk_wallet::rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::num::Wrapping;
 use std::str::FromStr;
@@ -380,7 +380,6 @@ impl MetadataDb {
 
         Ok(())
     }
-
 
     async fn ensure_foss_user(&self) -> Result<()> {
         let pool = self.pool.clone();
@@ -767,22 +766,22 @@ impl MetadataDb {
     }
 
     /// Get wallets marked as deleted for background cleanup
-    pub async fn get_deleted_wallets(&self) -> Result<Vec<(String, String)>> { // (checksum, descriptor)
+    pub async fn get_deleted_wallets(&self) -> Result<Vec<(String, String)>> {
+        // (checksum, descriptor)
         let pool = self.pool.clone();
 
         spawn_blocking(move || -> Result<Vec<(String, String)>> {
             let conn = pool.get()?;
-            let mut stmt = conn.prepare(
-                "SELECT checksum, descriptor FROM wallets WHERE status = 'deleted'"
-            )?;
-            
+            let mut stmt =
+                conn.prepare("SELECT checksum, descriptor FROM wallets WHERE status = 'deleted'")?;
+
             let rows = stmt.query_map([], |row| {
                 Ok((
                     row.get::<_, String>("checksum")?,
                     row.get::<_, String>("descriptor")?,
                 ))
             })?;
-            
+
             let mut wallets = Vec::new();
             for row in rows {
                 wallets.push(row?);
@@ -860,7 +859,7 @@ impl MetadataDb {
 
     pub async fn insert_events_batch(&self, events: Vec<EventInsert>) -> Result<Vec<i64>> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<Vec<i64>> {
             let conn = pool.get()?;
             let mut event_ids = Vec::new();
@@ -894,8 +893,11 @@ impl MetadataDb {
         }).await?
     }
 
-
-    pub async fn get_events_by_wallet_checksum(&self, wallet_checksum: &str, limit: Option<usize>) -> Result<Vec<TransactionEventWithWallet>> {
+    pub async fn get_events_by_wallet_checksum(
+        &self,
+        wallet_checksum: &str,
+        limit: Option<usize>,
+    ) -> Result<Vec<TransactionEventWithWallet>> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let limit = limit.unwrap_or(100);
@@ -1287,7 +1289,6 @@ impl MetadataDb {
         .await?
     }
 
-
     pub async fn get_wallets_due_for_sync(
         &self,
         network: &crate::config::NetworkConfig,
@@ -1371,10 +1372,10 @@ impl MetadataDb {
 
     pub async fn get_ready_wallets(&self) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
-        
+
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
-            
+
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, 
                                 w.created_at, w.balance_total, 
                                 (SELECT MAX(te.transaction_time) FROM transaction_events te 
@@ -1388,9 +1389,9 @@ impl MetadataDb {
                                   w.created_at, w.balance_total, w.status, 
                                   w.user_id, w.is_active
                          ORDER BY w.created_at DESC";
-            
+
             let mut stmt = conn.prepare(query)?;
-            
+
             let wallet_iter = stmt.query_map([], |row| {
                 Ok(WalletMetadata {
                     checksum: row.get(0)?,
@@ -1399,7 +1400,9 @@ impl MetadataDb {
                     hex_color: row.get(3)?,
                     created_at: row.get(4)?,
                     balance_total: Some(row.get(5).unwrap_or(0)),
-                    last_activity: row.get::<_, Option<i64>>(6).ok()
+                    last_activity: row
+                        .get::<_, Option<i64>>(6)
+                        .ok()
                         .flatten()
                         .map(|t| t.to_string()),
                     status: row.get(7)?,
@@ -1408,8 +1411,9 @@ impl MetadataDb {
                     is_active: row.get(10)?,
                 })
             })?;
-            
-            wallet_iter.collect::<std::result::Result<Vec<_>, _>>()
+
+            wallet_iter
+                .collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(|e| anyhow!("Failed to query ready wallets: {}", e))
         })
         .await?

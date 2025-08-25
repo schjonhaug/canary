@@ -38,7 +38,7 @@ pub use stripe_billing::{
     PricingInfo, StripeBilling,
 };
 pub use twilio_provider::TwilioProvider;
-pub use wallet::{WalletManager, WalletCreationService};
+pub use wallet::{WalletCreationService, WalletManager};
 pub use xpub_converter::{ScriptType, XpubConverter};
 
 // Test modules

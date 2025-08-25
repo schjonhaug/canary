@@ -84,7 +84,9 @@ impl AppConfig {
 
         // Resolve network configuration (CLI args override env vars)
         let network = match args.network.or_else(|| {
-            std::env::var("CANARY_NETWORK").ok().and_then(|v| v.parse().ok())
+            std::env::var("CANARY_NETWORK")
+                .ok()
+                .and_then(|v| v.parse().ok())
         }) {
             Some(network) => network,
             None => {
@@ -95,10 +97,15 @@ impl AppConfig {
         };
 
         // Resolve electrum URL (CLI args override env vars)
-        let electrum_url = args.electrum_url.or_else(|| std::env::var("CANARY_ELECTRUM_URL").ok());
+        let electrum_url = args
+            .electrum_url
+            .or_else(|| std::env::var("CANARY_ELECTRUM_URL").ok());
 
         // Resolve bind address
-        let bind_address = match args.bind_address.or_else(|| std::env::var("CANARY_BIND_ADDRESS").ok()) {
+        let bind_address = match args
+            .bind_address
+            .or_else(|| std::env::var("CANARY_BIND_ADDRESS").ok())
+        {
             Some(addr) => addr,
             None => {
                 return Err(anyhow!(
@@ -108,7 +115,10 @@ impl AppConfig {
         };
 
         // Resolve data directory
-        let data_dir = match args.data_dir.or_else(|| std::env::var("CANARY_DATA_DIR").ok()) {
+        let data_dir = match args
+            .data_dir
+            .or_else(|| std::env::var("CANARY_DATA_DIR").ok())
+        {
             Some(dir) => dir,
             None => {
                 return Err(anyhow!(
@@ -154,11 +164,11 @@ impl AppConfig {
         if self.is_foss_mode() {
             return false;
         }
-        
+
         // Check if Twilio environment variables are configured
-        std::env::var("TWILIO_ACCOUNT_SID").is_ok() && 
-        std::env::var("TWILIO_AUTH_TOKEN").is_ok() && 
-        std::env::var("TWILIO_MESSAGING_SERVICE_SID").is_ok()
+        std::env::var("TWILIO_ACCOUNT_SID").is_ok()
+            && std::env::var("TWILIO_AUTH_TOKEN").is_ok()
+            && std::env::var("TWILIO_MESSAGING_SERVICE_SID").is_ok()
     }
 
     /// Check if email provider should be enabled
@@ -229,7 +239,8 @@ impl AppConfig {
         } else {
             let error_msg = format!(
                 "SAAS mode requires the following environment variables:\n{}",
-                missing.into_iter()
+                missing
+                    .into_iter()
                     .map(|var| format!("  - {}", var))
                     .collect::<Vec<_>>()
                     .join("\n")

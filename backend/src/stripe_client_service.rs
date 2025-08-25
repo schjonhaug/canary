@@ -148,7 +148,6 @@ impl StripeClientService {
         Ok(customer)
     }
 
-
     pub async fn create_checkout_session(
         &self,
         customer_id: String,
@@ -412,8 +411,14 @@ impl StripeClientService {
         let mut form_data = vec![
             ("customer".to_string(), customer_id),
             ("items[0][price]".to_string(), price_id),
-            ("payment_behavior".to_string(), "allow_incomplete".to_string()),
-            ("payment_settings[save_default_payment_method]".to_string(), "on_subscription".to_string()),
+            (
+                "payment_behavior".to_string(),
+                "allow_incomplete".to_string(),
+            ),
+            (
+                "payment_settings[save_default_payment_method]".to_string(),
+                "on_subscription".to_string(),
+            ),
         ];
 
         // Add trial period if specified

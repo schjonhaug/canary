@@ -50,7 +50,6 @@ impl ElectrumClient {
         &self.raw_client
     }
 
-
     /// Get the highest address index that has been used (has transactions)
     fn get_highest_used_index(wallet: &PersistedWallet<Connection>, keychain: KeychainKind) -> u32 {
         let mut highest_used = 0u32;
@@ -117,7 +116,11 @@ impl ElectrumClient {
         }
     }
 
-    pub fn full_scan_wallet(&self, wallet: &mut PersistedWallet<Connection>, custom_stop_gap: Option<usize>) -> Result<()> {
+    pub fn full_scan_wallet(
+        &self,
+        wallet: &mut PersistedWallet<Connection>,
+        custom_stop_gap: Option<usize>,
+    ) -> Result<()> {
         println!("Full scanning with electrum...");
 
         // Print initial balance

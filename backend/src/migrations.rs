@@ -36,7 +36,7 @@ impl MigrationRunner {
 
         // Get all applied migrations
         let applied_migrations = self.get_applied_migrations()?;
-        
+
         // Get all migration files
         let mut migration_files = Vec::new();
         for entry in fs::read_dir(migrations_path)? {
@@ -48,50 +48,50 @@ impl MigrationRunner {
                 }
             }
         }
-        
+
         // Sort migration files by name (which includes version number)
         migration_files.sort_by(|a, b| a.0.cmp(&b.0));
-        
+
         // Apply each migration that hasn't been applied yet
         for (filename, path) in migration_files {
             // Extract version from filename (e.g., "001" from "001_initial_schema.sql")
             let version = filename.split('_').next().unwrap_or(&filename);
-            
+
             if applied_migrations.contains(version) {
                 println!("Migration {} already applied, skipping", filename);
                 continue;
             }
-            
+
             println!("Applying migration: {}", filename);
             self.apply_migration(&path, version)?;
         }
-        
+
         Ok(())
     }
-    
+
     fn get_applied_migrations(&self) -> Result<std::collections::HashSet<String>> {
         let mut applied = std::collections::HashSet::new();
-        
+
         let mut stmt = self.conn.prepare("SELECT version FROM schema_migrations")?;
         let rows = stmt.query_map([], |row| {
             let version: String = row.get(0)?;
             Ok(version)
         })?;
-        
+
         for row in rows {
             applied.insert(row?);
         }
-        
+
         Ok(applied)
     }
-    
+
     fn apply_migration(&self, migration_path: &Path, version: &str) -> Result<()> {
         let sql = fs::read_to_string(migration_path)?;
-        
+
         // Execute each statement in the migration
         // SQLite doesn't support multiple statements in execute(), so we split them
         let statements: Vec<&str> = sql.split(';').collect();
-        
+
         for statement in statements.iter() {
             let trimmed = statement.trim();
             // Skip empty statements and comments
@@ -102,22 +102,22 @@ impl MigrationRunner {
             {
                 continue;
             }
-            
+
             if let Err(e) = self.conn.execute(trimmed, []) {
                 eprintln!("Error executing migration {}: {}", version, e);
                 eprintln!("Statement: {}", trimmed);
                 return Err(e.into());
             }
         }
-        
+
         // Record that this migration has been applied
         self.conn.execute(
             "INSERT INTO schema_migrations (version) VALUES (?1)",
             [version],
         )?;
-        
+
         println!("Successfully applied migration: {}", version);
-        
+
         Ok(())
     }
 

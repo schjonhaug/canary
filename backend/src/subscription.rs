@@ -1,6 +1,6 @@
+use crate::config::NetworkConfig;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use crate::config::NetworkConfig;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub enum SubscriptionTier {
@@ -17,7 +17,7 @@ pub struct TierLimits {
 
 impl SubscriptionTier {
     /// Get tier limits with network-aware sync intervals
-    /// 
+    ///
     /// Sync intervals are designed to prevent overlapping sync operations:
     /// - Regtest: Fast intervals (5s/10s) since syncs are instant
     /// - Mainnet: Longer intervals (120s/600s) since syncs take 60+ seconds
@@ -42,20 +42,26 @@ impl SubscriptionTier {
     pub fn get_sync_intervals(&self, network: &NetworkConfig) -> (u64, u64) {
         // Check for environment variable overrides first
         let env_personal = match network {
-            NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_REGTEST").ok()
+            NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_REGTEST")
+                .ok()
                 .and_then(|s| s.parse().ok()),
-            NetworkConfig::Testnet => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_TESTNET").ok()
+            NetworkConfig::Testnet => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_TESTNET")
+                .ok()
                 .and_then(|s| s.parse().ok()),
-            NetworkConfig::Mainnet => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET").ok()
+            NetworkConfig::Mainnet => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET")
+                .ok()
                 .and_then(|s| s.parse().ok()),
         };
-        
+
         let env_team = match network {
-            NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_TEAM_REGTEST").ok()
+            NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_TEAM_REGTEST")
+                .ok()
                 .and_then(|s| s.parse().ok()),
-            NetworkConfig::Testnet => std::env::var("CANARY_SYNC_INTERVAL_TEAM_TESTNET").ok()
+            NetworkConfig::Testnet => std::env::var("CANARY_SYNC_INTERVAL_TEAM_TESTNET")
+                .ok()
                 .and_then(|s| s.parse().ok()),
-            NetworkConfig::Mainnet => std::env::var("CANARY_SYNC_INTERVAL_TEAM_MAINNET").ok()
+            NetworkConfig::Mainnet => std::env::var("CANARY_SYNC_INTERVAL_TEAM_MAINNET")
+                .ok()
                 .and_then(|s| s.parse().ok()),
         };
 
@@ -64,16 +70,16 @@ impl SubscriptionTier {
             NetworkConfig::Regtest => {
                 // Fast intervals for regtest since syncs are instant
                 (10, 5) // 10s Personal, 5s Team
-            },
+            }
             NetworkConfig::Testnet => {
                 // Reasonable intervals for testnet (not used in this project)
                 (60, 30) // 60s Personal, 30s Team
-            },
+            }
             NetworkConfig::Mainnet => {
                 // Long intervals for mainnet to prevent sync overlap
                 // Mainnet syncs take 60+ seconds, so we need longer intervals
                 (600, 120) // 600s (10min) Personal, 120s (2min) Team
-            },
+            }
         };
 
         (
@@ -81,7 +87,6 @@ impl SubscriptionTier {
             env_team.unwrap_or(default_team),
         )
     }
-
 
     /// Get limits for API limit checking - uses reasonable default intervals
     /// This is used by API endpoints where network config isn't available
@@ -150,11 +155,7 @@ impl std::fmt::Display for LimitError {
 impl std::error::Error for LimitError {}
 
 /// Generic limit checker that works for any resource type
-pub fn check_limit(
-    current: usize,
-    limit: Option<usize>,
-    resource: &str,
-) -> Result<(), LimitError> {
+pub fn check_limit(current: usize, limit: Option<usize>, resource: &str) -> Result<(), LimitError> {
     if let Some(max) = limit {
         if current >= max {
             return Err(LimitError {
