@@ -1,15 +1,14 @@
 use crate::auth::{
-    authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUserResponse,
-    ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateUserRequest,
-    UpdateUserResponse, AuthUser,
+    authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUser,
+    AuthUserResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
+    UpdateUserRequest, UpdateUserResponse,
 };
-use tracing::info;
 use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
 use crate::email_service::EmailService;
 use crate::metadata::{
-    Contact, EventType, Language, MetadataDb, NotificationMethod, ProviderType, TransactionEventWithWallet,
-    WalletDetailResponse, WalletMetadata, WalletsListResponse,
+    Contact, EventType, Language, MetadataDb, NotificationMethod, ProviderType,
+    TransactionEventWithWallet, WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::stripe_billing::{
@@ -32,6 +31,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
+use tracing::info;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -134,7 +134,7 @@ pub struct ProvidersResponse {
 
 // New architecture: Separate web serving from wallet sync operations
 pub struct AppServices {
-    pub metadata_db: MetadataDb,  // Fast access for web endpoints (no mutex needed)
+    pub metadata_db: MetadataDb, // Fast access for web endpoints (no mutex needed)
     pub wallet_creation_service: WalletCreationService, // Non-blocking wallet creation
 }
 
@@ -270,7 +270,7 @@ impl AppServices {
     }
 }
 
-pub type AppServicesState = Arc<AppServices>;   // New non-blocking architecture
+pub type AppServicesState = Arc<AppServices>; // New non-blocking architecture
 pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
@@ -377,7 +377,10 @@ fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> Str
 /// Authenticate user based on operating mode
 /// In SAAS mode: authenticate using JWT token
 /// In FOSS mode: return hardcoded foss-user
-fn authenticate_user_mode_aware(config: &AppConfig, auth_header: Option<&str>) -> Result<AuthUser, String> {
+fn authenticate_user_mode_aware(
+    config: &AppConfig,
+    auth_header: Option<&str>,
+) -> Result<AuthUser, String> {
     if config.is_foss_mode() {
         // FOSS mode: return hardcoded user
         Ok(AuthUser {
@@ -389,7 +392,6 @@ fn authenticate_user_mode_aware(config: &AppConfig, auth_header: Option<&str>) -
         authenticate_user(auth_header).map_err(|_| "Authentication required".to_string())
     }
 }
-
 
 /// Non-blocking wallet creation using AppServices (avoids WalletManager mutex)
 /// This resolves the regression where wallet creation was taking 30+ seconds
@@ -411,51 +413,62 @@ fn authenticate_user_mode_aware(config: &AppConfig, auth_header: Option<&str>) -
     )
 )]
 pub async fn create_wallet_non_blocking(
-    State((app_services, stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
     Json(payload): Json<CreateWalletRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
-    // Validate advanced settings: custom stop gap requires specific script type
+    // Helper function to detect output descriptor format
+    let is_descriptor_format = |input: &str| -> bool {
+        let descriptor_regex = regex::Regex::new(r"^(wpkh|sh|pkh|tr)\(").unwrap();
+        descriptor_regex.is_match(input.trim())
+    };
+
+    // Validate advanced settings: custom stop gap requires specific script type (except for output descriptors)
     if let Some(stop_gap) = &payload.stop_gap {
         if stop_gap != "auto" {
-            // Custom stop gap requires specific script type
-            match &payload.script_type {
-                Some(script_type) if script_type != "auto" => {
-                    // Valid: custom stop gap with specific script type
-                }
-                _ => {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse {
-                            error: "Custom stop gap requires selecting a specific script type (not auto)".to_string(),
-                        }),
-                    )
-                        .into_response();
+            // Skip script type requirement for output descriptors (they already contain script type info)
+            if !is_descriptor_format(&payload.descriptor) {
+                // Custom stop gap requires specific script type for XPUBs
+                match &payload.script_type {
+                    Some(script_type) if script_type != "auto" => {
+                        // Valid: custom stop gap with specific script type
+                    }
+                    _ => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse {
+                                error: "Custom stop gap requires selecting a specific script type (not auto)".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
                 }
             }
-            
+
             // Validate stop gap values
             if !["250", "500", "750", "1000"].contains(&stop_gap.as_str()) {
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(ErrorResponse {
-                        error: "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000".to_string(),
+                        error: "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000"
+                            .to_string(),
                     }),
                 )
                     .into_response();
@@ -476,11 +489,9 @@ pub async fn create_wallet_non_blocking(
                 Ok(wallet_count) => {
                     // Check limit based on subscription tier
                     let tier_limits = user_record.subscription_tier.limits_for_api();
-                    if let Err(limit_err) = check_limit(
-                        wallet_count,
-                        tier_limits.max_wallets,
-                        "Wallet",
-                    ) {
+                    if let Err(limit_err) =
+                        check_limit(wallet_count, tier_limits.max_wallets, "Wallet")
+                    {
                         return (
                             StatusCode::FORBIDDEN,
                             Json(ErrorResponse {
@@ -527,7 +538,10 @@ pub async fn create_wallet_non_blocking(
         if payload.is_fresh_wallet == Some(true) {
             match &payload.script_type {
                 Some(script_type) => {
-                    println!("Fresh wallet detected, using provided script type: {}", script_type);
+                    println!(
+                        "Fresh wallet detected, using provided script type: {}",
+                        script_type
+                    );
                     // Use static XPUB conversion (TODO: extract this to avoid electrum client dependency)
                     payload.descriptor.clone() // For now, pass XPUB directly to creation service
                 }
@@ -543,7 +557,9 @@ pub async fn create_wallet_non_blocking(
             }
         } else {
             // Existing wallet - pass XPUB directly to background task for smart script detection
-            println!("Detected XPUB format for existing wallet, will probe script types in background");
+            println!(
+                "Detected XPUB format for existing wallet, will probe script types in background"
+            );
             payload.descriptor.clone()
         }
     } else {
@@ -555,9 +571,9 @@ pub async fn create_wallet_non_blocking(
     match app_services
         .wallet_creation_service
         .create_wallet_non_blocking(
-            &payload.name, 
-            &descriptor, 
-            &user.user_id, 
+            &payload.name,
+            &descriptor,
+            &user.user_id,
             payload.is_fresh_wallet.unwrap_or(false),
             payload.script_type.as_deref(),
             payload.stop_gap.as_deref(),
@@ -652,27 +668,43 @@ pub async fn create_wallet_non_blocking(
 
             // Check if this is the user's first wallet and they're in 'pending' status
             // If so, activate their trial now! (NON-BLOCKING)
-            let user_record = app_services.metadata_db.get_user_by_id(&user.user_id).await.ok().flatten();
+            let user_record = app_services
+                .metadata_db
+                .get_user_by_id(&user.user_id)
+                .await
+                .ok()
+                .flatten();
             if let Some(user_record) = user_record {
                 if user_record.subscription_status == "pending" {
                     // Count their wallets (should be 1 now after creation)
-                    let wallet_count = app_services.metadata_db.count_wallets_for_user(&user.user_id).await.unwrap_or(0);
-                    
+                    let wallet_count = app_services
+                        .metadata_db
+                        .count_wallets_for_user(&user.user_id)
+                        .await
+                        .unwrap_or(0);
+
                     if wallet_count == 1 {
-                        tracing::info!("🎉 Activating trial for user {} on first wallet creation", user_record.email);
-                        
+                        tracing::info!(
+                            "🎉 Activating trial for user {} on first wallet creation",
+                            user_record.email
+                        );
+
                         // Calculate trial end date (30 days from now)
                         let trial_ends_at = chrono::Utc::now() + chrono::Duration::days(30);
-                        
+
                         // Update user status to 'trialing' in database (NON-BLOCKING)
-                        if let Err(e) = app_services.metadata_db.update_user_trial_status(
-                            &user.user_id,
-                            "trialing",
-                            Some(trial_ends_at.to_rfc3339())
-                        ).await {
+                        if let Err(e) = app_services
+                            .metadata_db
+                            .update_user_trial_status(
+                                &user.user_id,
+                                "trialing",
+                                Some(trial_ends_at.to_rfc3339()),
+                            )
+                            .await
+                        {
                             tracing::error!("Failed to update user trial status: {}", e);
                         }
-                        
+
                         // If Stripe is available, create the trial subscription (NON-BLOCKING)
                         if let Some(stripe_service) = &stripe_billing {
                             // Create trial subscription for Team tier
@@ -709,7 +741,7 @@ pub async fn create_wallet_non_blocking(
 
             let elapsed = start_time.elapsed();
             info!("create_wallet_non_blocking completed in {:?}", elapsed);
-            
+
             (
                 StatusCode::CREATED,
                 Json(CreateWalletResponse {
@@ -751,27 +783,32 @@ pub async fn create_wallet_non_blocking(
     )
 )]
 pub async fn delete_wallet(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
 ) -> Response {
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
     // NON-BLOCKING: Use AppServices metadata_db directly (no wallet mutex)
     // Check if wallet exists and belongs to user (or user is admin)
-    match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
+    match app_services
+        .metadata_db
+        .get_wallet_by_checksum(&checksum)
+        .await
+    {
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
@@ -824,7 +861,11 @@ pub async fn delete_wallet(
 
     // SOFT DELETE: Mark wallet as deleted instead of immediate deletion
     // This allows for instant response while background cleanup happens during next sync cycle
-    match app_services.metadata_db.mark_wallet_as_deleted(&checksum).await {
+    match app_services
+        .metadata_db
+        .mark_wallet_as_deleted(&checksum)
+        .await
+    {
         Ok(true) => {
             println!("[{}] Wallet marked as deleted (soft delete)", checksum);
             StatusCode::NO_CONTENT.into_response()
@@ -870,22 +911,23 @@ pub async fn delete_wallet(
     )
 )]
 pub async fn update_wallet(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
     Json(payload): Json<UpdateWalletRequest>,
 ) -> Response {
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
@@ -902,7 +944,11 @@ pub async fn update_wallet(
     let start_time = std::time::Instant::now();
 
     // Direct metadata access - no mutex blocking!
-    match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
+    match app_services
+        .metadata_db
+        .get_wallet_by_checksum(&checksum)
+        .await
+    {
         Ok(Some(_)) => {
             // Check ownership
             if !user.is_admin {
@@ -953,11 +999,14 @@ pub async fn update_wallet(
         }
     }
 
-    let update_result = app_services.metadata_db.update_wallet_by_checksum(&checksum, &payload.name).await;
-    
+    let update_result = app_services
+        .metadata_db
+        .update_wallet_by_checksum(&checksum, &payload.name)
+        .await;
+
     let elapsed = start_time.elapsed();
     info!("update_wallet completed in {:?}", elapsed);
-    
+
     match update_result {
         Ok(true) => StatusCode::OK.into_response(),
         Ok(false) => (
@@ -965,13 +1014,15 @@ pub async fn update_wallet(
             Json(ErrorResponse {
                 error: "Wallet not found".to_string(),
             }),
-        ).into_response(),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: format!("Database error: {}", e),
             }),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -993,28 +1044,33 @@ pub async fn update_wallet(
     )
 )]
 pub async fn get_wallet(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
     Path(checksum): Path<String>,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
     // No mutex blocking! Direct access to metadata database
-    match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
+    match app_services
+        .metadata_db
+        .get_wallet_by_checksum(&checksum)
+        .await
+    {
         Ok(Some(wallet)) => {
             // Check if user has access to this wallet
             if !user.is_admin {
@@ -1044,9 +1100,12 @@ pub async fn get_wallet(
                     }
                 }
             }
-            
+
             let response_time = start_time.elapsed();
-            println!("⚡ Non-blocking wallet metadata served in {:?}", response_time);
+            println!(
+                "⚡ Non-blocking wallet metadata served in {:?}",
+                response_time
+            );
             (StatusCode::OK, Json(wallet)).into_response()
         }
         Ok(None) => (
@@ -1088,24 +1147,25 @@ pub async fn get_wallet(
     )
 )]
 pub async fn create_wallet_contact(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(payload): Json<CreateContactWithMethodsRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
@@ -1272,10 +1332,10 @@ pub async fn create_wallet_contact(
             processed_methods,
         )
         .await;
-    
+
     let elapsed = start_time.elapsed();
     info!("create_wallet_contact completed in {:?}", elapsed);
-    
+
     match create_result {
         Ok(contact_id) => (
             StatusCode::CREATED,
@@ -1316,23 +1376,24 @@ pub async fn create_wallet_contact(
     )
 )]
 pub async fn delete_wallet_contact(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
     Path((wallet_checksum, contact_id)): Path<(String, String)>,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
@@ -1395,10 +1456,10 @@ pub async fn delete_wallet_contact(
         .metadata_db
         .delete_wallet_contact(&wallet_checksum, &contact_id)
         .await;
-    
+
     let elapsed = start_time.elapsed();
     info!("delete_wallet_contact completed in {:?}", elapsed);
-    
+
     match delete_result {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => (
@@ -1440,23 +1501,24 @@ pub async fn delete_wallet_contact(
     )
 )]
 pub async fn get_wallet_contacts(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
@@ -1519,10 +1581,10 @@ pub async fn get_wallet_contacts(
         .metadata_db
         .get_contacts_with_notification_methods(&wallet_checksum)
         .await;
-    
+
     let elapsed = start_time.elapsed();
     info!("get_wallet_contacts completed in {:?}", elapsed);
-    
+
     match contacts_result {
         Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
         Err(e) => (
@@ -1556,23 +1618,24 @@ pub async fn get_wallet_contacts(
     )
 )]
 pub async fn send_contact_verification(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(request): Json<SendContactVerificationRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
@@ -1663,7 +1726,8 @@ pub async fn send_contact_verification(
         }
 
         // Check if email matches current user's account email (skip verification) - no mutex blocking!
-        if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await {
+        if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await
+        {
             let jwt_secret = std::env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
             let auth_service = AuthService::new(jwt_secret.clone(), None);
@@ -1723,7 +1787,10 @@ pub async fn send_contact_verification(
     }
 
     // Clean up any expired verifications first - no mutex blocking!
-    let _ = app_services.metadata_db.cleanup_expired_verifications().await;
+    let _ = app_services
+        .metadata_db
+        .cleanup_expired_verifications()
+        .await;
 
     // Generate verification code
     let verification_code = if is_dev_mode {
@@ -1829,7 +1896,10 @@ pub async fn send_contact_verification(
         .into_response(),
         Err(e) => {
             // Clean up pending verification on error - no mutex blocking!
-            let _ = app_services.metadata_db.cleanup_expired_verifications().await;
+            let _ = app_services
+                .metadata_db
+                .cleanup_expired_verifications()
+                .await;
 
             (
                 StatusCode::BAD_REQUEST,
@@ -1840,7 +1910,7 @@ pub async fn send_contact_verification(
                 .into_response()
         }
     };
-    
+
     let elapsed = start_time.elapsed();
     info!("send_contact_verification completed in {:?}", elapsed);
     final_result
@@ -1880,23 +1950,24 @@ pub struct VerifyContactResponse {
     )
 )]
 pub async fn verify_contact(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
     Path(wallet_checksum): Path<String>,
     Json(request): Json<VerifyContactRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
@@ -2094,7 +2165,7 @@ pub async fn verify_contact(
 
         let elapsed = start_time.elapsed();
         info!("verify_contact completed in {:?}", elapsed);
-        
+
         (
             StatusCode::OK,
             Json(VerifyContactResponse {
@@ -2106,7 +2177,7 @@ pub async fn verify_contact(
     } else {
         let elapsed = start_time.elapsed();
         info!("verify_contact completed in {:?}", elapsed);
-        
+
         (
             StatusCode::BAD_REQUEST,
             Json(VerifyContactResponse {
@@ -2127,14 +2198,20 @@ pub async fn verify_contact(
     ),
     tag = "blockchain"
 )]
-pub async fn get_current_block_header(State((app_services, _stripe_billing, _config)): State<(AppServicesState, StripeBillingState, ConfigState)>) -> Response {
+pub async fn get_current_block_header(
+    State((app_services, _stripe_billing, _config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     let result = app_services.metadata_db.get_current_block_header().await;
-    
+
     let elapsed = start_time.elapsed();
     info!("get_current_block_header completed in {:?}", elapsed);
-    
+
     match result {
         Ok(Some(block_header)) => (StatusCode::OK, Json(block_header)).into_response(),
         Ok(None) => (
@@ -2169,22 +2246,23 @@ pub async fn get_current_block_header(State((app_services, _stripe_billing, _con
 )]
 
 pub async fn get_wallets_list(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
@@ -2197,7 +2275,7 @@ pub async fn get_wallets_list(
             let response_time = start_time.elapsed();
             println!("⚡ Non-blocking wallet list served in {:?}", response_time);
             (StatusCode::OK, Json(wallets_response)).into_response()
-        },
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
@@ -2227,23 +2305,24 @@ pub async fn get_wallets_list(
     )
 )]
 pub async fn get_wallet_detail(
-    State((app_services, _stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     Path(checksum): Path<String>,
     headers: HeaderMap,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Authenticate user based on operating mode
-    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
         Err(err) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: err,
-                }),
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
@@ -2254,7 +2333,11 @@ pub async fn get_wallet_detail(
         .as_secs();
 
     // Get the specific wallet - no mutex blocking!
-    let wallet = match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
+    let wallet = match app_services
+        .metadata_db
+        .get_wallet_by_checksum(&checksum)
+        .await
+    {
         Ok(Some(wallet)) => wallet,
         Ok(None) => {
             return (
@@ -2308,7 +2391,11 @@ pub async fn get_wallet_detail(
     // Check if wallet is pending - if so, return minimal data only
     if wallet.status == "pending" {
         // Get contacts - these are available even for pending wallets
-        let contacts = match app_services.metadata_db.get_contacts_with_notification_methods(&wallet.checksum).await {
+        let contacts = match app_services
+            .metadata_db
+            .get_contacts_with_notification_methods(&wallet.checksum)
+            .await
+        {
             Ok(contacts) => contacts,
             Err(e) => {
                 return (
@@ -2322,7 +2409,10 @@ pub async fn get_wallet_detail(
         };
 
         let response_time = start_time.elapsed();
-        println!("⚡ Non-blocking wallet detail (pending) served in {:?}", response_time);
+        println!(
+            "⚡ Non-blocking wallet detail (pending) served in {:?}",
+            response_time
+        );
 
         let wallet_detail = WalletDetailResponse {
             timestamp,
@@ -2335,7 +2425,11 @@ pub async fn get_wallet_detail(
     }
 
     // Get transaction events - no mutex blocking!
-    let events = match app_services.metadata_db.get_events_by_wallet_checksum(&wallet.checksum, None).await {
+    let events = match app_services
+        .metadata_db
+        .get_events_by_wallet_checksum(&wallet.checksum, None)
+        .await
+    {
         Ok(events) => events,
         Err(e) => {
             return (
@@ -2349,7 +2443,11 @@ pub async fn get_wallet_detail(
     };
 
     // Get contacts - no mutex blocking!
-    let contacts = match app_services.metadata_db.get_contacts_with_notification_methods(&wallet.checksum).await {
+    let contacts = match app_services
+        .metadata_db
+        .get_contacts_with_notification_methods(&wallet.checksum)
+        .await
+    {
         Ok(contacts) => contacts,
         Err(e) => {
             return (
@@ -2363,7 +2461,10 @@ pub async fn get_wallet_detail(
     };
 
     let response_time = start_time.elapsed();
-    println!("⚡ Non-blocking wallet detail served in {:?}", response_time);
+    println!(
+        "⚡ Non-blocking wallet detail served in {:?}",
+        response_time
+    );
 
     let wallet_detail = WalletDetailResponse {
         timestamp,
@@ -2416,7 +2517,11 @@ pub async fn register(
     }
 
     // Check if user already exists - no mutex blocking!
-    match app_services.metadata_db.get_user_by_email(&request.email).await {
+    match app_services
+        .metadata_db
+        .get_user_by_email(&request.email)
+        .await
+    {
         Ok(Some(_)) => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -2589,7 +2694,7 @@ pub async fn register(
 
         let elapsed = start_time.elapsed();
         info!("register completed in {:?}", elapsed);
-        
+
         Json(serde_json::json!({
             "message": "Registration successful. Please check your email to verify your account."
         }))
@@ -2598,7 +2703,7 @@ pub async fn register(
         // Dev mode: return success immediately
         let elapsed = start_time.elapsed();
         info!("register completed in {:?}", elapsed);
-        
+
         Json(serde_json::json!({
             "message": "Registration successful (dev mode - no email verification required)."
         }))
@@ -2619,13 +2724,21 @@ pub async fn register(
     tag = "auth"
 )]
 pub async fn login(
-    State((app_services, _stripe_billing, _config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    State((app_services, _stripe_billing, _config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     Json(request): Json<LoginRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
 
     // Check if user exists - no mutex blocking!
-    let user_record = match app_services.metadata_db.get_user_by_email(&request.email).await {
+    let user_record = match app_services
+        .metadata_db
+        .get_user_by_email(&request.email)
+        .await
+    {
         Ok(Some(user)) => user,
         Ok(None) => {
             return (
@@ -2710,7 +2823,11 @@ pub async fn login(
     }
 
     // Update last login
-    if let Err(e) = app_services.metadata_db.update_last_login(&user_record.id).await {
+    if let Err(e) = app_services
+        .metadata_db
+        .update_last_login(&user_record.id)
+        .await
+    {
         eprintln!(
             "Failed to update last login for user {}: {:?}",
             user_record.id, e
@@ -2766,7 +2883,7 @@ pub async fn login(
 
     let response_time = start_time.elapsed();
     println!("⚡ Non-blocking login completed in {:?}", response_time);
-    
+
     Json(AuthResponse {
         token,
         user: user_info,
@@ -2774,7 +2891,6 @@ pub async fn login(
     })
     .into_response()
 }
-
 
 #[utoipa::path(
     get,
@@ -2794,7 +2910,7 @@ pub async fn verify_email(
     Path(token): Path<String>,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Direct metadata access - no mutex blocking!
     let result = match app_services.metadata_db.verify_email_token(&token).await {
         Ok(Some(_user_id)) => Json(serde_json::json!({
@@ -2816,7 +2932,7 @@ pub async fn verify_email(
         )
             .into_response(),
     };
-    
+
     let elapsed = start_time.elapsed();
     info!("verify_email completed in {:?}", elapsed);
     result
@@ -2838,9 +2954,13 @@ pub async fn forgot_password(
     Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Check if user exists - no mutex blocking!
-    let user_record = match app_services.metadata_db.get_user_by_email(&request.email).await {
+    let user_record = match app_services
+        .metadata_db
+        .get_user_by_email(&request.email)
+        .await
+    {
         Ok(Some(user)) => user,
         Ok(None) => {
             // Don't reveal whether user exists or not
@@ -2906,7 +3026,7 @@ pub async fn forgot_password(
 
     let elapsed = start_time.elapsed();
     info!("forgot_password completed in {:?}", elapsed);
-    
+
     Json(serde_json::json!({
         "message": "If an account with that email exists, a password reset link has been sent."
     }))
@@ -3008,7 +3128,7 @@ pub async fn reset_password(
 
     let elapsed = start_time.elapsed();
     info!("reset_password completed in {:?}", elapsed);
-    
+
     Json(serde_json::json!({
         "message": "Password reset successfully. You can now log in with your new password."
     }))
@@ -3032,7 +3152,7 @@ pub async fn logout(
     headers: HeaderMap,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Get the token from the Authorization header
     let auth_header = match headers.get("authorization").and_then(|h| h.to_str().ok()) {
         Some(header) => header,
@@ -3064,10 +3184,10 @@ pub async fn logout(
 
     // Direct metadata access - no mutex blocking!
     let result = app_services.metadata_db.delete_session(&token_hash).await;
-    
+
     let elapsed = start_time.elapsed();
     info!("logout completed in {:?}", elapsed);
-    
+
     if let Err(e) = result {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -3101,7 +3221,7 @@ pub async fn me(
     headers: HeaderMap,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -3244,7 +3364,7 @@ pub async fn update_user(
 
     let elapsed = start_time.elapsed();
     info!("update_user completed in {:?}", elapsed);
-    
+
     Json(UpdateUserResponse { user: user_info }).into_response()
 }
 
@@ -3367,12 +3487,11 @@ pub async fn create_stripe_checkout_session(
             &app_services.metadata_db,
         )
         .await;
-    
+
     let elapsed = start_time.elapsed();
     info!("create_stripe_checkout_session completed in {:?}", elapsed);
-    
-    match result
-    {
+
+    match result {
         Ok(session) => (StatusCode::OK, Json(session)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -3515,7 +3634,7 @@ pub async fn get_billing_status(
     headers: HeaderMap,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    
+
     // Authenticate user
     let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
         Ok(user) => user,
@@ -3659,7 +3778,7 @@ pub async fn handle_stripe_webhook(
     let _start_time = std::time::Instant::now();
     // Debug: Log all headers
     tracing::info!("Webhook headers received: {:?}", headers);
-    
+
     // Get Stripe signature from headers (case-insensitive lookup)
     let signature = match headers.get("stripe-signature") {
         Some(sig) => match sig.to_str() {
@@ -3955,7 +4074,6 @@ pub async fn get_checkout_session_details(
 )]
 pub struct ApiDoc;
 
-
 pub fn create_router_with_services(
     app_services: AppServicesState,
     notification_manager: NotificationManagerState,
@@ -3963,7 +4081,7 @@ pub fn create_router_with_services(
     config: AppConfig,
 ) -> Router {
     let config_state = Arc::new(config);
-    
+
     // Auth routes (public) - only routes that still use wallet_manager
     // AppServices routes (non-blocking, metadata operations only)
     let app_routes_2param = Router::new()
@@ -3981,7 +4099,11 @@ pub fn create_router_with_services(
             post(send_contact_verification),
         )
         .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
-        .with_state((app_services.clone(), stripe_billing.clone(), config_state.clone()));
+        .with_state((
+            app_services.clone(),
+            stripe_billing.clone(),
+            config_state.clone(),
+        ));
 
     // Delete wallet route moved to app_services_routes for non-blocking operation
 
@@ -4007,22 +4129,35 @@ pub fn create_router_with_services(
 
     // Add the remaining AppServices routes
     let app_routes_metadata = Router::new()
-        .route("/wallets", get(get_wallets_list).post(create_wallet_non_blocking))
-        .route("/wallets/{checksum}", get(get_wallet).put(update_wallet).delete(delete_wallet))
+        .route(
+            "/wallets",
+            get(get_wallets_list).post(create_wallet_non_blocking),
+        )
+        .route(
+            "/wallets/{checksum}",
+            get(get_wallet).put(update_wallet).delete(delete_wallet),
+        )
         .route("/wallets/{checksum}/detail", get(get_wallet_detail))
         .route("/wallets/{checksum}/contacts", get(get_wallet_contacts))
         .route("/wallets/{checksum}/contacts", post(create_wallet_contact))
-        .route("/wallets/{wallet_checksum}/contacts/{contact_id}", axum::routing::delete(delete_wallet_contact))
+        .route(
+            "/wallets/{wallet_checksum}/contacts/{contact_id}",
+            axum::routing::delete(delete_wallet_contact),
+        )
         .route("/auth/login", post(login))
         .route("/block-headers/current", get(get_current_block_header))
-        .with_state((app_services.clone(), stripe_billing.clone(), config_state.clone()));
-    
+        .with_state((
+            app_services.clone(),
+            stripe_billing.clone(),
+            config_state.clone(),
+        ));
+
     let app_routes_auth = Router::new()
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
         .route("/billing/status", get(get_billing_status))
         .with_state((app_services.clone(), stripe_billing.clone()));
-    
+
     let api_routes = app_routes_2param
         .merge(app_routes_3param)
         .merge(app_routes_metadata)

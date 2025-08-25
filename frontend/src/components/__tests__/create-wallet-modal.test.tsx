@@ -184,7 +184,7 @@ describe('CreateWalletModal', () => {
           name: 'My Wallet',
           descriptor: 'wpkh([fingerprint/derivation]xpub.../0/*)#checksum',
           isFreshWallet: undefined,
-          scriptType: undefined
+          scriptType: 'p2wpkh'
         })
       })
       
@@ -212,7 +212,7 @@ describe('CreateWalletModal', () => {
           name: 'Alice Johnson',
           descriptor: 'wpkh([fingerprint/derivation]xpub.../0/*)#checksum',
           isFreshWallet: undefined,
-          scriptType: undefined
+          scriptType: 'p2wpkh'
         })
       })
     })
@@ -240,7 +240,7 @@ describe('CreateWalletModal', () => {
           name: 'My Personal Wallet',
           descriptor: 'wpkh([fingerprint/derivation]xpub.../0/*)#checksum',
           isFreshWallet: undefined,
-          scriptType: undefined
+          scriptType: 'p2wpkh'
         })
       })
     })

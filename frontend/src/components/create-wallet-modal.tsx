@@ -124,11 +124,14 @@ export function CreateWalletModal({
       return
     }
 
-    // Validate stop gap: custom stop gap requires specific script type
+    // Validate stop gap: custom stop gap requires specific script type (except for output descriptors)
     if (stopGap && stopGap !== "auto") {
-      if (!scriptType || scriptType === "auto") {
-        modal.setError("Custom stop gap requires selecting a specific script type (not auto)")
-        return
+      // Skip script type requirement for output descriptors (they already contain script type info)
+      if (!isDescriptorFormat(descriptor)) {
+        if (!scriptType || scriptType === "auto") {
+          modal.setError("Custom stop gap requires selecting a specific script type (not auto)")
+          return
+        }
       }
     }
 
@@ -305,7 +308,7 @@ export function CreateWalletModal({
                 <p className="text-xs text-muted-foreground">
                   Number of consecutive unused addresses to check before stopping. Increase if your wallet has addresses used at random high indices (e.g., BTCPay Server)
                 </p>
-                {stopGap && stopGap !== "auto" && (!scriptType || scriptType === "auto") && (
+                {stopGap && stopGap !== "auto" && !isDescriptorFormat(descriptor) && (!scriptType || scriptType === "auto") && (
                   <p className="text-xs text-red-500">
                     Custom stop gap requires selecting a specific script type
                   </p>
