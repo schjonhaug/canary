@@ -61,19 +61,26 @@ canary/
 ├── backend/          # Rust service with BDK wallet management
 │   ├── src/         # All source code (api.rs, main.rs, wallet management, notifications, subscription.rs)
 │   ├── database/    # Network-specific SQLite databases (database/{network}/)
-│   └── migrations/  # Database schema migrations (001_initial_schema.sql)
+│   ├── migrations/  # Database schema migrations (001_initial_schema.sql, 002_add_sync_status.sql, 003_add_deleted_status.sql)
+│   ├── tests/       # Integration tests (stripe_integration_tests.rs)
+│   ├── tasks/       # Development tasks and documentation
+│   └── xpub-tools/  # XPUB conversion utilities
 ├── frontend/        # Next.js app with React components
 │   ├── src/
-│   │   ├── components/  # UI components (plan-comparison.tsx, plans-modal.tsx)
-│   │   ├── lib/        # Shared utilities (pricing-data.ts, utils.ts)
-│   │   └── contexts/   # React contexts (auth-context.tsx, wallets-context.tsx)
+│   │   ├── app/        # Next.js 13+ app directory (pages, layouts, API routes)
+│   │   ├── components/ # UI components (plan-comparison.tsx, plans-modal.tsx, contact-modal.tsx)
+│   │   ├── lib/        # Shared utilities (pricing-data.ts, utils.ts, api.ts)
+│   │   ├── contexts/   # React contexts (auth-context.tsx, wallets-context.tsx)
+│   │   ├── hooks/      # Custom React hooks (useWalletDetail.ts, usePricing.ts)
+│   │   └── types/      # TypeScript type definitions
 ├── regtest-env/    # Docker Bitcoin + Fulcrum setup
+├── tasks/          # Project tasks and documentation
 └── CLAUDE.md       # This file
 ```
 
 ## Key Dependencies
 - **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio + Resend email notifications
-- **Frontend**: Next.js 15, React 19, Tailwind CSS 4, shadcn/ui components, JWT authentication support
+- **Frontend**: Next.js 15, React 19, Tailwind CSS 4, Radix UI with shadcn/ui components, JWT authentication support
 
 ## API Endpoints
 
@@ -103,10 +110,12 @@ canary/
 - `GET /api/block-headers/current` - Get current block header from database
 
 ### Billing & Subscription Management  
-- `POST /api/checkout/create-session` - Create Stripe Checkout session for plan upgrades
-- `POST /api/billing/customer-portal` - Create Stripe Customer Portal session for subscription management
+- `POST /api/stripe/checkout` - Create Stripe Checkout session for plan upgrades
+- `POST /api/stripe/portal` - Create Stripe Customer Portal session for subscription management
 - `GET /api/billing/status` - Get current subscription status and billing information
 - `POST /api/stripe/webhook` - Process Stripe webhook events (subscription lifecycle)
+- `GET /api/billing/pricing` - Get current subscription pricing information
+- `GET /api/billing/session/{session_id}` - Get Stripe Checkout session details
 
 ### Notification System
 - `GET /api/providers` - List available and configured notification providers
@@ -157,7 +166,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Async Wallet Creation**: Fast POST responses (~1.5s) with background deep scanning and skeleton UI states
 - **User Onboarding**: Guided wallet creation with BIP39 mnemonic generation
 - **Professional UX**: Comprehensive plan comparison modals showing monthly prices with yearly savings
-- **Development Mode**: Quick login options for testing with pre-configured email accounts
+- **Development Mode**: Quick login options for testing with pre-configured email accounts (delivered+admin@resend.dev, delivered+alice@resend.dev, delivered+bob@resend.dev)
 - **Clean Registration Flow**: Dedicated success page (/sign-up/success) after registration with clear email verification instructions
 
 ## Subscription Tiers & Limits
@@ -435,7 +444,7 @@ This is separate from the main authentication system and only used when users ad
 ## Storage
 - **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
 - **Metadata**: `database/{network}/metadata.sqlite` (normalized schema with users, contacts, contact_notification_methods, events, notification_logs, email_verification_tokens, password_reset_tokens)
-- **Schema**: Single migration file (001_initial_schema.sql) with normalized design for extensible notification methods, multi-user support, and email authentication
+- **Schema**: Three migration files (001_initial_schema.sql, 002_add_sync_status.sql, 003_add_deleted_status.sql) with normalized design for extensible notification methods, multi-user support, and email authentication
 - **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
 
 ## Address Management & Deep Scanning
@@ -456,7 +465,7 @@ The service uses BDK's address revelation mechanism with advanced deep scanning 
 
 ## Development Workflow
 - **Testing**: `./regtest-env/docker-utils.sh` provides complete Bitcoin regtest environment
-- **Database Management**: Single migration file for clean schema initialization
+- **Database Management**: Three migration files for schema evolution and initialization
 
 ## Testing & Quality Assurance
 
@@ -508,6 +517,6 @@ Comprehensive test coverage for subscription limits and user interactions:
 - Type-safe API contracts between frontend and backend
 
 
-## Committnig code to git
+## Committing code to git
 
-Always build both the frontend and backend and run and verify all tests before commiting. In case of errors, they need to be fixed.
+Always build both the frontend and backend and run and verify all tests before committing. In case of errors, they need to be fixed.

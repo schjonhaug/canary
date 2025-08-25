@@ -88,7 +88,12 @@ npm run test:watch    # Run tests in watch mode
 ```
 src/
 ├── app/                    # Next.js App Router pages
-│   ├── (auth)/            # Authentication pages (sign-in, sign-up, etc.)
+│   ├── sign-in/           # Sign-in page
+│   ├── sign-up/           # Sign-up and success pages
+│   ├── forgot-password/   # Password reset pages
+│   ├── reset-password/    # Password reset with token
+│   ├── verify-email/      # Email verification
+│   ├── settings/          # User settings and subscription management
 │   └── wallets/           # Wallet management pages
 ├── components/            # Reusable UI components
 │   ├── __tests__/         # Component test files
@@ -144,7 +149,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3000
   - Full multi-user authentication with email/password
   - Stripe subscription billing and tier-based limits
   - Multiple notification providers (SMS, email, ntfy)
-  - Development: Pre-configured test users (admin@resend.dev, alice@resend.dev, bob@resend.dev) with password `password123`
+  - Development: Pre-configured test users (delivered+admin@resend.dev, delivered+alice@resend.dev, delivered+bob@resend.dev) with password `password123`
   - Production: Email verification required for new accounts
 - **FOSS Mode** (`NEXT_PUBLIC_CANARY_MODE=foss`):
   - Single hardcoded admin user (no authentication)  

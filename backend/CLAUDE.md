@@ -74,7 +74,7 @@ The backend will fail fast with clear error messages if required variables are m
 - **Database Layer**: `src/metadata.rs` - SQLite with r2d2 connection pooling
 - **Authentication**: `src/auth.rs` - JWT session management, email verification
 - **Billing**: `src/stripe_billing.rs` + `src/stripe_client_service.rs` - Subscription management
-- **Notifications**: Plugin-based system with provider modules (`src/ntfy_provider.rs`, etc.)
+- **Notifications**: Plugin-based system with provider modules (`src/ntfy_provider.rs`, `src/twilio_provider.rs`, `src/email_provider.rs`, etc.)
 
 **Key Patterns:**
 - **Non-blocking Web Architecture**: `AppServices` struct provides fast metadata access without wallet mutex locks
@@ -100,7 +100,7 @@ The backend will fail fast with clear error messages if required variables are m
 - Shared pricing data for consistent billing UI
 
 ### Database Schema
-- **Single Migration**: `migrations/001_initial_schema.sql` with complete normalized schema
+- **Three Migration Files**: `migrations/001_initial_schema.sql`, `migrations/002_add_sync_status.sql`, `migrations/003_add_deleted_status.sql` with complete normalized schema
 - **UUID Primary Keys**: Used for security-critical tables (users, transaction_events)
 - **Subscription Management**: Built-in user tiers, Stripe integration fields
 - **Network Isolation**: Separate databases per Bitcoin network (regtest/testnet/mainnet)
@@ -140,9 +140,6 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 TWILIO_ACCOUNT_SID=your_account_sid
 TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_MESSAGING_SERVICE_SID=your_service_sid
-TWILIO_ACCOUNT_SID=...
-TWILIO_AUTH_TOKEN=...
-TWILIO_MESSAGING_SERVICE_SID=...
 
 # Email provider (Resend)
 RESEND_API_KEY=re_...
@@ -179,7 +176,7 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - Without webhook forwarding, users remain in "pending" status
 
 ### Database Management
-- **No Migrations**: Single migration file `001_initial_schema.sql`
+- **Three Migration Files**: Initial schema (001), sync status addition (002), and deleted status support (003)
 - **Network Isolation**: Each network has separate database directory
 - **Reset Command**: `./regtest-env/docker-utils.sh reset` clears all databases
 - **Connection Pooling**: r2d2 SQLite pool with 10 max connections
@@ -203,5 +200,5 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 ### File Structure Conventions
 - **Backend**: All source in `src/` with single-file modules  
 - **Frontend**: App router structure with co-located component tests
-- **Migrations**: Single migration file approach (no backwards compatibility needed)
+- **Migrations**: Three migration files for schema evolution
 - **Database**: Network-specific directories under `database/{network}/`
