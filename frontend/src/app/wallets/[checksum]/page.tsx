@@ -160,7 +160,7 @@ export default function WalletDetailPage() {
   }
 
   // If wallet is pending, show syncing message
-  if (wallet.sync_status === 'pending') {
+  if (wallet.status === 'pending') {
     return (
       <>
         <div className="mb-6">

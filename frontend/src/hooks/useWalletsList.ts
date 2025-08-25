@@ -42,7 +42,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
       if (response.ok) {
         const data: WalletsListResponse = await response.json();
         
-        // Note: We now rely on backend's sync_status field instead of client-side pending tracking
+        // Note: We now rely on backend's status field instead of client-side pending tracking
         
         setWallets(data.wallets);
         setLastUpdate(data.timestamp);
@@ -64,7 +64,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
 
   // Update polling interval when wallets or billing status changes
   useEffect(() => {
-    const hasPendingWallets = wallets.some(wallet => wallet.sync_status === 'pending');
+    const hasPendingWallets = wallets.some(wallet => wallet.status === 'pending');
     let newInterval: number;
     
     if (hasPendingWallets) {
@@ -88,12 +88,12 @@ export function useWalletsList(shouldFetch: boolean = true) {
   const addWallet = useCallback((wallet: Wallet) => {
     // Add to regular wallets list immediately
     setWallets(prev => [...prev, wallet]);
-    // Note: Polling interval will automatically adjust based on wallet.sync_status
+    // Note: Polling interval will automatically adjust based on wallet.status
   }, []);
 
-  // Return wallets for UI
+  // Return wallets for UI (filter out deleted wallets)
   const allWallets = useMemo(() => {
-    return [...wallets];
+    return wallets.filter(wallet => wallet.status !== 'deleted');
   }, [wallets]);
 
   // Set up initial fetch when auth changes
@@ -146,6 +146,6 @@ export function useWalletsList(shouldFetch: boolean = true) {
     isConnected,
     refresh, // Manual refresh function
     addWallet, // Add new wallet immediately
-    hasPendingWallets: wallets.some(wallet => wallet.sync_status === 'pending'),
+    hasPendingWallets: wallets.some(wallet => wallet.status === 'pending'),
   };
 }

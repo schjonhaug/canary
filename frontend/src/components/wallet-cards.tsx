@@ -134,7 +134,7 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
           const isInactive = wallet.is_active === false
-          const isSyncing = wallet.sync_status === 'pending'
+          const isSyncing = wallet.status === 'pending'
           
           // If wallet is syncing, render non-clickable card with skeleton content
           if (isSyncing) {
