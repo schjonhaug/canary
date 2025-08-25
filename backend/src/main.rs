@@ -114,8 +114,15 @@ async fn main() -> anyhow::Result<()> {
     // Create new non-blocking architecture: Separate metadata access from heavy wallet operations
     let app_services = {
         let manager = wallet_manager.lock().await;
+        let wallet_creation_service = wallet::WalletCreationService::new(
+            manager.wallet_dir.clone(),
+            manager.metadata_db.clone(),
+            manager.electrum_client.clone(),
+            manager.get_network(),
+        );
         Arc::new(api::AppServices {
             metadata_db: manager.metadata_db.clone(),
+            wallet_creation_service,
         })
     };
 

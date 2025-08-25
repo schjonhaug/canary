@@ -16,6 +16,226 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
+/// Standalone wallet creation function that doesn't require WalletManager mutex
+/// This allows wallet creation to be non-blocking and concurrent
+pub struct WalletCreationService {
+    wallet_dir: PathBuf,
+    metadata_db: MetadataDb,
+    electrum_client: Option<ElectrumClient>,
+    network: Network,
+}
+
+impl WalletCreationService {
+    pub fn new(
+        wallet_dir: PathBuf,
+        metadata_db: MetadataDb,
+        electrum_client: Option<ElectrumClient>,
+        network: Network,
+    ) -> Self {
+        Self {
+            wallet_dir,
+            metadata_db,
+            electrum_client,
+            network,
+        }
+    }
+
+    /// Create wallet without blocking WalletManager
+    /// Returns wallet metadata immediately while background task handles BDK wallet creation
+    pub async fn create_wallet_non_blocking(
+        &self,
+        name: &str,
+        descriptor_str: &str,
+        user_id: &str,
+        is_fresh_wallet: bool,
+        script_type: Option<&str>,
+        stop_gap: Option<&str>,
+    ) -> Result<WalletMetadata> {
+        use crate::xpub_converter::XpubConverter;
+        
+        println!("Creating wallet from multipath descriptor:");
+        println!("  Name: {}", name);
+        println!("  Input descriptor: {}", descriptor_str);
+
+        // Check if input is an XPUB with known script type
+        if XpubConverter::is_xpub(descriptor_str) && !is_fresh_wallet {
+            if let Some(script_type_str) = script_type {
+                if script_type_str != "auto" {
+                    // Fast path: XPUB + known script type = skip probing
+                    println!("Fast path: XPUB with known script type '{}'", script_type_str);
+                    return self.create_from_xpub_with_known_type(name, descriptor_str, user_id, script_type_str, stop_gap).await;
+                }
+            }
+            // For unknown XPUB script types, fall through to use XPUB as descriptor
+            // Background task will handle script type detection
+            println!("Detected XPUB format - background task will handle script type detection");
+        }
+
+        // Strip key origin to prevent duplicate wallets with same XPUB
+        let normalized_descriptor = WalletManager::strip_key_origin_static(descriptor_str)?;
+        
+        // Check if normalized descriptor already exists
+        if self.metadata_db.descriptor_exists(&normalized_descriptor).await? {
+            let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+            return Err(anyhow!("This wallet has already been added with ID: {}. Ask the wallet owner to add you as a contact for notifications.", checksum));
+        }
+
+        // Parse and validate the normalized multipath descriptor
+        let (receive_descriptor, change_descriptor) =
+            WalletManager::parse_multipath_descriptor_static(&normalized_descriptor)?;
+
+        // Extract checksum from the normalized descriptor for consistent filename
+        let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+        let wallet_filename_with_ext = format!("{}.sqlite", checksum);
+        println!("[{}] Wallet filename: {}", checksum, wallet_filename_with_ext);
+
+        // Create wallet file path
+        let wallet_path = self.wallet_dir.join(&wallet_filename_with_ext);
+        println!("[{}] Wallet file path: {}", checksum, wallet_path.display());
+
+        // Check if wallet file already exists
+        if wallet_path.exists() {
+            return Err(anyhow!("Wallet file already exists"));
+        }
+
+        // PHASE 1: Save wallet metadata immediately (synchronous)
+        let wallet_checksum = self
+            .metadata_db
+            .insert_wallet(name, &normalized_descriptor, user_id)
+            .await?;
+        println!("[{}] Metadata saved with checksum: {}", checksum, wallet_checksum);
+
+        // Get wallet metadata to return immediately
+        let wallet_metadata = self
+            .metadata_db
+            .get_wallet_by_descriptor(&normalized_descriptor)
+            .await?
+            .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
+
+        // PHASE 2: Spawn background task for slow operations
+        let electrum_client_clone = self.electrum_client.clone();
+        let metadata_db_clone = self.metadata_db.clone();
+        let network = self.network;
+        let checksum_clone = checksum.clone();
+        let stop_gap_clone = stop_gap.map(|s| s.to_string());
+        
+        tokio::spawn(async move {
+            println!("[{}] Starting background wallet creation with stop gap: {:?}", checksum_clone, stop_gap_clone);
+            if let Err(e) = WalletManager::complete_wallet_creation_with_stop_gap(
+                wallet_path,
+                receive_descriptor,
+                change_descriptor,
+                network,
+                electrum_client_clone,
+                metadata_db_clone,
+                checksum_clone,
+                is_fresh_wallet,
+                stop_gap_clone.as_deref(),
+            ).await {
+                eprintln!("[{}] Background wallet creation failed: {}", wallet_checksum, e);
+            } else {
+                eprintln!("[{}] Background wallet creation with scan depth completed", wallet_checksum);
+            }
+        });
+
+        Ok(wallet_metadata)
+    }
+
+    // Helper methods that mirror WalletManager functionality
+    async fn create_from_xpub_with_known_type(
+        &self,
+        name: &str,
+        xpub: &str,
+        user_id: &str,
+        script_type_str: &str,
+        stop_gap: Option<&str>,
+    ) -> Result<WalletMetadata> {
+        use crate::xpub_converter::{XpubConverter, ScriptType};
+        
+        println!("Creating XPUB wallet with known script type: {}", script_type_str);
+        
+        // Parse script type
+        let script_type = match script_type_str {
+            "p2wpkh" => ScriptType::P2WPKH,
+            "p2sh" => ScriptType::P2SH,
+            "p2pkh" => ScriptType::P2PKH,
+            "p2tr" => ScriptType::P2TR,
+            _ => return Err(anyhow!("Invalid script type: {}", script_type_str)),
+        };
+        
+        // Create converter and generate descriptor
+        let converter = XpubConverter::new(self.network, self.electrum_client.as_ref());
+        let descriptor = converter.generate_descriptor_for_type(xpub, &script_type)?;
+        
+        println!("Generated descriptor: {}", descriptor);
+        
+        // Strip key origin for consistency
+        let normalized_descriptor = WalletManager::strip_key_origin_static(&descriptor)?;
+        
+        // Check if this descriptor already exists
+        if self.metadata_db.descriptor_exists(&normalized_descriptor).await? {
+            let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+            return Err(anyhow!("This wallet has already been added with ID: {}. Ask the wallet owner to add you as a contact for notifications.", checksum));
+        }
+        
+        // Parse multipath descriptor
+        let (receive_descriptor, change_descriptor) = WalletManager::parse_multipath_descriptor_static(&normalized_descriptor)?;
+        
+        // Extract checksum
+        let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+        let wallet_filename_with_ext = format!("{}.sqlite", checksum);
+        let wallet_path = self.wallet_dir.join(&wallet_filename_with_ext);
+        
+        // Check if wallet file already exists
+        if wallet_path.exists() {
+            return Err(anyhow!("Wallet file already exists"));
+        }
+        
+        // Save wallet metadata immediately
+        let wallet_checksum = self
+            .metadata_db
+            .insert_wallet(name, &normalized_descriptor, user_id)
+            .await?;
+        println!("[{}] Metadata saved with checksum: {}", checksum, wallet_checksum);
+
+        // Get wallet metadata to return immediately
+        let wallet_metadata = self
+            .metadata_db
+            .get_wallet_by_descriptor(&normalized_descriptor)
+            .await?
+            .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
+
+        // PHASE 2: Spawn background task for slow operations
+        let electrum_client_clone = self.electrum_client.clone();
+        let metadata_db_clone = self.metadata_db.clone();
+        let network = self.network;
+        let checksum_clone = checksum.clone();
+        let stop_gap_clone = stop_gap.map(|s| s.to_string());
+        
+        tokio::spawn(async move {
+            println!("[{}] Starting background wallet creation with stop gap: {:?}", checksum_clone, stop_gap_clone);
+            if let Err(e) = WalletManager::complete_wallet_creation_with_stop_gap(
+                wallet_path,
+                receive_descriptor,
+                change_descriptor,
+                network,
+                electrum_client_clone,
+                metadata_db_clone,
+                checksum_clone,
+                true, // Fresh wallet for XPUB with known type
+                stop_gap_clone.as_deref(),
+            ).await {
+                eprintln!("[{}] Background wallet creation failed: {}", wallet_checksum, e);
+            } else {
+                eprintln!("[{}] Background wallet creation with scan depth completed", wallet_checksum);
+            }
+        });
+
+        Ok(wallet_metadata)
+    }
+
+}
+
 pub struct WalletManager {
     pub wallets: Vec<(String, PersistedWallet<Connection>)>, // (checksum, wallet)
     pub wallet_dir: PathBuf,
@@ -302,6 +522,76 @@ impl WalletManager {
 
     /// Parse and validate multipath descriptor
     pub fn parse_multipath_descriptor(&self, descriptor_str: &str) -> Result<(String, String)> {
+        // Parse the descriptor
+        let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str
+            .parse()
+            .map_err(|e| anyhow!("Invalid descriptor: {}", e))?;
+
+        // Check if it's a multipath descriptor
+        if !descriptor.is_multipath() {
+            return Err(anyhow!("Descriptor is not a multipath descriptor"));
+        }
+
+        // Split multipath descriptor into receive and change descriptors
+        let descriptors = descriptor
+            .into_single_descriptors()
+            .map_err(|e| anyhow!("Failed to split multipath descriptor: {}", e))?;
+
+        if descriptors.len() != 2 {
+            return Err(anyhow!(
+                "Multipath descriptor must have exactly 2 paths (receive and change)"
+            ));
+        }
+
+        let receive_descriptor = descriptors[0].to_string();
+        let change_descriptor = descriptors[1].to_string();
+
+        println!("  Receive descriptor: {}", receive_descriptor);
+        println!("  Change descriptor: {}", change_descriptor);
+
+        Ok((receive_descriptor, change_descriptor))
+    }
+
+    /// Static version of strip_key_origin for use without WalletManager instance
+    pub fn strip_key_origin_static(descriptor_str: &str) -> Result<String> {
+        use regex::Regex;
+        
+        // First strip any existing checksum (everything after #)
+        let without_checksum = if let Some(pos) = descriptor_str.find('#') {
+            &descriptor_str[..pos]
+        } else {
+            descriptor_str
+        };
+        
+        // Pattern to match [fingerprint/derivation/path] anywhere in the descriptor
+        // This handles both bare xpubs and script-wrapped descriptors like wpkh([fingerprint/path]xpub...)
+        // Supports both 'h' and '\'' for hardened paths
+        let key_origin_pattern = Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h']?)*\]").unwrap();
+        
+        // Strip key origin if present
+        let stripped_without_checksum = if key_origin_pattern.is_match(without_checksum) {
+            let result = key_origin_pattern.replace_all(without_checksum, "");
+            println!("  Stripped key origin: {} -> {}", without_checksum, result);
+            result.to_string()
+        } else {
+            // No key origin found, return without checksum
+            without_checksum.to_string()
+        };
+        
+        // Parse the stripped descriptor to recalculate checksum
+        let descriptor: Descriptor<DescriptorPublicKey> = stripped_without_checksum
+            .parse()
+            .map_err(|e| anyhow!("Invalid stripped descriptor: {}", e))?;
+        
+        // Convert back to string with new checksum
+        let final_descriptor = descriptor.to_string();
+        println!("  Final normalized descriptor: {}", final_descriptor);
+        
+        Ok(final_descriptor)
+    }
+
+    /// Static version of parse_multipath_descriptor for use without WalletManager instance
+    pub fn parse_multipath_descriptor_static(descriptor_str: &str) -> Result<(String, String)> {
         // Parse the descriptor
         let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str
             .parse()
@@ -2344,33 +2634,4 @@ impl WalletManager {
         Ok(())
     }
 
-    /// Static version of parse_multipath_descriptor for background tasks
-    fn parse_multipath_descriptor_static(descriptor_str: &str) -> Result<(String, String)> {
-        use miniscript::{Descriptor, DescriptorPublicKey};
-        
-        // Parse the multipath descriptor
-        let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str.parse()
-            .map_err(|e| anyhow!("Failed to parse multipath descriptor: {}", e))?;
-
-        // Check if it's a multipath descriptor
-        if !descriptor.is_multipath() {
-            return Err(anyhow!("Descriptor is not a multipath descriptor"));
-        }
-
-        // Split multipath descriptor into receive and change descriptors
-        let descriptors = descriptor
-            .into_single_descriptors()
-            .map_err(|e| anyhow!("Failed to split multipath descriptor: {}", e))?;
-
-        if descriptors.len() != 2 {
-            return Err(anyhow!(
-                "Multipath descriptor must have exactly 2 paths (receive and change)"
-            ));
-        }
-
-        let receive_descriptor = descriptors[0].to_string();
-        let change_descriptor = descriptors[1].to_string();
-
-        Ok((receive_descriptor, change_descriptor))
-    }
 }

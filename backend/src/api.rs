@@ -17,7 +17,7 @@ use crate::stripe_billing::{
     FrontendTierPricing, PricingInfo, StripeBilling,
 };
 use crate::subscription::{check_limit, SubscriptionTier};
-use crate::wallet::WalletManager;
+use crate::wallet::{WalletManager, WalletCreationService};
 use crate::xpub_converter::XpubConverter;
 use axum::{
     extract::{Path, State},
@@ -135,6 +135,7 @@ pub struct ProvidersResponse {
 // New architecture: Separate web serving from wallet sync operations
 pub struct AppServices {
     pub metadata_db: MetadataDb,  // Fast access for web endpoints (no mutex needed)
+    pub wallet_creation_service: WalletCreationService, // Non-blocking wallet creation
 }
 
 impl AppServices {
@@ -731,6 +732,347 @@ pub async fn create_wallet(
 
             let elapsed = start_time.elapsed();
             info!("create_wallet completed in {:?}", elapsed);
+            
+            (
+                StatusCode::CREATED,
+                Json(CreateWalletResponse {
+                    message: "Wallet created successfully".to_string(),
+                    wallet: wallet_metadata,
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            let error_msg = e.to_string();
+            let status_code = match error_msg.as_str() {
+                "Descriptor already exists" => StatusCode::CONFLICT,
+                "Wallet already exists" | "Wallet file already exists" => StatusCode::CONFLICT,
+                _ => StatusCode::BAD_REQUEST,
+            };
+
+            (status_code, Json(ErrorResponse { error: error_msg })).into_response()
+        }
+    }
+}
+
+/// Non-blocking wallet creation using AppServices (avoids WalletManager mutex)
+/// This resolves the regression where wallet creation was taking 30+ seconds
+#[utoipa::path(
+    post,
+    path = "/api/wallets",
+    request_body = CreateWalletRequest,
+    responses(
+        (status = 201, description = "Wallet created successfully", body = CreateWalletResponse),
+        (status = 400, description = "Bad Request", body = ErrorResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden - subscription limit exceeded", body = ErrorResponse),
+        (status = 409, description = "Conflict - wallet already exists", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    tag = "wallet",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn create_wallet_non_blocking(
+    State((app_services, stripe_billing, config)): State<(AppServicesState, StripeBillingState, ConfigState)>,
+    headers: HeaderMap,
+    Json(payload): Json<CreateWalletRequest>,
+) -> Response {
+    let start_time = std::time::Instant::now();
+    
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(&config, headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(err) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: err,
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Validate advanced settings: custom stop gap requires specific script type
+    if let Some(stop_gap) = &payload.stop_gap {
+        if stop_gap != "auto" {
+            // Custom stop gap requires specific script type
+            match &payload.script_type {
+                Some(script_type) if script_type != "auto" => {
+                    // Valid: custom stop gap with specific script type
+                }
+                _ => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse {
+                            error: "Custom stop gap requires selecting a specific script type (not auto)".to_string(),
+                        }),
+                    )
+                        .into_response();
+                }
+            }
+            
+            // Validate stop gap values
+            if !["250", "500", "750", "1000"].contains(&stop_gap.as_str()) {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse {
+                        error: "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000".to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+    }
+
+    // NON-BLOCKING: Use AppServices metadata_db directly (no wallet mutex)
+    // Get user's subscription tier and check wallet limit
+    match app_services.metadata_db.get_user_by_id(&user.user_id).await {
+        Ok(Some(user_record)) => {
+            // Count existing wallets for the user
+            match app_services
+                .metadata_db
+                .count_wallets_for_user(&user.user_id)
+                .await
+            {
+                Ok(wallet_count) => {
+                    // Check limit based on subscription tier
+                    let tier_limits = user_record.subscription_tier.limits_for_api();
+                    if let Err(limit_err) = check_limit(
+                        wallet_count,
+                        tier_limits.max_wallets,
+                        "Wallet",
+                    ) {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: limit_err.to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Failed to check wallet limit: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
+            }
+        }
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "User not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get user information: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    // NON-BLOCKING: Check if input is an XPUB and handle conversion
+    let descriptor = if XpubConverter::is_xpub(&payload.descriptor) {
+        // For fresh wallets with known script type, convert immediately
+        if payload.is_fresh_wallet == Some(true) {
+            match &payload.script_type {
+                Some(script_type) => {
+                    println!("Fresh wallet detected, using provided script type: {}", script_type);
+                    // Use static XPUB conversion (TODO: extract this to avoid electrum client dependency)
+                    payload.descriptor.clone() // For now, pass XPUB directly to creation service
+                }
+                None => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse {
+                            error: "script_type is required for fresh XPUB wallets".to_string(),
+                        }),
+                    )
+                        .into_response();
+                }
+            }
+        } else {
+            // Existing wallet - pass XPUB directly to background task for smart script detection
+            println!("Detected XPUB format for existing wallet, will probe script types in background");
+            payload.descriptor.clone()
+        }
+    } else {
+        // Input is already a descriptor
+        payload.descriptor.clone()
+    };
+
+    // NON-BLOCKING: Use WalletCreationService instead of WalletManager mutex
+    match app_services
+        .wallet_creation_service
+        .create_wallet_non_blocking(
+            &payload.name, 
+            &descriptor, 
+            &user.user_id, 
+            payload.is_fresh_wallet.unwrap_or(false),
+            payload.script_type.as_deref(),
+            payload.stop_gap.as_deref(),
+        )
+        .await
+    {
+        Ok(wallet_metadata) => {
+            // Check if SAAS mode - if so, auto-add user as contact
+            if config.is_saas_mode() {
+                // Log the received language from frontend
+                eprintln!(
+                    "Received preferred_language from frontend: {:?}",
+                    payload.preferred_language
+                );
+
+                // Get user info for contact creation (NON-BLOCKING)
+                let metadata_db = app_services.metadata_db.clone();
+                let user_id = user.user_id.clone();
+                let wallet_checksum = wallet_metadata.checksum.clone();
+                let preferred_language = payload.preferred_language.clone();
+
+                // Spawn async task to create contact (don't block wallet creation if this fails)
+                tokio::spawn(async move {
+                    // Get user details from database (no mutex needed)
+                    match metadata_db.get_user_by_id(&user_id).await {
+                        Ok(Some(user_record)) => {
+                            // Map browser language to supported languages
+                            let language = match preferred_language.as_deref() {
+                                Some(lang)
+                                    if lang.starts_with("no")
+                                        || lang.starts_with("nb")
+                                        || lang.starts_with("nn") =>
+                                {
+                                    eprintln!("Mapping language '{}' to Norwegian", lang);
+                                    Language::Norwegian
+                                }
+                                Some(lang) => {
+                                    eprintln!("Mapping language '{}' to English (default)", lang);
+                                    Language::English
+                                }
+                                None => {
+                                    eprintln!("No language provided, defaulting to English");
+                                    Language::English
+                                }
+                            };
+
+                            // Use user's name or fallback to "Me"
+                            let contact_name = user_record.name.as_deref().unwrap_or("Me");
+
+                            // Create contact with email notification using the user's email
+                            let notification_methods =
+                                vec![(ProviderType::Email, user_record.email)];
+
+                            match metadata_db
+                                .insert_contact_with_notification_methods(
+                                    &wallet_checksum,
+                                    contact_name,
+                                    &language,
+                                    notification_methods,
+                                )
+                                .await
+                            {
+                                Ok(contact_id) => {
+                                    eprintln!(
+                                        "Auto-created contact {} for user {} in wallet {}",
+                                        contact_id, user_id, wallet_checksum
+                                    );
+                                }
+                                Err(e) => {
+                                    eprintln!(
+                                        "Failed to auto-create contact for user {}: {}",
+                                        user_id, e
+                                    );
+                                }
+                            }
+                        }
+                        Ok(None) => {
+                            eprintln!(
+                                "User {} not found in database for auto-contact creation",
+                                user_id
+                            );
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "Error getting user {} for auto-contact creation: {}",
+                                user_id, e
+                            );
+                        }
+                    }
+                });
+            }
+
+            // Check if this is the user's first wallet and they're in 'pending' status
+            // If so, activate their trial now! (NON-BLOCKING)
+            let user_record = app_services.metadata_db.get_user_by_id(&user.user_id).await.ok().flatten();
+            if let Some(user_record) = user_record {
+                if user_record.subscription_status == "pending" {
+                    // Count their wallets (should be 1 now after creation)
+                    let wallet_count = app_services.metadata_db.count_wallets_for_user(&user.user_id).await.unwrap_or(0);
+                    
+                    if wallet_count == 1 {
+                        tracing::info!("🎉 Activating trial for user {} on first wallet creation", user_record.email);
+                        
+                        // Calculate trial end date (30 days from now)
+                        let trial_ends_at = chrono::Utc::now() + chrono::Duration::days(30);
+                        
+                        // Update user status to 'trialing' in database (NON-BLOCKING)
+                        if let Err(e) = app_services.metadata_db.update_user_trial_status(
+                            &user.user_id,
+                            "trialing",
+                            Some(trial_ends_at.to_rfc3339())
+                        ).await {
+                            tracing::error!("Failed to update user trial status: {}", e);
+                        }
+                        
+                        // If Stripe is available, create the trial subscription (NON-BLOCKING)
+                        if let Some(stripe_service) = &stripe_billing {
+                            // Create trial subscription for Team tier
+                            if let Err(e) = stripe_service
+                                .create_trial_subscription(
+                                    &user_record,
+                                    crate::subscription::SubscriptionTier::Team,
+                                    &app_services.metadata_db,
+                                )
+                                .await
+                            {
+                                tracing::error!(
+                                    "Failed to create Stripe trial subscription for user {}: {}",
+                                    user_record.email,
+                                    e
+                                );
+                                // Don't fail wallet creation if Stripe fails, but log the error
+                                // User can still use the service with database-only trial
+                            } else {
+                                tracing::info!(
+                                    "✅ Stripe trial subscription created successfully for user {}",
+                                    user_record.email
+                                );
+                            }
+                        } else if user_record.stripe_customer_id.is_some() {
+                            tracing::warn!(
+                                "User {} has Stripe customer ID but Stripe service is not available",
+                                user_record.email
+                            );
+                        }
+                    }
+                }
+            }
+
+            let elapsed = start_time.elapsed();
+            info!("create_wallet_non_blocking completed in {:?}", elapsed);
             
             (
                 StatusCode::CREATED,
@@ -3994,7 +4336,6 @@ pub fn create_router_with_services(
         .with_state((app_services.clone(), stripe_billing.clone(), config_state.clone()));
 
     let wallet_routes = Router::new()
-        .route("/wallets", post(create_wallet))
         .route(
             "/wallets/{checksum}",
             axum::routing::delete(delete_wallet),
@@ -4023,7 +4364,7 @@ pub fn create_router_with_services(
 
     // Add the remaining AppServices routes
     let app_routes_metadata = Router::new()
-        .route("/wallets", get(get_wallets_list))
+        .route("/wallets", get(get_wallets_list).post(create_wallet_non_blocking))
         .route("/wallets/{checksum}", get(get_wallet).put(update_wallet))
         .route("/wallets/{checksum}/detail", get(get_wallet_detail))
         .route("/wallets/{checksum}/contacts", get(get_wallet_contacts))
