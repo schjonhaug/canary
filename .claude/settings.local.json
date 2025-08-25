@@ -40,8 +40,16 @@
       "Bash(timeout 10s cargo run -- --network mainnet --electrum-url ssl://electrum.blockstream.info:50002)",
       "Bash(git push:*)",
       "Bash(rg:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(timeout 30 cargo run)",
+      "Bash(timeout 15s bash -c 'CANARY_NETWORK=mainnet CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002 cargo run')",
+      "Bash(CANARY_NETWORK=mainnet CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002 cargo run)",
+      "Bash(git ls-tree:*)",
+      "Bash(timeout:*)"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "/tmp"
+    ]
   }
 }

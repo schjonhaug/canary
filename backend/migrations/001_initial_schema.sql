@@ -82,7 +82,7 @@ CREATE TABLE wallets (
     balance_total INTEGER DEFAULT 0,
     last_activity DATETIME,
     last_synced_at DATETIME,
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'ready', 'deleted')),
+    sync_status TEXT DEFAULT 'pending' CHECK (sync_status IN ('pending', 'ready')),
     user_id TEXT NOT NULL, -- UUID reference
     is_active BOOLEAN DEFAULT true, -- For subscription tier limit enforcement
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
