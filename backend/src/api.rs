@@ -471,7 +471,7 @@ pub async fn create_wallet(
             {
                 Ok(wallet_count) => {
                     // Check limit based on subscription tier
-                    let tier_limits = user_record.subscription_tier.limits();
+                    let tier_limits = user_record.subscription_tier.limits_for_api();
                     if let Err(limit_err) = check_limit(
                         wallet_count,
                         tier_limits.max_wallets,
@@ -1204,7 +1204,7 @@ pub async fn create_wallet_contact(
         .await
     {
         Ok(contact_count) => {
-            let tier_limits = user_record.subscription_tier.limits();
+            let tier_limits = user_record.subscription_tier.limits_for_api();
             if let Err(limit_err) = check_limit(
                 contact_count,
                 tier_limits.max_contacts_per_wallet,
@@ -3559,7 +3559,7 @@ pub async fn get_billing_status(
     };
 
     // Get tier limits
-    let tier_limits = user_record.subscription_tier.limits();
+    let tier_limits = user_record.subscription_tier.limits_for_api();
     let limits = BillingTierLimits {
         max_wallets: tier_limits.max_wallets.map(|n| n as i32).unwrap_or(-1),
         max_contacts_per_wallet: tier_limits

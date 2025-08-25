@@ -1250,8 +1250,10 @@ impl MetadataDb {
 
     pub async fn get_wallets_due_for_sync(
         &self,
+        network: &crate::config::NetworkConfig,
     ) -> Result<Vec<(WalletMetadata, SubscriptionTier)>> {
         let pool = self.pool.clone();
+        let network = network.clone();
 
         spawn_blocking(move || -> Result<Vec<(WalletMetadata, SubscriptionTier)>> {
             let conn = pool.get()?;
@@ -1300,7 +1302,7 @@ impl MetadataDb {
             
             for row in wallet_rows {
                 let (wallet, tier, last_synced_at) = row?;
-                let tier_limits = tier.limits();
+                let tier_limits = tier.limits(&network);
                 
                 // Check if this wallet is due for sync based on its owner's tier
                 let should_sync = match last_synced_at {

@@ -4,6 +4,7 @@ use crate::metadata::{
     EventInsert, EventType, MetadataDb, TransactionEvent, WalletMetadata,
 };
 use crate::subscription::SubscriptionTier;
+use crate::config::NetworkConfig;
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, PersistedWallet, Wallet, KeychainKind};
@@ -11,6 +12,8 @@ use miniscript::{Descriptor, DescriptorPublicKey};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tokio::sync::broadcast;
 
 pub struct WalletManager {
@@ -24,6 +27,9 @@ pub struct WalletManager {
     sync_counter: u32,
     syncs_with_changes: u32,
     sync_errors: u32,
+    // Sync overlap protection
+    sync_in_progress: Arc<AtomicBool>,
+    sync_start_time: Option<Instant>,
 }
 
 impl WalletManager {
@@ -76,6 +82,8 @@ impl WalletManager {
             sync_counter: 0,
             syncs_with_changes: 0,
             sync_errors: 0,
+            sync_in_progress: Arc::new(AtomicBool::new(false)),
+            sync_start_time: None,
         };
 
         // Don't load wallets at startup - this blocks the server from starting!
@@ -88,6 +96,17 @@ impl WalletManager {
     /// Get the network configuration used by all wallets
     pub fn get_network(&self) -> Network {
         self.network
+    }
+
+    /// Convert BDK Network to NetworkConfig for tier limit calculations
+    fn bdk_network_to_config(&self) -> NetworkConfig {
+        match self.network {
+            Network::Bitcoin => NetworkConfig::Mainnet,
+            Network::Testnet => NetworkConfig::Testnet,
+            Network::Regtest => NetworkConfig::Regtest,
+            Network::Signet => NetworkConfig::Testnet, // Treat signet as testnet for sync purposes
+            _ => NetworkConfig::Regtest, // Default fallback for any unknown networks
+        }
     }
 
 
@@ -1429,7 +1448,34 @@ impl WalletManager {
     }
 
     pub async fn sync_wallets_due_for_sync(&mut self) -> Result<()> {
+        // Check if sync is already in progress
+        if self.sync_in_progress.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+            let elapsed = self.sync_start_time
+                .map(|start| start.elapsed())
+                .unwrap_or_default();
+            
+            if elapsed.as_secs() > 180 {
+                // Sync has been running for more than 3 minutes - force reset
+                eprintln!("⚠️ Sync has been running for {:?} - forcing reset", elapsed);
+                self.sync_in_progress.store(false, Ordering::SeqCst);
+                self.sync_start_time = None;
+            } else {
+                println!("⏭️ Skipping sync cycle - previous sync still in progress (elapsed: {:?})", elapsed);
+                return Ok(());
+            }
+        }
+        
         let sync_start_time = Instant::now();
+        self.sync_start_time = Some(sync_start_time);
+        
+        // Create a guard to ensure sync flag is cleared when function exits
+        struct SyncGuard(Arc<AtomicBool>);
+        impl Drop for SyncGuard {
+            fn drop(&mut self) {
+                self.0.store(false, Ordering::SeqCst);
+            }
+        }
+        let _guard = SyncGuard(Arc::clone(&self.sync_in_progress));
         
         // First, check for expired subscriptions and downgrade users
         if let Err(e) = self.process_expired_subscriptions().await {
@@ -1437,7 +1483,8 @@ impl WalletManager {
         }
 
         // Get wallets that are due for sync based on their owner's tier
-        let due_wallets = self.metadata_db.get_wallets_due_for_sync().await?;
+        let network_config = self.bdk_network_to_config();
+        let due_wallets = self.metadata_db.get_wallets_due_for_sync(&network_config).await?;
 
         if due_wallets.is_empty() {
             return Ok(());

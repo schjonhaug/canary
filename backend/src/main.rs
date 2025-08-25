@@ -17,6 +17,7 @@ mod wallet;
 mod xpub_converter;
 
 use config::AppConfig;
+use subscription::SubscriptionTier;
 use email_provider::EmailProvider;
 use metadata::TransactionEvent;
 use notifications::NotificationManager;
@@ -64,7 +65,10 @@ async fn main() -> anyhow::Result<()> {
     println!("  Bind address: {}", config.bind_address);
     println!("  Wallet directory: {}", config.effective_wallet_dir());
     println!("  Metadata DB: {}", config.effective_metadata_db());
-    println!("  Sync intervals: tier-based (Personal: 10min, Team: 1min)");
+    // Display network-appropriate sync intervals
+    let (personal_sync, _team_sync) = SubscriptionTier::Personal.get_sync_intervals(&config.network);
+    let (_, team_sync_team) = SubscriptionTier::Team.get_sync_intervals(&config.network);
+    println!("  Sync intervals: Personal={}s, Team={}s (network: {:?})", personal_sync, team_sync_team, config.network);
 
     // Log operating mode
     println!("🏢 Operating mode: {}", config.operating_mode().to_uppercase());
@@ -89,10 +93,6 @@ async fn main() -> anyhow::Result<()> {
     }
     println!("✅ Configuration validated successfully");
 
-    // Log development mode sync intervals
-    if cfg!(debug_assertions) {
-        println!("🚀 Development mode: Fast sync intervals (Personal: 10s, Team: 5s)");
-    }
 
     // Create wallet manager with sync worker
     println!("Creating wallet sync worker...");
@@ -260,8 +260,12 @@ async fn main() -> anyhow::Result<()> {
     // Spawn wallet sync worker with tier-based intervals
     let sync_wallet_manager = Arc::clone(&wallet_manager);
     let sync_current_block_header = Arc::clone(&current_block_header);
-    // Check interval based on environment: 5s for dev (Team syncs every 5s), 60s for prod (Team syncs every 60s)
-    let sync_check_interval = if cfg!(debug_assertions) { 5 } else { 60 };
+    // Set sync check interval based on network to ensure responsive checking
+    // This should be faster than the fastest wallet sync interval to ensure timely checks
+    let (_, team_sync_interval) = SubscriptionTier::Team.get_sync_intervals(&config.network);
+    let sync_check_interval = std::cmp::min(team_sync_interval / 2, 30); // Check at least every 30 seconds
+    
+    println!("🕐 Sync checker interval: {}s (network: {:?})", sync_check_interval, config.network);
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(sync_check_interval));
 
