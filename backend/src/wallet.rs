@@ -386,79 +386,91 @@ impl WalletManager {
         Ok(conn)
     }
 
-    async fn load_all_wallets(&mut self) -> Result<()> {
+    /// Intelligently sync wallet list with database - removes deleted/expired wallets,
+    /// loads only new wallets, avoids redundant disk I/O for already-loaded wallets
+    async fn sync_wallet_list(&mut self) -> Result<()> {
         let start_time = Instant::now();
-
-        // Get only ready wallets from database (source of truth)
+        
+        // Get ready wallets from database (source of truth)
         let ready_wallets = self.metadata_db.get_ready_wallets().await?;
-
-        let wallets_before = self.wallets.len();
-        let mut missing = 0;
-
-        println!(
-            "⏱️ Loading {} ready wallets from disk...",
-            ready_wallets.len()
-        );
-
-        for wallet_metadata in ready_wallets {
-            let wallet_path = self
-                .wallet_dir
-                .join(format!("{}.sqlite", wallet_metadata.checksum));
-
-            if wallet_path.exists() {
-                if let Err(e) = self.load_wallet_from_file(&wallet_path).await {
-                    eprintln!(
-                        "Warning: Failed to load wallet {} from {}: {}",
-                        wallet_metadata.checksum,
-                        wallet_path.display(),
-                        e
-                    );
-                }
+        
+        // Create set of valid checksums from database
+        let valid_checksums: std::collections::HashSet<String> = ready_wallets
+            .iter()
+            .map(|w| w.checksum.clone())
+            .collect();
+        
+        // Track statistics
+        let _wallets_before = self.wallets.len();
+        let mut removed_count = 0;
+        let mut added_count = 0;
+        let mut missing_count = 0;
+        
+        // Remove wallets no longer valid (deleted or expired users)
+        self.wallets.retain(|(checksum, _)| {
+            if valid_checksums.contains(checksum) {
+                true
             } else {
-                eprintln!(
-                    "Warning: Wallet file missing for {} ({}). Expected at: {}",
-                    wallet_metadata.name,
-                    wallet_metadata.checksum,
-                    wallet_path.display()
-                );
-                missing += 1;
+                removed_count += 1;
+                println!("🗑️ Removing wallet {} from memory (deleted or expired)", checksum);
+                false
+            }
+        });
+        
+        // Create set of already loaded wallets
+        let loaded_checksums: std::collections::HashSet<String> = self.wallets
+            .iter()
+            .map(|(checksum, _)| checksum.clone())
+            .collect();
+        
+        // Load only NEW wallets not in memory
+        for wallet_metadata in ready_wallets {
+            if !loaded_checksums.contains(&wallet_metadata.checksum) {
+                let wallet_path = self.wallet_dir
+                    .join(format!("{}.sqlite", wallet_metadata.checksum));
+                    
+                if wallet_path.exists() {
+                    if let Err(e) = self.load_wallet_from_file(&wallet_path).await {
+                        eprintln!(
+                            "Failed to load new wallet {} from {}: {}",
+                            wallet_metadata.checksum,
+                            wallet_path.display(),
+                            e
+                        );
+                    } else {
+                        added_count += 1;
+                        println!("✅ Loaded new wallet {} into memory", wallet_metadata.checksum);
+                    }
+                } else {
+                    eprintln!(
+                        "Warning: Wallet file missing for {} ({}). Expected at: {}",
+                        wallet_metadata.name,
+                        wallet_metadata.checksum,
+                        wallet_path.display()
+                    );
+                    missing_count += 1;
+                }
             }
         }
-
-        // Only log if new wallets were actually loaded from disk
-        let newly_loaded = self.wallets.len() - wallets_before;
-        let load_duration = start_time.elapsed();
-
-        if newly_loaded > 0 {
+        
+        let duration = start_time.elapsed();
+        
+        if removed_count > 0 || added_count > 0 {
             println!(
-                "📂 Loaded {} ready wallets from disk in {:?} (avg: {:?}/wallet)",
-                newly_loaded,
-                load_duration,
-                load_duration / newly_loaded as u32
+                "📊 Wallet sync completed in {:?}: {} in memory (+{} new, -{} removed)",
+                duration, self.wallets.len(), added_count, removed_count
             );
         } else {
             println!(
-                "⏱️ Wallet loading check completed in {:?} (no new wallets)",
-                load_duration
+                "⚡ Wallet list unchanged in {:?}: {} wallets in memory",
+                duration, self.wallets.len()
             );
         }
-
-        if missing > 0 {
-            eprintln!("⚠️  {} wallet files were missing", missing);
+        
+        if missing_count > 0 {
+            eprintln!("⚠️  {} wallet files were missing", missing_count);
         }
-
-        // Clean up expired sessions on startup
-        match self.metadata_db.cleanup_expired_sessions().await {
-            Ok(deleted) => {
-                if deleted > 0 {
-                    println!("Cleaned up {} expired sessions on startup", deleted);
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to cleanup expired sessions on startup: {}", e);
-            }
-        }
-
+        
         Ok(())
     }
 
@@ -1743,14 +1755,14 @@ impl WalletManager {
             team_count
         );
 
-        // Ensure all wallets are loaded first
+        // Sync wallet list with database (handles additions/deletions efficiently)
         let load_start = Instant::now();
-        if let Err(e) = self.load_all_wallets().await {
-            eprintln!("Failed to load wallets: {}", e);
+        if let Err(e) = self.sync_wallet_list().await {
+            eprintln!("Failed to sync wallet list: {}", e);
             return Ok(());
         }
         let load_duration = load_start.elapsed();
-        println!("⏱️ Wallet loading phase completed in {:?}", load_duration);
+        println!("⏱️ Wallet list sync completed in {:?}", load_duration);
 
         let mut _synced = 0;
         let mut failed = 0;
