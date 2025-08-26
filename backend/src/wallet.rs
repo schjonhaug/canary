@@ -1671,6 +1671,129 @@ impl WalletManager {
         Ok(())
     }
 
+    /// Sync all wallets for a specific subscription tier in parallel
+    pub async fn sync_tier_parallel(&mut self, tier: crate::subscription::SubscriptionTier) -> Result<()> {
+        use tokio::time::Duration;
+        
+        // Check if sync is already in progress
+        if self
+            .sync_in_progress
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {
+            let elapsed = self
+                .sync_start_time
+                .map(|start| start.elapsed())
+                .unwrap_or_else(|| Duration::from_secs(0));
+            if elapsed.as_secs() < 30 {
+                println!(
+                    "⏭️ Skipping {:?} tier sync - previous sync still in progress (elapsed: {:?})",
+                    tier, elapsed
+                );
+                return Ok(());
+            } else {
+                println!(
+                    "⚠️ {:?} tier sync has been running for {:?}, proceeding anyway",
+                    tier, elapsed
+                );
+                self.sync_in_progress.store(false, Ordering::SeqCst);
+                self.sync_start_time = None;
+            }
+        }
+
+        self.sync_start_time = Some(Instant::now());
+        let total_start = Instant::now();
+
+        let result = self.sync_tier_parallel_inner(tier).await;
+
+        // Always reset sync state
+        self.sync_in_progress.store(false, Ordering::SeqCst);
+        self.sync_start_time = None;
+
+        let total_duration = total_start.elapsed();
+        match &result {
+            Ok(()) => println!("🔓 Released wallet manager mutex after {:?} ({:?} tier parallel sync)", total_duration, tier),
+            Err(e) => eprintln!("🔓 Released wallet manager mutex after {:?} ({:?} tier parallel sync failed: {})", total_duration, tier, e),
+        }
+
+        result
+    }
+
+    async fn sync_tier_parallel_inner(&mut self, tier: crate::subscription::SubscriptionTier) -> Result<()> {
+        // Get wallets for this tier using the network config conversion
+        let network_config = self.bdk_network_to_config();
+        let wallets = self.metadata_db.get_wallets_for_tier_sync(&tier, &network_config).await?;
+        
+        if wallets.is_empty() {
+            println!("📊 No {:?} tier wallets due for sync", tier);
+            return Ok(());
+        }
+
+        println!(
+            "🔄 Starting {:?} tier parallel sync for {} wallets",
+            tier, wallets.len()
+        );
+
+        // Sync wallet list to ensure all wallets are loaded in memory
+        let load_start = Instant::now();
+        if let Err(e) = self.sync_wallet_list().await {
+            eprintln!("Failed to sync wallet list: {}", e);
+            return Ok(());
+        }
+        let load_duration = load_start.elapsed();
+        println!("⏱️ Wallet list sync completed in {:?}", load_duration);
+
+        // For now, sync wallets sequentially but with better reporting
+        // TODO: Implement true parallel syncing with futures
+        let sync_start = Instant::now();
+        let mut successful = 0;
+        let mut failed = 0;
+        let mut total_changes = false;
+
+        for wallet in &wallets {
+            let wallet_start = Instant::now();
+            match self.sync_single_wallet_by_checksum(&wallet.checksum).await {
+                Ok(had_changes) => {
+                    let wallet_duration = wallet_start.elapsed();
+                    let changes_str = if had_changes { "with changes" } else { "no changes" };
+                    println!("  ⏱️ Synced {} in {:?} ({})", wallet.checksum, wallet_duration, changes_str);
+                    successful += 1;
+                    if had_changes {
+                        total_changes = true;
+                    }
+                }
+                Err(e) => {
+                    let wallet_duration = wallet_start.elapsed();
+                    eprintln!("  ❌ Failed to sync {} in {:?}: {}", wallet.checksum, wallet_duration, e);
+                    failed += 1;
+                }
+            }
+        }
+
+        let sync_duration = sync_start.elapsed();
+        println!(
+            "✅ {:?} tier sync completed: {}/{} successful in {:?}{}",
+            tier,
+            successful,
+            successful + failed,
+            sync_duration,
+            if total_changes { " (with changes)" } else { "" }
+        );
+
+        Ok(())
+    }
+
+    /// Sync a single wallet by checksum and return whether it had changes
+    async fn sync_single_wallet_by_checksum(&mut self, checksum: &str) -> Result<bool> {
+        // Use the existing sync method
+        let had_changes = self.sync_wallet_by_checksum(checksum).await?;
+        
+        // Update last synced timestamp in database
+        self.metadata_db.update_wallet_last_synced(checksum).await?;
+        
+        Ok(had_changes)
+    }
+
     pub async fn sync_wallets_due_for_sync(&mut self) -> Result<()> {
         // Check if sync is already in progress
         if self

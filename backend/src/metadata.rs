@@ -1370,6 +1370,79 @@ impl MetadataDb {
         .await?
     }
 
+    /// Get all wallets for a specific tier that are due for sync
+    pub async fn get_wallets_for_tier_sync(
+        &self,
+        tier: &crate::subscription::SubscriptionTier,
+        network: &crate::config::NetworkConfig,
+    ) -> Result<Vec<WalletMetadata>> {
+        let pool = self.pool.clone();
+        let network = network.clone();
+        let tier_str = match tier {
+            crate::subscription::SubscriptionTier::Personal => "personal",
+            crate::subscription::SubscriptionTier::Team => "team",
+        }.to_string();
+
+        spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
+            let conn = pool.get()?;
+            let tier_limits = crate::subscription::SubscriptionTier::from(tier_str.clone()).limits(&network);
+            
+            let mut stmt = conn.prepare(
+                "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.balance_total, 
+                        w.last_activity, w.last_synced_at, w.status, w.user_id, w.created_at
+                 FROM wallets w 
+                 JOIN users u ON w.user_id = u.id
+                 WHERE w.is_active = 1 AND w.status = 'ready' 
+                   AND u.subscription_tier = ?1
+                   AND (
+                    -- Active subscriptions
+                    u.subscription_status = 'active'
+                    OR 
+                    -- Trial users within trial period  
+                    (u.subscription_status = 'trialing' AND datetime(u.trial_ends_at) > datetime('now'))
+                    OR
+                    -- Cancelled users still within their paid period
+                    (u.subscription_status = 'canceled' AND u.subscription_ends_at IS NOT NULL AND datetime(u.subscription_ends_at) > datetime('now'))
+                 )
+                 AND (
+                    -- Never synced before
+                    w.last_synced_at IS NULL 
+                    OR
+                    -- Or due for sync based on tier interval
+                    datetime(w.last_synced_at) <= datetime('now', '-' || ?2 || ' seconds')
+                 )
+                 ORDER BY w.checksum"
+            )?;
+
+            let wallet_rows = stmt.query_map(
+                params![tier_str, tier_limits.sync_interval_secs], 
+                |row| {
+                    Ok(WalletMetadata {
+                        checksum: row.get(0)?,
+                        name: row.get(1)?,
+                        descriptor: row.get(2)?,
+                        hex_color: row.get(3)?,
+                        balance_total: row.get(4)?,
+                        last_activity: row.get(5)?,
+                        status: row.get(7)?,
+                        contact_count: None, // Not counting contacts in this query
+                        user_id: row.get(8)?,
+                        created_at: row.get(9)?,
+                        is_active: true, // Query already filters for active wallets
+                    })
+                }
+            )?;
+
+            let mut due_wallets = Vec::new();
+            for row in wallet_rows {
+                due_wallets.push(row?);
+            }
+
+            Ok(due_wallets)
+        })
+        .await?
+    }
+
     pub async fn get_ready_wallets(&self) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
 

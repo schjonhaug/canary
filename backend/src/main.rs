@@ -276,48 +276,113 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
-    // Spawn wallet sync worker with tier-based intervals
-    let sync_wallet_manager = Arc::clone(&wallet_manager);
-    let sync_current_block_header = Arc::clone(&current_block_header);
-    // Set sync check interval based on network to ensure responsive checking
-    // This should be faster than the fastest wallet sync interval to ensure timely checks
-    let (_, team_sync_interval) = SubscriptionTier::Team.get_sync_intervals(&config.network);
-    let sync_check_interval = std::cmp::min(team_sync_interval / 2, 30); // Check at least every 30 seconds
+    // Separate tier-based sync tasks
+    let (personal_sync_interval, team_sync_interval) = SubscriptionTier::Personal.get_sync_intervals(&config.network);
 
+    // Team tier sync task (more frequent)
+    let team_wallet_manager = Arc::clone(&wallet_manager);
     println!(
-        "🕐 Sync checker interval: {}s (network: {:?})",
-        sync_check_interval, config.network
+        "🕐 Team tier sync interval: {}s (network: {:?})",
+        team_sync_interval, config.network
     );
     tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(sync_check_interval));
+        let mut interval = interval(Duration::from_secs(team_sync_interval));
 
         loop {
             interval.tick().await;
 
             let mutex_wait_start = Instant::now();
-            let mut manager = sync_wallet_manager.lock().await;
+            let mut manager = team_wallet_manager.lock().await;
             let mutex_wait_time = mutex_wait_start.elapsed();
 
             if mutex_wait_time.as_millis() > 10 {
                 println!(
-                    "🔒 Sync task waited {:?} for wallet manager mutex",
+                    "🔒 Team sync task waited {:?} for wallet manager mutex",
                     mutex_wait_time
                 );
             }
 
-            // Use tier-based sync instead of syncing all wallets
-            if let Err(e) = manager.sync_wallets_due_for_sync().await {
-                eprintln!("Tier-based sync failed: {}", e);
+            // Sync Team tier wallets
+            if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Team).await {
+                eprintln!("Team tier sync failed: {}", e);
+            }
+
+            // Explicitly release the mutex and log timing
+            let mutex_hold_duration = mutex_wait_start.elapsed();
+            drop(manager);
+            println!(
+                "🔓 Released team tier sync mutex after {:?}",
+                mutex_hold_duration
+            );
+        }
+    });
+
+    // Personal tier sync task (less frequent)  
+    let personal_wallet_manager = Arc::clone(&wallet_manager);
+    println!(
+        "🕐 Personal tier sync interval: {}s (network: {:?})",
+        personal_sync_interval, config.network
+    );
+    tokio::spawn(async move {
+        let mut interval = interval(Duration::from_secs(personal_sync_interval));
+
+        loop {
+            interval.tick().await;
+
+            let mutex_wait_start = Instant::now();
+            let mut manager = personal_wallet_manager.lock().await;
+            let mutex_wait_time = mutex_wait_start.elapsed();
+
+            if mutex_wait_time.as_millis() > 10 {
+                println!(
+                    "🔒 Personal sync task waited {:?} for wallet manager mutex",
+                    mutex_wait_time
+                );
+            }
+
+            // Sync Personal tier wallets
+            if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Personal).await {
+                eprintln!("Personal tier sync failed: {}", e);
+            }
+
+            // Explicitly release the mutex and log timing
+            let mutex_hold_duration = mutex_wait_start.elapsed();
+            drop(manager);
+            println!(
+                "🔓 Released personal tier sync mutex after {:?}",
+                mutex_hold_duration
+            );
+        }
+    });
+
+    // Block header sync task (runs with team frequency since it's more critical)
+    let block_sync_wallet_manager = Arc::clone(&wallet_manager);
+    let block_sync_current_block_header = Arc::clone(&current_block_header);
+    tokio::spawn(async move {
+        let mut interval = interval(Duration::from_secs(team_sync_interval));
+
+        loop {
+            interval.tick().await;
+
+            let mutex_wait_start = Instant::now();
+            let manager = block_sync_wallet_manager.lock().await;
+            let mutex_wait_time = mutex_wait_start.elapsed();
+
+            if mutex_wait_time.as_millis() > 10 {
+                println!(
+                    "🔒 Block sync task waited {:?} for wallet manager mutex",
+                    mutex_wait_time
+                );
             }
 
             // Check for new block headers with timeout
             if let Some(ref electrum_client) = manager.electrum_client {
                 let client = electrum_client.clone();
                 let metadata_db = manager.metadata_db.clone();
-                let current_block_header_clone = sync_current_block_header.clone();
+                let current_block_header_clone = block_sync_current_block_header.clone();
 
                 // Get current stored height
-                let stored_header = sync_current_block_header.lock().await;
+                let stored_header = block_sync_current_block_header.lock().await;
                 let stored_height = stored_header.as_ref().map(|h| h.height).unwrap_or(0);
                 drop(stored_header);
 
@@ -379,7 +444,7 @@ async fn main() -> anyhow::Result<()> {
             let mutex_hold_duration = mutex_wait_start.elapsed();
             drop(manager);
             println!(
-                "🔓 Released wallet manager mutex after {:?} (sync + block check)",
+                "🔓 Released block sync mutex after {:?}",
                 mutex_hold_duration
             );
         }
