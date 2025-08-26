@@ -82,7 +82,8 @@ The backend will fail fast with clear error messages if required variables are m
 - **Background Sync Tasks**: Heavy wallet operations run in separate async tasks to avoid blocking web serving
 - **Performance Monitoring**: Comprehensive timing logs for mutex wait times and sync operations
 - Plugin-based notification architecture with trait objects
-- Tier-based wallet sync intervals (Personal: 10min, Team: 1min)
+- Tier-based wallet sync intervals (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
+- Automatic wallet cleanup during sync cycles (soft delete → hard delete)
 - Network-specific SQLite databases in `database/{network}/`
 
 ### Frontend Structure

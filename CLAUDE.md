@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, and optional email/password authentication with email verification.
 
 ## Architecture
-Built with a **non-blocking web architecture** that separates wallet sync operations from web serving to ensure fast API responses. Features dual-state design with `AppServices` for immediate metadata access and `WalletManager` for background sync operations. Implements plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with email/password and email verification for multi-user support. SMS verification via Twilio Verify is still used for contact verification when adding SMS contacts. Uses polling-based frontend updates rather than server-sent events.
+Built with a **non-blocking web architecture** that separates wallet sync operations from web serving to ensure fast API responses. Features dual-state design with `AppServices` for immediate metadata access and `WalletManager` for background sync operations. Implements plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with email/password and email verification for multi-user support. SMS verification via Twilio Verify is still used for contact verification when adding SMS contacts. Uses polling-based frontend updates rather than server-sent events. **Tier-based parallel sync** processes wallets by subscription tier with automatic cleanup of deleted wallets during sync cycles.
 
 **Performance Architecture:**
 - **Fast Web Responses**: API endpoints respond in <1ms by avoiding wallet mutex locks
@@ -141,7 +141,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Regtest: tcp://127.0.0.1:50001
 - Testnet: ssl://electrum.blockstream.info:60002  
 - Mainnet: ssl://electrum.blockstream.info:50002
-- Sync intervals: Tier-based (Personal: 10min, Team: 1min)
+- Sync intervals: Tier-based (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
 - Frontend polling: 60 seconds (configurable via NEXT_PUBLIC_SYNC_INTERVAL)
 
 ## Key Features
@@ -157,7 +157,8 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
 - **Environment Configuration**: Provider selection via .env variables, no database config needed
 - **Performance**: Async SQLite with r2d2 connection pooling
-- **Tier-based Sync**: Individual wallet sync intervals based on user's subscription tier (Personal: 10min, Team: 1min)
+- **Tier-based Sync**: Individual wallet sync intervals based on user's subscription tier (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
+- **Wallet Deletion**: Soft delete with automatic cleanup - wallets marked as deleted are removed from memory, disk, and database during next sync cycle
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
 - **Network Isolation**: Separate databases per Bitcoin network
 - **Deep Scanning & Script Detection**: Advanced wallet analysis that detects funds at high address indexes (200+) with fast API responses

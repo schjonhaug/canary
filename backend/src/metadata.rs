@@ -765,6 +765,21 @@ impl MetadataDb {
         .await?
     }
 
+    /// Hard delete wallet from database (used after soft delete cleanup)
+    pub async fn hard_delete_wallet_by_checksum(&self, checksum: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let checksum = checksum.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let changes = conn.execute(
+                "DELETE FROM wallets WHERE checksum = ?1",
+                params![checksum],
+            )?;
+            Ok(changes > 0)
+        })
+        .await?
+    }
 
     pub async fn insert_event(&self, event: &EventInsert) -> Result<String> {
         let pool = self.pool.clone();

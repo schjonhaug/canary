@@ -398,16 +398,40 @@ impl WalletManager {
         let mut added_count = 0;
         let mut missing_count = 0;
         
-        // Remove wallets no longer valid (deleted or expired users)
-        self.wallets.retain(|(checksum, _)| {
-            if valid_checksums.contains(checksum) {
-                true
-            } else {
-                removed_count += 1;
-                println!("🗑️ Removing wallet {} from memory (deleted or expired)", checksum);
-                false
+        // First collect wallets that need to be removed (deleted or expired users)
+        let mut wallets_to_remove = Vec::new();
+        for (checksum, _) in &self.wallets {
+            if !valid_checksums.contains(checksum) {
+                wallets_to_remove.push(checksum.clone());
             }
-        });
+        }
+        
+        // Clean up each removed wallet: memory, disk, and database
+        for checksum in wallets_to_remove {
+            removed_count += 1;
+            println!("🗑️ Cleaning up wallet {} (deleted or expired)", checksum);
+            
+            // Remove from memory
+            self.wallets.retain(|(stored_checksum, _)| stored_checksum != &checksum);
+            
+            // Delete wallet file from disk
+            let wallet_filename = format!("{}.sqlite", checksum);
+            let wallet_path = self.wallet_dir.join(&wallet_filename);
+            if wallet_path.exists() {
+                if let Err(e) = std::fs::remove_file(&wallet_path) {
+                    eprintln!("  Warning: Failed to delete wallet file {}: {}", wallet_path.display(), e);
+                } else {
+                    println!("  ✅ Deleted wallet file: {}", wallet_path.display());
+                }
+            }
+            
+            // Hard delete from database (if it was marked as deleted)
+            if let Err(e) = self.metadata_db.hard_delete_wallet_by_checksum(&checksum).await {
+                eprintln!("  Warning: Failed to hard delete wallet {} from database: {}", checksum, e);
+            } else {
+                println!("  ✅ Hard deleted wallet {} from database", checksum);
+            }
+        }
         
         // Create set of already loaded wallets
         let loaded_checksums: std::collections::HashSet<String> = self.wallets
