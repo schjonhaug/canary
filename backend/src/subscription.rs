@@ -68,8 +68,8 @@ impl SubscriptionTier {
         // Use defaults if no environment override
         let (default_personal, default_team) = match network {
             NetworkConfig::Regtest => {
-                // Fast intervals for regtest since syncs are instant
-                (10, 5) // 10s Personal, 5s Team
+                // Moderate intervals for regtest to prevent startup conflicts
+                (30, 15) // 30s Personal, 15s Team
             }
             NetworkConfig::Testnet => {
                 // Reasonable intervals for testnet (not used in this project)

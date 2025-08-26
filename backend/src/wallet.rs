@@ -2,7 +2,6 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::ElectrumClient;
 use crate::metadata::{EventInsert, EventType, MetadataDb, TransactionEvent, WalletMetadata};
-use crate::subscription::SubscriptionTier;
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
@@ -294,10 +293,6 @@ pub struct WalletManager {
     pub metadata_db: MetadataDb,
     pub event_sender: broadcast::Sender<TransactionEvent>,
     network: Network,
-    // Sync tracking for periodic summaries
-    sync_counter: u32,
-    syncs_with_changes: u32,
-    sync_errors: u32,
     // Sync overlap protection
     sync_in_progress: Arc<AtomicBool>,
     sync_start_time: Option<Instant>,
@@ -348,9 +343,6 @@ impl WalletManager {
             metadata_db,
             event_sender,
             network,
-            sync_counter: 0,
-            syncs_with_changes: 0,
-            sync_errors: 0,
             sync_in_progress: Arc::new(AtomicBool::new(false)),
             sync_start_time: None,
         };
@@ -1794,210 +1786,7 @@ impl WalletManager {
         Ok(had_changes)
     }
 
-    pub async fn sync_wallets_due_for_sync(&mut self) -> Result<()> {
-        // Check if sync is already in progress
-        if self
-            .sync_in_progress
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_err()
-        {
-            let elapsed = self
-                .sync_start_time
-                .map(|start| start.elapsed())
-                .unwrap_or_default();
 
-            if elapsed.as_secs() > 180 {
-                // Sync has been running for more than 3 minutes - force reset
-                eprintln!("⚠️ Sync has been running for {:?} - forcing reset", elapsed);
-                self.sync_in_progress.store(false, Ordering::SeqCst);
-                self.sync_start_time = None;
-            } else {
-                println!(
-                    "⏭️ Skipping sync cycle - previous sync still in progress (elapsed: {:?})",
-                    elapsed
-                );
-                return Ok(());
-            }
-        }
-
-        let sync_start_time = Instant::now();
-        self.sync_start_time = Some(sync_start_time);
-
-        // Create a guard to ensure sync flag is cleared when function exits
-        struct SyncGuard(Arc<AtomicBool>);
-        impl Drop for SyncGuard {
-            fn drop(&mut self) {
-                self.0.store(false, Ordering::SeqCst);
-            }
-        }
-        let _guard = SyncGuard(Arc::clone(&self.sync_in_progress));
-
-        // First, check for expired subscriptions and downgrade users
-        if let Err(e) = self.process_expired_subscriptions().await {
-            tracing::error!("Failed to process expired subscriptions: {}", e);
-        }
-
-        // Second, cleanup deleted wallets (background cleanup from soft deletes)
-        if let Err(e) = self.cleanup_deleted_wallets().await {
-            tracing::error!("Failed to cleanup deleted wallets: {}", e);
-        }
-
-        // Get wallets that are due for sync based on their owner's tier
-        let network_config = self.bdk_network_to_config();
-        let due_wallets = self
-            .metadata_db
-            .get_wallets_due_for_sync(&network_config)
-            .await?;
-
-        if due_wallets.is_empty() {
-            return Ok(());
-        }
-
-        // Count wallets by tier for summary
-        let mut personal_count = 0;
-        let mut team_count = 0;
-        for (_, tier) in &due_wallets {
-            match tier {
-                SubscriptionTier::Personal => personal_count += 1,
-                SubscriptionTier::Team => team_count += 1,
-            }
-        }
-
-        let _tier_summary = if personal_count > 0 && team_count > 0 {
-            format!("{}P/{}T", personal_count, team_count)
-        } else if personal_count > 0 {
-            format!("{}P", personal_count)
-        } else {
-            format!("{}T", team_count)
-        };
-
-        println!(
-            "🔄 Starting sync cycle for {} wallets ({}P/{}T)",
-            due_wallets.len(),
-            personal_count,
-            team_count
-        );
-
-        // Sync wallet list with database (handles additions/deletions efficiently)
-        let load_start = Instant::now();
-        if let Err(e) = self.sync_wallet_list().await {
-            eprintln!("Failed to sync wallet list: {}", e);
-            return Ok(());
-        }
-        let load_duration = load_start.elapsed();
-        println!("⏱️ Wallet list sync completed in {:?}", load_duration);
-
-        let mut _synced = 0;
-        let mut failed = 0;
-        let mut had_changes = false;
-
-        let sync_wallets_start = Instant::now();
-
-        // For now, process wallets in parallel by spawning concurrent tasks
-        // Note: This is still limited by the fact that each wallet sync needs mutable access to self
-        // Future improvement: extract sync logic to avoid mutable self dependency
-
-        println!(
-            "🔄 Starting sequential sync of {} wallets",
-            due_wallets.len()
-        );
-
-        // Create a vector to store sync tasks - but for now process in batches to avoid mutable borrow issues
-        const MAX_CONCURRENT: usize = 3; // Limit concurrent syncs to avoid overwhelming the system
-
-        for batch in due_wallets.chunks(MAX_CONCURRENT) {
-            let batch_start = Instant::now();
-            // Remove unused sync_futures vector for now
-
-            // Create futures for each wallet sync in this batch
-            for (wallet_metadata, _tier) in batch.iter() {
-                let checksum = wallet_metadata.checksum.clone();
-                let name = wallet_metadata.name.clone();
-
-                // For now, we still need to sync sequentially due to mutable borrow issues
-                // TODO: Refactor sync logic to be truly parallel
-                let wallet_sync_start = Instant::now();
-                match self.sync_wallet_by_checksum(&checksum).await {
-                    Ok(wallet_had_changes) => {
-                        let wallet_sync_duration = wallet_sync_start.elapsed();
-                        println!(
-                            "  ⏱️ Synced {} in {:?} {}",
-                            checksum,
-                            wallet_sync_duration,
-                            if wallet_had_changes {
-                                "(had changes)"
-                            } else {
-                                "(no changes)"
-                            }
-                        );
-
-                        _synced += 1;
-                        if wallet_had_changes {
-                            had_changes = true;
-                        }
-                    }
-                    Err(e) => {
-                        failed += 1;
-                        eprintln!(
-                            "  [{}] ❌ Failed to sync {} in {:?}: {}",
-                            checksum,
-                            name,
-                            wallet_sync_start.elapsed(),
-                            e
-                        );
-                    }
-                }
-            }
-
-            let batch_duration = batch_start.elapsed();
-            println!(
-                "✅ Processed batch of {} wallets in {:?}",
-                batch.len(),
-                batch_duration
-            );
-        }
-
-        let sync_wallets_duration = sync_wallets_start.elapsed();
-        let total_sync_duration = sync_start_time.elapsed();
-        println!(
-            "⏱️ Wallet sync phase completed in {:?} (total cycle: {:?})",
-            sync_wallets_duration, total_sync_duration
-        );
-
-        // Update counters
-        self.sync_counter += 1;
-        self.sync_errors += failed;
-        if had_changes {
-            self.syncs_with_changes += 1;
-        }
-
-        // Show periodic summary every 10 sync cycles
-        if self.sync_counter % 10 == 0 {
-            println!(
-                "📊 Sync summary: {} cycles completed, {} with changes, {} errors",
-                self.sync_counter, self.syncs_with_changes, self.sync_errors
-            );
-        }
-
-        Ok(())
-    }
-
-    /// Process expired subscriptions and mark users as expired (but keep their tier)
-    async fn process_expired_subscriptions(&mut self) -> Result<()> {
-        match self.metadata_db.process_expired_subscriptions().await {
-            Ok(count) if count > 0 => {
-                tracing::info!("📉 Processed {} expired subscriptions", count);
-            }
-            Ok(_) => {
-                // No expired subscriptions to process (normal case)
-            }
-            Err(e) => {
-                tracing::error!("Failed to process expired subscriptions: {}", e);
-                return Err(e);
-            }
-        }
-        Ok(())
-    }
 
     pub async fn get_wallet_by_checksum(&self, checksum: &str) -> Result<Option<WalletMetadata>> {
         self.metadata_db
@@ -2006,65 +1795,6 @@ impl WalletManager {
             .map_err(|e| anyhow!("Failed to get wallet by checksum: {}", e))
     }
 
-    /// Cleanup wallets marked as deleted (background cleanup for soft deletes)
-    pub async fn cleanup_deleted_wallets(&mut self) -> Result<()> {
-        // Get wallets marked as deleted
-        let deleted_wallets = self.metadata_db.get_deleted_wallets().await?;
-
-        if deleted_wallets.is_empty() {
-            return Ok(());
-        }
-
-        println!("🗑️  Cleaning up {} deleted wallets", deleted_wallets.len());
-
-        for (checksum, _descriptor) in deleted_wallets {
-            println!("[{}] Cleaning up deleted wallet", checksum);
-
-            // Remove from in-memory wallets if present
-            let wallet_index = self
-                .wallets
-                .iter()
-                .position(|(stored_checksum, _)| stored_checksum == &checksum);
-
-            if let Some(index) = wallet_index {
-                self.wallets.remove(index);
-                println!("[{}] Removed from in-memory storage", checksum);
-            }
-
-            // Delete wallet database file from disk
-            let wallet_filename = format!("{}.sqlite", checksum);
-            let wallet_path = self.wallet_dir.join(&wallet_filename);
-            if wallet_path.exists() {
-                if let Err(e) = fs::remove_file(&wallet_path) {
-                    eprintln!(
-                        "[{}] Warning: Failed to delete wallet file {}: {}",
-                        checksum,
-                        wallet_path.display(),
-                        e
-                    );
-                } else {
-                    println!(
-                        "[{}] Deleted wallet file: {}",
-                        checksum,
-                        wallet_path.display()
-                    );
-                }
-            }
-
-            // Finally, delete from metadata database (hard delete)
-            if let Err(e) = self.metadata_db.delete_wallet_by_checksum(&checksum).await {
-                eprintln!(
-                    "[{}] Warning: Failed to delete from metadata database: {}",
-                    checksum, e
-                );
-            } else {
-                println!("[{}] Deleted from metadata database", checksum);
-            }
-        }
-
-        println!("✅ Completed cleanup of deleted wallets");
-        Ok(())
-    }
 
     /// Helper function to get current timestamp
     fn get_current_timestamp() -> u64 {
