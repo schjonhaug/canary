@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, lazy, Suspense } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 import { useWalletsList } from "@/hooks/useWalletsList"
@@ -24,6 +24,7 @@ export default function WalletsLayout({
   const [walletSvg, setWalletSvg] = useState<string>("")
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null)
   const pathname = usePathname()
+  const router = useRouter()
   const { user, billingStatus, isFossMode, isSaasMode } = useAuth()
   
   // Check if we're on a wallet detail page
@@ -70,6 +71,11 @@ export default function WalletsLayout({
       addWallet(wallet)
     } else {
       refetchWallets()
+    }
+    
+    // If we're on a wallet detail page, navigate to /wallets to see the new wallet
+    if (isWalletDetailPage) {
+      router.push('/wallets')
     }
   }
 
