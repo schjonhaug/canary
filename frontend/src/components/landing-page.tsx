@@ -42,7 +42,7 @@ const faqs = [
 
   {
     question: "How fast are notifications?",
-    answer: "With our Team plan, you get near real-time notifications with sync intervals as fast as 1 minute. Most notifications arrive within seconds of transaction confirmation."
+    answer: "With our Team plan, you get near real-time notifications with sync intervals as fast as 2 minutes. Most notifications arrive within seconds of transaction confirmation."
   },
   {
     question: "Can I upgrade or downgrade anytime?",

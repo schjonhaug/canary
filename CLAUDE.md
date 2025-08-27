@@ -174,7 +174,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 
 ### Tier Structure
 - **Personal ($9/month)**: For individual Bitcoin holders - 1 wallet, 1 contact per wallet, 10-minute sync, all features enabled
-- **Team ($29/month)**: For Uncle Jims & family guardians - 5 wallets, 5 contacts per wallet, 1-minute sync, all features enabled
+- **Team ($29/month)**: For Uncle Jims & family guardians - 5 wallets, 5 contacts per wallet, 2-minute sync, all features enabled
 
 **Note**: All features (email/SMS/push notifications, transaction analysis) are available on both tiers. The difference is only in capacity limits and sync frequency.
 

@@ -316,7 +316,7 @@ impl StripeBilling {
             "team" => {
                 features.insert("wallets".to_string(), "5 wallets".to_string());
                 features.insert("contacts".to_string(), "5 contacts per wallet".to_string());
-                features.insert("sync".to_string(), "1 minute sync time".to_string());
+                features.insert("sync".to_string(), "2 minute sync time".to_string());
             }
             _ => {}
         }

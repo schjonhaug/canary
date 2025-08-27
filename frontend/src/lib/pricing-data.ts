@@ -3,7 +3,7 @@ export const allFeatures = [
   { id: 'trial', label: '30-day free trial', personal: true, team: true },
   { id: 'wallets', label: 'Bitcoin wallets', personal: '1 wallet', team: '5 wallets', unique: { team: true } },
   { id: 'contacts', label: 'Contacts per wallet', personal: '1 contact', team: '5 contacts per wallet', unique: { team: true } },
-  { id: 'sync', label: 'Sync interval', personal: '10 minute sync time', team: '1 minute sync time', unique: { team: true } },
+  { id: 'sync', label: 'Sync interval', personal: '10 minute sync time', team: '2 minute sync time', unique: { team: true } },
   { id: 'email', label: 'Email notifications', personal: true, team: true },
   { id: 'sms', label: 'SMS notifications', personal: true, team: true },
   { id: 'push', label: 'Push notifications', personal: true, team: true },

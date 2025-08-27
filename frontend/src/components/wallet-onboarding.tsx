@@ -55,7 +55,7 @@ export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
                   <div className="grid md:grid-cols-2 gap-3 text-sm text-blue-700">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      5 wallets with 1-minute sync
+                      5 wallets with 2-minute sync
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
