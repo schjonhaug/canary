@@ -278,17 +278,19 @@ export default function WalletDetailPage() {
                   onContactsUpdated={handleWalletUpdated}
                   isWalletActive={wallet.is_active !== false}
                 />
-                <div className="mt-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleAddContact}
-                    className="h-8 gap-1 w-full"
-                  >
-                    <Plus size={14} />
-                    Add Contact
-                  </Button>
-                </div>
+                {!(isSaasMode && user?.is_admin) && (
+                  <div className="mt-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAddContact}
+                      className="h-8 gap-1 w-full"
+                    >
+                      <Plus size={14} />
+                      Add Contact
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {!(isSaasMode && user?.is_admin) && (
