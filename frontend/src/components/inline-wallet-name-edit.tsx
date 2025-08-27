@@ -75,12 +75,12 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
   if (isEditing) {
     return (
       <div className="space-y-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={handleKeyDown}
-            className={inputClasses}
+            className={`${inputClasses} min-w-0`}
             disabled={isUpdating}
             autoFocus
           />
@@ -112,15 +112,15 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
   // For admin users in SaaS mode, show only the name without edit button
   if (isSaasMode && user?.is_admin) {
     return (
-      <div className="flex items-center gap-2">
-        <span className={textClasses}>{currentName}</span>
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`${textClasses} truncate`} title={currentName}>{currentName}</span>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center gap-2 group">
-      <span className={textClasses}>{currentName}</span>
+    <div className="flex items-center gap-2 group min-w-0">
+      <span className={`${textClasses} truncate`} title={currentName}>{currentName}</span>
       <Button
         size="sm"
         variant="ghost"

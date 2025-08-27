@@ -235,14 +235,14 @@ export default function WalletDetailPage() {
         {/* Header Section */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div>
-                <nav className="flex items-center text-2xl text-muted-foreground">
-                  <Link href="/wallets" className="hover:text-foreground font-semibold">
+            <div className="flex items-center gap-3 flex-wrap min-w-0">
+              <div className="min-w-0">
+                <nav className="flex items-center text-2xl text-muted-foreground min-w-0">
+                  <Link href="/wallets" className="hover:text-foreground font-semibold flex-shrink-0">
                     Wallets
                   </Link>
-                  <span className="mx-2">/</span>
-                  <div className="text-foreground font-semibold">
+                  <span className="mx-2 flex-shrink-0">/</span>
+                  <div className="text-foreground font-semibold min-w-0">
                     <InlineWalletNameEdit 
                       walletChecksum={wallet.checksum}
                       currentName={wallet.name}

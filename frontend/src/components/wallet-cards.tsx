@@ -141,18 +141,16 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
             return (
               <Card key={wallet.checksum} className="transition-all duration-200 border-blue-200 bg-blue-50/30">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <WalletIcon wallet={wallet} />
-                      <CardTitle className="text-lg truncate" title={wallet.name}>
-                        {wallet.name}
-                      </CardTitle>
-                    </div>
-                    <Badge variant="outline" className="text-xs text-blue-600 border-blue-600 bg-blue-50">
-                      <div className="h-3 w-3 mr-1 animate-spin rounded-full border border-blue-600 border-t-transparent" />
-                      Syncing...
-                    </Badge>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <WalletIcon wallet={wallet} />
+                    <CardTitle className="text-lg truncate min-w-0" title={wallet.name}>
+                      {wallet.name}
+                    </CardTitle>
                   </div>
+                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-600 bg-blue-50 w-fit">
+                    <div className="h-3 w-3 mr-1 animate-spin rounded-full border border-blue-600 border-t-transparent" />
+                    Syncing...
+                  </Badge>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -182,20 +180,18 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
                 isInactive ? 'opacity-60 border-orange-200 bg-orange-50/50' : ''
               }`}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <WalletIcon wallet={wallet} />
-                      <CardTitle className={`text-lg truncate ${isInactive ? 'text-muted-foreground line-through' : ''}`} title={wallet.name}>
-                        {wallet.name}
-                      </CardTitle>
-                    </div>
-                    {isInactive && (
-                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-600 bg-orange-50">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        Inactive
-                      </Badge>
-                    )}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <WalletIcon wallet={wallet} />
+                    <CardTitle className={`text-lg truncate min-w-0 ${isInactive ? 'text-muted-foreground line-through' : ''}`} title={wallet.name}>
+                      {wallet.name}
+                    </CardTitle>
                   </div>
+                  {isInactive && (
+                    <Badge variant="outline" className="text-xs text-orange-600 border-orange-600 bg-orange-50 w-fit">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      Inactive
+                    </Badge>
+                  )}
                   {isInactive && (
                     <CardDescription className="text-xs text-orange-600 mt-1">
                       This wallet exceeds your subscription tier limits and won&apos;t sync automatically
