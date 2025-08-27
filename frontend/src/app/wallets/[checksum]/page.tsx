@@ -291,16 +291,18 @@ export default function WalletDetailPage() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsDeleteModalOpen(true)}
-                  className="text-muted-foreground hover:text-red-600"
-                >
-                  <Trash2 size={16} />
-                </Button>
-              </div>
+              {!(isSaasMode && user?.is_admin) && (
+                <div className="pt-4 border-t flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="text-muted-foreground hover:text-red-600"
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

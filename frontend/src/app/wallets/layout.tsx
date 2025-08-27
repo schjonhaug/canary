@@ -24,7 +24,7 @@ export default function WalletsLayout({
   const [walletSvg, setWalletSvg] = useState<string>("")
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null)
   const pathname = usePathname()
-  const { user, billingStatus, isFossMode } = useAuth()
+  const { user, billingStatus, isFossMode, isSaasMode } = useAuth()
   
   // Check if we're on a wallet detail page
   const isWalletDetailPage = pathname.startsWith('/wallets/') && pathname !== '/wallets'
@@ -76,7 +76,7 @@ export default function WalletsLayout({
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <AppHeader 
-        showAddWallet={wallets.length > 0 || isWalletDetailPage}
+        showAddWallet={(wallets.length > 0 || isWalletDetailPage) && !(isSaasMode && user?.is_admin)}
         onAddWallet={handleAddWallet}
         customLogo={isWalletDetailPage ? walletSvg : undefined}
       />
