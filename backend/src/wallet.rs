@@ -54,6 +54,9 @@ impl WalletCreationService {
         println!("  Name: {}", name);
         println!("  Input descriptor: {}", descriptor_str);
 
+        // Validate network compatibility (defense-in-depth)
+        XpubConverter::validate_descriptor_network(descriptor_str, self.network)?;
+
         // Check if input is an XPUB with known script type
         if XpubConverter::is_xpub(descriptor_str) && !is_fresh_wallet {
             if let Some(script_type_str) = script_type {
@@ -185,6 +188,9 @@ impl WalletCreationService {
             "Creating XPUB wallet with known script type: {}",
             script_type_str
         );
+
+        // Validate network compatibility (defense-in-depth)
+        XpubConverter::validate_key_network(xpub, self.network)?;
 
         // Parse script type
         let script_type = match script_type_str {
@@ -382,22 +388,20 @@ impl WalletManager {
     /// loads only new wallets, avoids redundant disk I/O for already-loaded wallets
     async fn sync_wallet_list(&mut self) -> Result<()> {
         let start_time = Instant::now();
-        
+
         // Get ready wallets from database (source of truth)
         let ready_wallets = self.metadata_db.get_ready_wallets().await?;
-        
+
         // Create set of valid checksums from database
-        let valid_checksums: std::collections::HashSet<String> = ready_wallets
-            .iter()
-            .map(|w| w.checksum.clone())
-            .collect();
-        
+        let valid_checksums: std::collections::HashSet<String> =
+            ready_wallets.iter().map(|w| w.checksum.clone()).collect();
+
         // Track statistics
         let _wallets_before = self.wallets.len();
         let mut removed_count = 0;
         let mut added_count = 0;
         let mut missing_count = 0;
-        
+
         // First collect wallets that need to be removed (deleted or expired users)
         let mut wallets_to_remove = Vec::new();
         for (checksum, _) in &self.wallets {
@@ -405,46 +409,60 @@ impl WalletManager {
                 wallets_to_remove.push(checksum.clone());
             }
         }
-        
+
         // Clean up each removed wallet: memory, disk, and database
         for checksum in wallets_to_remove {
             removed_count += 1;
             println!("🗑️ Cleaning up wallet {} (deleted or expired)", checksum);
-            
+
             // Remove from memory
-            self.wallets.retain(|(stored_checksum, _)| stored_checksum != &checksum);
-            
+            self.wallets
+                .retain(|(stored_checksum, _)| stored_checksum != &checksum);
+
             // Delete wallet file from disk
             let wallet_filename = format!("{}.sqlite", checksum);
             let wallet_path = self.wallet_dir.join(&wallet_filename);
             if wallet_path.exists() {
                 if let Err(e) = std::fs::remove_file(&wallet_path) {
-                    eprintln!("  Warning: Failed to delete wallet file {}: {}", wallet_path.display(), e);
+                    eprintln!(
+                        "  Warning: Failed to delete wallet file {}: {}",
+                        wallet_path.display(),
+                        e
+                    );
                 } else {
                     println!("  ✅ Deleted wallet file: {}", wallet_path.display());
                 }
             }
-            
+
             // Hard delete from database (if it was marked as deleted)
-            if let Err(e) = self.metadata_db.hard_delete_wallet_by_checksum(&checksum).await {
-                eprintln!("  Warning: Failed to hard delete wallet {} from database: {}", checksum, e);
+            if let Err(e) = self
+                .metadata_db
+                .hard_delete_wallet_by_checksum(&checksum)
+                .await
+            {
+                eprintln!(
+                    "  Warning: Failed to hard delete wallet {} from database: {}",
+                    checksum, e
+                );
             } else {
                 println!("  ✅ Hard deleted wallet {} from database", checksum);
             }
         }
-        
+
         // Create set of already loaded wallets
-        let loaded_checksums: std::collections::HashSet<String> = self.wallets
+        let loaded_checksums: std::collections::HashSet<String> = self
+            .wallets
             .iter()
             .map(|(checksum, _)| checksum.clone())
             .collect();
-        
+
         // Load only NEW wallets not in memory
         for wallet_metadata in ready_wallets {
             if !loaded_checksums.contains(&wallet_metadata.checksum) {
-                let wallet_path = self.wallet_dir
+                let wallet_path = self
+                    .wallet_dir
                     .join(format!("{}.sqlite", wallet_metadata.checksum));
-                    
+
                 if wallet_path.exists() {
                     if let Err(e) = self.load_wallet_from_file(&wallet_path).await {
                         eprintln!(
@@ -455,7 +473,10 @@ impl WalletManager {
                         );
                     } else {
                         added_count += 1;
-                        println!("✅ Loaded new wallet {} into memory", wallet_metadata.checksum);
+                        println!(
+                            "✅ Loaded new wallet {} into memory",
+                            wallet_metadata.checksum
+                        );
                     }
                 } else {
                     eprintln!(
@@ -468,25 +489,29 @@ impl WalletManager {
                 }
             }
         }
-        
+
         let duration = start_time.elapsed();
-        
+
         if removed_count > 0 || added_count > 0 {
             println!(
                 "📊 Wallet sync completed in {:?}: {} in memory (+{} new, -{} removed)",
-                duration, self.wallets.len(), added_count, removed_count
+                duration,
+                self.wallets.len(),
+                added_count,
+                removed_count
             );
         } else {
             println!(
                 "⚡ Wallet list unchanged in {:?}: {} wallets in memory",
-                duration, self.wallets.len()
+                duration,
+                self.wallets.len()
             );
         }
-        
+
         if missing_count > 0 {
             eprintln!("⚠️  {} wallet files were missing", missing_count);
         }
-        
+
         Ok(())
     }
 
@@ -1688,9 +1713,12 @@ impl WalletManager {
     }
 
     /// Sync all wallets for a specific subscription tier in parallel
-    pub async fn sync_tier_parallel(&mut self, tier: crate::subscription::SubscriptionTier) -> Result<()> {
+    pub async fn sync_tier_parallel(
+        &mut self,
+        tier: crate::subscription::SubscriptionTier,
+    ) -> Result<()> {
         use tokio::time::Duration;
-        
+
         // Check if sync is already in progress
         if self
             .sync_in_progress
@@ -1728,18 +1756,30 @@ impl WalletManager {
 
         let total_duration = total_start.elapsed();
         match &result {
-            Ok(()) => println!("🔓 Released wallet manager mutex after {:?} ({:?} tier parallel sync)", total_duration, tier),
-            Err(e) => eprintln!("🔓 Released wallet manager mutex after {:?} ({:?} tier parallel sync failed: {})", total_duration, tier, e),
+            Ok(()) => println!(
+                "🔓 Released wallet manager mutex after {:?} ({:?} tier parallel sync)",
+                total_duration, tier
+            ),
+            Err(e) => eprintln!(
+                "🔓 Released wallet manager mutex after {:?} ({:?} tier parallel sync failed: {})",
+                total_duration, tier, e
+            ),
         }
 
         result
     }
 
-    async fn sync_tier_parallel_inner(&mut self, tier: crate::subscription::SubscriptionTier) -> Result<()> {
+    async fn sync_tier_parallel_inner(
+        &mut self,
+        tier: crate::subscription::SubscriptionTier,
+    ) -> Result<()> {
         // Get wallets for this tier using the network config conversion
         let network_config = self.bdk_network_to_config();
-        let wallets = self.metadata_db.get_wallets_for_tier_sync(&tier, &network_config).await?;
-        
+        let wallets = self
+            .metadata_db
+            .get_wallets_for_tier_sync(&tier, &network_config)
+            .await?;
+
         if wallets.is_empty() {
             println!("📊 No {:?} tier wallets due for sync", tier);
             return Ok(());
@@ -1747,7 +1787,8 @@ impl WalletManager {
 
         println!(
             "🔄 Starting {:?} tier parallel sync for {} wallets",
-            tier, wallets.len()
+            tier,
+            wallets.len()
         );
 
         // Sync wallet list to ensure all wallets are loaded in memory
@@ -1771,8 +1812,15 @@ impl WalletManager {
             match self.sync_single_wallet_by_checksum(&wallet.checksum).await {
                 Ok(had_changes) => {
                     let wallet_duration = wallet_start.elapsed();
-                    let changes_str = if had_changes { "with changes" } else { "no changes" };
-                    println!("  ⏱️ Synced {} in {:?} ({})", wallet.checksum, wallet_duration, changes_str);
+                    let changes_str = if had_changes {
+                        "with changes"
+                    } else {
+                        "no changes"
+                    };
+                    println!(
+                        "  ⏱️ Synced {} in {:?} ({})",
+                        wallet.checksum, wallet_duration, changes_str
+                    );
                     successful += 1;
                     if had_changes {
                         total_changes = true;
@@ -1780,7 +1828,10 @@ impl WalletManager {
                 }
                 Err(e) => {
                     let wallet_duration = wallet_start.elapsed();
-                    eprintln!("  ❌ Failed to sync {} in {:?}: {}", wallet.checksum, wallet_duration, e);
+                    eprintln!(
+                        "  ❌ Failed to sync {} in {:?}: {}",
+                        wallet.checksum, wallet_duration, e
+                    );
                     failed += 1;
                 }
             }
@@ -1803,14 +1854,12 @@ impl WalletManager {
     async fn sync_single_wallet_by_checksum(&mut self, checksum: &str) -> Result<bool> {
         // Use the existing sync method
         let had_changes = self.sync_wallet_by_checksum(checksum).await?;
-        
+
         // Update last synced timestamp in database
         self.metadata_db.update_wallet_last_synced(checksum).await?;
-        
+
         Ok(had_changes)
     }
-
-
 
     pub async fn get_wallet_by_checksum(&self, checksum: &str) -> Result<Option<WalletMetadata>> {
         self.metadata_db
@@ -1818,7 +1867,6 @@ impl WalletManager {
             .await
             .map_err(|e| anyhow!("Failed to get wallet by checksum: {}", e))
     }
-
 
     /// Helper function to get current timestamp
     fn get_current_timestamp() -> u64 {

@@ -278,7 +278,8 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Separate tier-based sync tasks
-    let (personal_sync_interval, team_sync_interval) = SubscriptionTier::Personal.get_sync_intervals(&config.network);
+    let (personal_sync_interval, team_sync_interval) =
+        SubscriptionTier::Personal.get_sync_intervals(&config.network);
 
     // Team tier sync task (more frequent)
     let team_wallet_manager = Arc::clone(&wallet_manager);
@@ -318,7 +319,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // Personal tier sync task (less frequent)  
+    // Personal tier sync task (less frequent)
     let personal_wallet_manager = Arc::clone(&wallet_manager);
     println!(
         "🕐 Personal tier sync interval: {}s (network: {:?})",

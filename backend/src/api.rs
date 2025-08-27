@@ -435,6 +435,28 @@ pub async fn create_wallet_non_blocking(
         }
     };
 
+    // Validate network compatibility early - before any database operations
+    if let Err(e) = XpubConverter::validate_descriptor_network(
+        &payload.descriptor,
+        config.network.to_bdk_network(),
+    ) {
+        let server_network_name = match config.network {
+            crate::config::NetworkConfig::Mainnet => "mainnet",
+            crate::config::NetworkConfig::Testnet => "testnet",
+            crate::config::NetworkConfig::Regtest => "regtest",
+        };
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!(
+                    "{}. Please use a {} key.",
+                    e, server_network_name
+                ),
+            }),
+        )
+        .into_response();
+    }
+
     // Helper function to detect output descriptor format
     let is_descriptor_format = |input: &str| -> bool {
         let descriptor_regex = regex::Regex::new(r"^(wpkh|sh|pkh|tr)\(").unwrap();
@@ -747,10 +769,14 @@ pub async fn create_wallet_non_blocking(
                     let wallet_name = wallet_metadata.name.clone();
                     let wallet_checksum = wallet_metadata.checksum.clone();
                     // Get user email for notification
-                    if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await {
+                    if let Ok(Some(user_record)) =
+                        app_services.metadata_db.get_user_by_id(&user.user_id).await
+                    {
                         let user_email = user_record.email;
                         tokio::spawn(async move {
-                            admin_notifications.notify_wallet_creation(&wallet_name, &user_email, &wallet_checksum).await;
+                            admin_notifications
+                                .notify_wallet_creation(&wallet_name, &user_email, &wallet_checksum)
+                                .await;
                         });
                     }
                 }
@@ -2620,7 +2646,9 @@ pub async fn register(
             let email = request.email.clone();
             let name = request.name.clone();
             tokio::spawn(async move {
-                admin_notifications.notify_user_signup(&email, Some(&name)).await;
+                admin_notifications
+                    .notify_user_signup(&email, Some(&name))
+                    .await;
             });
         }
     }

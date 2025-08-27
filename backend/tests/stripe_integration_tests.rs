@@ -6,7 +6,7 @@ use canary::{
     api::{create_router_with_services, AppServices},
     config::{AppConfig, NetworkConfig},
     notifications::NotificationManager,
-    wallet::{WalletManager, WalletCreationService},
+    wallet::{WalletCreationService, WalletManager},
 };
 use http_body_util::BodyExt;
 use serde_json::{json, Value};

@@ -772,10 +772,8 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
-            let changes = conn.execute(
-                "DELETE FROM wallets WHERE checksum = ?1",
-                params![checksum],
-            )?;
+            let changes =
+                conn.execute("DELETE FROM wallets WHERE checksum = ?1", params![checksum])?;
             Ok(changes > 0)
         })
         .await?
@@ -1239,7 +1237,6 @@ impl MetadataDb {
         .await?
     }
 
-
     /// Get all wallets for a specific tier that are due for sync
     pub async fn get_wallets_for_tier_sync(
         &self,
@@ -1251,7 +1248,8 @@ impl MetadataDb {
         let tier_str = match tier {
             crate::subscription::SubscriptionTier::Personal => "personal",
             crate::subscription::SubscriptionTier::Team => "team",
-        }.to_string();
+        }
+        .to_string();
 
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
@@ -2158,7 +2156,6 @@ impl MetadataDb {
         })
         .await?
     }
-
 
     /// Update wallet active status for subscription tier limits
     pub async fn update_wallet_active_status(&self, checksum: &str, is_active: bool) -> Result<()> {

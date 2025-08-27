@@ -120,4 +120,79 @@ impl XpubConverter {
             }
         }
     }
+
+    /// Detect which network a key belongs to based on its prefix
+    pub fn get_key_network(key: &str) -> Option<Network> {
+        if key.len() < 4 {
+            return None;
+        }
+
+        let prefix = &key[..4];
+        match prefix {
+            "xpub" | "ypub" | "zpub" => Some(Network::Bitcoin),
+            "tpub" | "upub" | "vpub" => Some(Network::Testnet), // Also covers regtest/signet
+            _ => None,
+        }
+    }
+
+    /// Validate that a key is compatible with the expected network
+    pub fn validate_key_network(key: &str, expected_network: Network) -> Result<()> {
+        if !Self::is_xpub(key) {
+            return Ok(()); // Not an XPUB, skip validation
+        }
+
+        let detected_network = Self::get_key_network(key);
+
+        match (detected_network, expected_network) {
+            (Some(Network::Bitcoin), Network::Bitcoin) => Ok(()),
+            (Some(Network::Testnet), Network::Testnet) => Ok(()),
+            (Some(Network::Testnet), Network::Regtest) => Ok(()),
+            (Some(Network::Testnet), Network::Signet) => Ok(()),
+            (Some(detected), expected) => {
+                let detected_name = match detected {
+                    Network::Bitcoin => "mainnet",
+                    Network::Testnet => "testnet",
+                    Network::Regtest => "regtest",
+                    Network::Signet => "signet",
+                    _ => "unknown",
+                };
+                let expected_name = match expected {
+                    Network::Bitcoin => "mainnet",
+                    Network::Testnet => "testnet",
+                    Network::Regtest => "regtest",
+                    Network::Signet => "signet",
+                    _ => "unknown",
+                };
+                Err(anyhow!(
+                    "Network mismatch: key appears to be for {} but server is running on {}",
+                    detected_name,
+                    expected_name
+                ))
+            }
+            (None, _) => Ok(()), // Unknown key format, skip validation
+        }
+    }
+
+    /// Validate that a descriptor is compatible with the expected network
+    /// Extracts XPUBs from within descriptors and validates each one
+    pub fn validate_descriptor_network(descriptor: &str, expected_network: Network) -> Result<()> {
+        // Regex to find extended public keys within descriptors
+        // Matches [prefix]pub followed by base58 chars, optionally wrapped in key origin info
+        let xpub_regex =
+            regex::Regex::new(r"(?:\[[^\]]*\])?([xyztuv]pub[1-9A-HJ-NP-Za-km-z]+)").unwrap();
+
+        for captures in xpub_regex.captures_iter(descriptor) {
+            if let Some(key_match) = captures.get(1) {
+                let key = key_match.as_str();
+                Self::validate_key_network(key, expected_network)?;
+            }
+        }
+
+        // Also check if the entire descriptor is just a bare XPUB
+        if Self::is_xpub(descriptor) {
+            Self::validate_key_network(descriptor, expected_network)?;
+        }
+
+        Ok(())
+    }
 }
