@@ -1,3 +1,4 @@
+mod admin_notifications;
 mod api;
 mod auth;
 mod config;

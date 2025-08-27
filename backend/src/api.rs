@@ -1,3 +1,4 @@
+use crate::admin_notifications::AdminNotifications;
 use crate::auth::{
     authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUser,
     AuthUserResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
@@ -735,6 +736,22 @@ pub async fn create_wallet_non_blocking(
                                 user_record.email
                             );
                         }
+                    }
+                }
+            }
+
+            // Send admin notification for new wallet creation (fire-and-forget)
+            {
+                let admin_notifications = AdminNotifications::new();
+                if admin_notifications.is_enabled() {
+                    let wallet_name = wallet_metadata.name.clone();
+                    let wallet_checksum = wallet_metadata.checksum.clone();
+                    // Get user email for notification
+                    if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await {
+                        let user_email = user_record.email;
+                        tokio::spawn(async move {
+                            admin_notifications.notify_wallet_creation(&wallet_name, &user_email, &wallet_checksum).await;
+                        });
                     }
                 }
             }
@@ -2595,6 +2612,18 @@ pub async fn register(
                 .into_response();
         }
     };
+
+    // Send admin notification for new user signup (fire-and-forget)
+    {
+        let admin_notifications = AdminNotifications::new();
+        if admin_notifications.is_enabled() {
+            let email = request.email.clone();
+            let name = request.name.clone();
+            tokio::spawn(async move {
+                admin_notifications.notify_user_signup(&email, Some(&name)).await;
+            });
+        }
+    }
 
     // Create Stripe trial subscription for the user
     {

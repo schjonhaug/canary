@@ -1,6 +1,7 @@
 // Canary Backend Library
 // Core Bitcoin wallet functionality
 
+pub mod admin_notifications;
 pub mod api;
 pub mod auth;
 pub mod config;
@@ -19,6 +20,7 @@ pub mod wallet;
 pub mod xpub_converter;
 
 // Re-export commonly used types
+pub use admin_notifications::AdminNotifications;
 pub use config::AppConfig;
 pub use electrum::{BlockHeader, ElectrumClient};
 pub use email_service::{EmailConfig, EmailService};
