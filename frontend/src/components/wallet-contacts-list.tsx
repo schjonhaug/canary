@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Bell, Mail, Smartphone, AlertTriangle } from "lucide-react"
 import { Contact } from "../types"
 import { ContactModal } from "./contact-modal"
+import { useAuth } from "@/contexts/auth-context"
 
 interface WalletContactsListProps {
   walletChecksum: string
@@ -16,11 +17,16 @@ interface WalletContactsListProps {
 export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated, isWalletActive = true }: WalletContactsListProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
+  const { user, isSaasMode } = useAuth()
 
   // All notification methods are available for all tiers - no need to check provider type
 
 
   const handleEditContact = (contact: Contact) => {
+    // Don't allow admin users in SaaS mode to edit contacts
+    if (isSaasMode && user?.is_admin) {
+      return
+    }
     setEditingContact(contact)
     setIsEditModalOpen(true)
   }
@@ -40,13 +46,19 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
           {contacts.sort((a, b) => a.name.localeCompare(b.name)).map((contact) => {
             const isInactive = contact.is_active === false
             const shouldShowInactiveState = isInactive && isWalletActive
+            const isAdminInSaas = isSaasMode && user?.is_admin
             
             return (
               <button
                 key={contact.id} 
                 onClick={() => handleEditContact(contact)}
-                className={`w-full p-2 rounded-md hover:bg-muted/50 transition-colors text-left ${
-                  shouldShowInactiveState ? 'bg-orange-50/50 border border-orange-200' : 'bg-muted/30'
+                disabled={isAdminInSaas}
+                className={`w-full p-2 rounded-md transition-colors text-left ${
+                  isAdminInSaas 
+                    ? 'bg-muted/20 cursor-not-allowed' 
+                    : shouldShowInactiveState 
+                      ? 'bg-orange-50/50 border border-orange-200 hover:bg-muted/50' 
+                      : 'bg-muted/30 hover:bg-muted/50'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
