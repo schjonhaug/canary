@@ -1,13 +1,14 @@
 # Implement True Parallel Wallet Syncing
 
 ## Current Status
-The wallet sync operation is currently **serial** despite appearing to be parallel. This is due to the `sync_wallet_by_checksum` method requiring mutable access to `self`, preventing concurrent execution.
+The wallet sync operation is **completely serial**. The `sync_wallet_by_checksum` method requires mutable access to `self`, preventing concurrent execution.
 
 ## Problem
-- Wallets are synced one at a time in `sync_wallets_due_for_sync()`
+- Wallets are synced sequentially in a for loop at `src/wallet.rs:1769-1786`
 - Each wallet sync blocks the next one
 - With many wallets, sync cycles take longer than necessary
-- Code at `src/wallet.rs` lines 1487-1502 shows the TODO comment acknowledging this limitation
+- Code at `src/wallet.rs:1763` has a TODO comment: "TODO: Implement true parallel syncing with futures"
+- The method `sync_single_wallet_by_checksum` at line 1803 requires `&mut self`
 
 ## Solution Architecture
 
