@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Edit, Check, X } from "lucide-react"
 import { api } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
 
 interface InlineWalletNameEditProps {
   walletChecksum: string
@@ -18,6 +19,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
   const [name, setName] = useState(currentName)
   const [isUpdating, setIsUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { user, isSaasMode } = useAuth()
 
   const handleEdit = () => {
     setIsEditing(true)
@@ -103,6 +105,15 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
         {error && (
           <p className="text-sm text-red-600">{error}</p>
         )}
+      </div>
+    )
+  }
+
+  // For admin users in SaaS mode, show only the name without edit button
+  if (isSaasMode && user?.is_admin) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className={textClasses}>{currentName}</span>
       </div>
     )
   }
