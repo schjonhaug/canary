@@ -1,1 +1,0 @@
-In SaaS mode, the admin should not be allowed to add wallets.
