@@ -57,7 +57,7 @@ export function UserDropdown() {
           </div>
         </div>
         
-        {isSaasMode && (
+        {isSaasMode && !user.is_admin && (
           <>
             <DropdownMenuSeparator />
             
