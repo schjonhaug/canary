@@ -2143,16 +2143,43 @@ impl MetadataDb {
         .await?
     }
 
+    /// Mark a pending verification as completed (used for contact updates)
+    /// This keeps the verification record for the PUT endpoint to find
+    pub async fn mark_verification_completed(&self, verification_id: i64) -> Result<()> {
+        let pool = self.pool.clone();
+
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE pending_contact_verifications 
+                 SET verified_at = CURRENT_TIMESTAMP 
+                 WHERE id = ?1",
+                params![verification_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     pub async fn cleanup_expired_verifications(&self) -> Result<u64> {
         let pool = self.pool.clone();
 
         spawn_blocking(move || {
             let conn = pool.get()?;
-            let deleted = conn.execute(
+            let deleted_expired = conn.execute(
                 "DELETE FROM pending_contact_verifications WHERE expires_at <= datetime('now')",
                 [],
             )?;
-            Ok(deleted as u64)
+            
+            // Also clean up old completed verifications (older than 24 hours)
+            let deleted_completed = conn.execute(
+                "DELETE FROM pending_contact_verifications 
+                 WHERE verified_at IS NOT NULL 
+                 AND verified_at <= datetime('now', '-24 hours')",
+                [],
+            )?;
+            
+            Ok((deleted_expired + deleted_completed) as u64)
         })
         .await?
     }
@@ -2199,5 +2226,104 @@ impl MetadataDb {
         .await??;
 
         Ok(())
+    }
+
+    /// Check if a phone number or email was recently verified for this wallet
+    /// Used to ensure security when creating contacts with SMS/email methods
+    pub async fn was_recently_verified(
+        &self,
+        wallet_checksum: &str,
+        notification_target: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let target = notification_target.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM pending_contact_verifications 
+                 WHERE wallet_checksum = ?1 
+                 AND notification_target = ?2
+                 AND verified_at IS NOT NULL
+                 AND verified_at > datetime('now', '-30 minutes')",
+                params![checksum, target],
+                |row| row.get(0),
+            )?;
+            Ok(count > 0)
+        })
+        .await?
+    }
+
+    /// Update contact with new methods using a transaction
+    /// This ensures atomic updates - if any part fails, the old contact remains unchanged
+    pub async fn update_contact_with_methods(
+        &self,
+        contact_id: &str,
+        wallet_checksum: &str,
+        name: &str,
+        language: &Language,
+        new_methods: Vec<(ProviderType, String)>,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let contact_id = contact_id.to_string();
+        let checksum = wallet_checksum.to_string();
+        let contact_name = name.to_string();
+        let lang = language.clone();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            
+            // Start transaction
+            conn.execute("BEGIN TRANSACTION", [])?;
+            
+            match (|| -> Result<()> {
+                // Update contact basics
+                conn.execute(
+                    "UPDATE contacts SET name = ?1, language = ?2 WHERE id = ?3 AND wallet_checksum = ?4",
+                    params![contact_name, lang.as_str(), contact_id, checksum],
+                )?;
+                
+                // Check if contact was updated (exists and belongs to wallet)
+                let affected: i64 = conn.query_row(
+                    "SELECT changes()",
+                    [],
+                    |row| row.get(0),
+                )?;
+                
+                if affected == 0 {
+                    return Err(anyhow::anyhow!("Contact not found or access denied"));
+                }
+                
+                // Delete all old notification methods
+                conn.execute(
+                    "DELETE FROM contact_notification_methods WHERE contact_id = ?1",
+                    params![contact_id],
+                )?;
+                
+                // Insert new methods
+                for (provider_type, target) in new_methods {
+                    let method_id = uuid::Uuid::new_v4().to_string();
+                    conn.execute(
+                        "INSERT INTO contact_notification_methods 
+                         (id, contact_id, provider_type, notification_target) 
+                         VALUES (?1, ?2, ?3, ?4)",
+                        params![method_id, contact_id, provider_type.as_str(), target],
+                    )?;
+                }
+                
+                Ok(())
+            })() {
+                Ok(()) => {
+                    conn.execute("COMMIT", [])?;
+                    Ok(())
+                }
+                Err(e) => {
+                    conn.execute("ROLLBACK", [])?;
+                    Err(e)
+                }
+            }
+        })
+        .await?
     }
 }

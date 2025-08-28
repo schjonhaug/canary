@@ -1338,7 +1338,37 @@ pub async fn create_wallet_contact(
                             .into_response();
                     }
                 };
-                processed_methods.push((ProviderType::Sms, normalized_phone));
+                
+                // SECURITY: Check if this phone number was recently verified
+                match app_services
+                    .metadata_db
+                    .was_recently_verified(&wallet_checksum, &normalized_phone)
+                    .await
+                {
+                    Ok(true) => {
+                        // Phone was verified, safe to add
+                        processed_methods.push((ProviderType::Sms, normalized_phone));
+                    }
+                    Ok(false) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse {
+                                error: "Phone number must be verified before adding contact"
+                                    .to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to check phone verification: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
             }
             ProviderType::Ntfy => {
                 // Push notifications are always allowed (ntfy is free)
@@ -1348,9 +1378,48 @@ pub async fn create_wallet_contact(
                 processed_methods.push((ProviderType::Ntfy, topic));
             }
             ProviderType::Email => {
-                // Email is allowed for all tiers
-                // Use the provided email address directly
-                processed_methods.push((ProviderType::Email, method.notification_target.clone()));
+                // Basic email validation
+                let email = method.notification_target.trim().to_lowercase();
+                if !email.contains('@') || email.len() < 5 {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse {
+                            error: "Invalid email address format".to_string(),
+                        }),
+                    )
+                        .into_response();
+                }
+                
+                // SECURITY: Check if this email address was recently verified
+                match app_services
+                    .metadata_db
+                    .was_recently_verified(&wallet_checksum, &email)
+                    .await
+                {
+                    Ok(true) => {
+                        // Email was verified, safe to add
+                        processed_methods.push((ProviderType::Email, email));
+                    }
+                    Ok(false) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse {
+                                error: "Email address must be verified before adding contact"
+                                    .to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to check email verification: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
             }
         }
     }
@@ -1519,6 +1588,281 @@ pub async fn delete_wallet_contact(
             }),
         )
             .into_response(),
+    }
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+pub struct UpdateContactRequest {
+    /// Contact name
+    pub name: String,
+    /// Contact language
+    pub language: Language,
+    /// Notification methods for the contact
+    pub notification_methods: Vec<NotificationMethodRequest>,
+}
+
+#[utoipa::path(
+    put,
+    path = "/api/wallets/{wallet_checksum}/contacts/{contact_id}",
+    params(
+        ("wallet_checksum" = String, Path, description = "The wallet checksum"),
+        ("contact_id" = String, Path, description = "The contact ID")
+    ),
+    request_body = UpdateContactRequest,
+    responses(
+        (status = 200, description = "Contact updated successfully", body = Contact),
+        (status = 400, description = "Bad request", body = ErrorResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "Forbidden", body = ErrorResponse),
+        (status = 404, description = "Contact not found", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse),
+    ),
+    tag = "contacts",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn update_wallet_contact(
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+    headers: HeaderMap,
+    Path((wallet_checksum, contact_id)): Path<(String, String)>,
+    Json(payload): Json<UpdateContactRequest>,
+) -> Response {
+    let start_time = std::time::Instant::now();
+
+    // Authenticate user based on operating mode
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
+        Ok(user) => user,
+        Err(err) => {
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
+        }
+    };
+
+    // Check if wallet exists and user has access
+    let wallet = match app_services
+        .metadata_db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+    {
+        Ok(Some(wallet)) => {
+            if !user.is_admin {
+                match app_services
+                    .metadata_db
+                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
+                    .await
+                {
+                    Ok(true) => {} // User owns the wallet
+                    Ok(false) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(ErrorResponse {
+                                error: "Access denied".to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Database error: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            wallet
+        }
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Process notification methods with security checks
+    let mut processed_methods = Vec::new();
+
+    for method in &payload.notification_methods {
+        match method.provider_type {
+            ProviderType::Sms => {
+                // Validate and normalize the phone number
+                let normalized_phone = match validate_phone_number(&method.notification_target) {
+                    Ok(phone) => phone,
+                    Err(e) => {
+                        return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e }))
+                            .into_response();
+                    }
+                };
+                
+                // SECURITY: Check if this phone number was recently verified
+                match app_services
+                    .metadata_db
+                    .was_recently_verified(&wallet_checksum, &normalized_phone)
+                    .await
+                {
+                    Ok(true) => {
+                        processed_methods.push((ProviderType::Sms, normalized_phone));
+                    }
+                    Ok(false) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse {
+                                error: "Phone number must be verified before updating contact"
+                                    .to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to check phone verification: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            ProviderType::Ntfy => {
+                // Push notifications are always allowed (ntfy is free)
+                // Auto-generate ntfy topic
+                let topic = generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
+                processed_methods.push((ProviderType::Ntfy, topic));
+            }
+            ProviderType::Email => {
+                // Basic email validation
+                let email = method.notification_target.trim().to_lowercase();
+                if !email.contains('@') || email.len() < 5 {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse {
+                            error: "Invalid email address format".to_string(),
+                        }),
+                    )
+                        .into_response();
+                }
+                
+                // SECURITY: Check if this email address was recently verified
+                match app_services
+                    .metadata_db
+                    .was_recently_verified(&wallet_checksum, &email)
+                    .await
+                {
+                    Ok(true) => {
+                        processed_methods.push((ProviderType::Email, email));
+                    }
+                    Ok(false) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse {
+                                error: "Email address must be verified before updating contact"
+                                    .to_string(),
+                            }),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to check email verification: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+        }
+    }
+
+    // Ensure at least one method was provided
+    if processed_methods.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "At least one notification method must be provided".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Update contact using transaction
+    match app_services
+        .metadata_db
+        .update_contact_with_methods(
+            &contact_id,
+            &wallet_checksum,
+            &payload.name,
+            &payload.language,
+            processed_methods,
+        )
+        .await
+    {
+        Ok(()) => {
+            // Get the updated contact to return
+            match app_services
+                .metadata_db
+                .get_contacts_with_notification_methods(&wallet_checksum)
+                .await
+            {
+                Ok(contacts) => {
+                    if let Some(updated_contact) = contacts.iter().find(|c| c.id.as_ref() == Some(&contact_id)) {
+                        let elapsed = start_time.elapsed();
+                        info!("update_wallet_contact completed in {:?}", elapsed);
+                        (StatusCode::OK, Json(updated_contact.clone())).into_response()
+                    } else {
+                        (
+                            StatusCode::NOT_FOUND,
+                            Json(ErrorResponse {
+                                error: "Updated contact not found".to_string(),
+                            }),
+                        )
+                            .into_response()
+                    }
+                }
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to fetch updated contact: {}", e),
+                    }),
+                )
+                    .into_response(),
+            }
+        }
+        Err(e) => {
+            let elapsed = start_time.elapsed();
+            info!("update_wallet_contact failed in {:?}", elapsed);
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -2194,10 +2538,10 @@ pub async fn verify_contact(
             .clear_rate_limit(&notification_target)
             .await;
 
-        // Delete pending verification - no mutex blocking!
+        // Mark verification as completed - no mutex blocking!
         let _ = app_services
             .metadata_db
-            .delete_pending_verification(verification_id)
+            .mark_verification_completed(verification_id)
             .await;
 
         let success_message = if provider_type == "email" {
@@ -4098,7 +4442,7 @@ pub async fn get_checkout_session_details(
     paths(
         create_wallet_non_blocking, update_wallet, delete_wallet, get_wallet,
         get_wallets_list, get_wallet_detail,
-        create_wallet_contact, delete_wallet_contact, get_wallet_contacts,
+        create_wallet_contact, update_wallet_contact, delete_wallet_contact, get_wallet_contacts,
         send_contact_verification, verify_contact,
         get_current_block_header,
         get_providers,
@@ -4107,7 +4451,7 @@ pub async fn get_checkout_session_details(
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
-        CreateContactWithMethodsRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
+        CreateContactWithMethodsRequest, UpdateContactRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
         SendContactVerificationRequest, VerifyContactRequest, VerifyContactResponse,
         Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
@@ -4199,7 +4543,7 @@ pub fn create_router_with_services(
         .route("/wallets/{checksum}/contacts", post(create_wallet_contact))
         .route(
             "/wallets/{wallet_checksum}/contacts/{contact_id}",
-            axum::routing::delete(delete_wallet_contact),
+            axum::routing::put(update_wallet_contact).delete(delete_wallet_contact),
         )
         .route("/auth/login", post(login))
         .route("/block-headers/current", get(get_current_block_header))
