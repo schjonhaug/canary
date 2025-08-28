@@ -86,20 +86,20 @@ export function getApiBaseUrl(): string {
 
 export async function handleApiResponse(response: Response): Promise<unknown> {
   if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Resource not found')
-    }
-    if (response.status === 409) {
-      throw new Error('Resource already exists')
-    }
-    
-    // Try to get error message from response
+    // Try to get error message from response first
     let errorMessage: string
     try {
       const errorData = await response.json()
       errorMessage = errorData.error || errorData.message || `HTTP error! status: ${response.status}`
     } catch {
-      errorMessage = `HTTP error! status: ${response.status}`
+      // Fallback to generic messages based on status code
+      if (response.status === 404) {
+        errorMessage = 'Resource not found'
+      } else if (response.status === 409) {
+        errorMessage = 'Resource already exists'
+      } else {
+        errorMessage = `HTTP error! status: ${response.status}`
+      }
     }
     
     throw new Error(errorMessage)

@@ -1435,6 +1435,39 @@ pub async fn create_wallet_contact(
             .into_response();
     }
 
+    // Check for duplicate notification targets (email/phone) within the same wallet
+    let methods_for_validation: Vec<(String, String)> = processed_methods
+        .iter()
+        .map(|(provider, target)| (provider.as_str().to_string(), target.clone()))
+        .collect();
+
+    match app_services
+        .metadata_db
+        .check_duplicate_notification_targets(&wallet_checksum, &methods_for_validation, None)
+        .await
+    {
+        Ok(duplicates) => {
+            if !duplicates.is_empty() {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(ErrorResponse {
+                        error: format!("Duplicate notification targets: {}", duplicates.join(", ")),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to check for duplicates: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
     let create_result = app_services
         .metadata_db
         .insert_contact_with_notification_methods(
@@ -1809,6 +1842,39 @@ pub async fn update_wallet_contact(
             .into_response();
     }
 
+    // Check for duplicate notification targets (email/phone) within the same wallet, excluding current contact
+    let methods_for_validation: Vec<(String, String)> = processed_methods
+        .iter()
+        .map(|(provider, target)| (provider.as_str().to_string(), target.clone()))
+        .collect();
+
+    match app_services
+        .metadata_db
+        .check_duplicate_notification_targets(&wallet_checksum, &methods_for_validation, Some(&contact_id))
+        .await
+    {
+        Ok(duplicates) => {
+            if !duplicates.is_empty() {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(ErrorResponse {
+                        error: format!("Duplicate notification targets: {}", duplicates.join(", ")),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to check for duplicates: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
     // Update contact using transaction
     match app_services
         .metadata_db
@@ -2093,6 +2159,33 @@ pub async fn send_contact_verification(
             }
         };
 
+        // Check for duplicate phone number in this wallet BEFORE any verification
+        match app_services
+            .metadata_db
+            .check_duplicate_notification_target(&wallet_checksum, "sms", &normalized_phone, None)
+            .await
+        {
+            Ok(Some(existing_contact_name)) => {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(ErrorResponse {
+                        error: format!("Phone number '{}' is already used by contact '{}' in this wallet", normalized_phone, existing_contact_name),
+                    }),
+                )
+                    .into_response();
+            }
+            Ok(None) => {} // No duplicate found, continue
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to check for duplicate phone number: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+
         let is_dev_phone = cfg!(debug_assertions)
             && ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
 
@@ -2112,6 +2205,33 @@ pub async fn send_contact_verification(
                 .into_response();
         }
 
+        // Check for duplicate email in this wallet BEFORE any verification
+        match app_services
+            .metadata_db
+            .check_duplicate_notification_target(&wallet_checksum, "email", &email, None)
+            .await
+        {
+            Ok(Some(existing_contact_name)) => {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(ErrorResponse {
+                        error: format!("Email '{}' is already used by contact '{}' in this wallet", email, existing_contact_name),
+                    }),
+                )
+                    .into_response();
+            }
+            Ok(None) => {} // No duplicate found, continue
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to check for duplicate email: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+
         // Check if email matches current user's account email (skip verification) - no mutex blocking!
         if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await
         {
@@ -2120,12 +2240,51 @@ pub async fn send_contact_verification(
             let auth_service = AuthService::new(jwt_secret.clone(), None);
 
             if auth_service.should_skip_email_verification(&email, &user_record.email) {
-                // Auto-approve for user's own email
-                return Json(serde_json::json!({
-                    "message": "Email verification skipped - this is your account email",
-                    "auto_verified": true
-                }))
-                .into_response();
+                // Auto-approve for user's own email, but still create verification record
+                match app_services
+                    .metadata_db
+                    .create_pending_contact_verification(
+                        &wallet_checksum,
+                        "email",
+                        &email,
+                        &request.name,
+                        &request.language,
+                        None, // No code needed for auto-verification
+                    )
+                    .await
+                {
+                    Ok(verification_id) => {
+                        // Mark as verified immediately
+                        if let Err(e) = app_services
+                            .metadata_db
+                            .mark_verification_completed(verification_id)
+                            .await
+                        {
+                            return (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(ErrorResponse {
+                                    error: format!("Failed to complete auto-verification: {}", e),
+                                }),
+                            )
+                                .into_response();
+                        }
+                        
+                        return Json(serde_json::json!({
+                            "message": "Email verified automatically for user accounts",
+                            "auto_verified": true
+                        }))
+                        .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to create verification record: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
             }
         }
 

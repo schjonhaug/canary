@@ -730,6 +730,168 @@ impl MetadataDb {
         .await?
     }
 
+    /// Check if a notification target (email or phone) is already used by another contact in the same wallet
+    pub async fn check_duplicate_notification_target(
+        &self,
+        wallet_checksum: &str,
+        provider_type: &str,
+        notification_target: &str,
+        exclude_contact_id: Option<&str>,
+    ) -> Result<Option<String>> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let provider = provider_type.to_string();
+        let target = notification_target.to_string();
+        let exclude_id = exclude_contact_id.map(|s| s.to_string());
+
+        spawn_blocking(move || -> Result<Option<String>> {
+            let conn = pool.get()?;
+            
+            // For emails, do case-insensitive comparison
+            let existing_contact_name: Option<String> = if provider == "email" {
+                if let Some(contact_id) = exclude_id {
+                    conn.query_row(
+                        "SELECT c.name FROM contacts c 
+                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
+                         WHERE cnm.wallet_checksum = ?1 
+                         AND cnm.provider_type = ?2 
+                         AND LOWER(cnm.notification_target) = LOWER(?3)
+                         AND c.id != ?4
+                         LIMIT 1",
+                        params![&checksum, &provider, &target, &contact_id],
+                        |row| row.get(0),
+                    ).optional()?
+                } else {
+                    conn.query_row(
+                        "SELECT c.name FROM contacts c 
+                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
+                         WHERE cnm.wallet_checksum = ?1 
+                         AND cnm.provider_type = ?2 
+                         AND LOWER(cnm.notification_target) = LOWER(?3)
+                         LIMIT 1",
+                        params![&checksum, &provider, &target],
+                        |row| row.get(0),
+                    ).optional()?
+                }
+            } else if let Some(contact_id) = exclude_id {
+                // For SMS and other types, exact match
+                conn.query_row(
+                    "SELECT c.name FROM contacts c 
+                     JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
+                     WHERE cnm.wallet_checksum = ?1 
+                     AND cnm.provider_type = ?2 
+                     AND cnm.notification_target = ?3
+                     AND c.id != ?4
+                     LIMIT 1",
+                    params![&checksum, &provider, &target, &contact_id],
+                    |row| row.get(0),
+                ).optional()?
+            } else {
+                conn.query_row(
+                    "SELECT c.name FROM contacts c 
+                     JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
+                     WHERE cnm.wallet_checksum = ?1 
+                     AND cnm.provider_type = ?2 
+                     AND cnm.notification_target = ?3
+                     LIMIT 1",
+                    params![&checksum, &provider, &target],
+                    |row| row.get(0),
+                ).optional()?
+            };
+            
+            Ok(existing_contact_name)
+        })
+        .await?
+    }
+
+    /// Check for duplicate notification targets across multiple targets for batch validation
+    pub async fn check_duplicate_notification_targets(
+        &self,
+        wallet_checksum: &str,
+        notification_methods: &[(String, String)], // (provider_type, notification_target)
+        exclude_contact_id: Option<&str>,
+    ) -> Result<Vec<String>> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let methods = notification_methods.to_vec();
+        let exclude_id = exclude_contact_id.map(|s| s.to_string());
+
+        spawn_blocking(move || -> Result<Vec<String>> {
+            let conn = pool.get()?;
+            let mut duplicates = Vec::new();
+            
+            for (provider_type, notification_target) in &methods {
+                // Skip ntfy as it's auto-generated and unique
+                if provider_type == "ntfy" {
+                    continue;
+                }
+                
+                // For emails, do case-insensitive comparison  
+                let existing_contact_name: Option<String> = if provider_type == "email" {
+                    if let Some(contact_id) = &exclude_id {
+                        conn.query_row(
+                            "SELECT c.name FROM contacts c 
+                             JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
+                             WHERE cnm.wallet_checksum = ?1 
+                             AND cnm.provider_type = ?2 
+                             AND LOWER(cnm.notification_target) = LOWER(?3)
+                             AND c.id != ?4
+                             LIMIT 1",
+                            params![&checksum, provider_type, notification_target, contact_id],
+                            |row| row.get::<_, String>(0),
+                        ).optional()?
+                    } else {
+                        conn.query_row(
+                            "SELECT c.name FROM contacts c 
+                             JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
+                             WHERE cnm.wallet_checksum = ?1 
+                             AND cnm.provider_type = ?2 
+                             AND LOWER(cnm.notification_target) = LOWER(?3)
+                             LIMIT 1",
+                            params![&checksum, provider_type, notification_target],
+                            |row| row.get::<_, String>(0),
+                        ).optional()?
+                    }
+                } else if let Some(contact_id) = &exclude_id {
+                    // For SMS and other types, exact match
+                    conn.query_row(
+                        "SELECT c.name FROM contacts c 
+                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
+                         WHERE cnm.wallet_checksum = ?1 
+                         AND cnm.provider_type = ?2 
+                         AND cnm.notification_target = ?3
+                         AND c.id != ?4
+                         LIMIT 1",
+                        params![&checksum, provider_type, notification_target, contact_id],
+                        |row| row.get::<_, String>(0),
+                    ).optional()?
+                } else {
+                    conn.query_row(
+                        "SELECT c.name FROM contacts c 
+                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
+                         WHERE cnm.wallet_checksum = ?1 
+                         AND cnm.provider_type = ?2 
+                         AND cnm.notification_target = ?3
+                         LIMIT 1",
+                        params![&checksum, provider_type, notification_target],
+                        |row| row.get::<_, String>(0),
+                    ).optional()?
+                };
+                
+                if let Some(existing_contact_name) = existing_contact_name {
+                    let provider_label = if provider_type == "email" { "Email" } else { "Phone number" };
+                    duplicates.push(format!(
+                        "{} '{}' is already used by contact '{}'",
+                        provider_label, notification_target, existing_contact_name
+                    ));
+                }
+            }
+            
+            Ok(duplicates)
+        })
+        .await?
+    }
+
     pub async fn is_wallet_owned_by_user(
         &self,
         wallet_checksum: &str,
@@ -949,8 +1111,8 @@ impl MetadataDb {
             for (provider_type, notification_target) in notification_methods {
                 let method_id = Uuid::new_v4().to_string();
                 tx.execute(
-                    "INSERT INTO contact_notification_methods (id, contact_id, provider_type, notification_target) VALUES (?1, ?2, ?3, ?4)",
-                    params![&method_id, &contact_id, provider_type.as_str(), &notification_target],
+                    "INSERT INTO contact_notification_methods (id, contact_id, provider_type, notification_target, wallet_checksum) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![&method_id, &contact_id, provider_type.as_str(), &notification_target, &checksum],
                 )?;
             }
             
@@ -2293,9 +2455,9 @@ impl MetadataDb {
                     let method_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
                         "INSERT INTO contact_notification_methods 
-                         (id, contact_id, provider_type, notification_target) 
-                         VALUES (?1, ?2, ?3, ?4)",
-                        params![method_id, contact_id, provider_type.as_str(), target],
+                         (id, contact_id, provider_type, notification_target, wallet_checksum) 
+                         VALUES (?1, ?2, ?3, ?4, ?5)",
+                        params![method_id, contact_id, provider_type.as_str(), target, checksum],
                     )?;
                 }
                 

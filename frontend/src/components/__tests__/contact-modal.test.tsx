@@ -595,5 +595,68 @@ describe('ContactModal', () => {
       expect(nameInput.value).toBe('')
       expect(screen.getByRole('checkbox', { name: /SMS Notifications/ })).not.toBeChecked()
     })
+
+    it('displays duplicate email error from API', async () => {
+      const user = userEvent.setup()
+      
+      // Mock email verification success - using same pattern as existing tests  
+      mockApi.sendContactVerification.mockResolvedValue({ 
+        message: 'Email verified automatically for user accounts' 
+      })
+      
+      // Mock createContact to return duplicate conflict error
+      mockApi.createContact.mockRejectedValue(new Error("Duplicate notification targets: Email 'user@example.com' is already used by contact 'John'"))
+      
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Email Notifications')).toBeInTheDocument()
+      })
+
+      // Fill in contact details - only enable ntfy to simplify test
+      await user.type(screen.getByLabelText('Name'), 'Duplicate Contact')
+      await user.click(screen.getByRole('checkbox', { name: /Push Notifications/ }))
+
+      // Try to create contact - should fail with duplicate error
+      await user.click(screen.getByText('Create Contact'))
+
+      await waitFor(() => {
+        expect(screen.getByText(/Duplicate notification targets/)).toBeInTheDocument()
+      })
+
+      // Modal should still be open
+      expect(screen.getByText('Create Contact')).toBeInTheDocument()
+    })
+
+    it('displays duplicate phone error from API', async () => {
+      const user = userEvent.setup()
+      
+      // Mock createContact to return duplicate conflict error
+      mockApi.createContact.mockRejectedValue(new Error("Duplicate notification targets: Phone number '+4712345678' is already used by contact 'Alice'"))
+      
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
+      })
+
+      // Fill in contact details - only enable ntfy to simplify test
+      await user.type(screen.getByLabelText('Name'), 'Duplicate SMS Contact')
+      await user.click(screen.getByRole('checkbox', { name: /Push Notifications/ }))
+
+      // Try to create contact - should fail with duplicate error
+      await user.click(screen.getByText('Create Contact'))
+
+      await waitFor(() => {
+        expect(screen.getByText(/Duplicate notification targets/)).toBeInTheDocument()
+      })
+
+      // Modal should still be open
+      expect(screen.getByText('Create Contact')).toBeInTheDocument()
+    })
   })
 })
