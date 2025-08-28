@@ -455,11 +455,6 @@ export function ContactModal({
     try {
       // If verification requirements are met
       if ((!hasSms || (hasSms && smsVerified)) && (!hasEmail || (hasEmail && emailVerified))) {
-        // For edit mode, delete first only after validation passes
-        if (isEditMode && editContact) {
-          await api.deleteContact(walletChecksum, editContact.id)
-        }
-        
         const notificationMethods: { provider_type: 'sms' | 'ntfy' | 'email'; notification_target: string }[] = []
         
         if (hasNtfy) {
@@ -480,12 +475,24 @@ export function ContactModal({
           })
         }
         
-        await api.createContact(
-          walletChecksum,
-          name.trim(),
-          language,
-          notificationMethods
-        )
+        if (isEditMode && editContact) {
+          // Use PUT for updates - atomic transaction
+          await api.updateContact(
+            walletChecksum,
+            editContact.id,
+            name.trim(),
+            language,
+            notificationMethods
+          )
+        } else {
+          // Use POST for creation
+          await api.createContact(
+            walletChecksum,
+            name.trim(),
+            language,
+            notificationMethods
+          )
+        }
 
         handleClose()
         if (onContactSaved) {

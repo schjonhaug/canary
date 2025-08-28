@@ -37,8 +37,8 @@ export interface TransactionEvent {
 }
 
 export interface NotificationMethod {
-  id: number
-  contact_id: number
+  id: string
+  contact_id: string
   provider_type: 'sms' | 'ntfy' | 'email'
   notification_target: string
   display_target?: string
@@ -46,7 +46,7 @@ export interface NotificationMethod {
 }
 
 export interface Contact {
-  id: number
+  id: string
   wallet_checksum: string
   name: string
   language: 'en' | 'no'

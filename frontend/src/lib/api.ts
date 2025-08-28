@@ -154,7 +154,7 @@ class ApiClient {
 
   async updateContact(
     walletChecksum: string,
-    contactId: number,
+    contactId: string,
     name: string,
     language: 'en' | 'no',
     notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
@@ -169,7 +169,7 @@ class ApiClient {
     })
   }
 
-  async deleteContact(walletChecksum: string, contactId: number): Promise<void> {
+  async deleteContact(walletChecksum: string, contactId: string): Promise<void> {
     return this.request<void>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {
       method: 'DELETE',
     })
