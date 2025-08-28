@@ -2129,19 +2129,6 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn delete_pending_verification(&self, verification_id: i64) -> Result<()> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || {
-            let conn = pool.get()?;
-            conn.execute(
-                "DELETE FROM pending_contact_verifications WHERE id = ?1",
-                params![verification_id],
-            )?;
-            Ok(())
-        })
-        .await?
-    }
 
     /// Mark a pending verification as completed (used for contact updates)
     /// This keeps the verification record for the PUT endpoint to find

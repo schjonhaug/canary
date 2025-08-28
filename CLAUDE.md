@@ -61,7 +61,7 @@ canary/
 ├── backend/          # Rust service with BDK wallet management
 │   ├── src/         # All source code (api.rs, main.rs, wallet management, notifications, subscription.rs)
 │   ├── database/    # Network-specific SQLite databases (database/{network}/)
-│   ├── migrations/  # Database schema migrations (001_initial_schema.sql, 002_add_sync_status.sql, 003_add_deleted_status.sql)
+│   ├── migrations/  # Database schema migrations (001_initial_schema.sql, 002_add_sync_status.sql, 003_add_deleted_status.sql, 004_add_verified_at.sql)
 │   ├── tests/       # Integration tests (stripe_integration_tests.rs)
 │   ├── tasks/       # Development tasks and documentation
 │   └── xpub-tools/  # XPUB conversion utilities
@@ -103,8 +103,16 @@ canary/
 
 ### Contact Management (Wallet-specific)
 - `POST /api/wallets/{checksum}/contacts` - Add contact with automatic provider detection (name + contact_address + language)
-- `GET /api/wallets/{checksum}/contacts` - List contacts with notification methods
+- `GET /api/wallets/{checksum}/contacts` - List contacts with notification methods  
+- `PUT /api/wallets/{checksum}/contacts/{contact_id}` - Update contact with atomic transaction support
 - `DELETE /api/wallets/{wallet_checksum}/contacts/{contact_id}` - Remove contact and all notification methods
+
+### Contact Verification System
+- `POST /api/wallets/{checksum}/contacts/send-verification` - Send SMS/email verification codes
+- `POST /api/wallets/{checksum}/contacts/verify` - Verify SMS/email codes for contact creation/updates
+- **Security**: All SMS and email contacts require OTP verification within 30-minute window
+- **Atomic Updates**: PUT operations use database transactions to prevent data loss
+- **Verification Persistence**: Completed verifications are marked with timestamps, not deleted
 
 ### Blockchain Data
 - `GET /api/block-headers/current` - Get current block header from database
@@ -151,6 +159,8 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Proactive Limit Enforcement**: Smart upgrade modals prevent users from hitting limits after form completion
 - **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh, Twilio SMS, and Resend email
 - **Multiple Notification Methods**: Each contact can have multiple notification methods (SMS + email + ntfy + future: telegram + webhooks)
+- **Atomic Contact Updates**: PUT endpoint with database transactions prevents data loss during contact modifications
+- **Secure Verification System**: OTP verification for SMS/email with 30-minute validity windows and persistent completion tracking
 - **Multi-language Support**: Norwegian and English with proper Bitcoin amount formatting  
 - **Auto-detection**: Automatically detects provider type from contact address format (phone numbers → SMS, email addresses → email, topics → ntfy)
 - **Normalized Database**: Clean separation of contacts and notification methods for future extensibility
@@ -445,7 +455,7 @@ This is separate from the main authentication system and only used when users ad
 ## Storage
 - **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
 - **Metadata**: `database/{network}/metadata.sqlite` (normalized schema with users, contacts, contact_notification_methods, events, notification_logs, email_verification_tokens, password_reset_tokens)
-- **Schema**: Three migration files (001_initial_schema.sql, 002_add_sync_status.sql, 003_add_deleted_status.sql) with normalized design for extensible notification methods, multi-user support, and email authentication
+- **Schema**: Four migration files (001_initial_schema.sql, 002_add_sync_status.sql, 003_add_deleted_status.sql, 004_add_verified_at.sql) with normalized design for extensible notification methods, multi-user support, email authentication, and verification tracking
 - **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
 
 ## Address Management & Deep Scanning

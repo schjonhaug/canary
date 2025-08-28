@@ -177,7 +177,7 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - Without webhook forwarding, users remain in "pending" status
 
 ### Database Management
-- **Three Migration Files**: Initial schema (001), sync status addition (002), and deleted status support (003)
+- **Four Migration Files**: Initial schema (001), sync status addition (002), deleted status support (003), and verification tracking (004)
 - **Network Isolation**: Each network has separate database directory
 - **Reset Command**: `./regtest-env/docker-utils.sh reset` clears all databases
 - **Connection Pooling**: r2d2 SQLite pool with 10 max connections

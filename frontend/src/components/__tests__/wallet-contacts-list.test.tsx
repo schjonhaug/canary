@@ -14,19 +14,46 @@ jest.mock('../../lib/api', () => ({
   },
 }))
 
+// Mock the useAuth hook
+jest.mock('../../contexts/auth-context', () => ({
+  useAuth: () => ({
+    user: {
+      id: 1,
+      email: 'test@example.com',
+      name: 'Test User',
+      is_admin: false,
+      email_verified: true
+    },
+    isAuthenticated: true,
+    isLoading: false,
+    isSaasMode: true,
+    billingStatus: {
+      subscription_tier: 'team',
+      subscription_status: 'active',
+      wallet_count: 1,
+      contact_count: 2,
+      limits: {
+        max_wallets: 5,
+        max_contacts_per_wallet: 5,
+        sync_interval_seconds: 120
+      }
+    }
+  })
+}))
+
 const mockApi = jest.requireMock('../../lib/api').api
 
 describe('WalletContactsList', () => {
   const mockContacts: Contact[] = [
     {
-      id: 1,
-      wallet_id: 1,
+      id: 'contact-1',
+      wallet_checksum: 'test-checksum',
       name: 'Alice Smith',
       language: 'en',
       notification_methods: [
         {
-          id: 1,
-          contact_id: 1,
+          id: 'method-1',
+          contact_id: 'contact-1',
           provider_type: 'sms',
           notification_target: '+4792050946',
           display_target: '+4792050946',
@@ -34,16 +61,17 @@ describe('WalletContactsList', () => {
         }
       ],
       created_at: '2024-01-01T00:00:00Z',
+      is_active: true,
     },
     {
-      id: 2,
-      wallet_id: 1,
+      id: 'contact-2',
+      wallet_checksum: 'test-checksum',
       name: 'Bob Johnson',
       language: 'no',
       notification_methods: [
         {
-          id: 2,
-          contact_id: 2,
+          id: 'method-2',
+          contact_id: 'contact-2',
           provider_type: 'ntfy',
           notification_target: 'bob-no-8nt3y08q',
           display_target: 'bob-no-8nt3y08q',
@@ -51,6 +79,7 @@ describe('WalletContactsList', () => {
         }
       ],
       created_at: '2024-01-02T00:00:00Z',
+      is_active: true,
     },
   ]
 

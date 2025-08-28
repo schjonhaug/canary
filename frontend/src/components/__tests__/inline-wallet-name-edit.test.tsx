@@ -9,6 +9,33 @@ jest.mock('../../lib/api', () => ({
   },
 }))
 
+// Mock the useAuth hook
+jest.mock('../../contexts/auth-context', () => ({
+  useAuth: () => ({
+    user: {
+      id: 1,
+      email: 'test@example.com',
+      name: 'Test User',
+      is_admin: false,
+      email_verified: true
+    },
+    isAuthenticated: true,
+    isLoading: false,
+    isSaasMode: true,
+    billingStatus: {
+      subscription_tier: 'team',
+      subscription_status: 'active',
+      wallet_count: 1,
+      contact_count: 2,
+      limits: {
+        max_wallets: 5,
+        max_contacts_per_wallet: 5,
+        sync_interval_seconds: 120
+      }
+    }
+  })
+}))
+
 const mockApi = jest.requireMock('../../lib/api').api
 
 describe('InlineWalletNameEdit', () => {
