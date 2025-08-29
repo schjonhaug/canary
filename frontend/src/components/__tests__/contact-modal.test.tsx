@@ -92,12 +92,13 @@ describe('ContactModal', () => {
       expect(screen.getByText('Edit Contact')).toBeInTheDocument()
     })
 
-    it('calls onClose when cancel button is clicked', async () => {
+    it('calls onClose when X button is clicked', async () => {
       await act(async () => {
         render(<ContactModal {...defaultProps} />)
       })
       
-      fireEvent.click(screen.getByText('Cancel'))
+      // Find the close button by its data attribute
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }))
       expect(defaultProps.onClose).toHaveBeenCalled()
     })
   })

@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Bell, MessageCircle, Mail } from "lucide-react"
 import { api, ProviderInfo } from "../lib/api"
 import { Contact } from "../types"
+import { DeleteContactModal } from "./delete-contact-modal"
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -65,6 +66,7 @@ export function ContactModal({
   const [showSmsVerificationSuccess, setShowSmsVerificationSuccess] = useState(false)
   const [originalPhoneNumber, setOriginalPhoneNumber] = useState<string | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const isEditMode = !!editContact
@@ -157,6 +159,7 @@ export function ContactModal({
       setOriginalPhoneNumber(null)
       setOriginalEmailAddress(null)
       setHasChanges(false)
+      setIsDeleteModalOpen(false)
       
       if (timerRef.current) {
         clearInterval(timerRef.current)
@@ -224,6 +227,7 @@ export function ContactModal({
     setOriginalPhoneNumber(null)
     setOriginalEmailAddress(null)
     setHasChanges(false)
+    setIsDeleteModalOpen(false)
     if (timerRef.current) {
       clearInterval(timerRef.current)
     }
@@ -520,6 +524,15 @@ export function ContactModal({
     }
   }
 
+  const handleDeleteContact = async () => {
+    if (!editContact) return
+    
+    await api.deleteContact(walletChecksum, editContact.id)
+    handleClose()
+    if (onContactSaved) {
+      onContactSaved()
+    }
+  }
 
   const handleResendCode = async () => {
     if (!smsVerificationPhone) return
@@ -932,15 +945,28 @@ export function ContactModal({
 
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
+        <DialogFooter className={isEditMode ? "sm:justify-between" : ""}>
+          {isEditMode && (
+            <Button
+              variant="destructive"
+              onClick={() => setIsDeleteModalOpen(true)}
+              disabled={isSubmitting}
+            >
+              Delete
+            </Button>
+          )}
           <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges)}>
             {isSubmitting ? "Processing..." : (isEditMode ? "Update Contact" : "Create Contact")}
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <DeleteContactModal
+        contact={editContact || null}
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirmDelete={handleDeleteContact}
+      />
     </Dialog>
   )
 }
