@@ -1234,11 +1234,11 @@ impl MetadataDb {
             let query = if include_inactive {
                 "SELECT id, wallet_checksum, name, language, created_at, is_active 
                  FROM contacts 
-                 WHERE wallet_checksum = ?1 ORDER BY name"
+                 WHERE wallet_checksum = ?1 ORDER BY name, created_at"
             } else {
                 "SELECT id, wallet_checksum, name, language, created_at, 1 as is_active
                  FROM contacts 
-                 WHERE wallet_checksum = ?1 AND is_active = 1 ORDER BY name"
+                 WHERE wallet_checksum = ?1 AND is_active = 1 ORDER BY name, created_at"
             };
             let mut stmt = conn.prepare(query)?;
 

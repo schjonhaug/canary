@@ -43,7 +43,14 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
     <div>
       {contacts.length > 0 ? (
         <div className="space-y-2">
-          {contacts.sort((a, b) => a.name.localeCompare(b.name)).map((contact) => {
+          {contacts.sort((a, b) => {
+            const nameComparison = a.name.localeCompare(b.name);
+            if (nameComparison !== 0) {
+              return nameComparison;
+            }
+            // Secondary sort by created_at for contacts with the same name
+            return a.created_at.localeCompare(b.created_at);
+          }).map((contact) => {
             const isInactive = contact.is_active === false
             const shouldShowInactiveState = isInactive && isWalletActive
             const isAdminInSaas = isSaasMode && user?.is_admin
