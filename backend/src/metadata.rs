@@ -746,7 +746,7 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<Option<String>> {
             let conn = pool.get()?;
-            
+
             // For emails, do case-insensitive comparison
             let existing_contact_name: Option<String> = if provider == "email" {
                 if let Some(contact_id) = exclude_id {
@@ -760,7 +760,8 @@ impl MetadataDb {
                          LIMIT 1",
                         params![&checksum, &provider, &target, &contact_id],
                         |row| row.get(0),
-                    ).optional()?
+                    )
+                    .optional()?
                 } else {
                     conn.query_row(
                         "SELECT c.name FROM contacts c 
@@ -771,7 +772,8 @@ impl MetadataDb {
                          LIMIT 1",
                         params![&checksum, &provider, &target],
                         |row| row.get(0),
-                    ).optional()?
+                    )
+                    .optional()?
                 }
             } else if let Some(contact_id) = exclude_id {
                 // For SMS and other types, exact match
@@ -785,7 +787,8 @@ impl MetadataDb {
                      LIMIT 1",
                     params![&checksum, &provider, &target, &contact_id],
                     |row| row.get(0),
-                ).optional()?
+                )
+                .optional()?
             } else {
                 conn.query_row(
                     "SELECT c.name FROM contacts c 
@@ -796,9 +799,10 @@ impl MetadataDb {
                      LIMIT 1",
                     params![&checksum, &provider, &target],
                     |row| row.get(0),
-                ).optional()?
+                )
+                .optional()?
             };
-            
+
             Ok(existing_contact_name)
         })
         .await?
@@ -819,14 +823,14 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<String>> {
             let conn = pool.get()?;
             let mut duplicates = Vec::new();
-            
+
             for (provider_type, notification_target) in &methods {
                 // Skip ntfy as it's auto-generated and unique
                 if provider_type == "ntfy" {
                     continue;
                 }
-                
-                // For emails, do case-insensitive comparison  
+
+                // For emails, do case-insensitive comparison
                 let existing_contact_name: Option<String> = if provider_type == "email" {
                     if let Some(contact_id) = &exclude_id {
                         conn.query_row(
@@ -839,7 +843,8 @@ impl MetadataDb {
                              LIMIT 1",
                             params![&checksum, provider_type, notification_target, contact_id],
                             |row| row.get::<_, String>(0),
-                        ).optional()?
+                        )
+                        .optional()?
                     } else {
                         conn.query_row(
                             "SELECT c.name FROM contacts c 
@@ -850,7 +855,8 @@ impl MetadataDb {
                              LIMIT 1",
                             params![&checksum, provider_type, notification_target],
                             |row| row.get::<_, String>(0),
-                        ).optional()?
+                        )
+                        .optional()?
                     }
                 } else if let Some(contact_id) = &exclude_id {
                     // For SMS and other types, exact match
@@ -864,7 +870,8 @@ impl MetadataDb {
                          LIMIT 1",
                         params![&checksum, provider_type, notification_target, contact_id],
                         |row| row.get::<_, String>(0),
-                    ).optional()?
+                    )
+                    .optional()?
                 } else {
                     conn.query_row(
                         "SELECT c.name FROM contacts c 
@@ -875,18 +882,23 @@ impl MetadataDb {
                          LIMIT 1",
                         params![&checksum, provider_type, notification_target],
                         |row| row.get::<_, String>(0),
-                    ).optional()?
+                    )
+                    .optional()?
                 };
-                
+
                 if let Some(existing_contact_name) = existing_contact_name {
-                    let provider_label = if provider_type == "email" { "Email" } else { "Phone number" };
+                    let provider_label = if provider_type == "email" {
+                        "Email"
+                    } else {
+                        "Phone number"
+                    };
                     duplicates.push(format!(
                         "{} '{}' is already used by contact '{}'",
                         provider_label, notification_target, existing_contact_name
                     ));
                 }
             }
-            
+
             Ok(duplicates)
         })
         .await?
@@ -1322,6 +1334,86 @@ impl MetadataDb {
                 params![contact_id, checksum],
             )?;
             Ok(rows_affected > 0)
+        })
+        .await?
+    }
+
+    /// Get a single contact with its notification methods by ID and wallet checksum
+    pub async fn get_single_contact_with_methods(
+        &self,
+        contact_id: &str,
+        wallet_checksum: &str,
+    ) -> Result<Option<Contact>> {
+        let pool = self.pool.clone();
+        let contact_id = contact_id.to_string();
+        let checksum = wallet_checksum.to_string();
+
+        spawn_blocking(move || -> Result<Option<Contact>> {
+            let conn = pool.get()?;
+
+            // Get the contact
+            let query = "SELECT id, wallet_checksum, name, language, created_at, is_active 
+                         FROM contacts 
+                         WHERE id = ?1 AND wallet_checksum = ?2";
+            let mut stmt = conn.prepare(query)?;
+            let contact_result = stmt.query_row(params![contact_id, checksum], |row| {
+                let language_str: String = row.get(3)?;
+                Ok(Contact {
+                    id: Some(row.get(0)?),
+                    wallet_checksum: row.get(1)?,
+                    name: row.get(2)?,
+                    language: Language::from(language_str.as_str()),
+                    notification_methods: Vec::new(), // Will be populated below
+                    created_at: row.get(4)?,
+                    is_active: row.get::<_, i64>(5).unwrap_or(1) != 0, // SQLite stores bool as int
+                })
+            });
+
+            let mut contact = match contact_result {
+                Ok(contact) => contact,
+                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
+                Err(e) => return Err(e.into()),
+            };
+
+            // Get notification methods for this contact
+            let methods_query = "SELECT id, provider_type, notification_target, created_at
+                               FROM contact_notification_methods 
+                               WHERE contact_id = ?1";
+            let mut methods_stmt = conn.prepare(methods_query)?;
+            let methods_iter = methods_stmt.query_map(params![contact_id], |row| {
+                let provider_type_str: String = row.get(1)?;
+                let provider_type = ProviderType::from(provider_type_str.as_str());
+                let notification_target: String = row.get(2)?;
+
+                // Format phone numbers for display
+                let display_target = if provider_type == ProviderType::Sms {
+                    PhoneNumber::from_str(&notification_target)
+                        .ok()
+                        .map(|phone| {
+                            phone
+                                .format()
+                                .mode(phonenumber::Mode::International)
+                                .to_string()
+                        })
+                } else {
+                    None
+                };
+
+                Ok(NotificationMethod {
+                    id: Some(row.get(0)?),
+                    contact_id: contact_id.clone(),
+                    provider_type,
+                    notification_target,
+                    display_target,
+                    created_at: row.get(3)?,
+                })
+            })?;
+
+            for method_result in methods_iter {
+                contact.notification_methods.push(method_result?);
+            }
+
+            Ok(Some(contact))
         })
         .await?
     }
@@ -2291,7 +2383,6 @@ impl MetadataDb {
         .await?
     }
 
-
     /// Mark a pending verification as completed (used for contact updates)
     /// This keeps the verification record for the PUT endpoint to find
     pub async fn mark_verification_completed(&self, verification_id: i64) -> Result<()> {
@@ -2319,7 +2410,7 @@ impl MetadataDb {
                 "DELETE FROM pending_contact_verifications WHERE expires_at <= datetime('now')",
                 [],
             )?;
-            
+
             // Also clean up old completed verifications (older than 24 hours)
             let deleted_completed = conn.execute(
                 "DELETE FROM pending_contact_verifications 
@@ -2327,7 +2418,7 @@ impl MetadataDb {
                  AND verified_at <= datetime('now', '-24 hours')",
                 [],
             )?;
-            
+
             Ok((deleted_expired + deleted_completed) as u64)
         })
         .await?

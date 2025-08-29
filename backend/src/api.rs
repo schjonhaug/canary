@@ -448,13 +448,10 @@ pub async fn create_wallet_non_blocking(
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: format!(
-                    "{}. Please use a {} key.",
-                    e, server_network_name
-                ),
+                error: format!("{}. Please use a {} key.", e, server_network_name),
             }),
         )
-        .into_response();
+            .into_response();
     }
 
     // Helper function to detect output descriptor format
@@ -1338,7 +1335,7 @@ pub async fn create_wallet_contact(
                             .into_response();
                     }
                 };
-                
+
                 // SECURITY: Check if this phone number was recently verified
                 match app_services
                     .metadata_db
@@ -1389,7 +1386,7 @@ pub async fn create_wallet_contact(
                     )
                         .into_response();
                 }
-                
+
                 // SECURITY: Check if this email address was recently verified
                 match app_services
                     .metadata_db
@@ -1734,6 +1731,61 @@ pub async fn update_wallet_contact(
         }
     };
 
+    // Get existing contact to compare notification methods
+    let existing_contact = match app_services
+        .metadata_db
+        .get_single_contact_with_methods(&contact_id, &wallet_checksum)
+        .await
+    {
+        Ok(Some(contact)) => contact,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Contact not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get existing contact: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Helper function to check if a notification method has changed
+    let has_method_changed = |new_method: &NotificationMethodRequest| -> bool {
+        let existing_method = existing_contact
+            .notification_methods
+            .iter()
+            .find(|m| m.provider_type == new_method.provider_type);
+
+        match existing_method {
+            Some(existing) => {
+                // For SMS, normalize both numbers for comparison
+                if new_method.provider_type == ProviderType::Sms {
+                    let new_normalized = validate_phone_number(&new_method.notification_target)
+                        .unwrap_or_else(|_| new_method.notification_target.clone());
+                    existing.notification_target != new_normalized
+                } else {
+                    // For email and ntfy, compare normalized strings
+                    let new_normalized = if new_method.provider_type == ProviderType::Email {
+                        new_method.notification_target.trim().to_lowercase()
+                    } else {
+                        new_method.notification_target.clone()
+                    };
+                    existing.notification_target != new_normalized
+                }
+            }
+            None => true, // Method doesn't exist, so it's new
+        }
+    };
+
     // Process notification methods with security checks
     let mut processed_methods = Vec::new();
 
@@ -1748,41 +1800,48 @@ pub async fn update_wallet_contact(
                             .into_response();
                     }
                 };
-                
-                // SECURITY: Check if this phone number was recently verified
-                match app_services
-                    .metadata_db
-                    .was_recently_verified(&wallet_checksum, &normalized_phone)
-                    .await
-                {
-                    Ok(true) => {
-                        processed_methods.push((ProviderType::Sms, normalized_phone));
+
+                // SECURITY: Only verify if the phone number has changed
+                if has_method_changed(method) {
+                    // Check if this phone number was recently verified
+                    match app_services
+                        .metadata_db
+                        .was_recently_verified(&wallet_checksum, &normalized_phone)
+                        .await
+                    {
+                        Ok(true) => {
+                            processed_methods.push((ProviderType::Sms, normalized_phone));
+                        }
+                        Ok(false) => {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(ErrorResponse {
+                                    error: "Phone number must be verified before updating contact"
+                                        .to_string(),
+                                }),
+                            )
+                                .into_response();
+                        }
+                        Err(e) => {
+                            return (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(ErrorResponse {
+                                    error: format!("Failed to check phone verification: {}", e),
+                                }),
+                            )
+                                .into_response();
+                        }
                     }
-                    Ok(false) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse {
-                                error: "Phone number must be verified before updating contact"
-                                    .to_string(),
-                            }),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Failed to check phone verification: {}", e),
-                            }),
-                        )
-                            .into_response();
-                    }
+                } else {
+                    // Phone number hasn't changed, so we can reuse it without verification
+                    processed_methods.push((ProviderType::Sms, normalized_phone));
                 }
             }
             ProviderType::Ntfy => {
                 // Push notifications are always allowed (ntfy is free)
                 // Auto-generate ntfy topic
-                let topic = generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
+                let topic =
+                    generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
                 processed_methods.push((ProviderType::Ntfy, topic));
             }
             ProviderType::Email => {
@@ -1797,35 +1856,41 @@ pub async fn update_wallet_contact(
                     )
                         .into_response();
                 }
-                
-                // SECURITY: Check if this email address was recently verified
-                match app_services
-                    .metadata_db
-                    .was_recently_verified(&wallet_checksum, &email)
-                    .await
-                {
-                    Ok(true) => {
-                        processed_methods.push((ProviderType::Email, email));
+
+                // SECURITY: Only verify if the email address has changed
+                if has_method_changed(method) {
+                    // Check if this email address was recently verified
+                    match app_services
+                        .metadata_db
+                        .was_recently_verified(&wallet_checksum, &email)
+                        .await
+                    {
+                        Ok(true) => {
+                            processed_methods.push((ProviderType::Email, email));
+                        }
+                        Ok(false) => {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(ErrorResponse {
+                                    error: "Email address must be verified before updating contact"
+                                        .to_string(),
+                                }),
+                            )
+                                .into_response();
+                        }
+                        Err(e) => {
+                            return (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(ErrorResponse {
+                                    error: format!("Failed to check email verification: {}", e),
+                                }),
+                            )
+                                .into_response();
+                        }
                     }
-                    Ok(false) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse {
-                                error: "Email address must be verified before updating contact"
-                                    .to_string(),
-                            }),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Failed to check email verification: {}", e),
-                            }),
-                        )
-                            .into_response();
-                    }
+                } else {
+                    // Email address hasn't changed, so we can reuse it without verification
+                    processed_methods.push((ProviderType::Email, email));
                 }
             }
         }
@@ -1850,7 +1915,11 @@ pub async fn update_wallet_contact(
 
     match app_services
         .metadata_db
-        .check_duplicate_notification_targets(&wallet_checksum, &methods_for_validation, Some(&contact_id))
+        .check_duplicate_notification_targets(
+            &wallet_checksum,
+            &methods_for_validation,
+            Some(&contact_id),
+        )
         .await
     {
         Ok(duplicates) => {
@@ -1895,7 +1964,9 @@ pub async fn update_wallet_contact(
                 .await
             {
                 Ok(contacts) => {
-                    if let Some(updated_contact) = contacts.iter().find(|c| c.id.as_ref() == Some(&contact_id)) {
+                    if let Some(updated_contact) =
+                        contacts.iter().find(|c| c.id.as_ref() == Some(&contact_id))
+                    {
                         let elapsed = start_time.elapsed();
                         info!("update_wallet_contact completed in {:?}", elapsed);
                         (StatusCode::OK, Json(updated_contact.clone())).into_response()
@@ -2169,7 +2240,10 @@ pub async fn send_contact_verification(
                 return (
                     StatusCode::CONFLICT,
                     Json(ErrorResponse {
-                        error: format!("Phone number '{}' is already used by contact '{}' in this wallet", normalized_phone, existing_contact_name),
+                        error: format!(
+                            "Phone number '{}' is already used by contact '{}' in this wallet",
+                            normalized_phone, existing_contact_name
+                        ),
                     }),
                 )
                     .into_response();
@@ -2215,7 +2289,10 @@ pub async fn send_contact_verification(
                 return (
                     StatusCode::CONFLICT,
                     Json(ErrorResponse {
-                        error: format!("Email '{}' is already used by contact '{}' in this wallet", email, existing_contact_name),
+                        error: format!(
+                            "Email '{}' is already used by contact '{}' in this wallet",
+                            email, existing_contact_name
+                        ),
                     }),
                 )
                     .into_response();
@@ -2268,7 +2345,7 @@ pub async fn send_contact_verification(
                             )
                                 .into_response();
                         }
-                        
+
                         return Json(serde_json::json!({
                             "message": "Email verified automatically for user accounts",
                             "auto_verified": true
