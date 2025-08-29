@@ -719,6 +719,11 @@ export function ContactModal({
                                     placeholder="Enter 6-digit code"
                                     disabled={isSubmitting || isVerifyingCode}
                                     maxLength={6}
+                                    autoComplete="one-time-code"
+                                    autoCorrect="off"
+                                    autoCapitalize="off"
+                                    spellCheck="false"
+                                    inputMode="numeric"
                                     className={`flex-1 ${smsVerificationError ? 'border-red-500 focus:border-red-500' : ''}`}
                                   />
                                   <Button
@@ -860,6 +865,11 @@ export function ContactModal({
                                     placeholder="Enter 6-digit code"
                                     disabled={isSubmitting || isVerifyingEmailCode}
                                     maxLength={6}
+                                    autoComplete="one-time-code"
+                                    autoCorrect="off"
+                                    autoCapitalize="off"
+                                    spellCheck="false"
+                                    inputMode="numeric"
                                     className={`flex-1 ${emailVerificationError ? 'border-red-500 focus:border-red-500' : ''}`}
                                   />
                                   <Button
