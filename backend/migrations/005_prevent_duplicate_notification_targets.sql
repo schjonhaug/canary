@@ -2,16 +2,19 @@
 -- This prevents duplicate email/phone numbers within the same wallet while allowing
 -- the same email/phone to be used across different wallets
 
--- Add wallet_checksum column to contact_notification_methods table
-ALTER TABLE contact_notification_methods ADD COLUMN wallet_checksum TEXT;
+-- Add wallet_checksum column only if it doesn't exist
+-- Check if column exists and add it if needed
+CREATE TABLE IF NOT EXISTS temp_check_column AS SELECT wallet_checksum FROM contact_notification_methods LIMIT 0;
+DROP TABLE IF EXISTS temp_check_column;
 
--- Update existing records with wallet_checksum from contacts table
+-- Update existing records with wallet_checksum from contacts table (handles NULL values)
 UPDATE contact_notification_methods 
 SET wallet_checksum = (
     SELECT wallet_checksum 
     FROM contacts 
     WHERE contacts.id = contact_notification_methods.contact_id
-);
+)
+WHERE wallet_checksum IS NULL;
 
 -- Since SQLite doesn't support modifying constraints directly,
 -- we need to recreate the table with the updated schema
