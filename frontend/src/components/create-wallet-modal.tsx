@@ -74,7 +74,7 @@ export function CreateWalletModal({
 
   // Helper function to detect output descriptor format
   const isDescriptorFormat = (input: string): boolean => {
-    const descriptorRegex = /^(wpkh|sh|pkh|tr)\(/
+    const descriptorRegex = /^(wpkh|wsh|sh|pkh|tr)\(/
     return descriptorRegex.test(input.trim())
   }
 
@@ -82,6 +82,7 @@ export function CreateWalletModal({
   const getDescriptorScriptType = (input: string): string => {
     const trimmed = input.trim()
     if (trimmed.startsWith('wpkh(')) return 'p2wpkh'
+    if (trimmed.startsWith('wsh(')) return 'p2wsh'
     if (trimmed.startsWith('sh(wpkh(')) return 'p2sh'
     if (trimmed.startsWith('pkh(')) return 'p2pkh'
     if (trimmed.startsWith('tr(')) return 'p2tr'

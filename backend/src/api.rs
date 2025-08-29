@@ -456,7 +456,7 @@ pub async fn create_wallet_non_blocking(
 
     // Helper function to detect output descriptor format
     let is_descriptor_format = |input: &str| -> bool {
-        let descriptor_regex = regex::Regex::new(r"^(wpkh|sh|pkh|tr)\(").unwrap();
+        let descriptor_regex = regex::Regex::new(r"^(wpkh|wsh|sh|pkh|tr)\(").unwrap();
         descriptor_regex.is_match(input.trim())
     };
 
