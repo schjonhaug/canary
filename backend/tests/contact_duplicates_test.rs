@@ -49,7 +49,6 @@ async fn test_duplicate_email_prevention() {
         .unwrap();
 
     // Try to create another contact with the same email - should fail
-    let duplicate_methods = vec![(ProviderType::Email, "john@example.com".to_string())];
     let duplicates = metadata_db
         .check_duplicate_notification_targets(
             &wallet_checksum,
