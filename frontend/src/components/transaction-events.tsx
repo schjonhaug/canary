@@ -209,6 +209,7 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
                               case 'email':
                                 return <Mail className="h-3 w-3" />
                               case 'sms':
+                              case 'twilio':
                                 return <MessageCircle className="h-3 w-3" />
                               case 'ntfy':
                               default:
