@@ -205,6 +205,8 @@ pub struct NotificationStatus {
     pub provider_name: String,
     pub status: String,
     pub error_message: Option<String>,
+    pub notification_target: Option<String>,  // Phone number, email, or ntfy topic
+    pub provider_type: Option<String>,        // 'sms', 'email', 'ntfy'
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -1067,7 +1069,9 @@ impl MetadataDb {
                 if let Some(ref event_id) = event.id {
                     let mut log_stmt = conn.prepare(
                         "SELECT nl.provider_name, nl.status, nl.error_message, 
-                                COALESCE(c.name, nl.contact_name_snapshot) as contact_name
+                                COALESCE(c.name, nl.contact_name_snapshot) as contact_name,
+                                COALESCE(cnm.notification_target, nl.notification_target_snapshot) as notification_target,
+                                COALESCE(cnm.provider_type, nl.provider_type_snapshot) as provider_type
                          FROM notification_logs nl
                          LEFT JOIN contact_notification_methods cnm ON nl.notification_method_id = cnm.id
                          LEFT JOIN contacts c ON cnm.contact_id = c.id
@@ -1080,6 +1084,8 @@ impl MetadataDb {
                             provider_name: row.get(0)?,
                             status: row.get(1)?,
                             error_message: row.get(2)?,
+                            notification_target: row.get::<_, Option<String>>(4)?,
+                            provider_type: row.get::<_, Option<String>>(5)?,
                         })
                     })?;
                     
@@ -1686,19 +1692,19 @@ impl MetadataDb {
             let conn = pool.get()?;
             let log_id = uuid::Uuid::new_v4().to_string();
             
-            // Get the contact name at the time of notification to preserve it
-            let contact_name: String = conn.query_row(
-                "SELECT c.name 
+            // Get the contact info at the time of notification to preserve it
+            let (contact_name, notification_target, provider_type): (String, String, String) = conn.query_row(
+                "SELECT c.name, cnm.notification_target, cnm.provider_type
                  FROM contact_notification_methods cnm
                  JOIN contacts c ON cnm.contact_id = c.id
                  WHERE cnm.id = ?1",
                 params![&notification_method_id],
-                |row| row.get(0)
-            ).unwrap_or_else(|_| "Unknown Contact".to_string());
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            ).unwrap_or_else(|_| ("Unknown Contact".to_string(), "Unknown Target".to_string(), "unknown".to_string()));
             
             conn.execute(
-                "INSERT INTO notification_logs (id, event_id, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, contact_name_snapshot) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                "INSERT INTO notification_logs (id, event_id, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
                     &log_id,
                     &event_id,
@@ -1709,6 +1715,8 @@ impl MetadataDb {
                     &error_message,
                     &message_content,
                     &contact_name,
+                    &notification_target,
+                    &provider_type,
                 ],
             )?;
             Ok(log_id)
