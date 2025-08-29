@@ -1066,10 +1066,11 @@ impl MetadataDb {
                 // Get notification logs for this event
                 if let Some(ref event_id) = event.id {
                     let mut log_stmt = conn.prepare(
-                        "SELECT nl.provider_name, nl.status, nl.error_message, c.name
+                        "SELECT nl.provider_name, nl.status, nl.error_message, 
+                                COALESCE(c.name, nl.contact_name_snapshot) as contact_name
                          FROM notification_logs nl
-                         JOIN contact_notification_methods cnm ON nl.notification_method_id = cnm.id
-                         JOIN contacts c ON cnm.contact_id = c.id
+                         LEFT JOIN contact_notification_methods cnm ON nl.notification_method_id = cnm.id
+                         LEFT JOIN contacts c ON cnm.contact_id = c.id
                          WHERE nl.event_id = ?1"
                     )?;
                     
@@ -1684,9 +1685,20 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             let log_id = uuid::Uuid::new_v4().to_string();
+            
+            // Get the contact name at the time of notification to preserve it
+            let contact_name: String = conn.query_row(
+                "SELECT c.name 
+                 FROM contact_notification_methods cnm
+                 JOIN contacts c ON cnm.contact_id = c.id
+                 WHERE cnm.id = ?1",
+                params![&notification_method_id],
+                |row| row.get(0)
+            ).unwrap_or_else(|_| "Unknown Contact".to_string());
+            
             conn.execute(
-                "INSERT INTO notification_logs (id, event_id, notification_method_id, provider_name, provider_message_id, status, error_message, message_content) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                "INSERT INTO notification_logs (id, event_id, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, contact_name_snapshot) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     &log_id,
                     &event_id,
@@ -1696,6 +1708,7 @@ impl MetadataDb {
                     &status,
                     &error_message,
                     &message_content,
+                    &contact_name,
                 ],
             )?;
             Ok(log_id)
