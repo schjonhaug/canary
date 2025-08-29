@@ -471,7 +471,7 @@ export function ContactModal({
         if (hasSms && smsVerified) {
           notificationMethods.push({ 
             provider_type: 'sms', 
-            notification_target: smsVerificationPhone! 
+            notification_target: smsVerificationPhone || providerValues['twilio'].trim()
           })
         }
         
