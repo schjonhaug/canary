@@ -1066,14 +1066,16 @@ impl MetadataDb {
                 // Get notification logs for this event
                 if let Some(ref event_id) = event.id {
                     let mut log_stmt = conn.prepare(
-                        "SELECT provider_name, status, error_message 
-                         FROM notification_logs 
-                         WHERE event_id = ?1"
+                        "SELECT nl.provider_name, nl.status, nl.error_message, c.name
+                         FROM notification_logs nl
+                         JOIN contact_notification_methods cnm ON nl.notification_method_id = cnm.id
+                         JOIN contacts c ON cnm.contact_id = c.id
+                         WHERE nl.event_id = ?1"
                     )?;
                     
                     let log_iter = log_stmt.query_map([event_id.clone()], |row| {
                         Ok(NotificationStatus {
-                            contact_name: String::new(), // We don't have contact name in this context
+                            contact_name: row.get(3)?,
                             provider_name: row.get(0)?,
                             status: row.get(1)?,
                             error_message: row.get(2)?,

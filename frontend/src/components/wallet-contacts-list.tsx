@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Mail, Smartphone, AlertTriangle } from "lucide-react"
+import { Bell, Mail, MessageCircle, AlertTriangle } from "lucide-react"
 import { Contact } from "../types"
 import { ContactModal } from "./contact-modal"
 import { useAuth } from "@/contexts/auth-context"
@@ -84,7 +84,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                     <div key={method.id} className="flex items-center gap-1 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         {method.provider_type === 'sms' ? (
-                          <Smartphone className="h-3 w-3 shrink-0" />
+                          <MessageCircle className="h-3 w-3 shrink-0" />
                         ) : method.provider_type === 'email' ? (
                           <Mail className="h-3 w-3 shrink-0" />
                         ) : (

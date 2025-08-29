@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Bell, Smartphone, Mail } from "lucide-react"
+import { Bell, MessageCircle, Mail } from "lucide-react"
 import { api, ProviderInfo } from "../lib/api"
 import { Contact } from "../types"
 
@@ -623,7 +623,7 @@ export function ContactModal({
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         {provider.name === 'twilio' ? (
-                          <Smartphone className="h-4 w-4" />
+                          <MessageCircle className="h-4 w-4" />
                         ) : provider.name === 'email' ? (
                           <Mail className="h-4 w-4" />
                         ) : (

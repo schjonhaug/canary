@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, Clock, HandCoins, Baby, Mail, Smartphone, Bell } from "lucide-react"
+import { CheckCircle, Clock, HandCoins, Baby, Mail, MessageCircle, Bell } from "lucide-react"
 import { TransactionEvent } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
@@ -209,7 +209,7 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
                               case 'email':
                                 return <Mail className="h-3 w-3" />
                               case 'sms':
-                                return <Smartphone className="h-3 w-3" />
+                                return <MessageCircle className="h-3 w-3" />
                               case 'ntfy':
                               default:
                                 return <Bell className="h-3 w-3" />
