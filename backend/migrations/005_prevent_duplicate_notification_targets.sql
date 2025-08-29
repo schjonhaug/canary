@@ -18,6 +18,7 @@ WHERE wallet_checksum IS NULL;
 
 -- Since SQLite doesn't support modifying constraints directly,
 -- we need to recreate the table with the updated schema
+DROP TABLE IF EXISTS contact_notification_methods_new;
 CREATE TABLE contact_notification_methods_new (
     id TEXT PRIMARY KEY,
     contact_id TEXT NOT NULL,
