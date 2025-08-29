@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, Clock, HandCoins, Baby, Mail, MessageCircle, Bell } from "lucide-react"
+import { CheckCircle, Clock, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, CheckCircle2, XCircle } from "lucide-react"
 import { TransactionEvent } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
@@ -28,6 +28,7 @@ interface TransactionEventsProps {
 
 export function TransactionEvents({ selectedWalletChecksum, events, error, lastUpdate, walletsCount = 0 }: TransactionEventsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   // Track when we've received data for the first time
   useEffect(() => {
@@ -35,6 +36,60 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
       setHasReceivedData(true)
     }
   }, [lastUpdate])
+
+  // Toggle row expansion
+  const toggleRowExpansion = (eventId: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(eventId)) {
+        newSet.delete(eventId)
+      } else {
+        newSet.add(eventId)
+      }
+      return newSet
+    })
+  }
+
+  // Get unique provider types and icons for condensed view
+  const getUniqueProviderSummary = (notifications: typeof events[0]['notification_status']) => {
+    if (!notifications || notifications.length === 0) return null
+    
+    const providerCounts = notifications.reduce((acc, notification) => {
+      const providerType = notification.provider_type || notification.provider_name.toLowerCase()
+      acc[providerType] = (acc[providerType] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    const getProviderIcon = (providerType: string) => {
+      switch (providerType) {
+        case 'email':
+          return <Mail className="h-4 w-4" />
+        case 'sms':
+        case 'twilio':
+          return <MessageCircle className="h-4 w-4" />
+        case 'ntfy':
+        default:
+          return <Bell className="h-4 w-4" />
+      }
+    }
+
+    // Sort provider types for consistent order: email, sms, ntfy
+    const sortedProviderTypes = Object.keys(providerCounts).sort((a, b) => {
+      const order = { 'email': 1, 'sms': 2, 'twilio': 2, 'ntfy': 3 }
+      const aOrder = order[a as keyof typeof order] || 99
+      const bOrder = order[b as keyof typeof order] || 99
+      return aOrder - bOrder
+    })
+
+    return {
+      icons: sortedProviderTypes.map(providerType => ({
+        icon: getProviderIcon(providerType),
+        count: providerCounts[providerType],
+        type: providerType
+      })),
+      total: notifications.length
+    }
+  }
 
 
   // Filter events by selected wallet if one is selected
@@ -145,100 +200,127 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredEvents.map((event) => (
-                <TableRow key={event.id}>
-                  <TableCell className="text-sm">
-                    {formatDateTime(event.transaction_time)}
-                  </TableCell>
-                  {walletsCount > 1 && (
-                    <TableCell className="font-medium">{event.wallet_name}</TableCell>
-                  )}
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Badge 
-                        variant="outline"
-                        className="flex items-center gap-1"
-                        title={`${event.event_type === "receive" ? "Receive" : "Send"} - ${event.is_confirmed ? "Confirmed" : "Pending"}`}
-                      >
-                        {event.is_confirmed ? (
-                          <CheckCircle className="h-3 w-3 text-green-500" />
-                        ) : (
-                          <Clock className="h-3 w-3 text-yellow-500" />
-                        )}
-                        {event.is_confirmed 
-                          ? (event.event_type === "receive" ? "Received" : "Sent")
-                          : (event.event_type === "receive" ? "Receiving" : "Sending")
-                        }
-                       
-                        
-                      </Badge>
-                      {event.is_cpfp && (
-                          <span title="Child-Pays-For-Parent (CPFP)">
-                            <Baby className="h-4 w-4 ml-1" />
-                          </span>
-                        )}
-                      {event.is_rbf && (
-                          <span title="Replace-By-Fee (RBF)">
-                            <HandCoins className="h-4 w-4 ml-1" />
-                          </span>
-                        )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono">
-                    {formatBitcoinAmount(event.amount_sats)}
-                  </TableCell>
-                  <TableCell className="font-mono">
-                    {event.balance_total !== null && event.balance_total !== undefined ? formatBitcoinAmount(event.balance_total) : "N/A"}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {event.notification_status && event.notification_status.length > 0 ? (
-                      <div className="flex items-center gap-2">
-                        {/* Group notifications by contact name to avoid duplicates */}
-                        {Object.entries(
-                          event.notification_status.reduce((acc, notification) => {
-                            if (!acc[notification.contact_name]) {
-                              acc[notification.contact_name] = []
+              {filteredEvents.map((event) => {
+                const isExpanded = expandedRows.has(event.id.toString())
+                const notificationSummary = getUniqueProviderSummary(event.notification_status)
+                
+                return (
+                  <React.Fragment key={event.id}>
+                    <TableRow 
+                      className={`cursor-pointer hover:bg-muted/50 transition-colors ${isExpanded ? 'bg-muted/30' : ''}`}
+                      onClick={() => toggleRowExpansion(event.id.toString())}
+                    >
+                      <TableCell className="text-sm">
+                        {formatDateTime(event.transaction_time)}
+                      </TableCell>
+                      {walletsCount > 1 && (
+                        <TableCell className="font-medium">{event.wallet_name}</TableCell>
+                      )}
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Badge 
+                            variant="outline"
+                            className="flex items-center gap-1"
+                            title={`${event.event_type === "receive" ? "Receive" : "Send"} - ${event.is_confirmed ? "Confirmed" : "Pending"}`}
+                          >
+                            {event.is_confirmed ? (
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Clock className="h-3 w-3 text-yellow-500" />
+                            )}
+                            {event.is_confirmed 
+                              ? (event.event_type === "receive" ? "Received" : "Sent")
+                              : (event.event_type === "receive" ? "Receiving" : "Sending")
                             }
-                            acc[notification.contact_name].push(notification)
-                            return acc
-                          }, {} as Record<string, typeof event.notification_status>)
-                        ).map(([contactName, notifications]) => {
-                          // Get appropriate icon for provider
-                          const getProviderIcon = (providerName: string) => {
-                            switch (providerName.toLowerCase()) {
-                              case 'email':
-                                return <Mail className="h-3 w-3" />
-                              case 'sms':
-                              case 'twilio':
-                                return <MessageCircle className="h-3 w-3" />
-                              case 'ntfy':
-                              default:
-                                return <Bell className="h-3 w-3" />
-                            }
-                          }
-
-                          return (
-                            <span
-                              key={contactName}
-                              className="inline-flex items-center gap-1"
-                              title={notifications.map(n => `${n.provider_name} ${n.status}`).join(', ')}
-                            >
-                              <span className="text-xs">{contactName}</span>
-                              {notifications.map((notification, idx) => (
-                                <span key={idx}>
-                                  {getProviderIcon(notification.provider_name)}
+                          </Badge>
+                          {event.is_cpfp && (
+                            <span title="Child-Pays-For-Parent (CPFP)">
+                              <Baby className="h-4 w-4 ml-1" />
+                            </span>
+                          )}
+                          {event.is_rbf && (
+                            <span title="Replace-By-Fee (RBF)">
+                              <HandCoins className="h-4 w-4 ml-1" />
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono">
+                        {formatBitcoinAmount(event.amount_sats)}
+                      </TableCell>
+                      <TableCell className="font-mono">
+                        {event.balance_total !== null && event.balance_total !== undefined ? formatBitcoinAmount(event.balance_total) : "N/A"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {notificationSummary ? (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1">
+                              {notificationSummary.icons.map((iconInfo, idx) => (
+                                <span key={idx} title={`${iconInfo.count} ${iconInfo.type} notification${iconInfo.count !== 1 ? 's' : ''}`}>
+                                  {iconInfo.icon}
                                 </span>
                               ))}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      "None"
+                            </div>
+                            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                          </div>
+                        ) : (
+                          <span>None</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && event.notification_status && event.notification_status.length > 0 && (
+                      <TableRow className="bg-muted/20">
+                        <TableCell colSpan={walletsCount > 1 ? 6 : 5} className="p-0">
+                          <div className="px-4 py-3">
+                            <h4 className="text-sm font-medium mb-2">Notification Details</h4>
+                            <div className="space-y-2">
+                              {event.notification_status.map((notification, idx) => (
+                                <div key={idx} className="flex items-center gap-3 text-sm">
+                                  <span className="font-medium min-w-[100px]">{notification.contact_name}</span>
+                                  <span className="text-muted-foreground">→</span>
+                                  <span className="font-mono text-xs">
+                                    {notification.notification_target || 'Unknown target'}
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    {(() => {
+                                      const providerType = notification.provider_type || notification.provider_name.toLowerCase()
+                                      switch (providerType) {
+                                        case 'email':
+                                          return <Mail className="h-3 w-3" />
+                                        case 'sms':
+                                        case 'twilio':
+                                          return <MessageCircle className="h-3 w-3" />
+                                        case 'ntfy':
+                                        default:
+                                          return <Bell className="h-3 w-3" />
+                                      }
+                                    })()}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    {notification.status === 'sent' || notification.status === 'delivered' ? (
+                                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                    ) : (
+                                      <XCircle className="h-3 w-3 text-red-500" />
+                                    )}
+                                    <span className={`text-xs ${notification.status === 'sent' || notification.status === 'delivered' ? 'text-green-600' : 'text-red-600'}`}>
+                                      {notification.status}
+                                    </span>
+                                  </div>
+                                  {notification.error_message && (
+                                    <span className="text-xs text-red-600 ml-2">
+                                      {notification.error_message}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                  </React.Fragment>
+                )
+              })}
             </TableBody>
           </Table>
         )}

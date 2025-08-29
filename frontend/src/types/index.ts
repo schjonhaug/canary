@@ -20,6 +20,8 @@ export interface NotificationStatus {
   provider_name: string
   status: string
   error_message: string | null
+  notification_target?: string  // Phone number, email, or ntfy topic
+  provider_type?: string        // 'sms', 'email', 'ntfy'
 }
 
 export interface TransactionEvent {
