@@ -1050,6 +1050,35 @@ impl WalletManager {
         Ok(())
     }
 
+    /// Helper function to get timestamp of new sending transactions
+    fn get_new_send_transaction_timestamp(
+        wallet: &PersistedWallet<Connection>,
+        unconfirmed_sends_before: &Vec<(String, i64)>,
+    ) -> u64 {
+        wallet
+            .transactions()
+            .filter_map(|tx| {
+                if !tx.chain_position.is_confirmed() {
+                    let sent = wallet.sent_and_received(&tx.tx_node).0;
+                    let received = wallet.sent_and_received(&tx.tx_node).1;
+                    let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+                    if net_amount < 0 {
+                        let txid = tx.tx_node.txid.to_string();
+                        // Check if this is a NEW transaction (not in the before list)
+                        if !unconfirmed_sends_before.iter().any(|(id, _)| id == &txid) {
+                            // Get the first_seen timestamp
+                            if let bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } = &tx.chain_position {
+                                return Some(first_seen.unwrap_or_else(|| Self::get_current_timestamp()));
+                            }
+                        }
+                    }
+                }
+                None
+            })
+            .next()
+            .unwrap_or_else(|| Self::get_current_timestamp())
+    }
+
     pub async fn sync_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<bool> {
         // Similar to sync_all_wallets but for a single wallet
         let metadata_db = &self.metadata_db;
@@ -1377,6 +1406,9 @@ impl WalletManager {
                             );
                             println!("[{}] {}", wallet_checksum, message);
 
+                            // Get timestamp of the new sending transaction
+                            let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
+
                             // Insert sending event to database and broadcast
                             if let Err(e) = Self::insert_and_broadcast_event_helper(
                                 metadata_db,
@@ -1389,7 +1421,7 @@ impl WalletManager {
                                     is_rbf: false,
                                     is_cpfp: false,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    transaction_time: latest_tx_timestamp,
+                                    transaction_time: send_timestamp,
                                 },
                             )
                             .await
@@ -1412,6 +1444,9 @@ impl WalletManager {
                                 format!("📤 Sending {:.8} BTC", total_spent as f64 / 100_000_000.0);
                             println!("[{}] {}", wallet_checksum, message);
 
+                            // Get timestamp of the new sending transaction
+                            let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
+
                             // Insert sending event to database and broadcast
                             if let Err(e) = Self::insert_and_broadcast_event_helper(
                                 metadata_db,
@@ -1424,7 +1459,7 @@ impl WalletManager {
                                     is_rbf: false,
                                     is_cpfp: false,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    transaction_time: latest_tx_timestamp,
+                                    transaction_time: send_timestamp,
                                 },
                             )
                             .await
@@ -1445,6 +1480,9 @@ impl WalletManager {
                             );
                             println!("[{}] {}", wallet_checksum, message);
 
+                            // Get timestamp of the new sending transaction
+                            let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
+
                             // Insert sending event to database and broadcast
                             if let Err(e) = Self::insert_and_broadcast_event_helper(
                                 metadata_db,
@@ -1457,7 +1495,7 @@ impl WalletManager {
                                     is_rbf: false,
                                     is_cpfp: false,
                                     balance_total: Some(total_after.to_sat() as i64),
-                                    transaction_time: latest_tx_timestamp,
+                                    transaction_time: send_timestamp,
                                 },
                             )
                             .await
@@ -1484,6 +1522,9 @@ impl WalletManager {
                         );
                         println!("[{}] {}", wallet_checksum, message);
 
+                        // Get timestamp of the new sending transaction
+                        let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
+
                         // Insert sending event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
                             metadata_db,
@@ -1496,7 +1537,7 @@ impl WalletManager {
                                 is_rbf: false,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64),
-                                transaction_time: latest_tx_timestamp,
+                                transaction_time: send_timestamp,
                             },
                         )
                         .await
@@ -1515,6 +1556,9 @@ impl WalletManager {
                             format!("📤 Sending {:.8} BTC", total_spent as f64 / 100_000_000.0);
                         println!("[{}] {}", wallet_checksum, message);
 
+                        // Get timestamp of the new sending transaction
+                        let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
+
                         // Insert sending event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
                             metadata_db,
@@ -1527,7 +1571,7 @@ impl WalletManager {
                                 is_rbf: false,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64),
-                                transaction_time: latest_tx_timestamp,
+                                transaction_time: send_timestamp,
                             },
                         )
                         .await
@@ -1543,6 +1587,9 @@ impl WalletManager {
                             format!("📤 Sending {:.8} BTC", trusted_spent as f64 / 100_000_000.0);
                         println!("[{}] {}", wallet_checksum, message);
 
+                        // Get timestamp of the new sending transaction
+                        let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
+
                         // Insert sending event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
                             metadata_db,
@@ -1555,7 +1602,7 @@ impl WalletManager {
                                 is_rbf: false,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64),
-                                transaction_time: latest_tx_timestamp,
+                                transaction_time: send_timestamp,
                             },
                         )
                         .await
@@ -1575,6 +1622,30 @@ impl WalletManager {
                     );
                     println!("[{}] {}", wallet_checksum, message);
 
+                    // Find the NEW receiving transaction to get its actual timestamp
+                    let receive_timestamp = wallet
+                        .transactions()
+                        .filter_map(|tx| {
+                            if !tx.chain_position.is_confirmed() {
+                                let sent = wallet.sent_and_received(&tx.tx_node).0;
+                                let received = wallet.sent_and_received(&tx.tx_node).1;
+                                let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+                                if net_amount > 0 {
+                                    let txid = tx.tx_node.txid.to_string();
+                                    // Check if this is a NEW transaction (not in the before list)
+                                    if !unconfirmed_receives_before.iter().any(|(id, _)| id == &txid) {
+                                        // Get the first_seen timestamp
+                                        if let bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } = &tx.chain_position {
+                                            return Some(first_seen.unwrap_or_else(|| Self::get_current_timestamp()));
+                                        }
+                                    }
+                                }
+                            }
+                            None
+                        })
+                        .next()
+                        .unwrap_or_else(|| Self::get_current_timestamp());
+
                     // Insert receiving event to database and broadcast
                     if let Err(e) = Self::insert_and_broadcast_event_helper(
                         metadata_db,
@@ -1587,7 +1658,7 @@ impl WalletManager {
                             is_rbf: false,
                             is_cpfp: false,
                             balance_total: Some(total_after.to_sat() as i64),
-                            transaction_time: latest_tx_timestamp,
+                            transaction_time: receive_timestamp,
                         },
                     )
                     .await

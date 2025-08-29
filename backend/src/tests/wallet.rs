@@ -274,7 +274,6 @@ mod tests {
         println!("✅ Key network validation tests passed!");
     }
 
-
     #[test]
     fn test_descriptor_network_validation() {
         use crate::xpub_converter::XpubConverter;
