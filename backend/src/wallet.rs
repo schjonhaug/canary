@@ -1508,15 +1508,9 @@ impl WalletManager {
                         }
                     }
                 } else if !is_special_tx {
-                    // Pre-check: Will this be handled as a fast-confirmed send transaction?
-                    // This must be declared early to be used in all sending logic below
-                    let is_fast_confirmed_send = confirmed_decrease && total_decrease && 
-                       !trusted_pending_increase && !trusted_pending_decrease &&
-                       !untrusted_pending_increase && !untrusted_pending_decrease;
-                    // Regular sending logic (no existing unconfirmed transactions)
+                    // Regular sending logic (no existing unconfirmed transactions)  
                     // Case 1: Spending from confirmed balance (first transaction)
-                    // Skip if this will be handled as fast confirmation
-                    if trusted_pending_increase && confirmed_decrease && total_decrease && !is_fast_confirmed_send {
+                    if trusted_pending_increase && confirmed_decrease && total_decrease {
                         let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
                         let change_received =
                             trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
@@ -1552,8 +1546,7 @@ impl WalletManager {
                         }
                     }
                     // Case 2: Spending from trusted pending balance (subsequent transactions)
-                    // Skip if this will be handled as fast confirmation
-                    else if trusted_pending_decrease && confirmed_decrease && total_decrease && !is_fast_confirmed_send {
+                    else if trusted_pending_decrease && confirmed_decrease && total_decrease {
                         let trusted_spent =
                             trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
                         let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
@@ -1587,8 +1580,7 @@ impl WalletManager {
                         }
                     }
                     // Case 3: Spending only from trusted pending (no confirmed funds used)
-                    // Skip if this will be handled as fast confirmation
-                    else if trusted_pending_decrease && !confirmed_decrease && total_decrease && !is_fast_confirmed_send {
+                    else if trusted_pending_decrease && !confirmed_decrease && total_decrease {
                         let trusted_spent =
                             trusted_pending_before.to_sat() - trusted_pending_after.to_sat();
                         let message =
@@ -1621,7 +1613,14 @@ impl WalletManager {
                     // Case 4: Spending entire balance without change (wallet drain)
                     // Skip if this will be handled as fast confirmation
                     else if !trusted_pending_increase && !trusted_pending_decrease && 
-                            confirmed_decrease && total_decrease && !is_fast_confirmed_send {
+                            confirmed_decrease && total_decrease {
+                        // Check if this is actually a fast confirmation (already confirmed)
+                        // If so, skip creating a "Sending" event as it will be handled as "Sent"
+                        let is_fast_confirmed_drain = confirmed_decrease && total_decrease && 
+                           !trusted_pending_increase && !trusted_pending_decrease &&
+                           !untrusted_pending_increase && !untrusted_pending_decrease;
+                        
+                        if !is_fast_confirmed_drain {
                         let total_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
                         
                         let message = format!(
@@ -1652,20 +1651,16 @@ impl WalletManager {
                         {
                             eprintln!("Failed to insert drain event: {}", e);
                         }
+                        }
                     }
                 }
 
                 // Track if we handle any fast confirmations to avoid duplicates
                 let mut handled_fast_send_confirmation = false;
                 let mut handled_fast_receive_confirmation = false;
-                   
-                // Pre-check: Will this be handled as a fast-confirmed receive transaction?
-                let is_fast_confirmed_receive = confirmed_increase && total_increase && 
-                   !untrusted_pending_increase && !trusted_pending_increase;
 
                 // Detect if this is a receiving transaction
-                // Skip if this will be handled as fast confirmation
-                if untrusted_pending_increase && confirmed_same && total_increase && !is_fast_confirmed_receive {
+                if untrusted_pending_increase && confirmed_same && total_increase {
                     let receiving_amount =
                         untrusted_pending_after.to_sat() - untrusted_pending_before.to_sat();
                     let message = format!(
