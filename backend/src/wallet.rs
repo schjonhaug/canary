@@ -1611,16 +1611,8 @@ impl WalletManager {
                         }
                     }
                     // Case 4: Spending entire balance without change (wallet drain)
-                    // Skip if this will be handled as fast confirmation
                     else if !trusted_pending_increase && !trusted_pending_decrease && 
                             confirmed_decrease && total_decrease {
-                        // Check if this is actually a fast confirmation (already confirmed)
-                        // If so, skip creating a "Sending" event as it will be handled as "Sent"
-                        let is_fast_confirmed_drain = confirmed_decrease && total_decrease && 
-                           !trusted_pending_increase && !trusted_pending_decrease &&
-                           !untrusted_pending_increase && !untrusted_pending_decrease;
-                        
-                        if !is_fast_confirmed_drain {
                         let total_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
                         
                         let message = format!(
@@ -1650,7 +1642,6 @@ impl WalletManager {
                         .await
                         {
                             eprintln!("Failed to insert drain event: {}", e);
-                        }
                         }
                     }
                 }
