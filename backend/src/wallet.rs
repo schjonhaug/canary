@@ -1612,7 +1612,7 @@ impl WalletManager {
                     }
                     // Case 4: Spending entire balance without change (wallet drain)
                     else if !trusted_pending_increase && !trusted_pending_decrease && 
-                            confirmed_decrease && total_decrease {
+                            confirmed_decrease && total_decrease && total_after.to_sat() == 0 {
                         let total_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
                         
                         let message = format!(
