@@ -1767,6 +1767,73 @@ impl WalletManager {
                     }
                 }
 
+                // NEW: Detect sending transactions that went directly to confirmed
+                // (high-fee transactions that confirmed between sync intervals)
+                // This detection is COMPLETELY INDEPENDENT - only looks at this wallet's state
+                if confirmed_decrease && total_decrease && 
+                   !trusted_pending_increase && !trusted_pending_decrease &&
+                   !untrusted_pending_increase && !untrusted_pending_decrease {
+                    
+                    // Calculate how much was sent from THIS wallet
+                    let send_amount = total_before.to_sat() - total_after.to_sat();
+                    
+                    // Find NEW confirmed sending transactions in THIS wallet
+                    let send_timestamp = wallet
+                        .transactions()
+                        .filter_map(|tx| {
+                            if tx.chain_position.is_confirmed() {
+                                let sent = wallet.sent_and_received(&tx.tx_node).0;
+                                let received = wallet.sent_and_received(&tx.tx_node).1;
+                                let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+                                
+                                if net_amount < 0 {
+                                    let txid = tx.tx_node.txid.to_string();
+                                    // Check if this is a NEW transaction we haven't seen before
+                                    if !unconfirmed_sends_before.iter().any(|(id, _)| id == &txid) {
+                                        return Some(Self::get_transaction_timestamp_static(
+                                            electrum_client, wallet, &txid
+                                        ));
+                                    }
+                                }
+                            }
+                            None
+                        })
+                        .next()
+                        .unwrap_or_else(|| Self::get_current_timestamp());
+                    
+                    let message = if total_after.to_sat() == 0 {
+                        format!("📤 Sent {:.8} BTC (wallet drained, fast confirmation)", 
+                                send_amount as f64 / 100_000_000.0)
+                    } else {
+                        format!("📤 Sent {:.8} BTC (fast confirmation)", 
+                                send_amount as f64 / 100_000_000.0)
+                    };
+                    println!("[{}] {}", wallet_checksum, message);
+                    
+                    // Insert send event marked as already confirmed
+                    if let Err(e) = Self::insert_and_broadcast_event_helper(
+                        metadata_db,
+                        event_sender,
+                        &EventInsert {
+                            wallet_checksum: wallet_checksum.to_string(),
+                            event_type: EventType::Send,
+                            amount_sats: send_amount as i64,
+                            is_confirmed: true,  // Mark as already confirmed
+                            is_rbf: false,
+                            is_cpfp: false,
+                            balance_total: Some(total_after.to_sat() as i64),
+                            transaction_time: send_timestamp,
+                        },
+                    )
+                    .await
+                    {
+                        eprintln!(
+                            "[{}] Failed to insert direct confirmed send event: {}",
+                            wallet_checksum, e
+                        );
+                    }
+                }
+
                 // Detect if this is a sent transaction being confirmed
                 if trusted_pending_decrease && confirmed_increase && total_same {
                     // Use transaction-level analysis result for send confirmation amount
