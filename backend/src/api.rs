@@ -3785,7 +3785,11 @@ pub async fn reset_password(
     )
 )]
 pub async fn logout(
-    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
+    State((app_services, _stripe_billing, _config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -3854,7 +3858,11 @@ pub async fn logout(
     )
 )]
 pub async fn me(
-    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
+    State((app_services, _stripe_billing, _config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -4267,7 +4275,11 @@ pub async fn create_stripe_customer_portal(
     )
 )]
 pub async fn get_billing_status(
-    State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
     headers: HeaderMap,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -4334,15 +4346,21 @@ pub async fn get_billing_status(
         total
     };
 
-    // Get tier limits
+    // Get tier limits with actual network-specific sync intervals
     let tier_limits = user_record.subscription_tier.limits_for_api();
+    let (personal_sync, team_sync) = user_record.subscription_tier.get_sync_intervals(&config.network);
+    let actual_sync_interval = match user_record.subscription_tier {
+        crate::subscription::SubscriptionTier::Personal => personal_sync,
+        crate::subscription::SubscriptionTier::Team => team_sync,
+    };
+    
     let limits = BillingTierLimits {
         max_wallets: tier_limits.max_wallets.map(|n| n as i32).unwrap_or(-1),
         max_contacts_per_wallet: tier_limits
             .max_contacts_per_wallet
             .map(|n| n as i32)
             .unwrap_or(-1),
-        sync_interval_seconds: tier_limits.sync_interval_secs,
+        sync_interval_seconds: actual_sync_interval,
     };
 
     let response = BillingStatusResponse {
@@ -4793,7 +4811,11 @@ pub fn create_router_with_services(
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
         .route("/billing/status", get(get_billing_status))
-        .with_state((app_services.clone(), stripe_billing.clone()));
+        .with_state((
+            app_services.clone(),
+            stripe_billing.clone(),
+            config_state.clone(),
+        ));
 
     let api_routes = app_routes_2param
         .merge(app_routes_3param)
