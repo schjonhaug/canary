@@ -1610,6 +1610,40 @@ impl WalletManager {
                             eprintln!("Failed to insert sending event: {}", e);
                         }
                     }
+                    // Case 4: Spending entire balance without change (wallet drain)
+                    else if !trusted_pending_increase && !trusted_pending_decrease && 
+                            confirmed_decrease && total_decrease {
+                        let total_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
+                        
+                        let message = format!(
+                            "🚨 WALLET DRAIN: Entire balance of {:.8} BTC sent", 
+                            total_spent as f64 / 100_000_000.0
+                        );
+                        println!("[{}] {}", wallet_checksum, message);
+                        
+                        // Get timestamp of the new sending transaction
+                        let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
+                        
+                        // Insert sending event with balance_total = 0
+                        if let Err(e) = Self::insert_and_broadcast_event_helper(
+                            metadata_db,
+                            event_sender,
+                            &EventInsert {
+                                wallet_checksum: wallet_checksum.to_string(),
+                                event_type: EventType::Send,
+                                amount_sats: total_spent as i64,
+                                is_confirmed: false,
+                                is_rbf: false,
+                                is_cpfp: false,
+                                balance_total: Some(total_after.to_sat() as i64), // Will be 0 for drain
+                                transaction_time: send_timestamp,
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to insert drain event: {}", e);
+                        }
+                    }
                 }
 
                 // Detect if this is a receiving transaction
@@ -1751,6 +1785,53 @@ impl WalletManager {
                                 wallet_checksum, e
                             );
                         }
+                    }
+                }
+
+                // Detect if this is a drain transaction being confirmed (balance becomes 0)
+                if confirmed_increase && total_after.to_sat() == 0 {
+                    // This is a drain confirmation - the wallet is now empty
+                    let confirmed_amount = if total_confirmed_send_amount > 0 {
+                        total_confirmed_send_amount
+                    } else {
+                        // Fallback: calculate from balance change
+                        (confirmed_after.to_sat() - confirmed_before.to_sat()) as i64
+                    };
+                    
+                    let message = format!(
+                        "✅ WALLET DRAIN CONFIRMED: {:.8} BTC",
+                        confirmed_amount as f64 / 100_000_000.0
+                    );
+                    println!("[{}] {}", wallet_checksum, message);
+                    
+                    // Get the proper transaction timestamp
+                    let transaction_time = if let Some(ref txid) = confirmed_send_txid {
+                        Self::get_transaction_timestamp_static(electrum_client, wallet, txid)
+                    } else {
+                        latest_tx_timestamp
+                    };
+                    
+                    // Insert drain confirmation event to database and broadcast
+                    if let Err(e) = Self::insert_and_broadcast_event_helper(
+                        metadata_db,
+                        event_sender,
+                        &EventInsert {
+                            wallet_checksum: wallet_checksum.to_string(),
+                            event_type: EventType::Send,
+                            amount_sats: confirmed_amount,
+                            is_confirmed: true,
+                            is_rbf: false,
+                            is_cpfp: false,
+                            balance_total: Some(0), // Wallet is now empty
+                            transaction_time,
+                        },
+                    )
+                    .await
+                    {
+                        eprintln!(
+                            "[{}] Failed to insert drain confirmation event: {}",
+                            wallet_checksum, e
+                        );
                     }
                 }
 

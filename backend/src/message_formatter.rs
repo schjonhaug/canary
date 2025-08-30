@@ -59,7 +59,35 @@ impl MessageFormatter {
 
         match event.event_type {
             EventType::Send => {
-                if event.is_confirmed {
+                // Check if wallet is completely drained (balance = 0)
+                let is_drain = event.balance_total.map_or(false, |balance| balance == 0);
+                
+                if is_drain {
+                    let amount_btc = Self::format_btc_amount(event.amount_sats, language);
+                    if event.is_confirmed {
+                        match language {
+                            Language::Norwegian => format!(
+                                "🚨 LOMMEBOK TØMT BEKREFTET: {} BTC sendt fra {}. Lommeboken er nå tom!",
+                                amount_btc, wallet_name
+                            ),
+                            Language::English => format!(
+                                "🚨 WALLET DRAINED CONFIRMED: {} BTC sent from {}. Wallet is now empty!",
+                                amount_btc, wallet_name
+                            ),
+                        }
+                    } else {
+                        match language {
+                            Language::Norwegian => format!(
+                                "⚠️ LOMMEBOK TØMMES: Hele saldoen på {} BTC sendes fra {}!",
+                                amount_btc, wallet_name
+                            ),
+                            Language::English => format!(
+                                "⚠️ WALLET BEING DRAINED: Entire balance of {} BTC being sent from {}!",
+                                amount_btc, wallet_name
+                            ),
+                        }
+                    }
+                } else if event.is_confirmed {
                     if event.amount_sats > 0 {
                         let amount_btc = Self::format_btc_amount(event.amount_sats, language);
                         match language {
