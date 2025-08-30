@@ -7,17 +7,28 @@ use canary::wallet::WalletManager;
 use canary::subscription::SubscriptionTier;
 use tokio::sync::broadcast;
 use tempfile::tempdir;
+use bdk_wallet::bitcoin::bip32::Mnemonic;
+use bdk_wallet::bitcoin::Network;
+use bdk_wallet::bitcoin::bip32::{DerivationPath, Xpriv};
+use bdk_wallet::bitcoin::secp256k1::Secp256k1;
+use std::str::FromStr;
 
-/// Integration tests for transaction event detection using regtest environment
+/// Integration tests for transaction event detection using isolated regtest environment
 /// 
-/// These tests use the actual Docker-based regtest environment to send real
-/// Bitcoin transactions and verify that the wallet sync logic correctly 
-/// creates transaction events in the database.
+/// These tests create completely isolated wallets for each test run to ensure:
+/// - No interference with development wallets
+/// - Atomic test execution with predictable initial state
+/// - Clean separation between test runs
 ///
 /// Prerequisites:
 /// 1. Docker containers must be running (./regtest-env/docker-utils.sh start)
-/// 2. Alice, Bob, Charlie wallets must exist (./regtest-env/docker-utils.sh create-wallets)
-/// 3. Backend must be stopped (these tests will conflict with running backend)
+/// 2. Backend must be stopped (these tests will conflict with running backend)
+/// 
+/// Test Architecture:
+/// - Each test creates fresh BIP39 mnemonics and derives test-specific wallets
+/// - Tests use actual Bitcoin transactions via regtest for real-world validation
+/// - Temporary directories ensure no filesystem conflicts
+/// - All test data is automatically cleaned up after each test
 
 // Test configuration constants
 const ELECTRUM_URL: &str = "tcp://127.0.0.1:50001";
@@ -25,19 +36,26 @@ const REGTEST_NETWORK: bdk_wallet::bitcoin::Network = bdk_wallet::bitcoin::Netwo
 const SYNC_WAIT_MS: u64 = 2000; // Time to wait for sync to complete
 const DOCKER_UTILS_PATH: &str = "../regtest-env/docker-utils.sh";
 
-/// Helper struct to manage test setup and cleanup
+/// Helper struct to manage test setup and cleanup with isolated wallets
 struct TestEnvironment {
     metadata_db: MetadataDb,
     wallet_manager: WalletManager,
     _temp_dir: tempfile::TempDir,
     test_user_id: String,
+    // Test wallets with fresh mnemonics and addresses
     alice_checksum: String,
+    alice_address: String,
+    alice_mnemonic: String,
     bob_checksum: String,
+    bob_address: String,
+    bob_mnemonic: String,
     charlie_checksum: String,
+    charlie_address: String,
+    charlie_mnemonic: String,
 }
 
 impl TestEnvironment {
-    /// Create a new test environment with fresh database and wallets
+    /// Create a new test environment with fresh database and isolated wallets
     async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         // Create temporary directory for test data
         let temp_dir = tempdir()?;
@@ -78,62 +96,128 @@ impl TestEnvironment {
             &test_config,
         ).await;
         
-        // Add test wallets from regtest environment
-        // These correspond to the wallets created by docker-utils.sh create-wallets
-        let alice_descriptor = Self::get_wallet_descriptor("alice").await?;
-        let bob_descriptor = Self::get_wallet_descriptor("bob").await?;
-        let charlie_descriptor = Self::get_wallet_descriptor("charlie").await?;
+        // Generate fresh test wallets for complete isolation
+        let (alice_descriptor, alice_address, alice_mnemonic) = Self::generate_test_wallet("Alice")?;
+        let (bob_descriptor, bob_address, bob_mnemonic) = Self::generate_test_wallet("Bob")?;
+        let (charlie_descriptor, charlie_address, charlie_mnemonic) = Self::generate_test_wallet("Charlie")?;
         
         let alice_checksum = metadata_db.insert_wallet("Alice", &alice_descriptor, &test_user_id).await?;
         let bob_checksum = metadata_db.insert_wallet("Bob", &bob_descriptor, &test_user_id).await?;
         let charlie_checksum = metadata_db.insert_wallet("Charlie", &charlie_descriptor, &test_user_id).await?;
         
-        // Create wallets in the manager (no need to load, they'll be created on first sync)
-        // The wallets will be loaded automatically during sync operations
+        println!("🔧 Created test wallets:");
+        println!("   Alice: {} ({})", alice_address, alice_checksum);
+        println!("   Bob: {} ({})", bob_address, bob_checksum);
+        println!("   Charlie: {} ({})", charlie_address, charlie_checksum);
         
-        // Fund Alice and Bob with 1 BTC each from the miner wallet for reliable testing
-        let temp_env = TestEnvironment {
+        let env = TestEnvironment {
             metadata_db,
             wallet_manager,
             _temp_dir: temp_dir,
             test_user_id,
-            alice_checksum: alice_checksum.clone(),
-            bob_checksum: bob_checksum.clone(),
-            charlie_checksum: charlie_checksum.clone(),
+            alice_checksum,
+            alice_address,
+            alice_mnemonic,
+            bob_checksum,
+            bob_address,
+            bob_mnemonic,
+            charlie_checksum,
+            charlie_address,
+            charlie_mnemonic,
         };
         
-        // Fund the wallets to ensure they have sufficient balance for testing
-        temp_env.run_docker_utils(&["miner", "sent", "alice", "1.0"]).await?;
-        temp_env.run_docker_utils(&["miner", "sent", "bob", "1.0"]).await?;
+        // Fund Alice and Bob with 1 BTC each from the miner for reliable testing
+        env.fund_from_miner(&env.alice_address, "1.0").await?;
+        env.fund_from_miner(&env.bob_address, "1.0").await?;
         
-        Ok(temp_env)
+        // Initial sync to detect funding
+        env.sync_and_wait().await?;
+        
+        Ok(env)
     }
     
-    /// Get wallet descriptor from regtest environment
-    async fn get_wallet_descriptor(wallet_name: &str) -> Result<String, Box<dyn std::error::Error>> {
-        // This would normally extract the descriptor from the regtest wallet
-        // For now, we'll use placeholder descriptors that match the test wallets
-        let descriptor = match wallet_name {
-            "alice" => "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwHFgmWPkCxkPRUdqEjcmN4dQZ2Xrj2TG3vL8RmE2FbHnL8V9M4F7uF3KxNvYvNb2A4cPdVhQv5mP2dP7pE6dN/<0;1>/*)",
-            "bob" => "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwHFgmWPkCxkPRUdqEjcmN4dQZ2Xrj2TG3vL8RmE2FbHnL8V9M4F7uF3KxNvYvNb2A4cPdVhQv5mP2dP7pE6dM/<0;1>/*)",
-            "charlie" => "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwHFgmWPkCxkPRUdqEjcmN4dQZ2Xrj2TG3vL8RmE2FbHnL8V9M4F7uF3KxNvYvNb2A4cPdVhQv5mP2dP7pE6dL/<0;1>/*)",
-            _ => return Err("Unknown wallet name".into()),
-        };
-        Ok(descriptor.to_string())
+    /// Generate a fresh BIP39 wallet with descriptor and first receiving address
+    fn generate_test_wallet(name: &str) -> Result<(String, String, String), Box<dyn std::error::Error>> {
+        use bdk_wallet::bitcoin::bip32::ChildNumber;
+        
+        // Generate a fresh BIP39 mnemonic
+        let mnemonic = Mnemonic::generate(12)?;
+        let mnemonic_str = mnemonic.to_string();
+        
+        // Create master private key from mnemonic
+        let secp = Secp256k1::new();
+        let root_key = Xpriv::new_master(Network::Regtest, &mnemonic.to_seed(""))?;
+        
+        // Derive according to BIP84 path for native SegWit: m/84'/1'/0'
+        // (1' is the coin type for testnet/regtest)
+        let path = DerivationPath::from_str("m/84'/1'/0'")?;
+        let account_key = root_key.derive_priv(&secp, &path)?;
+        
+        // Create the wallet descriptor for P2WPKH (Native SegWit)
+        let descriptor = format!("wpkh({}/<0;1>/*)", account_key);
+        
+        // Derive the first receiving address (m/84'/1'/0'/0/0)
+        let receiving_path = [ChildNumber::Normal { index: 0 }, ChildNumber::Normal { index: 0 }];
+        let receiving_key = account_key.derive_priv(&secp, &receiving_path)?;
+        let public_key = receiving_key.to_priv().public_key(&secp);
+        
+        // Create P2WPKH address
+        use bdk_wallet::bitcoin::key::CompressedPublicKey;
+        use bdk_wallet::bitcoin::Address;
+        let compressed_pk = CompressedPublicKey::from(public_key);
+        let address = Address::p2wpkh(&compressed_pk, Network::Regtest);
+        
+        println!("🔑 Generated {} wallet:", name);
+        println!("   Mnemonic: {}", mnemonic_str);
+        println!("   Descriptor: {}", descriptor);
+        println!("   Address: {}", address);
+        
+        Ok((descriptor, address.to_string(), mnemonic_str))
     }
     
-    /// Execute a docker-utils.sh command and return the output
-    async fn run_docker_utils(&self, args: &[&str]) -> Result<String, Box<dyn std::error::Error>> {
+    /// Fund an address from the miner wallet using direct address
+    async fn fund_from_miner(&self, address: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
         let output = Command::new(DOCKER_UTILS_PATH)
-            .args(args)
+            .args(&["miner", "fund", address, amount])
             .output()?;
             
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Docker utils command failed: {}", stderr).into());
+            return Err(format!("Failed to fund address {}: {}", address, stderr).into());
         }
         
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        let result = String::from_utf8_lossy(&output.stdout).to_string();
+        println!("💰 Funded {} with {} BTC", address, amount);
+        Ok(result)
+    }
+    
+    /// Send transaction between test wallets using addresses
+    async fn send_transaction(&self, from_addr: &str, to_addr: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
+        // For now, we'll need to use bitcoin-cli directly since docker-utils.sh
+        // expects wallet names. We'll create a wrapper method for this.
+        self.send_via_bitcoin_cli(from_addr, to_addr, amount).await
+    }
+    
+    /// Send transaction using bitcoin-cli directly
+    async fn send_via_bitcoin_cli(&self, _from_addr: &str, to_addr: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
+        // This is more complex - for now we'll create a simple approach
+        // In a real implementation, we'd need to import the private keys or use PSBT
+        let output = Command::new("docker")
+            .args(&[
+                "exec", "bitcoin", 
+                "bitcoin-cli", "-regtest",
+                "sendtoaddress", to_addr, amount
+            ])
+            .output()?;
+            
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Failed to send transaction: {}", stderr).into());
+        }
+        
+        let result = String::from_utf8_lossy(&output.stdout).to_string();
+        println!("📤 Sent {} BTC to {}", amount, to_addr);
+        Ok(result)
     }
     
     /// Trigger wallet sync and wait for completion

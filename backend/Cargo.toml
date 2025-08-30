@@ -45,3 +45,16 @@ regex = "1.10"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 tempfile = "3.3"
+
+# System tests configuration
+[[test]]
+name = "wallet_drain_scenarios"
+path = "system_tests/wallet_drain_scenarios.rs"
+
+[[test]]
+name = "high_index_scanning" 
+path = "system_tests/high_index_scanning.rs"
+
+[[test]]
+name = "transaction_flows"
+path = "system_tests/transaction_flows.rs"
