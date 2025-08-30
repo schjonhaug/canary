@@ -1777,9 +1777,11 @@ impl WalletManager {
                 // NEW: Detect sending transactions that went directly to confirmed
                 // (high-fee transactions that confirmed between sync intervals)
                 // This detection is COMPLETELY INDEPENDENT - only looks at this wallet's state
+                // Exclude wallet drains (total_after == 0) as they're handled by Case 4
                 if confirmed_decrease && total_decrease && 
                    !trusted_pending_increase && !trusted_pending_decrease &&
-                   !untrusted_pending_increase && !untrusted_pending_decrease {
+                   !untrusted_pending_increase && !untrusted_pending_decrease &&
+                   total_after.to_sat() != 0 {
                     
                     // Calculate how much was sent from THIS wallet
                     let send_amount = total_before.to_sat() - total_after.to_sat();
