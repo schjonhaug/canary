@@ -719,64 +719,71 @@ mine_blocks() {
 }
 
 # --- New multi-word command parsing for wallet actions ---
-if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" ]]; then
+if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]]; then
     WALLET="$1"
     SUBCMD="$2"
     shift 2
     case "$SUBCMD" in
         send)
-            AMOUNT="$1"
-            if [ -z "$AMOUNT" ]; then
-                echo "Usage: $0 $WALLET send <amount>"
+            DESTINATION_WALLET="$1"
+            AMOUNT="$2"
+            if [ -z "$DESTINATION_WALLET" ] || [ -z "$AMOUNT" ]; then
+                echo "Usage: $0 $WALLET send <destination_wallet> <amount|max>"
+                echo "Available destinations: alice, bob, charlie, miner"
                 exit 1
             fi
-            btc loadwallet "$WALLET" 2>/dev/null || true
-            if [ "$WALLET" == "alice" ]; then
-                btc loadwallet "bob" 2>/dev/null || true
-                TARGET_ADDRESS=$(btc_bob getnewaddress)
-                echo "🎯 Sending $AMOUNT BTC from Alice to Bob address: $TARGET_ADDRESS"
-                TXID=$(btc_alice sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
-            elif [ "$WALLET" == "bob" ]; then
-                btc loadwallet "alice" 2>/dev/null || true
-                TARGET_ADDRESS=$(btc_alice getnewaddress)
-                echo "🎯 Sending $AMOUNT BTC from Bob to Alice address: $TARGET_ADDRESS"
-                TXID=$(btc_bob sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
-            else # charlie
-                btc loadwallet "alice" 2>/dev/null || true
-                TARGET_ADDRESS=$(btc_alice getnewaddress)
-                echo "🎯 Sending $AMOUNT BTC from Charlie to Alice address: $TARGET_ADDRESS"
-                TXID=$(btc_charlie sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+            
+            # Validate destination wallet (all wallets can be destinations)
+            case "$DESTINATION_WALLET" in
+                alice|bob|charlie|miner)
+                    ;;
+                *)
+                    echo "❌ Invalid destination wallet: $DESTINATION_WALLET"
+                    echo "Available destinations: alice, bob, charlie, miner"
+                    exit 1
+                    ;;
+            esac
+            
+            # Special validation: miner can only send to alice, bob, charlie (not to itself)
+            if [ "$WALLET" == "miner" ] && [ "$DESTINATION_WALLET" == "miner" ]; then
+                echo "❌ Miner wallet cannot send to itself"
+                echo "Miner can send to: alice, bob, charlie"
+                exit 1
             fi
+            
+            # Load source and destination wallets
+            btc loadwallet "$WALLET" 2>/dev/null || true
+            btc loadwallet "$DESTINATION_WALLET" 2>/dev/null || true
+            
+            # Get target address from destination wallet
+            TARGET_ADDRESS=$(btc_wallet "$DESTINATION_WALLET" getnewaddress)
+            
+            # Handle max amount (drain wallet)
+            if [ "$AMOUNT" == "max" ]; then
+                # Get current balance
+                CURRENT_BALANCE=$(btc_wallet "$WALLET" getbalance)
+                echo "🎯 Draining $WALLET wallet ($CURRENT_BALANCE BTC) to $DESTINATION_WALLET address: $TARGET_ADDRESS"
+                # Use subtractfeefromamount to send everything minus fees
+                TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$CURRENT_BALANCE" "" "" true)
+            else
+                echo "🎯 Sending $AMOUNT BTC from $WALLET to $DESTINATION_WALLET address: $TARGET_ADDRESS"
+                TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+            fi
+            
             echo "✅ Transaction sent: $TXID"
             echo "💡 Use '$0 mine' to confirm transaction"
             exit 0
             ;;
         balance)
             btc loadwallet "$WALLET" 2>/dev/null || true
-            if [ "$WALLET" == "alice" ]; then
-                BALANCE=$(btc_alice getbalance)
-                echo "Alice wallet balance: $BALANCE BTC"
-            elif [ "$WALLET" == "bob" ]; then
-                BALANCE=$(btc_bob getbalance)
-                echo "Bob wallet balance: $BALANCE BTC"
-            else # charlie
-                BALANCE=$(btc_charlie getbalance)
-                echo "Charlie wallet balance: $BALANCE BTC"
-            fi
+            BALANCE=$(btc_wallet "$WALLET" getbalance)
+            echo "$WALLET wallet balance: $BALANCE BTC"
             exit 0
             ;;
         address)
             btc loadwallet "$WALLET" 2>/dev/null || true
-            if [ "$WALLET" == "alice" ]; then
-                ADDRESS=$(btc_alice getnewaddress)
-                echo "New Alice address: $ADDRESS"
-            elif [ "$WALLET" == "bob" ]; then
-                ADDRESS=$(btc_bob getnewaddress)
-                echo "New Bob address: $ADDRESS"
-            else # charlie
-                ADDRESS=$(btc_charlie getnewaddress)
-                echo "New Charlie address: $ADDRESS"
-            fi
+            ADDRESS=$(btc_wallet "$WALLET" getnewaddress)
+            echo "New $WALLET address: $ADDRESS"
             exit 0
             ;;
         fund)
@@ -788,13 +795,7 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" ]]; then
             fi
             btc loadwallet "$WALLET" 2>/dev/null || true
             echo "Funding address $TARGET_ADDRESS with $AMOUNT BTC from $WALLET..."
-            if [ "$WALLET" == "alice" ]; then
-                TXID=$(btc_alice sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
-            elif [ "$WALLET" == "bob" ]; then
-                TXID=$(btc_bob sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
-            else # charlie
-                TXID=$(btc_charlie sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
-            fi
+            TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
             echo "Transaction: $TXID"
             echo "💡 Use '$0 mine' to confirm transaction"
             exit 0
@@ -810,13 +811,7 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" ]]; then
             
             # Use bumpfee without explicit fee_rate to let Bitcoin Core automatically calculate
             # This will increase the fee by the minimum required increment
-            if [ "$WALLET" == "alice" ]; then
-                RESULT=$(btc_alice bumpfee "$TXID" 2>&1)
-            elif [ "$WALLET" == "bob" ]; then
-                RESULT=$(btc_bob bumpfee "$TXID" 2>&1)
-            else # charlie
-                RESULT=$(btc_charlie bumpfee "$TXID" 2>&1)
-            fi
+            RESULT=$(btc_wallet "$WALLET" bumpfee "$TXID" 2>&1)
             
             if echo "$RESULT" | jq -e '.txid' > /dev/null 2>&1; then
                 NEW_TXID=$(echo "$RESULT" | jq -r '.txid')
@@ -1656,30 +1651,38 @@ case "$1" in
         echo "  status              Show environment status"
         echo ""
         echo "Alice Commands (funded wallet - 1 BTC distributed):"
-        echo "  alice balance             Show Alice wallet balance"
-        echo "  alice address             Generate new Alice address"
-        echo "  alice send <amt>          Send Bitcoin from Alice to Bob (RBF-enabled)"
-        echo "  alice fund <addr> [amt]   Fund address from Alice (default: 1.0)"
-        echo "  alice rbf <txid>          Replace transaction with automatically calculated higher fee"
-        echo "  alice cpfp <txid>         Create CPFP child transaction for Alice's unconfirmed output"
-        echo "  alice consolidate         Consolidate 2 smallest UTXOs to new receive address"
+        echo "  alice balance                      Show Alice wallet balance"
+        echo "  alice address                      Generate new Alice address"
+        echo "  alice send <wallet> <amt|max>      Send Bitcoin to another wallet (alice/bob/charlie/miner)"
+        echo "  alice fund <addr> [amt]            Fund address from Alice (default: 1.0)"
+        echo "  alice rbf <txid>                   Replace transaction with automatically calculated higher fee"
+        echo "  alice cpfp <txid>                  Create CPFP child transaction for Alice's unconfirmed output"
+        echo "  alice consolidate                  Consolidate 2 smallest UTXOs to new receive address"
         echo ""
         echo "Bob Commands (unfunded wallet):"
-        echo "  bob balance               Show Bob wallet balance"
-        echo "  bob address               Generate new Bob address"
-        echo "  bob send <amt>            Send Bitcoin from Bob to Alice (RBF-enabled)"
-        echo "  bob rbf <txid>            Replace transaction with automatically calculated higher fee"
-        echo "  bob cpfp <txid>           Create CPFP child transaction for Bob's unconfirmed output"
-        echo "  bob consolidate           Consolidate 2 smallest UTXOs to new receive address"
+        echo "  bob balance                        Show Bob wallet balance"
+        echo "  bob address                        Generate new Bob address"
+        echo "  bob send <wallet> <amt|max>        Send Bitcoin to another wallet (alice/bob/charlie/miner)"
+        echo "  bob rbf <txid>                     Replace transaction with automatically calculated higher fee"
+        echo "  bob cpfp <txid>                    Create CPFP child transaction for Bob's unconfirmed output"
+        echo "  bob consolidate                    Consolidate 2 smallest UTXOs to new receive address"
         echo ""
         echo "Charlie Commands (funded wallet - 0.5 BTC at index 250):"
-        echo "  charlie balance           Show Charlie wallet balance"
-        echo "  charlie address           Generate new Charlie address"
-        echo "  charlie send <amt>        Send Bitcoin from Charlie to Alice (RBF-enabled)"
-        echo "  charlie fund <addr> [amt] Fund address from Charlie (default: 1.0)"
-        echo "  charlie rbf <txid>        Replace transaction with automatically calculated higher fee"
-        echo "  charlie cpfp <txid>       Create CPFP child transaction for Charlie's unconfirmed output"
-        echo "  charlie consolidate       Consolidate 2 smallest UTXOs to new receive address"
+        echo "  charlie balance                    Show Charlie wallet balance"
+        echo "  charlie address                    Generate new Charlie address"
+        echo "  charlie send <wallet> <amt|max>    Send Bitcoin to another wallet (alice/bob/charlie/miner)"
+        echo "  charlie fund <addr> [amt]          Fund address from Charlie (default: 1.0)"
+        echo "  charlie rbf <txid>                 Replace transaction with automatically calculated higher fee"
+        echo "  charlie cpfp <txid>                Create CPFP child transaction for Charlie's unconfirmed output"
+        echo "  charlie consolidate                Consolidate 2 smallest UTXOs to new receive address"
+        echo ""
+        echo "Miner Commands (heavily funded wallet - for refunding drained wallets):"
+        echo "  miner balance                      Show Miner wallet balance"
+        echo "  miner address                      Generate new Miner address"
+        echo "  miner send <wallet> <amt|max>      Send Bitcoin to another wallet (alice/bob/charlie only)"
+        echo "  miner fund <addr> [amt]            Fund address from Miner (default: 1.0)"
+        echo "  miner rbf <txid>                   Replace transaction with automatically calculated higher fee"
+        echo "  miner cpfp <txid>                  Create CPFP child transaction for Miner's unconfirmed output"
         echo ""
         echo "Mining Commands:"
         echo "  mine [blocks]           Mine blocks to Miner wallet (default: 1)"
@@ -1701,12 +1704,14 @@ case "$1" in
         echo "  $0 create-wallets                    # Create Alice/Bob/Charlie wallets (Alice gets 1 BTC distributed, Charlie gets 0.5 BTC at index 250)"
         echo "  $0 add-wallets-to-backend            # Add Alice/Bob/Charlie to your backend"
         echo "  $0 mine 6                            # Mine 6 blocks"
-        echo "  $0 alice send 0.5                    # Send 0.5 BTC from Alice to Bob (RBF-enabled)"
+        echo "  $0 alice send bob 0.5                # Send 0.5 BTC from Alice to Bob (RBF-enabled)"
+        echo "  $0 alice send miner max              # Drain Alice wallet to miner"
+        echo "  $0 miner send alice 1.0              # Refund Alice wallet from miner"
         echo "  $0 alice rbf <txid>                  # Replace transaction with automatic fee bump (Alice)"
-        echo "  $0 bob send 0.01                     # Send 0.01 BTC from Bob to Alice"
+        echo "  $0 bob send alice 0.01               # Send 0.01 BTC from Bob to Alice"
         echo "  $0 alice cpfp <txid>                 # Alice creates CPFP child for parent transaction"
         echo "  $0 alice consolidate                 # Consolidate Alice's 2 smallest UTXOs"
-        echo "  $0 charlie send 0.1                  # Send 0.1 BTC from Charlie to Alice (tests high index)"
+        echo "  $0 charlie send alice 0.1            # Send 0.1 BTC from Charlie to Alice (tests high index)"
         echo "  $0 mine 1                            # Mine 1 block (confirms pending transactions)"
         echo "  $0 mempool-status                    # Check mempool"
         echo "  $0 get-mempool-txid 0                # Get first transaction from mempool"
