@@ -8,6 +8,7 @@ use canary::subscription::SubscriptionTier;
 use tokio::sync::broadcast;
 use tempfile::tempdir;
 use uuid::Uuid;
+use serde_json;
 
 // Test configuration constants
 const BITCOIN_IMAGE: &str = "bitcoin/bitcoin:27.1";
@@ -296,30 +297,141 @@ impl IsolatedTestEnvironment {
     
     /// Send transaction between wallets
     pub async fn send_transaction(&self, from_wallet: &str, to_wallet: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
-        println!("💸 Sending {} BTC from {} to {}", amount, from_wallet, to_wallet);
+        self.send_transaction_with_options(from_wallet, to_wallet, amount, false, None).await
+    }
+    
+    /// Send transaction with advanced options (RBF support, custom fee rate)
+    pub async fn send_transaction_with_options(
+        &self, 
+        from_wallet: &str, 
+        to_wallet: &str, 
+        amount: &str, 
+        replaceable: bool,
+        fee_rate: Option<f64>
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        println!("💸 Sending {} BTC from {} to {} (RBF: {}, fee_rate: {:?})", 
+                amount, from_wallet, to_wallet, replaceable, fee_rate);
         
         let to_address = Self::bitcoin_cli(&self.container_name, &[
             &format!("-rpcwallet={}", to_wallet), "getnewaddress"
         ])?.trim().trim_matches('"').to_string();
         
-        let txid = if amount == "max" {
+        let mut send_args = vec![
+            format!("-rpcwallet={}", from_wallet),
+            "sendtoaddress".to_string(),
+            to_address,
+        ];
+        
+        if amount == "max" {
             // Drain the wallet
             let balance = Self::bitcoin_cli(&self.container_name, &[
                 &format!("-rpcwallet={}", from_wallet), "getbalance"
             ])?.trim().to_string();
-            
-            Self::bitcoin_cli(&self.container_name, &[
-                &format!("-rpcwallet={}", from_wallet), 
-                "sendtoaddress", &to_address, &balance, "", "", "true"  // subtractfeefromamount=true
-            ])?
+            send_args.push(balance);
+            send_args.push("".to_string()); // comment
+            send_args.push("".to_string()); // comment_to
+            send_args.push("true".to_string()); // subtractfeefromamount
         } else {
-            Self::bitcoin_cli(&self.container_name, &[
-                &format!("-rpcwallet={}", from_wallet), 
-                "sendtoaddress", &to_address, amount
-            ])?
-        }.trim().trim_matches('"').to_string();
+            send_args.push(amount.to_string());
+            send_args.push("".to_string()); // comment
+            send_args.push("".to_string()); // comment_to
+            send_args.push("false".to_string()); // subtractfeefromamount
+        }
+        
+        send_args.push(replaceable.to_string()); // replaceable
+        
+        if let Some(rate) = fee_rate {
+            send_args.push("null".to_string()); // conf_target (null for explicit fee_rate)
+            send_args.push("economical".to_string()); // estimate_mode
+            send_args.push(rate.to_string()); // fee_rate
+        }
+        
+        let send_args_str: Vec<&str> = send_args.iter().map(|s| s.as_str()).collect();
+        let txid = Self::bitcoin_cli(&self.container_name, &send_args_str)?
+            .trim().trim_matches('"').to_string();
         
         println!("✅ Transaction sent: {}", txid);
+        Ok(txid)
+    }
+    
+    /// Send RBF (Replace-By-Fee) transaction with low fee
+    pub async fn send_rbf_transaction(&self, from_wallet: &str, to_wallet: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
+        println!("🔄 Sending RBF transaction with low fee");
+        self.send_transaction_with_options(from_wallet, to_wallet, amount, true, Some(1.0)).await
+    }
+    
+    /// Replace an existing transaction with higher fee
+    pub async fn replace_transaction(&self, from_wallet: &str, original_txid: &str, new_fee_rate: f64) -> Result<String, Box<dyn std::error::Error>> {
+        println!("⬆️ Replacing transaction {} with higher fee rate: {}", original_txid, new_fee_rate);
+        
+        // Use bumpfee to replace the transaction
+        let new_txid = Self::bitcoin_cli(&self.container_name, &[
+            &format!("-rpcwallet={}", from_wallet),
+            "bumpfee",
+            original_txid,
+            &format!(r#"{{"fee_rate": {}}}"#, new_fee_rate)
+        ])?.trim().to_string();
+        
+        // Extract txid from JSON response
+        let json: serde_json::Value = serde_json::from_str(&new_txid)?;
+        let txid = json["txid"].as_str()
+            .ok_or("Failed to extract txid from bumpfee response")?
+            .to_string();
+        
+        println!("✅ Transaction replaced: {}", txid);
+        Ok(txid)
+    }
+    
+    /// Create CPFP (Child-Pays-For-Parent) transaction
+    pub async fn create_cpfp_transaction(&self, child_wallet: &str, parent_txid: &str, vout: u32, fee_rate: f64) -> Result<String, Box<dyn std::error::Error>> {
+        println!("👶 Creating CPFP transaction for parent {} with fee rate {}", parent_txid, fee_rate);
+        
+        // Get a new address for the child transaction
+        let child_address = Self::bitcoin_cli(&self.container_name, &[
+            &format!("-rpcwallet={}", child_wallet), "getnewaddress"
+        ])?.trim().trim_matches('"').to_string();
+        
+        // Create raw transaction spending the parent output
+        let create_args = [
+            "createrawtransaction",
+            &format!(r#"[{{"txid": "{}", "vout": {}}}]"#, parent_txid, vout),
+            &format!(r#"{{"{child_address}": 0.0}}"#), // Amount will be calculated with subtractfeefromamount
+        ];
+        
+        let raw_tx = Self::bitcoin_cli(&self.container_name, &create_args)?
+            .trim().trim_matches('"').to_string();
+        
+        // Fund the raw transaction with appropriate fee
+        let fund_args = [
+            &format!("-rpcwallet={}", child_wallet),
+            "fundrawtransaction",
+            &raw_tx,
+            &format!(r#"{{"fee_rate": {}, "subtractFeeFromOutputs": [0]}}"#, fee_rate)
+        ];
+        
+        let funded_result = Self::bitcoin_cli(&self.container_name, &fund_args)?;
+        let funded_json: serde_json::Value = serde_json::from_str(&funded_result)?;
+        let funded_tx = funded_json["hex"].as_str()
+            .ok_or("Failed to extract hex from fundrawtransaction response")?;
+        
+        // Sign the transaction
+        let signed_result = Self::bitcoin_cli(&self.container_name, &[
+            &format!("-rpcwallet={}", child_wallet),
+            "signrawtransactionwithwallet",
+            funded_tx
+        ])?;
+        
+        let signed_json: serde_json::Value = serde_json::from_str(&signed_result)?;
+        let signed_tx = signed_json["hex"].as_str()
+            .ok_or("Failed to extract hex from signrawtransactionwithwallet response")?;
+        
+        // Broadcast the transaction
+        let txid = Self::bitcoin_cli(&self.container_name, &[
+            "sendrawtransaction",
+            signed_tx
+        ])?.trim().trim_matches('"').to_string();
+        
+        println!("✅ CPFP transaction created: {}", txid);
         Ok(txid)
     }
     
@@ -347,6 +459,105 @@ impl IsolatedTestEnvironment {
     pub async fn get_wallet_events(&self, wallet_checksum: &str) -> Result<Vec<TransactionEventWithWallet>, Box<dyn std::error::Error>> {
         let events = self.metadata_db.get_events_by_wallet_checksum(wallet_checksum, None).await?;
         Ok(events)
+    }
+    
+    /// Get specific transaction details from Bitcoin node
+    pub async fn get_transaction_info(&self, txid: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+        let tx_info = Self::bitcoin_cli(&self.container_name, &[
+            "gettransaction", txid
+        ])?;
+        
+        Ok(serde_json::from_str(&tx_info)?)
+    }
+    
+    /// Check if transaction is in mempool (unconfirmed)
+    pub async fn is_transaction_in_mempool(&self, txid: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        let mempool_result = Self::bitcoin_cli(&self.container_name, &[
+            "getmempoolentry", txid
+        ]);
+        
+        Ok(mempool_result.is_ok())
+    }
+    
+    /// Get the current block count  
+    pub async fn get_block_count(&self) -> Result<u64, Box<dyn std::error::Error>> {
+        let block_count = Self::bitcoin_cli(&self.container_name, &[
+            "getblockcount"
+        ])?.trim().parse::<u64>()?;
+        
+        Ok(block_count)
+    }
+    
+    /// Send transaction and immediately mine (for fast confirmation scenarios)
+    pub async fn send_and_mine(&self, from_wallet: &str, to_wallet: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
+        println!("⚡ Sending and immediately mining transaction");
+        let txid = self.send_transaction(from_wallet, to_wallet, amount).await?;
+        self.mine_blocks(1).await?;
+        Ok(txid)
+    }
+    
+    /// Wait for wallet sync to detect new events (by event count increase)
+    pub async fn wait_for_new_events(&mut self, wallet_checksum: &str, initial_count: usize, max_attempts: u32) -> Result<bool, Box<dyn std::error::Error>> {
+        for attempt in 1..=max_attempts {
+            self.sync_and_wait().await?;
+            
+            let events = self.get_wallet_events(wallet_checksum).await?;
+            let new_count = events.len();
+            
+            if new_count > initial_count {
+                println!("✅ New events detected in wallet {} after {} attempts (count: {} -> {})", 
+                        wallet_checksum, attempt, initial_count, new_count);
+                return Ok(true);
+            }
+            
+            if attempt < max_attempts {
+                println!("⏳ No new events in wallet {}, attempt {}/{} (count: {})", 
+                        wallet_checksum, attempt, max_attempts, new_count);
+                sleep(Duration::from_millis(1000)).await;
+            }
+        }
+        
+        println!("❌ No new events detected in wallet {} after {} attempts", wallet_checksum, max_attempts);
+        Ok(false)
+    }
+    
+    /// Get events by amount and timing (approximate transaction matching)
+    pub async fn get_events_by_amount_and_time(&self, amount_sats: i64, since_time: u64) -> Result<Vec<TransactionEventWithWallet>, Box<dyn std::error::Error>> {
+        let alice_events = self.get_wallet_events(&self.alice_checksum).await?;
+        let bob_events = self.get_wallet_events(&self.bob_checksum).await?;
+        let charlie_events = self.get_wallet_events(&self.charlie_checksum).await?;
+        
+        let all_events = [alice_events, bob_events, charlie_events].concat();
+        
+        let matching_events: Vec<_> = all_events.into_iter()
+            .filter(|e| {
+                e.transaction_time >= since_time && 
+                (e.amount_sats.abs() == amount_sats.abs() || e.amount_sats == amount_sats)
+            })
+            .collect();
+            
+        Ok(matching_events)
+    }
+    
+    /// Create wallet using output descriptor format (for comparison with XPUB)
+    pub async fn create_descriptor_wallet(&self, wallet_name: &str, descriptor: &str, user_id: &str) -> Result<String, Box<dyn std::error::Error>> {
+        println!("🏦 Creating descriptor-based wallet: {}", wallet_name);
+        let checksum = self.metadata_db.insert_wallet(wallet_name, descriptor, user_id).await?;
+        println!("✅ Descriptor wallet created with checksum: {}", checksum);
+        Ok(checksum)
+    }
+    
+    /// Get transaction output info for CPFP testing  
+    pub async fn get_transaction_output(&self, txid: &str, vout: u32) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+        let tx_result = Self::bitcoin_cli(&self.container_name, &[
+            "gettxout", txid, &vout.to_string()
+        ])?;
+        
+        if tx_result.trim() == "null" {
+            return Err("Transaction output not found or already spent".into());
+        }
+        
+        Ok(serde_json::from_str(&tx_result)?)
     }
 }
 

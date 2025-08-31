@@ -58,3 +58,15 @@ path = "system_tests/high_index_scanning.rs"
 [[test]]
 name = "transaction_flows"
 path = "system_tests/transaction_flows.rs"
+
+[[test]]
+name = "fast_confirmation_scenarios"
+path = "system_tests/fast_confirmation_scenarios.rs"
+
+[[test]]
+name = "advanced_transactions"
+path = "system_tests/advanced_transactions.rs"
+
+[[test]]
+name = "notification_verification"
+path = "system_tests/notification_verification.rs"
