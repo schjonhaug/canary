@@ -1526,21 +1526,33 @@ impl MetadataDb {
                  WHERE w.is_active = 1 AND w.status = 'ready' 
                    AND u.subscription_tier = ?1
                    AND (
-                    -- Active subscriptions
-                    u.subscription_status = 'active'
-                    OR 
-                    -- Trial users within trial period  
-                    (u.subscription_status = 'trialing' AND datetime(u.trial_ends_at) > datetime('now'))
+                    -- Admin users bypass all subscription checks
+                    u.is_admin = 1
                     OR
-                    -- Cancelled users still within their paid period
-                    (u.subscription_status = 'canceled' AND u.subscription_ends_at IS NOT NULL AND datetime(u.subscription_ends_at) > datetime('now'))
+                    -- Regular users need valid subscription
+                    (
+                      -- Active subscriptions
+                      u.subscription_status = 'active'
+                      OR 
+                      -- Trial users within trial period  
+                      (u.subscription_status = 'trialing' AND datetime(u.trial_ends_at) > datetime('now'))
+                      OR
+                      -- Cancelled users still within their paid period
+                      (u.subscription_status = 'canceled' AND u.subscription_ends_at IS NOT NULL AND datetime(u.subscription_ends_at) > datetime('now'))
+                    )
                  )
                  AND (
-                    -- Never synced before
-                    w.last_synced_at IS NULL 
+                    -- Admin users bypass timing restrictions
+                    u.is_admin = 1
                     OR
-                    -- Or due for sync based on tier interval
-                    datetime(w.last_synced_at) <= datetime('now', '-' || ?2 || ' seconds')
+                    -- Regular users follow timing rules
+                    (
+                      -- Never synced before
+                      w.last_synced_at IS NULL 
+                      OR
+                      -- Or due for sync based on tier interval
+                      datetime(w.last_synced_at) <= datetime('now', '-' || ?2 || ' seconds')
+                    )
                  )
                  ORDER BY w.checksum"
             )?;
