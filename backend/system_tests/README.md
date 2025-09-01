@@ -4,12 +4,37 @@ System tests (also called End-to-End tests) test the complete Canary application
 
 ## Test Categories
 
-- **`fast_confirmation_scenarios.rs`** - Tests for transactions mined before sync (direct to confirmed)
-- **`wallet_drain_scenarios.rs`** - Tests for wallet drain detection and related scenarios
-- **`high_index_scanning.rs`** - Tests for deep address scanning (high index detection)
-- **`transaction_flows.rs`** - Tests for normal send/receive transaction flows
-- **`advanced_transactions.rs`** - Tests for complex transaction scenarios
-- **`notification_verification.rs`** - Tests for notification system verification
+### **`fast_confirmation_scenarios.rs`** - Transactions mined before sync
+- `test_alice_sent_bob_direct_confirmed` - Basic fast confirmation
+- `test_alice_sent_bob_max_direct_drain` - Fast confirmation drain
+- `test_multiple_fast_confirmations` - Multiple transactions in same block
+
+### **`wallet_drain_scenarios.rs`** - Wallet drain detection scenarios
+- `test_alice_wallet_drain` - Basic wallet drain detection
+- `test_charlie_wallet_drain_from_high_index` - High-index drain scenarios
+
+### **`advanced_transactions.rs`** - Complex transaction scenarios
+- `test_alice_rbf_transaction_replacement` - Replace-By-Fee (RBF) testing
+- `test_bob_cpfp_transaction_acceleration` - Child-Pays-For-Parent (CPFP) testing
+- `test_multiple_rbf_replacements` - Multiple RBF replacements
+
+### **`transaction_flows.rs`** - Normal send/receive flows
+- `test_normal_send_receive_flow` - Basic transaction flow
+- `test_multiple_transactions` - Multiple transaction handling
+- `test_no_duplicate_events_on_multiple_syncs` - Sync consistency
+
+### **`notification_verification.rs`** - Notification system testing
+- `test_transaction_events_for_notifications` - Event creation for notifications
+- `test_confirmation_state_changes` - Confirmation state transitions
+- `test_duplicate_event_prevention` - Duplicate event prevention
+- `test_large_amount_events` - Large transaction amount handling
+- `test_multi_wallet_events` - Multi-wallet event management
+
+### **`high_index_scanning.rs`** - Deep address scanning (high index detection)
+- `test_high_index_fund_detection` - Detect funds at high address indexes
+- `test_high_index_outgoing_transactions` - Send from high indexes
+- `test_address_revelation_up_to_high_indexes` - Address revelation testing
+- `test_charlie_descriptor_wallet_high_index_scanning` - Descriptor format testing
 
 ## Prerequisites
 
@@ -48,6 +73,20 @@ cargo test test_alice_sent_bob_max_direct_drain --test fast_confirmation_scenari
 
 # Run with debug logs (most verbose - shows internal BDK/wallet operations)
 RUST_LOG=debug cargo test test_alice_sent_bob_direct_confirmed --test fast_confirmation_scenarios -- --ignored --nocapture
+```
+
+### Discovering Available Tests
+
+```bash
+# List all tests in a specific test file (most useful)
+cargo test --test fast_confirmation_scenarios -- --list
+cargo test --test wallet_drain_scenarios -- --list
+
+# Find all test names across all files using grep
+grep -r "async fn test_" system_tests/ | grep -v ".rs~"
+
+# Available test files
+ls system_tests/*.rs
 ```
 
 ### What Detailed Output Shows
