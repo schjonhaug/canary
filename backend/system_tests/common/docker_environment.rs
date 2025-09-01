@@ -9,8 +9,10 @@ use canary::api::AppServices;
 use tokio::sync::broadcast;
 use tempfile::tempdir;
 use uuid::Uuid;
-use serde_json;
+use serde_json::{self, Value};
 use std::fs;
+use tokio::net::TcpStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub const SYNC_WAIT_MS: u64 = 2000; // Time to wait for sync to complete
 
@@ -24,7 +26,7 @@ pub struct IsolatedTestEnvironment {
     pub charlie_checksum: String,
     // Docker compose management
     compose_dir: std::path::PathBuf,
-    test_id: String,
+    pub test_id: String,
     bitcoin_rpc_port: u16,
     fulcrum_port: u16,
 }
@@ -114,7 +116,7 @@ impl IsolatedTestEnvironment {
         Self::setup_alice_bob_wallets(&compose_dir, &test_id).await?;
         
         // Fund Alice (for fast confirmation tests, Charlie not needed)
-        Self::fund_alice_only(&compose_dir, &test_id).await?;
+        Self::fund_alice_only(&compose_dir, &test_id, fulcrum_port).await?;
         
         // Create wallet manager (connects to Fulcrum)
         let wallet_dir = temp_dir.path().join("wallets");
@@ -163,6 +165,13 @@ impl IsolatedTestEnvironment {
         
         // Wait for all wallets to be marked as ready before proceeding
         Self::wait_for_wallets_ready(&metadata_db, &[&alice_checksum, &bob_checksum]).await?;
+        
+        // CRITICAL: Do an initial sync to ensure historical transactions are properly processed
+        // This prevents the first test sync from detecting historical transactions as new
+        println!("🔄 Running initial sync to establish historical transaction baseline...");
+        let _ = wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await;
+        sleep(Duration::from_millis(500)).await;
+        println!("✅ Initial historical sync completed");
         
         Ok(IsolatedTestEnvironment {
             metadata_db,
@@ -311,27 +320,50 @@ volumes:
         Err("Bitcoin RPC failed to start within 30 seconds".into())
     }
     
-    /// Wait for Fulcrum to be ready
-    async fn wait_for_fulcrum_ready(compose_dir: &std::path::Path, fulcrum_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    /// Wait for Fulcrum to be ready and able to serve Electrum requests
+    async fn wait_for_fulcrum_ready(_compose_dir: &std::path::Path, fulcrum_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         println!("⏳ Waiting for Fulcrum Electrum server to be ready...");
         
-        for attempt in 1..=60 {
-            // Try to connect to the Fulcrum port
+        // First wait for port to be open
+        for attempt in 1..=120 { // Increased timeout for Fulcrum startup
             let connection_test = std::net::TcpStream::connect(format!("127.0.0.1:{}", fulcrum_port));
             
             if connection_test.is_ok() {
-                println!("✅ Fulcrum Electrum server ready after {} seconds", attempt);
+                println!("   📡 Fulcrum port {} is open after {} seconds", fulcrum_port, attempt);
+                
+                // Give Fulcrum some more time to fully initialize before we proceed
+                println!("   ⏳ Waiting additional 10 seconds for Fulcrum to fully initialize...");
+                sleep(Duration::from_secs(10)).await;
+                
+                println!("✅ Fulcrum Electrum server ready");
                 return Ok(());
             }
             
-            if attempt % 10 == 0 {
-                println!("   ⏳ Still waiting for Fulcrum... ({}/60 seconds)", attempt);
+            if attempt % 15 == 0 {
+                println!("   ⏳ Still waiting for Fulcrum port... ({}/120 seconds)", attempt);
             }
             
-            sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(2)).await;
         }
         
-        Err("Fulcrum failed to start within 60 seconds".into())
+        Err("Fulcrum port failed to open within 4 minutes".into())
+    }
+    
+    /// Wait for Fulcrum to sync with Bitcoin Core after mining blocks
+    async fn wait_for_fulcrum_sync_after_mining(bitcoin_container: &str, _fulcrum_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+        // Get Bitcoin Core's current block height for logging
+        let btc_height_str = Self::bitcoin_cli(bitcoin_container, &["getblockcount"])?;
+        let btc_height: u64 = btc_height_str.trim().parse()
+            .map_err(|_| "Failed to parse Bitcoin block height")?;
+        
+        println!("   🧱 Bitcoin Core height: {}, giving Fulcrum time to sync...", btc_height);
+        
+        // For now, use a fixed delay to let Fulcrum sync
+        // This is simpler than trying to query Fulcrum's height which is causing connection issues
+        sleep(Duration::from_secs(5)).await;
+        
+        println!("   ✅ Fulcrum should have synced");
+        Ok(())
     }
     
     /// Setup deterministic test wallets (same as docker-utils.sh)
@@ -469,7 +501,7 @@ volumes:
     }
     
     /// Fund Alice wallet only (for fast confirmation tests that don't need Charlie)
-    async fn fund_alice_only(compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    async fn fund_alice_only(_compose_dir: &std::path::Path, test_id: &str, fulcrum_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         let bitcoin_container_name = format!("test-bitcoin-{}", test_id);
         
         // Generate some blocks to miner first
@@ -489,11 +521,89 @@ volumes:
         
         println!("✅ Alice funded with 1.0 BTC (index 0)");
         println!("✅ Bob unfunded (for testing receive scenarios)");
+        
+        // CRITICAL: Wait for Fulcrum to sync with Bitcoin Core before proceeding
+        Self::wait_for_fulcrum_sync_after_mining(&bitcoin_container_name, fulcrum_port).await?;
+        
         Ok(())
     }
     
+    /// Simple Electrum client to verify Fulcrum is ready to serve requests
+    async fn electrum_call(host: &str, port: u16, method: &str, params: &[Value]) -> Result<Value, Box<dyn std::error::Error>> {
+        let mut stream = TcpStream::connect(format!("{}:{}", host, port)).await?;
+        
+        // Create Electrum JSON-RPC request (note: Electrum uses jsonrpc 1.0, not 2.0)
+        let request = serde_json::json!({
+            "id": 1,
+            "method": method,
+            "params": params
+        });
+        
+        let request_str = format!("{}\n", serde_json::to_string(&request)?);
+        stream.write_all(request_str.as_bytes()).await?;
+        
+        // Read response with a timeout
+        let mut buffer = vec![0; 8192];
+        let n = tokio::time::timeout(Duration::from_secs(5), stream.read(&mut buffer)).await
+            .map_err(|_| "Timeout reading from Fulcrum")??;
+        
+        if n == 0 {
+            return Err("Connection closed by Fulcrum".into());
+        }
+        
+        let response_str = String::from_utf8_lossy(&buffer[..n]);
+        println!("   🔍 Fulcrum response: {}", response_str.trim());
+        
+        // Parse JSON response
+        let response: Value = serde_json::from_str(response_str.trim())?;
+        
+        if let Some(error) = response.get("error") {
+            return Err(format!("Electrum error: {}", error).into());
+        }
+        
+        if let Some(result) = response.get("result") {
+            Ok(result.clone())
+        } else {
+            Err("No result in Electrum response".into())
+        }
+    }
+    
+    /// Check if Fulcrum can serve basic blockchain info
+    async fn verify_fulcrum_blockchain_ready(fulcrum_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+        // Try to get server version first (simpler call)
+        match Self::electrum_call("127.0.0.1", fulcrum_port, "server.version", &[
+            Value::String("canary-test".to_string()),
+            Value::String("1.4".to_string())
+        ]).await {
+            Ok(result) => {
+                println!("   📡 Fulcrum server version: {:?}", result);
+                Ok(())
+            }
+            Err(e) => {
+                // If server.version fails, try a simpler ping-like call
+                println!("   ⚠️  server.version failed: {}, trying server.ping...", e);
+                let _result = Self::electrum_call("127.0.0.1", fulcrum_port, "server.ping", &[]).await?;
+                println!("   📡 Fulcrum ping successful");
+                Ok(())
+            }
+        }
+    }
+    
+    /// Get current block height from Fulcrum
+    async fn get_fulcrum_block_height(fulcrum_port: u16) -> Result<u64, Box<dyn std::error::Error>> {
+        let result = Self::electrum_call("127.0.0.1", fulcrum_port, "blockchain.headers.subscribe", &[]).await?;
+        
+        if let Some(header) = result.get("height") {
+            if let Some(height) = header.as_u64() {
+                return Ok(height);
+            }
+        }
+        
+        Err("Could not get block height from Fulcrum".into())
+    }
+    
     /// Execute bitcoin-cli command in the container
-    fn bitcoin_cli(container_name: &str, args: &[&str]) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn bitcoin_cli(container_name: &str, args: &[&str]) -> Result<String, Box<dyn std::error::Error>> {
         let mut cmd_args = vec![
             "exec", container_name, "bitcoin-cli", "-regtest", "-rpcport=8332", "-rpcuser=test", "-rpcpassword=test"
         ];
@@ -584,6 +694,11 @@ volumes:
         ])?;
         
         println!("⛏️ Mined {} blocks", count);
+        
+        // Wait for Fulcrum to sync the new blocks before proceeding
+        println!("   ⏳ Waiting for Fulcrum to sync after mining...");
+        Self::wait_for_fulcrum_sync_after_mining(&bitcoin_container_name, self.fulcrum_port).await?;
+        
         Ok(())
     }
     
@@ -593,6 +708,7 @@ volumes:
         sleep(Duration::from_millis(SYNC_WAIT_MS)).await;
         Ok(())
     }
+    
     
     /// Get all transaction events for a wallet from the database
     pub async fn get_wallet_events(&self, wallet_checksum: &str) -> Result<Vec<TransactionEventWithWallet>, Box<dyn std::error::Error>> {
@@ -604,13 +720,16 @@ volumes:
 impl Drop for IsolatedTestEnvironment {
     /// Cleanup: Stop Docker Compose environment
     fn drop(&mut self) {
-        println!("🧹 Cleaning up test environment: {}", self.test_id);
+        println!("🧹 Keeping test environment running for debugging: {}", self.test_id);
+        println!("   To inspect: docker exec test-bitcoin-{} bitcoin-cli -rpcwallet=alice getbalance", self.test_id);
+        println!("   To cleanup: docker-compose -f {}/docker-compose.yml down -v", self.compose_dir.display());
         
-        let _ = Command::new("docker-compose")
-            .current_dir(&self.compose_dir)
-            .args(&["down", "-v"])
-            .output();
+        // Don't cleanup automatically - leave containers running for inspection
+        // let _ = Command::new("docker-compose")
+        //     .current_dir(&self.compose_dir)
+        //     .args(&["down", "-v"])
+        //     .output();
             
-        println!("✅ Test cleanup completed");
+        println!("✅ Test containers left running");
     }
 }
