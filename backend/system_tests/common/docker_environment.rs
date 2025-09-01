@@ -720,16 +720,27 @@ volumes:
 impl Drop for IsolatedTestEnvironment {
     /// Cleanup: Stop Docker Compose environment
     fn drop(&mut self) {
-        println!("🧹 Keeping test environment running for debugging: {}", self.test_id);
-        println!("   To inspect: docker exec test-bitcoin-{} bitcoin-cli -rpcwallet=alice getbalance", self.test_id);
-        println!("   To cleanup: docker-compose -f {}/docker-compose.yml down -v", self.compose_dir.display());
+        println!("🧹 Cleaning up test environment: {}", self.test_id);
         
-        // Don't cleanup automatically - leave containers running for inspection
-        // let _ = Command::new("docker-compose")
-        //     .current_dir(&self.compose_dir)
-        //     .args(&["down", "-v"])
-        //     .output();
+        // Cleanup automatically to prevent port conflicts
+        let result = Command::new("docker-compose")
+            .current_dir(&self.compose_dir)
+            .args(&["down", "-v"])
+            .output();
             
-        println!("✅ Test containers left running");
+        match result {
+            Ok(output) => {
+                if output.status.success() {
+                    println!("✅ Test containers cleaned up successfully");
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    println!("⚠️  Cleanup warning: {}", stderr);
+                }
+            }
+            Err(e) => {
+                println!("❌ Failed to cleanup containers: {}", e);
+                println!("   Manual cleanup: docker-compose -f {}/docker-compose.yml down -v", self.compose_dir.display());
+            }
+        }
     }
 }

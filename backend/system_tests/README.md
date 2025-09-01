@@ -4,9 +4,12 @@ System tests (also called End-to-End tests) test the complete Canary application
 
 ## Test Categories
 
-- **`wallet_drain_scenarios.rs`** - Tests for the wallet drain detection bug and related scenarios
+- **`fast_confirmation_scenarios.rs`** - Tests for transactions mined before sync (direct to confirmed)
+- **`wallet_drain_scenarios.rs`** - Tests for wallet drain detection and related scenarios
 - **`high_index_scanning.rs`** - Tests for deep address scanning (high index detection)
 - **`transaction_flows.rs`** - Tests for normal send/receive transaction flows
+- **`advanced_transactions.rs`** - Tests for complex transaction scenarios
+- **`notification_verification.rs`** - Tests for notification system verification
 
 ## Prerequisites
 
@@ -16,14 +19,23 @@ System tests (also called End-to-End tests) test the complete Canary application
 ## Running System Tests
 
 ```bash
-# Run all system tests
-cargo test --manifest-path=../Cargo.toml --test system_tests
+# Run all system tests (if there's a combined test file)
+cargo test --test system_tests -- --ignored
 
 # Run specific test category
-cargo test --manifest-path=../Cargo.toml --test wallet_drain_scenarios
+cargo test --test fast_confirmation_scenarios -- --ignored
+cargo test --test wallet_drain_scenarios -- --ignored
+cargo test --test high_index_scanning -- --ignored
+cargo test --test transaction_flows -- --ignored
+cargo test --test advanced_transactions -- --ignored
+cargo test --test notification_verification -- --ignored
 
 # Run individual test with output
-cargo test --manifest-path=../Cargo.toml --test wallet_drain_scenarios test_alice_wallet_drain -- --ignored --nocapture
+cargo test test_alice_sent_bob_max_direct_drain --test fast_confirmation_scenarios -- --ignored --nocapture
+
+# Examples of individual tests
+cargo test test_alice_sent_bob_direct_confirmed --test fast_confirmation_scenarios -- --ignored
+cargo test test_multiple_fast_confirmations --test fast_confirmation_scenarios -- --ignored
 ```
 
 ## Test Architecture
@@ -53,3 +65,16 @@ System tests are slower than integration tests (~15-30 seconds each) because the
 - Perform actual wallet sync operations
 
 They are marked with `#[ignore]` and must be explicitly run with `-- --ignored`.
+
+## Docker Port Management
+
+System tests create isolated Docker containers with random ports. If tests fail due to port conflicts:
+
+```bash
+# Clean up orphaned test containers
+docker stop $(docker ps -q --filter "name=test-") 2>/dev/null || true
+docker rm $(docker ps -aq --filter "name=test-") 2>/dev/null || true
+
+# Or run tests individually to avoid conflicts
+cargo test test_specific_test --test test_file -- --ignored
+```
