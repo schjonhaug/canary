@@ -110,11 +110,11 @@ impl IsolatedTestEnvironment {
         Self::wait_for_bitcoin_ready(&compose_dir, &test_id).await?;
         Self::wait_for_fulcrum_ready(&compose_dir, fulcrum_port).await?;
         
-        // Setup deterministic wallets (same as docker-utils.sh)
-        Self::setup_test_wallets(&compose_dir, &test_id).await?;
+        // Setup deterministic wallets (Alice and Bob only for fast confirmation tests)
+        Self::setup_alice_bob_wallets(&compose_dir, &test_id).await?;
         
-        // Fund Alice and Charlie (matching docker-utils.sh setup)
-        Self::fund_test_wallets(&compose_dir, &test_id).await?;
+        // Fund Alice (for fast confirmation tests, Charlie not needed)
+        Self::fund_alice_only(&compose_dir, &test_id).await?;
         
         // Create wallet manager (connects to Fulcrum)
         let wallet_dir = temp_dir.path().join("wallets");
@@ -146,7 +146,6 @@ impl IsolatedTestEnvironment {
         // Create wallets using the correct XPUB descriptors from docker-utils.sh
         let alice_descriptor = "wpkh([805c684b/84h/1h/0h]tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)#8nt3y08q";
         let bob_descriptor = "wpkh([aeea3541/84h/1h/0h]tpubDDCjkgMuodinFyfhacZPTzffAKtCbuZejpkSMJB673c9ZSsVrq5FnL5rhjFjyCDva5Pka7sn9UDe7xmzpRCNnKNqXbteTnPzLRVNcsvCcpk/<0;1>/*)#ff9zpyxa";
-        let charlie_descriptor = "wpkh([0c5f9a1e/84h/1h/0h]tpubDCxzhZZE31g2EqSv1UajMAw5Hd62htydz9r2XBkrccHgBh8uw3n62zr6Zjmj64tfTk8Tjxo6VctjUMAh5DXWTErfQPC6RmQhTdtNnXuTXTQ/<0;1>/*)#j60qq7hp";
         
         let alice_metadata = app_services.wallet_creation_service.create_wallet_non_blocking(
             "Alice", alice_descriptor, &test_user_id, true, Some("auto"), Some("20")
@@ -154,21 +153,16 @@ impl IsolatedTestEnvironment {
         let bob_metadata = app_services.wallet_creation_service.create_wallet_non_blocking(
             "Bob", bob_descriptor, &test_user_id, true, Some("auto"), Some("20")
         ).await?;
-        let charlie_metadata = app_services.wallet_creation_service.create_wallet_non_blocking(
-            "Charlie", charlie_descriptor, &test_user_id, true, Some("auto"), Some("20")
-        ).await?;
         
         let alice_checksum = alice_metadata.checksum;
         let bob_checksum = bob_metadata.checksum;
-        let charlie_checksum = charlie_metadata.checksum;
         
         println!("✅ Test environment ready:");
         println!("   Alice checksum: {}", alice_checksum);
         println!("   Bob checksum: {}", bob_checksum);
-        println!("   Charlie checksum: {}", charlie_checksum);
         
         // Wait for all wallets to be marked as ready before proceeding
-        Self::wait_for_wallets_ready(&metadata_db, &[&alice_checksum, &bob_checksum, &charlie_checksum]).await?;
+        Self::wait_for_wallets_ready(&metadata_db, &[&alice_checksum, &bob_checksum]).await?;
         
         Ok(IsolatedTestEnvironment {
             metadata_db,
@@ -176,7 +170,7 @@ impl IsolatedTestEnvironment {
             _temp_dir: temp_dir,
             alice_checksum,
             bob_checksum,
-            charlie_checksum,
+            charlie_checksum: String::new(), // Empty for fast confirmation tests
             compose_dir,
             test_id,
             bitcoin_rpc_port,
@@ -388,6 +382,43 @@ volumes:
         Ok(())
     }
     
+    /// Setup Alice and Bob wallets only (for fast confirmation tests)
+    async fn setup_alice_bob_wallets(compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        println!("🏦 Setting up Alice and Bob test wallets...");
+        let bitcoin_container_name = format!("test-bitcoin-{}", test_id);
+        
+        // Create Alice wallet with deterministic descriptor (from docker-utils.sh)
+        Self::bitcoin_cli(&bitcoin_container_name, &[
+            "-named", "createwallet", "wallet_name=alice", "disable_private_keys=false", 
+            "blank=true", "descriptors=true"
+        ])?;
+        
+        // Import Alice's deterministic descriptors (same as docker-utils.sh)
+        Self::bitcoin_cli(&bitcoin_container_name, &[
+            "-rpcwallet=alice", "importdescriptors",
+            r#"[{"desc": "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/0/*)#5asejmkj", "timestamp": "now", "active": true, "internal": false, "range": [0, 999]}, {"desc": "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/1/*)#9f4c0wx2", "timestamp": "now", "active": true, "internal": true, "range": [0, 999]}]"#
+        ])?;
+        
+        // Create Bob wallet with deterministic descriptor
+        Self::bitcoin_cli(&bitcoin_container_name, &[
+            "-named", "createwallet", "wallet_name=bob", "disable_private_keys=false", 
+            "blank=true", "descriptors=true"
+        ])?;
+        
+        Self::bitcoin_cli(&bitcoin_container_name, &[
+            "-rpcwallet=bob", "importdescriptors",
+            r#"[{"desc": "wpkh(tprv8ZgxMBicQKsPd3nsWkJrKQgXk22UnGFHFPDWNCeTjvzeY9LjRYdi3RNX1NfkCwj4mD1YTsNPCCtGPTTQkxn14oLKNg6vuVkChn55qa5rC7K/84h/1h/0h/0/*)#y872gtkp", "timestamp": "now", "active": true, "internal": false, "range": [0, 999]}, {"desc": "wpkh(tprv8ZgxMBicQKsPd3nsWkJrKQgXk22UnGFHFPDWNCeTjvzeY9LjRYdi3RNX1NfkCwj4mD1YTsNPCCtGPTTQkxn14oLKNg6vuVkChn55qa5rC7K/84h/1h/0h/1/*)#4nmt47xe", "timestamp": "now", "active": true, "internal": true, "range": [0, 999]}]"#
+        ])?;
+        
+        // Create miner wallet for generating blocks
+        Self::bitcoin_cli(&bitcoin_container_name, &[
+            "-named", "createwallet", "wallet_name=miner"
+        ])?;
+        
+        println!("✅ Alice and Bob test wallets created");
+        Ok(())
+    }
+    
     /// Fund Alice and Charlie wallets for testing (matching docker-utils.sh setup)
     async fn fund_test_wallets(compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         println!("💰 Funding test wallets...");
@@ -433,6 +464,30 @@ volumes:
         
         println!("✅ Alice funded with 1.0 BTC (index 0)");
         println!("✅ Charlie funded with 0.5 BTC (index 250)");
+        println!("✅ Bob unfunded (for testing receive scenarios)");
+        Ok(())
+    }
+    
+    /// Fund Alice wallet only (for fast confirmation tests that don't need Charlie)
+    async fn fund_alice_only(compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let bitcoin_container_name = format!("test-bitcoin-{}", test_id);
+        
+        // Generate some blocks to miner first
+        let miner_address = Self::bitcoin_cli(&bitcoin_container_name, &["-rpcwallet=miner", "getnewaddress"])?
+            .trim().trim_matches('"').to_string();
+            
+        Self::bitcoin_cli(&bitcoin_container_name, &["generatetoaddress", "101", &miner_address])?;
+        
+        // Fund Alice with 1.0 BTC (normal case)
+        let alice_address = Self::bitcoin_cli(&bitcoin_container_name, &["-rpcwallet=alice", "getnewaddress"])?
+            .trim().trim_matches('"').to_string();
+            
+        Self::bitcoin_cli(&bitcoin_container_name, &["-rpcwallet=miner", "sendtoaddress", &alice_address, "1.0"])?;
+        
+        // Mine a block to confirm the transaction
+        Self::bitcoin_cli(&bitcoin_container_name, &["generatetoaddress", "1", &miner_address])?;
+        
+        println!("✅ Alice funded with 1.0 BTC (index 0)");
         println!("✅ Bob unfunded (for testing receive scenarios)");
         Ok(())
     }
