@@ -5,6 +5,7 @@ use canary::config::{AppConfig, NetworkConfig};
 use canary::metadata::{MetadataDb, EventType, TransactionEventWithWallet, TransactionEvent};
 use canary::wallet::WalletManager;
 use canary::subscription::SubscriptionTier;
+use canary::api::AppServices;
 use tokio::sync::broadcast;
 use tempfile::tempdir;
 use uuid::Uuid;
@@ -28,6 +29,33 @@ pub struct IsolatedTestEnvironment {
 }
 
 impl IsolatedTestEnvironment {
+    /// Wait for all wallets to be marked as ready in the database
+    async fn wait_for_wallets_ready(metadata_db: &MetadataDb, checksums: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+        println!("⏳ Waiting for all wallets to be marked as ready...");
+        let start_time = std::time::Instant::now();
+        let timeout = Duration::from_secs(30);
+        
+        loop {
+            let ready_wallets = metadata_db.get_ready_wallets().await?;
+            let ready_checksums: std::collections::HashSet<_> = ready_wallets.iter()
+                .map(|w| w.checksum.as_str())
+                .collect();
+            
+            let all_ready = checksums.iter().all(|checksum| ready_checksums.contains(checksum));
+            
+            if all_ready {
+                println!("✅ All wallets are ready after {:?}", start_time.elapsed());
+                return Ok(());
+            }
+            
+            if start_time.elapsed() > timeout {
+                println!("❌ Timeout waiting for wallets to be ready. Current ready wallets: {:?}", ready_checksums);
+                return Err("Timeout waiting for wallets to be marked as ready".into());
+            }
+            
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    }
     /// Create a new isolated test environment with fresh Docker containers
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         // Generate unique test ID for container isolation
@@ -82,7 +110,7 @@ impl IsolatedTestEnvironment {
         // Fund Alice and Charlie (matching docker-utils.sh setup)
         Self::fund_test_wallets(&container_name).await?;
         
-        let wallet_manager = WalletManager::new(
+        let mut wallet_manager = WalletManager::new(
             event_sender,
             wallet_dir,
             &db_path.to_string_lossy(),
@@ -91,19 +119,46 @@ impl IsolatedTestEnvironment {
             &test_config,
         ).await;
         
-        // Add wallets to metadata database (same descriptors as docker-utils.sh)
-        let alice_descriptor = "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/<0;1>/*)#5asejmkj";
-        let bob_descriptor = "wpkh(tprv8ZgxMBicQKsPd3nsWkJrKQgXk22UnGFHFPDWNCeTjvzeY9LjRYdi3RNX1NfkCwj4mD1YTsNPCCtGPTTQkxn14oLKNg6vuVkChn55qa5rC7K/84h/1h/0h/<0;1>/*)#y872gtkp";
-        let charlie_descriptor = "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/84h/1h/0h/<0;1>/*)#pe5sgqha";
         
-        let alice_checksum = metadata_db.insert_wallet("Alice", alice_descriptor, &test_user_id).await?;
-        let bob_checksum = metadata_db.insert_wallet("Bob", bob_descriptor, &test_user_id).await?;
-        let charlie_checksum = metadata_db.insert_wallet("Charlie", charlie_descriptor, &test_user_id).await?;
+        // Create AppServices to access wallet creation service (similar to main.rs)
+        let wallet_creation_service = canary::wallet::WalletCreationService::new(
+            wallet_manager.wallet_dir.clone(),
+            metadata_db.clone(),
+            wallet_manager.electrum_client.clone(),
+            wallet_manager.get_network(),
+        );
+        let app_services = AppServices {
+            metadata_db: metadata_db.clone(),
+            wallet_creation_service,
+        };
+        
+        // Create wallets using the correct XPUB descriptors from docker-utils.sh
+        // The test uses isolated temp directory so no conflicts with dev setup
+        let alice_descriptor = "wpkh([805c684b/84h/1h/0h]tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)#8nt3y08q";
+        let bob_descriptor = "wpkh([aeea3541/84h/1h/0h]tpubDDCjkgMuodinFyfhacZPTzffAKtCbuZejpkSMJB673c9ZSsVrq5FnL5rhjFjyCDva5Pka7sn9UDe7xmzpRCNnKNqXbteTnPzLRVNcsvCcpk/<0;1>/*)#ff9zpyxa";
+        let charlie_descriptor = "wpkh([0c5f9a1e/84h/1h/0h]tpubDCxzhZZE31g2EqSv1UajMAw5Hd62htydz9r2XBkrccHgBh8uw3n62zr6Zjmj64tfTk8Tjxo6VctjUMAh5DXWTErfQPC6RmQhTdtNnXuTXTQ/<0;1>/*)#j60qq7hp";
+        
+        let alice_metadata = app_services.wallet_creation_service.create_wallet_non_blocking(
+            "Alice", alice_descriptor, &test_user_id, true, Some("auto"), Some("20")
+        ).await?;
+        let bob_metadata = app_services.wallet_creation_service.create_wallet_non_blocking(
+            "Bob", bob_descriptor, &test_user_id, true, Some("auto"), Some("20")
+        ).await?;
+        let charlie_metadata = app_services.wallet_creation_service.create_wallet_non_blocking(
+            "Charlie", charlie_descriptor, &test_user_id, true, Some("auto"), Some("20")
+        ).await?;
+        
+        let alice_checksum = alice_metadata.checksum;
+        let bob_checksum = bob_metadata.checksum;
+        let charlie_checksum = charlie_metadata.checksum;
         
         println!("✅ Test environment ready:");
         println!("   Alice checksum: {}", alice_checksum);
         println!("   Bob checksum: {}", bob_checksum);
         println!("   Charlie checksum: {}", charlie_checksum);
+        
+        // Wait for all wallets to be marked as ready before proceeding
+        Self::wait_for_wallets_ready(&metadata_db, &[&alice_checksum, &bob_checksum, &charlie_checksum]).await?;
         
         Ok(IsolatedTestEnvironment {
             metadata_db,
