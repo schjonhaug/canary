@@ -114,10 +114,6 @@ async fn test_alice_sent_bob_direct_confirmed() {
         Err(e) => println!("❌ Failed to get Alice's transactions: {}", e),
     }
     
-    // Don't run the assertions that fail - this is for debugging
-    println!("🔍 DEBUG: Test completed, containers left running for inspection");
-    return; // Exit without failing assertions
-    
     // Verify events are directly confirmed (the key test for fast confirmation)
     let confirmed_alice_sends: Vec<_> = alice_send_events.iter()
         .filter(|e| e.is_confirmed)

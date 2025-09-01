@@ -18,6 +18,8 @@ System tests (also called End-to-End tests) test the complete Canary application
 
 ## Running System Tests
 
+### Basic Test Execution (Clean Output)
+
 ```bash
 # Run all system tests (if there's a combined test file)
 cargo test --test system_tests -- --ignored
@@ -30,13 +32,34 @@ cargo test --test transaction_flows -- --ignored
 cargo test --test advanced_transactions -- --ignored
 cargo test --test notification_verification -- --ignored
 
-# Run individual test with output
-cargo test test_alice_sent_bob_max_direct_drain --test fast_confirmation_scenarios -- --ignored --nocapture
-
-# Examples of individual tests
+# Run individual test (clean output)
 cargo test test_alice_sent_bob_direct_confirmed --test fast_confirmation_scenarios -- --ignored
 cargo test test_multiple_fast_confirmations --test fast_confirmation_scenarios -- --ignored
 ```
+
+### Detailed Output for Manual Verification
+
+```bash
+# Run test category with full output (shows all debug info)
+cargo test --test fast_confirmation_scenarios -- --ignored --nocapture
+
+# Run individual test with detailed output
+cargo test test_alice_sent_bob_max_direct_drain --test fast_confirmation_scenarios -- --ignored --nocapture
+
+# Run with debug logs (most verbose - shows internal BDK/wallet operations)
+RUST_LOG=debug cargo test test_alice_sent_bob_direct_confirmed --test fast_confirmation_scenarios -- --ignored --nocapture
+```
+
+### What Detailed Output Shows
+
+The `--nocapture` flag reveals:
+- 🏗️ **Infrastructure Setup**: Docker containers, Bitcoin Core startup, Fulcrum sync
+- 💰 **Wallet Creation**: Descriptors, address generation, initial funding details  
+- 📊 **Balance Tracking**: Before/after balance tables with exact amounts
+- ⚡ **Transaction Flow**: Send → Mine → Sync with timing information
+- 🔍 **Event Detection**: New events created with amounts and confirmation status
+- ✅ **Test Verification**: All assertions and expected vs actual values
+- 🧹 **Cleanup**: Automatic Docker container removal
 
 ## Test Architecture
 

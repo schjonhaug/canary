@@ -2,7 +2,7 @@ use std::process::Command;
 use std::time::Duration;
 use tokio::time::sleep;
 use canary::config::{AppConfig, NetworkConfig};
-use canary::metadata::{MetadataDb, EventType, TransactionEventWithWallet, TransactionEvent};
+use canary::metadata::{MetadataDb, TransactionEventWithWallet, TransactionEvent};
 use canary::wallet::WalletManager;
 use canary::subscription::SubscriptionTier;
 use canary::api::AppServices;
@@ -17,6 +17,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 pub const SYNC_WAIT_MS: u64 = 2000; // Time to wait for sync to complete
 
 /// Helper struct to manage isolated test environment with Docker Compose
+#[allow(dead_code)] // charlie_checksum and bitcoin_rpc_port used in other test files
 pub struct IsolatedTestEnvironment {
     pub metadata_db: MetadataDb,
     pub wallet_manager: WalletManager,
@@ -296,7 +297,7 @@ volumes:
     }
     
     /// Wait for Bitcoin RPC to be ready
-    async fn wait_for_bitcoin_ready(compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    async fn wait_for_bitcoin_ready(_compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         println!("⏳ Waiting for Bitcoin RPC to be ready...");
         let bitcoin_container_name = format!("test-bitcoin-{}", test_id);
         
@@ -367,7 +368,8 @@ volumes:
     }
     
     /// Setup deterministic test wallets (same as docker-utils.sh)
-    async fn setup_test_wallets(compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    #[allow(dead_code)] // Used in other test files
+    async fn setup_test_wallets(_compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         println!("🏦 Setting up test wallets...");
         let bitcoin_container_name = format!("test-bitcoin-{}", test_id);
         
@@ -415,7 +417,7 @@ volumes:
     }
     
     /// Setup Alice and Bob wallets only (for fast confirmation tests)
-    async fn setup_alice_bob_wallets(compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    async fn setup_alice_bob_wallets(_compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         println!("🏦 Setting up Alice and Bob test wallets...");
         let bitcoin_container_name = format!("test-bitcoin-{}", test_id);
         
@@ -452,7 +454,8 @@ volumes:
     }
     
     /// Fund Alice and Charlie wallets for testing (matching docker-utils.sh setup)
-    async fn fund_test_wallets(compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    #[allow(dead_code)] // Used in other test files
+    async fn fund_test_wallets(_compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         println!("💰 Funding test wallets...");
         let bitcoin_container_name = format!("test-bitcoin-{}", test_id);
         
@@ -529,6 +532,7 @@ volumes:
     }
     
     /// Simple Electrum client to verify Fulcrum is ready to serve requests
+    #[allow(dead_code)] // Used in other test files
     async fn electrum_call(host: &str, port: u16, method: &str, params: &[Value]) -> Result<Value, Box<dyn std::error::Error>> {
         let mut stream = TcpStream::connect(format!("{}:{}", host, port)).await?;
         
@@ -569,6 +573,7 @@ volumes:
     }
     
     /// Check if Fulcrum can serve basic blockchain info
+    #[allow(dead_code)] // Used in other test files
     async fn verify_fulcrum_blockchain_ready(fulcrum_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         // Try to get server version first (simpler call)
         match Self::electrum_call("127.0.0.1", fulcrum_port, "server.version", &[
@@ -590,6 +595,7 @@ volumes:
     }
     
     /// Get current block height from Fulcrum
+    #[allow(dead_code)] // Used in other test files
     async fn get_fulcrum_block_height(fulcrum_port: u16) -> Result<u64, Box<dyn std::error::Error>> {
         let result = Self::electrum_call("127.0.0.1", fulcrum_port, "blockchain.headers.subscribe", &[]).await?;
         
