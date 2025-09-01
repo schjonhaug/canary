@@ -1632,7 +1632,7 @@ impl WalletManager {
                                 wallet_checksum: wallet_checksum.to_string(),
                                 event_type: EventType::Send,
                                 amount_sats: total_spent as i64,
-                                is_confirmed: false,
+                                is_confirmed: true,  // Fast confirmation - transaction already mined
                                 is_rbf: false,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64), // Will be 0 for drain
