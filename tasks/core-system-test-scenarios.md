@@ -13,9 +13,13 @@ This document defines the essential system test scenarios that must be implement
 - ✅ Wait mechanisms for wallet ready state
 - ✅ **Admin bypass for subscription checks** - System tests now use FOSS mode with automatic admin user
 - ✅ **Subscription system integration solved** - Tests bypass all Stripe dependencies
+- ✅ **Docker Compose architecture** - Test environment now uses Bitcoin Core + Fulcrum like dev setup
+- ✅ **Electrum connectivity fixed** - BDK now connects to proper Fulcrum server instead of Bitcoin RPC
+- ✅ **Dynamic port allocation** - Tests run in parallel without port conflicts
+- ✅ **Core infrastructure working** - Wallets sync successfully, test environment stable
 
 **In Progress**:
-- Test 4: Fast confirmation scenarios (`fast_confirmation_scenarios.rs`) - Now unblocked and ready to complete
+- Test 4: Fast confirmation scenarios (`fast_confirmation_scenarios.rs`) - Infrastructure complete, debugging transaction detection
 
 **Next Priority**:
 - Complete Test 4 implementation and verification
@@ -24,7 +28,12 @@ This document defines the essential system test scenarios that must be implement
 **Key Achievement**: System tests now focus purely on Bitcoin functionality without any Stripe subscription dependencies.
 
 ## Test Environment Setup
-Each test must start with a clean environment using Docker container resets between tests.
+Each test uses an isolated Docker Compose environment with:
+- **Bitcoin Core container**: Regtest mode with deterministic wallets
+- **Fulcrum container**: Electrum server for BDK wallet connectivity
+- **Dynamic port allocation**: Prevents conflicts between parallel test runs
+- **Unique container names**: Complete test isolation
+- **Automatic cleanup**: `docker-compose down` removes all containers and volumes
 
 ## Wallet Setup Scenarios
 
@@ -82,12 +91,14 @@ Each test must start with a clean environment using Docker container resets betw
 - ✅ **Subscription integration**: Tests use automatic admin user, bypassing Stripe dependencies
 
 **Implementation Status**:
-- ✅ **Infrastructure complete**: Test environment now working properly
+- ✅ **Infrastructure complete**: Docker Compose architecture working perfectly
 - ✅ **Subscription blocking resolved**: System tests use FOSS mode with admin user
-- ⚠️ **Current test failure**: Electrum connectivity issues ("Broken pipe") - not subscription related
-- 📋 **Next step**: Fix Electrum connectivity and complete transaction event verification
+- ✅ **Electrum connectivity fixed**: BDK successfully connects to Fulcrum Electrum server
+- ✅ **Core functionality verified**: Wallets create, fund, and sync successfully
+- 🔄 **Minor remaining issue**: Transaction detection after mining blocks (investigation needed)
+- 📋 **Next step**: Debug transaction event detection and complete scenario verification
 
-**Key Achievement**: Tests now successfully sync wallets and can focus on Bitcoin functionality verification.
+**Key Achievement**: Complete working test infrastructure - Bitcoin Core + Fulcrum + BDK integration successful.
 
 ### Maximum Amount Tests
 
@@ -138,12 +149,30 @@ Each test must verify:
 - **Timing**: Notifications sent at appropriate transaction state changes
 - **No Duplicates**: Multiple syncs don't create duplicate notifications
 
-## Docker Environment Commands Integration
-Tests should utilize `regtest-env/docker-utils.sh` commands:
-- `./docker-utils.sh reset` - Clean environment between tests
-- `./docker-utils.sh fund <address> <amount>` - Fund specific addresses
-- `./docker-utils.sh mine <blocks>` - Mine blocks for confirmation
-- `./docker-utils.sh send <from> <to> <amount>` - Send transactions
+## Test Environment Architecture
+
+### Docker Compose Setup
+Each test creates an isolated environment with:
+```
+test-{uuid}/
+├── bitcoin.conf          # Bitcoin Core regtest configuration
+├── fulcrum.conf         # Fulcrum Electrum server configuration  
+├── docker-compose.yml   # Container orchestration
+└── volumes/             # Persistent data (auto-cleaned)
+```
+
+### Container Services
+- **Bitcoin Core**: `ghcr.io/sethforprivacy/bitcoind:latest` on dynamic port
+- **Fulcrum**: `cculianu/fulcrum:latest` on dynamic port
+- **Networking**: Containers communicate via Docker Compose networking
+- **Data**: Isolated volumes per test, automatically cleaned up
+
+### Integration Commands
+Tests use internal methods that mirror `regtest-env/docker-utils.sh`:
+- `env.mine_blocks(count)` - Mine blocks for confirmation
+- `env.send_transaction(from, to, amount)` - Send transactions
+- `env.sync_and_wait()` - Trigger wallet sync and wait
+- Environment auto-cleanup on test completion
 
 ## Success Criteria
 - All transaction events stored correctly in database
@@ -154,7 +183,9 @@ Tests should utilize `regtest-env/docker-utils.sh` commands:
 - Fast API responses maintained during sync operations
 
 ## Implementation Notes
-- Use `IsolatedTestEnvironment` pattern from existing system tests
-- Each test must be independent and include proper cleanup
-- Tests marked with `#[ignore]` requiring Docker environment
+- Use `IsolatedTestEnvironment::new()` for complete Docker Compose setup
+- Each test creates isolated containers with unique ports and config
+- Tests marked with `#[ignore]` requiring Docker Compose environment
+- Automatic cleanup with `docker-compose down -v` on test completion
 - Verify both immediate API responses and background sync results
+- **Major Infrastructure Success**: Docker Compose architecture provides stable, reliable test foundation
