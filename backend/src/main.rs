@@ -572,31 +572,57 @@ async fn main() -> anyhow::Result<()> {
                             let provider_str = provider_summary.join(", ");
 
                             // Extract clean transaction summary from message
-                            let transaction_summary = if message_content.contains("📤") {
+                            let transaction_summary = if message_content.contains("📤") || message_content.contains("✅") && (message_content.contains("Sent") || message_content.contains("Sendt")) {
                                 // Extract amount from sending message, looking for " BTC" pattern
                                 if let Some(btc_pos) = message_content.find(" BTC") {
                                     let before_btc = &message_content[..btc_pos];
                                     if let Some(space_pos) = before_btc.rfind(' ') {
                                         let amount = &before_btc[space_pos + 1..];
-                                        format!("📤 Sending {} BTC", amount)
+                                        // Determine if confirmed or unconfirmed based on message content
+                                        if message_content.contains("✅") || message_content.contains("Sent") || message_content.contains("Sendt") {
+                                            format!("✅ Sent {} BTC", amount)
+                                        } else {
+                                            format!("📤 Sending {} BTC", amount)
+                                        }
                                     } else {
-                                        "📤 Sending".to_string()
+                                        if message_content.contains("✅") || message_content.contains("Sent") || message_content.contains("Sendt") {
+                                            "✅ Sent transaction".to_string()
+                                        } else {
+                                            "📤 Sending transaction".to_string()
+                                        }
                                     }
                                 } else {
-                                    "📤 Sending".to_string()
+                                    if message_content.contains("✅") || message_content.contains("Sent") || message_content.contains("Sendt") {
+                                        "✅ Sent transaction".to_string()
+                                    } else {
+                                        "📤 Sending transaction".to_string()
+                                    }
                                 }
-                            } else if message_content.contains("📥") {
+                            } else if message_content.contains("📥") || message_content.contains("💸") || message_content.contains("✅") && (message_content.contains("Received") || message_content.contains("Mottatt")) {
                                 // Extract amount from receiving message
                                 if let Some(btc_pos) = message_content.find(" BTC") {
                                     let before_btc = &message_content[..btc_pos];
                                     if let Some(space_pos) = before_btc.rfind(' ') {
                                         let amount = &before_btc[space_pos + 1..];
-                                        format!("📥 Received {} BTC", amount)
+                                        // Determine if confirmed or unconfirmed based on message content
+                                        if message_content.contains("✅") || message_content.contains("Received") || message_content.contains("Mottatt") {
+                                            format!("✅ Received {} BTC", amount)
+                                        } else {
+                                            format!("💸 Receiving {} BTC", amount)
+                                        }
                                     } else {
-                                        "📥 Received".to_string()
+                                        if message_content.contains("✅") || message_content.contains("Received") || message_content.contains("Mottatt") {
+                                            "✅ Received transaction".to_string()
+                                        } else {
+                                            "💸 Receiving transaction".to_string()
+                                        }
                                     }
                                 } else {
-                                    "📥 Received".to_string()
+                                    if message_content.contains("✅") || message_content.contains("Received") || message_content.contains("Mottatt") {
+                                        "✅ Received transaction".to_string()
+                                    } else {
+                                        "💸 Receiving transaction".to_string()
+                                    }
                                 }
                             } else {
                                 "Transaction".to_string()

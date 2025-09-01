@@ -1523,25 +1523,39 @@ impl WalletManager {
                         };
                         let sending_amount = confirmed_spent - change_received;
 
-                        let message = if total_after.to_sat() == 0 {
-                            format!(
-                                "🚨 WALLET DRAIN: Entire balance of {:.8} BTC sent", 
-                                sending_amount as f64 / 100_000_000.0
-                            )
-                        } else {
-                            format!(
-                                "📤 Sending {:.8} BTC",
-                                sending_amount as f64 / 100_000_000.0
-                            )
-                        };
-                        println!("[{}] {}", wallet_checksum, message);
-
                         // Get timestamp of the new sending transaction
                         let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
 
                         // Determine if this is a fast confirmation (transaction already confirmed when first detected)
                         let is_fast_confirmation = !trusted_pending_increase && !trusted_pending_decrease &&
                                                    !untrusted_pending_increase && !untrusted_pending_decrease;
+
+                        let message = if total_after.to_sat() == 0 {
+                            if is_fast_confirmation {
+                                format!(
+                                    "🚨 WALLET DRAINED: Entire balance of {:.8} BTC sent (confirmed in block)", 
+                                    sending_amount as f64 / 100_000_000.0
+                                )
+                            } else {
+                                format!(
+                                    "🚨 WALLET DRAINING: Entire balance of {:.8} BTC being sent", 
+                                    sending_amount as f64 / 100_000_000.0
+                                )
+                            }
+                        } else {
+                            if is_fast_confirmation {
+                                format!(
+                                    "✅ Sent {:.8} BTC (confirmed in block)",
+                                    sending_amount as f64 / 100_000_000.0
+                                )
+                            } else {
+                                format!(
+                                    "📤 Sending {:.8} BTC",
+                                    sending_amount as f64 / 100_000_000.0
+                                )
+                            }
+                        };
+                        println!("[{}] {}", wallet_checksum, message);
                         
                         // Insert sending event to database and broadcast
                         if let Err(e) = Self::insert_and_broadcast_event_helper(
@@ -1727,7 +1741,7 @@ impl WalletManager {
                         .unwrap_or_else(|| Self::get_current_timestamp());
                     
                     let message = format!(
-                        "📥 Receiving {:.8} BTC (fast confirmation)",
+                        "✅ Received {:.8} BTC (confirmed in block)",
                         receiving_amount as f64 / 100_000_000.0
                     );
                     println!("[{}] {}", wallet_checksum, message);

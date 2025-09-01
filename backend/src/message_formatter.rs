@@ -67,22 +67,22 @@ impl MessageFormatter {
                     if event.is_confirmed {
                         match language {
                             Language::Norwegian => format!(
-                                "🚨 LOMMEBOK TØMT BEKREFTET: {} BTC sendt fra {}. Lommeboken er nå tom!",
+                                "🚨 LOMMEBOK TØMT: {} BTC sendt fra {}. Lommeboken er nå tom!",
                                 amount_btc, wallet_name
                             ),
                             Language::English => format!(
-                                "🚨 WALLET DRAINED CONFIRMED: {} BTC sent from {}. Wallet is now empty!",
+                                "🚨 WALLET DRAINED: {} BTC sent from {}. Wallet is now empty!",
                                 amount_btc, wallet_name
                             ),
                         }
                     } else {
                         match language {
                             Language::Norwegian => format!(
-                                "⚠️ LOMMEBOK TØMMES: Hele saldoen på {} BTC sendes fra {}!",
+                                "⚠️ LOMMEBOK TØMMES: Hele saldoen på {} BTC sender fra {}!",
                                 amount_btc, wallet_name
                             ),
                             Language::English => format!(
-                                "⚠️ WALLET BEING DRAINED: Entire balance of {} BTC being sent from {}!",
+                                "⚠️ WALLET DRAINING: Entire balance of {} BTC sending from {}!",
                                 amount_btc, wallet_name
                             ),
                         }
@@ -92,21 +92,21 @@ impl MessageFormatter {
                         let amount_btc = Self::format_btc_amount(event.amount_sats, language);
                         match language {
                             Language::Norwegian => format!(
-                                "✅ Sending bekreftet: {} BTC fra {}.{}",
+                                "✅ Sendt: {} BTC fra {}.{}",
                                 amount_btc, wallet_name, balance_text
                             ),
                             Language::English => format!(
-                                "✅ Send confirmed: {} BTC from {}.{}",
+                                "✅ Sent: {} BTC from {}.{}",
                                 amount_btc, wallet_name, balance_text
                             ),
                         }
                     } else {
                         match language {
                             Language::Norwegian => {
-                                format!("✅ Sending bekreftet for {}.{}", wallet_name, balance_text)
+                                format!("✅ Sendt fra {}.{}", wallet_name, balance_text)
                             }
                             Language::English => {
-                                format!("✅ Send confirmed for {}.{}", wallet_name, balance_text)
+                                format!("✅ Sent from {}.{}", wallet_name, balance_text)
                             }
                         }
                     }
@@ -138,11 +138,11 @@ impl MessageFormatter {
                     let amount_btc = Self::format_btc_amount(event.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
-                            "📤 Sending kringkastet: {} BTC fra {}.{}",
+                            "📤 Sender: {} BTC fra {}.{}",
                             amount_btc, wallet_name, balance_text
                         ),
                         Language::English => format!(
-                            "📤 Send broadcast: {} BTC from {}.{}",
+                            "📤 Sending: {} BTC from {}.{}",
                             amount_btc, wallet_name, balance_text
                         ),
                     }
@@ -153,11 +153,11 @@ impl MessageFormatter {
                     let amount_btc = Self::format_btc_amount(event.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
-                            "✅ Mottak bekreftet: {} BTC til {}.{}",
+                            "✅ Mottatt: {} BTC til {}.{}",
                             amount_btc, wallet_name, balance_text
                         ),
                         Language::English => format!(
-                            "✅ Receive confirmed: {} BTC to {}.{}",
+                            "✅ Received: {} BTC to {}.{}",
                             amount_btc, wallet_name, balance_text
                         ),
                     }
@@ -165,11 +165,11 @@ impl MessageFormatter {
                     let amount_btc = Self::format_btc_amount(event.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
-                            "💸 Nye bitcoins oppdaget: {} BTC til {} (ubekreftet).{}",
+                            "💸 Mottar: {} BTC til {} (ubekreftet).{}",
                             amount_btc, wallet_name, balance_text
                         ),
                         Language::English => format!(
-                            "💸 New bitcoins detected: {} BTC to {} (unconfirmed).{}",
+                            "💸 Receiving: {} BTC to {} (unconfirmed).{}",
                             amount_btc, wallet_name, balance_text
                         ),
                     }
