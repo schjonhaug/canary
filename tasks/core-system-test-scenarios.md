@@ -3,6 +3,25 @@
 ## Overview
 This document defines the essential system test scenarios that must be implemented and maintained for our Bitcoin wallet transaction detection and notification system.
 
+## Implementation Status
+**Current Status**: Partially implemented, blocked on subscription system integration
+
+**Completed**:
+- Test infrastructure (`IsolatedTestEnvironment` in `system_tests/common/docker_environment.rs`)
+- Proper XPUB descriptor usage (fixed from TPRV to TPUB for BDK compatibility)
+- Wallet creation using `WalletCreationService`
+- Wait mechanisms for wallet ready state
+
+**In Progress**:
+- Test 4: Fast confirmation scenarios (`fast_confirmation_scenarios.rs`)
+
+**Blocked**:
+- All wallet sync operations require valid subscription status
+- Tests need admin user bypass to avoid Stripe dependencies
+- See `backend/tasks/admin-bypass-subscription-checks.md` for solution
+
+**Key Insight**: System tests should focus on Bitcoin functionality without Stripe subscription dependencies.
+
 ## Test Environment Setup
 Each test must start with a clean environment using Docker container resets between tests.
 
@@ -42,8 +61,9 @@ Each test must start with a clean environment using Docker container resets betw
    - Bob: Should have "Received" event (confirmed)
    - Verify confirmation notifications
 
-#### Test 4: Alice Sent Bob (Direct Confirmed)
+#### Test 4: Alice Sent Bob (Direct Confirmed) ⚠️ IN PROGRESS
 **Purpose**: Test fast confirmation scenarios
+**Status**: Implementation started, blocked on subscription system integration
 **Steps**:
 1. Alice sends Bitcoin to Bob
 2. Immediately mine 1 block (before sync)
@@ -51,6 +71,24 @@ Each test must start with a clean environment using Docker container resets betw
 4. **Verify**: Should show "Sent" and "Received" events directly
    - No "Sending/Receiving" intermediate states
    - Check notifications reflect confirmed state
+
+**Current Implementation**:
+- ✅ Test framework created (`fast_confirmation_scenarios.rs`)
+- ✅ Isolated Docker environment with proper XPUB descriptors
+- ✅ Wallet creation using WalletCreationService
+- ✅ Wait mechanism for wallet ready status
+- ❌ **BLOCKED**: Wallets not eligible for sync due to subscription checks
+
+**Known Issues**:
+- System tests are blocked by Stripe subscription logic
+- Wallets require valid subscription status to be synced
+- Test environment creates users with 'pending' subscription status
+- Admin bypass needed for tests to focus on Bitcoin functionality
+
+**Next Steps**:
+- Implement admin user bypass for subscription checks (see `backend/tasks/admin-bypass-subscription-checks.md`)
+- Test user should be created as admin to avoid Stripe dependencies
+- Once unblocked, complete verification of direct confirmed transaction events
 
 ### Maximum Amount Tests
 
