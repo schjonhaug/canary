@@ -48,8 +48,8 @@ tempfile = "3.3"
 
 # System tests configuration
 [[test]]
-name = "wallet_drain_scenarios"
-path = "system_tests/wallet_drain_scenarios.rs"
+name = "two_stage_send_scenarios"
+path = "system_tests/two_stage_send_scenarios.rs"
 
 [[test]]
 name = "high_index_scanning" 
