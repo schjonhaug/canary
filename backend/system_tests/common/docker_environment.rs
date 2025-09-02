@@ -66,6 +66,9 @@ impl IsolatedTestEnvironment {
         // Generate unique test ID for isolation
         let test_id = Uuid::new_v4().to_string()[..8].to_string();
         
+        // Clean up any orphaned test containers from previous runs
+        Self::cleanup_orphaned_test_containers();
+        
         // Use test_id to generate consistent port offset to avoid conflicts
         let test_id_bytes = test_id.as_bytes();
         let test_offset = (test_id_bytes[0] as u16) * 10;
@@ -189,15 +192,83 @@ impl IsolatedTestEnvironment {
     }
     
     /// Find an available port starting from the given port with offset per test
+    /// Uses a more robust port allocation strategy to avoid conflicts
     fn find_available_port_with_offset(start_port: u16, test_offset: u16) -> Result<u16, Box<dyn std::error::Error>> {
         let base_port = start_port + test_offset;
         
+        // First, try the base port with offset
         for port in base_port..base_port + 50 {
-            if std::net::TcpListener::bind(format!("127.0.0.1:{}", port)).is_ok() {
+            if Self::is_port_available(port) {
                 return Ok(port);
             }
         }
+        
+        // If that fails, try a wider random range to avoid collisions
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        for _ in 0..100 {
+            let random_port = rng.gen_range(30000..50000);
+            if Self::is_port_available(random_port) {
+                return Ok(random_port);
+            }
+        }
+        
         Err("No available ports found".into())
+    }
+    
+    /// Check if a port is available by attempting to bind and also checking for Docker containers
+    fn is_port_available(port: u16) -> bool {
+        // First check if we can bind to the port
+        if std::net::TcpListener::bind(format!("127.0.0.1:{}", port)).is_err() {
+            return false;
+        }
+        
+        // Also check if Docker has any containers using this port
+        let output = std::process::Command::new("docker")
+            .args(&["ps", "--filter", &format!("publish={}", port), "--quiet"])
+            .output();
+            
+        match output {
+            Ok(output) => {
+                let containers = String::from_utf8_lossy(&output.stdout);
+                containers.trim().is_empty() // Port is available if no containers are using it
+            }
+            Err(_) => true // If docker command fails, assume port is available
+        }
+    }
+    
+    /// Clean up any orphaned test containers from previous runs
+    fn cleanup_orphaned_test_containers() {
+        println!("🧹 Cleaning up orphaned test containers...");
+        
+        // Stop and remove any containers with names starting with 'test-'
+        let cleanup_commands = vec![
+            vec!["docker", "stop", "$(docker", "ps", "-q", "--filter", "name=test-)", "2>/dev/null", "||", "true"],
+            vec!["docker", "rm", "$(docker", "ps", "-aq", "--filter", "name=test-)", "2>/dev/null", "||", "true"],
+        ];
+        
+        for cmd in cleanup_commands {
+            let result = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(cmd.join(" "))
+                .output();
+                
+            match result {
+                Ok(output) => {
+                    if !output.status.success() {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        if !stderr.is_empty() && !stderr.contains("No such container") {
+                            println!("⚠️  Cleanup warning: {}", stderr.trim());
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("⚠️  Cleanup command failed: {}", e);
+                }
+            }
+        }
+        
+        println!("✅ Orphaned container cleanup completed");
     }
     
     /// Create test-specific docker-compose.yml and config files
