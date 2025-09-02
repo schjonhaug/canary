@@ -1300,6 +1300,7 @@ impl WalletManager {
                 );
                 println!("{:-<85}", "");
 
+
                 // Detect transaction types and broadcast events
                 let trusted_pending_increase =
                     trusted_pending_after.to_sat() > trusted_pending_before.to_sat();
@@ -1316,6 +1317,7 @@ impl WalletManager {
                 let total_same = total_after.to_sat() == total_before.to_sat();
                 
                 let confirmed_same = confirmed_after.to_sat() == confirmed_before.to_sat();
+
 
                 // Track if we handle any mined directly transactions to avoid duplicates
                 let mut handled_mined_directly_send = false;
@@ -1517,15 +1519,50 @@ impl WalletManager {
                     }
                 } else if !is_special_tx {
                     // Regular sending logic (no existing unconfirmed transactions)  
-                    // Case 1: Spending from balance (includes unconfirmed drains and mined directly)
-                    if total_decrease {
+                    // Case 1A: Spending from confirmed balance (first transaction with change) - partial sends
+                    if trusted_pending_increase && confirmed_decrease {
                         let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
-                        let change_received = if trusted_pending_increase {
-                            trusted_pending_after.to_sat() - trusted_pending_before.to_sat()
-                        } else {
-                            0  // No change for drains
-                        };
+                        let change_received = trusted_pending_after.to_sat() - trusted_pending_before.to_sat();
                         let sending_amount = confirmed_spent - change_received;
+
+                        let message = format!(
+                            "📤 Sending {:.8} BTC",
+                            sending_amount as f64 / 100_000_000.0
+                        );
+                        println!("[{}] {}", wallet_checksum, message);
+
+                        // Get timestamp of the new sending transaction
+                        let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
+
+                        // Insert sending event to database and broadcast
+                        if let Err(e) = Self::insert_and_broadcast_event_helper(
+                            metadata_db,
+                            event_sender,
+                            &EventInsert {
+                                wallet_checksum: wallet_checksum.to_string(),
+                                event_type: EventType::Send,
+                                amount_sats: -(sending_amount as i64),
+                                is_confirmed: false,
+                                is_rbf: false,
+                                is_cpfp: false,
+                                balance_total: Some(total_after.to_sat() as i64),
+                                transaction_time: send_timestamp,
+                            },
+                        )
+                        .await
+                        {
+                            eprintln!(
+                                "[{}] ❌ CRITICAL: Failed to insert Case 1A sending event: {}",
+                                wallet_checksum, e
+                            );
+                        } else {
+                            println!("[{}] ✅ Successfully inserted Case 1A sending event", wallet_checksum);
+                        }
+                    }
+                    // Case 1B: Spending from balance (drains and mined directly - no change)
+                    else if total_decrease && confirmed_decrease && !trusted_pending_increase {
+                        let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
+                        let sending_amount = confirmed_spent;  // No change for drains
 
                         // Get timestamp of the new sending transaction
                         let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
@@ -1578,7 +1615,9 @@ impl WalletManager {
                         )
                         .await
                         {
-                            eprintln!("[{}] Failed to insert sending event: {}", wallet_checksum, e);
+                            eprintln!("[{}] ❌ CRITICAL: Failed to insert Case 1B sending event: {}", wallet_checksum, e);
+                        } else {
+                            println!("[{}] ✅ Successfully inserted Case 1B sending event", wallet_checksum);
                         }
 
                         // Mark if we handled a mined directly transaction to avoid duplicate processing

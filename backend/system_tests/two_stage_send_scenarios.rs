@@ -30,6 +30,9 @@ async fn test_alice_partial_send_bob_two_stage() {
     println!("⚡ Step 2: Sync to detect unconfirmed transaction");
     env.sync_and_wait().await.expect("Failed to sync");
     
+    // Small delay to ensure database transactions are committed
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    
     // Verify UNCONFIRMED events are created (Stage 1)
     let unconfirmed_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let unconfirmed_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
@@ -99,6 +102,9 @@ async fn test_alice_full_send_bob_two_stage() {
     
     println!("⚡ Step 2: Sync to detect unconfirmed full send transaction");
     env.sync_and_wait().await.expect("Failed to sync");
+    
+    // Small delay to ensure database transactions are committed
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
     // Verify UNCONFIRMED events are created (Stage 1)
     let unconfirmed_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
@@ -183,6 +189,9 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     
     println!("⚡ Step 2: Sync to detect unconfirmed transactions (mempool)");
     env.sync_and_wait().await.expect("Failed to sync");
+    
+    // Small delay to ensure database transactions are committed
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
     // Verify UNCONFIRMED events are created (Stage 1) - should have 3 separate events
     let unconfirmed_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
