@@ -127,7 +127,7 @@ async fn test_confirmation_state_changes() {
     if !unconfirmed_sends.is_empty() {
         println!("📝 Found unconfirmed send events: {}", unconfirmed_sends.len());
     } else {
-        println!("📝 Events confirmed immediately (fast confirmation scenario)");
+        println!("📝 Events confirmed immediately (mined directly scenario)");
     }
     
     // Mine block to confirm transaction

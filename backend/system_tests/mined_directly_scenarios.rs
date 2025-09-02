@@ -3,17 +3,17 @@ use canary::metadata::EventType;
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-/// System tests for fast confirmation scenarios
+/// System tests for mined directly scenarios
 /// 
 /// These tests verify transaction detection when transactions are confirmed 
 /// immediately (before sync), resulting in direct "Sent"/"Received" events 
 /// without intermediate "Sending"/"Receiving" states.
 
-/// Test 4: Alice Sent Bob (Direct Confirmed)
-/// Purpose: Test fast confirmation scenarios where transactions are mined immediately
+/// Test 4: Alice Sent Bob (Mined Directly)
+/// Purpose: Test mined directly scenarios where transactions are mined immediately
 #[tokio::test]
 #[ignore] // System test - requires Docker
-async fn test_alice_sent_bob_direct_confirmed() {
+async fn test_alice_sent_bob_mined_directly() {
     let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
     
     // Initial sync to establish baseline
@@ -44,7 +44,7 @@ async fn test_alice_sent_bob_direct_confirmed() {
     println!("⚡ Step 3: Now sync wallets");
     env.sync_and_wait().await.expect("Failed to sync");
     
-    // Verify events show direct confirmed state (no intermediate states)
+    // Verify events show mined directly state (no intermediate states)
     let post_sync_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let post_sync_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
@@ -114,7 +114,7 @@ async fn test_alice_sent_bob_direct_confirmed() {
         Err(e) => println!("❌ Failed to get Alice's transactions: {}", e),
     }
     
-    // Verify events are directly confirmed (the key test for fast confirmation)
+    // Verify events are mined directly (the key test for mined directly)
     let confirmed_alice_sends: Vec<_> = alice_send_events.iter()
         .filter(|e| e.is_confirmed)
         .collect();
@@ -132,17 +132,17 @@ async fn test_alice_sent_bob_direct_confirmed() {
     
     assert!(bob_received_correct_amount, "Bob should receive 0.1 BTC (10M sats)");
     
-    println!("✅ Test 4 passed - Direct confirmed transaction detected correctly!");
+    println!("✅ Test 4 passed - Mined directly transaction detected correctly!");
     println!("   - Events created for both Alice and Bob");
-    println!("   - All events are directly confirmed (no intermediate states)");
+    println!("   - All events are mined directly (no intermediate states)");
     println!("   - Correct transaction amounts detected");
 }
 
-/// Test 6: Alice Sent Bob Max (Direct Drain)
-/// Purpose: Test direct confirmed drain where wallet is completely emptied in fast confirmation
+/// Test 6: Alice Sent Bob Drain (Mined Directly)
+/// Purpose: Test mined directly drain where wallet is completely emptied when mined directly
 #[tokio::test]
 #[ignore] // System test - requires Docker
-async fn test_alice_sent_bob_max_direct_drain() {
+async fn test_alice_sent_bob_drain_mined_directly() {
     let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
     
     // Initial sync to establish baseline
@@ -165,7 +165,7 @@ async fn test_alice_sent_bob_max_direct_drain() {
     println!("⚡ Step 3: Now sync wallets");
     env.sync_and_wait().await.expect("Failed to sync");
     
-    // Verify drain events show direct confirmed state
+    // Verify drain events show mined directly state
     let post_sync_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let post_sync_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
@@ -211,7 +211,7 @@ async fn test_alice_sent_bob_max_direct_drain() {
                  i, event.event_type, event.amount_sats, event.is_confirmed);
     }
     
-    // Verify events are directly confirmed (key test for fast confirmation)
+    // Verify events are mined directly (key test for mined directly)
     let confirmed_alice_sends: Vec<_> = alice_send_events.iter()
         .filter(|e| e.is_confirmed)
         .collect();
@@ -219,8 +219,8 @@ async fn test_alice_sent_bob_max_direct_drain() {
         .filter(|e| e.is_confirmed)
         .collect();
     
-    assert!(!confirmed_alice_sends.is_empty(), "Alice drain events should be directly confirmed");
-    assert!(!confirmed_bob_receives.is_empty(), "Bob receive events should be directly confirmed");
+    assert!(!confirmed_alice_sends.is_empty(), "Alice drain events should be mined directly");
+    assert!(!confirmed_bob_receives.is_empty(), "Bob receive events should be mined directly");
     
     // Verify drain-specific characteristics (large amounts)
     let alice_large_sends: Vec<_> = alice_send_events.iter()
@@ -233,18 +233,18 @@ async fn test_alice_sent_bob_max_direct_drain() {
     assert!(!alice_large_sends.is_empty(), "Alice should have large drain transactions");
     assert!(!bob_large_receives.is_empty(), "Bob should receive large amounts from drain");
     
-    println!("✅ Test 6 passed - Direct confirmed drain detected correctly!");
+    println!("✅ Test 6 passed - Mined directly drain detected correctly!");
     println!("   - Drain events created for Alice");
     println!("   - Large receive events created for Bob");
-    println!("   - All events are directly confirmed (no intermediate states)");
-    println!("   - Wallet successfully drained in fast confirmation scenario");
+    println!("   - All events are mined directly (no intermediate states)");
+    println!("   - Wallet successfully drained in mined directly scenario");
 }
 
-/// Test: Multiple fast confirmation transactions
-/// Additional test to verify multiple transactions can be handled in fast confirmation mode
+/// Test: Multiple mined directly transactions
+/// Additional test to verify multiple transactions can be handled when mined directly
 #[tokio::test]
 #[ignore] // System test - requires Docker
-async fn test_multiple_fast_confirmations() {
+async fn test_multiple_mined_directly() {
     let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
     
     // Initial sync
@@ -254,7 +254,7 @@ async fn test_multiple_fast_confirmations() {
     let initial_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
     // Send multiple transactions and mine them all at once
-    println!("⚡ Sending multiple transactions in fast confirmation mode");
+    println!("⚡ Sending multiple transactions that will be mined directly");
     
     let _txid1 = env.send_transaction("alice", "bob", "0.1").await.expect("Failed to send transaction 1");
     let _txid2 = env.send_transaction("alice", "bob", "0.2").await.expect("Failed to send transaction 2");
@@ -266,7 +266,7 @@ async fn test_multiple_fast_confirmations() {
     // Now sync
     env.sync_and_wait().await.expect("Failed to sync");
     
-    // Verify all transactions are detected as directly confirmed
+    // Verify all transactions are detected as mined directly
     let final_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let final_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
@@ -298,8 +298,8 @@ async fn test_multiple_fast_confirmations() {
     assert!(confirmed_alice_count == 1, "Alice should have 1 confirmed send event (net amount)");
     assert!(confirmed_bob_count == 1, "Bob should have 1 confirmed receive event (net amount)");
     
-    println!("✅ Multiple fast confirmations test passed!");
-    println!("   - All transactions detected as directly confirmed");
+    println!("✅ Multiple mined directly test passed!");
+    println!("   - All transactions detected as mined directly");
     println!("   - No intermediate unconfirmed states created");
     println!("   - Confirmed Alice sends: {}, Bob receives: {}", confirmed_alice_count, confirmed_bob_count);
 }

@@ -1316,9 +1316,9 @@ impl WalletManager {
                 let total_same = total_after.to_sat() == total_before.to_sat();
                 let confirmed_same = confirmed_after.to_sat() == confirmed_before.to_sat();
 
-                // Track if we handle any fast confirmations to avoid duplicates
-                let mut handled_fast_send_confirmation = false;
-                let mut handled_fast_receive_confirmation = false;
+                // Track if we handle any mined directly transactions to avoid duplicates
+                let mut handled_mined_directly_send = false;
+                let mut handled_mined_directly_receive = false;
 
                 // First check for special transaction types (takes precedence over regular sending)
                 let mut is_special_tx = false;
@@ -1526,12 +1526,12 @@ impl WalletManager {
                         // Get timestamp of the new sending transaction
                         let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
 
-                        // Determine if this is a fast confirmation (transaction already confirmed when first detected)
-                        let is_fast_confirmation = !trusted_pending_increase && !trusted_pending_decrease &&
+                        // Determine if this was mined directly (transaction already confirmed when first detected)
+                        let is_mined_directly = !trusted_pending_increase && !trusted_pending_decrease &&
                                                    !untrusted_pending_increase && !untrusted_pending_decrease;
 
                         let message = if total_after.to_sat() == 0 {
-                            if is_fast_confirmation {
+                            if is_mined_directly {
                                 format!(
                                     "🚨 WALLET DRAINED: Entire balance of {:.8} BTC sent (confirmed in block)", 
                                     sending_amount as f64 / 100_000_000.0
@@ -1543,7 +1543,7 @@ impl WalletManager {
                                 )
                             }
                         } else {
-                            if is_fast_confirmation {
+                            if is_mined_directly {
                                 format!(
                                     "✅ Sent {:.8} BTC (confirmed in block)",
                                     sending_amount as f64 / 100_000_000.0
@@ -1565,7 +1565,7 @@ impl WalletManager {
                                 wallet_checksum: wallet_checksum.to_string(),
                                 event_type: EventType::Send,
                                 amount_sats: sending_amount as i64,
-                                is_confirmed: is_fast_confirmation,
+                                is_confirmed: is_mined_directly,
                                 is_rbf: false,
                                 is_cpfp: false,
                                 balance_total: Some(total_after.to_sat() as i64),
@@ -1577,9 +1577,9 @@ impl WalletManager {
                             eprintln!("Failed to insert sending event: {}", e);
                         }
 
-                        // Mark if we handled a fast confirmation to avoid duplicate processing
-                        if is_fast_confirmation {
-                            handled_fast_send_confirmation = true;
+                        // Mark if we handled a mined directly transaction to avoid duplicate processing
+                        if is_mined_directly {
+                            handled_mined_directly_send = true;
                         }
                     }
                     // Case 2: Spending from trusted pending balance (subsequent transactions)
@@ -1764,19 +1764,19 @@ impl WalletManager {
                     .await
                     {
                         eprintln!(
-                            "[{}] Failed to insert direct confirmed receiving event: {}",
+                            "[{}] Failed to insert mined directly receiving event: {}",
                             wallet_checksum, e
                         );
                     }
 
-                    // Mark that we handled a fast receive confirmation
-                    handled_fast_receive_confirmation = true;
+                    // Mark that we handled a mined directly receive
+                    handled_mined_directly_receive = true;
                 }
 
 
                 // Detect if this is a sent transaction being confirmed
-                // Skip if we already handled this as a fast confirmation
-                if trusted_pending_decrease && confirmed_increase && total_same && !handled_fast_send_confirmation {
+                // Skip if we already handled this as mined directly
+                if trusted_pending_decrease && confirmed_increase && total_same && !handled_mined_directly_send {
                     // Use transaction-level analysis result for send confirmation amount
                     if total_confirmed_send_amount > 0 {
                         let message = format!(
@@ -1818,8 +1818,8 @@ impl WalletManager {
                 }
 
                 // Detect if this is a received transaction being confirmed
-                // Skip if we already handled this as a fast confirmation
-                if untrusted_pending_decrease && confirmed_increase && total_same && !handled_fast_receive_confirmation {
+                // Skip if we already handled this as mined directly
+                if untrusted_pending_decrease && confirmed_increase && total_same && !handled_mined_directly_receive {
                     // Use transaction-level analysis result for receive confirmation amount
                     if total_confirmed_receive_amount > 0 {
                         let message = format!(
@@ -1861,8 +1861,8 @@ impl WalletManager {
                 }
 
                 // Detect if this is a drain transaction being confirmed (balance becomes 0)
-                // Skip if we already handled this as a fast-confirmed send
-                if confirmed_increase && total_after.to_sat() == 0 && !handled_fast_send_confirmation {
+                // Skip if we already handled this as a mined directly send
+                if confirmed_increase && total_after.to_sat() == 0 && !handled_mined_directly_send {
                     // This is a drain confirmation - the wallet is now empty
                     let confirmed_amount = if total_confirmed_send_amount > 0 {
                         total_confirmed_send_amount

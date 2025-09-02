@@ -4,10 +4,10 @@ System tests (also called End-to-End tests) test the complete Canary application
 
 ## Test Categories
 
-### **`fast_confirmation_scenarios.rs`** - Transactions mined before sync
-- `test_alice_sent_bob_direct_confirmed` - Basic fast confirmation
-- `test_alice_sent_bob_max_direct_drain` - Fast confirmation drain
-- `test_multiple_fast_confirmations` - Multiple transactions in same block
+### **`mined_directly_scenarios.rs`** - Transactions mined before sync
+- `test_alice_sent_bob_mined_directly` - Basic mined directly
+- `test_alice_sent_bob_drain_mined_directly` - Mined directly drain
+- `test_multiple_mined_directly` - Multiple transactions in same block
 
 ### **`wallet_drain_scenarios.rs`** - Wallet drain detection scenarios
 - `test_alice_wallet_drain` - Basic wallet drain detection
@@ -50,7 +50,7 @@ System tests (also called End-to-End tests) test the complete Canary application
 cargo test --test system_tests -- --ignored
 
 # Run specific test category
-cargo test --test fast_confirmation_scenarios -- --ignored
+cargo test --test mined_directly_scenarios -- --ignored
 cargo test --test wallet_drain_scenarios -- --ignored
 cargo test --test high_index_scanning -- --ignored
 cargo test --test transaction_flows -- --ignored
@@ -58,28 +58,28 @@ cargo test --test advanced_transactions -- --ignored
 cargo test --test notification_verification -- --ignored
 
 # Run individual test (clean output)
-cargo test test_alice_sent_bob_direct_confirmed --test fast_confirmation_scenarios -- --ignored
-cargo test test_multiple_fast_confirmations --test fast_confirmation_scenarios -- --ignored
+cargo test test_alice_sent_bob_mined_directly --test mined_directly_scenarios -- --ignored
+cargo test test_multiple_mined_directly --test mined_directly_scenarios -- --ignored
 ```
 
 ### Detailed Output for Manual Verification
 
 ```bash
 # Run test category with full output (shows all debug info)
-cargo test --test fast_confirmation_scenarios -- --ignored --nocapture
+cargo test --test mined_directly_scenarios -- --ignored --nocapture
 
 # Run individual test with detailed output
-cargo test test_alice_sent_bob_max_direct_drain --test fast_confirmation_scenarios -- --ignored --nocapture
+cargo test test_alice_sent_bob_drain_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
 
 # Run with debug logs (most verbose - shows internal BDK/wallet operations)
-RUST_LOG=debug cargo test test_alice_sent_bob_direct_confirmed --test fast_confirmation_scenarios -- --ignored --nocapture
+RUST_LOG=debug cargo test test_alice_sent_bob_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
 ```
 
 ### Discovering Available Tests
 
 ```bash
 # List all tests in a specific test file (most useful)
-cargo test --test fast_confirmation_scenarios -- --list
+cargo test --test mined_directly_scenarios -- --list
 cargo test --test wallet_drain_scenarios -- --list
 
 # Find all test names across all files using grep

@@ -113,10 +113,10 @@ impl IsolatedTestEnvironment {
         Self::wait_for_bitcoin_ready(&compose_dir, &test_id).await?;
         Self::wait_for_fulcrum_ready(&compose_dir, fulcrum_port).await?;
         
-        // Setup deterministic wallets (Alice and Bob only for fast confirmation tests)
+        // Setup deterministic wallets (Alice and Bob only for mined directly tests)
         Self::setup_alice_bob_wallets(&compose_dir, &test_id).await?;
         
-        // Fund Alice (for fast confirmation tests, Charlie not needed)
+        // Fund Alice (for mined directly tests, Charlie not needed)
         Self::fund_alice_only(&compose_dir, &test_id, fulcrum_port).await?;
         
         // Create wallet manager (connects to Fulcrum)
@@ -180,7 +180,7 @@ impl IsolatedTestEnvironment {
             _temp_dir: temp_dir,
             alice_checksum,
             bob_checksum,
-            charlie_checksum: String::new(), // Empty for fast confirmation tests
+            charlie_checksum: String::new(), // Empty for mined directly tests
             compose_dir,
             test_id,
             bitcoin_rpc_port,
@@ -416,7 +416,7 @@ volumes:
         Ok(())
     }
     
-    /// Setup Alice and Bob wallets only (for fast confirmation tests)
+    /// Setup Alice and Bob wallets only (for mined directly tests)
     async fn setup_alice_bob_wallets(_compose_dir: &std::path::Path, test_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         println!("🏦 Setting up Alice and Bob test wallets...");
         let bitcoin_container_name = format!("test-bitcoin-{}", test_id);
@@ -503,7 +503,7 @@ volumes:
         Ok(())
     }
     
-    /// Fund Alice wallet only (for fast confirmation tests that don't need Charlie)
+    /// Fund Alice wallet only (for mined directly tests that don't need Charlie)
     async fn fund_alice_only(_compose_dir: &std::path::Path, test_id: &str, fulcrum_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         let bitcoin_container_name = format!("test-bitcoin-{}", test_id);
         
