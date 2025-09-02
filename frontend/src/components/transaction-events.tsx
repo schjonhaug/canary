@@ -246,7 +246,7 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
                         </div>
                       </TableCell>
                       <TableCell className="font-mono">
-                        {formatBitcoinAmount(event.amount_sats)}
+                        {formatBitcoinAmount(event.amount_sats, event.event_type)}
                       </TableCell>
                       <TableCell className="font-mono">
                         {event.balance_total !== null && event.balance_total !== undefined ? formatBitcoinAmount(event.balance_total) : "N/A"}

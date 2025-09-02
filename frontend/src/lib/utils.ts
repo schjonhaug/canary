@@ -52,14 +52,26 @@ export async function loadCanarySvg(hexColor: string): Promise<string> {
   return processedSvg
 }
 
-// Bitcoin amount formatting utility
-export function formatBitcoinAmount(sats: number | null | undefined): string {
+// Bitcoin amount formatting utility  
+export function formatBitcoinAmount(sats: number | null | undefined, eventType?: 'send' | 'receive'): string {
   if (sats === null || sats === undefined) return "0.00000000 BTC"
-  const btc = sats / 100_000_000
-  return `${btc.toLocaleString(undefined, { 
+  
+  const absSats = Math.abs(sats)
+  const btc = absSats / 100_000_000
+  const formattedAmount = btc.toLocaleString(undefined, { 
     minimumFractionDigits: 8, 
     maximumFractionDigits: 8 
-  })} BTC`
+  })
+  
+  // Show sign based on event type for better UX
+  if (eventType === 'send') {
+    return `−${formattedAmount} BTC`  // Unicode minus sign
+  } else if (eventType === 'receive') {
+    return `+${formattedAmount} BTC`
+  }
+  
+  // Default: no sign (for balance totals, etc.)
+  return `${formattedAmount} BTC`
 }
 
 // Date formatting utilities
