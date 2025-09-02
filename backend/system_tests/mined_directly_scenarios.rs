@@ -9,11 +9,11 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// immediately (before sync), resulting in direct "Sent"/"Received" events 
 /// without intermediate "Sending"/"Receiving" states.
 
-/// Test 4: Alice Sent Bob (Mined Directly)
-/// Purpose: Test mined directly scenarios where transactions are mined immediately
+/// Test 4: Alice Partial Send Bob (Mined Directly)
+/// Purpose: Test mined directly scenarios where partial send transactions are mined immediately
 #[tokio::test]
 #[ignore] // System test - requires Docker
-async fn test_alice_sent_bob_mined_directly() {
+async fn test_alice_partial_send_bob_mined_directly() {
     let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
     
     // Initial sync to establish baseline
@@ -132,17 +132,17 @@ async fn test_alice_sent_bob_mined_directly() {
     
     assert!(bob_received_correct_amount, "Bob should receive 0.1 BTC (10M sats)");
     
-    println!("✅ Test 4 passed - Mined directly transaction detected correctly!");
+    println!("✅ Test 4 passed - Mined directly partial send detected correctly!");
     println!("   - Events created for both Alice and Bob");
     println!("   - All events are mined directly (no intermediate states)");
     println!("   - Correct transaction amounts detected");
 }
 
-/// Test 6: Alice Sent Bob Drain (Mined Directly)
-/// Purpose: Test mined directly drain where wallet is completely emptied when mined directly
+/// Test 6: Alice Full Send Bob (Mined Directly)
+/// Purpose: Test mined directly full send where wallet is completely emptied when mined directly
 #[tokio::test]
 #[ignore] // System test - requires Docker
-async fn test_alice_sent_bob_drain_mined_directly() {
+async fn test_alice_full_send_bob_mined_directly() {
     let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
     
     // Initial sync to establish baseline
@@ -155,8 +155,8 @@ async fn test_alice_sent_bob_drain_mined_directly() {
     println!("   Alice events: {}", initial_alice_events.len());
     println!("   Bob events: {}", initial_bob_events.len());
     
-    // Send maximum balance and immediately mine (drain scenario)
-    println!("🔥 Step 1: Alice sends maximum balance to Bob (wallet drain)");
+    // Send maximum balance and immediately mine (full send scenario)
+    println!("🔥 Step 1: Alice sends maximum balance to Bob (full send)");
     let _txid = env.send_transaction("alice", "bob", "max").await.expect("Failed to send max transaction");
     
     println!("⚡ Step 2: Immediately mine 1 block (before sync)");
@@ -165,7 +165,7 @@ async fn test_alice_sent_bob_drain_mined_directly() {
     println!("⚡ Step 3: Now sync wallets");
     env.sync_and_wait().await.expect("Failed to sync");
     
-    // Verify drain events show mined directly state
+    // Verify full send events show mined directly state
     let post_sync_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let post_sync_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
@@ -173,11 +173,11 @@ async fn test_alice_sent_bob_drain_mined_directly() {
     println!("   Alice events: {}", post_sync_alice_events.len());
     println!("   Bob events: {}", post_sync_bob_events.len());
     
-    // Find new events (drain events)
+    // Find new events (full send events)
     let new_alice_count = post_sync_alice_events.len() - initial_alice_events.len();
     let new_bob_count = post_sync_bob_events.len() - initial_bob_events.len();
     
-    assert!(new_alice_count > 0, "Alice should have new drain events");
+    assert!(new_alice_count > 0, "Alice should have new full send events");
     assert!(new_bob_count > 0, "Bob should have new receive events");
     
     // Look for new Send and Receive events
@@ -195,11 +195,11 @@ async fn test_alice_sent_bob_drain_mined_directly() {
         .filter(|e| e.event_type == EventType::Receive)
         .collect();
     
-    assert!(!alice_send_events.is_empty(), "Alice should have Send events for drain");
+    assert!(!alice_send_events.is_empty(), "Alice should have Send events for full send");
     assert!(!bob_receive_events.is_empty(), "Bob should have Receive events");
     
-    // Debug: Show all Alice drain events and their confirmation status
-    println!("🔍 DEBUG Alice drain events:");
+    // Debug: Show all Alice full send events and their confirmation status
+    println!("🔍 DEBUG Alice full send events:");
     for (i, event) in alice_send_events.iter().enumerate() {
         println!("   Alice Send event {}: type={:?}, amount={}, confirmed={}", 
                  i, event.event_type, event.amount_sats, event.is_confirmed);
@@ -219,10 +219,10 @@ async fn test_alice_sent_bob_drain_mined_directly() {
         .filter(|e| e.is_confirmed)
         .collect();
     
-    assert!(!confirmed_alice_sends.is_empty(), "Alice drain events should be mined directly");
+    assert!(!confirmed_alice_sends.is_empty(), "Alice full send events should be mined directly");
     assert!(!confirmed_bob_receives.is_empty(), "Bob receive events should be mined directly");
     
-    // Verify drain-specific characteristics (large amounts)
+    // Verify full send-specific characteristics (large amounts)
     let alice_large_sends: Vec<_> = alice_send_events.iter()
         .filter(|e| e.amount_sats.abs() > 50_000_000) // > 0.5 BTC
         .collect();
@@ -230,21 +230,21 @@ async fn test_alice_sent_bob_drain_mined_directly() {
         .filter(|e| e.amount_sats > 50_000_000) // > 0.5 BTC
         .collect();
     
-    assert!(!alice_large_sends.is_empty(), "Alice should have large drain transactions");
-    assert!(!bob_large_receives.is_empty(), "Bob should receive large amounts from drain");
+    assert!(!alice_large_sends.is_empty(), "Alice should have large full send transactions");
+    assert!(!bob_large_receives.is_empty(), "Bob should receive large amounts from full send");
     
-    println!("✅ Test 6 passed - Mined directly drain detected correctly!");
-    println!("   - Drain events created for Alice");
+    println!("✅ Test 6 passed - Mined directly full send detected correctly!");
+    println!("   - Full send events created for Alice");
     println!("   - Large receive events created for Bob");
     println!("   - All events are mined directly (no intermediate states)");
-    println!("   - Wallet successfully drained in mined directly scenario");
+    println!("   - Wallet successfully emptied in mined directly scenario");
 }
 
-/// Test: Multiple mined directly transactions
-/// Additional test to verify multiple transactions can be handled when mined directly
+/// Test: Multiple partial sends mined directly
+/// Additional test to verify multiple partial send transactions can be handled when mined directly
 #[tokio::test]
 #[ignore] // System test - requires Docker
-async fn test_multiple_mined_directly() {
+async fn test_multiple_partial_sends_mined_directly() {
     let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
     
     // Initial sync
@@ -253,8 +253,8 @@ async fn test_multiple_mined_directly() {
     let initial_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let initial_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
-    // Send multiple transactions and mine them all at once
-    println!("⚡ Sending multiple transactions that will be mined directly");
+    // Send multiple partial send transactions and mine them all at once
+    println!("⚡ Sending multiple partial send transactions that will be mined directly");
     
     let _txid1 = env.send_transaction("alice", "bob", "0.1").await.expect("Failed to send transaction 1");
     let _txid2 = env.send_transaction("alice", "bob", "0.2").await.expect("Failed to send transaction 2");
@@ -266,14 +266,14 @@ async fn test_multiple_mined_directly() {
     // Now sync
     env.sync_and_wait().await.expect("Failed to sync");
     
-    // Verify all transactions are detected as mined directly
+    // Verify all partial send transactions are detected as mined directly
     let final_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let final_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
     let new_alice_events = final_alice_events.len() - initial_alice_events.len();
     let new_bob_events = final_bob_events.len() - initial_bob_events.len();
     
-    println!("📊 Multiple transaction results:");
+    println!("📊 Multiple partial send results:");
     println!("   New Alice events: {}", new_alice_events);
     println!("   New Bob events: {}", new_bob_events);
     
@@ -298,8 +298,8 @@ async fn test_multiple_mined_directly() {
     assert!(confirmed_alice_count == 1, "Alice should have 1 confirmed send event (net amount)");
     assert!(confirmed_bob_count == 1, "Bob should have 1 confirmed receive event (net amount)");
     
-    println!("✅ Multiple mined directly test passed!");
-    println!("   - All transactions detected as mined directly");
+    println!("✅ Multiple partial sends mined directly test passed!");
+    println!("   - All partial send transactions detected as mined directly");
     println!("   - No intermediate unconfirmed states created");
     println!("   - Confirmed Alice sends: {}, Bob receives: {}", confirmed_alice_count, confirmed_bob_count);
 }
