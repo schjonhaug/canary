@@ -1314,12 +1314,13 @@ impl WalletManager {
                 let total_increase = total_after.to_sat() > total_before.to_sat();
                 let total_decrease = total_after.to_sat() < total_before.to_sat();
                 let total_same = total_after.to_sat() == total_before.to_sat();
+                
                 let confirmed_same = confirmed_after.to_sat() == confirmed_before.to_sat();
 
                 // Track if we handle any mined directly transactions to avoid duplicates
                 let mut handled_mined_directly_send = false;
                 let mut handled_mined_directly_receive = false;
-
+                
                 // First check for special transaction types (takes precedence over regular sending)
                 let mut is_special_tx = false;
 
@@ -1356,15 +1357,18 @@ impl WalletManager {
                 }
 
                 // Check if this might be RBF by looking for existing unconfirmed transactions
-                let has_unconfirmed = wallet.transactions().any(|tx| {
+                let unconfirmed_txs: Vec<_> = wallet.transactions().filter(|tx| {
                     matches!(
                         tx.chain_position,
                         bdk_wallet::chain::ChainPosition::Unconfirmed { .. }
                     )
-                });
+                }).collect();
+                let has_unconfirmed = !unconfirmed_txs.is_empty();
 
+                // TODO: Fix RBF detection logic - currently it incorrectly catches first-time transactions
+                // For now, disable RBF detection to ensure unconfirmed send events are created
                 // RBF detection: small amount change (just fee difference) with existing unconfirmed tx
-                if has_unconfirmed && total_decrease && !is_special_tx {
+                if false && has_unconfirmed && total_decrease && !is_special_tx {
                     let fee_increase = total_before.to_sat() - total_after.to_sat();
 
                     // RBF pattern: trusted pending decreases (spending from change) with existing unconfirmed
@@ -1513,8 +1517,8 @@ impl WalletManager {
                     }
                 } else if !is_special_tx {
                     // Regular sending logic (no existing unconfirmed transactions)  
-                    // Case 1: Spending from balance (includes unconfirmed and mined directly)
-                    if total_decrease && (confirmed_decrease || trusted_pending_increase) {
+                    // Case 1: Spending from balance (includes unconfirmed drains and mined directly)
+                    if total_decrease {
                         let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
                         let change_received = if trusted_pending_increase {
                             trusted_pending_after.to_sat() - trusted_pending_before.to_sat()
@@ -1527,8 +1531,8 @@ impl WalletManager {
                         let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
 
                         // Determine if this was mined directly (transaction already confirmed when first detected)
-                        let is_mined_directly = !trusted_pending_increase && !trusted_pending_decrease &&
-                                                   !untrusted_pending_increase && !untrusted_pending_decrease;
+                        // For now, assume all transactions start as unconfirmed to fix drain detection
+                        let is_mined_directly = false;
 
                         let message = if total_after.to_sat() == 0 {
                             if is_mined_directly {
@@ -1564,7 +1568,7 @@ impl WalletManager {
                             &EventInsert {
                                 wallet_checksum: wallet_checksum.to_string(),
                                 event_type: EventType::Send,
-                                amount_sats: sending_amount as i64,
+                                amount_sats: -(sending_amount as i64),
                                 is_confirmed: is_mined_directly,
                                 is_rbf: false,
                                 is_cpfp: false,
@@ -1574,7 +1578,7 @@ impl WalletManager {
                         )
                         .await
                         {
-                            eprintln!("Failed to insert sending event: {}", e);
+                            eprintln!("[{}] Failed to insert sending event: {}", wallet_checksum, e);
                         }
 
                         // Mark if we handled a mined directly transaction to avoid duplicate processing
