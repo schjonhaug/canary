@@ -1513,8 +1513,8 @@ impl WalletManager {
                     }
                 } else if !is_special_tx {
                     // Regular sending logic (no existing unconfirmed transactions)  
-                    // Case 1: Spending from confirmed balance (includes drains)
-                    if confirmed_decrease && total_decrease {
+                    // Case 1: Spending from balance (includes unconfirmed and mined directly)
+                    if total_decrease && (confirmed_decrease || trusted_pending_increase) {
                         let confirmed_spent = confirmed_before.to_sat() - confirmed_after.to_sat();
                         let change_received = if trusted_pending_increase {
                             trusted_pending_after.to_sat() - trusted_pending_before.to_sat()
