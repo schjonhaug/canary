@@ -726,10 +726,16 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]
     case "$SUBCMD" in
         sending)
             DESTINATION_WALLET="$1"
-            AMOUNT="$2"
-            if [ -z "$DESTINATION_WALLET" ] || [ -z "$AMOUNT" ]; then
-                echo "Usage: $0 $WALLET sending <destination_wallet> <amount|max>"
+            shift
+            AMOUNTS=("$@")
+            
+            if [ -z "$DESTINATION_WALLET" ] || [ ${#AMOUNTS[@]} -eq 0 ]; then
+                echo "Usage: $0 $WALLET sending <destination_wallet> <amount1> [amount2] [amount3] ..."
+                echo "       $0 $WALLET sending <destination_wallet> max  # Drain wallet"
                 echo "Available destinations: alice, bob, charlie, miner"
+                echo "Examples:"
+                echo "  $0 $WALLET sending bob 0.1 0.2 0.05    # Send three separate transactions"
+                echo "  $0 $WALLET sending alice max           # Drain wallet to alice"
                 exit 1
             fi
             
@@ -755,32 +761,49 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]
             btc loadwallet "$WALLET" 2>/dev/null || true
             btc loadwallet "$DESTINATION_WALLET" 2>/dev/null || true
             
-            # Get target address from destination wallet
-            TARGET_ADDRESS=$(btc_wallet "$DESTINATION_WALLET" getnewaddress)
-            
-            # Handle max amount (drain wallet)
-            if [ "$AMOUNT" == "max" ]; then
+            # Handle max amount (drain wallet) - single transaction
+            if [ "${AMOUNTS[0]}" == "max" ] && [ ${#AMOUNTS[@]} -eq 1 ]; then
+                # Get target address from destination wallet
+                TARGET_ADDRESS=$(btc_wallet "$DESTINATION_WALLET" getnewaddress)
                 # Get current balance
                 CURRENT_BALANCE=$(btc_wallet "$WALLET" getbalance)
                 echo "🎯 Draining $WALLET wallet ($CURRENT_BALANCE BTC) to $DESTINATION_WALLET address: $TARGET_ADDRESS"
                 # Use subtractfeefromamount to send everything minus fees
                 TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$CURRENT_BALANCE" "" "" true)
-            else
-                echo "🎯 Sending $AMOUNT BTC from $WALLET to $DESTINATION_WALLET address: $TARGET_ADDRESS"
-                TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+                echo "✅ Transaction sent: $TXID"
+                echo "💡 Use '$0 mine' to confirm transaction"
+                exit 0
             fi
             
-            echo "✅ Transaction sent: $TXID"
-            echo "💡 Use '$0 mine' to confirm transaction"
+            # Handle multiple amounts - separate transaction for each amount
+            echo "🎯 Sending ${#AMOUNTS[@]} separate transactions from $WALLET to $DESTINATION_WALLET"
+            TXIDS=()
+            for i in "${!AMOUNTS[@]}"; do
+                AMOUNT="${AMOUNTS[$i]}"
+                # Get a new target address for each transaction
+                TARGET_ADDRESS=$(btc_wallet "$DESTINATION_WALLET" getnewaddress)
+                
+                echo "  📤 Transaction $((i+1))/${#AMOUNTS[@]}: Sending $AMOUNT BTC to address $TARGET_ADDRESS"
+                TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+                TXIDS+=("$TXID")
+                echo "     ✅ Transaction $((i+1)) sent: $TXID"
+            done
+            
+            echo ""
+            echo "🎉 All ${#AMOUNTS[@]} transactions sent successfully:"
+            for i in "${!TXIDS[@]}"; do
+                echo "  $((i+1)). ${AMOUNTS[$i]} BTC → ${TXIDS[$i]}"
+            done
+            echo "💡 Use '$0 mine' to confirm all transactions"
             exit 0
             ;;
         sent)
             # Execute sending command first
             $0 $WALLET sending "$@"
             # Then mine a block to confirm
-            echo "⛏️  Mining 1 block to confirm transaction..."
+            echo "⛏️  Mining 1 block to confirm all transactions..."
             mine_blocks 1
-            echo "✅ Transaction confirmed in block"
+            echo "✅ All transactions confirmed in block"
             exit 0
             ;;
         balance)
@@ -1660,42 +1683,50 @@ case "$1" in
         echo "  status              Show environment status"
         echo ""
         echo "Alice Commands (funded wallet - 1 BTC distributed):"
-        echo "  alice balance                      Show Alice wallet balance"
-        echo "  alice address                      Generate new Alice address"
-        echo "  alice sending <wallet> <amt|max>   Send Bitcoin to another wallet (use 'max' to drain wallet)"
-        echo "  alice sent <wallet> <amt|max>      Send Bitcoin and mine block to confirm (use 'max' to drain)"
-        echo "  alice fund <addr> [amt]            Fund address from Alice (default: 1.0)"
-        echo "  alice rbf <txid>                   Replace transaction with automatically calculated higher fee"
-        echo "  alice cpfp <txid>                  Create CPFP child transaction for Alice's unconfirmed output"
-        echo "  alice consolidate                  Consolidate 2 smallest UTXOs to new receive address"
+        echo "  alice balance                         Show Alice wallet balance"
+        echo "  alice address                         Generate new Alice address"
+        echo "  alice sending <wallet> <amt1> [amt2...] Send Bitcoin in multiple transactions (separate tx for each amount)"
+        echo "  alice sending <wallet> max            Drain wallet to destination (single transaction)"
+        echo "  alice sent <wallet> <amt1> [amt2...]  Send Bitcoin in multiple transactions and mine block to confirm"
+        echo "  alice sent <wallet> max               Drain wallet and mine block to confirm"
+        echo "  alice fund <addr> [amt]               Fund address from Alice (default: 1.0)"
+        echo "  alice rbf <txid>                      Replace transaction with automatically calculated higher fee"
+        echo "  alice cpfp <txid>                     Create CPFP child transaction for Alice's unconfirmed output"
+        echo "  alice consolidate                     Consolidate 2 smallest UTXOs to new receive address"
         echo ""
         echo "Bob Commands (unfunded wallet):"
-        echo "  bob balance                        Show Bob wallet balance"
-        echo "  bob address                        Generate new Bob address"
-        echo "  bob sending <wallet> <amt|max>     Send Bitcoin to another wallet (use 'max' to drain wallet)"
-        echo "  bob sent <wallet> <amt|max>        Send Bitcoin and mine block to confirm (use 'max' to drain)"
-        echo "  bob rbf <txid>                     Replace transaction with automatically calculated higher fee"
-        echo "  bob cpfp <txid>                    Create CPFP child transaction for Bob's unconfirmed output"
-        echo "  bob consolidate                    Consolidate 2 smallest UTXOs to new receive address"
+        echo "  bob balance                           Show Bob wallet balance"
+        echo "  bob address                           Generate new Bob address"
+        echo "  bob sending <wallet> <amt1> [amt2...] Send Bitcoin in multiple transactions (separate tx for each amount)"
+        echo "  bob sending <wallet> max              Drain wallet to destination (single transaction)"
+        echo "  bob sent <wallet> <amt1> [amt2...]    Send Bitcoin in multiple transactions and mine block to confirm"
+        echo "  bob sent <wallet> max                 Drain wallet and mine block to confirm"
+        echo "  bob rbf <txid>                        Replace transaction with automatically calculated higher fee"
+        echo "  bob cpfp <txid>                       Create CPFP child transaction for Bob's unconfirmed output"
+        echo "  bob consolidate                       Consolidate 2 smallest UTXOs to new receive address"
         echo ""
         echo "Charlie Commands (funded wallet - 0.5 BTC at index 250):"
-        echo "  charlie balance                    Show Charlie wallet balance"
-        echo "  charlie address                    Generate new Charlie address"
-        echo "  charlie sending <wallet> <amt|max> Send Bitcoin to another wallet (use 'max' to drain wallet)"
-        echo "  charlie sent <wallet> <amt|max>    Send Bitcoin and mine block to confirm (use 'max' to drain)"
-        echo "  charlie fund <addr> [amt]          Fund address from Charlie (default: 1.0)"
-        echo "  charlie rbf <txid>                 Replace transaction with automatically calculated higher fee"
-        echo "  charlie cpfp <txid>                Create CPFP child transaction for Charlie's unconfirmed output"
-        echo "  charlie consolidate                Consolidate 2 smallest UTXOs to new receive address"
+        echo "  charlie balance                       Show Charlie wallet balance"
+        echo "  charlie address                       Generate new Charlie address"
+        echo "  charlie sending <wallet> <amt1> [amt2...] Send Bitcoin in multiple transactions (separate tx for each amount)"
+        echo "  charlie sending <wallet> max         Drain wallet to destination (single transaction)"
+        echo "  charlie sent <wallet> <amt1> [amt2...]    Send Bitcoin in multiple transactions and mine block to confirm"
+        echo "  charlie sent <wallet> max             Drain wallet and mine block to confirm"
+        echo "  charlie fund <addr> [amt]             Fund address from Charlie (default: 1.0)"
+        echo "  charlie rbf <txid>                    Replace transaction with automatically calculated higher fee"
+        echo "  charlie cpfp <txid>                   Create CPFP child transaction for Charlie's unconfirmed output"
+        echo "  charlie consolidate                   Consolidate 2 smallest UTXOs to new receive address"
         echo ""
         echo "Miner Commands (heavily funded wallet - for refunding drained wallets):"
-        echo "  miner balance                      Show Miner wallet balance"
-        echo "  miner address                      Generate new Miner address"
-        echo "  miner sending <wallet> <amt|max>   Send Bitcoin to another wallet (use 'max' to drain wallet)"
-        echo "  miner sent <wallet> <amt|max>      Send Bitcoin and mine block to confirm (use 'max' to drain)"
-        echo "  miner fund <addr> [amt]            Fund address from Miner (default: 1.0)"
-        echo "  miner rbf <txid>                   Replace transaction with automatically calculated higher fee"
-        echo "  miner cpfp <txid>                  Create CPFP child transaction for Miner's unconfirmed output"
+        echo "  miner balance                         Show Miner wallet balance"
+        echo "  miner address                         Generate new Miner address"
+        echo "  miner sending <wallet> <amt1> [amt2...] Send Bitcoin in multiple transactions (separate tx for each amount)"
+        echo "  miner sending <wallet> max            Drain wallet to destination (single transaction)"
+        echo "  miner sent <wallet> <amt1> [amt2...]  Send Bitcoin in multiple transactions and mine block to confirm"
+        echo "  miner sent <wallet> max               Drain wallet and mine block to confirm"
+        echo "  miner fund <addr> [amt]               Fund address from Miner (default: 1.0)"
+        echo "  miner rbf <txid>                      Replace transaction with automatically calculated higher fee"
+        echo "  miner cpfp <txid>                     Create CPFP child transaction for Miner's unconfirmed output"
         echo ""
         echo "Mining Commands:"
         echo "  mine [blocks]           Mine blocks to Miner wallet (default: 1)"
@@ -1717,15 +1748,17 @@ case "$1" in
         echo "  $0 create-wallets                    # Create Alice/Bob/Charlie wallets (Alice gets 1 BTC distributed, Charlie gets 0.5 BTC at index 250)"
         echo "  $0 add-wallets-to-backend            # Add Alice/Bob/Charlie to your backend"
         echo "  $0 mine 6                            # Mine 6 blocks"
-        echo "  $0 alice sending bob 0.5             # Send 0.5 BTC from Alice to Bob (RBF-enabled)"
+        echo "  $0 alice sending bob 0.5             # Send single 0.5 BTC transaction from Alice to Bob"
+        echo "  $0 alice sending bob 0.1 0.2 0.05    # Send three separate transactions from Alice to Bob"
         echo "  $0 alice sent bob 0.5                # Send 0.5 BTC from Alice to Bob and mine block"
+        echo "  $0 alice sent bob 0.1 0.2 0.05       # Send three transactions from Alice to Bob and mine block"
         echo "  $0 alice sending miner max           # Drain Alice wallet to miner"
         echo "  $0 miner sending alice 1.0           # Refund Alice wallet from miner"
         echo "  $0 alice rbf <txid>                  # Replace transaction with automatic fee bump (Alice)"
         echo "  $0 bob sending alice 0.01            # Send 0.01 BTC from Bob to Alice"
         echo "  $0 alice cpfp <txid>                 # Alice creates CPFP child for parent transaction"
         echo "  $0 alice consolidate                 # Consolidate Alice's 2 smallest UTXOs"
-        echo "  $0 charlie sending alice 0.1         # Send 0.1 BTC from Charlie to Alice (tests high index)"
+        echo "  $0 charlie sending alice 0.1 0.05 0.02 # Send three transactions from Charlie to Alice (tests high index)"
         echo "  $0 mine 1                            # Mine 1 block (confirms pending transactions)"
         echo "  $0 mempool-status                    # Check mempool"
         echo "  $0 get-mempool-txid 0                # Get first transaction from mempool"

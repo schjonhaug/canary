@@ -37,14 +37,30 @@ async fn test_alice_partial_send_bob_two_stage() {
     let unconfirmed_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let unconfirmed_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
+    println!("🔍 DEBUG: Alice events after partial send sync:");
+    println!("   Initial Alice events: {}", initial_alice_events.len());
+    println!("   Total Alice events: {}", unconfirmed_alice_events.len());
+    for (i, event) in unconfirmed_alice_events.iter().enumerate() {
+        let is_new = i >= initial_alice_events.len();
+        println!("   Event {}: type={:?}, amount={}, confirmed={}, NEW={}", i, event.event_type, event.amount_sats, event.is_confirmed, is_new);
+    }
+    
+    // Events are stored in reverse chronological order (newest first)
+    // Find new events by excluding events that existed initially
+    let initial_alice_ids: Vec<Option<String>> = initial_alice_events.iter().map(|e| e.id.clone()).collect();
+    let initial_bob_ids: Vec<Option<String>> = initial_bob_events.iter().map(|e| e.id.clone()).collect();
+    
     let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_events.iter()
-        .skip(initial_alice_events.len())
+        .filter(|e| !initial_alice_ids.contains(&e.id)) // Only new events
         .filter(|e| e.event_type == EventType::Send && !e.is_confirmed)
         .collect();
     let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_events.iter()
-        .skip(initial_bob_events.len())
+        .filter(|e| !initial_bob_ids.contains(&e.id)) // Only new events
         .filter(|e| e.event_type == EventType::Receive && !e.is_confirmed)
         .collect();
+    
+    println!("🔍 DEBUG: Filtered results:");
+    println!("   Alice unconfirmed sends: {}", alice_unconfirmed_sends.len());
     
     assert_eq!(alice_unconfirmed_sends.len(), 1, "Alice should have exactly one unconfirmed Send event");
     assert_eq!(bob_unconfirmed_receives.len(), 1, "Bob should have exactly one unconfirmed Receive event");
@@ -110,12 +126,17 @@ async fn test_alice_full_send_bob_two_stage() {
     let unconfirmed_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let unconfirmed_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
+    // Events are stored in reverse chronological order (newest first)
+    // Find new events by excluding events that existed initially
+    let initial_alice_ids: Vec<Option<String>> = initial_alice_events.iter().map(|e| e.id.clone()).collect();
+    let initial_bob_ids: Vec<Option<String>> = initial_bob_events.iter().map(|e| e.id.clone()).collect();
+    
     let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_events.iter()
-        .skip(initial_alice_events.len())
+        .filter(|e| !initial_alice_ids.contains(&e.id)) // Only new events
         .filter(|e| e.event_type == EventType::Send && !e.is_confirmed)
         .collect();
     let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_events.iter()
-        .skip(initial_bob_events.len())
+        .filter(|e| !initial_bob_ids.contains(&e.id)) // Only new events
         .filter(|e| e.event_type == EventType::Receive && !e.is_confirmed)
         .collect();
     
@@ -197,12 +218,17 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     let unconfirmed_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     let unconfirmed_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
     
+    // Events are stored in reverse chronological order (newest first)
+    // Find new events by excluding events that existed initially
+    let initial_alice_ids: Vec<Option<String>> = initial_alice_events.iter().map(|e| e.id.clone()).collect();
+    let initial_bob_ids: Vec<Option<String>> = initial_bob_events.iter().map(|e| e.id.clone()).collect();
+    
     let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_events.iter()
-        .skip(initial_alice_events.len())
+        .filter(|e| !initial_alice_ids.contains(&e.id)) // Only new events
         .filter(|e| e.event_type == EventType::Send && !e.is_confirmed)
         .collect();
     let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_events.iter()
-        .skip(initial_bob_events.len())
+        .filter(|e| !initial_bob_ids.contains(&e.id)) // Only new events
         .filter(|e| e.event_type == EventType::Receive && !e.is_confirmed)
         .collect();
     

@@ -14,7 +14,7 @@ use std::fs;
 use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-pub const SYNC_WAIT_MS: u64 = 5000; // Time to wait for mempool propagation and sync to complete
+pub const SYNC_WAIT_MS: u64 = 10000; // Time to wait for mempool propagation and sync to complete
 
 /// Helper struct to manage isolated test environment with Docker Compose
 #[allow(dead_code)] // charlie_checksum and bitcoin_rpc_port used in other test files
