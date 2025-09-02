@@ -14,7 +14,7 @@ use std::fs;
 use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-pub const SYNC_WAIT_MS: u64 = 2000; // Time to wait for sync to complete
+pub const SYNC_WAIT_MS: u64 = 5000; // Time to wait for mempool propagation and sync to complete
 
 /// Helper struct to manage isolated test environment with Docker Compose
 #[allow(dead_code)] // charlie_checksum and bitcoin_rpc_port used in other test files
@@ -781,8 +781,9 @@ volumes:
     
     /// Trigger wallet sync and wait for completion
     pub async fn sync_and_wait(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let _ = self.wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await;
+        // Wait for mempool propagation before syncing
         sleep(Duration::from_millis(SYNC_WAIT_MS)).await;
+        let _ = self.wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await;
         Ok(())
     }
     
