@@ -1541,7 +1541,7 @@ impl WalletManager {
                             &EventInsert {
                                 wallet_checksum: wallet_checksum.to_string(),
                                 event_type: EventType::Send,
-                                amount_sats: -(sending_amount as i64),
+                                amount_sats: sending_amount as i64,
                                 is_confirmed: false,
                                 is_rbf: false,
                                 is_cpfp: false,
@@ -1605,7 +1605,7 @@ impl WalletManager {
                             &EventInsert {
                                 wallet_checksum: wallet_checksum.to_string(),
                                 event_type: EventType::Send,
-                                amount_sats: -(sending_amount as i64),
+                                amount_sats: sending_amount as i64,
                                 is_confirmed: is_mined_directly,
                                 is_rbf: false,
                                 is_cpfp: false,
