@@ -9,9 +9,10 @@ System tests (also called End-to-End tests) test the complete Canary application
 - `test_alice_full_send_bob_mined_directly` - Mined directly full send (wallet emptied)
 - `test_multiple_partial_sends_mined_directly` - Multiple partial sends in same block
 
-### **`wallet_drain_scenarios.rs`** - Wallet drain detection scenarios
-- `test_alice_wallet_drain` - Basic wallet drain detection
-- `test_charlie_wallet_drain_from_high_index` - High-index drain scenarios
+### **`two_stage_send_scenarios.rs`** - Two-stage event flow testing
+- `test_alice_partial_send_bob_two_stage` - Partial send unconfirmed → confirmed events
+- `test_alice_full_send_bob_two_stage` - Full send (wallet drain) unconfirmed → confirmed events
+- `test_multiple_partial_sends_bob_two_stage` - Multiple partial sends (3 mempool events → 1 confirmed event)
 
 ### **`advanced_transactions.rs`** - Complex transaction scenarios
 - `test_alice_rbf_transaction_replacement` - Replace-By-Fee (RBF) testing
@@ -51,7 +52,7 @@ cargo test --test system_tests -- --ignored
 
 # Run specific test category
 cargo test --test mined_directly_scenarios -- --ignored
-cargo test --test wallet_drain_scenarios -- --ignored
+cargo test --test two_stage_send_scenarios -- --ignored
 cargo test --test high_index_scanning -- --ignored
 cargo test --test transaction_flows -- --ignored
 cargo test --test advanced_transactions -- --ignored
@@ -80,7 +81,7 @@ RUST_LOG=debug cargo test test_alice_partial_send_bob_mined_directly --test mine
 ```bash
 # List all tests in a specific test file (most useful)
 cargo test --test mined_directly_scenarios -- --list
-cargo test --test wallet_drain_scenarios -- --list
+cargo test --test two_stage_send_scenarios -- --list
 
 # Find all test names across all files using grep
 grep -r "async fn test_" system_tests/ | grep -v ".rs~"
