@@ -5,9 +5,9 @@ System tests (also called End-to-End tests) test the complete Canary application
 ## Test Categories
 
 ### **`mined_directly_scenarios.rs`** - Transactions mined before sync
-- `test_alice_sent_bob_mined_directly` - Basic mined directly
-- `test_alice_sent_bob_drain_mined_directly` - Mined directly drain
-- `test_multiple_mined_directly` - Multiple transactions in same block
+- `test_alice_partial_send_bob_mined_directly` - Basic mined directly partial send
+- `test_alice_full_send_bob_mined_directly` - Mined directly full send (wallet emptied)
+- `test_multiple_partial_sends_mined_directly` - Multiple partial sends in same block
 
 ### **`wallet_drain_scenarios.rs`** - Wallet drain detection scenarios
 - `test_alice_wallet_drain` - Basic wallet drain detection
@@ -58,8 +58,8 @@ cargo test --test advanced_transactions -- --ignored
 cargo test --test notification_verification -- --ignored
 
 # Run individual test (clean output)
-cargo test test_alice_sent_bob_mined_directly --test mined_directly_scenarios -- --ignored
-cargo test test_multiple_mined_directly --test mined_directly_scenarios -- --ignored
+cargo test test_alice_partial_send_bob_mined_directly --test mined_directly_scenarios -- --ignored
+cargo test test_multiple_partial_sends_mined_directly --test mined_directly_scenarios -- --ignored
 ```
 
 ### Detailed Output for Manual Verification
@@ -69,10 +69,10 @@ cargo test test_multiple_mined_directly --test mined_directly_scenarios -- --ign
 cargo test --test mined_directly_scenarios -- --ignored --nocapture
 
 # Run individual test with detailed output
-cargo test test_alice_sent_bob_drain_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
+cargo test test_alice_full_send_bob_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
 
 # Run with debug logs (most verbose - shows internal BDK/wallet operations)
-RUST_LOG=debug cargo test test_alice_sent_bob_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
+RUST_LOG=debug cargo test test_alice_partial_send_bob_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
 ```
 
 ### Discovering Available Tests
