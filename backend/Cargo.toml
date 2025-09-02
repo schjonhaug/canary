@@ -70,3 +70,7 @@ path = "system_tests/advanced_transactions.rs"
 [[test]]
 name = "notification_verification"
 path = "system_tests/notification_verification.rs"
+
+[[test]]
+name = "mined_directly_scenarios"
+path = "system_tests/mined_directly_scenarios.rs"
