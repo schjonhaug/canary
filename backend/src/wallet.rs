@@ -1216,18 +1216,6 @@ impl WalletManager {
 
             println!("[{}] DEBUG: Checking {} unconfirmed sends for confirmation", wallet_checksum, unconfirmed_sends_before.len());
             println!("[{}] DEBUG: Found {} newly confirmed send amount", wallet_checksum, total_confirmed_send_amount);
-            for (txid, send_amount) in &unconfirmed_sends_before {
-                // Check if this transaction is now confirmed
-                if let Some(tx) = wallet
-                    .transactions()
-                    .find(|tx| tx.tx_node.txid.to_string() == *txid)
-                {
-                    if tx.chain_position.is_confirmed() {
-                        total_confirmed_send_amount += send_amount;
-                        confirmed_send_txid = Some(txid.clone());
-                    }
-                }
-            }
 
             // Check which receives have now been confirmed
             let mut total_confirmed_receive_amount = 0i64;
@@ -1252,8 +1240,13 @@ impl WalletManager {
                 || total_before != total_after;
 
             // Check for drain confirmations BEFORE has_changes check since drains have no balance changes (0→0)
+            // But only if transaction went through mempool first (not mined directly)
             let mut handled_mined_directly_send = false;
-            if total_confirmed_send_amount > 0 && total_after.to_sat() == 0 && !handled_mined_directly_send {
+            let has_mined_directly_send = all_sends_after.iter().any(|(txid_after, _, is_confirmed_after)| {
+                *is_confirmed_after && !all_sends_before.iter().any(|(txid_before, _, _)| txid_before == txid_after)
+            });
+            
+            if total_confirmed_send_amount > 0 && total_after.to_sat() == 0 && !handled_mined_directly_send && !has_mined_directly_send {
                 println!("🔍 [{}] Case 1B Confirmed wallet drain: {} sats", wallet_checksum, total_confirmed_send_amount);
 
                 if let Some(confirmed_txid) = &confirmed_send_txid {
@@ -1657,8 +1650,31 @@ impl WalletManager {
                         let send_timestamp = Self::get_new_send_transaction_timestamp(wallet, &unconfirmed_sends_before);
 
                         // Determine if this was mined directly (transaction already confirmed when first detected)
-                        // For now, assume all transactions start as unconfirmed to fix drain detection
-                        let is_mined_directly = false;
+                        // Check if any of the confirmed transactions were NOT in our unconfirmed list before
+                        let is_mined_directly = confirmed_decrease && {
+                            // Get all currently confirmed send transactions
+                            let current_confirmed_sends: Vec<String> = wallet.transactions()
+                                .filter_map(|tx| {
+                                    if tx.chain_position.is_confirmed() {
+                                        let sent = wallet.sent_and_received(&tx.tx_node).0;
+                                        let received = wallet.sent_and_received(&tx.tx_node).1;
+                                        let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+                                        if net_amount < 0 {
+                                            Some(tx.tx_node.txid.to_string())
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect();
+                            
+                            // Check if any confirmed send was NOT in our previous unconfirmed list
+                            current_confirmed_sends.iter().any(|confirmed_txid| {
+                                !unconfirmed_sends_before.iter().any(|(unconf_txid, _)| unconf_txid == confirmed_txid)
+                            })
+                        };
 
                         let message = if total_after.to_sat() == 0 {
                             if is_mined_directly {
