@@ -121,6 +121,15 @@ async fn main() -> anyhow::Result<()> {
         .await,
     ));
 
+    // Load existing wallets into memory on startup
+    println!("🔄 Loading existing wallets into memory...");
+    {
+        let mut manager = wallet_manager.lock().await;
+        if let Err(e) = manager.sync_wallet_list().await {
+            eprintln!("⚠️ Failed to load wallets on startup: {}", e);
+        }
+    }
+
     // Create new non-blocking architecture: Separate metadata access from heavy wallet operations
     let app_services = {
         let manager = wallet_manager.lock().await;

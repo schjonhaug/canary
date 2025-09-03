@@ -391,7 +391,7 @@ impl WalletManager {
 
     /// Intelligently sync wallet list with database - removes deleted/expired wallets,
     /// loads only new wallets, avoids redundant disk I/O for already-loaded wallets
-    async fn sync_wallet_list(&mut self) -> Result<()> {
+    pub async fn sync_wallet_list(&mut self) -> Result<()> {
         let start_time = Instant::now();
 
         // Get ready wallets from database (source of truth)
@@ -1098,7 +1098,7 @@ impl WalletManager {
     }
 
     pub async fn sync_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<bool> {
-        println!("[{}] Starting transaction-based sync", wallet_checksum);
+        println!("[{}] 🔍 Starting transaction-based sync", wallet_checksum);
 
         // Find the wallet
         if let Some((_, wallet)) = self
@@ -1107,8 +1107,14 @@ impl WalletManager {
             .find(|(checksum, _)| checksum == wallet_checksum)
         {
             // Use the new transaction-based sync service
-            // TODO: Implement new sync logic
-            let has_changes = false; // Temporarily disabled
+            let electrum_client = self.electrum_client.as_ref();
+            let sync_service = crate::sync::WalletSyncService::new(
+                self.metadata_db.clone(),
+                self.notification_sender.clone(),
+            );
+            let has_changes = sync_service
+                .sync_wallet_by_checksum(wallet, wallet_checksum, electrum_client)
+                .await?;
 
             // Persist wallet changes to disk
             self.persist_wallet_by_checksum(wallet_checksum).await?;
