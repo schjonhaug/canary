@@ -1169,6 +1169,8 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<Vec<TransactionWithWallet>> {
             let conn = pool.get()?;
+            
+            // First get transactions
             let mut stmt = conn.prepare(
                 "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.is_rbf, t.is_cpfp, t.balance_after 
                  FROM transactions t 
@@ -1192,13 +1194,39 @@ impl MetadataDb {
                     is_rbf: row.get::<_, i32>(9)? != 0,
                     is_cpfp: row.get::<_, i32>(10)? != 0,
                     balance_after: row.get(11)?,
-                    notification_status: vec![], // Will be populated with notification history
+                    notification_status: vec![], // Will be populated below
                 })
             })?;
 
             let mut transactions = Vec::new();
             for transaction in transaction_iter {
-                transactions.push(transaction?);
+                let mut tx = transaction?;
+                
+                // Get notification status for this transaction
+                let mut notification_stmt = conn.prepare(
+                    "SELECT nl.contact_name_snapshot, nl.provider_name, nl.status, nl.error_message, 
+                            nl.notification_target_snapshot, nl.provider_type_snapshot
+                     FROM notification_logs nl 
+                     WHERE nl.transaction_txid = ?1 AND nl.transaction_wallet_checksum = ?2
+                     ORDER BY nl.created_at ASC"
+                )?;
+                
+                let notification_iter = notification_stmt.query_map([&tx.txid, &tx.wallet_checksum], |row| {
+                    Ok(NotificationStatus {
+                        contact_name: row.get::<_, Option<String>>(0)?.unwrap_or("Unknown".to_string()),
+                        provider_name: row.get(1)?,
+                        status: row.get(2)?,
+                        error_message: row.get(3)?,
+                        notification_target: row.get(4)?,
+                        provider_type: row.get(5)?,
+                    })
+                })?;
+                
+                for notification in notification_iter {
+                    tx.notification_status.push(notification?);
+                }
+                
+                transactions.push(tx);
             }
 
             Ok(transactions)
