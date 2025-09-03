@@ -65,10 +65,31 @@ impl WalletSyncService {
         // Get current wallet balance for balance_after calculations
         let current_balance = wallet.balance().total().to_sat() as i64;
 
-        // Process each transaction in the wallet
-        for tx_item in wallet.transactions() {
+        // Collect transaction data first to avoid lifetime issues across await
+        let transactions_data: Vec<_> = wallet.transactions().map(|tx_item| {
             let txid = tx_item.tx_node.txid.to_string();
+            let (sent, received) = wallet.sent_and_received(&tx_item.tx_node);
+            let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+            let block_height = tx_item.chain_position.confirmation_height_upper_bound();
+            let is_confirmed = tx_item.chain_position.is_confirmed();
+            
+            // Use current timestamp for new transactions
+            let first_seen_at = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+                
+            let confirmed_at = if is_confirmed {
+                Some(first_seen_at) // Use same timestamp for confirmed_at in this context
+            } else {
+                None
+            };
+            
+            (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at)
+        }).collect();
 
+        // Process each transaction with collected data
+        for (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) in transactions_data {
             // Check if we already know about this transaction
             let existing_tx = self
                 .metadata_db
@@ -77,32 +98,15 @@ impl WalletSyncService {
 
             match existing_tx {
                 None => {
-                    // New transaction - inline creation for now
-                    let txid = tx_item.tx_node.txid.to_string();
-                    let (sent, received) = wallet.sent_and_received(&tx_item.tx_node);
-                    let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
-
+                    // New transaction - inline creation using pre-collected data
                     // Determine transaction type and amount
                     let (transaction_type, amount_sats, fee_sats) = if net_amount < 0 {
                         // Outgoing transaction (send)
                         // For now, don't calculate fees - we can add this later
-                        (EventType::Send, sent.to_sat() as i64, None)
+                        (EventType::Send, (-net_amount) as i64, None)
                     } else {
                         // Incoming transaction (receive)
-                        (EventType::Receive, received.to_sat() as i64, None)
-                    };
-
-                    // Get timestamps
-                    let first_seen_at = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs();
-
-                    let (block_height, confirmed_at) = if tx_item.chain_position.is_confirmed() {
-                        let (height, timestamp) = self.get_confirmation_details(&tx_item.chain_position)?;
-                        (Some(height), Some(timestamp))
-                    } else {
-                        (None, None)
+                        (EventType::Receive, net_amount, None)
                     };
 
                     let transaction = TransactionInsert {
@@ -140,31 +144,31 @@ impl WalletSyncService {
                 }
                 Some(existing) => {
                     // Check if transaction status changed (mempool -> confirmed)
-                    let is_now_confirmed = tx_item.chain_position.is_confirmed();
+                    let is_now_confirmed = is_confirmed;
                     let was_confirmed = existing.block_height.is_some();
 
                     if is_now_confirmed && !was_confirmed {
                         // Transaction just confirmed!
-                        let (block_height, confirmed_at) =
-                            self.get_confirmation_details(&tx_item.chain_position)?;
+                        let block_height_value = block_height.unwrap_or(0);
+                        let confirmed_at_value = confirmed_at.unwrap_or(first_seen_at);
 
                         self.metadata_db
                             .update_transaction_confirmation(
                                 wallet_checksum,
                                 &txid,
-                                block_height,
-                                confirmed_at,
+                                block_height_value,
+                                confirmed_at_value,
                             )
                             .await?;
 
                         // Send confirmation notification
-                        self.send_confirmation_notification(&existing, block_height, confirmed_at)
+                        self.send_confirmation_notification(&existing, block_height_value, confirmed_at_value)
                             .await?;
 
                         has_changes = true;
                         println!(
                             "[{}] Transaction confirmed: {} at height {}",
-                            wallet_checksum, txid, block_height
+                            wallet_checksum, &txid, block_height_value
                         );
                     }
                 }
@@ -240,8 +244,8 @@ impl WalletSyncService {
     async fn send_confirmation_notification(
         &self,
         transaction: &Transaction,
-        block_height: i64,
-        confirmed_at: u64,
+        block_height: u32,
+        _confirmed_at: u64,
     ) -> Result<()> {
         // Get all contacts for this wallet
         let contacts = self

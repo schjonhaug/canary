@@ -17,6 +17,15 @@ impl NetworkConfig {
             NetworkConfig::Mainnet => Network::Bitcoin,
         }
     }
+    
+    pub fn from_network(network: Network) -> Self {
+        match network {
+            Network::Regtest => NetworkConfig::Regtest,
+            Network::Testnet => NetworkConfig::Testnet,
+            Network::Bitcoin => NetworkConfig::Mainnet,
+            _ => NetworkConfig::Mainnet, // Default fallback
+        }
+    }
 
     pub fn default_electrum_url(&self) -> &'static str {
         match self {

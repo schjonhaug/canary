@@ -1132,9 +1132,49 @@ impl WalletManager {
         &mut self,
         tier: crate::subscription::SubscriptionTier,
     ) -> Result<()> {
-        // Temporarily disabled - transaction-based sync service not yet integrated
-        // TODO: Integrate WalletSyncService for tier-based sync
-        println!("⏩ Tier-based sync temporarily disabled for {:?}", tier);
+        use crate::sync::WalletSyncService;
+        
+        // Convert Network to NetworkConfig for the query
+        let network_config = NetworkConfig::from_network(self.network);
+        
+        // Get wallets for this tier from metadata
+        let wallets = self.metadata_db.get_wallets_for_tier_sync(&tier, &network_config).await?;
+        
+        if wallets.is_empty() {
+            println!("📭 No {:?} tier wallets to sync", tier);
+            return Ok(());
+        }
+        
+        println!("🔄 Starting sync for {} {:?} tier wallets", wallets.len(), tier);
+        
+        // Create sync service with proper parameters
+        let sync_service = WalletSyncService::new(
+            self.metadata_db.clone(),
+            self.event_sender.clone(),
+        );
+        
+        // Process each wallet with new transaction-based sync
+        for wallet_metadata in wallets {
+            // Find the wallet in our Vec<(String, PersistedWallet)>
+            if let Some((_checksum, persisted_wallet)) = self.wallets
+                .iter_mut()
+                .find(|(checksum, _)| checksum == &wallet_metadata.checksum) 
+            {
+                match sync_service.sync_wallet_by_checksum(
+                    persisted_wallet,
+                    &wallet_metadata.checksum,
+                    self.electrum_client.as_ref(),
+                ).await {
+                    Ok(_) => {
+                        println!("✅ Synced wallet: {}", wallet_metadata.name);
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Failed to sync wallet {}: {}", wallet_metadata.name, e);
+                    }
+                }
+            }
+        }
+        
         Ok(())
     }
 

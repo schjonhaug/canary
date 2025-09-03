@@ -177,7 +177,7 @@ pub struct Transaction {
     pub transaction_type: EventType,
     pub amount_sats: i64,
     pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
-    pub block_height: Option<i64>, // NULL = mempool, >0 = confirmed at this height
+    pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
     pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub is_rbf: bool,
@@ -209,7 +209,7 @@ pub struct TransactionWithWallet {
     pub transaction_type: EventType,
     pub amount_sats: i64,
     pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
-    pub block_height: Option<i64>, // NULL = mempool, >0 = confirmed at this height
+    pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
     pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub is_rbf: bool,
@@ -265,7 +265,7 @@ pub struct TransactionInsert {
     pub transaction_type: EventType,
     pub amount_sats: i64,
     pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
-    pub block_height: Option<i64>, // NULL = mempool, >0 = confirmed at this height
+    pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
     pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub is_rbf: bool,
@@ -1133,7 +1133,7 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn update_transaction_confirmation(&self, wallet_checksum: &str, txid: &str, block_height: i64, confirmed_at: u64) -> Result<bool> {
+    pub async fn update_transaction_confirmation(&self, wallet_checksum: &str, txid: &str, block_height: u32, confirmed_at: u64) -> Result<bool> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let txid = txid.to_string();

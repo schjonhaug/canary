@@ -15,6 +15,7 @@ pub mod ntfy_provider;
 pub mod stripe_billing;
 pub mod stripe_client_service;
 pub mod subscription;
+pub mod sync;
 pub mod twilio_provider;
 pub mod wallet;
 pub mod xpub_converter;
