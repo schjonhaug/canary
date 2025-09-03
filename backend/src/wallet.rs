@@ -1,7 +1,7 @@
 use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventInsert, EventType, MetadataDb, TransactionEvent, TransactionNotification, WalletMetadata};
+use crate::metadata::{EventType, MetadataDb, TransactionNotification, WalletMetadata};
 // use crate::sync::WalletSyncService; // Temporarily commented out
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
@@ -9,7 +9,7 @@ use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::broadcast;
@@ -968,7 +968,7 @@ impl WalletManager {
             let sent = wallet.sent_and_received(&tx.tx_node).0;
             let received = wallet.sent_and_received(&tx.tx_node).1;
             let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
-            let is_confirmed = tx.chain_position.is_confirmed();
+            let _is_confirmed = tx.chain_position.is_confirmed();
 
             // Skip transactions with zero net amount
             if net_amount == 0 {
@@ -1013,7 +1013,7 @@ impl WalletManager {
                     };
                     (block_height, confirmed_at)
                 }
-                bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => {
+                bdk_wallet::chain::ChainPosition::Unconfirmed { .. } => {
                     (None, None)
                 }
             };
@@ -1049,7 +1049,6 @@ impl WalletManager {
                 confirmed_at,
                 is_rbf: false, // TODO: Detect RBF for historical transactions
                 is_cpfp: false, // TODO: Detect CPFP for historical transactions
-                balance_after: Some(running_balance),
             };
 
             // Insert individual transaction

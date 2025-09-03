@@ -129,7 +129,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                 {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Total Balance</TableHead>
                 <TableHead>Details</TableHead>
               </TableRow>
             </TableHeader>
@@ -149,9 +148,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                   </TableCell>
                   <TableCell>
                     <Skeleton className="h-4 w-28" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-20" />
                   </TableCell>
                   <TableCell>
                     <Skeleton className="h-4 w-8" />
@@ -199,7 +195,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                 {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Total Balance</TableHead>
                 <TableHead>Notifications</TableHead>
                 <TableHead>Details</TableHead>
               </TableRow>
@@ -252,9 +247,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       </TableCell>
                       <TableCell className="font-mono">
                         {formatBitcoinAmount(transaction.amount_sats, transaction.transaction_type)}
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {transaction.balance_after !== null && transaction.balance_after !== undefined ? formatBitcoinAmount(transaction.balance_after) : "N/A"}
                       </TableCell>
                       <TableCell className="text-sm">
                         {notificationSummary ? (

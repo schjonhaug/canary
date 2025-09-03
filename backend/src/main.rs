@@ -20,7 +20,7 @@ mod xpub_converter;
 
 use config::AppConfig;
 use email_provider::EmailProvider;
-use metadata::{TransactionEvent, TransactionNotification};
+use metadata::TransactionNotification;
 use notifications::NotificationManager;
 use ntfy_provider::NtfyProvider;
 use std::sync::Arc;

@@ -1,4 +1,4 @@
-use crate::metadata::{EventType, Language, TransactionEvent, TransactionNotification};
+use crate::metadata::{EventType, Language, TransactionNotification};
 use num_format::{Locale, ToFormattedString};
 
 pub struct MessageFormatter;
@@ -53,103 +53,63 @@ impl MessageFormatter {
             TransactionNotification::Confirmed(tx) => (tx, true),
         };
 
-        let balance_text = if let Some(balance_sats) = transaction.balance_after {
-            let balance_btc = Self::format_btc_amount(balance_sats, language);
-            match language {
-                Language::Norwegian => format!(" Total balanse: {} BTC", balance_btc),
-                Language::English => format!(" Total balance: {} BTC", balance_btc),
-            }
-        } else {
-            String::new()
-        };
+        // No balance display in notifications for privacy reasons
 
         match transaction.transaction_type {
             EventType::Send => {
-                // Check if wallet is completely drained (balance = 0)
-                let is_drain = transaction.balance_after.map_or(false, |balance| balance == 0);
-                
-                if is_drain {
-                    let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
-                    if is_confirmed {
-                        match language {
-                            Language::Norwegian => format!(
-                                "🚨 LOMMEBOK TØMT: {} BTC sendt fra {}. Lommeboken er nå tom!",
-                                amount_btc, wallet_name
-                            ),
-                            Language::English => format!(
-                                "🚨 WALLET DRAINED: {} BTC sent from {}. Wallet is now empty!",
-                                amount_btc, wallet_name
-                            ),
-                        }
-                    } else {
-                        match language {
-                            Language::Norwegian => format!(
-                                "⚠️ LOMMEBOK TØMMES: Hele saldoen på {} BTC sender fra {}!",
-                                amount_btc, wallet_name
-                            ),
-                            Language::English => format!(
-                                "⚠️ WALLET DRAINING: Entire balance of {} BTC sending from {}!",
-                                amount_btc, wallet_name
-                            ),
-                        }
-                    }
-                } else if is_confirmed {
+                if is_confirmed {
                     if transaction.amount_sats > 0 {
                         let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                         match language {
                             Language::Norwegian => format!(
-                                "✅ Sendt: {} BTC fra {}.{}",
-                                amount_btc, wallet_name, balance_text
+                                "✅ Sendt: {} BTC fra {}",
+                                amount_btc, wallet_name
                             ),
                             Language::English => format!(
-                                "✅ Sent: {} BTC from {}.{}",
-                                amount_btc, wallet_name, balance_text
+                                "✅ Sent: {} BTC from {}",
+                                amount_btc, wallet_name
                             ),
                         }
                     } else {
                         match language {
-                            Language::Norwegian => {
-                                format!("✅ Sendt fra {}.{}", wallet_name, balance_text)
-                            }
-                            Language::English => {
-                                format!("✅ Sent from {}.{}", wallet_name, balance_text)
-                            }
+                            Language::Norwegian => format!("✅ Sendt fra {}", wallet_name),
+                            Language::English => format!("✅ Sent from {}", wallet_name),
                         }
                     }
                 } else if transaction.is_rbf {
                     let fee_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
-                            "📤 RBF gebyrøkning: +{} BTC for {}.{}",
-                            fee_btc, wallet_name, balance_text
+                            "📤 RBF gebyrøkning: +{} BTC for {}",
+                            fee_btc, wallet_name
                         ),
                         Language::English => format!(
-                            "📤 RBF fee increase: +{} BTC for {}.{}",
-                            fee_btc, wallet_name, balance_text
+                            "📤 RBF fee increase: +{} BTC for {}",
+                            fee_btc, wallet_name
                         ),
                     }
                 } else if transaction.is_cpfp {
                     let fee_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
-                            "🚀 CPFP-gebyr: {} BTC for {}.{}",
-                            fee_btc, wallet_name, balance_text
+                            "🚀 CPFP-gebyr: {} BTC for {}",
+                            fee_btc, wallet_name
                         ),
                         Language::English => format!(
-                            "🚀 CPFP fee: {} BTC for {}.{}",
-                            fee_btc, wallet_name, balance_text
+                            "🚀 CPFP fee: {} BTC for {}",
+                            fee_btc, wallet_name
                         ),
                     }
                 } else {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
-                            "📤 Sender: {} BTC fra {}.{}",
-                            amount_btc, wallet_name, balance_text
+                            "📤 Sender: {} BTC fra {}",
+                            amount_btc, wallet_name
                         ),
                         Language::English => format!(
-                            "📤 Sending: {} BTC from {}.{}",
-                            amount_btc, wallet_name, balance_text
+                            "📤 Sending: {} BTC from {}",
+                            amount_btc, wallet_name
                         ),
                     }
                 }
@@ -159,24 +119,24 @@ impl MessageFormatter {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
-                            "✅ Mottatt: {} BTC til {}.{}",
-                            amount_btc, wallet_name, balance_text
+                            "✅ Mottatt: {} BTC til {}",
+                            amount_btc, wallet_name
                         ),
                         Language::English => format!(
-                            "✅ Received: {} BTC to {}.{}",
-                            amount_btc, wallet_name, balance_text
+                            "✅ Received: {} BTC to {}",
+                            amount_btc, wallet_name
                         ),
                     }
                 } else {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
-                            "💸 Mottar: {} BTC til {} (ubekreftet).{}",
-                            amount_btc, wallet_name, balance_text
+                            "💸 Mottar: {} BTC til {} (ubekreftet)",
+                            amount_btc, wallet_name
                         ),
                         Language::English => format!(
-                            "💸 Receiving: {} BTC to {} (unconfirmed).{}",
-                            amount_btc, wallet_name, balance_text
+                            "💸 Receiving: {} BTC to {} (unconfirmed)",
+                            amount_btc, wallet_name
                         ),
                     }
                 }

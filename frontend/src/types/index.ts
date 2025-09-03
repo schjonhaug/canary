@@ -38,7 +38,6 @@ export interface Transaction {
   confirmed_at: number | null // Unix timestamp when transaction was confirmed
   is_rbf: boolean
   is_cpfp: boolean
-  balance_after: number | null // Wallet balance after this transaction
   notification_status: NotificationStatus[]
 }
 

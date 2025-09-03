@@ -182,7 +182,6 @@ pub struct Transaction {
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub is_rbf: bool,
     pub is_cpfp: bool,
-    pub balance_after: Option<i64>, // Wallet balance after this transaction
     pub notification_status: Vec<NotificationStatus>,
 }
 
@@ -224,7 +223,6 @@ pub struct TransactionWithWallet {
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub is_rbf: bool,
     pub is_cpfp: bool,
-    pub balance_after: Option<i64>, // Wallet balance after this transaction
     pub notification_status: Vec<NotificationStatus>,
 }
 
@@ -282,7 +280,6 @@ pub struct TransactionInsert {
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub is_rbf: bool,
     pub is_cpfp: bool,
-    pub balance_after: Option<i64>, // Wallet balance after this transaction
 }
 
 // Keep old EventInsert for backward compatibility during transition
@@ -1097,8 +1094,8 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                 params![
                     &transaction.txid,
                     &transaction.wallet_checksum,
@@ -1110,7 +1107,6 @@ impl MetadataDb {
                     transaction.confirmed_at,
                     transaction.is_rbf as i32,
                     transaction.is_cpfp as i32,
-                    transaction.balance_after,
                 ],
             )?;
             Ok(transaction.txid.clone())
@@ -1125,7 +1121,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<Transaction>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after 
+                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp 
                  FROM transactions 
                  WHERE wallet_checksum = ?1 AND txid = ?2"
             )?;
@@ -1142,7 +1138,6 @@ impl MetadataDb {
                     confirmed_at: row.get(7)?,
                     is_rbf: row.get::<_, i32>(8)? != 0,
                     is_cpfp: row.get::<_, i32>(9)? != 0,
-                    balance_after: row.get(10)?,
                     notification_status: vec![], // Will be populated by calling code if needed
                 })
             })?;
@@ -1183,7 +1178,7 @@ impl MetadataDb {
             
             // First get transactions
             let mut stmt = conn.prepare(
-                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.is_rbf, t.is_cpfp, t.balance_after 
+                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.is_rbf, t.is_cpfp 
                  FROM transactions t 
                  JOIN wallets w ON t.wallet_checksum = w.checksum 
                  WHERE t.wallet_checksum = ?1
@@ -1204,7 +1199,6 @@ impl MetadataDb {
                     confirmed_at: row.get(8)?,
                     is_rbf: row.get::<_, i32>(9)? != 0,
                     is_cpfp: row.get::<_, i32>(10)? != 0,
-                    balance_after: row.get(11)?,
                     notification_status: vec![], // Will be populated below
                 })
             })?;

@@ -1,9 +1,8 @@
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventType, MetadataDb, Transaction, TransactionEvent, TransactionInsert, TransactionNotification};
+use crate::metadata::{EventType, MetadataDb, Transaction, TransactionInsert, TransactionNotification};
 use anyhow::{anyhow, Result};
 use bdk_wallet::{chain::ChainPosition, rusqlite::Connection, PersistedWallet};
 use bdk_wallet::chain::ConfirmationBlockTime;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast;
 
 /// Transaction-based wallet sync service
@@ -76,17 +75,7 @@ impl WalletSyncService {
             .collect::<Vec<_>>();
         existing_txs_sorted.sort_by_key(|(_, first_seen_at, _, _)| *first_seen_at);
 
-        // Calculate balance before the earliest existing transaction
-        let total_existing_net_change: i64 = existing_txs_sorted.iter()
-            .map(|(_, _, amount, tx_type)| {
-                match tx_type {
-                    crate::metadata::EventType::Receive => *amount,
-                    crate::metadata::EventType::Send => -*amount,
-                }
-            })
-            .sum();
-        
-        let balance_before_existing = current_balance - total_existing_net_change;
+        // We no longer calculate balances - they are computed on-demand by the frontend
 
         // Collect transaction data first to avoid lifetime issues across await
         let transactions_data: Vec<_> = wallet.transactions().map(|tx_item| {
@@ -115,17 +104,7 @@ impl WalletSyncService {
         let mut all_transactions = transactions_data;
         all_transactions.sort_by_key(|(_, _, _, _, first_seen_at, _)| *first_seen_at);
 
-        // Calculate progressive balances for new transactions
-        let mut running_balance = balance_before_existing;
-        
-        // Apply all existing transactions to get balance at the point of new transactions
-        for (_, _, amount, tx_type) in &existing_txs_sorted {
-            let net_change = match tx_type {
-                crate::metadata::EventType::Receive => *amount,
-                crate::metadata::EventType::Send => -*amount,
-            };
-            running_balance += net_change;
-        }
+        // No longer need balance calculations since we removed balance_after field
 
         // Process each transaction with progressive balance calculation
         for (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) in all_transactions {
@@ -137,8 +116,7 @@ impl WalletSyncService {
 
             match existing_tx {
                 None => {
-                    // New transaction - update running balance with this transaction
-                    running_balance += net_amount;
+                    // New transaction found
                     
                     // Create new transaction record using pre-collected data
                     // Determine transaction type and amount
@@ -162,10 +140,9 @@ impl WalletSyncService {
                         confirmed_at,
                         is_rbf: false, // TODO: Implement RBF detection later
                         is_cpfp: false, // TODO: Implement CPFP detection later
-                        balance_after: Some(running_balance),
                     };
 
-                    let transaction_id = self.metadata_db.insert_transaction(&transaction).await?;
+                    let _transaction_id = self.metadata_db.insert_transaction(&transaction).await?;
 
                     // Send notifications for new transaction
                     self.send_new_transaction_notification(&transaction).await?;
@@ -249,7 +226,6 @@ impl WalletSyncService {
             confirmed_at: transaction.confirmed_at,
             is_rbf: transaction.is_rbf,
             is_cpfp: transaction.is_cpfp,
-            balance_after: transaction.balance_after,
             notification_status: vec![], // Empty for new transactions
         };
 

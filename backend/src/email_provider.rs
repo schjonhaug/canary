@@ -1,6 +1,6 @@
 use crate::email_service::EmailService;
 use crate::message_formatter::MessageFormatter;
-use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionEvent, TransactionNotification};
+use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionNotification};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use anyhow::Result;
 use async_trait::async_trait;

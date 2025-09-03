@@ -1,5 +1,5 @@
 use crate::message_formatter::MessageFormatter;
-use crate::metadata::{Contact, EventType, NotificationMethod, ProviderType, TransactionEvent, TransactionNotification};
+use crate::metadata::{Contact, EventType, NotificationMethod, ProviderType, TransactionNotification};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
 use serde_json::json;
