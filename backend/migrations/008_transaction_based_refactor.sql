@@ -33,9 +33,10 @@ DELETE FROM otp_attempts;
 -- Drop old transaction_events table
 DROP TABLE transaction_events;
 
--- Create new transactions table with txid as primary key
+-- Create new transactions table with composite primary key (txid, wallet_checksum)
+-- This allows multiple wallets to track the same transaction (e.g., sender and receiver)
 CREATE TABLE transactions (
-    txid TEXT PRIMARY KEY, -- Bitcoin transaction ID (hash) - globally unique
+    txid TEXT NOT NULL, -- Bitcoin transaction ID (hash) - globally unique across Bitcoin network
     wallet_checksum TEXT NOT NULL,
     transaction_type TEXT NOT NULL CHECK (transaction_type IN ('send', 'receive')),
     amount_sats INTEGER NOT NULL, -- Amount for this specific transaction
@@ -47,7 +48,8 @@ CREATE TABLE transactions (
     is_cpfp BOOLEAN DEFAULT FALSE, -- Child-pays-for-parent
     balance_after INTEGER, -- Wallet balance after this transaction
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    -- Note: No unique constraint needed since txid is globally unique
+    -- Composite primary key allows same txid for different wallets
+    PRIMARY KEY (txid, wallet_checksum),
     FOREIGN KEY (wallet_checksum) REFERENCES wallets (checksum) ON DELETE CASCADE
 );
 
@@ -68,10 +70,13 @@ DROP INDEX IF EXISTS idx_notification_logs_transaction_id;
 -- Rename the old table
 ALTER TABLE notification_logs RENAME TO notification_logs_old;
 
--- Create new notification_logs table with correct foreign key
+-- Create new notification_logs table with correct foreign key references
+-- Note: Since transactions now has composite key (txid, wallet_checksum), 
+-- we need to store both to reference the transaction
 CREATE TABLE notification_logs (
     id TEXT PRIMARY KEY,
-    transaction_id TEXT NOT NULL, -- Now references transactions.txid
+    transaction_txid TEXT NOT NULL, -- Transaction ID part of composite key
+    transaction_wallet_checksum TEXT NOT NULL, -- Wallet checksum part of composite key  
     notification_method_id TEXT,
     provider_name TEXT NOT NULL,
     provider_message_id TEXT,
@@ -82,7 +87,7 @@ CREATE TABLE notification_logs (
     notification_target_snapshot TEXT,
     provider_type_snapshot TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (transaction_id) REFERENCES transactions (txid),
+    FOREIGN KEY (transaction_txid, transaction_wallet_checksum) REFERENCES transactions (txid, wallet_checksum),
     FOREIGN KEY (notification_method_id) REFERENCES contact_notification_methods (id) ON DELETE SET NULL
 );
 
@@ -93,7 +98,7 @@ CREATE TABLE notification_logs (
 DROP TABLE notification_logs_old;
 
 -- Create indexes for the new table
-CREATE INDEX idx_notification_logs_transaction_id ON notification_logs(transaction_id);
+CREATE INDEX idx_notification_logs_transaction ON notification_logs(transaction_txid, transaction_wallet_checksum);
 CREATE INDEX idx_notification_logs_notification_method_id ON notification_logs (notification_method_id);
 CREATE INDEX idx_notification_logs_provider ON notification_logs (provider_name);
 

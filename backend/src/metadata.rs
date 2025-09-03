@@ -1086,7 +1086,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after) 
+                "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after) 
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
                     &transaction.txid,
@@ -1927,9 +1927,11 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn insert_notification_log_for_method(
+    /// Insert notification log for transaction-based notifications (new schema)
+    pub async fn insert_notification_log_for_transaction(
         &self,
-        event_id: &str,
+        transaction_txid: &str,
+        transaction_wallet_checksum: &str,
         notification_method_id: &str,
         provider_name: &str,
         provider_message_id: Option<&str>,
@@ -1938,7 +1940,8 @@ impl MetadataDb {
         message_content: &str,
     ) -> Result<String> {
         let pool = self.pool.clone();
-        let event_id = event_id.to_string();
+        let transaction_txid = transaction_txid.to_string();
+        let transaction_wallet_checksum = transaction_wallet_checksum.to_string();
         let notification_method_id = notification_method_id.to_string();
         let provider_name = provider_name.to_string();
         let provider_message_id = provider_message_id.map(|s| s.to_string());
@@ -1961,11 +1964,12 @@ impl MetadataDb {
             ).unwrap_or_else(|_| ("Unknown Contact".to_string(), "Unknown Target".to_string(), "unknown".to_string()));
             
             conn.execute(
-                "INSERT INTO notification_logs (id, event_id, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                 params![
                     &log_id,
-                    &event_id,
+                    &transaction_txid,
+                    &transaction_wallet_checksum,
                     &notification_method_id,
                     &provider_name,
                     &provider_message_id,
@@ -1980,6 +1984,7 @@ impl MetadataDb {
             Ok(log_id)
         }).await?
     }
+
 
     // User management methods
     pub async fn create_user(

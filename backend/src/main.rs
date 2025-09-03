@@ -539,8 +539,9 @@ async fn main() -> anyhow::Result<()> {
                                             if result.success { "sent" } else { "failed" };
                                         if let Err(e) = wallet_manager_lock
                                             .metadata_db
-                                            .insert_notification_log_for_method(
+                                            .insert_notification_log_for_transaction(
                                                 txid,
+                                                &transaction.wallet_checksum,
                                                     method_id,
                                                     provider_name,
                                                     result.provider_id.as_deref(),
