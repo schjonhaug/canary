@@ -186,6 +186,16 @@ pub struct Transaction {
     pub notification_status: Vec<NotificationStatus>,
 }
 
+/// Notification wrapper for transactions
+/// Used to indicate why a notification is being sent for a transaction
+#[derive(Debug, Clone)]
+pub enum TransactionNotification {
+    /// New transaction detected in mempool (first notification round)
+    Pending(Transaction),
+    /// Transaction confirmed in block (second notification round)
+    Confirmed(Transaction),
+}
+
 // Keep old TransactionEvent for backward compatibility during transition
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEvent {

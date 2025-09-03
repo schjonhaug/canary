@@ -1,5 +1,5 @@
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventType, MetadataDb, Transaction, TransactionEvent, TransactionInsert};
+use crate::metadata::{EventType, MetadataDb, Transaction, TransactionEvent, TransactionInsert, TransactionNotification};
 use anyhow::{anyhow, Result};
 use bdk_wallet::{chain::ChainPosition, rusqlite::Connection, PersistedWallet};
 use bdk_wallet::chain::ConfirmationBlockTime;
@@ -10,14 +10,14 @@ use tokio::sync::broadcast;
 /// This replaces the old balance-based sync logic with proper transaction tracking
 pub struct WalletSyncService {
     metadata_db: MetadataDb,
-    event_sender: broadcast::Sender<TransactionEvent>,
+    notification_sender: broadcast::Sender<TransactionNotification>,
 }
 
 impl WalletSyncService {
-    pub fn new(metadata_db: MetadataDb, event_sender: broadcast::Sender<TransactionEvent>) -> Self {
+    pub fn new(metadata_db: MetadataDb, notification_sender: broadcast::Sender<TransactionNotification>) -> Self {
         Self {
             metadata_db,
-            event_sender,
+            notification_sender,
         }
     }
 
@@ -126,8 +126,7 @@ impl WalletSyncService {
                     let transaction_id = self.metadata_db.insert_transaction(&transaction).await?;
 
                     // Send notifications for new transaction
-                    self.send_transaction_notification(&transaction, &transaction_id)
-                        .await?;
+                    self.send_new_transaction_notification(&transaction).await?;
 
                     has_changes = true;
                     println!(
@@ -162,8 +161,10 @@ impl WalletSyncService {
                             .await?;
 
                         // Send confirmation notification
-                        self.send_confirmation_notification(&existing, block_height_value, confirmed_at_value)
-                            .await?;
+                        // Need to get the updated transaction record
+                        if let Some(updated_tx) = self.metadata_db.get_transaction_by_txid(wallet_checksum, &txid).await? {
+                            self.send_confirmed_transaction_notification(&updated_tx).await?;
+                        }
 
                         has_changes = true;
                         println!(
@@ -192,86 +193,50 @@ impl WalletSyncService {
         }
     }
 
-    /// Send notification for a new transaction (mempool or confirmed)
-    async fn send_transaction_notification(
-        &self,
-        transaction: &TransactionInsert,
-        transaction_id: &str,
-    ) -> Result<()> {
-        // Get all contacts for this wallet
-        let contacts = self
-            .metadata_db
-            .get_contacts_by_wallet_checksum(&transaction.wallet_checksum)
-            .await?;
+    /// Send notification for a new transaction (either pending or directly confirmed)
+    async fn send_new_transaction_notification(&self, transaction: &TransactionInsert) -> Result<()> {
+        // Convert TransactionInsert to Transaction for notification
+        let tx = Transaction {
+            txid: transaction.txid.clone(),
+            wallet_checksum: transaction.wallet_checksum.clone(),
+            transaction_type: transaction.transaction_type,
+            amount_sats: transaction.amount_sats,
+            fee_sats: transaction.fee_sats,
+            block_height: transaction.block_height,
+            first_seen_at: transaction.first_seen_at,
+            confirmed_at: transaction.confirmed_at,
+            is_rbf: transaction.is_rbf,
+            is_cpfp: transaction.is_cpfp,
+            balance_after: transaction.balance_after,
+            notification_status: vec![], // Empty for new transactions
+        };
 
-        // Send notifications to all contacts
-        for contact in contacts {
-            for notification_method in contact.notification_methods {
-                let message_content = if transaction.block_height.is_some() {
-                    // Already confirmed (direct mining)
-                    format!(
-                        "✅ {} {:.8} BTC confirmed",
-                        match transaction.transaction_type {
-                            EventType::Send => "Sent",
-                            EventType::Receive => "Received",
-                        },
-                        transaction.amount_sats as f64 / 100_000_000.0
-                    )
-                } else {
-                    // In mempool
-                    format!(
-                        "⏳ {} {:.8} BTC pending",
-                        match transaction.transaction_type {
-                            EventType::Send => "Sending",
-                            EventType::Receive => "Receiving",
-                        },
-                        transaction.amount_sats as f64 / 100_000_000.0
-                    )
-                };
+        // Send appropriate notification based on confirmation status
+        let notification = if tx.block_height.is_some() {
+            // Transaction mined directly - send confirmed notification
+            TransactionNotification::Confirmed(tx)
+        } else {
+            // Transaction in mempool - send pending notification
+            TransactionNotification::Pending(tx)
+        };
 
-                // TODO: Send actual notification through provider
-                println!(
-                    "[{}] Notification to {}: {}",
-                    transaction.wallet_checksum, contact.name, message_content
-                );
-            }
+        // Send through broadcast channel
+        if let Err(_) = self.notification_sender.send(notification) {
+            // Log but don't fail sync if no one is listening
+            println!("[{}] No notification listeners active", transaction.wallet_checksum);
         }
 
         Ok(())
     }
 
-    /// Send confirmation notification for a transaction that just confirmed
-    async fn send_confirmation_notification(
-        &self,
-        transaction: &Transaction,
-        block_height: u32,
-        _confirmed_at: u64,
-    ) -> Result<()> {
-        // Get all contacts for this wallet
-        let contacts = self
-            .metadata_db
-            .get_contacts_by_wallet_checksum(&transaction.wallet_checksum)
-            .await?;
+    /// Send confirmation notification for a transaction that just got confirmed
+    async fn send_confirmed_transaction_notification(&self, transaction: &Transaction) -> Result<()> {
+        let notification = TransactionNotification::Confirmed(transaction.clone());
 
-        // Send confirmation notifications to all contacts
-        for contact in contacts {
-            for notification_method in contact.notification_methods {
-                let message_content = format!(
-                    "✅ {} {:.8} BTC confirmed at block {}",
-                    match transaction.transaction_type {
-                        EventType::Send => "Sent",
-                        EventType::Receive => "Received",
-                    },
-                    transaction.amount_sats as f64 / 100_000_000.0,
-                    block_height
-                );
-
-                // TODO: Send actual notification through provider
-                println!(
-                    "[{}] Confirmation notification to {}: {}",
-                    transaction.wallet_checksum, contact.name, message_content
-                );
-            }
+        // Send through broadcast channel
+        if let Err(_) = self.notification_sender.send(notification) {
+            // Log but don't fail sync if no one is listening
+            println!("[{}] No notification listeners active", transaction.wallet_checksum);
         }
 
         Ok(())

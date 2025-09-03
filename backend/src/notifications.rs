@@ -1,4 +1,4 @@
-use crate::metadata::{Contact, NotificationMethod, TransactionEvent};
+use crate::metadata::{Contact, NotificationMethod, TransactionEvent, TransactionNotification};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,7 @@ pub struct ProviderInfo {
 pub trait NotificationProvider: Send + Sync {
     async fn send_notification(
         &self,
-        event: &TransactionEvent,
+        notification: &TransactionNotification,
         wallet_name: &str,
         contacts: &[Contact],
     ) -> Vec<(NotificationMethod, NotificationResult, String)>;
@@ -59,14 +59,14 @@ impl NotificationManager {
     pub async fn send_notifications(
         &self,
         provider_name: &str,
-        event: &TransactionEvent,
+        notification: &TransactionNotification,
         wallet_name: &str,
         contacts: &[Contact],
     ) -> Result<Vec<(NotificationMethod, NotificationResult, String)>> {
         match self.providers.get(provider_name) {
             Some(provider) => {
                 let results = provider
-                    .send_notification(event, wallet_name, contacts)
+                    .send_notification(notification, wallet_name, contacts)
                     .await;
                 Ok(results)
             }

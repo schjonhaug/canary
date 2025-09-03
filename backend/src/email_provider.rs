@@ -1,6 +1,6 @@
 use crate::email_service::EmailService;
 use crate::message_formatter::MessageFormatter;
-use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionEvent};
+use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionEvent, TransactionNotification};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -27,7 +27,7 @@ impl EmailProvider {
 impl NotificationProvider for EmailProvider {
     async fn send_notification(
         &self,
-        event: &TransactionEvent,
+        notification: &TransactionNotification,
         wallet_name: &str,
         contacts: &[Contact],
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
@@ -43,19 +43,25 @@ impl NotificationProvider for EmailProvider {
 
             for method in email_methods {
                 let message = MessageFormatter::create_localized_message(
-                    event,
+                    notification,
                     wallet_name,
                     &contact.language,
                 );
                 let email_address = &method.notification_target;
 
                 let result = if let Some(email_service) = &self.email_service {
+                    // Extract transaction from notification
+                    let (transaction, _is_confirmed) = match notification {
+                        TransactionNotification::Pending(tx) => (tx, false),
+                        TransactionNotification::Confirmed(tx) => (tx, true),
+                    };
+
                     // Clone data for background task
                     let email_service_clone = email_service.clone();
                     let email_address = email_address.to_string();
                     let contact_name = contact.name.clone();
                     let wallet_name = wallet_name.to_string();
-                    let event_clone = event.clone();
+                    let transaction_clone = transaction.clone();
                     let message_clone = message.clone();
                     let _method_id = method.id.clone();
 
@@ -66,7 +72,7 @@ impl NotificationProvider for EmailProvider {
                             &email_address,
                             &contact_name,
                             &wallet_name,
-                            &event_clone,
+                            &transaction_clone,
                             &message_clone,
                         )
                         .await
@@ -128,7 +134,7 @@ impl EmailProvider {
         to_email: &str,
         to_name: &str,
         wallet_name: &str,
-        event: &TransactionEvent,
+        transaction: &crate::metadata::Transaction,
         message: &str,
     ) -> Result<()> {
         Self::send_transaction_email_impl(
@@ -136,7 +142,7 @@ impl EmailProvider {
             to_email,
             to_name,
             wallet_name,
-            event,
+            transaction,
             message,
         )
         .await
@@ -148,11 +154,11 @@ impl EmailProvider {
         to_email: &str,
         to_name: &str,
         wallet_name: &str,
-        event: &TransactionEvent,
+        transaction: &crate::metadata::Transaction,
         message: &str,
     ) -> Result<()> {
         // Determine the type of transaction
-        let (subject, emoji) = match event.event_type {
+        let (subject, emoji) = match transaction.transaction_type {
             crate::metadata::EventType::Receive => ("Bitcoin Received", "💰"),
             crate::metadata::EventType::Send => ("Bitcoin Sent", "📤"),
         };
@@ -192,7 +198,7 @@ impl EmailProvider {
             emoji,
             to_name,
             message,
-            &event.wallet_checksum[..8] // Show first 8 chars of wallet checksum
+            &transaction.wallet_checksum[..8] // Show first 8 chars of wallet checksum
         );
 
         let text_body = format!(
@@ -200,7 +206,7 @@ impl EmailProvider {
             subject,
             to_name,
             message,
-            &event.wallet_checksum[..8]
+            &transaction.wallet_checksum[..8]
         );
 
         // Send using the Resend email service

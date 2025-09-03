@@ -1,5 +1,5 @@
 use crate::message_formatter::MessageFormatter;
-use crate::metadata::{Contact, EventType, NotificationMethod, ProviderType, TransactionEvent};
+use crate::metadata::{Contact, EventType, NotificationMethod, ProviderType, TransactionEvent, TransactionNotification};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
 use serde_json::json;
@@ -20,7 +20,7 @@ impl NtfyProvider {
 impl NotificationProvider for NtfyProvider {
     async fn send_notification(
         &self,
-        event: &TransactionEvent,
+        notification: &TransactionNotification,
         wallet_name: &str,
         contacts: &[Contact],
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
@@ -36,10 +36,16 @@ impl NotificationProvider for NtfyProvider {
 
             for method in ntfy_methods {
                 let message = MessageFormatter::create_localized_message(
-                    event,
+                    notification,
                     wallet_name,
                     &contact.language,
                 );
+
+                // Extract transaction info from notification
+                let (transaction, is_confirmed) = match notification {
+                    TransactionNotification::Pending(tx) => (tx, false),
+                    TransactionNotification::Confirmed(tx) => (tx, true),
+                };
 
                 let topic = &method.notification_target;
                 let ntfy_url = format!("https://ntfy.sh/{}", topic);
@@ -51,7 +57,7 @@ impl NotificationProvider for NtfyProvider {
                     .header("Title", format!("Canary - {}", wallet_name))
                     .header(
                         "Priority",
-                        if event.is_confirmed {
+                        if is_confirmed {
                             "default"
                         } else {
                             "high"
@@ -59,7 +65,7 @@ impl NotificationProvider for NtfyProvider {
                     )
                     .header(
                         "Tags",
-                        if event.event_type == EventType::Receive {
+                        if transaction.transaction_type == EventType::Receive {
                             "money_with_wings"
                         } else {
                             "arrow_right"

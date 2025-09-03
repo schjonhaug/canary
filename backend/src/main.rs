@@ -20,7 +20,7 @@ mod xpub_converter;
 
 use config::AppConfig;
 use email_provider::EmailProvider;
-use metadata::TransactionEvent;
+use metadata::{TransactionEvent, TransactionNotification};
 use notifications::NotificationManager;
 use ntfy_provider::NtfyProvider;
 use std::sync::Arc;
@@ -107,11 +107,11 @@ async fn main() -> anyhow::Result<()> {
     // Create wallet manager with sync worker
     println!("Creating wallet sync worker...");
 
-    let (event_tx, _event_rx) = broadcast::channel::<TransactionEvent>(100);
+    let (notification_tx, _notification_rx) = broadcast::channel::<TransactionNotification>(100);
 
     let wallet_manager = Arc::new(Mutex::new(
         WalletManager::new(
-            event_tx.clone(),
+            notification_tx.clone(),
             config.effective_wallet_dir().into(),
             &config.effective_metadata_db(),
             config.network(),
@@ -478,23 +478,29 @@ async fn main() -> anyhow::Result<()> {
     // Create notification worker task
     let notification_worker_manager = notification_manager.clone();
     let notification_wallet_manager = wallet_manager.clone();
-    let notification_event_rx = event_tx.subscribe();
+    let notification_event_rx = notification_tx.subscribe();
     tokio::spawn(async move {
         let mut rx = notification_event_rx;
 
-        while let Ok(event) = rx.recv().await {
+        while let Ok(notification) = rx.recv().await {
             let manager = notification_worker_manager.lock().await;
 
-            // Get wallet information for the event
+            // Extract the transaction from the notification
+            let transaction = match &notification {
+                TransactionNotification::Pending(tx) => tx,
+                TransactionNotification::Confirmed(tx) => tx,
+            };
+
+            // Get wallet information for the transaction
             let wallet_manager_lock = notification_wallet_manager.lock().await;
             if let Ok(Some(wallet_info)) = wallet_manager_lock
-                .get_wallet_by_checksum(&event.wallet_checksum)
+                .get_wallet_by_checksum(&transaction.wallet_checksum)
                 .await
             {
                 // Get contacts for this wallet
                 if let Ok(contacts) = wallet_manager_lock
                     .metadata_db
-                    .get_contacts_with_notification_methods(&event.wallet_checksum)
+                    .get_contacts_with_notification_methods(&transaction.wallet_checksum)
                     .await
                 {
                     if !contacts.is_empty() {
@@ -513,7 +519,7 @@ async fn main() -> anyhow::Result<()> {
                             if let Ok(results) = manager
                                 .send_notifications(
                                     provider_name,
-                                    &event,
+                                    &notification,
                                     &wallet_info.name,
                                     &contacts,
                                 )
@@ -527,13 +533,14 @@ async fn main() -> anyhow::Result<()> {
 
                                     // Log the notification attempt to database (keep this for audit)
                                     if let Some(ref method_id) = notification_method.id {
-                                        if let Some(ref event_id) = event.id {
-                                            let status =
-                                                if result.success { "sent" } else { "failed" };
-                                            if let Err(e) = wallet_manager_lock
-                                                .metadata_db
-                                                .insert_notification_log_for_method(
-                                                    event_id,
+                                        // Use transaction txid for logging
+                                        let txid = &transaction.txid;
+                                        let status =
+                                            if result.success { "sent" } else { "failed" };
+                                        if let Err(e) = wallet_manager_lock
+                                            .metadata_db
+                                            .insert_notification_log_for_method(
+                                                txid,
                                                     method_id,
                                                     provider_name,
                                                     result.provider_id.as_deref(),
@@ -548,7 +555,6 @@ async fn main() -> anyhow::Result<()> {
                                                     e
                                                 );
                                             }
-                                        }
                                     }
 
                                     // Count results by provider

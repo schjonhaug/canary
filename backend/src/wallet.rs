@@ -1,7 +1,7 @@
 use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventInsert, EventType, MetadataDb, TransactionEvent, WalletMetadata};
+use crate::metadata::{EventInsert, EventType, MetadataDb, TransactionEvent, TransactionNotification, WalletMetadata};
 // use crate::sync::WalletSyncService; // Temporarily commented out
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
@@ -298,7 +298,7 @@ pub struct WalletManager {
     pub wallet_dir: PathBuf,
     pub electrum_client: Option<ElectrumClient>,
     pub metadata_db: MetadataDb,
-    pub event_sender: broadcast::Sender<TransactionEvent>,
+    pub notification_sender: broadcast::Sender<TransactionNotification>,
     // pub sync_service: WalletSyncService, // Temporarily commented out
     network: Network,
     // Sync overlap protection
@@ -308,7 +308,7 @@ pub struct WalletManager {
 
 impl WalletManager {
     pub async fn new(
-        event_sender: broadcast::Sender<TransactionEvent>,
+        notification_sender: broadcast::Sender<TransactionNotification>,
         wallet_dir: PathBuf,
         metadata_db_path: &str,
         network: Network,
@@ -351,7 +351,7 @@ impl WalletManager {
             wallet_dir,
             electrum_client,
             metadata_db,
-            event_sender,
+            notification_sender,
             // sync_service, // Temporarily commented out
             network,
             sync_in_progress: Arc::new(AtomicBool::new(false)),
@@ -1234,7 +1234,7 @@ impl WalletManager {
         // Create sync service with proper parameters
         let sync_service = WalletSyncService::new(
             self.metadata_db.clone(),
-            self.event_sender.clone(),
+            self.notification_sender.clone(),
         );
         
         // Process each wallet with new transaction-based sync

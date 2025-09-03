@@ -1,4 +1,4 @@
-use crate::metadata::{EventType, Language, TransactionEvent};
+use crate::metadata::{EventType, Language, TransactionEvent, TransactionNotification};
 use num_format::{Locale, ToFormattedString};
 
 pub struct MessageFormatter;
@@ -41,13 +41,19 @@ impl MessageFormatter {
         }
     }
 
-    /// Generate localized message for transaction event
+    /// Generate localized message for transaction notification
     pub fn create_localized_message(
-        event: &TransactionEvent,
+        notification: &TransactionNotification,
         wallet_name: &str,
         language: &Language,
     ) -> String {
-        let balance_text = if let Some(balance_sats) = event.balance_total {
+        // Extract transaction and confirmation status from notification
+        let (transaction, is_confirmed) = match notification {
+            TransactionNotification::Pending(tx) => (tx, false),
+            TransactionNotification::Confirmed(tx) => (tx, true),
+        };
+
+        let balance_text = if let Some(balance_sats) = transaction.balance_after {
             let balance_btc = Self::format_btc_amount(balance_sats, language);
             match language {
                 Language::Norwegian => format!(" Total balanse: {} BTC", balance_btc),
@@ -57,14 +63,14 @@ impl MessageFormatter {
             String::new()
         };
 
-        match event.event_type {
+        match transaction.transaction_type {
             EventType::Send => {
                 // Check if wallet is completely drained (balance = 0)
-                let is_drain = event.balance_total.map_or(false, |balance| balance == 0);
+                let is_drain = transaction.balance_after.map_or(false, |balance| balance == 0);
                 
                 if is_drain {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats, language);
-                    if event.is_confirmed {
+                    let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
+                    if is_confirmed {
                         match language {
                             Language::Norwegian => format!(
                                 "🚨 LOMMEBOK TØMT: {} BTC sendt fra {}. Lommeboken er nå tom!",
@@ -87,9 +93,9 @@ impl MessageFormatter {
                             ),
                         }
                     }
-                } else if event.is_confirmed {
-                    if event.amount_sats > 0 {
-                        let amount_btc = Self::format_btc_amount(event.amount_sats, language);
+                } else if is_confirmed {
+                    if transaction.amount_sats > 0 {
+                        let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                         match language {
                             Language::Norwegian => format!(
                                 "✅ Sendt: {} BTC fra {}.{}",
@@ -110,8 +116,8 @@ impl MessageFormatter {
                             }
                         }
                     }
-                } else if event.is_rbf {
-                    let fee_btc = Self::format_btc_amount(event.amount_sats, language);
+                } else if transaction.is_rbf {
+                    let fee_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
                             "📤 RBF gebyrøkning: +{} BTC for {}.{}",
@@ -122,8 +128,8 @@ impl MessageFormatter {
                             fee_btc, wallet_name, balance_text
                         ),
                     }
-                } else if event.is_cpfp {
-                    let fee_btc = Self::format_btc_amount(event.amount_sats, language);
+                } else if transaction.is_cpfp {
+                    let fee_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
                             "🚀 CPFP-gebyr: {} BTC for {}.{}",
@@ -135,7 +141,7 @@ impl MessageFormatter {
                         ),
                     }
                 } else {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats, language);
+                    let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
                             "📤 Sender: {} BTC fra {}.{}",
@@ -149,8 +155,8 @@ impl MessageFormatter {
                 }
             }
             EventType::Receive => {
-                if event.is_confirmed {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats, language);
+                if is_confirmed {
+                    let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
                             "✅ Mottatt: {} BTC til {}.{}",
@@ -162,7 +168,7 @@ impl MessageFormatter {
                         ),
                     }
                 } else {
-                    let amount_btc = Self::format_btc_amount(event.amount_sats, language);
+                    let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
                             "💸 Mottar: {} BTC til {} (ubekreftet).{}",
