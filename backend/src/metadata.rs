@@ -1011,6 +1011,15 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
+            
+            // First delete notification_logs that reference this wallet's transactions
+            // This prevents foreign key constraint failures when transactions are cascade deleted
+            conn.execute(
+                "DELETE FROM notification_logs WHERE transaction_wallet_checksum = ?1",
+                params![checksum],
+            )?;
+            
+            // Now delete the wallet - this will cascade delete transactions, contacts, etc.
             let changes =
                 conn.execute("DELETE FROM wallets WHERE checksum = ?1", params![checksum])?;
             Ok(changes > 0)
