@@ -17,7 +17,7 @@ import { CheckCircle, Clock, HandCoins, Baby, Mail, MessageCircle, Bell, Chevron
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
-interface TransactionEventsProps {
+interface TransactionsProps {
   selectedWalletChecksum?: string | null
   transactions: Transaction[]
   isConnected: boolean
@@ -26,7 +26,7 @@ interface TransactionEventsProps {
   walletsCount?: number
 }
 
-export function TransactionEvents({ selectedWalletChecksum, transactions, error, lastUpdate, walletsCount = 0 }: TransactionEventsProps) {
+export function Transactions({ selectedWalletChecksum, transactions, error, lastUpdate, walletsCount = 0 }: TransactionsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
@@ -273,46 +273,66 @@ export function TransactionEvents({ selectedWalletChecksum, transactions, error,
                         <TableCell colSpan={walletsCount > 1 ? 6 : 5} className="p-0">
                           <div className="px-4 py-3">
                             <h4 className="text-sm font-medium mb-2">Notification Details</h4>
-                            <div className="space-y-2">
-                              {transaction.notification_status.map((notification, idx) => (
-                                <div key={idx} className="flex items-center gap-3 text-sm">
-                                  <span className="font-medium min-w-[100px]">{notification.contact_name}</span>
-                                  <span className="text-muted-foreground">→</span>
-                                  <span className="font-mono text-xs">
-                                    {notification.notification_target || 'Unknown target'}
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    {(() => {
-                                      const providerType = notification.provider_type || notification.provider_name.toLowerCase()
-                                      switch (providerType) {
-                                        case 'email':
-                                          return <Mail className="h-3 w-3" />
-                                        case 'sms':
-                                        case 'twilio':
-                                          return <MessageCircle className="h-3 w-3" />
-                                        case 'ntfy':
-                                        default:
-                                          return <Bell className="h-3 w-3" />
-                                      }
-                                    })()}
+                            <div className="space-y-3">
+                              {(() => {
+                                // Group notifications by type
+                                const groupedNotifications = transaction.notification_status.reduce((acc, notification) => {
+                                  const type = notification.notification_type === 'pending' ? 'Unconfirmed' : 'Confirmed'
+                                  if (!acc[type]) acc[type] = []
+                                  acc[type].push(notification)
+                                  return acc
+                                }, {} as Record<string, typeof transaction.notification_status>)
+
+                                return Object.entries(groupedNotifications).map(([groupType, notifications]) => (
+                                  <div key={groupType} className="space-y-1">
+                                    <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{groupType}</h5>
+                                    <div className="space-y-2 ml-2">
+                                      {notifications.map((notification, idx) => (
+                                        <div key={idx} className="flex items-center gap-3 text-sm">
+                                          <span className="font-medium min-w-[100px]">{notification.contact_name}</span>
+                                          <span className="text-muted-foreground">→</span>
+                                          <span className="font-mono text-xs">
+                                            {notification.notification_target || 'Unknown target'}
+                                          </span>
+                                          <div className="flex items-center gap-1">
+                                            {(() => {
+                                              const providerType = notification.provider_type || notification.provider_name.toLowerCase()
+                                              switch (providerType) {
+                                                case 'email':
+                                                  return <Mail className="h-3 w-3" />
+                                                case 'sms':
+                                                case 'twilio':
+                                                  return <MessageCircle className="h-3 w-3" />
+                                                case 'ntfy':
+                                                default:
+                                                  return <Bell className="h-3 w-3" />
+                                              }
+                                            })()}
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            {notification.status === 'sent' || notification.status === 'delivered' ? (
+                                              <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                            ) : (
+                                              <XCircle className="h-3 w-3 text-red-500" />
+                                            )}
+                                            <span className={`text-xs ${notification.status === 'sent' || notification.status === 'delivered' ? 'text-green-600' : 'text-red-600'}`}>
+                                              {notification.status}
+                                            </span>
+                                          </div>
+                                          <span className="text-xs text-muted-foreground">
+                                            {formatDateTime(notification.created_at)}
+                                          </span>
+                                          {notification.error_message && (
+                                            <span className="text-xs text-red-600 ml-2">
+                                              {notification.error_message}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    {notification.status === 'sent' || notification.status === 'delivered' ? (
-                                      <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                    ) : (
-                                      <XCircle className="h-3 w-3 text-red-500" />
-                                    )}
-                                    <span className={`text-xs ${notification.status === 'sent' || notification.status === 'delivered' ? 'text-green-600' : 'text-red-600'}`}>
-                                      {notification.status}
-                                    </span>
-                                  </div>
-                                  {notification.error_message && (
-                                    <span className="text-xs text-red-600 ml-2">
-                                      {notification.error_message}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
+                                ))
+                              })()}
                             </div>
                           </div>
                         </TableCell>

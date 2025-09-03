@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { TransactionEvents } from "@/components/transaction-events"
+import { Transactions } from "@/components/transactions"
 import { InlineWalletNameEdit } from "@/components/inline-wallet-name-edit"
 import { WalletContactsList } from "@/components/wallet-contacts-list"
 import { ContactModal } from "@/components/contact-modal"
@@ -311,7 +311,7 @@ export default function WalletDetailPage() {
 
         {/* Transaction Events */}
         <div className="lg:col-span-2">
-          <TransactionEvents 
+          <Transactions 
             transactions={transactions}
             isConnected={isConnected}
             error={error}
