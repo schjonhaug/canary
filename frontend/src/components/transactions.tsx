@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, XCircle, Loader2 } from "lucide-react"
+import { CheckCircle, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, XCircle, Loader2, ArrowRight } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
@@ -278,12 +278,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                     <span className="font-medium min-w-[80px]">Transaction ID:</span>
                                     <span className="font-mono text-xs break-all">{transaction.txid}</span>
                                   </div>
-                                  {transaction.block_height && (
-                                    <div className="flex items-center gap-3 text-sm">
-                                      <span className="font-medium min-w-[80px]">Block Height:</span>
-                                      <span className="font-mono text-xs">{transaction.block_height.toLocaleString()}</span>
-                                    </div>
-                                  )}
                                   {transaction.fee_sats && (
                                     <div className="flex items-center gap-3 text-sm">
                                       <span className="font-medium min-w-[80px]">Fee:</span>
@@ -293,93 +287,139 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                 </div>
                               </div>
 
-                              {/* Notification Details */}
+                              {/* Notifications */}
                               {transaction.notification_status && transaction.notification_status.length > 0 && (
                                 <div>
-                                  <h4 className="text-sm font-medium mb-2">Notification Details</h4>
-                                  <div className="space-y-3">
-                                    {(() => {
-                                      // Group notifications by type
-                                      const groupedNotifications = transaction.notification_status.reduce((acc, notification) => {
-                                        const type = notification.notification_type === 'pending' ? 'Pending' : 'Confirmed'
-                                        if (!acc[type]) acc[type] = []
-                                        acc[type].push(notification)
+                                  {(() => {
+                                    // Group notifications by type
+                                    const groupedNotifications = transaction.notification_status.reduce((acc, notification) => {
+                                      const type = notification.notification_type === 'pending' ? 'pending' : 'confirmed'
+                                      if (!acc[type]) acc[type] = []
+                                      acc[type].push(notification)
+                                      return acc
+                                    }, {} as Record<string, typeof transaction.notification_status>)
+
+                                    const pendingNotifications = groupedNotifications.pending || []
+                                    const confirmedNotifications = groupedNotifications.confirmed || []
+
+                                    // Get timestamps for headings
+                                    const getPendingTimestamp = () => {
+                                      if (pendingNotifications.length === 0) return null
+                                      const earliest = pendingNotifications.reduce((earliest, current) => {
+                                        const earliestTime = new Date(earliest.created_at).getTime()
+                                        const currentTime = new Date(current.created_at).getTime()
+                                        return currentTime < earliestTime ? current : earliest
+                                      })
+                                      return formatDateTime(earliest.created_at)
+                                    }
+
+                                    const getConfirmedTimestamp = () => {
+                                      if (confirmedNotifications.length === 0) return null
+                                      const earliest = confirmedNotifications.reduce((earliest, current) => {
+                                        const earliestTime = new Date(earliest.created_at).getTime()
+                                        const currentTime = new Date(current.created_at).getTime()
+                                        return currentTime < earliestTime ? current : earliest
+                                      })
+                                      return formatDateTime(earliest.created_at)
+                                    }
+
+                                    const renderNotificationGroup = (notifications: typeof transaction.notification_status) => {
+                                      // Group notifications by contact name to avoid repetition
+                                      const notificationsByContact = notifications.reduce((acc, notification) => {
+                                        const contactName = notification.contact_name
+                                        if (!acc[contactName]) acc[contactName] = []
+                                        acc[contactName].push(notification)
                                         return acc
-                                      }, {} as Record<string, typeof transaction.notification_status>)
+                                      }, {} as Record<string, typeof notifications>)
 
-                                      return Object.entries(groupedNotifications).map(([groupType, notifications]) => {
-                                        // Get timestamp for this group (earliest notification)
-                                        const earliestNotification = notifications.reduce((earliest, current) => {
-                                          const earliestTime = new Date(earliest.created_at).getTime()
-                                          const currentTime = new Date(current.created_at).getTime()
-                                          return currentTime < earliestTime ? current : earliest
-                                        })
-                                        
-                                        return (
-                                        <div key={groupType} className="space-y-1">
-                                          <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                            {groupType} - {formatDateTime(earliestNotification.created_at)}
-                                          </h5>
-                                          <div className="space-y-2 ml-2">
-                                            {(() => {
-                                              // Group notifications by contact name to avoid repetition
-                                              const notificationsByContact = notifications.reduce((acc, notification) => {
-                                                const contactName = notification.contact_name
-                                                if (!acc[contactName]) acc[contactName] = []
-                                                acc[contactName].push(notification)
-                                                return acc
-                                              }, {} as Record<string, typeof notifications>)
-
-                                              return Object.entries(notificationsByContact).map(([contactName, contactNotifications]) => (
-                                                <div key={contactName} className="space-y-1">
-                                                  <div className="font-medium text-sm">{contactName}</div>
-                                                  <div className="space-y-1 ml-3">
-                                                    {contactNotifications.map((notification, idx) => (
-                                                      <div key={idx} className="flex items-center gap-2 text-sm">
-                                                        <div className="flex items-center gap-1">
-                                                          {(() => {
-                                                            const providerType = notification.provider_type || notification.provider_name.toLowerCase()
-                                                            switch (providerType) {
-                                                              case 'email':
-                                                                return <Mail className="h-3 w-3" />
-                                                              case 'sms':
-                                                              case 'twilio':
-                                                                return <MessageCircle className="h-3 w-3" />
-                                                              case 'ntfy':
-                                                              default:
-                                                                return <Bell className="h-3 w-3" />
-                                                            }
-                                                          })()}
-                                                          <span className="font-mono text-xs">
-                                                            {notification.notification_target || 'Unknown target'}
-                                                          </span>
-                                                        </div>
-                                                        {/* Only show status if there's an error (not sent/delivered successfully) */}
-                                                        {notification.status !== 'sent' && notification.status !== 'delivered' && (
-                                                          <div className="flex items-center gap-1">
-                                                            <XCircle className="h-3 w-3 text-red-500" />
-                                                            <span className="text-xs text-red-600">
-                                                              {notification.status}
-                                                            </span>
-                                                          </div>
-                                                        )}
-                                                        {notification.error_message && (
-                                                          <span className="text-xs text-red-600 ml-2">
-                                                            {notification.error_message}
-                                                          </span>
-                                                        )}
-                                                      </div>
-                                                    ))}
-                                                  </div>
+                                      return Object.entries(notificationsByContact).map(([contactName, contactNotifications]) => (
+                                        <div key={contactName} className="space-y-1">
+                                          {contactNotifications.map((notification, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 text-sm">
+                                              <span className="font-medium">{contactName}</span>
+                                              <div className="flex items-center gap-1">
+                                                {(() => {
+                                                  const providerType = notification.provider_type || notification.provider_name.toLowerCase()
+                                                  switch (providerType) {
+                                                    case 'email':
+                                                      return <Mail className="h-3 w-3" />
+                                                    case 'sms':
+                                                    case 'twilio':
+                                                      return <MessageCircle className="h-3 w-3" />
+                                                    case 'ntfy':
+                                                    default:
+                                                      return <Bell className="h-3 w-3" />
+                                                  }
+                                                })()}
+                                                <span className="font-mono text-xs">
+                                                  {notification.notification_target || 'Unknown target'}
+                                                </span>
+                                              </div>
+                                              {/* Only show status if there's an error (not sent/delivered successfully) */}
+                                              {notification.status !== 'sent' && notification.status !== 'delivered' && (
+                                                <div className="flex items-center gap-1">
+                                                  <XCircle className="h-3 w-3 text-red-500" />
+                                                  <span className="text-xs text-red-600">
+                                                    {notification.status}
+                                                  </span>
                                                 </div>
-                                              ))
-                                            })()}
+                                              )}
+                                              {notification.error_message && (
+                                                <span className="text-xs text-red-600 ml-2">
+                                                  {notification.error_message}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ))
+                                    }
+
+                                    return (
+                                      <div className="space-y-3">
+                                        {/* Headings Row */}
+                                        <div className="flex items-center">
+                                          <div className="flex-1">
+                                            {pendingNotifications.length > 0 && (
+                                              <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                                PENDING - {getPendingTimestamp()}
+                                              </h5>
+                                            )}
+                                          </div>
+                                          {pendingNotifications.length > 0 && confirmedNotifications.length > 0 && (
+                                            <div className="flex items-center justify-center px-4">
+                                              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                            </div>
+                                          )}
+                                          <div className="flex-1 text-right">
+                                            {confirmedNotifications.length > 0 && (
+                                              <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                                CONFIRMED - {getConfirmedTimestamp()}
+                                              </h5>
+                                            )}
                                           </div>
                                         </div>
-                                        )
-                                      })
-                                    })()}
-                                  </div>
+
+                                        {/* Content Row */}
+                                        <div className="flex justify-between items-start gap-8">
+                                          <div className="flex-1">
+                                            {pendingNotifications.length > 0 && (
+                                              <div className="space-y-2 ml-2">
+                                                {renderNotificationGroup(pendingNotifications)}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="flex-1">
+                                            {confirmedNotifications.length > 0 && (
+                                              <div className="space-y-2 ml-2">
+                                                {renderNotificationGroup(confirmedNotifications)}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
                                 </div>
                               )}
                             </div>
