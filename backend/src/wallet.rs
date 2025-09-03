@@ -1105,6 +1105,21 @@ impl WalletManager {
             let confirmed_before = balance_before.confirmed;
             let total_before = balance_before.total();
 
+            // Track ALL send transactions before sync (both confirmed and unconfirmed)
+            let all_sends_before: Vec<(String, i64, bool)> = wallet
+                .transactions()
+                .filter_map(|tx| {
+                    let sent = wallet.sent_and_received(&tx.tx_node).0;
+                    let received = wallet.sent_and_received(&tx.tx_node).1;
+                    let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+                    if net_amount < 0 {
+                        Some((tx.tx_node.txid.to_string(), sent.to_sat() as i64, tx.chain_position.is_confirmed()))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
             let unconfirmed_sends_before: Vec<(String, i64)> = wallet
                 .transactions()
                 .filter_map(|tx| {
@@ -1168,6 +1183,39 @@ impl WalletManager {
             // Check which sends have now been confirmed
             let mut total_confirmed_send_amount = 0i64;
             let mut confirmed_send_txid: Option<String> = None;
+            // Check for newly confirmed send transactions (including drains)
+            let all_sends_after: Vec<(String, i64, bool)> = wallet
+                .transactions()
+                .filter_map(|tx| {
+                    let sent = wallet.sent_and_received(&tx.tx_node).0;
+                    let received = wallet.sent_and_received(&tx.tx_node).1;
+                    let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+                    if net_amount < 0 {
+                        Some((tx.tx_node.txid.to_string(), sent.to_sat() as i64, tx.chain_position.is_confirmed()))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            // Find send transactions that became confirmed (either unconfirmed→confirmed or newly appeared as confirmed)
+            for (txid_after, send_amount_after, is_confirmed_after) in &all_sends_after {
+                if *is_confirmed_after {
+                    // Check if this transaction was unconfirmed before or didn't exist
+                    let was_unconfirmed_before = all_sends_before.iter()
+                        .find(|(txid_before, _, is_confirmed_before)| txid_before == txid_after)
+                        .map(|(_, _, is_confirmed_before)| !is_confirmed_before)
+                        .unwrap_or(true); // If transaction didn't exist before, treat as newly confirmed
+
+                    if was_unconfirmed_before {
+                        total_confirmed_send_amount += send_amount_after;
+                        confirmed_send_txid = Some(txid_after.clone());
+                    }
+                }
+            }
+
+            println!("[{}] DEBUG: Checking {} unconfirmed sends for confirmation", wallet_checksum, unconfirmed_sends_before.len());
+            println!("[{}] DEBUG: Found {} newly confirmed send amount", wallet_checksum, total_confirmed_send_amount);
             for (txid, send_amount) in &unconfirmed_sends_before {
                 // Check if this transaction is now confirmed
                 if let Some(tx) = wallet
@@ -1202,6 +1250,47 @@ impl WalletManager {
                 || untrusted_pending_before != untrusted_pending_after
                 || confirmed_before != confirmed_after
                 || total_before != total_after;
+
+            // Check for drain confirmations BEFORE has_changes check since drains have no balance changes (0→0)
+            let mut handled_mined_directly_send = false;
+            if total_confirmed_send_amount > 0 && total_after.to_sat() == 0 && !handled_mined_directly_send {
+                println!("🔍 [{}] Case 1B Confirmed wallet drain: {} sats", wallet_checksum, total_confirmed_send_amount);
+
+                if let Some(confirmed_txid) = &confirmed_send_txid {
+                    let message = format!(
+                        "✅ Wallet drain confirmed: {:.8} BTC",
+                        total_confirmed_send_amount as f64 / 100_000_000.0
+                    );
+                    println!("[{}] {}", wallet_checksum, message);
+
+                    // Get the proper transaction timestamp
+                    let transaction_time = Self::get_transaction_timestamp_static(electrum_client, wallet, confirmed_txid);
+
+                    if let Err(e) = Self::insert_and_broadcast_event_helper(
+                        metadata_db,
+                        event_sender,
+                        &EventInsert {
+                            wallet_checksum: wallet_checksum.to_string(),
+                            event_type: EventType::Send,
+                            amount_sats: total_confirmed_send_amount,
+                            is_confirmed: true,
+                            is_rbf: false,
+                            is_cpfp: false,
+                            balance_total: Some(total_after.to_sat() as i64),
+                            transaction_time,
+                        },
+                    )
+                    .await
+                    {
+                        eprintln!(
+                            "[{}] Failed to insert wallet drain confirmation event: {}",
+                            wallet_checksum, e
+                        );
+                    } else {
+                        handled_mined_directly_send = true;
+                    }
+                }
+            }
 
             if has_changes {
                 // Get the user-friendly wallet name (wallet_checksum is now the checksum)
@@ -1903,57 +1992,11 @@ impl WalletManager {
                     }
                 }
 
-                // Detect if this is a drain transaction being confirmed (balance becomes 0)
-                // Skip if we already handled this as a mined directly send
-                if confirmed_increase && total_after.to_sat() == 0 && !handled_mined_directly_send {
-                    // This is a drain confirmation - the wallet is now empty
-                    let confirmed_amount = if total_confirmed_send_amount > 0 {
-                        total_confirmed_send_amount
-                    } else {
-                        // Fallback: calculate from balance change
-                        (confirmed_after.to_sat() - confirmed_before.to_sat()) as i64
-                    };
-                    
-                    let message = format!(
-                        "✅ WALLET DRAIN CONFIRMED: {:.8} BTC",
-                        confirmed_amount as f64 / 100_000_000.0
-                    );
-                    println!("[{}] {}", wallet_checksum, message);
-                    
-                    // Get the proper transaction timestamp
-                    let transaction_time = if let Some(ref txid) = confirmed_send_txid {
-                        Self::get_transaction_timestamp_static(electrum_client, wallet, txid)
-                    } else {
-                        latest_tx_timestamp
-                    };
-                    
-                    // Insert drain confirmation event to database and broadcast
-                    if let Err(e) = Self::insert_and_broadcast_event_helper(
-                        metadata_db,
-                        event_sender,
-                        &EventInsert {
-                            wallet_checksum: wallet_checksum.to_string(),
-                            event_type: EventType::Send,
-                            amount_sats: confirmed_amount,
-                            is_confirmed: true,
-                            is_rbf: false,
-                            is_cpfp: false,
-                            balance_total: Some(0), // Wallet is now empty
-                            transaction_time,
-                        },
-                    )
-                    .await
-                    {
-                        eprintln!(
-                            "[{}] Failed to insert drain confirmation event: {}",
-                            wallet_checksum, e
-                        );
-                    }
-                }
 
                 println!(); // Add spacing between wallets
             }
         }
+
 
         // Persist wallet changes to the database after sync and event processing
         self.persist_wallet_by_checksum(wallet_checksum).await?;
