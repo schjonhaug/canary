@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, Clock, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, CheckCircle2, XCircle } from "lucide-react"
+import { CheckCircle, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
@@ -130,6 +130,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Total Balance</TableHead>
+                <TableHead>Details</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -151,6 +152,9 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                   </TableCell>
                   <TableCell>
                     <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-8" />
                   </TableCell>
                 </TableRow>
               ))}
@@ -197,6 +201,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                 <TableHead>Amount</TableHead>
                 <TableHead>Total Balance</TableHead>
                 <TableHead>Notifications</TableHead>
+                <TableHead>Details</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -226,7 +231,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                             {transaction.block_height !== null ? (
                               <CheckCircle className="h-3 w-3 text-green-500" />
                             ) : (
-                              <Clock className="h-3 w-3 text-yellow-500" />
+                              <Loader2 className="h-3 w-3 text-yellow-500 animate-spin" />
                             )}
                             {transaction.block_height !== null 
                               ? (transaction.transaction_type === "receive" ? "Received" : "Sent")
@@ -253,94 +258,124 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       </TableCell>
                       <TableCell className="text-sm">
                         {notificationSummary ? (
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1">
-                              {notificationSummary.icons.map((iconInfo, idx) => (
-                                <span key={idx} title={`${iconInfo.count} ${iconInfo.type} notification${iconInfo.count !== 1 ? 's' : ''}`}>
-                                  {iconInfo.icon}
-                                </span>
-                              ))}
-                            </div>
-                            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                          <div className="flex items-center gap-1">
+                            {notificationSummary.icons.map((iconInfo, idx) => (
+                              <span key={idx} title={`${iconInfo.count} ${iconInfo.type} notification${iconInfo.count !== 1 ? 's' : ''}`}>
+                                {iconInfo.icon}
+                              </span>
+                            ))}
                           </div>
                         ) : (
                           <span>None</span>
                         )}
                       </TableCell>
+                      <TableCell className="text-center">
+                        <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </TableCell>
                     </TableRow>
-                    {isExpanded && transaction.notification_status && transaction.notification_status.length > 0 && (
+                    {isExpanded && (
                       <TableRow className="bg-muted/20">
-                        <TableCell colSpan={walletsCount > 1 ? 6 : 5} className="p-0">
+                        <TableCell colSpan={walletsCount > 1 ? 7 : 6} className="p-0">
                           <div className="px-4 py-3">
-                            <h4 className="text-sm font-medium mb-2">Notification Details</h4>
-                            <div className="space-y-3">
-                              {(() => {
-                                // Group notifications by type
-                                const groupedNotifications = transaction.notification_status.reduce((acc, notification) => {
-                                  const type = notification.notification_type === 'pending' ? 'Unconfirmed' : 'Confirmed'
-                                  if (!acc[type]) acc[type] = []
-                                  acc[type].push(notification)
-                                  return acc
-                                }, {} as Record<string, typeof transaction.notification_status>)
-
-                                return Object.entries(groupedNotifications).map(([groupType, notifications]) => {
-                                  // Get timestamp for this group (earliest notification)
-                                  const earliestNotification = notifications.reduce((earliest, current) => {
-                                    const earliestTime = new Date(earliest.created_at).getTime()
-                                    const currentTime = new Date(current.created_at).getTime()
-                                    return currentTime < earliestTime ? current : earliest
-                                  })
-                                  
-                                  return (
-                                  <div key={groupType} className="space-y-1">
-                                    <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                      {groupType} - {formatDateTime(earliestNotification.created_at)}
-                                    </h5>
-                                    <div className="space-y-2 ml-2">
-                                      {notifications.map((notification, idx) => (
-                                        <div key={idx} className="flex items-center gap-3 text-sm">
-                                          <span className="font-medium min-w-[100px]">{notification.contact_name}</span>
-                                          <span className="text-muted-foreground">→</span>
-                                          <span className="font-mono text-xs">
-                                            {notification.notification_target || 'Unknown target'}
-                                          </span>
-                                          <div className="flex items-center gap-1">
-                                            {(() => {
-                                              const providerType = notification.provider_type || notification.provider_name.toLowerCase()
-                                              switch (providerType) {
-                                                case 'email':
-                                                  return <Mail className="h-3 w-3" />
-                                                case 'sms':
-                                                case 'twilio':
-                                                  return <MessageCircle className="h-3 w-3" />
-                                                case 'ntfy':
-                                                default:
-                                                  return <Bell className="h-3 w-3" />
-                                              }
-                                            })()}
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            {notification.status === 'sent' || notification.status === 'delivered' ? (
-                                              <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                            ) : (
-                                              <XCircle className="h-3 w-3 text-red-500" />
-                                            )}
-                                            <span className={`text-xs ${notification.status === 'sent' || notification.status === 'delivered' ? 'text-green-600' : 'text-red-600'}`}>
-                                              {notification.status}
-                                            </span>
-                                          </div>
-                                          {notification.error_message && (
-                                            <span className="text-xs text-red-600 ml-2">
-                                              {notification.error_message}
-                                            </span>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
+                            <div className="space-y-4">
+                              {/* Transaction Details */}
+                              <div>
+                                <h4 className="text-sm font-medium mb-2">Transaction Details</h4>
+                                <div className="space-y-1 ml-2">
+                                  <div className="flex items-center gap-3 text-sm">
+                                    <span className="font-medium min-w-[80px]">Transaction ID:</span>
+                                    <span className="font-mono text-xs break-all">{transaction.txid}</span>
                                   </div>
-                                  )
-                                })
-                              })()}
+                                  {transaction.block_height && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="font-medium min-w-[80px]">Block Height:</span>
+                                      <span className="font-mono text-xs">{transaction.block_height.toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  {transaction.fee_sats && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="font-medium min-w-[80px]">Fee:</span>
+                                      <span className="font-mono text-xs">{formatBitcoinAmount(transaction.fee_sats)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Notification Details */}
+                              {transaction.notification_status && transaction.notification_status.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-medium mb-2">Notification Details</h4>
+                                  <div className="space-y-3">
+                                    {(() => {
+                                      // Group notifications by type
+                                      const groupedNotifications = transaction.notification_status.reduce((acc, notification) => {
+                                        const type = notification.notification_type === 'pending' ? 'Unconfirmed' : 'Confirmed'
+                                        if (!acc[type]) acc[type] = []
+                                        acc[type].push(notification)
+                                        return acc
+                                      }, {} as Record<string, typeof transaction.notification_status>)
+
+                                      return Object.entries(groupedNotifications).map(([groupType, notifications]) => {
+                                        // Get timestamp for this group (earliest notification)
+                                        const earliestNotification = notifications.reduce((earliest, current) => {
+                                          const earliestTime = new Date(earliest.created_at).getTime()
+                                          const currentTime = new Date(current.created_at).getTime()
+                                          return currentTime < earliestTime ? current : earliest
+                                        })
+                                        
+                                        return (
+                                        <div key={groupType} className="space-y-1">
+                                          <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                            {groupType} - {formatDateTime(earliestNotification.created_at)}
+                                          </h5>
+                                          <div className="space-y-2 ml-2">
+                                            {notifications.map((notification, idx) => (
+                                              <div key={idx} className="flex items-center gap-3 text-sm">
+                                                <span className="font-medium min-w-[100px]">{notification.contact_name}</span>
+                                                <span className="text-muted-foreground">→</span>
+                                                <span className="font-mono text-xs">
+                                                  {notification.notification_target || 'Unknown target'}
+                                                </span>
+                                                <div className="flex items-center gap-1">
+                                                  {(() => {
+                                                    const providerType = notification.provider_type || notification.provider_name.toLowerCase()
+                                                    switch (providerType) {
+                                                      case 'email':
+                                                        return <Mail className="h-3 w-3" />
+                                                      case 'sms':
+                                                      case 'twilio':
+                                                        return <MessageCircle className="h-3 w-3" />
+                                                      case 'ntfy':
+                                                      default:
+                                                        return <Bell className="h-3 w-3" />
+                                                    }
+                                                  })()}
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                  {notification.status === 'sent' || notification.status === 'delivered' ? (
+                                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                                  ) : (
+                                                    <XCircle className="h-3 w-3 text-red-500" />
+                                                  )}
+                                                  <span className={`text-xs ${notification.status === 'sent' || notification.status === 'delivered' ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {notification.status}
+                                                  </span>
+                                                </div>
+                                                {notification.error_message && (
+                                                  <span className="text-xs text-red-600 ml-2">
+                                                    {notification.error_message}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        )
+                                      })
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </TableCell>
