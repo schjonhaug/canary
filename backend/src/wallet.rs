@@ -1145,5 +1145,125 @@ impl WalletManager {
             .unwrap()
             .as_secs()
     }
+
+    /// Apply subscription tier limits by setting is_active status on wallets and contacts
+    pub async fn apply_subscription_limits(
+        &self,
+        user_id: &str,
+        tier: &str,
+        is_admin: bool,
+    ) -> Result<(), anyhow::Error> {
+        if is_admin {
+            tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
+        } else {
+            tracing::info!("🎯 Applying {} tier limits for user {}", tier, user_id);
+        }
+
+        // Get all wallets for this user ordered by creation time (oldest first)
+        let wallets = self
+            .metadata_db
+            .get_wallets_for_user_oldest_first(user_id)
+            .await?;
+
+        // Determine wallet limit based on tier or admin status
+        let wallet_limit = if is_admin {
+            usize::MAX // Unlimited for admin
+        } else {
+            match tier {
+                "personal" => 1,
+                "team" => 5,
+                _ => 1, // Default to personal limits for unknown tiers
+            }
+        };
+
+        // Apply wallet limits (activate oldest wallets, deactivate newer ones)
+        for (i, wallet) in wallets.iter().enumerate() {
+            let should_be_active = i < wallet_limit;
+
+            // Update is_active status only if it changed
+            if wallet.is_active != should_be_active {
+                if let Err(e) = self
+                    .metadata_db
+                    .update_wallet_active_status(&wallet.checksum, should_be_active)
+                    .await
+                {
+                    tracing::error!(
+                        "Failed to set wallet {} active status to {}: {}",
+                        wallet.checksum,
+                        should_be_active,
+                        e
+                    );
+                } else {
+                    tracing::info!(
+                        "Set wallet {} active status to {} (position: {})",
+                        wallet.checksum,
+                        should_be_active,
+                        i + 1
+                    );
+                }
+            }
+        }
+
+        // For active wallets, apply contact limits
+        let contact_limit = if is_admin {
+            usize::MAX // Unlimited for admin
+        } else {
+            match tier {
+                "personal" => 1,
+                "team" => 5,
+                _ => 1, // Default to personal limits
+            }
+        };
+
+        for wallet in wallets.iter() {
+            if wallet.is_active {
+                // Get contacts ordered by creation time (oldest first)
+                let contacts = self
+                    .metadata_db
+                    .get_contacts_oldest_first_for_limits(&wallet.checksum)
+                    .await?;
+
+                // Apply contact limits
+                for (i, contact) in contacts.iter().enumerate() {
+                    let should_be_active = i < contact_limit;
+
+                    // Update is_active status only if it changed
+                    if contact.is_active != should_be_active {
+                        if let Some(contact_id) = &contact.id {
+                            if let Err(e) = self
+                                .metadata_db
+                                .update_contact_active_status(contact_id, should_be_active)
+                                .await
+                            {
+                                tracing::error!(
+                                    "Failed to set contact {} active status to {}: {}",
+                                    contact_id,
+                                    should_be_active,
+                                    e
+                                );
+                            } else {
+                                tracing::info!(
+                                    "Set contact {} active status to {} (position: {})",
+                                    contact.name,
+                                    should_be_active,
+                                    i + 1
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Get wallet metadata by checksum
+    pub async fn get_wallet_by_checksum(
+        &self,
+        checksum: &str,
+    ) -> Result<Option<crate::metadata::WalletMetadata>, anyhow::Error> {
+        self.metadata_db.get_wallet_by_checksum(checksum).await
+    }
 }
 

@@ -254,7 +254,7 @@ pub struct WalletsListResponse {
 pub struct WalletDetailResponse {
     pub timestamp: u64,
     pub wallet: WalletMetadata,
-    pub events: Vec<TransactionEventWithWallet>,
+    pub transactions: Vec<TransactionWithWallet>,
     pub contacts: Vec<Contact>,
 }
 
@@ -1503,6 +1503,14 @@ impl MetadataDb {
             Ok(contacts.into_values().collect())
         })
         .await?
+    }
+
+    /// Alias for get_contacts_with_notification_methods (for sync service)
+    pub async fn get_contacts_by_wallet_checksum(
+        &self,
+        wallet_checksum: &str,
+    ) -> Result<Vec<Contact>> {
+        self.get_contacts_with_notification_methods(wallet_checksum).await
     }
 
     pub async fn delete_wallet_contact(

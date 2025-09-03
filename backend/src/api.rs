@@ -2913,7 +2913,7 @@ pub async fn get_wallets_list(
     get,
     path = "/api/wallets/{id}/detail",
     responses(
-        (status = 200, description = "Wallet detail with transaction events", body = WalletDetailResponse),
+        (status = 200, description = "Wallet detail with transactions", body = WalletDetailResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 403, description = "Access denied", body = ErrorResponse),
         (status = 404, description = "Wallet not found", body = ErrorResponse),
@@ -3040,25 +3040,25 @@ pub async fn get_wallet_detail(
         let wallet_detail = WalletDetailResponse {
             timestamp,
             wallet,
-            events: vec![], // Empty events for pending wallets
+            transactions: vec![], // Empty transactions for pending wallets
             contacts,
         };
 
         return (StatusCode::OK, Json(wallet_detail)).into_response();
     }
 
-    // Get transaction events - no mutex blocking!
-    let events = match app_services
+    // Get transactions - no mutex blocking!
+    let transactions = match app_services
         .metadata_db
-        .get_events_by_wallet_checksum(&wallet.checksum, None)
+        .get_transactions_by_wallet_checksum(&wallet.checksum, None)
         .await
     {
-        Ok(events) => events,
+        Ok(transactions) => transactions,
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
-                    error: format!("Failed to get events: {}", e),
+                    error: format!("Failed to get transactions: {}", e),
                 }),
             )
                 .into_response();
@@ -3092,7 +3092,7 @@ pub async fn get_wallet_detail(
     let wallet_detail = WalletDetailResponse {
         timestamp,
         wallet,
-        events,
+        transactions,
         contacts,
     };
 
@@ -4717,7 +4717,7 @@ pub async fn get_checkout_session_details(
         (name = "wallet", description = "Wallet management endpoints"),
         (name = "contact", description = "Contact management endpoints"),
         (name = "providers", description = "Notification provider endpoints"),
-        (name = "transaction", description = "Transaction events endpoints"),
+        (name = "transaction", description = "Transaction endpoints"),
         (name = "blockchain", description = "Blockchain information endpoints"),
         (name = "auth", description = "Authentication endpoints")
     ),

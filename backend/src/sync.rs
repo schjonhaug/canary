@@ -1,8 +1,8 @@
 use crate::electrum::ElectrumClient;
 use crate::metadata::{EventType, MetadataDb, Transaction, TransactionEvent, TransactionInsert};
 use anyhow::{anyhow, Result};
-use bdk_wallet::{bitcoin::BlockHash, chain::ChainPosition, PersistedWallet};
-use std::collections::HashMap;
+use bdk_wallet::{chain::ChainPosition, rusqlite::Connection, PersistedWallet};
+use bdk_wallet::chain::ConfirmationBlockTime;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast;
 
@@ -24,7 +24,7 @@ impl WalletSyncService {
     /// Sync a single wallet using transaction-based approach
     pub async fn sync_wallet_by_checksum(
         &self,
-        wallet: &mut PersistedWallet,
+        wallet: &mut PersistedWallet<Connection>,
         wallet_checksum: &str,
         electrum_client: Option<&ElectrumClient>,
     ) -> Result<bool> {
@@ -57,7 +57,7 @@ impl WalletSyncService {
     /// Process all transactions in the wallet and sync with database
     async fn process_wallet_transactions(
         &self,
-        wallet: &PersistedWallet,
+        wallet: &PersistedWallet<Connection>,
         wallet_checksum: &str,
     ) -> Result<bool> {
         let mut has_changes = false;
@@ -77,13 +77,47 @@ impl WalletSyncService {
 
             match existing_tx {
                 None => {
-                    // New transaction - create database record
-                    let transaction = self.create_transaction_record(
-                        &tx_item,
-                        wallet,
-                        wallet_checksum,
-                        current_balance,
-                    )?;
+                    // New transaction - inline creation for now
+                    let txid = tx_item.tx_node.txid.to_string();
+                    let (sent, received) = wallet.sent_and_received(&tx_item.tx_node);
+                    let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+
+                    // Determine transaction type and amount
+                    let (transaction_type, amount_sats, fee_sats) = if net_amount < 0 {
+                        // Outgoing transaction (send)
+                        // For now, don't calculate fees - we can add this later
+                        (EventType::Send, sent.to_sat() as i64, None)
+                    } else {
+                        // Incoming transaction (receive)
+                        (EventType::Receive, received.to_sat() as i64, None)
+                    };
+
+                    // Get timestamps
+                    let first_seen_at = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+
+                    let (block_height, confirmed_at) = if tx_item.chain_position.is_confirmed() {
+                        let (height, timestamp) = self.get_confirmation_details(&tx_item.chain_position)?;
+                        (Some(height), Some(timestamp))
+                    } else {
+                        (None, None)
+                    };
+
+                    let transaction = TransactionInsert {
+                        txid: txid.clone(),
+                        wallet_checksum: wallet_checksum.to_string(),
+                        transaction_type,
+                        amount_sats,
+                        fee_sats,
+                        block_height,
+                        first_seen_at,
+                        confirmed_at,
+                        is_rbf: false, // TODO: Implement RBF detection later
+                        is_cpfp: false, // TODO: Implement CPFP detection later
+                        balance_after: Some(current_balance),
+                    };
 
                     let transaction_id = self.metadata_db.insert_transaction(&transaction).await?;
 
@@ -140,63 +174,10 @@ impl WalletSyncService {
         Ok(has_changes)
     }
 
-    /// Create a transaction record from BDK transaction data
-    fn create_transaction_record(
-        &self,
-        tx_item: &bdk_wallet::TransactionDetails,
-        wallet: &PersistedWallet,
-        wallet_checksum: &str,
-        balance_after: i64,
-    ) -> Result<TransactionInsert> {
-        let txid = tx_item.tx_node.txid.to_string();
-        let (sent, received) = wallet.sent_and_received(&tx_item.tx_node);
-        let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
-
-        // Determine transaction type and amount
-        let (transaction_type, amount_sats, fee_sats) = if net_amount < 0 {
-            // Outgoing transaction (send)
-            (EventType::Send, sent.to_sat() as i64, Some(tx_item.fee_amount().unwrap_or_default().to_sat() as i64))
-        } else {
-            // Incoming transaction (receive)
-            (EventType::Receive, received.to_sat() as i64, None)
-        };
-
-        // Get timestamps
-        let first_seen_at = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        let (block_height, confirmed_at) = if tx_item.chain_position.is_confirmed() {
-            let (height, timestamp) = self.get_confirmation_details(&tx_item.chain_position)?;
-            (Some(height), Some(timestamp))
-        } else {
-            (None, None)
-        };
-
-        // Detect RBF and CPFP (basic detection for now)
-        let is_rbf = tx_item.tx_node.tx.input.iter().any(|input| input.sequence.is_rbf());
-        let is_cpfp = false; // TODO: Implement CPFP detection
-
-        Ok(TransactionInsert {
-            txid,
-            wallet_checksum: wallet_checksum.to_string(),
-            transaction_type,
-            amount_sats,
-            fee_sats,
-            block_height,
-            first_seen_at,
-            confirmed_at,
-            is_rbf,
-            is_cpfp,
-            balance_after: Some(balance_after),
-        })
-    }
-
     /// Extract block height and timestamp from chain position
-    fn get_confirmation_details(&self, chain_position: &ChainPosition) -> Result<(i64, u64)> {
+    fn get_confirmation_details(&self, chain_position: &ChainPosition<ConfirmationBlockTime>) -> Result<(i64, u64)> {
         match chain_position {
-            ChainPosition::Confirmed { anchor } => {
+            ChainPosition::Confirmed { anchor, .. } => {
                 let block_height = anchor.block_id.height as i64;
                 let confirmed_at = anchor.confirmation_time as u64;
                 Ok((block_height, confirmed_at))
