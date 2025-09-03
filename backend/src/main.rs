@@ -13,6 +13,7 @@ mod ntfy_provider;
 mod stripe_billing;
 mod stripe_client_service;
 mod subscription;
+mod sync;
 mod twilio_provider;
 mod wallet;
 mod xpub_converter;

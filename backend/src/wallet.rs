@@ -1,7 +1,8 @@
 use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventInsert, EventType, MetadataDb, TransactionEvent, WalletMetadata};
+use crate::metadata::{EventInsert, EventType, MetadataDb, Transaction, TransactionEvent, TransactionInsert, WalletMetadata};
+use crate::sync::WalletSyncService;
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
@@ -298,6 +299,7 @@ pub struct WalletManager {
     pub electrum_client: Option<ElectrumClient>,
     pub metadata_db: MetadataDb,
     pub event_sender: broadcast::Sender<TransactionEvent>,
+    pub sync_service: WalletSyncService,
     network: Network,
     // Sync overlap protection
     sync_in_progress: Arc<AtomicBool>,
@@ -342,12 +344,15 @@ impl WalletManager {
             }
         };
 
+        let sync_service = WalletSyncService::new(metadata_db.clone(), event_sender.clone());
+
         let manager = WalletManager {
             wallets: Vec::new(),
             wallet_dir,
             electrum_client,
             metadata_db,
             event_sender,
+            sync_service,
             network,
             sync_in_progress: Arc::new(AtomicBool::new(false)),
             sync_start_time: None,
@@ -1080,22 +1085,60 @@ impl WalletManager {
     }
 
     pub async fn sync_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<bool> {
-        // Similar to sync_all_wallets but for a single wallet
-        let metadata_db = &self.metadata_db;
-        let event_sender = &self.event_sender;
-        let mut has_changes = false;
+        println!("[{}] Starting transaction-based sync", wallet_checksum);
 
-        // Create wallet path for persistence (used later in persist function)
+        // Find the wallet
+        if let Some((_, wallet)) = self
+            .wallets
+            .iter_mut()
+            .find(|(checksum, _)| checksum == wallet_checksum)
+        {
+            // Use the new transaction-based sync service
+            let has_changes = self
+                .sync_service
+                .sync_wallet_by_checksum(wallet, wallet_checksum, self.electrum_client.as_ref())
+                .await?;
+
+            // Persist wallet changes to disk
+            self.persist_wallet_by_checksum(wallet_checksum).await?;
+
+            Ok(has_changes)
+        } else {
+            // Wallet not found in memory - this shouldn't happen during normal operation
+            eprintln!("[{}] Wallet not found in memory", wallet_checksum);
+            Ok(false)
+        }
+    }
+
+    /// Helper function to persist a specific wallet by checksum
+    async fn persist_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<()> {
+        let wallet_filename = format!("{}.sqlite", wallet_checksum);
+        let wallet_path = self.wallet_dir.join(&wallet_filename);
+        let mut db = self.create_sqlite_connection(&wallet_path)?;
 
         if let Some((_, wallet)) = self
             .wallets
             .iter_mut()
             .find(|(checksum, _)| checksum == wallet_checksum)
         {
-            // Extract electrum client reference before mutable operations
-            let electrum_client = self.electrum_client.as_ref();
+            wallet
+                .persist(&mut db)
+                .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
+        }
 
-            // Get latest transaction timestamp for new events
+        Ok(())
+    }
+
+    /// Sync all wallets for a specific subscription tier in parallel
+    pub async fn sync_tier_parallel(
+        &mut self,
+        tier: crate::subscription::SubscriptionTier,
+    ) -> Result<()> {
+        // Use the new sync logic
+        todo!("Implement tier-based sync using new transaction system")
+    }
+
+    // TODO: Clean up and implement other methods below using new sync system
             let latest_tx_timestamp =
                 Self::get_latest_transaction_timestamp_static(electrum_client, wallet);
             // Get balance before sync

@@ -171,6 +171,23 @@ impl From<&str> for ProviderType {
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct Transaction {
+    pub txid: String, // Bitcoin transaction ID (hash) - primary key
+    pub wallet_checksum: String,
+    pub transaction_type: EventType,
+    pub amount_sats: i64,
+    pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
+    pub block_height: Option<i64>, // NULL = mempool, >0 = confirmed at this height
+    pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
+    pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
+    pub is_rbf: bool,
+    pub is_cpfp: bool,
+    pub balance_after: Option<i64>, // Wallet balance after this transaction
+    pub notification_status: Vec<NotificationStatus>,
+}
+
+// Keep old TransactionEvent for backward compatibility during transition
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEvent {
     pub id: Option<String>, // UUIDv4
     pub wallet_checksum: String,
@@ -184,6 +201,24 @@ pub struct TransactionEvent {
     pub notification_status: Vec<NotificationStatus>,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct TransactionWithWallet {
+    pub txid: String, // Bitcoin transaction ID (hash) - primary key
+    pub wallet_checksum: String,
+    pub wallet_name: String,
+    pub transaction_type: EventType,
+    pub amount_sats: i64,
+    pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
+    pub block_height: Option<i64>, // NULL = mempool, >0 = confirmed at this height
+    pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
+    pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
+    pub is_rbf: bool,
+    pub is_cpfp: bool,
+    pub balance_after: Option<i64>, // Wallet balance after this transaction
+    pub notification_status: Vec<NotificationStatus>,
+}
+
+// Keep old TransactionEventWithWallet for backward compatibility during transition
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionEventWithWallet {
     pub id: Option<String>, // UUIDv4
@@ -223,6 +258,22 @@ pub struct WalletDetailResponse {
     pub contacts: Vec<Contact>,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct TransactionInsert {
+    pub txid: String, // Bitcoin transaction ID (hash)
+    pub wallet_checksum: String,
+    pub transaction_type: EventType,
+    pub amount_sats: i64,
+    pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
+    pub block_height: Option<i64>, // NULL = mempool, >0 = confirmed at this height
+    pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
+    pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
+    pub is_rbf: bool,
+    pub is_cpfp: bool,
+    pub balance_after: Option<i64>, // Wallet balance after this transaction
+}
+
+// Keep old EventInsert for backward compatibility during transition
 #[derive(Debug, Default, Clone)]
 pub struct EventInsert {
     pub wallet_checksum: String,
@@ -519,7 +570,7 @@ impl MetadataDb {
             let conn = pool.get()?;
             match conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
-                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
+                        (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                  FROM wallets w 
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
@@ -557,7 +608,7 @@ impl MetadataDb {
             let conn = pool.get()?;
             match conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
-                        (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
+                        (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                  FROM wallets w 
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
@@ -601,7 +652,7 @@ impl MetadataDb {
             let query = match user_id {
                 Some(_) => {
                     "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
-                            (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
+                            (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                             w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
@@ -611,7 +662,7 @@ impl MetadataDb {
                 }
                 None => {
                     "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
-                            (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
+                            (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                             w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                      FROM wallets w 
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
@@ -665,7 +716,7 @@ impl MetadataDb {
             let conn = pool.get()?;
             
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
-                               (SELECT MAX(te.transaction_time) FROM transaction_events te WHERE te.wallet_checksum = w.checksum) as last_activity,
+                               (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                                w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
                         FROM wallets w 
                         LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
@@ -1014,6 +1065,137 @@ impl MetadataDb {
             
             tx.commit()?;
             Ok(event_ids)
+        }).await?
+    }
+
+    // New transaction-based methods
+    pub async fn insert_transaction(&self, transaction: &TransactionInsert) -> Result<String> {
+        let pool = self.pool.clone();
+        let transaction = transaction.clone();
+
+        spawn_blocking(move || -> Result<String> {
+            let conn = pool.get()?;
+            let transaction_id = Uuid::new_v4().to_string();
+            conn.execute(
+                "INSERT INTO transactions (id, txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                params![
+                    &transaction_id,
+                    &transaction.txid,
+                    &transaction.wallet_checksum,
+                    transaction.transaction_type.as_str(),
+                    transaction.amount_sats,
+                    transaction.fee_sats,
+                    transaction.block_height,
+                    transaction.first_seen_at,
+                    transaction.confirmed_at,
+                    transaction.is_rbf as i32,
+                    transaction.is_cpfp as i32,
+                    transaction.balance_after,
+                ],
+            )?;
+            Ok(transaction_id)
+        }).await?
+    }
+
+    pub async fn get_transaction_by_txid(&self, wallet_checksum: &str, txid: &str) -> Result<Option<Transaction>> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let txid = txid.to_string();
+
+        spawn_blocking(move || -> Result<Option<Transaction>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT id, txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after 
+                 FROM transactions 
+                 WHERE wallet_checksum = ?1 AND txid = ?2"
+            )?;
+
+            let mut rows = stmt.query_map([&checksum, &txid], |row| {
+                Ok(Transaction {
+                    id: Some(row.get(0)?),
+                    txid: row.get(1)?,
+                    wallet_checksum: row.get(2)?,
+                    transaction_type: EventType::from(row.get::<_, String>(3)?.as_str()),
+                    amount_sats: row.get(4)?,
+                    fee_sats: row.get(5)?,
+                    block_height: row.get(6)?,
+                    first_seen_at: row.get(7)?,
+                    confirmed_at: row.get(8)?,
+                    is_rbf: row.get::<_, i32>(9)? != 0,
+                    is_cpfp: row.get::<_, i32>(10)? != 0,
+                    balance_after: row.get(11)?,
+                    notification_status: vec![], // Will be populated by calling code if needed
+                })
+            })?;
+
+            match rows.next() {
+                Some(row) => Ok(Some(row?)),
+                None => Ok(None),
+            }
+        }).await?
+    }
+
+    pub async fn update_transaction_confirmation(&self, wallet_checksum: &str, txid: &str, block_height: i64, confirmed_at: u64) -> Result<bool> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let txid = txid.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let changes = conn.execute(
+                "UPDATE transactions SET block_height = ?1, confirmed_at = ?2 WHERE wallet_checksum = ?3 AND txid = ?4",
+                params![block_height, confirmed_at, &checksum, &txid],
+            )?;
+            Ok(changes > 0)
+        }).await?
+    }
+
+    pub async fn get_transactions_by_wallet_checksum(
+        &self,
+        wallet_checksum: &str,
+        limit: Option<usize>,
+    ) -> Result<Vec<TransactionWithWallet>> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let limit = limit.unwrap_or(100);
+
+        spawn_blocking(move || -> Result<Vec<TransactionWithWallet>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT t.id, t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.is_rbf, t.is_cpfp, t.balance_after 
+                 FROM transactions t 
+                 JOIN wallets w ON t.wallet_checksum = w.checksum 
+                 WHERE t.wallet_checksum = ?1
+                 ORDER BY t.first_seen_at DESC, t.id DESC
+                 LIMIT ?2"
+            )?;
+
+            let transaction_iter = stmt.query_map([&checksum, &limit.to_string()], |row| {
+                Ok(TransactionWithWallet {
+                    id: Some(row.get(0)?),
+                    txid: row.get(1)?,
+                    wallet_checksum: row.get(2)?,
+                    wallet_name: row.get(3)?,
+                    transaction_type: EventType::from(row.get::<_, String>(4)?.as_str()),
+                    amount_sats: row.get(5)?,
+                    fee_sats: row.get(6)?,
+                    block_height: row.get(7)?,
+                    first_seen_at: row.get(8)?,
+                    confirmed_at: row.get(9)?,
+                    is_rbf: row.get::<_, i32>(10)? != 0,
+                    is_cpfp: row.get::<_, i32>(11)? != 0,
+                    balance_after: row.get(12)?,
+                    notification_status: vec![], // Will be populated with notification history
+                })
+            })?;
+
+            let mut transactions = Vec::new();
+            for transaction in transaction_iter {
+                transactions.push(transaction?);
+            }
+
+            Ok(transactions)
         }).await?
     }
 
@@ -1594,8 +1776,8 @@ impl MetadataDb {
 
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, 
                                 w.created_at, w.balance_total, 
-                                (SELECT MAX(te.transaction_time) FROM transaction_events te 
-                                 WHERE te.wallet_checksum = w.checksum) as last_activity,
+                                (SELECT MAX(t.first_seen_at) FROM transactions t 
+                                 WHERE t.wallet_checksum = w.checksum) as last_activity,
                                 w.status, COUNT(c.id) as contact_count, 
                                 w.user_id, w.is_active
                          FROM wallets w 
