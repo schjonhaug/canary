@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, CheckCircle2, XCircle, Loader2 } from "lucide-react"
+import { CheckCircle, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, XCircle, Loader2 } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
@@ -351,16 +351,15 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                                     }
                                                   })()}
                                                 </div>
-                                                <div className="flex items-center gap-1">
-                                                  {notification.status === 'sent' || notification.status === 'delivered' ? (
-                                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                                  ) : (
+                                                {/* Only show status if there's an error (not sent/delivered successfully) */}
+                                                {notification.status !== 'sent' && notification.status !== 'delivered' && (
+                                                  <div className="flex items-center gap-1">
                                                     <XCircle className="h-3 w-3 text-red-500" />
-                                                  )}
-                                                  <span className={`text-xs ${notification.status === 'sent' || notification.status === 'delivered' ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {notification.status}
-                                                  </span>
-                                                </div>
+                                                    <span className="text-xs text-red-600">
+                                                      {notification.status}
+                                                    </span>
+                                                  </div>
+                                                )}
                                                 {notification.error_message && (
                                                   <span className="text-xs text-red-600 ml-2">
                                                     {notification.error_message}
