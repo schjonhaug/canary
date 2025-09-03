@@ -1075,12 +1075,10 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
-            let transaction_id = Uuid::new_v4().to_string();
             conn.execute(
-                "INSERT INTO transactions (id, txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                "INSERT INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
-                    &transaction_id,
                     &transaction.txid,
                     &transaction.wallet_checksum,
                     transaction.transaction_type.as_str(),
@@ -1094,7 +1092,7 @@ impl MetadataDb {
                     transaction.balance_after,
                 ],
             )?;
-            Ok(transaction_id)
+            Ok(transaction.txid.clone())
         }).await?
     }
 
@@ -1106,25 +1104,24 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<Transaction>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after 
+                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp, balance_after 
                  FROM transactions 
                  WHERE wallet_checksum = ?1 AND txid = ?2"
             )?;
 
             let mut rows = stmt.query_map([&checksum, &txid], |row| {
                 Ok(Transaction {
-                    id: Some(row.get(0)?),
-                    txid: row.get(1)?,
-                    wallet_checksum: row.get(2)?,
-                    transaction_type: EventType::from(row.get::<_, String>(3)?.as_str()),
-                    amount_sats: row.get(4)?,
-                    fee_sats: row.get(5)?,
-                    block_height: row.get(6)?,
-                    first_seen_at: row.get(7)?,
-                    confirmed_at: row.get(8)?,
-                    is_rbf: row.get::<_, i32>(9)? != 0,
-                    is_cpfp: row.get::<_, i32>(10)? != 0,
-                    balance_after: row.get(11)?,
+                    txid: row.get(0)?,
+                    wallet_checksum: row.get(1)?,
+                    transaction_type: EventType::from(row.get::<_, String>(2)?.as_str()),
+                    amount_sats: row.get(3)?,
+                    fee_sats: row.get(4)?,
+                    block_height: row.get(5)?,
+                    first_seen_at: row.get(6)?,
+                    confirmed_at: row.get(7)?,
+                    is_rbf: row.get::<_, i32>(8)? != 0,
+                    is_cpfp: row.get::<_, i32>(9)? != 0,
+                    balance_after: row.get(10)?,
                     notification_status: vec![], // Will be populated by calling code if needed
                 })
             })?;
@@ -1163,29 +1160,28 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<TransactionWithWallet>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT t.id, t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.is_rbf, t.is_cpfp, t.balance_after 
+                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.is_rbf, t.is_cpfp, t.balance_after 
                  FROM transactions t 
                  JOIN wallets w ON t.wallet_checksum = w.checksum 
                  WHERE t.wallet_checksum = ?1
-                 ORDER BY t.first_seen_at DESC, t.id DESC
+                 ORDER BY t.first_seen_at DESC, t.txid DESC
                  LIMIT ?2"
             )?;
 
             let transaction_iter = stmt.query_map([&checksum, &limit.to_string()], |row| {
                 Ok(TransactionWithWallet {
-                    id: Some(row.get(0)?),
-                    txid: row.get(1)?,
-                    wallet_checksum: row.get(2)?,
-                    wallet_name: row.get(3)?,
-                    transaction_type: EventType::from(row.get::<_, String>(4)?.as_str()),
-                    amount_sats: row.get(5)?,
-                    fee_sats: row.get(6)?,
-                    block_height: row.get(7)?,
-                    first_seen_at: row.get(8)?,
-                    confirmed_at: row.get(9)?,
-                    is_rbf: row.get::<_, i32>(10)? != 0,
-                    is_cpfp: row.get::<_, i32>(11)? != 0,
-                    balance_after: row.get(12)?,
+                    txid: row.get(0)?,
+                    wallet_checksum: row.get(1)?,
+                    wallet_name: row.get(2)?,
+                    transaction_type: EventType::from(row.get::<_, String>(3)?.as_str()),
+                    amount_sats: row.get(4)?,
+                    fee_sats: row.get(5)?,
+                    block_height: row.get(6)?,
+                    first_seen_at: row.get(7)?,
+                    confirmed_at: row.get(8)?,
+                    is_rbf: row.get::<_, i32>(9)? != 0,
+                    is_cpfp: row.get::<_, i32>(10)? != 0,
+                    balance_after: row.get(11)?,
                     notification_status: vec![], // Will be populated with notification history
                 })
             })?;
