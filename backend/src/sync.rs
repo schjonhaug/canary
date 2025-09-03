@@ -62,8 +62,31 @@ impl WalletSyncService {
     ) -> Result<bool> {
         let mut has_changes = false;
 
-        // Get current wallet balance for balance_after calculations
+        // Get current wallet balance
         let current_balance = wallet.balance().total().to_sat() as i64;
+
+        // Get existing transactions sorted chronologically (oldest first for balance calculation)
+        let existing_transactions = self.metadata_db
+            .get_transactions_by_wallet_checksum(wallet_checksum, None)
+            .await?;
+        
+        // Sort existing transactions by first_seen_at ASC (oldest first) for proper balance calculation
+        let mut existing_txs_sorted = existing_transactions.iter()
+            .map(|tx| (tx.txid.clone(), tx.first_seen_at, tx.amount_sats, tx.transaction_type))
+            .collect::<Vec<_>>();
+        existing_txs_sorted.sort_by_key(|(_, first_seen_at, _, _)| *first_seen_at);
+
+        // Calculate balance before the earliest existing transaction
+        let total_existing_net_change: i64 = existing_txs_sorted.iter()
+            .map(|(_, _, amount, tx_type)| {
+                match tx_type {
+                    crate::metadata::EventType::Receive => *amount,
+                    crate::metadata::EventType::Send => -*amount,
+                }
+            })
+            .sum();
+        
+        let balance_before_existing = current_balance - total_existing_net_change;
 
         // Collect transaction data first to avoid lifetime issues across await
         let transactions_data: Vec<_> = wallet.transactions().map(|tx_item| {
@@ -88,8 +111,27 @@ impl WalletSyncService {
             (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at)
         }).collect();
 
-        // Process each transaction with collected data
-        for (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) in transactions_data {
+        // Sort all transactions by timestamp for progressive balance calculation
+        let mut all_transactions = transactions_data;
+        all_transactions.sort_by_key(|(_, _, _, _, first_seen_at, _)| *first_seen_at);
+
+        // Calculate progressive balances for new transactions
+        let mut running_balance = balance_before_existing;
+        
+        // Apply all existing transactions to get balance at the point of new transactions
+        for (_, _, amount, tx_type) in &existing_txs_sorted {
+            let net_change = match tx_type {
+                crate::metadata::EventType::Receive => *amount,
+                crate::metadata::EventType::Send => -*amount,
+            };
+            running_balance += net_change;
+        }
+
+        // Process each transaction with progressive balance calculation
+        for (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) in all_transactions {
+            // Update running balance with this transaction
+            running_balance += net_amount;
+            
             // Check if we already know about this transaction
             let existing_tx = self
                 .metadata_db
@@ -120,7 +162,7 @@ impl WalletSyncService {
                         confirmed_at,
                         is_rbf: false, // TODO: Implement RBF detection later
                         is_cpfp: false, // TODO: Implement CPFP detection later
-                        balance_after: Some(current_balance),
+                        balance_after: Some(running_balance),
                     };
 
                     let transaction_id = self.metadata_db.insert_transaction(&transaction).await?;
