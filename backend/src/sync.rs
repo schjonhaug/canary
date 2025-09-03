@@ -129,9 +129,6 @@ impl WalletSyncService {
 
         // Process each transaction with progressive balance calculation
         for (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) in all_transactions {
-            // Update running balance with this transaction
-            running_balance += net_amount;
-            
             // Check if we already know about this transaction
             let existing_tx = self
                 .metadata_db
@@ -140,7 +137,10 @@ impl WalletSyncService {
 
             match existing_tx {
                 None => {
-                    // New transaction - inline creation using pre-collected data
+                    // New transaction - update running balance with this transaction
+                    running_balance += net_amount;
+                    
+                    // Create new transaction record using pre-collected data
                     // Determine transaction type and amount
                     let (transaction_type, amount_sats, fee_sats) = if net_amount < 0 {
                         // Outgoing transaction (send)
