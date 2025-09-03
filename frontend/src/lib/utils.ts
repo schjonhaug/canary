@@ -79,6 +79,12 @@ export function formatDateTime(dateTime: string | number): string {
   const date = typeof dateTime === 'number' 
     ? new Date(dateTime * 1000) // Convert Unix timestamp to milliseconds
     : new Date(dateTime)
+  
+  // Ensure valid date object
+  if (isNaN(date.getTime())) {
+    return "Invalid date"
+  }
+  
   return date.toLocaleString()
 }
 

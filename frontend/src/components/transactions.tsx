@@ -283,9 +283,19 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                   return acc
                                 }, {} as Record<string, typeof transaction.notification_status>)
 
-                                return Object.entries(groupedNotifications).map(([groupType, notifications]) => (
+                                return Object.entries(groupedNotifications).map(([groupType, notifications]) => {
+                                  // Get timestamp for this group (earliest notification)
+                                  const earliestNotification = notifications.reduce((earliest, current) => {
+                                    const earliestTime = new Date(earliest.created_at).getTime()
+                                    const currentTime = new Date(current.created_at).getTime()
+                                    return currentTime < earliestTime ? current : earliest
+                                  })
+                                  
+                                  return (
                                   <div key={groupType} className="space-y-1">
-                                    <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{groupType}</h5>
+                                    <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                      {groupType} - {formatDateTime(earliestNotification.created_at)}
+                                    </h5>
                                     <div className="space-y-2 ml-2">
                                       {notifications.map((notification, idx) => (
                                         <div key={idx} className="flex items-center gap-3 text-sm">
@@ -331,7 +341,8 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                       ))}
                                     </div>
                                   </div>
-                                ))
+                                  )
+                                })
                               })()}
                             </div>
                           </div>
