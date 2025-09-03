@@ -962,11 +962,9 @@ impl WalletManager {
             initial_balance as f64 / 100_000_000.0
         );
 
-        // Collect all events first for batch insertion
-        let mut events_to_insert = Vec::new();
-
-        // Process each transaction chronologically
+        // Process each transaction chronologically using new transaction-based approach
         for tx in all_transactions {
+            let txid = tx.tx_node.txid.to_string();
             let sent = wallet.sent_and_received(&tx.tx_node).0;
             let received = wallet.sent_and_received(&tx.tx_node).1;
             let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
@@ -980,38 +978,55 @@ impl WalletManager {
             // Update running balance
             running_balance += net_amount;
 
-            let (event_type, amount_sats) = if net_amount > 0 {
+            let (transaction_type, amount_sats) = if net_amount > 0 {
                 (EventType::Receive, net_amount)
             } else {
                 (EventType::Send, net_amount.abs())
             };
 
-            // Determine transaction timestamp
-            let transaction_time = match &tx.chain_position {
+            // Get block height and confirmation details
+            let (block_height, confirmed_at) = match &tx.chain_position {
                 bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                    let block_height = Some(anchor.block_id.height);
                     // Fetch actual block timestamp from Electrum
-                    if let Some(electrum_client) = electrum_client {
+                    let confirmed_at = if let Some(electrum_client) = electrum_client {
                         match electrum_client.get_block_header(anchor.block_id.height) {
-                            Ok(header) => header.timestamp,
+                            Ok(header) => Some(header.timestamp),
                             Err(e) => {
                                 eprintln!(
                                     "[{}] Failed to fetch block header for height {}: {}",
                                     wallet_checksum, anchor.block_id.height, e
                                 );
                                 // Fallback to current time only if fetch fails
-                                std::time::SystemTime::now()
+                                Some(std::time::SystemTime::now()
                                     .duration_since(std::time::UNIX_EPOCH)
                                     .unwrap()
-                                    .as_secs()
+                                    .as_secs())
                             }
                         }
                     } else {
                         // No electrum client available, use current time as fallback
+                        Some(std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs())
+                    };
+                    (block_height, confirmed_at)
+                }
+                bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => {
+                    (None, None)
+                }
+            };
+
+            // Get first_seen timestamp
+            let first_seen_at = match &tx.chain_position {
+                bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                    confirmed_at.unwrap_or_else(|| {
                         std::time::SystemTime::now()
                             .duration_since(std::time::UNIX_EPOCH)
                             .unwrap()
                             .as_secs()
-                    }
+                    })
                 }
                 bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => first_seen
                     .unwrap_or_else(|| {
@@ -1022,28 +1037,26 @@ impl WalletManager {
                     }),
             };
 
-            // Create event
-            let event_insert = EventInsert {
+            // Create transaction insert using new schema
+            let transaction_insert = crate::metadata::TransactionInsert {
+                txid,
                 wallet_checksum: wallet_checksum.to_string(),
-                event_type,
+                transaction_type,
                 amount_sats,
-                is_confirmed,
-                is_rbf: false,
-                is_cpfp: false,
-                balance_total: Some(running_balance),
-                transaction_time,
+                fee_sats: None, // TODO: Calculate fees for historical transactions
+                block_height,
+                first_seen_at,
+                confirmed_at,
+                is_rbf: false, // TODO: Detect RBF for historical transactions
+                is_cpfp: false, // TODO: Detect CPFP for historical transactions
+                balance_after: Some(running_balance),
             };
 
-            // Collect event for batch insertion
-            events_to_insert.push(event_insert);
-        }
-
-        // Batch insert all events
-        if !events_to_insert.is_empty() {
-            if let Err(e) = metadata_db.insert_events_batch(events_to_insert).await {
+            // Insert individual transaction
+            if let Err(e) = metadata_db.insert_transaction(&transaction_insert).await {
                 eprintln!(
-                    "[{}] Failed to batch insert historical events: {}",
-                    wallet_checksum, e
+                    "[{}] Failed to insert historical transaction {}: {}",
+                    wallet_checksum, transaction_insert.txid, e
                 );
             }
         }
