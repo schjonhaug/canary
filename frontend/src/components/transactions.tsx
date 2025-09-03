@@ -329,9 +329,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                               {notification.status}
                                             </span>
                                           </div>
-                                          <span className="text-xs text-muted-foreground">
-                                            {formatDateTime(notification.created_at)}
-                                          </span>
                                           {notification.error_message && (
                                             <span className="text-xs text-red-600 ml-2">
                                               {notification.error_message}

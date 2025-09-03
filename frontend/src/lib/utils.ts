@@ -76,9 +76,21 @@ export function formatBitcoinAmount(sats: number | null | undefined, eventType?:
 
 // Date formatting utilities
 export function formatDateTime(dateTime: string | number): string {
-  const date = typeof dateTime === 'number' 
-    ? new Date(dateTime * 1000) // Convert Unix timestamp to milliseconds
-    : new Date(dateTime)
+  let date: Date
+  
+  if (typeof dateTime === 'number') {
+    // Convert Unix timestamp to milliseconds
+    date = new Date(dateTime * 1000)
+  } else {
+    // SQLite timestamps are in UTC but without timezone indicator
+    // Need to explicitly treat them as UTC
+    if (dateTime.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+      // Format: "2025-09-03 13:26:11" - treat as UTC
+      date = new Date(dateTime + ' UTC')
+    } else {
+      date = new Date(dateTime)
+    }
+  }
   
   // Ensure valid date object
   if (isNaN(date.getTime())) {
