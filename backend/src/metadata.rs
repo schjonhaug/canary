@@ -252,6 +252,8 @@ pub struct NotificationStatus {
     pub error_message: Option<String>,
     pub notification_target: Option<String>,  // Phone number, email, or ntfy topic
     pub provider_type: Option<String>,        // 'sms', 'email', 'ntfy'
+    pub created_at: String,                   // When the notification was sent
+    pub notification_type: String,            // "pending" or "confirmed"
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -1205,13 +1207,20 @@ impl MetadataDb {
                 // Get notification status for this transaction
                 let mut notification_stmt = conn.prepare(
                     "SELECT nl.contact_name_snapshot, nl.provider_name, nl.status, nl.error_message, 
-                            nl.notification_target_snapshot, nl.provider_type_snapshot
+                            nl.notification_target_snapshot, nl.provider_type_snapshot, nl.created_at, nl.message_content
                      FROM notification_logs nl 
                      WHERE nl.transaction_txid = ?1 AND nl.transaction_wallet_checksum = ?2
                      ORDER BY nl.created_at ASC"
                 )?;
                 
                 let notification_iter = notification_stmt.query_map([&tx.txid, &tx.wallet_checksum], |row| {
+                    let message_content: String = row.get(7)?;
+                    let notification_type = if message_content.contains("confirmed") || message_content.contains("sent") || message_content.contains("received") {
+                        "confirmed".to_string()
+                    } else {
+                        "pending".to_string()
+                    };
+                    
                     Ok(NotificationStatus {
                         contact_name: row.get::<_, Option<String>>(0)?.unwrap_or("Unknown".to_string()),
                         provider_name: row.get(1)?,
@@ -1219,6 +1228,8 @@ impl MetadataDb {
                         error_message: row.get(3)?,
                         notification_target: row.get(4)?,
                         provider_type: row.get(5)?,
+                        created_at: row.get(6)?,
+                        notification_type,
                     })
                 })?;
                 
@@ -1233,92 +1244,6 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_events_by_wallet_checksum(
-        &self,
-        wallet_checksum: &str,
-        limit: Option<usize>,
-    ) -> Result<Vec<TransactionEventWithWallet>> {
-        let pool = self.pool.clone();
-        let checksum = wallet_checksum.to_string();
-        let limit = limit.unwrap_or(100);
-
-        spawn_blocking(move || -> Result<Vec<TransactionEventWithWallet>> {
-            let conn = pool.get()?;
-            let mut stmt = conn.prepare(
-                "SELECT te.id, te.wallet_checksum, w.name, te.event_type, te.amount_sats, te.is_confirmed, te.is_rbf, te.is_cpfp, te.balance_total, te.transaction_time 
-                 FROM transaction_events te 
-                 JOIN wallets w ON te.wallet_checksum = w.checksum 
-                 WHERE te.wallet_checksum = ?1
-                 ORDER BY te.transaction_time DESC, 
-                          CASE te.event_type 
-                            WHEN 'receiving' THEN 1 
-                            WHEN 'received' THEN 2 
-                            WHEN 'sending' THEN 3 
-                            WHEN 'sent' THEN 4 
-                            ELSE 5 
-                          END ASC, 
-                          te.id DESC
-                 LIMIT ?2"
-            )?;
-
-            let event_iter = stmt.query_map([&checksum, &limit.to_string()], |row| {
-                Ok(TransactionEventWithWallet {
-                    id: Some(row.get(0)?),
-                    wallet_checksum: row.get(1)?,
-                    wallet_name: row.get(2)?,
-                    event_type: EventType::from(row.get::<_, String>(3)?.as_str()),
-                    amount_sats: row.get(4)?,
-                    is_confirmed: row.get(5)?,
-                    is_rbf: row.get(6)?,
-                    is_cpfp: row.get(7)?,
-                    balance_total: row.get(8).ok(),
-                    transaction_time: row.get(9)?,
-                    notification_status: Vec::new(), // Will be populated later
-                })
-            })?;
-
-            let mut events = Vec::new();
-            for event_result in event_iter {
-                let mut event = event_result?;
-                
-                // Get notification logs for this event
-                if let Some(ref event_id) = event.id {
-                    let mut log_stmt = conn.prepare(
-                        "SELECT nl.provider_name, nl.status, nl.error_message, 
-                                COALESCE(c.name, nl.contact_name_snapshot) as contact_name,
-                                COALESCE(cnm.notification_target, nl.notification_target_snapshot) as notification_target,
-                                COALESCE(cnm.provider_type, nl.provider_type_snapshot) as provider_type
-                         FROM notification_logs nl
-                         LEFT JOIN contact_notification_methods cnm ON nl.notification_method_id = cnm.id
-                         LEFT JOIN contacts c ON cnm.contact_id = c.id
-                         WHERE nl.event_id = ?1"
-                    )?;
-                    
-                    let log_iter = log_stmt.query_map([event_id.clone()], |row| {
-                        Ok(NotificationStatus {
-                            contact_name: row.get(3)?,
-                            provider_name: row.get(0)?,
-                            status: row.get(1)?,
-                            error_message: row.get(2)?,
-                            notification_target: row.get::<_, Option<String>>(4)?,
-                            provider_type: row.get::<_, Option<String>>(5)?,
-                        })
-                    })?;
-                    
-                    let mut notification_status = Vec::new();
-                    for log in log_iter {
-                        notification_status.push(log?);
-                    }
-                    
-                    event.notification_status = notification_status;
-                }
-                
-                events.push(event);
-            }
-
-            Ok(events)
-        }).await?
-    }
 
     // Normalized contact methods
     pub async fn insert_contact_with_notification_methods(
