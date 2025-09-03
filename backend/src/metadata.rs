@@ -1821,6 +1821,56 @@ impl MetadataDb {
         .await?
     }
 
+    /// Get all wallets marked as deleted
+    pub async fn get_deleted_wallets(&self) -> Result<Vec<WalletMetadata>> {
+        let pool = self.pool.clone();
+
+        spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
+            let conn = pool.get()?;
+
+            let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, 
+                                w.created_at, w.balance_total, 
+                                (SELECT MAX(t.first_seen_at) FROM transactions t 
+                                 WHERE t.wallet_checksum = w.checksum) as last_activity,
+                                w.status, COUNT(c.id) as contact_count, 
+                                w.user_id, w.is_active
+                         FROM wallets w 
+                         LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                         WHERE w.status = 'deleted'
+                         GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, 
+                                  w.created_at, w.balance_total, w.status, 
+                                  w.user_id, w.is_active
+                         ORDER BY w.created_at DESC";
+
+            let mut stmt = conn.prepare(query)?;
+
+            let wallet_iter = stmt.query_map([], |row| {
+                Ok(WalletMetadata {
+                    checksum: row.get(0)?,
+                    name: row.get(1)?,
+                    descriptor: row.get(2)?,
+                    hex_color: row.get(3)?,
+                    created_at: row.get(4)?,
+                    balance_total: Some(row.get(5).unwrap_or(0)),
+                    last_activity: row
+                        .get::<_, Option<i64>>(6)
+                        .ok()
+                        .flatten()
+                        .map(|t| t.to_string()),
+                    status: row.get(7)?,
+                    contact_count: row.get(8).unwrap_or(Some(0)),
+                    user_id: row.get(9)?,
+                    is_active: row.get(10)?,
+                })
+            })?;
+
+            wallet_iter
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(|e| anyhow!("Failed to query deleted wallets: {}", e))
+        })
+        .await?
+    }
+
     pub async fn upsert_current_block_header(&self, block_header: &BlockHeader) -> Result<()> {
         let pool = self.pool.clone();
         let block_header = block_header.clone();

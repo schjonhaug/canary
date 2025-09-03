@@ -1144,12 +1144,15 @@ impl WalletManager {
     async fn cleanup_deleted_wallets(&mut self) -> Result<()> {
         // Get ready wallets from database (source of truth)
         let ready_wallets = self.metadata_db.get_ready_wallets().await?;
+        
+        // Get wallets marked as deleted in database
+        let deleted_wallets = self.metadata_db.get_deleted_wallets().await?;
 
         // Create set of valid checksums from database
         let valid_checksums: std::collections::HashSet<String> =
             ready_wallets.iter().map(|w| w.checksum.clone()).collect();
 
-        // Collect wallets that need to be removed (deleted or expired users)
+        // Collect wallets that need to be removed from memory (deleted or expired users)
         let mut wallets_to_remove = Vec::new();
         for (checksum, _) in &self.wallets {
             if !valid_checksums.contains(checksum) {
@@ -1157,15 +1160,22 @@ impl WalletManager {
             }
         }
 
+        // Also add wallets marked as deleted in database (even if not in memory)
+        for deleted_wallet in &deleted_wallets {
+            if !wallets_to_remove.contains(&deleted_wallet.checksum) {
+                wallets_to_remove.push(deleted_wallet.checksum.clone());
+            }
+        }
+
         // Clean up each removed wallet: memory, disk, and database
         for checksum in wallets_to_remove {
             println!("🗑️ Cleaning up wallet {} (deleted or expired)", checksum);
 
-            // Remove from memory
+            // Remove from memory (if it was loaded)
             self.wallets
                 .retain(|(stored_checksum, _)| stored_checksum != &checksum);
 
-            // Delete wallet file from disk
+            // Delete wallet file from disk (whether it was in memory or not)
             let wallet_filename = format!("{}.sqlite", checksum);
             let wallet_path = self.wallet_dir.join(&wallet_filename);
             if wallet_path.exists() {
