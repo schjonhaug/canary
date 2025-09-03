@@ -494,10 +494,10 @@ async fn main() -> anyhow::Result<()> {
         while let Ok(notification) = rx.recv().await {
             let manager = notification_worker_manager.lock().await;
 
-            // Extract the transaction from the notification
-            let transaction = match &notification {
-                TransactionNotification::Pending(tx) => tx,
-                TransactionNotification::Confirmed(tx) => tx,
+            // Extract the transaction and notification type from the notification
+            let (transaction, notification_type) = match &notification {
+                TransactionNotification::Pending(tx) => (tx, "pending"),
+                TransactionNotification::Confirmed(tx) => (tx, "confirmed"),
             };
 
             // Get wallet information for the transaction
@@ -557,6 +557,7 @@ async fn main() -> anyhow::Result<()> {
                                                     status,
                                                     result.error_message.as_deref(),
                                                     &message,
+                                                    notification_type,
                                                 )
                                                 .await
                                             {

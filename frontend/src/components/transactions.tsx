@@ -309,7 +309,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                     {(() => {
                                       // Group notifications by type
                                       const groupedNotifications = transaction.notification_status.reduce((acc, notification) => {
-                                        const type = notification.notification_type === 'pending' ? 'Unconfirmed' : 'Confirmed'
+                                        const type = notification.notification_type === 'pending' ? 'Pending' : 'Confirmed'
                                         if (!acc[type]) acc[type] = []
                                         acc[type].push(notification)
                                         return acc

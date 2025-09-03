@@ -83,6 +83,7 @@ CREATE TABLE notification_logs (
     status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'delivered')),
     error_message TEXT,
     message_content TEXT NOT NULL,
+    notification_type TEXT NOT NULL DEFAULT 'pending' CHECK (notification_type IN ('pending', 'confirmed')),
     contact_name_snapshot TEXT,
     notification_target_snapshot TEXT,
     provider_type_snapshot TEXT,

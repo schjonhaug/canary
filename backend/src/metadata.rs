@@ -1207,19 +1207,14 @@ impl MetadataDb {
                 // Get notification status for this transaction
                 let mut notification_stmt = conn.prepare(
                     "SELECT nl.contact_name_snapshot, nl.provider_name, nl.status, nl.error_message, 
-                            nl.notification_target_snapshot, nl.provider_type_snapshot, nl.created_at, nl.message_content
+                            nl.notification_target_snapshot, nl.provider_type_snapshot, nl.created_at, nl.message_content, nl.notification_type
                      FROM notification_logs nl 
                      WHERE nl.transaction_txid = ?1 AND nl.transaction_wallet_checksum = ?2
                      ORDER BY nl.created_at ASC"
                 )?;
                 
                 let notification_iter = notification_stmt.query_map([&tx.txid, &tx.wallet_checksum], |row| {
-                    let message_content: String = row.get(7)?;
-                    let notification_type = if message_content.contains("confirmed") || message_content.contains("sent") || message_content.contains("received") {
-                        "confirmed".to_string()
-                    } else {
-                        "pending".to_string()
-                    };
+                    let notification_type: String = row.get(8)?;
                     
                     Ok(NotificationStatus {
                         contact_name: row.get::<_, Option<String>>(0)?.unwrap_or("Unknown".to_string()),
@@ -1891,6 +1886,7 @@ impl MetadataDb {
         status: &str,
         error_message: Option<&str>,
         message_content: &str,
+        notification_type: &str,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let transaction_txid = transaction_txid.to_string();
@@ -1901,6 +1897,7 @@ impl MetadataDb {
         let status = status.to_string();
         let error_message = error_message.map(|s| s.to_string());
         let message_content = message_content.to_string();
+        let notification_type = notification_type.to_string();
 
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
@@ -1917,8 +1914,8 @@ impl MetadataDb {
             ).unwrap_or_else(|_| ("Unknown Contact".to_string(), "Unknown Target".to_string(), "unknown".to_string()));
             
             conn.execute(
-                "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     &log_id,
                     &transaction_txid,
@@ -1929,6 +1926,7 @@ impl MetadataDb {
                     &status,
                     &error_message,
                     &message_content,
+                    &notification_type,
                     &contact_name,
                     &notification_target,
                     &provider_type,
