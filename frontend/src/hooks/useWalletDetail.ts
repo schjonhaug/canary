@@ -1,17 +1,17 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Wallet, TransactionEvent, Contact } from '../types';
+import { Wallet, Transaction, Contact } from '../types';
 import { useAuth } from '../contexts/auth-context';
 
 interface WalletDetailResponse {
   timestamp: number;
   wallet: Wallet;
-  events: TransactionEvent[];
+  transactions: Transaction[];
   contacts: Contact[];
 }
 
 export function useWalletDetail(walletChecksum: string | null) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [events, setEvents] = useState<TransactionEvent[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,8 +51,8 @@ export function useWalletDetail(walletChecksum: string | null) {
       if (response.ok) {
         const data: WalletDetailResponse = await response.json();
         setWallet(data.wallet);
-        setEvents(data.events);
-        setContacts(data.contacts || []); // Fallback for backwards compatibility
+        setTransactions(data.transactions);
+        setContacts(data.contacts || []);
         setLastUpdate(data.timestamp);
         setIsConnected(true);
         setError(null);
@@ -83,7 +83,7 @@ export function useWalletDetail(walletChecksum: string | null) {
   useEffect(() => {
     // Clear previous data when walletChecksum changes
     setWallet(null);
-    setEvents([]);
+    setTransactions([]);
     setContacts([]);
     setLastUpdate(null);
     setError(null);
@@ -112,7 +112,7 @@ export function useWalletDetail(walletChecksum: string | null) {
 
   return { 
     wallet,
-    events,
+    transactions,
     contacts,
     lastUpdate, 
     error, 

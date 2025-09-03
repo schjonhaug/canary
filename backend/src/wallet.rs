@@ -1132,8 +1132,10 @@ impl WalletManager {
         &mut self,
         tier: crate::subscription::SubscriptionTier,
     ) -> Result<()> {
-        // Use the new sync logic
-        todo!("Implement tier-based sync using new transaction system")
+        // Temporarily disabled - transaction-based sync service not yet integrated
+        // TODO: Integrate WalletSyncService for tier-based sync
+        println!("⏩ Tier-based sync temporarily disabled for {:?}", tier);
+        Ok(())
     }
 
     // TODO: Clean up and implement other methods below using new sync system

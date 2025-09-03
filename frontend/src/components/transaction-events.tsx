@@ -14,19 +14,19 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CheckCircle, Clock, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, CheckCircle2, XCircle } from "lucide-react"
-import { TransactionEvent } from "../types"
+import { Transaction } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
 interface TransactionEventsProps {
   selectedWalletChecksum?: string | null
-  events: TransactionEvent[]
+  transactions: Transaction[]
   isConnected: boolean
   error: string | null
   lastUpdate: number | null
   walletsCount?: number
 }
 
-export function TransactionEvents({ selectedWalletChecksum, events, error, lastUpdate, walletsCount = 0 }: TransactionEventsProps) {
+export function TransactionEvents({ selectedWalletChecksum, transactions, error, lastUpdate, walletsCount = 0 }: TransactionEventsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
@@ -51,7 +51,7 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
   }
 
   // Get unique provider types and icons for condensed view
-  const getUniqueProviderSummary = (notifications: typeof events[0]['notification_status']) => {
+  const getUniqueProviderSummary = (notifications: typeof transactions[0]['notification_status']) => {
     if (!notifications || notifications.length === 0) return null
     
     const providerCounts = notifications.reduce((acc, notification) => {
@@ -92,26 +92,26 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
   }
 
 
-  // Filter events by selected wallet if one is selected
-  const filteredEvents = selectedWalletChecksum 
-    ? events.filter(event => event.wallet_checksum === selectedWalletChecksum)
-    : events
+  // Filter transactions by selected wallet if one is selected
+  const filteredTransactions = selectedWalletChecksum 
+    ? transactions.filter(transaction => transaction.wallet_checksum === selectedWalletChecksum)
+    : transactions
 
   const getCardTitle = () => {
-    if (selectedWalletChecksum && filteredEvents.length > 0) {
-      const walletName = filteredEvents[0]?.wallet_name || `Wallet ${selectedWalletChecksum}`
-      return `Transaction Events - ${walletName}`
+    if (selectedWalletChecksum && filteredTransactions.length > 0) {
+      const walletName = filteredTransactions[0]?.wallet_name || `Wallet ${selectedWalletChecksum}`
+      return `Transactions - ${walletName}`
     }
-    return "Transaction Events"
+    return "Transactions"
   }
 
   const getCardDescription = () => {
     if (selectedWalletChecksum) {
-      return filteredEvents.length > 0 
-        ? `${filteredEvents.length} transaction event${filteredEvents.length !== 1 ? 's' : ''} for selected wallet`
-        : "No transaction events found for selected wallet"
+      return filteredTransactions.length > 0 
+        ? `${filteredTransactions.length} transaction${filteredTransactions.length !== 1 ? 's' : ''} for selected wallet`
+        : "No transactions found for selected wallet"
     }
-    return "Bitcoin transaction events from all wallets"
+    return "Bitcoin transactions from all wallets"
   }
 
   if (!hasReceivedData) {
@@ -119,7 +119,7 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
       <Card>
         <CardHeader>
           <CardTitle>{getCardTitle()}</CardTitle>
-          <CardDescription>Loading transaction events...</CardDescription>
+          <CardDescription>Loading transactions...</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -161,7 +161,7 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
     )
   }
 
-  if (error && events.length === 0) {
+  if (error && transactions.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -179,16 +179,16 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
         <CardDescription>{getCardDescription()}</CardDescription>
       </CardHeader>
       <CardContent>
-        {filteredEvents.length === 0 ? (
+        {filteredTransactions.length === 0 ? (
           <p className="text-muted-foreground">
             {selectedWalletChecksum 
-              ? "No transaction events found for the selected wallet." 
-              : "No transaction events found."
+              ? "No transactions found for the selected wallet." 
+              : "No transactions found."
             }
           </p>
         ) : (
           <Table>
-            <TableCaption>A list of all transaction events from the Canary system.</TableCaption>
+            <TableCaption>A list of all transactions from the Canary system.</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>Date/Time</TableHead>
@@ -200,45 +200,45 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredEvents.map((event) => {
-                const isExpanded = expandedRows.has(event.id.toString())
-                const notificationSummary = getUniqueProviderSummary(event.notification_status)
+              {filteredTransactions.map((transaction) => {
+                const isExpanded = expandedRows.has(transaction.txid)
+                const notificationSummary = getUniqueProviderSummary(transaction.notification_status)
                 
                 return (
-                  <React.Fragment key={event.id}>
+                  <React.Fragment key={transaction.txid}>
                     <TableRow 
                       className={`cursor-pointer hover:bg-muted/50 transition-colors ${isExpanded ? 'bg-muted/30' : ''}`}
-                      onClick={() => toggleRowExpansion(event.id.toString())}
+                      onClick={() => toggleRowExpansion(transaction.txid)}
                     >
                       <TableCell className="text-sm">
-                        {formatDateTime(event.transaction_time)}
+                        {formatDateTime(transaction.confirmed_at || transaction.first_seen_at)}
                       </TableCell>
                       {walletsCount > 1 && (
-                        <TableCell className="font-medium">{event.wallet_name}</TableCell>
+                        <TableCell className="font-medium">{transaction.wallet_name}</TableCell>
                       )}
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Badge 
                             variant="outline"
                             className="flex items-center gap-1"
-                            title={`${event.event_type === "receive" ? "Receive" : "Send"} - ${event.is_confirmed ? "Confirmed" : "Pending"}`}
+                            title={`${transaction.transaction_type === "receive" ? "Receive" : "Send"} - ${transaction.block_height !== null ? "Confirmed" : "Pending"}`}
                           >
-                            {event.is_confirmed ? (
+                            {transaction.block_height !== null ? (
                               <CheckCircle className="h-3 w-3 text-green-500" />
                             ) : (
                               <Clock className="h-3 w-3 text-yellow-500" />
                             )}
-                            {event.is_confirmed 
-                              ? (event.event_type === "receive" ? "Received" : "Sent")
-                              : (event.event_type === "receive" ? "Receiving" : "Sending")
+                            {transaction.block_height !== null 
+                              ? (transaction.transaction_type === "receive" ? "Received" : "Sent")
+                              : (transaction.transaction_type === "receive" ? "Receiving" : "Sending")
                             }
                           </Badge>
-                          {event.is_cpfp && (
+                          {transaction.is_cpfp && (
                             <span title="Child-Pays-For-Parent (CPFP)">
                               <Baby className="h-4 w-4 ml-1" />
                             </span>
                           )}
-                          {event.is_rbf && (
+                          {transaction.is_rbf && (
                             <span title="Replace-By-Fee (RBF)">
                               <HandCoins className="h-4 w-4 ml-1" />
                             </span>
@@ -246,10 +246,10 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
                         </div>
                       </TableCell>
                       <TableCell className="font-mono">
-                        {formatBitcoinAmount(event.amount_sats, event.event_type)}
+                        {formatBitcoinAmount(transaction.amount_sats, transaction.transaction_type)}
                       </TableCell>
                       <TableCell className="font-mono">
-                        {event.balance_total !== null && event.balance_total !== undefined ? formatBitcoinAmount(event.balance_total) : "N/A"}
+                        {transaction.balance_after !== null && transaction.balance_after !== undefined ? formatBitcoinAmount(transaction.balance_after) : "N/A"}
                       </TableCell>
                       <TableCell className="text-sm">
                         {notificationSummary ? (
@@ -268,13 +268,13 @@ export function TransactionEvents({ selectedWalletChecksum, events, error, lastU
                         )}
                       </TableCell>
                     </TableRow>
-                    {isExpanded && event.notification_status && event.notification_status.length > 0 && (
+                    {isExpanded && transaction.notification_status && transaction.notification_status.length > 0 && (
                       <TableRow className="bg-muted/20">
                         <TableCell colSpan={walletsCount > 1 ? 6 : 5} className="p-0">
                           <div className="px-4 py-3">
                             <h4 className="text-sm font-medium mb-2">Notification Details</h4>
                             <div className="space-y-2">
-                              {event.notification_status.map((notification, idx) => (
+                              {transaction.notification_status.map((notification, idx) => (
                                 <div key={idx} className="flex items-center gap-3 text-sm">
                                   <span className="font-medium min-w-[100px]">{notification.contact_name}</span>
                                   <span className="text-muted-foreground">→</span>

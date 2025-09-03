@@ -24,6 +24,23 @@ export interface NotificationStatus {
   provider_type?: string        // 'sms', 'email', 'ntfy'
 }
 
+export interface Transaction {
+  txid: string // Bitcoin transaction ID (hash) - primary key
+  wallet_checksum: string
+  wallet_name: string
+  transaction_type: 'send' | 'receive'
+  amount_sats: number
+  fee_sats: number | null // Transaction fee (for send transactions)
+  block_height: number | null // NULL = mempool, >0 = confirmed at this height
+  first_seen_at: number // Unix timestamp when we first detected this transaction
+  confirmed_at: number | null // Unix timestamp when transaction was confirmed
+  is_rbf: boolean
+  is_cpfp: boolean
+  balance_after: number | null // Wallet balance after this transaction
+  notification_status: NotificationStatus[]
+}
+
+// Keep old TransactionEvent interface for backward compatibility during transition
 export interface TransactionEvent {
   id: number
   wallet_checksum: string
@@ -78,6 +95,6 @@ export interface WalletsListResponse {
 export interface WalletDetailResponse {
   timestamp: number
   wallet: Wallet
-  events: TransactionEvent[]
+  transactions: Transaction[]
   contacts: Contact[]
 }

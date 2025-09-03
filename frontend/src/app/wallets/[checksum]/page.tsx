@@ -41,7 +41,7 @@ export default function WalletDetailPage() {
   }, [isSaasMode, isAuthenticated, authLoading, router])
 
   // Get wallet detail data directly using checksum
-  const { wallet, events, contacts, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
+  const { wallet, transactions, contacts, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
   
   // Share wallet data with layout context for SVG loading
   const { setCurrentWallet } = useWalletsContext()
@@ -312,7 +312,7 @@ export default function WalletDetailPage() {
         {/* Transaction Events */}
         <div className="lg:col-span-2">
           <TransactionEvents 
-            events={events}
+            transactions={transactions}
             isConnected={isConnected}
             error={error}
             lastUpdate={lastUpdate}
