@@ -2,7 +2,7 @@ use std::process::Command;
 use std::time::Duration;
 use tokio::time::sleep;
 use canary::config::{AppConfig, NetworkConfig};
-use canary::metadata::{MetadataDb, TransactionEventWithWallet, TransactionEvent};
+use canary::metadata::{MetadataDb, TransactionWithWallet, TransactionNotification};
 use canary::wallet::WalletManager;
 use canary::subscription::SubscriptionTier;
 use canary::api::AppServices;
@@ -126,10 +126,10 @@ impl IsolatedTestEnvironment {
         let wallet_dir = temp_dir.path().join("wallets");
         std::fs::create_dir_all(&wallet_dir)?;
         
-        let (event_sender, _event_receiver) = broadcast::channel::<TransactionEvent>(100);
+        let (notification_sender, _notification_receiver) = broadcast::channel::<TransactionNotification>(100);
         
         let mut wallet_manager = WalletManager::new(
-            event_sender,
+            notification_sender,
             wallet_dir,
             &db_path.to_string_lossy(),
             bdk_wallet::bitcoin::Network::Regtest,
@@ -788,10 +788,10 @@ volumes:
     }
     
     
-    /// Get all transaction events for a wallet from the database
-    pub async fn get_wallet_events(&self, wallet_checksum: &str) -> Result<Vec<TransactionEventWithWallet>, Box<dyn std::error::Error>> {
-        let events = self.metadata_db.get_events_by_wallet_checksum(wallet_checksum, None).await?;
-        Ok(events)
+    /// Get all transactions for a wallet from the database
+    pub async fn get_wallet_transactions(&self, wallet_checksum: &str) -> Result<Vec<TransactionWithWallet>, Box<dyn std::error::Error>> {
+        let transactions = self.metadata_db.get_transactions_by_wallet_checksum(wallet_checksum, None).await?;
+        Ok(transactions)
     }
 }
 

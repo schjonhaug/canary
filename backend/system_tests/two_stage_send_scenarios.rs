@@ -16,12 +16,12 @@ async fn test_alice_partial_send_bob_two_stage() {
     // Initial sync
     env.sync_and_wait().await.expect("Failed to sync");
     
-    let initial_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let initial_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let initial_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let initial_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
     println!("📊 Initial state:");
-    println!("   Alice events: {}", initial_alice_events.len());
-    println!("   Bob events: {}", initial_bob_events.len());
+    println!("   Alice transactions: {}", initial_alice_transactions.len());
+    println!("   Bob transactions: {}", initial_bob_transactions.len());
     
     // Send partial amount (0.1 BTC) - DON'T mine immediately
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob (partial send)");
@@ -33,30 +33,30 @@ async fn test_alice_partial_send_bob_two_stage() {
     // Small delay to ensure database transactions are committed
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
-    // Verify UNCONFIRMED events are created (Stage 1)
-    let unconfirmed_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let unconfirmed_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    // Verify UNCONFIRMED transactions are created (Stage 1)
+    let unconfirmed_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let unconfirmed_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
-    println!("🔍 DEBUG: Alice events after partial send sync:");
-    println!("   Initial Alice events: {}", initial_alice_events.len());
-    println!("   Total Alice events: {}", unconfirmed_alice_events.len());
-    for (i, event) in unconfirmed_alice_events.iter().enumerate() {
-        let is_new = i >= initial_alice_events.len();
-        println!("   Event {}: type={:?}, amount={}, confirmed={}, NEW={}", i, event.event_type, event.amount_sats, event.is_confirmed, is_new);
+    println!("🔍 DEBUG: Alice transactions after partial send sync:");
+    println!("   Initial Alice transactions: {}", initial_alice_transactions.len());
+    println!("   Total Alice transactions: {}", unconfirmed_alice_transactions.len());
+    for (i, transaction) in unconfirmed_alice_transactions.iter().enumerate() {
+        let is_new = i >= initial_alice_transactions.len();
+        println!("   Transaction {}: type={:?}, amount={}, confirmed={}, NEW={}", i, transaction.transaction_type, transaction.amount_sats, transaction.block_height.is_some(), is_new);
     }
     
     // Events are stored in reverse chronological order (newest first)
     // Find new events by excluding events that existed initially
-    let initial_alice_ids: Vec<Option<String>> = initial_alice_events.iter().map(|e| e.id.clone()).collect();
-    let initial_bob_ids: Vec<Option<String>> = initial_bob_events.iter().map(|e| e.id.clone()).collect();
+    let initial_alice_ids: Vec<String> = initial_alice_transactions.iter().map(|t| t.txid.clone()).collect();
+    let initial_bob_ids: Vec<String> = initial_bob_transactions.iter().map(|t| t.txid.clone()).collect();
     
-    let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_events.iter()
-        .filter(|e| !initial_alice_ids.contains(&e.id)) // Only new events
-        .filter(|e| e.event_type == EventType::Send && !e.is_confirmed)
+    let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_transactions.iter()
+        .filter(|t| !initial_alice_ids.contains(&t.txid)) // Only new events
+        .filter(|t| t.transaction_type == EventType::Send && !t.block_height.is_some())
         .collect();
-    let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_events.iter()
-        .filter(|e| !initial_bob_ids.contains(&e.id)) // Only new events
-        .filter(|e| e.event_type == EventType::Receive && !e.is_confirmed)
+    let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_transactions.iter()
+        .filter(|t| !initial_bob_ids.contains(&t.txid)) // Only new events
+        .filter(|t| t.transaction_type == EventType::Receive && !t.block_height.is_some())
         .collect();
     
     println!("🔍 DEBUG: Filtered results:");
@@ -73,14 +73,14 @@ async fn test_alice_partial_send_bob_two_stage() {
     env.sync_and_wait().await.expect("Failed to sync");
     
     // Verify CONFIRMED events exist (Stage 2)
-    let final_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let final_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let final_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let final_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
-    let alice_confirmed_sends: Vec<_> = final_alice_events.iter()
-        .filter(|e| e.event_type == EventType::Send && e.is_confirmed)
+    let alice_confirmed_sends: Vec<_> = final_alice_transactions.iter()
+        .filter(|t| t.transaction_type == EventType::Send && t.block_height.is_some())
         .collect();
-    let bob_confirmed_receives: Vec<_> = final_bob_events.iter()
-        .filter(|e| e.event_type == EventType::Receive && e.is_confirmed)
+    let bob_confirmed_receives: Vec<_> = final_bob_transactions.iter()
+        .filter(|t| t.transaction_type == EventType::Receive && t.block_height.is_some())
         .collect();
     
     assert!(!alice_confirmed_sends.is_empty(), "Alice should have confirmed Send event after mining");
@@ -89,7 +89,7 @@ async fn test_alice_partial_send_bob_two_stage() {
     // Verify amount is correct (0.1 BTC = 10M sats)
     let expected_amount = 10_000_000i64;
     let bob_received_correct_amount = bob_confirmed_receives.iter()
-        .any(|e| e.amount_sats == expected_amount);
+        .any(|t| t.amount_sats == expected_amount);
     
     assert!(bob_received_correct_amount, "Bob should receive 0.1 BTC (10M sats)");
     
@@ -105,12 +105,12 @@ async fn test_alice_full_send_bob_two_stage() {
     // Initial sync
     env.sync_and_wait().await.expect("Failed to sync");
     
-    let initial_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let initial_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let initial_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let initial_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
     println!("📊 Initial state:");
-    println!("   Alice events: {}", initial_alice_events.len());
-    println!("   Bob events: {}", initial_bob_events.len());
+    println!("   Alice transactions: {}", initial_alice_transactions.len());
+    println!("   Bob transactions: {}", initial_bob_transactions.len());
     
     // Send entire wallet balance - DON'T mine immediately
     println!("🔥 Step 1: Alice sends maximum balance to Bob (full send / wallet drain)");
@@ -122,22 +122,22 @@ async fn test_alice_full_send_bob_two_stage() {
     // Small delay to ensure database transactions are committed
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
-    // Verify UNCONFIRMED events are created (Stage 1)
-    let unconfirmed_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let unconfirmed_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    // Verify UNCONFIRMED transactions are created (Stage 1)
+    let unconfirmed_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let unconfirmed_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
     // Events are stored in reverse chronological order (newest first)
     // Find new events by excluding events that existed initially
-    let initial_alice_ids: Vec<Option<String>> = initial_alice_events.iter().map(|e| e.id.clone()).collect();
-    let initial_bob_ids: Vec<Option<String>> = initial_bob_events.iter().map(|e| e.id.clone()).collect();
+    let initial_alice_ids: Vec<String> = initial_alice_transactions.iter().map(|t| t.txid.clone()).collect();
+    let initial_bob_ids: Vec<String> = initial_bob_transactions.iter().map(|t| t.txid.clone()).collect();
     
-    let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_events.iter()
-        .filter(|e| !initial_alice_ids.contains(&e.id)) // Only new events
-        .filter(|e| e.event_type == EventType::Send && !e.is_confirmed)
+    let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_transactions.iter()
+        .filter(|t| !initial_alice_ids.contains(&t.txid)) // Only new events
+        .filter(|t| t.transaction_type == EventType::Send && !t.block_height.is_some())
         .collect();
-    let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_events.iter()
-        .filter(|e| !initial_bob_ids.contains(&e.id)) // Only new events
-        .filter(|e| e.event_type == EventType::Receive && !e.is_confirmed)
+    let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_transactions.iter()
+        .filter(|t| !initial_bob_ids.contains(&t.txid)) // Only new events
+        .filter(|t| t.transaction_type == EventType::Receive && !t.block_height.is_some())
         .collect();
     
     assert_eq!(alice_unconfirmed_sends.len(), 1, "Alice should have exactly one unconfirmed Send event for full send");
@@ -155,14 +155,14 @@ async fn test_alice_full_send_bob_two_stage() {
     env.sync_and_wait().await.expect("Failed to sync");
     
     // Verify CONFIRMED events exist (Stage 2)
-    let final_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let final_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let final_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let final_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
-    let alice_confirmed_sends: Vec<_> = final_alice_events.iter()
-        .filter(|e| e.event_type == EventType::Send && e.is_confirmed)
+    let alice_confirmed_sends: Vec<_> = final_alice_transactions.iter()
+        .filter(|t| t.transaction_type == EventType::Send && t.block_height.is_some())
         .collect();
-    let bob_confirmed_receives: Vec<_> = final_bob_events.iter()
-        .filter(|e| e.event_type == EventType::Receive && e.is_confirmed)
+    let bob_confirmed_receives: Vec<_> = final_bob_transactions.iter()
+        .filter(|t| t.transaction_type == EventType::Receive && t.block_height.is_some())
         .collect();
     
     assert!(!alice_confirmed_sends.is_empty(), "Alice should have confirmed Send event after mining");
@@ -170,10 +170,10 @@ async fn test_alice_full_send_bob_two_stage() {
     
     // Verify large amounts were confirmed correctly
     let alice_confirmed_large_sends: Vec<_> = alice_confirmed_sends.iter()
-        .filter(|e| e.amount_sats.abs() > 50_000_000) // > 0.5 BTC
+        .filter(|t| t.amount_sats.abs() > 50_000_000) // > 0.5 BTC
         .collect();
     let bob_confirmed_large_receives: Vec<_> = bob_confirmed_receives.iter()
-        .filter(|e| e.amount_sats > 50_000_000) // > 0.5 BTC
+        .filter(|t| t.amount_sats > 50_000_000) // > 0.5 BTC
         .collect();
     
     assert!(!alice_confirmed_large_sends.is_empty(), "Alice should have large confirmed Send transactions");
@@ -194,12 +194,12 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     // Initial sync
     env.sync_and_wait().await.expect("Failed to sync");
     
-    let initial_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let initial_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let initial_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let initial_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
     println!("📊 Initial state:");
-    println!("   Alice events: {}", initial_alice_events.len());
-    println!("   Bob events: {}", initial_bob_events.len());
+    println!("   Alice transactions: {}", initial_alice_transactions.len());
+    println!("   Bob transactions: {}", initial_bob_transactions.len());
     
     // Send multiple partial send transactions - DON'T mine immediately
     println!("⚡ Step 1: Alice sends multiple partial transactions to Bob (0.1, 0.2, 0.05 BTC)");
@@ -214,22 +214,22 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     // Small delay to ensure database transactions are committed
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
-    // Verify UNCONFIRMED events are created (Stage 1) - should have 3 separate events
-    let unconfirmed_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let unconfirmed_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    // Verify UNCONFIRMED transactions are created (Stage 1) - should have 3 separate events
+    let unconfirmed_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let unconfirmed_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
     // Events are stored in reverse chronological order (newest first)
     // Find new events by excluding events that existed initially
-    let initial_alice_ids: Vec<Option<String>> = initial_alice_events.iter().map(|e| e.id.clone()).collect();
-    let initial_bob_ids: Vec<Option<String>> = initial_bob_events.iter().map(|e| e.id.clone()).collect();
+    let initial_alice_ids: Vec<String> = initial_alice_transactions.iter().map(|t| t.txid.clone()).collect();
+    let initial_bob_ids: Vec<String> = initial_bob_transactions.iter().map(|t| t.txid.clone()).collect();
     
-    let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_events.iter()
-        .filter(|e| !initial_alice_ids.contains(&e.id)) // Only new events
-        .filter(|e| e.event_type == EventType::Send && !e.is_confirmed)
+    let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_transactions.iter()
+        .filter(|t| !initial_alice_ids.contains(&t.txid)) // Only new events
+        .filter(|t| t.transaction_type == EventType::Send && !t.block_height.is_some())
         .collect();
-    let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_events.iter()
-        .filter(|e| !initial_bob_ids.contains(&e.id)) // Only new events
-        .filter(|e| e.event_type == EventType::Receive && !e.is_confirmed)
+    let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_transactions.iter()
+        .filter(|t| !initial_bob_ids.contains(&t.txid)) // Only new events
+        .filter(|t| t.transaction_type == EventType::Receive && !t.block_height.is_some())
         .collect();
     
     println!("📊 Stage 1 - Mempool events:");
@@ -237,11 +237,11 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     println!("   Bob unconfirmed receives: {}", bob_unconfirmed_receives.len());
     
     // Debug: Show all amounts
-    for (i, event) in alice_unconfirmed_sends.iter().enumerate() {
-        println!("   Alice Send {}: {} sats", i, event.amount_sats.abs());
+    for (i, transaction) in alice_unconfirmed_sends.iter().enumerate() {
+        println!("   Alice Send {}: {} sats", i, transaction.amount_sats.abs());
     }
-    for (i, event) in bob_unconfirmed_receives.iter().enumerate() {
-        println!("   Bob Receive {}: {} sats", i, event.amount_sats);
+    for (i, transaction) in bob_unconfirmed_receives.iter().enumerate() {
+        println!("   Bob Receive {}: {} sats", i, transaction.amount_sats);
     }
     
     assert_eq!(alice_unconfirmed_sends.len(), 3, "Alice should have exactly 3 unconfirmed Send events");
@@ -249,8 +249,8 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     
     // Verify amounts are correct (0.1, 0.2, 0.05 BTC)
     let expected_amounts = [10_000_000i64, 20_000_000i64, 5_000_000i64]; // 0.1, 0.2, 0.05 BTC in sats
-    let mut alice_amounts: Vec<i64> = alice_unconfirmed_sends.iter().map(|e| e.amount_sats.abs()).collect();
-    let mut bob_amounts: Vec<i64> = bob_unconfirmed_receives.iter().map(|e| e.amount_sats).collect();
+    let mut alice_amounts: Vec<i64> = alice_unconfirmed_sends.iter().map(|t| t.amount_sats.abs()).collect();
+    let mut bob_amounts: Vec<i64> = bob_unconfirmed_receives.iter().map(|t| t.amount_sats).collect();
     
     alice_amounts.sort();
     bob_amounts.sort();
@@ -268,14 +268,14 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     env.sync_and_wait().await.expect("Failed to sync");
     
     // Verify CONFIRMED events exist (Stage 2) - should have 1 net event each
-    let final_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let final_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let final_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let final_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
-    let alice_confirmed_sends: Vec<_> = final_alice_events.iter()
-        .filter(|e| e.event_type == EventType::Send && e.is_confirmed)
+    let alice_confirmed_sends: Vec<_> = final_alice_transactions.iter()
+        .filter(|t| t.transaction_type == EventType::Send && t.block_height.is_some())
         .collect();
-    let bob_confirmed_receives: Vec<_> = final_bob_events.iter()
-        .filter(|e| e.event_type == EventType::Receive && e.is_confirmed)
+    let bob_confirmed_receives: Vec<_> = final_bob_transactions.iter()
+        .filter(|t| t.transaction_type == EventType::Receive && t.block_height.is_some())
         .collect();
     
     println!("📊 Stage 2 - Confirmed events:");
@@ -283,11 +283,11 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     println!("   Bob confirmed receives: {}", bob_confirmed_receives.len());
     
     // Debug: Show confirmed amounts
-    for (i, event) in alice_confirmed_sends.iter().enumerate() {
-        println!("   Alice Confirmed Send {}: {} sats", i, event.amount_sats.abs());
+    for (i, transaction) in alice_confirmed_sends.iter().enumerate() {
+        println!("   Alice Confirmed Send {}: {} sats", i, transaction.amount_sats.abs());
     }
-    for (i, event) in bob_confirmed_receives.iter().enumerate() {
-        println!("   Bob Confirmed Receive {}: {} sats", i, event.amount_sats);
+    for (i, transaction) in bob_confirmed_receives.iter().enumerate() {
+        println!("   Bob Confirmed Receive {}: {} sats", i, transaction.amount_sats);
     }
     
     assert!(!alice_confirmed_sends.is_empty(), "Alice should have confirmed Send events after mining");
@@ -298,9 +298,9 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     let expected_net_amount = 35_000_000i64;
     
     let alice_has_net_amount = alice_confirmed_sends.iter()
-        .any(|e| e.amount_sats.abs() == expected_net_amount);
+        .any(|t| t.amount_sats.abs() == expected_net_amount);
     let bob_has_net_amount = bob_confirmed_receives.iter()
-        .any(|e| e.amount_sats == expected_net_amount);
+        .any(|t| t.amount_sats == expected_net_amount);
     
     assert!(alice_has_net_amount, "Alice should have net confirmed send of 35M sats");
     assert!(bob_has_net_amount, "Bob should have net confirmed receive of 35M sats");
