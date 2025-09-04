@@ -303,7 +303,7 @@ impl StripeBilling {
         features.insert("push".to_string(), "Push notifications".to_string());
         features.insert(
             "analysis".to_string(),
-            "Transaction analysis (RBF/CPFP)".to_string(),
+            "Transaction analysis (RBF/CPFP coming soon)".to_string(),
         );
 
         // Tier-specific capacity limits

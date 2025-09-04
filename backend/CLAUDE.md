@@ -101,7 +101,7 @@ The backend will fail fast with clear error messages if required variables are m
 - Shared pricing data for consistent billing UI
 
 ### Database Schema
-- **Three Migration Files**: `migrations/001_initial_schema.sql`, `migrations/002_add_sync_status.sql`, `migrations/003_add_deleted_status.sql` with complete normalized schema
+- **Eight Migration Files**: migrations/001_initial_schema.sql through migrations/008_transaction_based_refactor.sql with complete normalized schema and transaction-based architecture
 - **UUID Primary Keys**: Used for security-critical tables (users, transaction_events)
 - **Subscription Management**: Built-in user tiers, Stripe integration fields
 - **Network Isolation**: Separate databases per Bitcoin network (regtest/testnet/mainnet)
@@ -177,7 +177,7 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - Without webhook forwarding, users remain in "pending" status
 
 ### Database Management
-- **Four Migration Files**: Initial schema (001), sync status addition (002), deleted status support (003), and verification tracking (004)
+- **Eight Migration Files**: Complete schema through migration 008 with transaction-based architecture
 - **Network Isolation**: Each network has separate database directory
 - **Reset Command**: `./regtest-env/docker-utils.sh reset` clears all databases
 - **Connection Pooling**: r2d2 SQLite pool with 10 max connections
@@ -201,5 +201,5 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 ### File Structure Conventions
 - **Backend**: All source in `src/` with single-file modules  
 - **Frontend**: App router structure with co-located component tests
-- **Migrations**: Three migration files for schema evolution
+- **Migrations**: Eight migration files for schema evolution
 - **Database**: Network-specific directories under `database/{network}/`

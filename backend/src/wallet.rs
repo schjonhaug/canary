@@ -2,7 +2,6 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::ElectrumClient;
 use crate::metadata::{EventType, MetadataDb, TransactionNotification, WalletMetadata};
-// use crate::sync::WalletSyncService; // Temporarily commented out
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
@@ -953,7 +952,6 @@ impl WalletManager {
             .sum();
 
         let initial_balance = current_balance - total_net_change;
-        let mut running_balance = initial_balance;
 
         println!(
             "[{}] Current balance: {:.8} BTC, Initial balance: {:.8} BTC",
@@ -975,8 +973,6 @@ impl WalletManager {
                 continue;
             }
 
-            // Update running balance
-            running_balance += net_amount;
 
             let (transaction_type, amount_sats) = if net_amount > 0 {
                 (EventType::Receive, net_amount)
@@ -1020,7 +1016,7 @@ impl WalletManager {
 
             // Get first_seen timestamp
             let first_seen_at = match &tx.chain_position {
-                bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                bdk_wallet::chain::ChainPosition::Confirmed { .. } => {
                     confirmed_at.unwrap_or_else(|| {
                         std::time::SystemTime::now()
                             .duration_since(std::time::UNIX_EPOCH)

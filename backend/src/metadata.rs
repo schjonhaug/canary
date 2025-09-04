@@ -195,20 +195,6 @@ pub enum TransactionNotification {
     Confirmed(Transaction),
 }
 
-// Keep old TransactionEvent for backward compatibility during transition
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
-pub struct TransactionEvent {
-    pub id: Option<String>, // UUIDv4
-    pub wallet_checksum: String,
-    pub event_type: EventType,
-    pub amount_sats: i64,
-    pub is_confirmed: bool,
-    pub is_rbf: bool,
-    pub is_cpfp: bool,
-    pub balance_total: Option<i64>,
-    pub transaction_time: u64,
-    pub notification_status: Vec<NotificationStatus>,
-}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionWithWallet {
@@ -226,21 +212,6 @@ pub struct TransactionWithWallet {
     pub notification_status: Vec<NotificationStatus>,
 }
 
-// Keep old TransactionEventWithWallet for backward compatibility during transition
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
-pub struct TransactionEventWithWallet {
-    pub id: Option<String>, // UUIDv4
-    pub wallet_checksum: String,
-    pub wallet_name: String,
-    pub event_type: EventType,
-    pub amount_sats: i64,
-    pub is_confirmed: bool,
-    pub is_rbf: bool,
-    pub is_cpfp: bool,
-    pub balance_total: Option<i64>,
-    pub transaction_time: u64,
-    pub notification_status: Vec<NotificationStatus>,
-}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct NotificationStatus {

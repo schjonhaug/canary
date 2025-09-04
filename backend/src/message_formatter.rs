@@ -76,31 +76,14 @@ impl MessageFormatter {
                             Language::English => format!("✅ Sent from {}", wallet_name),
                         }
                     }
-                } else if transaction.is_rbf {
-                    let fee_btc = Self::format_btc_amount(transaction.amount_sats, language);
-                    match language {
-                        Language::Norwegian => format!(
-                            "📤 RBF gebyrøkning: +{} BTC for {}",
-                            fee_btc, wallet_name
-                        ),
-                        Language::English => format!(
-                            "📤 RBF fee increase: +{} BTC for {}",
-                            fee_btc, wallet_name
-                        ),
-                    }
-                } else if transaction.is_cpfp {
-                    let fee_btc = Self::format_btc_amount(transaction.amount_sats, language);
-                    match language {
-                        Language::Norwegian => format!(
-                            "🚀 CPFP-gebyr: {} BTC for {}",
-                            fee_btc, wallet_name
-                        ),
-                        Language::English => format!(
-                            "🚀 CPFP fee: {} BTC for {}",
-                            fee_btc, wallet_name
-                        ),
-                    }
-                } else {
+                }
+                // RBF/CPFP detection not implemented yet - these conditions are disabled
+                // } else if transaction.is_rbf {
+                //     ...RBF logic...
+                // } else if transaction.is_cpfp {
+                //     ...CPFP logic...
+                // } 
+                else {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(

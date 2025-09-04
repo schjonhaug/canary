@@ -28,8 +28,7 @@ pub use email_service::{EmailConfig, EmailService};
 pub use message_formatter::MessageFormatter;
 pub use metadata::{
     Contact, EventType, Language, MetadataDb, NotificationMethod, NotificationStatus, ProviderType,
-    TransactionEvent, TransactionEventWithWallet, WalletDetailResponse, WalletMetadata,
-    WalletsListResponse,
+    WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 pub use migrations::MigrationRunner;
 pub use notifications::{

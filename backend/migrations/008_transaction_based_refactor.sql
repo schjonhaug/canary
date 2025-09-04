@@ -35,6 +35,7 @@ DROP TABLE transaction_events;
 
 -- Create new transactions table with composite primary key (txid, wallet_checksum)
 -- This allows multiple wallets to track the same transaction (e.g., sender and receiver)
+-- Note: Removed balance_after field - balance calculations done on-the-fly in frontend
 CREATE TABLE transactions (
     txid TEXT NOT NULL, -- Bitcoin transaction ID (hash) - globally unique across Bitcoin network
     wallet_checksum TEXT NOT NULL,
@@ -44,9 +45,8 @@ CREATE TABLE transactions (
     block_height INTEGER, -- NULL = mempool, >0 = confirmed at this height
     first_seen_at INTEGER NOT NULL, -- Unix timestamp when we first detected this transaction
     confirmed_at INTEGER, -- Unix timestamp when transaction was confirmed (from block)
-    is_rbf BOOLEAN DEFAULT FALSE, -- Replace-by-fee
-    is_cpfp BOOLEAN DEFAULT FALSE, -- Child-pays-for-parent
-    balance_after INTEGER, -- Wallet balance after this transaction
+    is_rbf BOOLEAN DEFAULT FALSE, -- Replace-by-fee (not implemented yet)
+    is_cpfp BOOLEAN DEFAULT FALSE, -- Child-pays-for-parent (not implemented yet)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     -- Composite primary key allows same txid for different wallets
     PRIMARY KEY (txid, wallet_checksum),
@@ -88,7 +88,7 @@ CREATE TABLE notification_logs (
     notification_target_snapshot TEXT,
     provider_type_snapshot TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (transaction_txid, transaction_wallet_checksum) REFERENCES transactions (txid, wallet_checksum),
+    FOREIGN KEY (transaction_txid, transaction_wallet_checksum) REFERENCES transactions (txid, wallet_checksum) ON DELETE CASCADE,
     FOREIGN KEY (notification_method_id) REFERENCES contact_notification_methods (id) ON DELETE SET NULL
 );
 

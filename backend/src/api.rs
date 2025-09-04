@@ -9,7 +9,7 @@ use crate::electrum::BlockHeader;
 use crate::email_service::EmailService;
 use crate::metadata::{
     Contact, EventType, Language, MetadataDb, NotificationMethod, ProviderType,
-    TransactionEventWithWallet, WalletDetailResponse, WalletMetadata, WalletsListResponse,
+    WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::stripe_billing::{
@@ -4707,7 +4707,7 @@ pub async fn get_checkout_session_details(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
         CreateContactWithMethodsRequest, UpdateContactRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
         SendContactVerificationRequest, VerifyContactRequest, VerifyContactResponse,
-        Contact, NotificationMethod, ProviderType, TransactionEventWithWallet, EventType, Language,
+        Contact, NotificationMethod, ProviderType, EventType, Language,
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
         CreateCheckoutSessionRequest, CreateCustomerPortalRequest, BillingStatusResponse, CheckoutSessionResponse, CustomerPortalResponse,
         PricingInfo, FrontendTierPricing, FrontendPriceInfo,

@@ -61,8 +61,6 @@ impl WalletSyncService {
     ) -> Result<bool> {
         let mut has_changes = false;
 
-        // Get current wallet balance
-        let current_balance = wallet.balance().total().to_sat() as i64;
 
         // Get existing transactions sorted chronologically (oldest first for balance calculation)
         let existing_transactions = self.metadata_db

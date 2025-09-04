@@ -1,5 +1,5 @@
 use crate::metadata::{
-    Contact, EventType, Language, NotificationMethod, ProviderType, TransactionEvent,
+    Contact, EventType, Language, NotificationMethod, ProviderType, Transaction,
 };
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use crate::ntfy_provider::NtfyProvider;
@@ -7,22 +7,22 @@ use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
 use std::sync::Arc;
 
-fn create_test_event(
-    event_type: EventType,
+fn create_test_transaction(
+    transaction_type: EventType,
     amount_sats: i64,
-    is_confirmed: bool,
-) -> TransactionEvent {
-    TransactionEvent {
-        id: Some("550e8400-e29b-41d4-a716-446655440001".to_string()),
+    confirmed: bool,
+) -> Transaction {
+    Transaction {
+        txid: "550e8400e29b41d4a716446655440001".to_string(),
         wallet_checksum: "test_wallet".to_string(),
-        event_type,
+        transaction_type,
         amount_sats,
-        is_confirmed,
+        fee_sats: None,
+        block_height: if confirmed { Some(100) } else { None },
+        first_seen_at: 1672574400,
+        confirmed_at: if confirmed { Some(1672574400) } else { None },
         is_rbf: false,
         is_cpfp: false,
-        balance_total: Some(150_000_000),
-        transaction_time: 1672574400,
-        notification_status: vec![],
     }
 }
 
@@ -213,7 +213,7 @@ struct MockProvider {
 impl NotificationProvider for MockProvider {
     async fn send_notification(
         &self,
-        _event: &TransactionEvent,
+        _transaction: &Transaction,
         _wallet_name: &str,
         contacts: &[Contact],
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
