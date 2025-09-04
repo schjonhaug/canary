@@ -1240,7 +1240,29 @@ impl WalletManager {
         
         // Process each wallet with new transaction-based sync
         for wallet_metadata in wallets {
-            // Find the wallet in our Vec<(String, PersistedWallet)>
+            // Check if wallet is loaded in memory
+            let wallet_exists_in_memory = self.wallets
+                .iter()
+                .any(|(checksum, _)| checksum == &wallet_metadata.checksum);
+            
+            // If wallet is not in memory but is ready in DB, load it from disk
+            if !wallet_exists_in_memory {
+                let wallet_filename = format!("{}.sqlite", wallet_metadata.checksum);
+                let wallet_path = self.wallet_dir.join(&wallet_filename);
+                
+                if wallet_path.exists() {
+                    println!("📥 Loading wallet {} from disk for sync", wallet_metadata.name);
+                    if let Err(e) = self.load_wallet_from_file(&wallet_path).await {
+                        eprintln!("❌ Failed to load wallet {} from disk: {}", wallet_metadata.name, e);
+                        continue; // Skip this wallet if loading fails
+                    }
+                } else {
+                    eprintln!("❌ Wallet file not found for {}: {}", wallet_metadata.name, wallet_path.display());
+                    continue;
+                }
+            }
+            
+            // Find the wallet in our Vec<(String, PersistedWallet)> (should exist now)
             if let Some((_checksum, persisted_wallet)) = self.wallets
                 .iter_mut()
                 .find(|(checksum, _)| checksum == &wallet_metadata.checksum) 
@@ -1257,6 +1279,8 @@ impl WalletManager {
                         eprintln!("❌ Failed to sync wallet {}: {}", wallet_metadata.name, e);
                     }
                 }
+            } else {
+                eprintln!("❌ Wallet {} still not found in memory after loading attempt", wallet_metadata.name);
             }
         }
         
