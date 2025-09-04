@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, XCircle, Loader2, ArrowRight } from "lucide-react"
+import { CheckCircle, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
@@ -125,6 +125,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Date/Time</TableHead>
                 {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
@@ -135,6 +136,9 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
             <TableBody>
               {[1, 2, 3, 4, 5].map((i) => (
                 <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-4" />
+                  </TableCell>
                   <TableCell>
                     <Skeleton className="h-4 w-32" />
                   </TableCell>
@@ -191,12 +195,12 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
             <TableCaption>A list of all transactions from the Canary system.</TableCaption>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Date/Time</TableHead>
                 {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Notifications</TableHead>
-                <TableHead>Details</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -210,6 +214,13 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       className={`cursor-pointer hover:bg-muted/50 transition-colors ${isExpanded ? 'bg-muted/30' : ''}`}
                       onClick={() => toggleRowExpansion(transaction.txid)}
                     >
+                      <TableCell className="text-center">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 transition-transform duration-200" />
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm">
                         {formatDateTime(transaction.confirmed_at || transaction.first_seen_at)}
                       </TableCell>
@@ -249,7 +260,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                         {formatBitcoinAmount(transaction.amount_sats, transaction.transaction_type)}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {notificationSummary ? (
+                        {notificationSummary && (
                           <div className="flex items-center gap-1">
                             {notificationSummary.icons.map((iconInfo, idx) => (
                               <span key={idx} title={`${iconInfo.count} ${iconInfo.type} notification${iconInfo.count !== 1 ? 's' : ''}`}>
@@ -257,18 +268,12 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                               </span>
                             ))}
                           </div>
-                        ) : (
-                          <span>None</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-center">
-                        <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                      </TableCell>
                     </TableRow>
-                    {isExpanded && (
-                      <TableRow className="bg-muted/20">
-                        <TableCell colSpan={walletsCount > 1 ? 7 : 6} className="p-0">
-                          <div className="px-4 py-3">
+                    <TableRow className={`bg-muted/20 transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'h-auto' : 'h-0'}`} style={{ lineHeight: isExpanded ? 'normal' : '0' }}>
+                      <TableCell colSpan={walletsCount > 1 ? 7 : 6} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'}`}>
+                        <div className={`px-4 transform transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'py-3 translate-y-0 max-h-96' : 'py-0 -translate-y-2 max-h-0'}`}>
                             <div className="space-y-4">
                               {/* Transaction Details */}
                               <div>
@@ -422,13 +427,12 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                       </div>
                                     )
                                   })()}
-                                </div>
-                              )}
+                              </div>
+                            )}
                             </div>
                           </div>
                         </TableCell>
                       </TableRow>
-                    )}
                   </React.Fragment>
                 )
               })}
