@@ -1,15 +1,13 @@
 use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::ElectrumClient;
-use crate::metadata::{EventType, MetadataDb, TransactionNotification, WalletMetadata};
+use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::broadcast;
 
@@ -298,11 +296,7 @@ pub struct WalletManager {
     pub electrum_client: Option<ElectrumClient>,
     pub metadata_db: MetadataDb,
     pub notification_sender: broadcast::Sender<TransactionNotification>,
-    // pub sync_service: WalletSyncService, // Temporarily commented out
     network: Network,
-    // Sync overlap protection
-    sync_in_progress: Arc<AtomicBool>,
-    sync_start_time: Option<Instant>,
 }
 
 impl WalletManager {
@@ -351,10 +345,7 @@ impl WalletManager {
             electrum_client,
             metadata_db,
             notification_sender,
-            // sync_service, // Temporarily commented out
             network,
-            sync_in_progress: Arc::new(AtomicBool::new(false)),
-            sync_start_time: None,
         };
 
         // Don't load wallets at startup - this blocks the server from starting!
@@ -369,16 +360,6 @@ impl WalletManager {
         self.network
     }
 
-    /// Convert BDK Network to NetworkConfig for tier limit calculations
-    fn bdk_network_to_config(&self) -> NetworkConfig {
-        match self.network {
-            Network::Bitcoin => NetworkConfig::Mainnet,
-            Network::Testnet => NetworkConfig::Testnet,
-            Network::Regtest => NetworkConfig::Regtest,
-            Network::Signet => NetworkConfig::Testnet, // Treat signet as testnet for sync purposes
-            _ => NetworkConfig::Regtest,               // Default fallback for any unknown networks
-        }
-    }
 
     /// Create or load a SQLite connection for a wallet
     pub fn create_sqlite_connection(&self, wallet_path: &PathBuf) -> Result<Connection> {
@@ -841,7 +822,7 @@ impl WalletManager {
         }
 
         // Extract historical transactions after sync
-        if let Err(e) = Self::extract_historical_transactions_for_background(
+        if let Err(e) = crate::sync::WalletSyncService::extract_historical_transactions_for_background(
             &wallet,
             &checksum,
             &metadata_db,
@@ -883,232 +864,22 @@ impl WalletManager {
         Ok(())
     }
 
-    /// Extract historical transactions for background task (static version)
-    async fn extract_historical_transactions_for_background(
-        wallet: &PersistedWallet<Connection>,
-        wallet_checksum: &str,
-        metadata_db: &MetadataDb,
-        electrum_client: Option<&crate::electrum::ElectrumClient>,
-    ) -> Result<()> {
-        println!("[{}] Extracting historical transactions", wallet_checksum);
 
-        // Collect all transactions and sort them chronologically
-        let mut all_transactions: Vec<_> = wallet.transactions().collect();
-
-        // Sort transactions chronologically (confirmed first, then by height/timestamp)
-        all_transactions.sort_by(|a, b| {
-            match (&a.chain_position, &b.chain_position) {
-                // Both confirmed: sort by block height
-                (
-                    bdk_wallet::chain::ChainPosition::Confirmed {
-                        anchor: anchor_a, ..
-                    },
-                    bdk_wallet::chain::ChainPosition::Confirmed {
-                        anchor: anchor_b, ..
-                    },
-                ) => anchor_a.block_id.height.cmp(&anchor_b.block_id.height),
-                // Both unconfirmed: sort by first_seen timestamp if available
-                (
-                    bdk_wallet::chain::ChainPosition::Unconfirmed {
-                        first_seen: first_a,
-                        ..
-                    },
-                    bdk_wallet::chain::ChainPosition::Unconfirmed {
-                        first_seen: first_b,
-                        ..
-                    },
-                ) => first_a.unwrap_or(0).cmp(&first_b.unwrap_or(0)),
-                // Confirmed comes before unconfirmed
-                (
-                    bdk_wallet::chain::ChainPosition::Confirmed { .. },
-                    bdk_wallet::chain::ChainPosition::Unconfirmed { .. },
-                ) => std::cmp::Ordering::Less,
-                // Unconfirmed comes after confirmed
-                (
-                    bdk_wallet::chain::ChainPosition::Unconfirmed { .. },
-                    bdk_wallet::chain::ChainPosition::Confirmed { .. },
-                ) => std::cmp::Ordering::Greater,
-            }
-        });
-
-        println!(
-            "[{}] Found {} historical transactions to process",
-            wallet_checksum,
-            all_transactions.len()
-        );
-
-        // Get current wallet balance
-        let current_balance = wallet.balance().total().to_sat() as i64;
-
-        // Calculate initial balance by working backwards from current balance
-        let total_net_change: i64 = all_transactions
-            .iter()
-            .map(|tx| {
-                let sent = wallet.sent_and_received(&tx.tx_node).0;
-                let received = wallet.sent_and_received(&tx.tx_node).1;
-                received.to_sat() as i64 - sent.to_sat() as i64
-            })
-            .filter(|&net| net != 0) // Skip zero net amount transactions
-            .sum();
-
-        let initial_balance = current_balance - total_net_change;
-
-        println!(
-            "[{}] Current balance: {:.8} BTC, Initial balance: {:.8} BTC",
-            wallet_checksum,
-            current_balance as f64 / 100_000_000.0,
-            initial_balance as f64 / 100_000_000.0
-        );
-
-        // Process each transaction chronologically using new transaction-based approach
-        for tx in all_transactions {
-            let txid = tx.tx_node.txid.to_string();
-            let sent = wallet.sent_and_received(&tx.tx_node).0;
-            let received = wallet.sent_and_received(&tx.tx_node).1;
-            let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
-            let _is_confirmed = tx.chain_position.is_confirmed();
-
-            // Skip transactions with zero net amount
-            if net_amount == 0 {
-                continue;
-            }
-
-
-            let (transaction_type, amount_sats) = if net_amount > 0 {
-                (EventType::Receive, net_amount)
-            } else {
-                (EventType::Send, net_amount.abs())
-            };
-
-            // Get block height and confirmation details
-            let (block_height, confirmed_at) = match &tx.chain_position {
-                bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
-                    let block_height = Some(anchor.block_id.height);
-                    // Fetch actual block timestamp from Electrum
-                    let confirmed_at = if let Some(electrum_client) = electrum_client {
-                        match electrum_client.get_block_header(anchor.block_id.height) {
-                            Ok(header) => Some(header.timestamp),
-                            Err(e) => {
-                                eprintln!(
-                                    "[{}] Failed to fetch block header for height {}: {}",
-                                    wallet_checksum, anchor.block_id.height, e
-                                );
-                                // Fallback to current time only if fetch fails
-                                Some(std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_secs())
-                            }
-                        }
-                    } else {
-                        // No electrum client available, use current time as fallback
-                        Some(std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs())
-                    };
-                    (block_height, confirmed_at)
-                }
-                bdk_wallet::chain::ChainPosition::Unconfirmed { .. } => {
-                    (None, None)
-                }
-            };
-
-            // Get first_seen timestamp
-            let first_seen_at = match &tx.chain_position {
-                bdk_wallet::chain::ChainPosition::Confirmed { .. } => {
-                    confirmed_at.unwrap_or_else(|| {
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs()
-                    })
-                }
-                bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => first_seen
-                    .unwrap_or_else(|| {
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs()
-                    }),
-            };
-
-            // Create transaction insert using new schema
-            let transaction_insert = crate::metadata::TransactionInsert {
-                txid,
-                wallet_checksum: wallet_checksum.to_string(),
-                transaction_type,
-                amount_sats,
-                fee_sats: None, // TODO: Calculate fees for historical transactions
-                block_height,
-                first_seen_at,
-                confirmed_at,
-                is_rbf: false, // TODO: Detect RBF for historical transactions
-                is_cpfp: false, // TODO: Detect CPFP for historical transactions
-            };
-
-            // Insert individual transaction
-            if let Err(e) = metadata_db.insert_transaction(&transaction_insert).await {
-                eprintln!(
-                    "[{}] Failed to insert historical transaction {}: {}",
-                    wallet_checksum, transaction_insert.txid, e
-                );
-            }
-        }
-
-        println!(
-            "[{}] Historical transaction extraction completed",
-            wallet_checksum
-        );
-        Ok(())
-    }
-
-    /// Helper function to get timestamp of new sending transactions
-    fn get_new_send_transaction_timestamp(
-        wallet: &PersistedWallet<Connection>,
-        unconfirmed_sends_before: &Vec<(String, i64)>,
-    ) -> u64 {
-        wallet
-            .transactions()
-            .filter_map(|tx| {
-                if !tx.chain_position.is_confirmed() {
-                    let sent = wallet.sent_and_received(&tx.tx_node).0;
-                    let received = wallet.sent_and_received(&tx.tx_node).1;
-                    let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
-                    if net_amount < 0 {
-                        let txid = tx.tx_node.txid.to_string();
-                        // Check if this is a NEW transaction (not in the before list)
-                        if !unconfirmed_sends_before.iter().any(|(id, _)| id == &txid) {
-                            // Get the first_seen timestamp
-                            if let bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } = &tx.chain_position {
-                                return Some(first_seen.unwrap_or_else(|| Self::get_current_timestamp()));
-                            }
-                        }
-                    }
-                }
-                None
-            })
-            .next()
-            .unwrap_or_else(|| Self::get_current_timestamp())
-    }
-
+    /// Sync a single wallet by checksum (delegates to sync service)
     pub async fn sync_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<bool> {
-        println!("[{}] 🔍 Starting transaction-based sync", wallet_checksum);
-
         // Find the wallet
         if let Some((_, wallet)) = self
             .wallets
             .iter_mut()
             .find(|(checksum, _)| checksum == wallet_checksum)
         {
-            // Use the new transaction-based sync service
-            let electrum_client = self.electrum_client.as_ref();
+            // Use the transaction-based sync service
             let sync_service = crate::sync::WalletSyncService::new(
                 self.metadata_db.clone(),
                 self.notification_sender.clone(),
             );
             let has_changes = sync_service
-                .sync_wallet_by_checksum(wallet, wallet_checksum, electrum_client)
+                .sync_wallet_by_checksum(wallet, wallet_checksum, self.electrum_client.as_ref())
                 .await?;
 
             // Persist wallet changes to disk
@@ -1116,7 +887,6 @@ impl WalletManager {
 
             Ok(has_changes)
         } else {
-            // Wallet not found in memory - this shouldn't happen during normal operation
             eprintln!("[{}] Wallet not found in memory", wallet_checksum);
             Ok(false)
         }
@@ -1287,15 +1057,6 @@ impl WalletManager {
         Ok(())
     }
 
-    // TODO: Clean up and implement other methods below using new sync system
-    
-    fn get_current_timestamp() -> u64 {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-    }
 
     /// Apply subscription tier limits by setting is_active status on wallets and contacts
     pub async fn apply_subscription_limits(

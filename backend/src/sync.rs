@@ -1,8 +1,7 @@
 use crate::electrum::ElectrumClient;
 use crate::metadata::{EventType, MetadataDb, Transaction, TransactionInsert, TransactionNotification};
-use anyhow::{anyhow, Result};
-use bdk_wallet::{chain::ChainPosition, rusqlite::Connection, PersistedWallet};
-use bdk_wallet::chain::ConfirmationBlockTime;
+use anyhow::Result;
+use bdk_wallet::{rusqlite::Connection, PersistedWallet};
 use tokio::sync::broadcast;
 
 /// Transaction-based wallet sync service
@@ -196,19 +195,6 @@ impl WalletSyncService {
         Ok(has_changes)
     }
 
-    /// Extract block height and timestamp from chain position
-    fn get_confirmation_details(&self, chain_position: &ChainPosition<ConfirmationBlockTime>) -> Result<(i64, u64)> {
-        match chain_position {
-            ChainPosition::Confirmed { anchor, .. } => {
-                let block_height = anchor.block_id.height as i64;
-                let confirmed_at = anchor.confirmation_time as u64;
-                Ok((block_height, confirmed_at))
-            }
-            ChainPosition::Unconfirmed { .. } => {
-                Err(anyhow!("Transaction is not confirmed"))
-            }
-        }
-    }
 
     /// Send notification for a new transaction (either pending or directly confirmed)
     async fn send_new_transaction_notification(&self, transaction: &TransactionInsert) -> Result<()> {
@@ -257,4 +243,185 @@ impl WalletSyncService {
 
         Ok(())
     }
+
+    /// Extract historical transactions for background task (moved from wallet.rs)
+    pub async fn extract_historical_transactions_for_background(
+        wallet: &PersistedWallet<Connection>,
+        wallet_checksum: &str,
+        metadata_db: &MetadataDb,
+        electrum_client: Option<&crate::electrum::ElectrumClient>,
+    ) -> Result<()> {
+        println!("[{}] Extracting historical transactions", wallet_checksum);
+
+        // Collect all transactions and sort them chronologically
+        let mut all_transactions: Vec<_> = wallet.transactions().collect();
+
+        // Sort transactions chronologically (confirmed first, then by height/timestamp)
+        all_transactions.sort_by(|a, b| {
+            match (&a.chain_position, &b.chain_position) {
+                // Both confirmed: sort by block height
+                (
+                    bdk_wallet::chain::ChainPosition::Confirmed {
+                        anchor: anchor_a, ..
+                    },
+                    bdk_wallet::chain::ChainPosition::Confirmed {
+                        anchor: anchor_b, ..
+                    },
+                ) => anchor_a.block_id.height.cmp(&anchor_b.block_id.height),
+                // Both unconfirmed: sort by first_seen timestamp if available
+                (
+                    bdk_wallet::chain::ChainPosition::Unconfirmed {
+                        first_seen: first_a,
+                        ..
+                    },
+                    bdk_wallet::chain::ChainPosition::Unconfirmed {
+                        first_seen: first_b,
+                        ..
+                    },
+                ) => first_a.unwrap_or(0).cmp(&first_b.unwrap_or(0)),
+                // Confirmed comes before unconfirmed
+                (
+                    bdk_wallet::chain::ChainPosition::Confirmed { .. },
+                    bdk_wallet::chain::ChainPosition::Unconfirmed { .. },
+                ) => std::cmp::Ordering::Less,
+                // Unconfirmed comes after confirmed
+                (
+                    bdk_wallet::chain::ChainPosition::Unconfirmed { .. },
+                    bdk_wallet::chain::ChainPosition::Confirmed { .. },
+                ) => std::cmp::Ordering::Greater,
+            }
+        });
+
+        println!(
+            "[{}] Found {} historical transactions to process",
+            wallet_checksum,
+            all_transactions.len()
+        );
+
+        // Get current wallet balance
+        let current_balance = wallet.balance().total().to_sat() as i64;
+
+        // Calculate initial balance by working backwards from current balance
+        let total_net_change: i64 = all_transactions
+            .iter()
+            .map(|tx| {
+                let sent = wallet.sent_and_received(&tx.tx_node).0;
+                let received = wallet.sent_and_received(&tx.tx_node).1;
+                received.to_sat() as i64 - sent.to_sat() as i64
+            })
+            .filter(|&net| net != 0) // Skip zero net amount transactions
+            .sum();
+
+        let initial_balance = current_balance - total_net_change;
+
+        println!(
+            "[{}] Current balance: {:.8} BTC, Initial balance: {:.8} BTC",
+            wallet_checksum,
+            current_balance as f64 / 100_000_000.0,
+            initial_balance as f64 / 100_000_000.0
+        );
+
+        // Process each transaction chronologically using new transaction-based approach
+        for tx in all_transactions {
+            let txid = tx.tx_node.txid.to_string();
+            let sent = wallet.sent_and_received(&tx.tx_node).0;
+            let received = wallet.sent_and_received(&tx.tx_node).1;
+            let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+            let _is_confirmed = tx.chain_position.is_confirmed();
+
+            // Skip transactions with zero net amount
+            if net_amount == 0 {
+                continue;
+            }
+
+
+            let (transaction_type, amount_sats) = if net_amount > 0 {
+                (EventType::Receive, net_amount)
+            } else {
+                (EventType::Send, net_amount.abs())
+            };
+
+            // Get block height and confirmation details
+            let (block_height, confirmed_at) = match &tx.chain_position {
+                bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
+                    let block_height = Some(anchor.block_id.height);
+                    // Fetch actual block timestamp from Electrum
+                    let confirmed_at = if let Some(electrum_client) = electrum_client {
+                        match electrum_client.get_block_header(anchor.block_id.height) {
+                            Ok(header) => Some(header.timestamp),
+                            Err(e) => {
+                                eprintln!(
+                                    "[{}] Failed to fetch block header for height {}: {}",
+                                    wallet_checksum, anchor.block_id.height, e
+                                );
+                                // Fallback to current time only if fetch fails
+                                Some(std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs())
+                            }
+                        }
+                    } else {
+                        // No electrum client available, use current time as fallback
+                        Some(std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs())
+                    };
+                    (block_height, confirmed_at)
+                }
+                bdk_wallet::chain::ChainPosition::Unconfirmed { .. } => {
+                    (None, None)
+                }
+            };
+
+            // Get first_seen timestamp
+            let first_seen_at = match &tx.chain_position {
+                bdk_wallet::chain::ChainPosition::Confirmed { .. } => {
+                    confirmed_at.unwrap_or_else(|| {
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs()
+                    })
+                }
+                bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => first_seen
+                    .unwrap_or_else(|| {
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs()
+                    }),
+            };
+
+            // Create transaction insert using new schema
+            let transaction_insert = TransactionInsert {
+                txid,
+                wallet_checksum: wallet_checksum.to_string(),
+                transaction_type,
+                amount_sats,
+                fee_sats: None, // TODO: Calculate fees for historical transactions
+                block_height,
+                first_seen_at,
+                confirmed_at,
+                is_rbf: false, // TODO: Detect RBF for historical transactions
+                is_cpfp: false, // TODO: Detect CPFP for historical transactions
+            };
+
+            // Insert individual transaction
+            if let Err(e) = metadata_db.insert_transaction(&transaction_insert).await {
+                eprintln!(
+                    "[{}] Failed to insert historical transaction {}: {}",
+                    wallet_checksum, transaction_insert.txid, e
+                );
+            }
+        }
+
+        println!(
+            "[{}] Historical transaction extraction completed",
+            wallet_checksum
+        );
+        Ok(())
+    }
+
 }

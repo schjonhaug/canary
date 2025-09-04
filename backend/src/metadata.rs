@@ -253,18 +253,6 @@ pub struct TransactionInsert {
     pub is_cpfp: bool,
 }
 
-// Keep old EventInsert for backward compatibility during transition
-#[derive(Debug, Default, Clone)]
-pub struct EventInsert {
-    pub wallet_checksum: String,
-    pub event_type: EventType,
-    pub amount_sats: i64,
-    pub is_confirmed: bool,
-    pub is_rbf: bool,
-    pub is_cpfp: bool,
-    pub balance_total: Option<i64>,
-    pub transaction_time: u64,
-}
 
 impl Default for EventType {
     fn default() -> Self {
@@ -995,67 +983,6 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn insert_event(&self, event: &EventInsert) -> Result<String> {
-        let pool = self.pool.clone();
-        let event = event.clone();
-
-        spawn_blocking(move || -> Result<String> {
-            let conn = pool.get()?;
-            let event_id = Uuid::new_v4().to_string();
-            conn.execute(
-                "INSERT INTO transaction_events (id, wallet_checksum, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![
-                    &event_id,
-                    event.wallet_checksum,
-                    event.event_type.as_str(),
-                    event.amount_sats,
-                    event.is_confirmed as i32,
-                    event.is_rbf as i32,
-                    event.is_cpfp as i32,
-                    event.balance_total,
-                    event.transaction_time,
-                ],
-            )?;
-            Ok(event_id)
-        }).await?
-    }
-
-    pub async fn insert_events_batch(&self, events: Vec<EventInsert>) -> Result<Vec<i64>> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<Vec<i64>> {
-            let conn = pool.get()?;
-            let mut event_ids = Vec::new();
-            
-            // Use a transaction for better performance
-            let tx = conn.unchecked_transaction()?;
-            
-            for event in events {
-                let event_id_str = uuid::Uuid::new_v4().to_string();
-                tx.execute(
-                    "INSERT INTO transaction_events (id, wallet_checksum, event_type, amount_sats, is_confirmed, is_rbf, is_cpfp, balance_total, transaction_time) 
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                    [
-                        &event_id_str,
-                        &event.wallet_checksum,
-                        event.event_type.as_str(),
-                        &event.amount_sats.to_string(),
-                        &(event.is_confirmed as i32).to_string(),
-                        &(event.is_rbf as i32).to_string(),
-                        &(event.is_cpfp as i32).to_string(),
-                        &event.balance_total.map(|b| b.to_string()).unwrap_or_else(|| "NULL".to_string()),
-                        &event.transaction_time.to_string(),
-                    ],
-                )?;
-                // For return value, we need to parse the ID but sqlite rowid starts from 1
-                event_ids.push(1); // Placeholder since we're not using the returned IDs
-            }
-            
-            tx.commit()?;
-            Ok(event_ids)
-        }).await?
-    }
 
     // New transaction-based methods
     pub async fn insert_transaction(&self, transaction: &TransactionInsert) -> Result<String> {
@@ -1437,13 +1364,6 @@ impl MetadataDb {
         .await?
     }
 
-    /// Alias for get_contacts_with_notification_methods (for sync service)
-    pub async fn get_contacts_by_wallet_checksum(
-        &self,
-        wallet_checksum: &str,
-    ) -> Result<Vec<Contact>> {
-        self.get_contacts_with_notification_methods(wallet_checksum).await
-    }
 
     pub async fn delete_wallet_contact(
         &self,
