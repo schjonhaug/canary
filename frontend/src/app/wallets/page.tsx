@@ -15,6 +15,11 @@ export default function WalletsPage() {
   const { isAuthenticated, isLoading, user, isSaasMode } = useAuth()
   const router = useRouter()
 
+  // Set page title
+  useEffect(() => {
+    document.title = "Canary - Wallets"
+  }, [])
+
   const getTotalBalance = () => {
     return wallets.reduce((total, wallet) => {
       return total + wallet.balance_total

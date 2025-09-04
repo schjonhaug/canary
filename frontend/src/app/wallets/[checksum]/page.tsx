@@ -52,6 +52,13 @@ export default function WalletDetailPage() {
       setCurrentWallet(wallet)
     }
   }, [wallet, setCurrentWallet])
+
+  // Set page title with wallet name
+  useEffect(() => {
+    if (wallet?.name) {
+      document.title = `Canary - ${wallet.name}`
+    }
+  }, [wallet?.name])
   
 
   const handleWalletUpdated = () => {
