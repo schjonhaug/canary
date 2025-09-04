@@ -332,7 +332,9 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                         return acc
                                       }, {} as Record<string, typeof notifications>)
 
-                                      return Object.entries(notificationsByContact).map(([contactName, contactNotifications]) => (
+                                      return Object.entries(notificationsByContact)
+                                        .sort(([a], [b]) => a.localeCompare(b))
+                                        .map(([contactName, contactNotifications]) => (
                                         <div key={contactName} className="space-y-1">
                                           {contactNotifications.map((notification, idx) => (
                                             <div key={idx} className="flex items-center gap-2 text-sm">
