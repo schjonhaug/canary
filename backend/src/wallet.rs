@@ -864,53 +864,6 @@ impl WalletManager {
         Ok(())
     }
 
-
-    /// Sync a single wallet by checksum (delegates to sync service)
-    pub async fn sync_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<bool> {
-        // Find the wallet
-        if let Some((_, wallet)) = self
-            .wallets
-            .iter_mut()
-            .find(|(checksum, _)| checksum == wallet_checksum)
-        {
-            // Use the transaction-based sync service
-            let sync_service = crate::sync::WalletSyncService::new(
-                self.metadata_db.clone(),
-                self.notification_sender.clone(),
-            );
-            let has_changes = sync_service
-                .sync_wallet_by_checksum(wallet, wallet_checksum, self.electrum_client.as_ref())
-                .await?;
-
-            // Persist wallet changes to disk
-            self.persist_wallet_by_checksum(wallet_checksum).await?;
-
-            Ok(has_changes)
-        } else {
-            eprintln!("[{}] Wallet not found in memory", wallet_checksum);
-            Ok(false)
-        }
-    }
-
-    /// Helper function to persist a specific wallet by checksum
-    async fn persist_wallet_by_checksum(&mut self, wallet_checksum: &str) -> Result<()> {
-        let wallet_filename = format!("{}.sqlite", wallet_checksum);
-        let wallet_path = self.wallet_dir.join(&wallet_filename);
-        let mut db = self.create_sqlite_connection(&wallet_path)?;
-
-        if let Some((_, wallet)) = self
-            .wallets
-            .iter_mut()
-            .find(|(checksum, _)| checksum == wallet_checksum)
-        {
-            wallet
-                .persist(&mut db)
-                .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
-        }
-
-        Ok(())
-    }
-
     /// Clean up deleted wallets - remove from memory, disk, and database
     async fn cleanup_deleted_wallets(&mut self) -> Result<()> {
         // Get ready wallets from database (source of truth)

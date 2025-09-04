@@ -52,46 +52,32 @@ async fn test_alice_partial_send_bob_mined_directly() {
     println!("   Alice transactions: {}", post_sync_alice_transactions.len());
     println!("   Bob transactions: {}", post_sync_bob_transactions.len());
     
-    // Find new events (those not in initial state)
-    let new_alice_transactions: Vec<_> = post_sync_alice_transactions.iter()
-        .skip(initial_alice_transactions.len())
-        .collect();
-    let new_bob_transactions: Vec<_> = post_sync_bob_transactions.iter()
-        .skip(initial_bob_transactions.len())
-        .collect();
+    // Expected: Alice should have 1 Send transaction, Bob should have 1 Receive transaction
+    println!("🔍 Alice total transactions: {}", post_sync_alice_transactions.len());
+    println!("🔍 Bob total transactions: {}", post_sync_bob_transactions.len());
     
-    println!("🔍 Debug: new_alice_transactions count: {}", new_alice_transactions.len());
-    println!("🔍 Debug: new_bob_transactions count: {}", new_bob_transactions.len());
-    println!("🔍 Total Alice transactions: {}, Total Bob transactions: {}", post_sync_alice_transactions.len(), post_sync_bob_transactions.len());
-    
-    if !new_alice_transactions.is_empty() {
-        for (i, transaction) in new_alice_transactions.iter().enumerate() {
-            println!("🔍 New Alice transaction {}: type={:?}, amount={}, confirmed={}", 
-                     i, transaction.transaction_type, transaction.amount_sats, transaction.block_height.is_some());
-        }
-    }
-    
-    if !new_bob_transactions.is_empty() {
-        for (i, transaction) in new_bob_transactions.iter().enumerate() {
-            println!("🔍 New Bob event {}: type={:?}, amount={}, confirmed={}", 
-                     i, transaction.transaction_type, transaction.amount_sats, transaction.block_height.is_some());
-        }
-    }
-    
-    // Verify we have new events
-    assert!(!new_alice_transactions.is_empty(), "Alice should have new events");
-    assert!(!new_bob_transactions.is_empty(), "Bob should have new events");
-    
-    // Look for Send and Receive events
-    let alice_send_events: Vec<_> = new_alice_transactions.iter()
+    // Look for Send and Receive transactions in all transactions (not just "new" ones)
+    let alice_send_transactions: Vec<_> = post_sync_alice_transactions.iter()
         .filter(|t| t.transaction_type == EventType::Send)
         .collect();
-    let bob_receive_events: Vec<_> = new_bob_transactions.iter()
+    let bob_receive_transactions: Vec<_> = post_sync_bob_transactions.iter()
         .filter(|t| t.transaction_type == EventType::Receive)
         .collect();
     
-    println!("🔍 Alice Send events: {}", alice_send_events.len());
-    println!("🔍 Bob Receive events: {}", bob_receive_events.len());
+    println!("🔍 Alice Send transactions: {}", alice_send_transactions.len());
+    println!("🔍 Bob Receive transactions: {}", bob_receive_transactions.len());
+    
+    // Debug: Show all Alice transactions
+    for (i, transaction) in post_sync_alice_transactions.iter().enumerate() {
+        println!("🔍 Alice transaction {}: type={:?}, amount={}, confirmed={}", 
+                 i, transaction.transaction_type, transaction.amount_sats, transaction.block_height.is_some());
+    }
+    
+    // Debug: Show all Bob transactions  
+    for (i, transaction) in post_sync_bob_transactions.iter().enumerate() {
+        println!("🔍 Bob transaction {}: type={:?}, amount={}, confirmed={}", 
+                 i, transaction.transaction_type, transaction.amount_sats, transaction.block_height.is_some());
+    }
     
     // DEBUGGING: Check actual Bitcoin Core balances to verify if Alice got 1 or 2 BTC
     let bitcoin_container_name = format!("test-bitcoin-{}", env.test_id);
@@ -114,27 +100,44 @@ async fn test_alice_partial_send_bob_mined_directly() {
         Err(e) => println!("❌ Failed to get Alice's transactions: {}", e),
     }
     
-    // Verify events are mined directly (the key test for mined directly)
-    let confirmed_alice_sends: Vec<_> = alice_send_events.iter()
-        .filter(|t| t.block_height.is_some())
-        .collect();
-    let confirmed_bob_receives: Vec<_> = bob_receive_events.iter()
-        .filter(|t| t.block_height.is_some())
-        .collect();
+    // New Transaction System Expectations:
+    // Alice should have: 1 Receive (initial funding) + 1 Send (to Bob) = 2 total transactions
+    // Bob should have: 1 Receive (from Alice) = 1 total transaction
     
-    assert!(!confirmed_alice_sends.is_empty(), "Alice should have confirmed Send events");
-    assert!(!confirmed_bob_receives.is_empty(), "Bob should have confirmed Receive events");
+    assert_eq!(post_sync_alice_transactions.len(), 2, 
+        "Alice should have 2 transactions: 1 initial receive + 1 send to Bob");
+    assert_eq!(post_sync_bob_transactions.len(), 1, 
+        "Bob should have 1 transaction: 1 receive from Alice");
+    
+    // Alice should have exactly 1 Send transaction
+    assert_eq!(alice_send_transactions.len(), 1, 
+        "Alice should have exactly 1 Send transaction");
+    
+    // Bob should have exactly 1 Receive transaction  
+    assert_eq!(bob_receive_transactions.len(), 1,
+        "Bob should have exactly 1 Receive transaction");
+    
+    // Verify transactions are confirmed (mined directly)
+    let alice_send = alice_send_transactions[0];
+    let bob_receive = bob_receive_transactions[0];
+    
+    assert!(alice_send.block_height.is_some(), 
+        "Alice's Send transaction should be confirmed (mined directly)");
+    assert!(bob_receive.block_height.is_some(),
+        "Bob's Receive transaction should be confirmed (mined directly)");
     
     // Verify amounts are reasonable for 0.1 BTC transaction
-    let expected_amount = 10_000_000i64; // 0.1 BTC in sats
-    let bob_received_correct_amount = bob_receive_events.iter()
-        .any(|t| t.amount_sats == expected_amount);
+    let expected_bob_amount = 10_000_000i64; // 0.1 BTC in sats
+    assert_eq!(bob_receive.amount_sats, expected_bob_amount,
+        "Bob should receive exactly 0.1 BTC");
     
-    assert!(bob_received_correct_amount, "Bob should receive 0.1 BTC (10M sats)");
+    // Alice's send amount should be 0.1 BTC + fees (slightly more than 0.1 BTC)
+    assert!(alice_send.amount_sats >= expected_bob_amount,
+        "Alice's send amount should be at least 0.1 BTC (including fees)");
     
-    println!("✅ Test 4 passed - Mined directly partial send detected correctly!");
-    println!("   - Events created for both Alice and Bob");
-    println!("   - All events are mined directly (no intermediate states)");
+    println!("✅ Test passed - Mined directly partial send detected correctly!");
+    println!("   - Alice has 1 Send transaction, Bob has 1 Receive transaction");
+    println!("   - All transactions are mined directly (no intermediate states)");
     println!("   - Correct transaction amounts detected");
 }
 
@@ -174,70 +177,57 @@ async fn test_alice_full_send_bob_mined_directly() {
     println!("   Bob transactions: {}", post_sync_bob_transactions.len());
     
     // Find new events (full send events)
-    let new_alice_count = post_sync_alice_transactions.len() - initial_alice_transactions.len();
-    let new_bob_count = post_sync_bob_transactions.len() - initial_bob_transactions.len();
-    
-    assert!(new_alice_count > 0, "Alice should have new full send events");
-    assert!(new_bob_count > 0, "Bob should have new receive events");
-    
-    // Look for new Send and Receive events
-    let new_alice_transactions: Vec<_> = post_sync_alice_transactions.iter()
-        .skip(initial_alice_transactions.len())
-        .collect();
-    let new_bob_transactions: Vec<_> = post_sync_bob_transactions.iter()
-        .skip(initial_bob_transactions.len())
-        .collect();
-    
-    let alice_send_events: Vec<_> = new_alice_transactions.iter()
+    // Look for Send and Receive transactions in all transactions (not just "new" ones)
+    let alice_send_transactions: Vec<_> = post_sync_alice_transactions.iter()
         .filter(|t| t.transaction_type == EventType::Send)
         .collect();
-    let bob_receive_events: Vec<_> = new_bob_transactions.iter()
+    let bob_receive_transactions: Vec<_> = post_sync_bob_transactions.iter()
         .filter(|t| t.transaction_type == EventType::Receive)
         .collect();
     
-    assert!(!alice_send_events.is_empty(), "Alice should have Send events for full send");
-    assert!(!bob_receive_events.is_empty(), "Bob should have Receive events");
+    // New Transaction System Expectations for Full Send:
+    // Alice should have: 1 Receive (initial funding) + 1 Send (full send to Bob) = 2 total transactions
+    // Bob should have: 1 Receive (from Alice) = 1 total transaction
     
-    // Debug: Show all Alice full send events and their confirmation status
-    println!("🔍 DEBUG Alice full send events:");
-    for (i, transaction) in alice_send_events.iter().enumerate() {
-        println!("   Alice Send event {}: type={:?}, amount={}, confirmed={}", 
-                 i, transaction.transaction_type, transaction.amount_sats, transaction.block_height.is_some());
-    }
+    assert_eq!(post_sync_alice_transactions.len(), 2, 
+        "Alice should have 2 transactions: 1 initial receive + 1 full send to Bob");
+    assert_eq!(post_sync_bob_transactions.len(), 1, 
+        "Bob should have 1 transaction: 1 receive from Alice");
     
-    println!("🔍 DEBUG Bob receive events:");
-    for (i, transaction) in bob_receive_events.iter().enumerate() {
-        println!("   Bob Receive event {}: type={:?}, amount={}, confirmed={}", 
-                 i, transaction.transaction_type, transaction.amount_sats, transaction.block_height.is_some());
-    }
+    // Alice should have exactly 1 Send transaction
+    assert_eq!(alice_send_transactions.len(), 1, 
+        "Alice should have exactly 1 Send transaction for full send");
     
-    // Verify events are mined directly (key test for mined directly)
-    let confirmed_alice_sends: Vec<_> = alice_send_events.iter()
-        .filter(|t| t.block_height.is_some())
-        .collect();
-    let confirmed_bob_receives: Vec<_> = bob_receive_events.iter()
-        .filter(|t| t.block_height.is_some())
-        .collect();
+    // Bob should have exactly 1 Receive transaction  
+    assert_eq!(bob_receive_transactions.len(), 1,
+        "Bob should have exactly 1 Receive transaction");
     
-    assert!(!confirmed_alice_sends.is_empty(), "Alice full send events should be mined directly");
-    assert!(!confirmed_bob_receives.is_empty(), "Bob receive events should be mined directly");
+    // Verify transactions are confirmed (mined directly)
+    let alice_send = alice_send_transactions[0];
+    let bob_receive = bob_receive_transactions[0];
     
-    // Verify full send-specific characteristics (large amounts)
-    let alice_large_sends: Vec<_> = alice_send_events.iter()
-        .filter(|t| t.amount_sats.abs() > 50_000_000) // > 0.5 BTC
-        .collect();
-    let bob_large_receives: Vec<_> = bob_receive_events.iter()
-        .filter(|t| t.amount_sats > 50_000_000) // > 0.5 BTC
-        .collect();
+    assert!(alice_send.block_height.is_some(), 
+        "Alice's Send transaction should be confirmed (mined directly)");
+    assert!(bob_receive.block_height.is_some(),
+        "Bob's Receive transaction should be confirmed (mined directly)");
     
-    assert!(!alice_large_sends.is_empty(), "Alice should have large full send transactions");
-    assert!(!bob_large_receives.is_empty(), "Bob should receive large amounts from full send");
+    // Verify full send amounts (should be close to 1 BTC minus fees)
+    let expected_min_amount = 50_000_000i64; // At least 0.5 BTC (should be much more)
     
-    println!("✅ Test 6 passed - Mined directly full send detected correctly!");
-    println!("   - Full send events created for Alice");
-    println!("   - Large receive events created for Bob");
-    println!("   - All events are mined directly (no intermediate states)");
-    println!("   - Wallet successfully emptied in mined directly scenario");
+    assert!(alice_send.amount_sats >= expected_min_amount,
+        "Alice's full send should be a large amount (> 0.5 BTC). Got: {} sats", alice_send.amount_sats);
+    assert!(bob_receive.amount_sats >= expected_min_amount,
+        "Bob should receive a large amount (> 0.5 BTC). Got: {} sats", bob_receive.amount_sats);
+    
+    // Bob's receive should be slightly less than Alice's send (due to fees)
+    assert!(bob_receive.amount_sats <= alice_send.amount_sats,
+        "Bob's receive amount should be less than or equal to Alice's send amount (due to fees)");
+    
+    println!("✅ Test passed - Mined directly full send detected correctly!");
+    println!("   - Alice has 1 Send transaction, Bob has 1 Receive transaction");
+    println!("   - All transactions are mined directly (no intermediate states)");
+    println!("   - Large transaction amounts detected correctly (Alice: {} sats, Bob: {} sats)", 
+             alice_send.amount_sats, bob_receive.amount_sats);
 }
 
 /// Test: Multiple partial sends mined directly
@@ -249,9 +239,6 @@ async fn test_multiple_partial_sends_mined_directly() {
     
     // Initial sync
     env.sync_and_wait().await.expect("Failed to sync");
-    
-    let initial_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
-    let initial_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
     // Send multiple partial send transactions and mine them all at once
     println!("⚡ Sending multiple partial send transactions that will be mined directly");
@@ -270,36 +257,54 @@ async fn test_multiple_partial_sends_mined_directly() {
     let final_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
     let final_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
-    let new_alice_transactions = final_alice_transactions.len() - initial_alice_transactions.len();
-    let new_bob_transactions = final_bob_transactions.len() - initial_bob_transactions.len();
+    // New Transaction System Expectations for Multiple Partial Sends:
+    // Alice should have: 1 Receive (initial funding) + 3 Sends (to Bob) = 4 total transactions
+    // Bob should have: 3 Receives (from Alice) = 3 total transactions
     
-    println!("📊 Multiple partial send results:");
-    println!("   New Alice transactions: {}", new_alice_transactions);
-    println!("   New Bob transactions: {}", new_bob_transactions);
+    assert_eq!(final_alice_transactions.len(), 4, 
+        "Alice should have 4 transactions: 1 initial receive + 3 sends to Bob");
+    assert_eq!(final_bob_transactions.len(), 3, 
+        "Bob should have 3 transactions: 3 receives from Alice");
     
-    assert!(new_alice_transactions == 1, "Alice should have 1 event for net amount (all 3 txs in same block)");
-    assert!(new_bob_transactions == 1, "Bob should have 1 event for net amount (all 3 txs in same block)");
-    
-    // Verify all new events are confirmed
-    let new_alice_transactions_slice: Vec<_> = final_alice_transactions.iter()
-        .skip(initial_alice_transactions.len())
+    // Find Send and Receive transactions
+    let alice_send_transactions: Vec<_> = final_alice_transactions.iter()
+        .filter(|t| t.transaction_type == EventType::Send)
         .collect();
-    let new_bob_transactions_slice: Vec<_> = final_bob_transactions.iter()
-        .skip(initial_bob_transactions.len())
+    let bob_receive_transactions: Vec<_> = final_bob_transactions.iter()
+        .filter(|t| t.transaction_type == EventType::Receive)
         .collect();
     
-    let confirmed_alice_count = new_alice_transactions_slice.iter()
-        .filter(|t| t.block_height.is_some() && t.transaction_type == EventType::Send)
-        .count();
-    let confirmed_bob_count = new_bob_transactions_slice.iter()
-        .filter(|t| t.block_height.is_some() && t.transaction_type == EventType::Receive)
-        .count();
+    // Alice should have exactly 3 Send transactions
+    assert_eq!(alice_send_transactions.len(), 3, 
+        "Alice should have exactly 3 Send transactions");
     
-    assert!(confirmed_alice_count == 1, "Alice should have 1 confirmed send event (net amount)");
-    assert!(confirmed_bob_count == 1, "Bob should have 1 confirmed receive event (net amount)");
+    // Bob should have exactly 3 Receive transactions  
+    assert_eq!(bob_receive_transactions.len(), 3,
+        "Bob should have exactly 3 Receive transactions");
+    
+    // All transactions should be confirmed (mined directly)
+    let confirmed_alice_sends = alice_send_transactions.iter()
+        .filter(|t| t.block_height.is_some())
+        .count();
+    let confirmed_bob_receives = bob_receive_transactions.iter()
+        .filter(|t| t.block_height.is_some())
+        .count();
+        
+    assert_eq!(confirmed_alice_sends, 3, "All 3 Alice Send transactions should be confirmed");
+    assert_eq!(confirmed_bob_receives, 3, "All 3 Bob Receive transactions should be confirmed");
+    
+    // Verify expected amounts (0.1, 0.2, 0.05 BTC)
+    let expected_amounts = [10_000_000i64, 20_000_000i64, 5_000_000i64]; // 0.1, 0.2, 0.05 BTC in sats
+    let bob_amounts: Vec<i64> = bob_receive_transactions.iter().map(|t| t.amount_sats).collect();
+    
+    for expected_amount in expected_amounts {
+        assert!(bob_amounts.contains(&expected_amount), 
+            "Bob should have received {} sats. Got: {:?}", expected_amount, bob_amounts);
+    }
     
     println!("✅ Multiple partial sends mined directly test passed!");
-    println!("   - All partial send transactions detected as mined directly");
-    println!("   - No intermediate unconfirmed states created");
-    println!("   - Confirmed Alice sends: {}, Bob receives: {}", confirmed_alice_count, confirmed_bob_count);
+    println!("   - Alice has 3 Send transactions, Bob has 3 Receive transactions");
+    println!("   - All transactions are mined directly (no intermediate states)");
+    println!("   - Individual transactions detected (not aggregated): Alice sends: {}, Bob receives: {}", 
+             confirmed_alice_sends, confirmed_bob_receives);
 }
