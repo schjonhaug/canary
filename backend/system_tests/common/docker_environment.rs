@@ -191,6 +191,142 @@ impl IsolatedTestEnvironment {
         })
     }
     
+    /// Create a new isolated test environment with Charlie wallet for high index tests
+    pub async fn new_with_charlie() -> Result<Self, Box<dyn std::error::Error>> {
+        // Generate unique test ID for isolation
+        let test_id = Uuid::new_v4().to_string()[..8].to_string();
+        
+        // Clean up any orphaned test containers from previous runs
+        Self::cleanup_orphaned_test_containers();
+        
+        // Use test_id to generate consistent port offset to avoid conflicts
+        let test_id_bytes = test_id.as_bytes();
+        let test_offset = (test_id_bytes[0] as u16) * 10;
+        
+        // Find available ports for Bitcoin RPC and Fulcrum with same offset
+        let bitcoin_rpc_port = Self::find_available_port_with_offset(28332, test_offset)?;
+        let fulcrum_port = Self::find_available_port_with_offset(50001, test_offset)?;
+        
+        println!("🚀 Creating isolated test environment with Charlie: {}", test_id);
+        println!("   Bitcoin RPC Port: {}", bitcoin_rpc_port);
+        println!("   Fulcrum Electrum Port: {}", fulcrum_port);
+        
+        // Create temporary directory for test data
+        let temp_dir = tempdir()?;
+        let temp_path = temp_dir.path().to_string_lossy().to_string();
+        
+        // Create compose directory within temp dir
+        let compose_dir = temp_dir.path().join("compose");
+        fs::create_dir_all(&compose_dir)?;
+        
+        // Create test-specific docker-compose.yml
+        Self::create_test_docker_compose(&compose_dir, &test_id, bitcoin_rpc_port, fulcrum_port)?;
+        
+        // Create test database
+        let db_path = temp_dir.path().join("test.db");
+        // Set FOSS mode for simpler testing without Stripe dependencies
+        std::env::set_var("CANARY_MODE", "foss");
+        
+        let test_config = AppConfig {
+            network: NetworkConfig::Regtest,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: temp_path.clone(),
+        };
+        
+        let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
+        
+        // In FOSS mode, the hardcoded foss-user is created automatically as admin
+        let test_user_id = "foss-user".to_string();
+        
+        // Start Docker Compose environment
+        Self::docker_compose_up(&compose_dir)?;
+        
+        // Wait for services to be ready
+        Self::wait_for_bitcoin_ready(&compose_dir, &test_id).await?;
+        Self::wait_for_fulcrum_ready(&compose_dir, fulcrum_port).await?;
+        
+        // Setup all test wallets including Charlie for high index tests
+        Self::setup_test_wallets(&compose_dir, &test_id).await?;
+        
+        // Fund Alice and Charlie (Charlie at high index 250)
+        Self::fund_test_wallets(&compose_dir, &test_id).await?;
+        
+        // Create wallet manager (connects to Fulcrum)
+        let wallet_dir = temp_dir.path().join("wallets");
+        std::fs::create_dir_all(&wallet_dir)?;
+        
+        let (notification_sender, _notification_receiver) = broadcast::channel::<TransactionNotification>(100);
+        
+        let mut wallet_manager = WalletManager::new(
+            notification_sender,
+            wallet_dir,
+            &db_path.to_string_lossy(),
+            bdk_wallet::bitcoin::Network::Regtest,
+            &format!("tcp://127.0.0.1:{}", fulcrum_port),
+            &test_config,
+        ).await;
+        
+        // Create AppServices to access wallet creation service
+        let wallet_creation_service = canary::wallet::WalletCreationService::new(
+            wallet_manager.wallet_dir.clone(),
+            metadata_db.clone(),
+            wallet_manager.electrum_client.clone(),
+            wallet_manager.get_network(),
+        );
+        let app_services = AppServices {
+            metadata_db: metadata_db.clone(),
+            wallet_creation_service,
+        };
+        
+        // Create wallets using the correct XPUB descriptors from docker-utils.sh
+        let alice_descriptor = "wpkh([805c684b/84h/1h/0h]tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)#8nt3y08q";
+        let bob_descriptor = "wpkh([aeea3541/84h/1h/0h]tpubDDCjkgMuodinFyfhacZPTzffAKtCbuZejpkSMJB673c9ZSsVrq5FnL5rhjFjyCDva5Pka7sn9UDe7xmzpRCNnKNqXbteTnPzLRVNcsvCcpk/<0;1>/*)#ff9zpyxa";
+        let charlie_descriptor = "wpkh(tpubDCxzhZZE31g2EqSv1UajMAw5Hd62htydz9r2XBkrccHgBh8uw3n62zr6Zjmj64tfTk8Tjxo6VctjUMAh5DXWTErfQPC6RmQhTdtNnXuTXTQ/<0;1>/*)#sq32h3ch";
+        
+        let alice_metadata = app_services.wallet_creation_service.create_wallet_non_blocking(
+            "Alice", alice_descriptor, &test_user_id, true, Some("auto"), Some("20")
+        ).await?;
+        let bob_metadata = app_services.wallet_creation_service.create_wallet_non_blocking(
+            "Bob", bob_descriptor, &test_user_id, true, Some("auto"), Some("20")
+        ).await?;
+        let charlie_metadata = app_services.wallet_creation_service.create_wallet_non_blocking(
+            "Charlie", charlie_descriptor, &test_user_id, false, Some("auto"), Some("250")
+        ).await?;
+        
+        let alice_checksum = alice_metadata.checksum;
+        let bob_checksum = bob_metadata.checksum;
+        let charlie_checksum = charlie_metadata.checksum;
+        
+        println!("✅ Test environment with Charlie ready:");
+        println!("   Alice checksum: {}", alice_checksum);
+        println!("   Bob checksum: {}", bob_checksum);
+        println!("   Charlie checksum: {}", charlie_checksum);
+        
+        // Wait for all wallets to be marked as ready before proceeding
+        Self::wait_for_wallets_ready(&metadata_db, &[&alice_checksum, &bob_checksum, &charlie_checksum]).await?;
+        
+        // CRITICAL: Do an initial sync to ensure historical transactions are properly processed
+        // This prevents the first test sync from detecting historical transactions as new
+        println!("🔄 Running initial sync to establish historical transaction baseline...");
+        let _ = wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await;
+        sleep(Duration::from_millis(500)).await;
+        println!("✅ Initial historical sync completed");
+        
+        Ok(IsolatedTestEnvironment {
+            metadata_db,
+            wallet_manager,
+            _temp_dir: temp_dir,
+            alice_checksum,
+            bob_checksum,
+            charlie_checksum,
+            compose_dir,
+            test_id,
+            bitcoin_rpc_port,
+            fulcrum_port,
+        })
+    }
+    
     /// Find an available port starting from the given port with offset per test
     /// Uses a more robust port allocation strategy to avoid conflicts
     fn find_available_port_with_offset(start_port: u16, test_offset: u16) -> Result<u16, Box<dyn std::error::Error>> {
