@@ -377,30 +377,67 @@ impl IsolatedTestEnvironment {
     fn cleanup_orphaned_test_containers() {
         println!("🧹 Cleaning up orphaned test containers...");
         
-        // Stop and remove any containers with names starting with 'test-'
-        let cleanup_commands = vec![
-            vec!["docker", "stop", "$(docker", "ps", "-q", "--filter", "name=test-)", "2>/dev/null", "||", "true"],
-            vec!["docker", "rm", "$(docker", "ps", "-aq", "--filter", "name=test-)", "2>/dev/null", "||", "true"],
-        ];
-        
-        for cmd in cleanup_commands {
-            let result = std::process::Command::new("sh")
-                .arg("-c")
-                .arg(cmd.join(" "))
-                .output();
+        // First, get list of containers with names starting with 'test-'
+        let list_containers = Command::new("docker")
+            .args(&["ps", "-aq", "--filter", "name=test-"])
+            .output();
+            
+        match list_containers {
+            Ok(output) => {
+                let containers = String::from_utf8_lossy(&output.stdout);
+                let container_ids: Vec<&str> = containers.lines().filter(|line| !line.is_empty()).collect();
                 
-            match result {
-                Ok(output) => {
-                    if !output.status.success() {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        if !stderr.is_empty() && !stderr.contains("No such container") {
-                            println!("⚠️  Cleanup warning: {}", stderr.trim());
-                        }
+                if !container_ids.is_empty() {
+                    println!("   Found {} orphaned test containers", container_ids.len());
+                    
+                    // Stop all containers
+                    for container_id in &container_ids {
+                        let _ = Command::new("docker")
+                            .args(&["stop", container_id])
+                            .output();
                     }
+                    
+                    // Remove all containers
+                    for container_id in &container_ids {
+                        let _ = Command::new("docker")
+                            .args(&["rm", "-f", container_id])
+                            .output();
+                    }
+                    
+                    println!("   ✅ Stopped and removed {} containers", container_ids.len());
+                } else {
+                    println!("   No orphaned test containers found");
                 }
-                Err(e) => {
-                    println!("⚠️  Cleanup command failed: {}", e);
+            }
+            Err(e) => {
+                println!("⚠️  Failed to list containers: {}", e);
+            }
+        }
+        
+        // Also cleanup volumes starting with 'canary_test_'
+        let list_volumes = Command::new("docker")
+            .args(&["volume", "ls", "-q", "--filter", "name=canary_test_"])
+            .output();
+            
+        match list_volumes {
+            Ok(output) => {
+                let volumes = String::from_utf8_lossy(&output.stdout);
+                let volume_names: Vec<&str> = volumes.lines().filter(|line| !line.is_empty()).collect();
+                
+                if !volume_names.is_empty() {
+                    println!("   Found {} orphaned volumes", volume_names.len());
+                    
+                    for volume_name in &volume_names {
+                        let _ = Command::new("docker")
+                            .args(&["volume", "rm", "-f", volume_name])
+                            .output();
+                    }
+                    
+                    println!("   ✅ Removed {} volumes", volume_names.len());
                 }
+            }
+            Err(e) => {
+                println!("⚠️  Failed to list volumes: {}", e);
             }
         }
         
@@ -454,7 +491,7 @@ debug = 1
       - "{}:8332"
     volumes:
       - ./bitcoin.conf:/bitcoin/.bitcoin/bitcoin.conf
-      - bitcoin_data_{}:/bitcoin/.bitcoin
+      - canary_test_bitcoin_data_{}:/bitcoin/.bitcoin
     environment:
       - RPC_USER=test
       - RPC_PASSWORD=test
@@ -468,12 +505,12 @@ debug = 1
       - "{}:50001"
     volumes:
       - ./fulcrum.conf:/data/fulcrum.conf:ro
-      - fulcrum_data_{}:/data
+      - canary_test_fulcrum_data_{}:/data
     command: ["Fulcrum", "/data/fulcrum.conf"]
 
 volumes:
-  bitcoin_data_{}:
-  fulcrum_data_{}:
+  canary_test_bitcoin_data_{}:
+  canary_test_fulcrum_data_{}:
 "#, 
             bitcoin_container_name, bitcoin_container_name, bitcoin_rpc_port, test_id,
             fulcrum_container_name, fulcrum_container_name, bitcoin_container_name, 
@@ -1093,11 +1130,11 @@ volumes:
 }
 
 impl Drop for IsolatedTestEnvironment {
-    /// Cleanup: Stop Docker Compose environment
+    /// Cleanup: Stop Docker Compose environment and ensure complete cleanup
     fn drop(&mut self) {
         println!("🧹 Cleaning up test environment: {}", self.test_id);
         
-        // Cleanup automatically to prevent port conflicts
+        // Step 1: Use docker-compose to stop services gracefully
         let result = Command::new("docker-compose")
             .current_dir(&self.compose_dir)
             .args(&["down", "-v"])
@@ -1106,16 +1143,46 @@ impl Drop for IsolatedTestEnvironment {
         match result {
             Ok(output) => {
                 if output.status.success() {
-                    println!("✅ Test containers cleaned up successfully");
+                    println!("✅ Docker Compose services stopped");
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    println!("⚠️  Cleanup warning: {}", stderr);
+                    println!("⚠️  Docker Compose down warning: {}", stderr);
                 }
             }
             Err(e) => {
-                println!("❌ Failed to cleanup containers: {}", e);
-                println!("   Manual cleanup: docker-compose -f {}/docker-compose.yml down -v", self.compose_dir.display());
+                println!("❌ Failed to run docker-compose down: {}", e);
             }
         }
+        
+        // Step 2: Force stop and remove containers by name pattern to ensure cleanup
+        let bitcoin_container = format!("test-bitcoin-{}", self.test_id);
+        let fulcrum_container = format!("test-fulcrum-{}", self.test_id);
+        
+        for container in [&bitcoin_container, &fulcrum_container] {
+            // Stop container
+            let _ = Command::new("docker")
+                .args(&["stop", container])
+                .output();
+                
+            // Remove container
+            let _ = Command::new("docker")
+                .args(&["rm", "-f", container])
+                .output();
+        }
+        
+        // Step 3: Remove volumes by name pattern
+        let bitcoin_volume = format!("canary_test_bitcoin_data_{}", self.test_id);
+        let fulcrum_volume = format!("canary_test_fulcrum_data_{}", self.test_id);
+        
+        for volume in [&bitcoin_volume, &fulcrum_volume] {
+            let _ = Command::new("docker")
+                .args(&["volume", "rm", "-f", volume])
+                .output();
+        }
+        
+        // Step 4: Cleanup any orphaned test containers as a safety net
+        Self::cleanup_orphaned_test_containers();
+        
+        println!("✅ Test environment {} cleanup completed", self.test_id);
     }
 }
