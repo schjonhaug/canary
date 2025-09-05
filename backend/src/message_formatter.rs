@@ -76,14 +76,23 @@ impl MessageFormatter {
                             Language::English => format!("✅ Sent from {}", wallet_name),
                         }
                     }
-                }
-                // RBF/CPFP detection not implemented yet - these conditions are disabled
-                // } else if transaction.is_rbf {
-                //     ...RBF logic...
+                } else if transaction.transaction_status == "replaced" {
+                    // RBF replacement notification
+                    let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
+                    let replaced_by = transaction.replaced_by_txid.as_deref().unwrap_or("unknown");
+                    match language {
+                        Language::Norwegian => format!(
+                            "🔄 Erstatttet: {} BTC fra {} (erstattet av {})",
+                            amount_btc, wallet_name, &replaced_by[..8.min(replaced_by.len())]
+                        ),
+                        Language::English => format!(
+                            "🔄 Replaced: {} BTC from {} (replaced by {})",
+                            amount_btc, wallet_name, &replaced_by[..8.min(replaced_by.len())]
+                        ),
+                    }
                 // } else if transaction.is_cpfp {
                 //     ...CPFP logic...
-                // } 
-                else {
+                } else {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(
@@ -98,7 +107,21 @@ impl MessageFormatter {
                 }
             }
             EventType::Receive => {
-                if is_confirmed {
+                if transaction.transaction_status == "replaced" {
+                    // RBF replacement notification for receive transaction
+                    let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
+                    let replaced_by = transaction.replaced_by_txid.as_deref().unwrap_or("unknown");
+                    match language {
+                        Language::Norwegian => format!(
+                            "🔄 Erstatttet: {} BTC til {} (erstattet av {})",
+                            amount_btc, wallet_name, &replaced_by[..8.min(replaced_by.len())]
+                        ),
+                        Language::English => format!(
+                            "🔄 Replaced: {} BTC to {} (replaced by {})",
+                            amount_btc, wallet_name, &replaced_by[..8.min(replaced_by.len())]
+                        ),
+                    }
+                } else if is_confirmed {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
                         Language::Norwegian => format!(

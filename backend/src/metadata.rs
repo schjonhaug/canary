@@ -180,8 +180,11 @@ pub struct Transaction {
     pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
     pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
-    pub is_rbf: bool,
     pub is_cpfp: bool,
+    // RBF replacement tracking
+    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
+    pub replaced_at: Option<u64>, // Unix timestamp when this transaction was replaced
     pub notification_status: Vec<NotificationStatus>,
 }
 
@@ -207,8 +210,11 @@ pub struct TransactionWithWallet {
     pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
     pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
-    pub is_rbf: bool,
     pub is_cpfp: bool,
+    // RBF replacement tracking
+    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
+    pub replaced_at: Option<u64>, // Unix timestamp when this transaction was replaced
     pub notification_status: Vec<NotificationStatus>,
 }
 
@@ -239,7 +245,7 @@ pub struct WalletDetailResponse {
     pub contacts: Vec<Contact>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct TransactionInsert {
     pub txid: String, // Bitcoin transaction ID (hash)
     pub wallet_checksum: String,
@@ -249,8 +255,30 @@ pub struct TransactionInsert {
     pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
     pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
-    pub is_rbf: bool,
     pub is_cpfp: bool,
+    // RBF replacement tracking
+    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
+    pub replaced_at: Option<u64>, // Unix timestamp when this transaction was replaced
+}
+
+impl Default for TransactionInsert {
+    fn default() -> Self {
+        Self {
+            txid: String::new(),
+            wallet_checksum: String::new(),
+            transaction_type: EventType::Send,
+            amount_sats: 0,
+            fee_sats: None,
+            block_height: None,
+            first_seen_at: 0,
+            confirmed_at: None,
+            is_cpfp: false,
+            transaction_status: "pending".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        }
+    }
 }
 
 
@@ -992,8 +1020,8 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_cpfp, transaction_status, replaced_by_txid, replaced_at) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                 params![
                     &transaction.txid,
                     &transaction.wallet_checksum,
@@ -1003,8 +1031,10 @@ impl MetadataDb {
                     transaction.block_height,
                     transaction.first_seen_at,
                     transaction.confirmed_at,
-                    transaction.is_rbf as i32,
                     transaction.is_cpfp as i32,
+                    &transaction.transaction_status,
+                    transaction.replaced_by_txid.as_ref(),
+                    transaction.replaced_at,
                 ],
             )?;
             Ok(transaction.txid.clone())
@@ -1019,7 +1049,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<Transaction>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_rbf, is_cpfp 
+                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_cpfp, transaction_status, replaced_by_txid, replaced_at 
                  FROM transactions 
                  WHERE wallet_checksum = ?1 AND txid = ?2"
             )?;
@@ -1034,8 +1064,10 @@ impl MetadataDb {
                     block_height: row.get(5)?,
                     first_seen_at: row.get(6)?,
                     confirmed_at: row.get(7)?,
-                    is_rbf: row.get::<_, i32>(8)? != 0,
-                    is_cpfp: row.get::<_, i32>(9)? != 0,
+                    is_cpfp: row.get::<_, i32>(8)? != 0,
+                    transaction_status: row.get(9)?,
+                    replaced_by_txid: row.get(10)?,
+                    replaced_at: row.get(11)?,
                     notification_status: vec![], // Will be populated by calling code if needed
                 })
             })?;
@@ -1055,7 +1087,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let changes = conn.execute(
-                "UPDATE transactions SET block_height = ?1, confirmed_at = ?2 WHERE wallet_checksum = ?3 AND txid = ?4",
+                "UPDATE transactions SET block_height = ?1, confirmed_at = ?2, transaction_status = 'confirmed' WHERE wallet_checksum = ?3 AND txid = ?4",
                 params![block_height, confirmed_at, &checksum, &txid],
             )?;
             Ok(changes > 0)
@@ -1076,7 +1108,7 @@ impl MetadataDb {
             
             // First get transactions
             let mut stmt = conn.prepare(
-                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.is_rbf, t.is_cpfp 
+                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.is_cpfp, t.transaction_status, t.replaced_by_txid, t.replaced_at 
                  FROM transactions t 
                  JOIN wallets w ON t.wallet_checksum = w.checksum 
                  WHERE t.wallet_checksum = ?1
@@ -1095,8 +1127,10 @@ impl MetadataDb {
                     block_height: row.get(6)?,
                     first_seen_at: row.get(7)?,
                     confirmed_at: row.get(8)?,
-                    is_rbf: row.get::<_, i32>(9)? != 0,
-                    is_cpfp: row.get::<_, i32>(10)? != 0,
+                    is_cpfp: row.get::<_, i32>(9)? != 0,
+                    transaction_status: row.get(10)?,
+                    replaced_by_txid: row.get(11)?,
+                    replaced_at: row.get(12)?,
                     notification_status: vec![], // Will be populated below
                 })
             })?;
@@ -2697,4 +2731,34 @@ impl MetadataDb {
         })
         .await?
     }
+
+    /// Mark a transaction as replaced by another transaction (RBF)
+    pub async fn mark_transaction_replaced(
+        &self,
+        wallet_checksum: &str,
+        original_txid: &str,
+        replaced_by_txid: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let original_txid = original_txid.to_string();
+        let replaced_by_txid = replaced_by_txid.to_string();
+        let replaced_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let affected = conn.execute(
+                "UPDATE transactions 
+                 SET transaction_status = 'replaced', replaced_by_txid = ?1, replaced_at = ?2
+                 WHERE wallet_checksum = ?3 AND txid = ?4 AND transaction_status = 'pending'",
+                params![&replaced_by_txid, replaced_at, &checksum, &original_txid],
+            )?;
+            Ok(affected > 0)
+        })
+        .await?
+    }
+
 }

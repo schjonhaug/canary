@@ -74,19 +74,22 @@ impl WalletSyncService {
 
         // We no longer calculate balances - they are computed on-demand by the frontend
 
-        // Collect transaction data first to avoid lifetime issues across await
-        let transactions_data: Vec<_> = wallet.transactions().map(|tx_item| {
+        // Get canonical (non-conflicting) transactions from BDK
+        let canonical_transactions_data: Vec<_> = wallet.transactions().map(|tx_item| {
             let txid = tx_item.tx_node.txid.to_string();
             let (sent, received) = wallet.sent_and_received(&tx_item.tx_node);
             let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
             let block_height = tx_item.chain_position.confirmation_height_upper_bound();
             let is_confirmed = tx_item.chain_position.is_confirmed();
             
-            // Use current timestamp for new transactions
-            let first_seen_at = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
+            // Preserve existing timestamp if transaction already exists, otherwise use current time
+            let first_seen_at = existing_transactions.iter()
+                .find(|tx| tx.txid == txid)
+                .map(|tx| tx.first_seen_at)
+                .unwrap_or_else(|| std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs());
                 
             let confirmed_at = if is_confirmed {
                 Some(first_seen_at) // Use same timestamp for confirmed_at in this context
@@ -97,14 +100,23 @@ impl WalletSyncService {
             (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at)
         }).collect();
 
-        // Sort all transactions by timestamp for progressive balance calculation
-        let mut all_transactions = transactions_data;
+        // Get ALL transactions (including non-canonical/conflicted ones) for RBF detection
+        let all_txs_from_bdk: Vec<String> = wallet.tx_graph().full_txs().map(|tx| tx.txid.to_string()).collect();
+        let canonical_txids: Vec<String> = canonical_transactions_data.iter().map(|(txid, _, _, _, _, _)| txid.clone()).collect();
+        
+        // Find transactions that exist in full graph but NOT in canonical set (these are conflicted/replaced)
+        let conflicted_txids: Vec<String> = all_txs_from_bdk.into_iter()
+            .filter(|txid| !canonical_txids.contains(txid))
+            .collect();
+
+        // Sort canonical transactions by timestamp for progressive balance calculation
+        let mut all_transactions = canonical_transactions_data;
         all_transactions.sort_by_key(|(_, _, _, _, first_seen_at, _)| *first_seen_at);
 
         // No longer need balance calculations since we removed balance_after field
 
-        // Process each transaction with progressive balance calculation
-        for (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) in all_transactions {
+        // Process each canonical transaction
+        for (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) in &all_transactions {
             // Check if we already know about this transaction
             let existing_tx = self
                 .metadata_db
@@ -117,13 +129,13 @@ impl WalletSyncService {
                     
                     // Create new transaction record using pre-collected data
                     // Determine transaction type and amount
-                    let (transaction_type, amount_sats, fee_sats) = if net_amount < 0 {
+                    let (transaction_type, amount_sats, fee_sats) = if *net_amount < 0 {
                         // Outgoing transaction (send)
                         // For now, don't calculate fees - we can add this later
-                        (EventType::Send, (-net_amount) as i64, None)
+                        (EventType::Send, (-*net_amount) as i64, None)
                     } else {
                         // Incoming transaction (receive)
-                        (EventType::Receive, net_amount, None)
+                        (EventType::Receive, *net_amount, None)
                     };
 
                     let transaction = TransactionInsert {
@@ -132,11 +144,13 @@ impl WalletSyncService {
                         transaction_type,
                         amount_sats,
                         fee_sats,
-                        block_height,
-                        first_seen_at,
-                        confirmed_at,
-                        is_rbf: false, // TODO: Implement RBF detection later
+                        block_height: *block_height,
+                        first_seen_at: *first_seen_at,
+                        confirmed_at: *confirmed_at,
                         is_cpfp: false, // TODO: Implement CPFP detection later
+                        transaction_status: if *is_confirmed { "confirmed".to_string() } else { "pending".to_string() },
+                        replaced_by_txid: None,
+                        replaced_at: None,
                     };
 
                     let _transaction_id = self.metadata_db.insert_transaction(&transaction).await?;
@@ -159,13 +173,13 @@ impl WalletSyncService {
                 }
                 Some(existing) => {
                     // Check if transaction status changed (mempool -> confirmed)
-                    let is_now_confirmed = is_confirmed;
+                    let is_now_confirmed = *is_confirmed;
                     let was_confirmed = existing.block_height.is_some();
 
                     if is_now_confirmed && !was_confirmed {
                         // Transaction just confirmed!
                         let block_height_value = block_height.unwrap_or(0);
-                        let confirmed_at_value = confirmed_at.unwrap_or(first_seen_at);
+                        let confirmed_at_value = confirmed_at.unwrap_or(*first_seen_at);
 
                         self.metadata_db
                             .update_transaction_confirmation(
@@ -192,6 +206,86 @@ impl WalletSyncService {
             }
         }
 
+        // Handle RBF replacements using BDK's conflict detection
+        // BDK has already identified conflicted transactions - these are the ones that got replaced
+        
+        if !conflicted_txids.is_empty() {
+            println!("[{}] Found {} conflicted transactions from BDK", wallet_checksum, conflicted_txids.len());
+            
+            // Get all transactions from BDK with full details for input comparison
+            let all_bdk_txs: Vec<_> = wallet.tx_graph().full_txs().collect();
+            
+            for conflicted_txid in &conflicted_txids {
+                // Check if this conflicted transaction is in our pending transactions
+                if let Some(pending_tx) = self.metadata_db.get_transaction_by_txid(wallet_checksum, conflicted_txid).await? {
+                    if pending_tx.transaction_status == "pending" {
+                        // Find the conflicted transaction's inputs
+                        let conflicted_tx_inputs: Option<Vec<_>> = all_bdk_txs.iter()
+                            .find(|tx| tx.txid.to_string() == *conflicted_txid)
+                            .map(|tx| tx.tx.input.iter().map(|input| input.previous_output).collect());
+                            
+                        if let Some(conflicted_inputs) = conflicted_tx_inputs {
+                            let mut found_replacement = false;
+                            
+                            // Find canonical transaction that shares inputs with the conflicted transaction
+                            for (canonical_txid, net_amount, _, _, canonical_first_seen, _) in &all_transactions {
+                                // Skip if not newer than conflicted transaction
+                                if *canonical_first_seen <= pending_tx.first_seen_at {
+                                    continue;
+                                }
+                                
+                                // Check if this canonical transaction shares any inputs with the conflicted one
+                                if let Some(canonical_tx) = all_bdk_txs.iter().find(|tx| tx.txid.to_string() == *canonical_txid) {
+                                    let canonical_inputs: Vec<_> = canonical_tx.tx.input.iter().map(|input| input.previous_output).collect();
+                                    
+                                    // Check for shared inputs (RBF transactions spend the same UTXOs)
+                                    let has_shared_inputs = conflicted_inputs.iter().any(|conflicted_input| 
+                                        canonical_inputs.contains(conflicted_input)
+                                    );
+                                    
+                                    // Also verify it's the same transaction type (send/receive)
+                                    let same_type = (*net_amount < 0 && pending_tx.transaction_type == EventType::Send) || 
+                                                  (*net_amount > 0 && pending_tx.transaction_type == EventType::Receive);
+                                    
+                                    if has_shared_inputs && same_type {
+                                        println!(
+                                            "[{}] BDK conflict detected: {} replaced by {} (shared {} inputs)",
+                                            wallet_checksum, conflicted_txid, canonical_txid,
+                                            conflicted_inputs.iter().filter(|input| canonical_inputs.contains(input)).count()
+                                        );
+                                        
+                                        let replacement_marked = self.metadata_db
+                                            .mark_transaction_replaced(wallet_checksum, conflicted_txid, canonical_txid)
+                                            .await?;
+                                        
+                                        if replacement_marked {
+                                            has_changes = true;
+                                            found_replacement = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if !found_replacement {
+                                println!(
+                                    "[{}] BDK detected conflict for {} but couldn't find canonical replacement with shared inputs",
+                                    wallet_checksum, conflicted_txid
+                                );
+                            }
+                        } else {
+                            println!(
+                                "[{}] Could not find conflicted transaction {} in BDK's full transaction set",
+                                wallet_checksum, conflicted_txid
+                            );
+                        }
+                    }
+                } else {
+                    println!("[{}] Conflicted transaction {} not in our database - may be historical", wallet_checksum, conflicted_txid);
+                }
+            }
+        }
+
         Ok(has_changes)
     }
 
@@ -208,8 +302,10 @@ impl WalletSyncService {
             block_height: transaction.block_height,
             first_seen_at: transaction.first_seen_at,
             confirmed_at: transaction.confirmed_at,
-            is_rbf: transaction.is_rbf,
             is_cpfp: transaction.is_cpfp,
+            transaction_status: transaction.transaction_status.clone(),
+            replaced_by_txid: transaction.replaced_by_txid.clone(),
+            replaced_at: transaction.replaced_at,
             notification_status: vec![], // Empty for new transactions
         };
 
@@ -395,6 +491,7 @@ impl WalletSyncService {
             };
 
             // Create transaction insert using new schema
+            let is_confirmed = block_height.is_some();
             let transaction_insert = TransactionInsert {
                 txid,
                 wallet_checksum: wallet_checksum.to_string(),
@@ -404,8 +501,10 @@ impl WalletSyncService {
                 block_height,
                 first_seen_at,
                 confirmed_at,
-                is_rbf: false, // TODO: Detect RBF for historical transactions
                 is_cpfp: false, // TODO: Detect CPFP for historical transactions
+                transaction_status: if is_confirmed { "confirmed".to_string() } else { "pending".to_string() },
+                replaced_by_txid: None,
+                replaced_at: None,
             };
 
             // Insert individual transaction

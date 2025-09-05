@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, HandCoins, Baby, Mail, MessageCircle, Bell, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
+import { CheckCircle, Baby, Mail, MessageCircle, Bell, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
 
@@ -230,18 +230,25 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Badge 
-                            variant="outline"
+                            variant={transaction.transaction_status === "replaced" ? "secondary" : "outline"}
                             className="flex items-center gap-1"
-                            title={`${transaction.transaction_type === "receive" ? "Receive" : "Send"} - ${transaction.block_height !== null ? "Confirmed" : "Pending"}`}
+                            title={`${transaction.transaction_type === "receive" ? "Receive" : "Send"} - ${
+                              transaction.transaction_status === "replaced" ? "Replaced by RBF" :
+                              transaction.block_height !== null ? "Confirmed" : "Pending"
+                            }`}
                           >
-                            {transaction.block_height !== null ? (
+                            {transaction.transaction_status === "replaced" ? (
+                              <XCircle className="h-3 w-3 text-orange-500" />
+                            ) : transaction.block_height !== null ? (
                               <CheckCircle className="h-3 w-3 text-green-500" />
                             ) : (
                               <Loader2 className="h-3 w-3 text-yellow-500 animate-spin" />
                             )}
-                            {transaction.block_height !== null 
-                              ? (transaction.transaction_type === "receive" ? "Received" : "Sent")
-                              : (transaction.transaction_type === "receive" ? "Receiving" : "Sending")
+                            {transaction.transaction_status === "replaced" 
+                              ? "Replaced"
+                              : transaction.block_height !== null 
+                                ? (transaction.transaction_type === "receive" ? "Received" : "Sent")
+                                : (transaction.transaction_type === "receive" ? "Receiving" : "Sending")
                             }
                           </Badge>
                           {transaction.is_cpfp && (
@@ -249,9 +256,9 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                               <Baby className="h-4 w-4 ml-1" />
                             </span>
                           )}
-                          {transaction.is_rbf && (
-                            <span title="Replace-By-Fee (RBF)">
-                              <HandCoins className="h-4 w-4 ml-1" />
+                          {transaction.replaced_by_txid && (
+                            <span title={`Replaced by transaction: ${transaction.replaced_by_txid}`}>
+                              <ArrowRight className="h-4 w-4 ml-1 text-orange-500" />
                             </span>
                           )}
                         </div>
@@ -287,6 +294,18 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                     <div className="flex items-center gap-3 text-sm">
                                       <span className="font-medium min-w-[80px]">Fee:</span>
                                       <span className="font-mono text-xs">{formatBitcoinAmount(transaction.fee_sats)}</span>
+                                    </div>
+                                  )}
+                                  {transaction.transaction_status === "replaced" && transaction.replaced_by_txid && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="font-medium min-w-[80px]">Replaced by:</span>
+                                      <span className="font-mono text-xs break-all text-orange-600">{transaction.replaced_by_txid}</span>
+                                    </div>
+                                  )}
+                                  {transaction.replaced_at && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="font-medium min-w-[80px]">Replaced at:</span>
+                                      <span className="text-xs">{formatDateTime(transaction.replaced_at)}</span>
                                     </div>
                                   )}
                                 </div>

@@ -36,8 +36,11 @@ export interface Transaction {
   block_height: number | null // NULL = mempool, >0 = confirmed at this height
   first_seen_at: number // Unix timestamp when we first detected this transaction
   confirmed_at: number | null // Unix timestamp when transaction was confirmed
-  is_rbf: boolean
   is_cpfp: boolean
+  // RBF replacement tracking
+  transaction_status: string // 'pending' | 'confirmed' | 'replaced'
+  replaced_by_txid: string | null // Transaction ID that replaced this one (if any)
+  replaced_at: number | null // Unix timestamp when this transaction was replaced
   notification_status: NotificationStatus[]
 }
 
