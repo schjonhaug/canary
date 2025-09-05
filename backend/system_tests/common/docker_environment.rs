@@ -836,34 +836,6 @@ volumes:
             Err(format!("Failed to parse bumpfee result: {}", result).into())
         }
     }
-}
-
-impl Drop for IsolatedTestEnvironment {
-    /// Cleanup: Stop Docker Compose environment
-    fn drop(&mut self) {
-        println!("🧹 Cleaning up test environment: {}", self.test_id);
-        
-        // Cleanup automatically to prevent port conflicts
-        let result = Command::new("docker-compose")
-            .current_dir(&self.compose_dir)
-            .args(&["down", "-v"])
-            .output();
-            
-        match result {
-            Ok(output) => {
-                if output.status.success() {
-                    println!("✅ Test containers cleaned up successfully");
-                } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    println!("⚠️  Cleanup warning: {}", stderr);
-                }
-            }
-            Err(e) => {
-                println!("❌ Failed to cleanup containers: {}", e);
-                println!("   Manual cleanup: docker-compose -f {}/docker-compose.yml down -v", self.compose_dir.display());
-            }
-        }
-    }
 
     /// Send a simple transaction (non-RBF) - convenience wrapper using docker-utils.sh
     pub async fn send_transaction(&self, from_wallet: &str, to_wallet: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -944,5 +916,33 @@ impl Drop for IsolatedTestEnvironment {
         }
         
         Err("Could not extract child transaction ID from CPFP command output".into())
+    }
+}
+
+impl Drop for IsolatedTestEnvironment {
+    /// Cleanup: Stop Docker Compose environment
+    fn drop(&mut self) {
+        println!("🧹 Cleaning up test environment: {}", self.test_id);
+        
+        // Cleanup automatically to prevent port conflicts
+        let result = Command::new("docker-compose")
+            .current_dir(&self.compose_dir)
+            .args(&["down", "-v"])
+            .output();
+            
+        match result {
+            Ok(output) => {
+                if output.status.success() {
+                    println!("✅ Test containers cleaned up successfully");
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    println!("⚠️  Cleanup warning: {}", stderr);
+                }
+            }
+            Err(e) => {
+                println!("❌ Failed to cleanup containers: {}", e);
+                println!("   Manual cleanup: docker-compose -f {}/docker-compose.yml down -v", self.compose_dir.display());
+            }
+        }
     }
 }
