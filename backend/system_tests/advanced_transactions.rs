@@ -311,3 +311,132 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     println!("   - RBF chain tracked correctly: Original→First→Final");
     println!("   - Both sender and receiver perspective validated");
 }
+
+/// Test: CPFP (Child-Pays-For-Parent) detection and tracking
+/// Purpose: Test CPFP transaction relationship detection when a child transaction spends from an unconfirmed parent
+#[tokio::test]
+#[ignore] // System test - requires Docker
+async fn test_cpfp_detection_and_tracking() {
+    let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
+    
+    // Initial sync to establish baseline
+    env.sync_and_wait().await.expect("Failed to sync");
+    
+    let initial_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let initial_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
+    
+    println!("📊 Initial state:");
+    println!("   Alice transactions: {}", initial_alice_transactions.len());
+    println!("   Bob transactions: {}", initial_bob_transactions.len());
+    
+    // Step 1: Alice sends Bitcoin to Bob with low fee (will be parent transaction)
+    println!("🔄 Step 1: Alice sends 0.002222 BTC to Bob with low fee (parent transaction)");
+    let parent_txid = env.send_transaction("alice", "bob", "0.002222").await.expect("Failed to send parent transaction");
+    
+    // Sync to detect the parent transaction
+    env.sync_and_wait().await.expect("Failed to sync after parent transaction");
+    
+    let after_parent_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let after_parent_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
+    
+    // Verify parent transaction is detected by both wallets
+    let alice_parent_tx = after_parent_alice_txs.iter()
+        .find(|tx| tx.txid == parent_txid)
+        .expect("Alice should have the parent transaction");
+    let bob_parent_tx = after_parent_bob_txs.iter()
+        .find(|tx| tx.txid == parent_txid)
+        .expect("Bob should have the parent transaction");
+        
+    assert_eq!(alice_parent_tx.transaction_status, "pending", "Alice's parent transaction should be pending");
+    assert_eq!(bob_parent_tx.transaction_status, "pending", "Bob's parent transaction should be pending");
+    assert_eq!(alice_parent_tx.transaction_type, EventType::Send, "Alice should see parent as a send");
+    assert_eq!(bob_parent_tx.transaction_type, EventType::Receive, "Bob should see parent as a receive");
+    assert!(alice_parent_tx.parent_txid.is_none(), "Parent transaction should have no parent_txid");
+    assert!(bob_parent_tx.parent_txid.is_none(), "Parent transaction should have no parent_txid");
+    
+    println!("✅ Parent transaction detected by both wallets:");
+    println!("   Parent txid: {}", parent_txid);
+    println!("   Alice sees: {} transaction with status '{}', parent_txid: {:?}", alice_parent_tx.transaction_type.as_str(), alice_parent_tx.transaction_status, alice_parent_tx.parent_txid);
+    println!("   Bob sees: {} transaction with status '{}', parent_txid: {:?}", bob_parent_tx.transaction_type.as_str(), bob_parent_tx.transaction_status, bob_parent_tx.parent_txid);
+    
+    // Step 2: Bob creates a CPFP child transaction spending from the unconfirmed parent
+    println!("👶 Step 2: Bob creates CPFP child transaction with high fee to accelerate parent");
+    let child_txid = env.create_cpfp_transaction("bob", &parent_txid).await.expect("Failed to create CPFP child transaction");
+    
+    // Sync to detect the CPFP relationship
+    env.sync_and_wait().await.expect("Failed to sync after CPFP child");
+    
+    let after_child_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let after_child_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
+    
+    // Verify CPFP child transaction is detected
+    let bob_child_tx = after_child_bob_txs.iter()
+        .find(|tx| tx.txid == child_txid)
+        .expect("Bob should have the child transaction");
+    
+    // Alice might not see the child transaction if it doesn't affect her wallet
+    // But Bob should definitely see it since he created it
+    assert_eq!(bob_child_tx.transaction_status, "pending", "Bob's child transaction should be pending");
+    assert_eq!(bob_child_tx.parent_txid, Some(parent_txid.clone()), "Bob's child should have parent_txid set");
+    
+    // Verify parent transaction still exists and is unchanged
+    let alice_parent_after_child = after_child_alice_txs.iter()
+        .find(|tx| tx.txid == parent_txid)
+        .expect("Alice should still have the parent transaction");
+    let bob_parent_after_child = after_child_bob_txs.iter()
+        .find(|tx| tx.txid == parent_txid)
+        .expect("Bob should still have the parent transaction");
+        
+    assert_eq!(alice_parent_after_child.transaction_status, "pending", "Alice's parent should still be pending");
+    assert_eq!(bob_parent_after_child.transaction_status, "pending", "Bob's parent should still be pending");
+    assert!(alice_parent_after_child.parent_txid.is_none(), "Parent should still have no parent_txid");
+    assert!(bob_parent_after_child.parent_txid.is_none(), "Parent should still have no parent_txid");
+    
+    println!("✅ CPFP child transaction detected:");
+    println!("   Child txid: {}", child_txid);
+    println!("   Bob's child transaction status: '{}', parent_txid: {:?}", bob_child_tx.transaction_status, bob_child_tx.parent_txid);
+    println!("   Parent transaction remains pending in both wallets");
+    
+    // Step 3: Mine block to confirm both transactions together (CPFP effect)
+    println!("⛏️ Step 3: Mining block to confirm both parent and child together (CPFP effect)");
+    env.mine_blocks(1).await.expect("Failed to mine blocks");
+    env.sync_and_wait().await.expect("Failed to sync after mining");
+    
+    // Verify both transactions are confirmed in the same block
+    let final_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let final_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
+    
+    let alice_final_parent = final_alice_txs.iter()
+        .find(|tx| tx.txid == parent_txid)
+        .expect("Alice should have the parent transaction");
+    let bob_final_parent = final_bob_txs.iter()
+        .find(|tx| tx.txid == parent_txid)
+        .expect("Bob should have the parent transaction");
+    let bob_final_child = final_bob_txs.iter()
+        .find(|tx| tx.txid == child_txid)
+        .expect("Bob should have the child transaction");
+    
+    // Verify both transactions are confirmed
+    assert_eq!(alice_final_parent.transaction_status, "confirmed", "Alice's parent should be confirmed");
+    assert_eq!(bob_final_parent.transaction_status, "confirmed", "Bob's parent should be confirmed");
+    assert_eq!(bob_final_child.transaction_status, "confirmed", "Bob's child should be confirmed");
+    
+    // Verify they were confirmed in the same block
+    assert!(alice_final_parent.block_height.is_some(), "Alice's parent should have block height");
+    assert!(bob_final_parent.block_height.is_some(), "Bob's parent should have block height");
+    assert!(bob_final_child.block_height.is_some(), "Bob's child should have block height");
+    assert_eq!(alice_final_parent.block_height, bob_final_parent.block_height, "Parent should have same block height in both wallets");
+    assert_eq!(bob_final_parent.block_height, bob_final_child.block_height, "Parent and child should be in same block");
+    
+    // Verify CPFP relationship is preserved after confirmation
+    assert!(alice_final_parent.parent_txid.is_none(), "Parent should still have no parent_txid after confirmation");
+    assert!(bob_final_parent.parent_txid.is_none(), "Parent should still have no parent_txid after confirmation");
+    assert_eq!(bob_final_child.parent_txid, Some(parent_txid.clone()), "Child should still have parent_txid after confirmation");
+    
+    println!("✅ CPFP test passed!");
+    println!("   - Parent transaction: {} (status: 'confirmed', block: {:?})", parent_txid, alice_final_parent.block_height);
+    println!("   - Child transaction: {} (status: 'confirmed', block: {:?})", child_txid, bob_final_child.block_height);
+    println!("   - Both transactions confirmed in same block (CPFP effect working)");
+    println!("   - Parent-child relationship preserved: child.parent_txid = {}", parent_txid);
+    println!("   - CPFP detection and tracking successful from mempool to confirmation");
+}

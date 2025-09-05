@@ -864,4 +864,85 @@ impl Drop for IsolatedTestEnvironment {
             }
         }
     }
+
+    /// Send a simple transaction (non-RBF) - convenience wrapper using docker-utils.sh
+    pub async fn send_transaction(&self, from_wallet: &str, to_wallet: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
+        println!("💸 Sending {} BTC from {} to {} using docker-utils.sh", amount, from_wallet, to_wallet);
+        
+        // Use the regtest-env directory to run the docker-utils.sh command, similar to dev workflow
+        // This mirrors: ./docker-utils.sh alice sending bob 0.003333
+        let regtest_env_dir = std::env::current_dir()?
+            .parent()
+            .ok_or("Cannot find parent directory")?
+            .join("regtest-env");
+        
+        let result = std::process::Command::new("./docker-utils.sh")
+            .args([from_wallet, "sending", to_wallet, amount])
+            .current_dir(&regtest_env_dir)
+            .output()
+            .expect("Failed to execute send transaction command");
+
+        if !result.status.success() {
+            let stderr = String::from_utf8_lossy(&result.stderr);
+            let stdout = String::from_utf8_lossy(&result.stdout);
+            return Err(format!("Send transaction failed:\nStderr: {}\nStdout: {}", stderr, stdout).into());
+        }
+
+        let output = String::from_utf8_lossy(&result.stdout);
+        println!("📋 Send command output:\n{}", output);
+        
+        // Extract transaction ID from the output
+        // Looking for: "✅ Transaction 1 sent: 233ac5b434910b82e8a4ead2377f55c6f27ec0a30d5e75d001974b2f5d11ec38"
+        for line in output.lines() {
+            if line.contains("✅ Transaction") && line.contains("sent:") {
+                if let Some(txid) = line.split(':').last().map(|s| s.trim()) {
+                    println!("✅ Transaction sent: {}", txid);
+                    return Ok(txid.to_string());
+                }
+            }
+        }
+        
+        Err("Could not extract transaction ID from send command output".into())
+    }
+
+    /// Create a CPFP (Child-Pays-For-Parent) transaction
+    /// This creates a transaction that spends from an unconfirmed parent transaction with a high fee
+    pub async fn create_cpfp_transaction(&self, wallet: &str, parent_txid: &str) -> Result<String, Box<dyn std::error::Error>> {
+        println!("👶 Creating CPFP child transaction spending from parent: {}", parent_txid);
+        
+        // Use the regtest-env directory to run the docker-utils.sh command, similar to dev workflow
+        // This mirrors: ./docker-utils.sh bob cpfp 233ac5b434910b82e8a4ead2377f55c6f27ec0a30d5e75d001974b2f5d11ec38
+        let regtest_env_dir = std::env::current_dir()?
+            .parent()
+            .ok_or("Cannot find parent directory")?
+            .join("regtest-env");
+        
+        let result = std::process::Command::new("./docker-utils.sh")
+            .args([wallet, "cpfp", parent_txid])
+            .current_dir(&regtest_env_dir)
+            .output()
+            .expect("Failed to execute CPFP transaction command");
+
+        if !result.status.success() {
+            let stderr = String::from_utf8_lossy(&result.stderr);
+            let stdout = String::from_utf8_lossy(&result.stdout);
+            return Err(format!("CPFP transaction failed:\nStderr: {}\nStdout: {}", stderr, stdout).into());
+        }
+
+        let output = String::from_utf8_lossy(&result.stdout);
+        println!("📋 CPFP command output:\n{}", output);
+        
+        // Extract child transaction ID from the output
+        // Looking for: "✅ Child transaction created: b8c0ea37ccbc0e5a9f2347d6c9d67692fb2d7ad60a6115a08ab23498485f9263"
+        for line in output.lines() {
+            if line.contains("✅ Child transaction created:") {
+                if let Some(txid) = line.split(':').last().map(|s| s.trim()) {
+                    println!("✅ CPFP child transaction created: {}", txid);
+                    return Ok(txid.to_string());
+                }
+            }
+        }
+        
+        Err("Could not extract child transaction ID from CPFP command output".into())
+    }
 }
