@@ -698,10 +698,6 @@ volumes:
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
     
-    /// Send transaction between wallets
-    pub async fn send_transaction(&self, from_wallet: &str, to_wallet: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
-        self.send_transaction_with_options(from_wallet, to_wallet, amount, false, None).await
-    }
     
     /// Send transaction with advanced options (RBF support, custom fee rate)  
     pub async fn send_transaction_with_options(
