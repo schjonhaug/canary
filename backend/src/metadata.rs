@@ -178,13 +178,13 @@ pub struct Transaction {
     pub amount_sats: i64,
     pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
     pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
-    pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
+    pub first_seen_at: u64,    // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub parent_txid: Option<String>,
     // RBF replacement tracking
     pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
-    pub replaced_at: Option<u64>, // Unix timestamp when this transaction was replaced
+    pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
     pub notification_status: Vec<NotificationStatus>,
 }
 
@@ -198,7 +198,6 @@ pub enum TransactionNotification {
     Confirmed(Transaction),
 }
 
-
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct TransactionWithWallet {
     pub txid: String, // Bitcoin transaction ID (hash) - primary key
@@ -208,16 +207,15 @@ pub struct TransactionWithWallet {
     pub amount_sats: i64,
     pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
     pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
-    pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
+    pub first_seen_at: u64,    // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub parent_txid: Option<String>,
     // RBF replacement tracking
     pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
-    pub replaced_at: Option<u64>, // Unix timestamp when this transaction was replaced
+    pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
     pub notification_status: Vec<NotificationStatus>,
 }
-
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct NotificationStatus {
@@ -225,10 +223,10 @@ pub struct NotificationStatus {
     pub provider_name: String,
     pub status: String,
     pub error_message: Option<String>,
-    pub notification_target: Option<String>,  // Phone number, email, or ntfy topic
-    pub provider_type: Option<String>,        // 'sms', 'email', 'ntfy'
-    pub created_at: String,                   // When the notification was sent
-    pub notification_type: String,            // "pending" or "confirmed"
+    pub notification_target: Option<String>, // Phone number, email, or ntfy topic
+    pub provider_type: Option<String>,       // 'sms', 'email', 'ntfy'
+    pub created_at: String,                  // When the notification was sent
+    pub notification_type: String,           // "pending" or "confirmed"
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -253,13 +251,13 @@ pub struct TransactionInsert {
     pub amount_sats: i64,
     pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
     pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
-    pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
+    pub first_seen_at: u64,    // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub parent_txid: Option<String>,
     // RBF replacement tracking
     pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
-    pub replaced_at: Option<u64>, // Unix timestamp when this transaction was replaced
+    pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
 }
 
 impl Default for TransactionInsert {
@@ -280,7 +278,6 @@ impl Default for TransactionInsert {
         }
     }
 }
-
 
 impl Default for EventType {
     fn default() -> Self {
@@ -995,14 +992,14 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
-            
+
             // First delete notification_logs that reference this wallet's transactions
             // This prevents foreign key constraint failures when transactions are cascade deleted
             conn.execute(
                 "DELETE FROM notification_logs WHERE transaction_wallet_checksum = ?1",
                 params![checksum],
             )?;
-            
+
             // Now delete the wallet - this will cascade delete transactions, contacts, etc.
             let changes =
                 conn.execute("DELETE FROM wallets WHERE checksum = ?1", params![checksum])?;
@@ -1010,7 +1007,6 @@ impl MetadataDb {
         })
         .await?
     }
-
 
     // New transaction-based methods
     pub async fn insert_transaction(&self, transaction: &TransactionInsert) -> Result<String> {
@@ -1041,7 +1037,11 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn get_transaction_by_txid(&self, wallet_checksum: &str, txid: &str) -> Result<Option<Transaction>> {
+    pub async fn get_transaction_by_txid(
+        &self,
+        wallet_checksum: &str,
+        txid: &str,
+    ) -> Result<Option<Transaction>> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let txid = txid.to_string();
@@ -1079,7 +1079,13 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn update_transaction_confirmation(&self, wallet_checksum: &str, txid: &str, block_height: u32, confirmed_at: u64) -> Result<bool> {
+    pub async fn update_transaction_confirmation(
+        &self,
+        wallet_checksum: &str,
+        txid: &str,
+        block_height: u32,
+        confirmed_at: u64,
+    ) -> Result<bool> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let txid = txid.to_string();
@@ -1173,7 +1179,6 @@ impl MetadataDb {
             Ok(transactions)
         }).await?
     }
-
 
     // Normalized contact methods
     pub async fn insert_contact_with_notification_methods(
@@ -1397,7 +1402,6 @@ impl MetadataDb {
         })
         .await?
     }
-
 
     pub async fn delete_wallet_contact(
         &self,
@@ -1863,7 +1867,6 @@ impl MetadataDb {
             Ok(log_id)
         }).await?
     }
-
 
     // User management methods
     pub async fn create_user(
@@ -2760,5 +2763,4 @@ impl MetadataDb {
         })
         .await?
     }
-
 }

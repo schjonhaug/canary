@@ -1,5 +1,7 @@
 use crate::message_formatter::MessageFormatter;
-use crate::metadata::{Contact, EventType, NotificationMethod, ProviderType, TransactionNotification};
+use crate::metadata::{
+    Contact, EventType, NotificationMethod, ProviderType, TransactionNotification,
+};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
 use serde_json::json;
@@ -55,14 +57,7 @@ impl NotificationProvider for NtfyProvider {
                     .post(&ntfy_url)
                     .header("Content-Type", "text/plain; charset=utf-8")
                     .header("Title", format!("Canary - {}", wallet_name))
-                    .header(
-                        "Priority",
-                        if is_confirmed {
-                            "default"
-                        } else {
-                            "high"
-                        },
-                    )
+                    .header("Priority", if is_confirmed { "default" } else { "high" })
                     .header(
                         "Tags",
                         if transaction.transaction_type == EventType::Receive {

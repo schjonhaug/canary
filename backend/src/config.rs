@@ -17,7 +17,7 @@ impl NetworkConfig {
             NetworkConfig::Mainnet => Network::Bitcoin,
         }
     }
-    
+
     pub fn from_network(network: Network) -> Self {
         match network {
             Network::Regtest => NetworkConfig::Regtest,

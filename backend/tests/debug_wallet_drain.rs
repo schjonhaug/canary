@@ -1,23 +1,23 @@
+use canary::config::{AppConfig, NetworkConfig};
+use canary::metadata::{EventType, MetadataDb, TransactionEvent, TransactionEventWithWallet};
+use canary::subscription::SubscriptionTier;
+use canary::wallet::WalletManager;
 use std::process::Command;
 use std::time::Duration;
-use tokio::time::sleep;
-use canary::config::{AppConfig, NetworkConfig};
-use canary::metadata::{MetadataDb, EventType, TransactionEventWithWallet, TransactionEvent};
-use canary::wallet::WalletManager;
-use canary::subscription::SubscriptionTier;
-use tokio::sync::broadcast;
 use tempfile::tempdir;
+use tokio::sync::broadcast;
+use tokio::time::sleep;
 
 /// Debug test to understand why wallet drain events aren't being created
 #[tokio::test]
-#[ignore] 
+#[ignore]
 async fn debug_wallet_drain_detection() {
     println!("🔍 Starting wallet drain debug test...");
-    
+
     // Create temporary directory for test data
     let temp_dir = tempdir().expect("Failed to create temp dir");
     let temp_path = temp_dir.path().to_string_lossy().to_string();
-    
+
     // Create test database
     let db_path = temp_dir.path().join("test.db");
     let test_config = AppConfig {
@@ -26,25 +26,28 @@ async fn debug_wallet_drain_detection() {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_path.clone(),
     };
-    
+
     let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config)
         .await
         .expect("Failed to create metadata db");
-    
+
     // Create test user
-    let test_user_id = metadata_db.create_user(
-        "debug@example.com",
-        "hashedpassword", 
-        Some("Debug User"),
-        true
-    ).await.expect("Failed to create user");
-    
+    let test_user_id = metadata_db
+        .create_user(
+            "debug@example.com",
+            "hashedpassword",
+            Some("Debug User"),
+            true,
+        )
+        .await
+        .expect("Failed to create user");
+
     // Create wallet manager
     let wallet_dir = temp_dir.path().join("wallets");
     std::fs::create_dir_all(&wallet_dir).expect("Failed to create wallet dir");
-    
+
     let (event_sender, _event_receiver) = broadcast::channel::<TransactionEvent>(100);
-    
+
     let mut wallet_manager = WalletManager::new(
         event_sender,
         wallet_dir,
@@ -52,79 +55,106 @@ async fn debug_wallet_drain_detection() {
         bdk_wallet::bitcoin::Network::Regtest,
         "tcp://127.0.0.1:50001",
         &test_config,
-    ).await;
-    
+    )
+    .await;
+
     // Use a real test descriptor (simplified)
-    let test_descriptor = "wpkh(tprv8ZgxMBicQKsPeQXeTomURYacnjTRfqFN1IsMyHQHBkDSm/84'/1'/0'/0/*)#test123";
-    
-    let bob_checksum = metadata_db.insert_wallet("DebugBob", test_descriptor, &test_user_id)
+    let test_descriptor =
+        "wpkh(tprv8ZgxMBicQKsPeQXeTomURYacnjTRfqFN1IsMyHQHBkDSm/84'/1'/0'/0/*)#test123";
+
+    let bob_checksum = metadata_db
+        .insert_wallet("DebugBob", test_descriptor, &test_user_id)
         .await
         .expect("Failed to insert wallet");
-    
+
     println!("✅ Created test wallet with checksum: {}", bob_checksum);
-    
+
     // Fund Bob with 0.1 BTC from miner
     println!("💰 Funding Bob's test wallet...");
     let output = Command::new("../regtest-env/docker-utils.sh")
         .args(&["miner", "sent", "bob", "0.1"])
         .output()
         .expect("Failed to execute miner fund command");
-    
-    println!("Fund command output: {}", String::from_utf8_lossy(&output.stdout));
-    
+
+    println!(
+        "Fund command output: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+
     // Wait and sync to ensure funding is detected
     sleep(Duration::from_millis(3000)).await;
-    let _ = wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await;
+    let _ = wallet_manager
+        .sync_tier_parallel(SubscriptionTier::Team)
+        .await;
     sleep(Duration::from_millis(2000)).await;
-    
+
     // Check initial events
-    let initial_events = metadata_db.get_events_by_wallet_checksum(&bob_checksum, None)
+    let initial_events = metadata_db
+        .get_events_by_wallet_checksum(&bob_checksum, None)
         .await
         .expect("Failed to get initial events");
-    
+
     println!("📊 Initial events for Bob: {} events", initial_events.len());
     for event in &initial_events {
-        println!("   - {:?}: {} sats, confirmed: {}", event.event_type, event.amount_sats, event.is_confirmed);
+        println!(
+            "   - {:?}: {} sats, confirmed: {}",
+            event.event_type, event.amount_sats, event.is_confirmed
+        );
     }
-    
+
     // Now drain the wallet
     println!("🔥 Draining Bob's wallet...");
     let drain_output = Command::new("../regtest-env/docker-utils.sh")
         .args(&["bob", "sending", "alice", "max"])
         .output()
         .expect("Failed to execute drain command");
-    
-    println!("Drain command output: {}", String::from_utf8_lossy(&drain_output.stdout));
-    
+
+    println!(
+        "Drain command output: {}",
+        String::from_utf8_lossy(&drain_output.stdout)
+    );
+
     // Wait and sync to detect the drain
     sleep(Duration::from_millis(3000)).await;
-    let _ = wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await;
+    let _ = wallet_manager
+        .sync_tier_parallel(SubscriptionTier::Team)
+        .await;
     sleep(Duration::from_millis(2000)).await;
-    
+
     // Check events after drain
-    let post_drain_events = metadata_db.get_events_by_wallet_checksum(&bob_checksum, None)
+    let post_drain_events = metadata_db
+        .get_events_by_wallet_checksum(&bob_checksum, None)
         .await
         .expect("Failed to get post-drain events");
-    
-    println!("📊 Post-drain events for Bob: {} events", post_drain_events.len());
+
+    println!(
+        "📊 Post-drain events for Bob: {} events",
+        post_drain_events.len()
+    );
     for event in &post_drain_events {
-        println!("   - {:?}: {} sats, confirmed: {}, rbf: {}, cpfp: {}", 
-                event.event_type, event.amount_sats, event.is_confirmed, event.is_rbf, event.is_cpfp);
+        println!(
+            "   - {:?}: {} sats, confirmed: {}, rbf: {}, cpfp: {}",
+            event.event_type, event.amount_sats, event.is_confirmed, event.is_rbf, event.is_cpfp
+        );
     }
-    
+
     let new_events = post_drain_events.len() - initial_events.len();
     println!("📈 New events created: {}", new_events);
-    
+
     // Look specifically for send events
-    let send_events: Vec<_> = post_drain_events.iter()
+    let send_events: Vec<_> = post_drain_events
+        .iter()
         .filter(|e| e.event_type == EventType::Send)
         .collect();
-    
+
     println!("💸 Send events found: {}", send_events.len());
     for event in &send_events {
-        println!("   - Send: {} sats, confirmed: {}", event.amount_sats, event.is_confirmed);
+        println!(
+            "   - Send: {} sats, confirmed: {}",
+            event.amount_sats, event.is_confirmed
+        );
     }
-    
+
     if send_events.is_empty() {
         println!("❌ NO SEND EVENTS FOUND - This confirms the wallet drain detection bug!");
         println!("   The transaction was sent but no events were created in the database.");
@@ -132,33 +162,44 @@ async fn debug_wallet_drain_detection() {
     } else {
         println!("✅ Send events were created - wallet drain detection is working!");
     }
-    
+
     // Mine the transaction to confirm it
     println!("⛏️ Mining block to confirm transaction...");
     let mine_output = Command::new("../regtest-env/docker-utils.sh")
         .args(&["mine", "1"])
         .output()
         .expect("Failed to execute mine command");
-    
-    println!("Mine command output: {}", String::from_utf8_lossy(&mine_output.stdout));
-    
+
+    println!(
+        "Mine command output: {}",
+        String::from_utf8_lossy(&mine_output.stdout)
+    );
+
     // Final sync and check
     sleep(Duration::from_millis(3000)).await;
-    let _ = wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await;
+    let _ = wallet_manager
+        .sync_tier_parallel(SubscriptionTier::Team)
+        .await;
     sleep(Duration::from_millis(2000)).await;
-    
-    let final_events = metadata_db.get_events_by_wallet_checksum(&bob_checksum, None)
+
+    let final_events = metadata_db
+        .get_events_by_wallet_checksum(&bob_checksum, None)
         .await
         .expect("Failed to get final events");
-    
+
     println!("📊 Final events for Bob: {} events", final_events.len());
     for event in &final_events {
-        println!("   - {:?}: {} sats, confirmed: {}, rbf: {}, cpfp: {}", 
-                event.event_type, event.amount_sats, event.is_confirmed, event.is_rbf, event.is_cpfp);
+        println!(
+            "   - {:?}: {} sats, confirmed: {}, rbf: {}, cpfp: {}",
+            event.event_type, event.amount_sats, event.is_confirmed, event.is_rbf, event.is_cpfp
+        );
     }
-    
+
     println!("🎯 Debug test completed!");
     println!("   Initial events: {}", initial_events.len());
     println!("   Final events: {}", final_events.len());
-    println!("   Events created: {}", final_events.len() - initial_events.len());
+    println!(
+        "   Events created: {}",
+        final_events.len() - initial_events.len()
+    );
 }

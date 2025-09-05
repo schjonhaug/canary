@@ -61,14 +61,12 @@ impl MessageFormatter {
                     if transaction.amount_sats > 0 {
                         let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                         match language {
-                            Language::Norwegian => format!(
-                                "✅ Sendt: {} BTC fra {}",
-                                amount_btc, wallet_name
-                            ),
-                            Language::English => format!(
-                                "✅ Sent: {} BTC from {}",
-                                amount_btc, wallet_name
-                            ),
+                            Language::Norwegian => {
+                                format!("✅ Sendt: {} BTC fra {}", amount_btc, wallet_name)
+                            }
+                            Language::English => {
+                                format!("✅ Sent: {} BTC from {}", amount_btc, wallet_name)
+                            }
                         }
                     } else {
                         match language {
@@ -83,11 +81,15 @@ impl MessageFormatter {
                     match language {
                         Language::Norwegian => format!(
                             "🔄 Erstatttet: {} BTC fra {} (erstattet av {})",
-                            amount_btc, wallet_name, &replaced_by[..8.min(replaced_by.len())]
+                            amount_btc,
+                            wallet_name,
+                            &replaced_by[..8.min(replaced_by.len())]
                         ),
                         Language::English => format!(
                             "🔄 Replaced: {} BTC from {} (replaced by {})",
-                            amount_btc, wallet_name, &replaced_by[..8.min(replaced_by.len())]
+                            amount_btc,
+                            wallet_name,
+                            &replaced_by[..8.min(replaced_by.len())]
                         ),
                     }
                 // } else if transaction.is_cpfp {
@@ -95,14 +97,12 @@ impl MessageFormatter {
                 } else {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
-                        Language::Norwegian => format!(
-                            "📤 Sender: {} BTC fra {}",
-                            amount_btc, wallet_name
-                        ),
-                        Language::English => format!(
-                            "📤 Sending: {} BTC from {}",
-                            amount_btc, wallet_name
-                        ),
+                        Language::Norwegian => {
+                            format!("📤 Sender: {} BTC fra {}", amount_btc, wallet_name)
+                        }
+                        Language::English => {
+                            format!("📤 Sending: {} BTC from {}", amount_btc, wallet_name)
+                        }
                     }
                 }
             }
@@ -114,24 +114,26 @@ impl MessageFormatter {
                     match language {
                         Language::Norwegian => format!(
                             "🔄 Erstatttet: {} BTC til {} (erstattet av {})",
-                            amount_btc, wallet_name, &replaced_by[..8.min(replaced_by.len())]
+                            amount_btc,
+                            wallet_name,
+                            &replaced_by[..8.min(replaced_by.len())]
                         ),
                         Language::English => format!(
                             "🔄 Replaced: {} BTC to {} (replaced by {})",
-                            amount_btc, wallet_name, &replaced_by[..8.min(replaced_by.len())]
+                            amount_btc,
+                            wallet_name,
+                            &replaced_by[..8.min(replaced_by.len())]
                         ),
                     }
                 } else if is_confirmed {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
-                        Language::Norwegian => format!(
-                            "✅ Mottatt: {} BTC til {}",
-                            amount_btc, wallet_name
-                        ),
-                        Language::English => format!(
-                            "✅ Received: {} BTC to {}",
-                            amount_btc, wallet_name
-                        ),
+                        Language::Norwegian => {
+                            format!("✅ Mottatt: {} BTC til {}", amount_btc, wallet_name)
+                        }
+                        Language::English => {
+                            format!("✅ Received: {} BTC to {}", amount_btc, wallet_name)
+                        }
                     }
                 } else {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);

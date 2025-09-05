@@ -360,7 +360,6 @@ impl WalletManager {
         self.network
     }
 
-
     /// Create or load a SQLite connection for a wallet
     pub fn create_sqlite_connection(&self, wallet_path: &PathBuf) -> Result<Connection> {
         let conn = Connection::open(wallet_path)
@@ -822,13 +821,14 @@ impl WalletManager {
         }
 
         // Extract historical transactions after sync
-        if let Err(e) = crate::sync::WalletSyncService::extract_historical_transactions_for_background(
-            &wallet,
-            &checksum,
-            &metadata_db,
-            electrum_client.as_ref(),
-        )
-        .await
+        if let Err(e) =
+            crate::sync::WalletSyncService::extract_historical_transactions_for_background(
+                &wallet,
+                &checksum,
+                &metadata_db,
+                electrum_client.as_ref(),
+            )
+            .await
         {
             eprintln!(
                 "[{}] Warning: Failed to extract historical transactions: {}",
@@ -868,7 +868,7 @@ impl WalletManager {
     async fn cleanup_deleted_wallets(&mut self) -> Result<()> {
         // Get ready wallets from database (source of truth)
         let ready_wallets = self.metadata_db.get_ready_wallets().await?;
-        
+
         // Get wallets marked as deleted in database
         let deleted_wallets = self.metadata_db.get_deleted_wallets().await?;
 
@@ -938,63 +938,83 @@ impl WalletManager {
         tier: crate::subscription::SubscriptionTier,
     ) -> Result<()> {
         use crate::sync::WalletSyncService;
-        
+
         // First, perform wallet cleanup (remove deleted wallets)
         self.cleanup_deleted_wallets().await?;
-        
+
         // Convert Network to NetworkConfig for the query
         let network_config = NetworkConfig::from_network(self.network);
-        
+
         // Get wallets for this tier from metadata
-        let wallets = self.metadata_db.get_wallets_for_tier_sync(&tier, &network_config).await?;
-        
+        let wallets = self
+            .metadata_db
+            .get_wallets_for_tier_sync(&tier, &network_config)
+            .await?;
+
         if wallets.is_empty() {
             println!("📭 No {:?} tier wallets to sync", tier);
             return Ok(());
         }
-        
-        println!("🔄 Starting sync for {} {:?} tier wallets", wallets.len(), tier);
-        
-        // Create sync service with proper parameters
-        let sync_service = WalletSyncService::new(
-            self.metadata_db.clone(),
-            self.notification_sender.clone(),
+
+        println!(
+            "🔄 Starting sync for {} {:?} tier wallets",
+            wallets.len(),
+            tier
         );
-        
+
+        // Create sync service with proper parameters
+        let sync_service =
+            WalletSyncService::new(self.metadata_db.clone(), self.notification_sender.clone());
+
         // Process each wallet with new transaction-based sync
         for wallet_metadata in wallets {
             // Check if wallet is loaded in memory
-            let wallet_exists_in_memory = self.wallets
+            let wallet_exists_in_memory = self
+                .wallets
                 .iter()
                 .any(|(checksum, _)| checksum == &wallet_metadata.checksum);
-            
+
             // If wallet is not in memory but is ready in DB, load it from disk
             if !wallet_exists_in_memory {
                 let wallet_filename = format!("{}.sqlite", wallet_metadata.checksum);
                 let wallet_path = self.wallet_dir.join(&wallet_filename);
-                
+
                 if wallet_path.exists() {
-                    println!("📥 Loading wallet {} from disk for sync", wallet_metadata.name);
+                    println!(
+                        "📥 Loading wallet {} from disk for sync",
+                        wallet_metadata.name
+                    );
                     if let Err(e) = self.load_wallet_from_file(&wallet_path).await {
-                        eprintln!("❌ Failed to load wallet {} from disk: {}", wallet_metadata.name, e);
+                        eprintln!(
+                            "❌ Failed to load wallet {} from disk: {}",
+                            wallet_metadata.name, e
+                        );
                         continue; // Skip this wallet if loading fails
                     }
                 } else {
-                    eprintln!("❌ Wallet file not found for {}: {}", wallet_metadata.name, wallet_path.display());
+                    eprintln!(
+                        "❌ Wallet file not found for {}: {}",
+                        wallet_metadata.name,
+                        wallet_path.display()
+                    );
                     continue;
                 }
             }
-            
+
             // Find the wallet in our Vec<(String, PersistedWallet)> (should exist now)
-            if let Some((_checksum, persisted_wallet)) = self.wallets
+            if let Some((_checksum, persisted_wallet)) = self
+                .wallets
                 .iter_mut()
-                .find(|(checksum, _)| checksum == &wallet_metadata.checksum) 
+                .find(|(checksum, _)| checksum == &wallet_metadata.checksum)
             {
-                match sync_service.sync_wallet_by_checksum(
-                    persisted_wallet,
-                    &wallet_metadata.checksum,
-                    self.electrum_client.as_ref(),
-                ).await {
+                match sync_service
+                    .sync_wallet_by_checksum(
+                        persisted_wallet,
+                        &wallet_metadata.checksum,
+                        self.electrum_client.as_ref(),
+                    )
+                    .await
+                {
                     Ok(_) => {
                         println!("✅ Synced wallet: {}", wallet_metadata.name);
                     }
@@ -1003,13 +1023,15 @@ impl WalletManager {
                     }
                 }
             } else {
-                eprintln!("❌ Wallet {} still not found in memory after loading attempt", wallet_metadata.name);
+                eprintln!(
+                    "❌ Wallet {} still not found in memory after loading attempt",
+                    wallet_metadata.name
+                );
             }
         }
-        
+
         Ok(())
     }
-
 
     /// Apply subscription tier limits by setting is_active status on wallets and contacts
     pub async fn apply_subscription_limits(
@@ -1131,4 +1153,3 @@ impl WalletManager {
         self.metadata_db.get_wallet_by_checksum(checksum).await
     }
 }
-

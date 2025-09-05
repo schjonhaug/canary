@@ -544,28 +544,27 @@ async fn main() -> anyhow::Result<()> {
                                     if let Some(ref method_id) = notification_method.id {
                                         // Use transaction txid for logging
                                         let txid = &transaction.txid;
-                                        let status =
-                                            if result.success { "sent" } else { "failed" };
+                                        let status = if result.success { "sent" } else { "failed" };
                                         if let Err(e) = wallet_manager_lock
                                             .metadata_db
                                             .insert_notification_log_for_transaction(
                                                 txid,
                                                 &transaction.wallet_checksum,
-                                                    method_id,
-                                                    provider_name,
-                                                    result.provider_id.as_deref(),
-                                                    status,
-                                                    result.error_message.as_deref(),
-                                                    &message,
-                                                    notification_type,
-                                                )
-                                                .await
-                                            {
-                                                eprintln!(
-                                                    "❌ Failed to log notification to database: {}",
-                                                    e
-                                                );
-                                            }
+                                                method_id,
+                                                provider_name,
+                                                result.provider_id.as_deref(),
+                                                status,
+                                                result.error_message.as_deref(),
+                                                &message,
+                                                notification_type,
+                                            )
+                                            .await
+                                        {
+                                            eprintln!(
+                                                "❌ Failed to log notification to database: {}",
+                                                e
+                                            );
+                                        }
                                     }
 
                                     // Count results by provider
@@ -590,53 +589,80 @@ async fn main() -> anyhow::Result<()> {
                             let provider_str = provider_summary.join(", ");
 
                             // Extract clean transaction summary from message
-                            let transaction_summary = if message_content.contains("📤") || message_content.contains("✅") && (message_content.contains("Sent") || message_content.contains("Sendt")) {
+                            let transaction_summary = if message_content.contains("📤")
+                                || message_content.contains("✅")
+                                    && (message_content.contains("Sent")
+                                        || message_content.contains("Sendt"))
+                            {
                                 // Extract amount from sending message, looking for " BTC" pattern
                                 if let Some(btc_pos) = message_content.find(" BTC") {
                                     let before_btc = &message_content[..btc_pos];
                                     if let Some(space_pos) = before_btc.rfind(' ') {
                                         let amount = &before_btc[space_pos + 1..];
                                         // Determine if confirmed or unconfirmed based on message content
-                                        if message_content.contains("✅") || message_content.contains("Sent") || message_content.contains("Sendt") {
+                                        if message_content.contains("✅")
+                                            || message_content.contains("Sent")
+                                            || message_content.contains("Sendt")
+                                        {
                                             format!("✅ Sent {} BTC", amount)
                                         } else {
                                             format!("📤 Sending {} BTC", amount)
                                         }
                                     } else {
-                                        if message_content.contains("✅") || message_content.contains("Sent") || message_content.contains("Sendt") {
+                                        if message_content.contains("✅")
+                                            || message_content.contains("Sent")
+                                            || message_content.contains("Sendt")
+                                        {
                                             "✅ Sent transaction".to_string()
                                         } else {
                                             "📤 Sending transaction".to_string()
                                         }
                                     }
                                 } else {
-                                    if message_content.contains("✅") || message_content.contains("Sent") || message_content.contains("Sendt") {
+                                    if message_content.contains("✅")
+                                        || message_content.contains("Sent")
+                                        || message_content.contains("Sendt")
+                                    {
                                         "✅ Sent transaction".to_string()
                                     } else {
                                         "📤 Sending transaction".to_string()
                                     }
                                 }
-                            } else if message_content.contains("📥") || message_content.contains("💸") || message_content.contains("✅") && (message_content.contains("Received") || message_content.contains("Mottatt")) {
+                            } else if message_content.contains("📥")
+                                || message_content.contains("💸")
+                                || message_content.contains("✅")
+                                    && (message_content.contains("Received")
+                                        || message_content.contains("Mottatt"))
+                            {
                                 // Extract amount from receiving message
                                 if let Some(btc_pos) = message_content.find(" BTC") {
                                     let before_btc = &message_content[..btc_pos];
                                     if let Some(space_pos) = before_btc.rfind(' ') {
                                         let amount = &before_btc[space_pos + 1..];
                                         // Determine if confirmed or unconfirmed based on message content
-                                        if message_content.contains("✅") || message_content.contains("Received") || message_content.contains("Mottatt") {
+                                        if message_content.contains("✅")
+                                            || message_content.contains("Received")
+                                            || message_content.contains("Mottatt")
+                                        {
                                             format!("✅ Received {} BTC", amount)
                                         } else {
                                             format!("💸 Receiving {} BTC", amount)
                                         }
                                     } else {
-                                        if message_content.contains("✅") || message_content.contains("Received") || message_content.contains("Mottatt") {
+                                        if message_content.contains("✅")
+                                            || message_content.contains("Received")
+                                            || message_content.contains("Mottatt")
+                                        {
                                             "✅ Received transaction".to_string()
                                         } else {
                                             "💸 Receiving transaction".to_string()
                                         }
                                     }
                                 } else {
-                                    if message_content.contains("✅") || message_content.contains("Received") || message_content.contains("Mottatt") {
+                                    if message_content.contains("✅")
+                                        || message_content.contains("Received")
+                                        || message_content.contains("Mottatt")
+                                    {
                                         "✅ Received transaction".to_string()
                                     } else {
                                         "💸 Receiving transaction".to_string()

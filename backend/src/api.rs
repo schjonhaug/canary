@@ -4348,12 +4348,14 @@ pub async fn get_billing_status(
 
     // Get tier limits with actual network-specific sync intervals
     let tier_limits = user_record.subscription_tier.limits_for_api();
-    let (personal_sync, team_sync) = user_record.subscription_tier.get_sync_intervals(&config.network);
+    let (personal_sync, team_sync) = user_record
+        .subscription_tier
+        .get_sync_intervals(&config.network);
     let actual_sync_interval = match user_record.subscription_tier {
         crate::subscription::SubscriptionTier::Personal => personal_sync,
         crate::subscription::SubscriptionTier::Team => team_sync,
     };
-    
+
     let limits = BillingTierLimits {
         max_wallets: tier_limits.max_wallets.map(|n| n as i32).unwrap_or(-1),
         max_contacts_per_wallet: tier_limits
