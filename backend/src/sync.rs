@@ -113,7 +113,8 @@ impl WalletSyncService {
         let mut all_transactions = canonical_transactions_data;
         all_transactions.sort_by_key(|(_, _, _, _, first_seen_at, _)| *first_seen_at);
 
-        // No longer need balance calculations since we removed balance_after field
+        // Detect CPFP relationships for unconfirmed transactions
+        let cpfp_relationships = self.detect_cpfp_relationships(wallet, wallet_checksum, &all_transactions)?;
 
         // Process each canonical transaction
         for (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) in &all_transactions {
@@ -147,7 +148,7 @@ impl WalletSyncService {
                         block_height: *block_height,
                         first_seen_at: *first_seen_at,
                         confirmed_at: *confirmed_at,
-                        is_cpfp: false, // TODO: Implement CPFP detection later
+                        parent_txid: cpfp_relationships.get(txid).cloned(),
                         transaction_status: if *is_confirmed { "confirmed".to_string() } else { "pending".to_string() },
                         replaced_by_txid: None,
                         replaced_at: None,
@@ -302,7 +303,7 @@ impl WalletSyncService {
             block_height: transaction.block_height,
             first_seen_at: transaction.first_seen_at,
             confirmed_at: transaction.confirmed_at,
-            is_cpfp: transaction.is_cpfp,
+            parent_txid: transaction.parent_txid.clone(),
             transaction_status: transaction.transaction_status.clone(),
             replaced_by_txid: transaction.replaced_by_txid.clone(),
             replaced_at: transaction.replaced_at,
@@ -501,7 +502,7 @@ impl WalletSyncService {
                 block_height,
                 first_seen_at,
                 confirmed_at,
-                is_cpfp: false, // TODO: Detect CPFP for historical transactions
+                parent_txid: None, // Historical transactions don't have CPFP relationship anymore
                 transaction_status: if is_confirmed { "confirmed".to_string() } else { "pending".to_string() },
                 replaced_by_txid: None,
                 replaced_at: None,
@@ -521,6 +522,73 @@ impl WalletSyncService {
             wallet_checksum
         );
         Ok(())
+    }
+
+    /// Detect CPFP relationships among unconfirmed transactions
+    /// Returns a HashMap mapping child_txid -> parent_txid for transactions that are CPFP children
+    fn detect_cpfp_relationships(
+        &self,
+        wallet: &PersistedWallet<Connection>,
+        wallet_checksum: &str,
+        all_transactions: &[(String, i64, Option<u32>, bool, u64, Option<u64>)],
+    ) -> Result<std::collections::HashMap<String, String>> {
+        use std::collections::HashMap;
+        
+        let mut cpfp_relationships = HashMap::new();
+        
+        // Only consider unconfirmed transactions for CPFP detection
+        let unconfirmed_txs: Vec<_> = all_transactions
+            .iter()
+            .filter(|(_, _, _, is_confirmed, _, _)| !is_confirmed)
+            .collect();
+        
+        if unconfirmed_txs.len() < 2 {
+            // Need at least 2 unconfirmed transactions for CPFP
+            return Ok(cpfp_relationships);
+        }
+        
+        // Get all BDK transactions with full details
+        let all_bdk_txs: Vec<_> = wallet.tx_graph().full_txs().collect();
+        
+        // Build a map of unconfirmed transaction outputs: (txid, vout) -> txid
+        let mut unconfirmed_outputs: HashMap<(String, u32), String> = HashMap::new();
+        for (txid, _, _, _, _, _) in &unconfirmed_txs {
+            if let Some(bdk_tx) = all_bdk_txs.iter().find(|tx| tx.txid.to_string() == *txid) {
+                for (vout, _) in bdk_tx.tx.output.iter().enumerate() {
+                    unconfirmed_outputs.insert((txid.clone(), vout as u32), txid.clone());
+                }
+            }
+        }
+        
+        // Check each unconfirmed transaction to see if it spends from another unconfirmed transaction
+        for (child_txid, _, _, _, _, _) in &unconfirmed_txs {
+            if let Some(bdk_tx) = all_bdk_txs.iter().find(|tx| tx.txid.to_string() == *child_txid) {
+                // Check each input of this transaction
+                for input in &bdk_tx.tx.input {
+                    let prev_txid = input.previous_output.txid.to_string();
+                    let prev_vout = input.previous_output.vout;
+                    
+                    // Check if this input references an output from another unconfirmed transaction
+                    if let Some(parent_txid) = unconfirmed_outputs.get(&(prev_txid.clone(), prev_vout)) {
+                        if parent_txid != child_txid {
+                            // Found CPFP relationship: child spends from parent
+                            cpfp_relationships.insert(child_txid.clone(), parent_txid.clone());
+                            println!(
+                                "[{}] CPFP detected: {} (child) spends from {} (parent) output {}:{}",
+                                wallet_checksum,
+                                child_txid,
+                                parent_txid,
+                                prev_txid,
+                                prev_vout
+                            );
+                            break; // One parent relationship is enough
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(cpfp_relationships)
     }
 
 }

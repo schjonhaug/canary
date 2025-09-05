@@ -16,7 +16,8 @@ fn create_test_transaction(
         first_seen_at: 1672574400, // 2023-01-01 12:00:00 UTC
         confirmed_at: if confirmed { Some(1672574400) } else { None },
         is_rbf: false,
-        is_cpfp: false,
+        parent_txid: None,
+        notification_status: vec![],
     }
 }
 
@@ -88,7 +89,7 @@ fn test_format_btc_amount_zero() {
 
 #[test]
 fn test_create_norwegian_message_receive_confirmed() {
-    let event = create_test_event(EventType::Receive, 100_000_000, true);
+    let event = create_test_transaction(EventType::Receive, 100_000_000, true);
 
     let message =
         MessageFormatter::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -100,7 +101,7 @@ fn test_create_norwegian_message_receive_confirmed() {
 
 #[test]
 fn test_create_norwegian_message_receive_unconfirmed() {
-    let event = create_test_event(EventType::Receive, 50_000_000, false);
+    let event = create_test_transaction(EventType::Receive, 50_000_000, false);
 
     let message =
         MessageFormatter::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -112,7 +113,7 @@ fn test_create_norwegian_message_receive_unconfirmed() {
 
 #[test]
 fn test_create_norwegian_message_send_confirmed() {
-    let event = create_test_event(EventType::Send, 25_000_000, true);
+    let event = create_test_transaction(EventType::Send, 25_000_000, true);
 
     let message =
         MessageFormatter::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -124,7 +125,7 @@ fn test_create_norwegian_message_send_confirmed() {
 
 #[test]
 fn test_create_norwegian_message_send_unconfirmed() {
-    let event = create_test_event(EventType::Send, 75_000_000, false);
+    let event = create_test_transaction(EventType::Send, 75_000_000, false);
 
     let message =
         MessageFormatter::create_localized_message(&event, "Test Wallet", &Language::Norwegian);
@@ -136,7 +137,7 @@ fn test_create_norwegian_message_send_unconfirmed() {
 
 #[test]
 fn test_create_english_message_receive_confirmed() {
-    let event = create_test_event(EventType::Receive, 100_000_000, true);
+    let event = create_test_transaction(EventType::Receive, 100_000_000, true);
 
     let message =
         MessageFormatter::create_localized_message(&event, "Test Wallet", &Language::English);
@@ -148,7 +149,7 @@ fn test_create_english_message_receive_confirmed() {
 
 #[test]
 fn test_create_english_message_receive_unconfirmed() {
-    let event = create_test_event(EventType::Receive, 50_000_000, false);
+    let event = create_test_transaction(EventType::Receive, 50_000_000, false);
 
     let message =
         MessageFormatter::create_localized_message(&event, "Test Wallet", &Language::English);
@@ -160,7 +161,7 @@ fn test_create_english_message_receive_unconfirmed() {
 
 #[test]
 fn test_create_english_message_send_confirmed() {
-    let event = create_test_event(EventType::Send, 25_000_000, true);
+    let event = create_test_transaction(EventType::Send, 25_000_000, true);
 
     let message =
         MessageFormatter::create_localized_message(&event, "Test Wallet", &Language::English);
@@ -172,7 +173,7 @@ fn test_create_english_message_send_confirmed() {
 
 #[test]
 fn test_create_english_message_send_unconfirmed() {
-    let event = create_test_event(EventType::Send, 75_000_000, false);
+    let event = create_test_transaction(EventType::Send, 75_000_000, false);
 
     let message =
         MessageFormatter::create_localized_message(&event, "Test Wallet", &Language::English);

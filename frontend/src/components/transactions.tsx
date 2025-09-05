@@ -251,8 +251,8 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                 : (transaction.transaction_type === "receive" ? "Receiving" : "Sending")
                             }
                           </Badge>
-                          {transaction.is_cpfp && (
-                            <span title="Child-Pays-For-Parent (CPFP)">
+                          {transaction.parent_txid && (
+                            <span title={`Child-Pays-For-Parent (CPFP) - Child of ${transaction.parent_txid}`}>
                               <Baby className="h-4 w-4 ml-1" />
                             </span>
                           )}

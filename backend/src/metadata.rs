@@ -180,7 +180,7 @@ pub struct Transaction {
     pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
     pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
-    pub is_cpfp: bool,
+    pub parent_txid: Option<String>,
     // RBF replacement tracking
     pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
@@ -210,7 +210,7 @@ pub struct TransactionWithWallet {
     pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
     pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
-    pub is_cpfp: bool,
+    pub parent_txid: Option<String>,
     // RBF replacement tracking
     pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
@@ -255,7 +255,7 @@ pub struct TransactionInsert {
     pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
     pub first_seen_at: u64, // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
-    pub is_cpfp: bool,
+    pub parent_txid: Option<String>,
     // RBF replacement tracking
     pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
@@ -273,7 +273,7 @@ impl Default for TransactionInsert {
             block_height: None,
             first_seen_at: 0,
             confirmed_at: None,
-            is_cpfp: false,
+            parent_txid: None,
             transaction_status: "pending".to_string(),
             replaced_by_txid: None,
             replaced_at: None,
@@ -1020,7 +1020,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_cpfp, transaction_status, replaced_by_txid, replaced_at) 
+                "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at) 
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                 params![
                     &transaction.txid,
@@ -1031,7 +1031,7 @@ impl MetadataDb {
                     transaction.block_height,
                     transaction.first_seen_at,
                     transaction.confirmed_at,
-                    transaction.is_cpfp as i32,
+                    transaction.parent_txid.as_ref(),
                     &transaction.transaction_status,
                     transaction.replaced_by_txid.as_ref(),
                     transaction.replaced_at,
@@ -1049,7 +1049,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<Transaction>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, is_cpfp, transaction_status, replaced_by_txid, replaced_at 
+                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at 
                  FROM transactions 
                  WHERE wallet_checksum = ?1 AND txid = ?2"
             )?;
@@ -1064,7 +1064,7 @@ impl MetadataDb {
                     block_height: row.get(5)?,
                     first_seen_at: row.get(6)?,
                     confirmed_at: row.get(7)?,
-                    is_cpfp: row.get::<_, i32>(8)? != 0,
+                    parent_txid: row.get(8)?,
                     transaction_status: row.get(9)?,
                     replaced_by_txid: row.get(10)?,
                     replaced_at: row.get(11)?,
@@ -1108,7 +1108,7 @@ impl MetadataDb {
             
             // First get transactions
             let mut stmt = conn.prepare(
-                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.is_cpfp, t.transaction_status, t.replaced_by_txid, t.replaced_at 
+                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.parent_txid, t.transaction_status, t.replaced_by_txid, t.replaced_at 
                  FROM transactions t 
                  JOIN wallets w ON t.wallet_checksum = w.checksum 
                  WHERE t.wallet_checksum = ?1
@@ -1127,7 +1127,7 @@ impl MetadataDb {
                     block_height: row.get(6)?,
                     first_seen_at: row.get(7)?,
                     confirmed_at: row.get(8)?,
-                    is_cpfp: row.get::<_, i32>(9)? != 0,
+                    parent_txid: row.get(9)?,
                     transaction_status: row.get(10)?,
                     replaced_by_txid: row.get(11)?,
                     replaced_at: row.get(12)?,

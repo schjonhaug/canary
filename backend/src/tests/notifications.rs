@@ -22,7 +22,8 @@ fn create_test_transaction(
         first_seen_at: 1672574400,
         confirmed_at: if confirmed { Some(1672574400) } else { None },
         is_rbf: false,
-        is_cpfp: false,
+        parent_txid: None,
+        notification_status: vec![],
     }
 }
 
@@ -62,7 +63,7 @@ async fn test_ntfy_provider_info() {
 #[tokio::test]
 async fn test_ntfy_send_notification() {
     let provider = NtfyProvider::new();
-    let event = create_test_event(EventType::Receive, 100_000_000, true);
+    let event = create_test_transaction(EventType::Receive, 100_000_000, true);
 
     let mut contact = create_test_contact("Test User", Language::English);
     contact.notification_methods =
@@ -85,7 +86,7 @@ async fn test_ntfy_send_notification() {
 #[tokio::test]
 async fn test_ntfy_filters_only_ntfy_methods() {
     let provider = NtfyProvider::new();
-    let event = create_test_event(EventType::Send, 50_000_000, false);
+    let event = create_test_transaction(EventType::Send, 50_000_000, false);
 
     let mut contact = create_test_contact("Test User", Language::Norwegian);
     contact.notification_methods = vec![
@@ -145,7 +146,7 @@ async fn test_twilio_send_notification() {
     std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15551234567");
 
     let provider = TwilioProvider::from_env().unwrap();
-    let event = create_test_event(EventType::Receive, 100_000_000, true);
+    let event = create_test_transaction(EventType::Receive, 100_000_000, true);
 
     let mut contact = create_test_contact("Test User", Language::English);
     contact.notification_methods = vec![create_notification_method(
@@ -178,7 +179,7 @@ async fn test_twilio_filters_only_sms_methods() {
     std::env::set_var("TWILIO_MESSAGING_SERVICE_SID", "+15551234567");
 
     let provider = TwilioProvider::from_env().unwrap();
-    let event = create_test_event(EventType::Send, 50_000_000, false);
+    let event = create_test_transaction(EventType::Send, 50_000_000, false);
 
     let mut contact = create_test_contact("Test User", Language::Norwegian);
     contact.notification_methods = vec![
@@ -275,7 +276,7 @@ async fn test_notification_manager() {
     assert_eq!(providers.len(), 2);
 
     // Send notifications
-    let event = create_test_event(EventType::Receive, 100_000_000, true);
+    let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let mut contact = create_test_contact("Test User", Language::English);
     contact.notification_methods =
         vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
@@ -301,7 +302,7 @@ async fn test_notification_manager_unknown_provider() {
     use crate::notifications::NotificationManager;
 
     let manager = NotificationManager::new();
-    let event = create_test_event(EventType::Receive, 100_000_000, true);
+    let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let contact = create_test_contact("Test User", Language::English);
 
     let result = manager

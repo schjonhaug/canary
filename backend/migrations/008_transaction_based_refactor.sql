@@ -45,7 +45,7 @@ CREATE TABLE transactions (
     block_height INTEGER, -- NULL = mempool, >0 = confirmed at this height
     first_seen_at INTEGER NOT NULL, -- Unix timestamp when we first detected this transaction
     confirmed_at INTEGER, -- Unix timestamp when transaction was confirmed (from block)
-    is_cpfp BOOLEAN DEFAULT FALSE, -- Child-pays-for-parent (not implemented yet)
+    parent_txid TEXT, -- Parent transaction ID for CPFP (Child-Pays-For-Parent) detection
     -- RBF replacement tracking
     transaction_status TEXT DEFAULT 'pending' CHECK (transaction_status IN ('pending', 'confirmed', 'replaced')),
     replaced_by_txid TEXT, -- Transaction ID that replaced this one (if any)
@@ -62,6 +62,7 @@ CREATE INDEX idx_transactions_block_height ON transactions(block_height);
 CREATE INDEX idx_transactions_first_seen_at ON transactions(first_seen_at);
 CREATE INDEX idx_transactions_status ON transactions(transaction_status);
 CREATE INDEX idx_transactions_replaced_by ON transactions(replaced_by_txid);
+CREATE INDEX idx_transactions_parent_txid ON transactions(parent_txid);
 
 -- ============================
 -- UPDATE: notification_logs to reference new transactions table
