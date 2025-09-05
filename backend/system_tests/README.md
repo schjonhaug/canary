@@ -19,23 +19,8 @@ System tests (also called End-to-End tests) test the complete Canary application
 - `test_bob_cpfp_transaction_acceleration` - Child-Pays-For-Parent (CPFP) testing
 - `test_multiple_rbf_replacements` - Multiple RBF replacements
 
-### **`transaction_flows.rs`** - Normal send/receive flows
-- `test_normal_send_receive_flow` - Basic transaction flow
-- `test_multiple_transactions` - Multiple transaction handling
-- `test_no_duplicate_events_on_multiple_syncs` - Sync consistency
-
-### **`notification_verification.rs`** - Notification system testing
-- `test_transaction_events_for_notifications` - Event creation for notifications
-- `test_confirmation_state_changes` - Confirmation state transitions
-- `test_duplicate_event_prevention` - Duplicate event prevention
-- `test_large_amount_events` - Large transaction amount handling
-- `test_multi_wallet_events` - Multi-wallet event management
-
 ### **`high_index_scanning.rs`** - Deep address scanning (high index detection)
-- `test_high_index_fund_detection` - Detect funds at high address indexes
-- `test_high_index_outgoing_transactions` - Send from high indexes
-- `test_address_revelation_up_to_high_indexes` - Address revelation testing
-- `test_charlie_descriptor_wallet_high_index_scanning` - Descriptor format testing
+- `test_high_index_fund_detection` - Detect funds at high address indexes (250+) for wallet recovery
 
 ## Prerequisites
 
@@ -54,9 +39,7 @@ cargo test --test system_tests -- --ignored
 cargo test --test mined_directly_scenarios -- --ignored
 cargo test --test two_stage_send_scenarios -- --ignored
 cargo test --test high_index_scanning -- --ignored
-cargo test --test transaction_flows -- --ignored
 cargo test --test advanced_transactions -- --ignored
-cargo test --test notification_verification -- --ignored
 
 # Run individual test (clean output)
 cargo test test_alice_partial_send_bob_mined_directly --test mined_directly_scenarios -- --ignored

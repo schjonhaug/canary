@@ -35,7 +35,8 @@ cd backend && CANARY_NETWORK=regtest CANARY_ELECTRUM_URL=tcp://127.0.0.1:50001 c
 
 # Build, test, lint
 cd backend && cargo build
-cd backend && cargo test -- --test-threads=1
+cd backend && cargo test -- --test-threads=1  # Unit tests only
+cd backend && cargo test --test high_index_scanning -- --ignored  # System tests (requires Docker)
 cd backend && cargo fmt && cargo clippy
 ```
 
