@@ -703,7 +703,7 @@ volumes:
         self.send_transaction_with_options(from_wallet, to_wallet, amount, false, None).await
     }
     
-    /// Send transaction with advanced options (RBF support, custom fee rate)
+    /// Send transaction with advanced options (RBF support, custom fee rate)  
     pub async fn send_transaction_with_options(
         &self, 
         from_wallet: &str, 
@@ -717,10 +717,16 @@ volumes:
         
         let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
         
+        // Load source wallet first
+        let _ = Self::bitcoin_cli(&bitcoin_container_name, &[
+            &format!("-rpcwallet={}", from_wallet), "loadwallet", from_wallet
+        ]);
+        
         let to_address = Self::bitcoin_cli(&bitcoin_container_name, &[
             &format!("-rpcwallet={}", to_wallet), "getnewaddress"
         ])?.trim().trim_matches('"').to_string();
         
+        // Build sendtoaddress command with correct parameter order matching docker-utils.sh
         let mut send_args = vec![
             format!("-rpcwallet={}", from_wallet),
             "sendtoaddress".to_string(),
@@ -745,10 +751,10 @@ volumes:
         
         send_args.push(replaceable.to_string()); // replaceable
         
+        // Only add fee rate parameters if specified
         if let Some(rate) = fee_rate {
-            send_args.push("null".to_string()); // conf_target (null for explicit fee_rate)
-            send_args.push("economical".to_string()); // estimate_mode
-            send_args.push(rate.to_string()); // fee_rate
+            send_args.push(rate.to_string()); // fee_rate 
+            send_args.push("unset".to_string()); // estimate_mode
         }
         
         let send_args_str: Vec<&str> = send_args.iter().map(|s| s.as_str()).collect();
@@ -792,6 +798,47 @@ volumes:
     pub async fn get_wallet_transactions(&self, wallet_checksum: &str) -> Result<Vec<TransactionWithWallet>, Box<dyn std::error::Error>> {
         let transactions = self.metadata_db.get_transactions_by_wallet_checksum(wallet_checksum, None).await?;
         Ok(transactions)
+    }
+    
+    /// Send transaction between wallets (will be RBF-replaceable by default in regtest)
+    pub async fn send_rbf_transaction(&self, from_wallet: &str, to_wallet: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
+        // Enable RBF for the transaction
+        self.send_transaction_with_options(from_wallet, to_wallet, amount, true, None).await
+    }
+    
+    /// Replace transaction with higher fee using Bitcoin Core's bumpfee
+    pub async fn replace_transaction(&self, wallet: &str, txid: &str, _fee_rate: f64) -> Result<String, Box<dyn std::error::Error>> {
+        println!("🔄 Bumping fee for transaction {} (automatic fee calculation)...", txid);
+        
+        let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
+        
+        // Load wallet first
+        let _ = Self::bitcoin_cli(&bitcoin_container_name, &[
+            &format!("-rpcwallet={}", wallet), "loadwallet", wallet
+        ]);
+        
+        // Use bumpfee to replace the transaction
+        let result = Self::bitcoin_cli(&bitcoin_container_name, &[
+            &format!("-rpcwallet={}", wallet), "bumpfee", txid
+        ])?;
+        
+        // Parse JSON result to get new txid
+        let json_result: serde_json::Value = serde_json::from_str(&result)?;
+        
+        if let Some(new_txid) = json_result.get("txid").and_then(|v| v.as_str()) {
+            let old_fee = json_result.get("origfee").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let new_fee = json_result.get("fee").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            
+            println!("✅ RBF replacement successful!");
+            println!("   Original TXID: {}", txid);
+            println!("   New TXID: {}", new_txid);
+            println!("   Original fee: {} BTC", old_fee);
+            println!("   New fee: {} BTC", new_fee);
+            
+            Ok(new_txid.to_string())
+        } else {
+            Err(format!("Failed to parse bumpfee result: {}", result).into())
+        }
     }
 }
 

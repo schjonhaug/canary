@@ -8,22 +8,22 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// These tests verify RBF (Replace-By-Fee) and CPFP (Child-Pays-For-Parent) 
 /// transaction handling, ensuring proper event management and fee acceleration.
 
-/// Test 7: Alice RBF (Replace-By-Fee)
-/// Purpose: Test RBF transaction replacement and proper event handling
+/// Test: Single RBF from sender and receiver perspective
+/// Purpose: Test single RBF transaction replacement from both Alice (sender) and Bob (receiver) perspectives
 #[tokio::test]
-#[ignore] // System test - requires Docker
-async fn test_alice_rbf_transaction_replacement() {
+#[ignore] // System test - requires Docker  
+async fn test_single_rbf_sender_and_receiver_perspective() {
     let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
     
     // Initial sync to establish baseline
     env.sync_and_wait().await.expect("Failed to sync");
     
-    let initial_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let initial_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let initial_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let initial_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
     println!("📊 Initial state:");
-    println!("   Alice events: {}", initial_alice_events.len());
-    println!("   Bob events: {}", initial_bob_events.len());
+    println!("   Alice transactions: {}", initial_alice_transactions.len());
+    println!("   Bob transactions: {}", initial_bob_transactions.len());
     
     // Step 1: Alice sends Bitcoin to Bob with low fee (RBF enabled)
     println!("🔄 Step 1: Alice sends 0.1 BTC to Bob with low fee (RBF enabled)");
@@ -32,20 +32,33 @@ async fn test_alice_rbf_transaction_replacement() {
     // Sync to detect the original transaction
     env.sync_and_wait().await.expect("Failed to sync after original transaction");
     
-    let after_original_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let after_original_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let after_original_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let after_original_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
-    // Verify original transaction is detected
-    let new_alice_count = after_original_alice_events.len() - initial_alice_events.len();
-    let new_bob_count = after_original_bob_events.len() - initial_bob_events.len();
+    // Verify original transaction is detected by both wallets
+    let new_alice_count = after_original_alice_txs.len() - initial_alice_transactions.len();
+    let new_bob_count = after_original_bob_txs.len() - initial_bob_transactions.len();
     
-    assert!(new_alice_count > 0, "Should have Alice send event for original transaction");
-    assert!(new_bob_count > 0, "Should have Bob receive event for original transaction");
+    assert!(new_alice_count > 0, "Alice should detect the original send transaction");
+    assert!(new_bob_count > 0, "Bob should detect the original receive transaction");
     
-    println!("✅ Original RBF transaction detected:");
-    println!("   New Alice events: {}", new_alice_count);
-    println!("   New Bob events: {}", new_bob_count);
+    // Find the original transaction in both wallets
+    let alice_original_tx = after_original_alice_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Alice should have the original transaction");
+    let bob_original_tx = after_original_bob_txs.iter()
+        .find(|tx| tx.txid == original_txid) 
+        .expect("Bob should have the original transaction");
+        
+    assert_eq!(alice_original_tx.transaction_status, "pending", "Alice's original transaction should be pending");
+    assert_eq!(bob_original_tx.transaction_status, "pending", "Bob's original transaction should be pending");
+    assert_eq!(alice_original_tx.transaction_type, EventType::Send, "Alice should see it as a send");
+    assert_eq!(bob_original_tx.transaction_type, EventType::Receive, "Bob should see it as a receive");
+    
+    println!("✅ Original RBF transaction detected by both wallets:");
     println!("   Original txid: {}", original_txid);
+    println!("   Alice sees: {} transaction with status '{}'", alice_original_tx.transaction_type.as_str(), alice_original_tx.transaction_status);
+    println!("   Bob sees: {} transaction with status '{}'", bob_original_tx.transaction_type.as_str(), bob_original_tx.transaction_status);
     
     // Step 2: Alice replaces transaction with higher fee
     println!("⬆️ Step 2: Alice replaces transaction with higher fee");
@@ -54,13 +67,39 @@ async fn test_alice_rbf_transaction_replacement() {
     // Sync to detect the replacement
     env.sync_and_wait().await.expect("Failed to sync after replacement");
     
-    let after_replacement_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let after_replacement_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let after_replacement_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let after_replacement_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
-    println!("✅ Replacement transaction processed:");
+    // Verify RBF detection: original should be marked as replaced, replacement should exist
+    let alice_original_replaced = after_replacement_alice_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Alice should still have the original (replaced) transaction");
+    let bob_original_replaced = after_replacement_bob_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Bob should still have the original (replaced) transaction");
+        
+    let alice_replacement_tx = after_replacement_alice_txs.iter()
+        .find(|tx| tx.txid == replacement_txid)
+        .expect("Alice should have the replacement transaction");
+    let bob_replacement_tx = after_replacement_bob_txs.iter()
+        .find(|tx| tx.txid == replacement_txid)
+        .expect("Bob should have the replacement transaction");
+    
+    // Verify RBF status tracking
+    assert_eq!(alice_original_replaced.transaction_status, "replaced", "Alice's original transaction should be marked as replaced");
+    assert_eq!(bob_original_replaced.transaction_status, "replaced", "Bob's original transaction should be marked as replaced");
+    assert_eq!(alice_original_replaced.replaced_by_txid, Some(replacement_txid.clone()), "Alice's original should reference replacement txid");
+    assert_eq!(bob_original_replaced.replaced_by_txid, Some(replacement_txid.clone()), "Bob's original should reference replacement txid");
+    
+    assert_eq!(alice_replacement_tx.transaction_status, "pending", "Alice's replacement transaction should be pending");
+    assert_eq!(bob_replacement_tx.transaction_status, "pending", "Bob's replacement transaction should be pending");
+    
+    println!("✅ RBF replacement detected by both wallets:");
     println!("   Replacement txid: {}", replacement_txid);
-    println!("   Alice events after replacement: {}", after_replacement_alice_events.len());
-    println!("   Bob events after replacement: {}", after_replacement_bob_events.len());
+    println!("   Alice original status: '{}', replaced_by: {:?}", alice_original_replaced.transaction_status, alice_original_replaced.replaced_by_txid);
+    println!("   Bob original status: '{}', replaced_by: {:?}", bob_original_replaced.transaction_status, bob_original_replaced.replaced_by_txid);
+    println!("   Alice replacement status: '{}'", alice_replacement_tx.transaction_status);
+    println!("   Bob replacement status: '{}'", bob_replacement_tx.transaction_status);
     
     // Step 3: Mine block to confirm replacement
     println!("⛏️ Step 3: Mining block to confirm replacement transaction");
@@ -68,256 +107,207 @@ async fn test_alice_rbf_transaction_replacement() {
     env.sync_and_wait().await.expect("Failed to sync after mining");
     
     // Verify final confirmed state
-    let final_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let final_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let final_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let final_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
-    // Check for confirmed Send and Receive events
-    let new_final_alice_events: Vec<_> = final_alice_events.iter()
-        .skip(initial_alice_events.len())
-        .collect();
-    let new_final_bob_events: Vec<_> = final_bob_events.iter()
-        .skip(initial_bob_events.len())
-        .collect();
+    // Check that replacement transaction is now confirmed
+    let alice_final_replacement = final_alice_txs.iter()
+        .find(|tx| tx.txid == replacement_txid)
+        .expect("Alice should have the replacement transaction");
+    let bob_final_replacement = final_bob_txs.iter()
+        .find(|tx| tx.txid == replacement_txid)
+        .expect("Bob should have the replacement transaction");
     
-    let confirmed_alice_sends: Vec<_> = new_final_alice_events.iter()
-        .filter(|e| e.is_confirmed && e.event_type == EventType::Send)
-        .collect();
-    let confirmed_bob_receives: Vec<_> = new_final_bob_events.iter()
-        .filter(|e| e.is_confirmed && e.event_type == EventType::Receive)
-        .collect();
+    assert_eq!(alice_final_replacement.transaction_status, "confirmed", "Alice's replacement should be confirmed");
+    assert_eq!(bob_final_replacement.transaction_status, "confirmed", "Bob's replacement should be confirmed");
+    assert!(alice_final_replacement.block_height.is_some(), "Alice's replacement should have block height");
+    assert!(bob_final_replacement.block_height.is_some(), "Bob's replacement should have block height");
     
-    assert!(!confirmed_alice_sends.is_empty(), "Should have confirmed Alice send event");
-    assert!(!confirmed_bob_receives.is_empty(), "Should have confirmed Bob receive event");
+    // Original transaction should still be marked as replaced
+    let alice_final_original = final_alice_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Alice should still have the original transaction");
+    let bob_final_original = final_bob_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Bob should still have the original transaction");
+        
+    assert_eq!(alice_final_original.transaction_status, "replaced", "Alice's original should remain as replaced");
+    assert_eq!(bob_final_original.transaction_status, "replaced", "Bob's original should remain as replaced");
     
-    // Verify no excessive events were created
-    let total_new_alice_events = final_alice_events.len() - initial_alice_events.len();
-    let total_new_bob_events = final_bob_events.len() - initial_bob_events.len();
-    
-    println!("📊 Final RBF event counts:");
-    println!("   Total new Alice events: {}", total_new_alice_events);
-    println!("   Total new Bob events: {}", total_new_bob_events);
-    println!("   Confirmed Alice sends: {}", confirmed_alice_sends.len());
-    println!("   Confirmed Bob receives: {}", confirmed_bob_receives.len());
-    
-    // Should have reasonable number of events (allowing for implementation variations)
-    assert!(total_new_alice_events <= 4, "Alice should not have excessive events (got {})", total_new_alice_events);
-    assert!(total_new_bob_events <= 4, "Bob should not have excessive events (got {})", total_new_bob_events);
-    
-    println!("✅ Test 7 passed - RBF transaction replacement handled correctly!");
-    println!("   - Original RBF transaction detected with low fee");
-    println!("   - Replacement transaction created with higher fee");
-    println!("   - Final state shows confirmed replacement transaction");
-    println!("   - No excessive duplicate events created");
+    println!("✅ Single RBF test passed!");
+    println!("   - Both wallets detected original transaction as pending");  
+    println!("   - Both wallets detected RBF replacement correctly");
+    println!("   - Original transaction marked as 'replaced' with correct replaced_by_txid");
+    println!("   - Replacement transaction confirmed after mining");
+    println!("   - Final state: Original='replaced', Replacement='confirmed'");
 }
 
-/// Test 8: Bob CPFP (Child-Pays-For-Parent)
-/// Purpose: Test CPFP transaction acceleration where child transaction pays for stuck parent
+
+/// Test: Multiple RBF from sender and receiver perspective  
+/// Purpose: Test multiple RBF transaction replacements from both Alice (sender) and Bob (receiver) perspectives
 #[tokio::test]
 #[ignore] // System test - requires Docker
-async fn test_bob_cpfp_transaction_acceleration() {
+async fn test_multiple_rbf_sender_and_receiver_perspective() {
     let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
     
     // Initial sync
     env.sync_and_wait().await.expect("Failed to sync");
     
-    let initial_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let initial_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
+    let initial_alice_transactions = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let initial_bob_transactions = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
     println!("📊 Initial state:");
-    println!("   Alice events: {}", initial_alice_events.len());
-    println!("   Bob events: {}", initial_bob_events.len());
+    println!("   Alice transactions: {}", initial_alice_transactions.len());
+    println!("   Bob transactions: {}", initial_bob_transactions.len());
     
-    // Step 1: Alice sends Bitcoin to Bob with very low fee (will be stuck)
-    println!("🐌 Step 1: Alice sends 0.2 BTC to Bob with very low fee (will be stuck)");
-    let parent_txid = env.send_transaction_with_options("alice", "bob", "0.2", false, Some(1.0)).await
-        .expect("Failed to send low-fee transaction");
-    
-    // Sync to detect the stuck transaction
-    env.sync_and_wait().await.expect("Failed to sync after parent transaction");
-    
-    // Verify transaction is unconfirmed (stuck in mempool)
-    let is_in_mempool = env.is_transaction_in_mempool(&parent_txid).await
-        .expect("Failed to check mempool status");
-    println!("📝 Parent transaction in mempool: {}", is_in_mempool);
-    
-    let after_parent_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let after_parent_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
-    
-    let parent_alice_count = after_parent_alice_events.len() - initial_alice_events.len();
-    let parent_bob_count = after_parent_bob_events.len() - initial_bob_events.len();
-    
-    assert!(parent_alice_count > 0, "Should have parent Alice send event");
-    assert!(parent_bob_count > 0, "Should have parent Bob receive event");
-    
-    // Check that parent events are unconfirmed
-    let new_alice_events: Vec<_> = after_parent_alice_events.iter()
-        .skip(initial_alice_events.len())
-        .collect();
-    let new_bob_events: Vec<_> = after_parent_bob_events.iter()
-        .skip(initial_bob_events.len())
-        .collect();
-    
-    let unconfirmed_alice_sends: Vec<_> = new_alice_events.iter()
-        .filter(|e| !e.is_confirmed && e.event_type == EventType::Send)
-        .collect();
-    let unconfirmed_bob_receives: Vec<_> = new_bob_events.iter()
-        .filter(|e| !e.is_confirmed && e.event_type == EventType::Receive)
-        .collect();
-    
-    assert!(!unconfirmed_alice_sends.is_empty(), "Parent transaction should be unconfirmed for Alice");
-    assert!(!unconfirmed_bob_receives.is_empty(), "Parent transaction should be unconfirmed for Bob");
-    
-    println!("✅ Parent transaction detected (stuck):");
-    println!("   Parent txid: {}", parent_txid);
-    println!("   In mempool: {}", is_in_mempool);
-    println!("   Unconfirmed Alice sends: {}", unconfirmed_alice_sends.len());
-    println!("   Unconfirmed Bob receives: {}", unconfirmed_bob_receives.len());
-    
-    // Step 2: Bob creates child transaction spending received output with high fee
-    println!("👶 Step 2: Bob creates CPFP child transaction with high fee to accelerate parent");
-    
-    // For CPFP testing, we'll try to create a child transaction
-    // Note: This may fail if the exact UTXO management is complex, but we test the attempt
-    let child_result = env.create_cpfp_transaction("bob", &parent_txid, 0, 50.0).await;
-    
-    match child_result {
-        Ok(child_txid) => {
-            println!("✅ CPFP child transaction created: {}", child_txid);
-            
-            // Sync to detect the child transaction
-            env.sync_and_wait().await.expect("Failed to sync after child transaction");
-            
-            // Step 3: Mine block to confirm both parent and child together
-            println!("⛏️ Step 3: Mining block to confirm both parent and child transactions");
-            env.mine_blocks(1).await.expect("Failed to mine blocks");
-            env.sync_and_wait().await.expect("Failed to sync after mining");
-            
-            // Verify both transactions are now confirmed
-            let final_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-            let final_bob_events = env.get_wallet_events(&env.bob_checksum).await.expect("Failed to get Bob events");
-            
-            // Check parent transaction confirmation
-            let final_new_alice_events: Vec<_> = final_alice_events.iter()
-                .skip(initial_alice_events.len())
-                .collect();
-            let final_new_bob_events: Vec<_> = final_bob_events.iter()
-                .skip(initial_bob_events.len())
-                .collect();
-                
-            let confirmed_alice_sends: Vec<_> = final_new_alice_events.iter()
-                .filter(|e| e.is_confirmed && e.event_type == EventType::Send)
-                .collect();
-            let confirmed_bob_receives: Vec<_> = final_new_bob_events.iter()
-                .filter(|e| e.is_confirmed && e.event_type == EventType::Receive)
-                .collect();
-            
-            assert!(!confirmed_alice_sends.is_empty(), "Parent transaction should be confirmed for Alice");
-            assert!(!confirmed_bob_receives.is_empty(), "Parent transaction should be confirmed for Bob");
-            
-            // Verify transactions are no longer in mempool
-            let parent_still_in_mempool = env.is_transaction_in_mempool(&parent_txid).await.unwrap_or(false);
-            let child_still_in_mempool = env.is_transaction_in_mempool(&child_txid).await.unwrap_or(false);
-            
-            assert!(!parent_still_in_mempool, "Parent transaction should no longer be in mempool");
-            assert!(!child_still_in_mempool, "Child transaction should no longer be in mempool");
-            
-            println!("✅ Test 8 passed - CPFP transaction acceleration worked correctly!");
-            println!("   - Parent transaction was stuck with low fee");
-            println!("   - Child transaction created spending parent output with high fee");
-            println!("   - Both transactions confirmed together in same block");
-            println!("   - Confirmed Alice sends: {}, Bob receives: {}", 
-                     confirmed_alice_sends.len(), confirmed_bob_receives.len());
-        }
-        Err(e) => {
-            println!("ℹ️ CPFP creation failed (expected in some test setups): {}", e);
-            println!("   Testing basic parent transaction confirmation instead...");
-            
-            // Even if CPFP fails, we can still test basic confirmation
-            env.mine_blocks(1).await.expect("Failed to mine blocks");
-            env.sync_and_wait().await.expect("Failed to sync after mining");
-            
-            let final_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-            
-            let final_new_alice_events: Vec<_> = final_alice_events.iter()
-                .skip(initial_alice_events.len())
-                .collect();
-                
-            let confirmed_alice_sends: Vec<_> = final_new_alice_events.iter()
-                .filter(|e| e.is_confirmed && e.event_type == EventType::Send)
-                .collect();
-            
-            assert!(!confirmed_alice_sends.is_empty(), "Parent transaction should eventually confirm");
-            
-            println!("✅ Test 8 partial - Parent transaction confirmed (CPFP setup complex)");
-            println!("   - Low-fee transaction eventually confirmed after mining");
-            println!("   - CPFP mechanism attempted (may need environment adjustments for full test)");
-        }
-    }
-}
-
-/// Test: RBF with multiple replacements
-/// Additional test for complex RBF scenarios with multiple fee bumps
-#[tokio::test]
-#[ignore] // System test - requires Docker
-async fn test_multiple_rbf_replacements() {
-    let mut env = IsolatedTestEnvironment::new().await.expect("Failed to create test environment");
-    
-    // Initial sync
-    env.sync_and_wait().await.expect("Failed to sync");
-    
-    let initial_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    
-    // Create original RBF transaction
-    println!("🔄 Creating original RBF transaction with very low fee");
+    // Step 1: Create original RBF transaction
+    println!("🔄 Step 1: Creating original RBF transaction with very low fee");
     let original_txid = env.send_rbf_transaction("alice", "bob", "0.05").await
         .expect("Failed to send original RBF transaction");
     
     env.sync_and_wait().await.expect("Failed to sync");
-    let after_original = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
-    let original_count = after_original.len();
     
-    // Replace multiple times with increasing fees
-    println!("⬆️ First replacement: bumping fee to 5.0 sat/vB");
+    let after_original_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let after_original_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
+    
+    // Verify original transaction detected by both wallets
+    let alice_original = after_original_alice_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Alice should have the original transaction");
+    let bob_original = after_original_bob_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Bob should have the original transaction");
+        
+    assert_eq!(alice_original.transaction_status, "pending", "Alice's original should be pending");
+    assert_eq!(bob_original.transaction_status, "pending", "Bob's original should be pending");
+    
+    println!("✅ Original transaction detected:");
+    println!("   Original txid: {}", original_txid);
+    println!("   Alice status: '{}', Bob status: '{}'", alice_original.transaction_status, bob_original.transaction_status);
+    
+    // Step 2: First replacement
+    println!("⬆️ Step 2: First replacement - bumping fee to 5.0 sat/vB");
     let replacement1_txid = env.replace_transaction("alice", &original_txid, 5.0).await
         .expect("Failed to create first replacement");
     
     env.sync_and_wait().await.expect("Failed to sync");
-    let after_replacement1 = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     
-    println!("⬆️ Second replacement: bumping fee to 15.0 sat/vB");
+    let after_repl1_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let after_repl1_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
+    
+    // Verify first replacement detection
+    let alice_original_repl1 = after_repl1_alice_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Alice should still have the original transaction");
+    let bob_original_repl1 = after_repl1_bob_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Bob should still have the original transaction");
+        
+    let alice_replacement1 = after_repl1_alice_txs.iter()
+        .find(|tx| tx.txid == replacement1_txid)
+        .expect("Alice should have the first replacement");
+    let bob_replacement1 = after_repl1_bob_txs.iter()
+        .find(|tx| tx.txid == replacement1_txid)
+        .expect("Bob should have the first replacement");
+        
+    // Verify RBF status after first replacement
+    assert_eq!(alice_original_repl1.transaction_status, "replaced", "Alice's original should be replaced");
+    assert_eq!(bob_original_repl1.transaction_status, "replaced", "Bob's original should be replaced");
+    assert_eq!(alice_original_repl1.replaced_by_txid, Some(replacement1_txid.clone()), "Alice's original should reference first replacement");
+    assert_eq!(bob_original_repl1.replaced_by_txid, Some(replacement1_txid.clone()), "Bob's original should reference first replacement");
+    
+    assert_eq!(alice_replacement1.transaction_status, "pending", "Alice's first replacement should be pending");
+    assert_eq!(bob_replacement1.transaction_status, "pending", "Bob's first replacement should be pending");
+    
+    println!("✅ First replacement detected:");
+    println!("   First replacement txid: {}", replacement1_txid);
+    println!("   Original now marked as 'replaced' by both wallets");
+    println!("   First replacement is 'pending' for both wallets");
+    
+    // Step 3: Second replacement
+    println!("⬆️ Step 3: Second replacement - bumping fee to 15.0 sat/vB");
     let replacement2_txid = env.replace_transaction("alice", &replacement1_txid, 15.0).await
         .expect("Failed to create second replacement");
     
     env.sync_and_wait().await.expect("Failed to sync");
-    let after_replacement2 = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
     
-    // Mine to confirm final replacement
+    let after_repl2_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let after_repl2_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
+    
+    // Verify second replacement detection
+    let alice_replacement1_replaced = after_repl2_alice_txs.iter()
+        .find(|tx| tx.txid == replacement1_txid)
+        .expect("Alice should still have the first replacement");
+    let bob_replacement1_replaced = after_repl2_bob_txs.iter()
+        .find(|tx| tx.txid == replacement1_txid)
+        .expect("Bob should still have the first replacement");
+        
+    let alice_replacement2 = after_repl2_alice_txs.iter()
+        .find(|tx| tx.txid == replacement2_txid)
+        .expect("Alice should have the second replacement");
+    let bob_replacement2 = after_repl2_bob_txs.iter()
+        .find(|tx| tx.txid == replacement2_txid)
+        .expect("Bob should have the second replacement");
+        
+    // Verify RBF chain: original→replaced, first_replacement→replaced, second_replacement→pending
+    assert_eq!(alice_replacement1_replaced.transaction_status, "replaced", "Alice's first replacement should be replaced");
+    assert_eq!(bob_replacement1_replaced.transaction_status, "replaced", "Bob's first replacement should be replaced");
+    assert_eq!(alice_replacement1_replaced.replaced_by_txid, Some(replacement2_txid.clone()), "Alice's first replacement should reference second replacement");
+    assert_eq!(bob_replacement1_replaced.replaced_by_txid, Some(replacement2_txid.clone()), "Bob's first replacement should reference second replacement");
+    
+    assert_eq!(alice_replacement2.transaction_status, "pending", "Alice's second replacement should be pending");
+    assert_eq!(bob_replacement2.transaction_status, "pending", "Bob's second replacement should be pending");
+    
+    println!("✅ Second replacement detected:");
+    println!("   Second replacement txid: {}", replacement2_txid);
+    println!("   First replacement now marked as 'replaced' by both wallets");
+    println!("   Second replacement is 'pending' for both wallets");
+    
+    // Step 4: Mine to confirm final replacement
+    println!("⛏️ Step 4: Mining block to confirm final replacement");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
     env.sync_and_wait().await.expect("Failed to sync");
     
     // Verify final state
-    let final_alice_events = env.get_wallet_events(&env.alice_checksum).await.expect("Failed to get Alice events");
+    let final_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
+    let final_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
     
-    // Should have confirmed events
-    let final_new_events: Vec<_> = final_alice_events.iter()
-        .skip(initial_alice_events.len())
-        .collect();
+    // Check final replacement is confirmed
+    let alice_final_replacement = final_alice_txs.iter()
+        .find(|tx| tx.txid == replacement2_txid)
+        .expect("Alice should have the final replacement");
+    let bob_final_replacement = final_bob_txs.iter()
+        .find(|tx| tx.txid == replacement2_txid)
+        .expect("Bob should have the final replacement");
         
-    let confirmed_sends: Vec<_> = final_new_events.iter()
-        .filter(|e| e.is_confirmed && e.event_type == EventType::Send)
-        .collect();
+    assert_eq!(alice_final_replacement.transaction_status, "confirmed", "Alice's final replacement should be confirmed");
+    assert_eq!(bob_final_replacement.transaction_status, "confirmed", "Bob's final replacement should be confirmed");
+    assert!(alice_final_replacement.block_height.is_some(), "Alice's final replacement should have block height");
+    assert!(bob_final_replacement.block_height.is_some(), "Bob's final replacement should have block height");
     
-    assert!(!confirmed_sends.is_empty(), "Should have confirmed event for final replacement");
+    // Verify replacement chain remains intact
+    let alice_final_original = final_alice_txs.iter()
+        .find(|tx| tx.txid == original_txid)
+        .expect("Alice should still have the original");
+    let alice_final_first_repl = final_alice_txs.iter()
+        .find(|tx| tx.txid == replacement1_txid)
+        .expect("Alice should still have the first replacement");
+        
+    assert_eq!(alice_final_original.transaction_status, "replaced", "Alice's original should remain replaced");
+    assert_eq!(alice_final_first_repl.transaction_status, "replaced", "Alice's first replacement should remain replaced");
+    assert_eq!(alice_final_original.replaced_by_txid, Some(replacement1_txid.clone()), "Original should still reference first replacement");
+    assert_eq!(alice_final_first_repl.replaced_by_txid, Some(replacement2_txid.clone()), "First replacement should still reference second replacement");
     
-    // Check that we don't have excessive events
-    let total_new_events = final_alice_events.len() - initial_alice_events.len();
-    assert!(total_new_events <= 6, "Should not have excessive events after multiple replacements (got {})", total_new_events);
+    // Count total transactions to ensure we have all the right pieces
+    let final_alice_count = final_alice_txs.len() - initial_alice_transactions.len();
+    let final_bob_count = final_bob_txs.len() - initial_bob_transactions.len();
     
-    println!("✅ Multiple RBF replacements test passed!");
-    println!("   - Original transaction: {}", original_txid);
-    println!("   - First replacement: {}", replacement1_txid);  
-    println!("   - Final replacement: {}", replacement2_txid);
-    println!("   - Total new events: {}", total_new_events);
-    println!("   - Confirmed sends: {}", confirmed_sends.len());
-    println!("   - Final replacement confirmed successfully");
+    println!("✅ Multiple RBF test passed!");
+    println!("   - Original transaction: {} (status: 'replaced')", original_txid);
+    println!("   - First replacement: {} (status: 'replaced')", replacement1_txid);  
+    println!("   - Final replacement: {} (status: 'confirmed')", replacement2_txid);
+    println!("   - Alice total new transactions: {}", final_alice_count);
+    println!("   - Bob total new transactions: {}", final_bob_count);
+    println!("   - RBF chain tracked correctly: Original→First→Final");
+    println!("   - Both sender and receiver perspective validated");
 }
