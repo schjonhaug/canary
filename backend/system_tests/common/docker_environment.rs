@@ -788,6 +788,37 @@ volumes:
         let _ = self.wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await;
         Ok(())
     }
+
+    /// Wait for a specific transaction to appear in a wallet's transaction list
+    pub async fn wait_for_transaction_in_wallet(
+        &mut self, 
+        wallet_checksum: &str, 
+        txid: &str, 
+        timeout_secs: u64
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let start = std::time::Instant::now();
+        let timeout = Duration::from_secs(timeout_secs);
+        
+        while start.elapsed() < timeout {
+            // Sync the wallet
+            self.sync_and_wait().await?;
+            
+            // Check if the transaction is now present
+            let transactions = self.get_wallet_transactions(wallet_checksum).await?;
+            if transactions.iter().any(|tx| tx.txid == txid) {
+                println!("✅ Transaction {} found in wallet {} after {:.1}s", 
+                        txid, wallet_checksum, start.elapsed().as_secs_f64());
+                return Ok(());
+            }
+            
+            println!("⏳ Waiting for transaction {} to appear in wallet {} ({:.1}s elapsed)...", 
+                    txid, wallet_checksum, start.elapsed().as_secs_f64());
+            sleep(Duration::from_secs(2)).await;
+        }
+        
+        Err(format!("Timeout waiting for transaction {} to appear in wallet {} after {}s", 
+                   txid, wallet_checksum, timeout_secs).into())
+    }
     
     
     /// Get all transactions for a wallet from the database
@@ -837,44 +868,10 @@ volumes:
         }
     }
 
-    /// Send a simple transaction (non-RBF) - convenience wrapper using docker-utils.sh
+    /// Send a simple transaction (non-RBF) - convenience wrapper
     pub async fn send_transaction(&self, from_wallet: &str, to_wallet: &str, amount: &str) -> Result<String, Box<dyn std::error::Error>> {
-        println!("💸 Sending {} BTC from {} to {} using docker-utils.sh", amount, from_wallet, to_wallet);
-        
-        // Use the regtest-env directory to run the docker-utils.sh command, similar to dev workflow
-        // This mirrors: ./docker-utils.sh alice sending bob 0.003333
-        let regtest_env_dir = std::env::current_dir()?
-            .parent()
-            .ok_or("Cannot find parent directory")?
-            .join("regtest-env");
-        
-        let result = std::process::Command::new("./docker-utils.sh")
-            .args([from_wallet, "sending", to_wallet, amount])
-            .current_dir(&regtest_env_dir)
-            .output()
-            .expect("Failed to execute send transaction command");
-
-        if !result.status.success() {
-            let stderr = String::from_utf8_lossy(&result.stderr);
-            let stdout = String::from_utf8_lossy(&result.stdout);
-            return Err(format!("Send transaction failed:\nStderr: {}\nStdout: {}", stderr, stdout).into());
-        }
-
-        let output = String::from_utf8_lossy(&result.stdout);
-        println!("📋 Send command output:\n{}", output);
-        
-        // Extract transaction ID from the output
-        // Looking for: "✅ Transaction 1 sent: 233ac5b434910b82e8a4ead2377f55c6f27ec0a30d5e75d001974b2f5d11ec38"
-        for line in output.lines() {
-            if line.contains("✅ Transaction") && line.contains("sent:") {
-                if let Some(txid) = line.split(':').last().map(|s| s.trim()) {
-                    println!("✅ Transaction sent: {}", txid);
-                    return Ok(txid.to_string());
-                }
-            }
-        }
-        
-        Err("Could not extract transaction ID from send command output".into())
+        // Use the proper system test method that works with isolated containers
+        self.send_transaction_with_options(from_wallet, to_wallet, amount, false, None).await
     }
 
     /// Create a CPFP (Child-Pays-For-Parent) transaction
@@ -882,40 +879,80 @@ volumes:
     pub async fn create_cpfp_transaction(&self, wallet: &str, parent_txid: &str) -> Result<String, Box<dyn std::error::Error>> {
         println!("👶 Creating CPFP child transaction spending from parent: {}", parent_txid);
         
-        // Use the regtest-env directory to run the docker-utils.sh command, similar to dev workflow
-        // This mirrors: ./docker-utils.sh bob cpfp 233ac5b434910b82e8a4ead2377f55c6f27ec0a30d5e75d001974b2f5d11ec38
-        let regtest_env_dir = std::env::current_dir()?
-            .parent()
-            .ok_or("Cannot find parent directory")?
-            .join("regtest-env");
+        let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
         
-        let result = std::process::Command::new("./docker-utils.sh")
-            .args([wallet, "cpfp", parent_txid])
-            .current_dir(&regtest_env_dir)
-            .output()
-            .expect("Failed to execute CPFP transaction command");
-
-        if !result.status.success() {
-            let stderr = String::from_utf8_lossy(&result.stderr);
-            let stdout = String::from_utf8_lossy(&result.stdout);
-            return Err(format!("CPFP transaction failed:\nStderr: {}\nStdout: {}", stderr, stdout).into());
-        }
-
-        let output = String::from_utf8_lossy(&result.stdout);
-        println!("📋 CPFP command output:\n{}", output);
+        // Load wallet first
+        let _ = Self::bitcoin_cli(&bitcoin_container_name, &[
+            &format!("-rpcwallet={}", wallet), "loadwallet", wallet
+        ]);
         
-        // Extract child transaction ID from the output
-        // Looking for: "✅ Child transaction created: b8c0ea37ccbc0e5a9f2347d6c9d67692fb2d7ad60a6115a08ab23498485f9263"
-        for line in output.lines() {
-            if line.contains("✅ Child transaction created:") {
-                if let Some(txid) = line.split(':').last().map(|s| s.trim()) {
-                    println!("✅ CPFP child transaction created: {}", txid);
-                    return Ok(txid.to_string());
-                }
+        // Get transaction details to find spendable outputs
+        let raw_tx_result = Self::bitcoin_cli(&bitcoin_container_name, &[
+            &format!("-rpcwallet={}", wallet), "gettransaction", parent_txid
+        ])?;
+        
+        let tx_json: serde_json::Value = serde_json::from_str(&raw_tx_result)?;
+        
+        // Find the first output that belongs to this wallet (we can spend from it)
+        let details = tx_json["details"].as_array()
+            .ok_or("No details found in transaction")?;
+        
+        let mut receive_detail = None;
+        for detail in details {
+            if detail["category"] == "receive" {
+                receive_detail = Some(detail);
+                break;
             }
         }
         
-        Err("Could not extract child transaction ID from CPFP command output".into())
+        let receive_detail = receive_detail.ok_or("No receive output found in parent transaction")?;
+        let receive_amount = receive_detail["amount"].as_f64()
+            .ok_or("Could not parse receive amount")?;
+            
+        // Create a child transaction that spends from the parent with higher fee
+        // Send most of it back to ourselves, keeping a high fee
+        let child_amount = receive_amount - 0.0001; // Leave 0.0001 BTC as fee (high fee for CPFP)
+        
+        if child_amount <= 0.0 {
+            return Err("Insufficient amount in parent transaction for CPFP".into());
+        }
+        
+        // Get a new address to send the child transaction to
+        let child_address = Self::bitcoin_cli(&bitcoin_container_name, &[
+            &format!("-rpcwallet={}", wallet), "getnewaddress"
+        ])?.trim().trim_matches('"').to_string();
+        
+        // Create raw transaction spending from parent
+        let vout = receive_detail["vout"].as_u64().ok_or("Could not parse vout")?;
+        let create_raw_tx_result = Self::bitcoin_cli(&bitcoin_container_name, &[
+            &format!("-rpcwallet={}", wallet), 
+            "createrawtransaction", 
+            &format!(r#"[{{"txid":"{}","vout":{}}}]"#, parent_txid, vout),
+            &format!(r#"{{"{}":"{}"}}"#, child_address, child_amount)
+        ])?;
+        
+        let raw_tx = create_raw_tx_result.trim().trim_matches('"');
+        
+        // Sign the raw transaction
+        let signed_result = Self::bitcoin_cli(&bitcoin_container_name, &[
+            &format!("-rpcwallet={}", wallet), "signrawtransactionwithwallet", raw_tx
+        ])?;
+        
+        let signed_json: serde_json::Value = serde_json::from_str(&signed_result)?;
+        let signed_hex = signed_json["hex"].as_str()
+            .ok_or("Could not get signed transaction hex")?;
+        
+        // Broadcast the child transaction
+        let child_txid = Self::bitcoin_cli(&bitcoin_container_name, &[
+            "sendrawtransaction", signed_hex
+        ])?.trim().trim_matches('"').to_string();
+        
+        println!("✅ CPFP child transaction created: {}", child_txid);
+        println!("   Parent: {}", parent_txid);
+        println!("   Child: {}", child_txid);
+        println!("   Child amount: {} BTC (fee: {} BTC)", child_amount, receive_amount - child_amount);
+        
+        Ok(child_txid)
     }
 }
 

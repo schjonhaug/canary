@@ -333,8 +333,13 @@ async fn test_cpfp_detection_and_tracking() {
     println!("🔄 Step 1: Alice sends 0.002222 BTC to Bob with low fee (parent transaction)");
     let parent_txid = env.send_transaction("alice", "bob", "0.002222").await.expect("Failed to send parent transaction");
     
-    // Sync to detect the parent transaction
-    env.sync_and_wait().await.expect("Failed to sync after parent transaction");
+    // Wait specifically for the parent transaction to appear in both wallets
+    let alice_checksum = env.alice_checksum.clone();
+    let bob_checksum = env.bob_checksum.clone();
+    env.wait_for_transaction_in_wallet(&alice_checksum, &parent_txid, 30).await
+        .expect("Alice should detect the parent transaction within 30 seconds");
+    env.wait_for_transaction_in_wallet(&bob_checksum, &parent_txid, 30).await
+        .expect("Bob should detect the parent transaction within 30 seconds");
     
     let after_parent_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
     let after_parent_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
@@ -363,8 +368,10 @@ async fn test_cpfp_detection_and_tracking() {
     println!("👶 Step 2: Bob creates CPFP child transaction with high fee to accelerate parent");
     let child_txid = env.create_cpfp_transaction("bob", &parent_txid).await.expect("Failed to create CPFP child transaction");
     
-    // Sync to detect the CPFP relationship
-    env.sync_and_wait().await.expect("Failed to sync after CPFP child");
+    // Wait specifically for the child transaction to appear in Bob's wallet
+    let bob_checksum_for_child = env.bob_checksum.clone();
+    env.wait_for_transaction_in_wallet(&bob_checksum_for_child, &child_txid, 30).await
+        .expect("Bob should detect the child transaction within 30 seconds");
     
     let after_child_alice_txs = env.get_wallet_transactions(&env.alice_checksum).await.expect("Failed to get Alice transactions");
     let after_child_bob_txs = env.get_wallet_transactions(&env.bob_checksum).await.expect("Failed to get Bob transactions");
