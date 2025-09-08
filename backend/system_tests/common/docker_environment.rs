@@ -70,6 +70,10 @@ impl IsolatedTestEnvironment {
 
     /// Create a new isolated test environment using Docker Compose
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        Self::create_test_environment_with_retries(Self::create_new_internal, 3).await
+    }
+
+    async fn create_new_internal() -> Result<Self, Box<dyn std::error::Error>> {
         // Generate unique test ID for isolation
         let test_id = Uuid::new_v4().to_string()[..8].to_string();
 
@@ -220,6 +224,10 @@ impl IsolatedTestEnvironment {
 
     /// Create a new isolated test environment with Charlie wallet for high index tests
     pub async fn new_with_charlie() -> Result<Self, Box<dyn std::error::Error>> {
+        Self::create_test_environment_with_retries(Self::create_new_with_charlie_internal, 3).await
+    }
+
+    async fn create_new_with_charlie_internal() -> Result<Self, Box<dyn std::error::Error>> {
         // Generate unique test ID for isolation
         let test_id = Uuid::new_v4().to_string()[..8].to_string();
 
@@ -389,60 +397,144 @@ impl IsolatedTestEnvironment {
         })
     }
 
-    /// Find an available port starting from the given port with offset per test
-    /// Uses a more robust port allocation strategy to avoid conflicts
-    fn find_available_port_with_offset(
-        start_port: u16,
-        test_offset: u16,
-    ) -> Result<u16, Box<dyn std::error::Error>> {
-        let base_port = start_port + test_offset;
-
-        // First, try the base port with offset
-        for port in base_port..base_port + 50 {
-            if Self::is_port_available(port) {
-                return Ok(port);
+    /// Retry creating test environment if port allocation fails
+    async fn create_test_environment_with_retries<F, Fut>(
+        create_fn: F,
+        max_retries: u32,
+    ) -> Result<Self, Box<dyn std::error::Error>>
+    where
+        F: Fn() -> Fut,
+        Fut: std::future::Future<Output = Result<Self, Box<dyn std::error::Error>>>,
+    {
+        let mut last_error = None;
+        
+        for attempt in 1..=max_retries {
+            println!("🔄 Test environment creation attempt {}/{}", attempt, max_retries);
+            
+            match create_fn().await {
+                Ok(env) => {
+                    println!("✅ Test environment created successfully on attempt {}", attempt);
+                    return Ok(env);
+                }
+                Err(e) => {
+                    println!("❌ Attempt {} failed: {}", attempt, e);
+                    last_error = Some(e);
+                    
+                    if attempt < max_retries {
+                        // Wait before retrying, with exponential backoff
+                        let wait_time = attempt * 2;
+                        println!("⏳ Waiting {}s before retry...", wait_time);
+                        sleep(Duration::from_secs(wait_time as u64)).await;
+                        
+                        // Clean up any partial resources before retrying
+                        Self::cleanup_orphaned_test_containers();
+                    }
+                }
             }
         }
+        
+        Err(last_error.unwrap_or_else(|| "All retry attempts failed".into()))
+    }
 
-        // If that fails, try a wider random range to avoid collisions
+    /// Find an available port using a more robust allocation strategy  
+    /// Uses timestamp + random to ensure uniqueness across parallel tests
+    fn find_available_port_with_offset(
+        _start_port: u16, // Unused now, but kept for API compatibility
+        _test_offset: u16, // Unused now, but kept for API compatibility
+    ) -> Result<u16, Box<dyn std::error::Error>> {
         use rand::Rng;
         let mut rng = rand::thread_rng();
-        for _ in 0..100 {
-            let random_port = rng.gen_range(30000..50000);
-            if Self::is_port_available(random_port) {
-                return Ok(random_port);
+        
+        // Use current timestamp in microseconds to ensure uniqueness
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_micros() as u32;
+            
+        // Create a unique offset based on timestamp and random number
+        let unique_offset = (now % 10000) + rng.gen_range(0..1000);
+        
+        // Try multiple port ranges to avoid conflicts
+        let port_ranges = [
+            (30000, 32000),  // Range 1
+            (32000, 34000),  // Range 2
+            (34000, 36000),  // Range 3  
+            (36000, 38000),  // Range 4
+            (38000, 40000),  // Range 5
+            (40000, 42000),  // Range 6
+            (42000, 44000),  // Range 7
+            (44000, 46000),  // Range 8
+            (46000, 48000),  // Range 9
+            (48000, 50000),  // Range 10
+        ];
+
+        // First, try a deterministic port based on start_port + unique offset
+        for (range_start, range_end) in port_ranges {
+            let candidate_port = (range_start + (unique_offset % (range_end - range_start))) as u16;
+            if Self::is_port_available(candidate_port) {
+                println!("   Selected deterministic port {} (offset: {})", candidate_port, unique_offset);
+                return Ok(candidate_port);
             }
         }
 
-        Err("No available ports found".into())
+        // If deterministic approach fails, try random ports within ranges
+        for (range_start, range_end) in port_ranges {
+            for _ in 0..20 {
+                let random_port = rng.gen_range(range_start..range_end) as u16;
+                if Self::is_port_available(random_port) {
+                    println!("   Selected random port {} from range {}-{}", random_port, range_start, range_end);
+                    return Ok(random_port);
+                }
+            }
+        }
+
+        Err("No available ports found after extensive search".into())
     }
 
     /// Check if a port is available by attempting to bind and also checking for Docker containers
     fn is_port_available(port: u16) -> bool {
-        // First check if we can bind to the port
+        // First check if we can bind to the port on localhost
         if std::net::TcpListener::bind(format!("127.0.0.1:{}", port)).is_err() {
             return false;
         }
 
-        // Also check if Docker has any containers using this port
-        let output = std::process::Command::new("docker")
-            .args(&["ps", "--filter", &format!("publish={}", port), "--quiet"])
+        // Also check if we can bind to the port on all interfaces (Docker binds to 0.0.0.0)
+        if std::net::TcpListener::bind(format!("0.0.0.0:{}", port)).is_err() {
+            return false;
+        }
+
+        // Check if Docker has any containers using this port (both running and stopped)
+        let running_check = std::process::Command::new("docker")
+            .args(&["ps", "-a", "--filter", &format!("publish={}", port), "--quiet"])
             .output();
 
-        match output {
-            Ok(output) => {
-                let containers = String::from_utf8_lossy(&output.stdout);
-                containers.trim().is_empty() // Port is available if no containers are using it
+        if let Ok(output) = running_check {
+            let containers = String::from_utf8_lossy(&output.stdout);
+            if !containers.trim().is_empty() {
+                return false; // Port is in use by Docker containers
             }
-            Err(_) => true, // If docker command fails, assume port is available
         }
+
+        // Additional check for containers that might be binding to this port internally
+        let port_check = std::process::Command::new("docker")
+            .args(&["ps", "-a", "--format", "{{.Ports}}", "--filter", "name=test-"])
+            .output();
+
+        if let Ok(output) = port_check {
+            let ports_output = String::from_utf8_lossy(&output.stdout);
+            if ports_output.contains(&port.to_string()) {
+                return false; // Port found in test container ports
+            }
+        }
+
+        true // Port appears to be available
     }
 
     /// Clean up any orphaned test containers from previous runs
     fn cleanup_orphaned_test_containers() {
         println!("🧹 Cleaning up orphaned test containers...");
 
-        // First, get list of containers with names starting with 'test-'
+        // Clean up containers with names starting with 'test-'
         let list_containers = Command::new("docker")
             .args(&["ps", "-aq", "--filter", "name=test-"])
             .output();
@@ -456,24 +548,20 @@ impl IsolatedTestEnvironment {
                 if !container_ids.is_empty() {
                     println!("   Found {} orphaned test containers", container_ids.len());
 
-                    // Stop all containers
-                    for container_id in &container_ids {
+                    // Stop and remove all containers in one batch for efficiency
+                    if !container_ids.is_empty() {
                         let _ = Command::new("docker")
-                            .args(&["stop", container_id])
+                            .args(&["stop"])
+                            .args(&container_ids)
+                            .output();
+                        
+                        let _ = Command::new("docker")
+                            .args(&["rm", "-f"])
+                            .args(&container_ids)
                             .output();
                     }
 
-                    // Remove all containers
-                    for container_id in &container_ids {
-                        let _ = Command::new("docker")
-                            .args(&["rm", "-f", container_id])
-                            .output();
-                    }
-
-                    println!(
-                        "   ✅ Stopped and removed {} containers",
-                        container_ids.len()
-                    );
+                    println!("   ✅ Stopped and removed {} containers", container_ids.len());
                 } else {
                     println!("   No orphaned test containers found");
                 }
@@ -668,7 +756,7 @@ volumes:
 
         let output = Command::new("docker-compose")
             .current_dir(compose_dir)
-            .args(&["up", "-d"])
+            .args(&["up", "-d", "--remove-orphans"])
             .output()?;
 
         if !output.status.success() {
@@ -677,6 +765,10 @@ volumes:
         }
 
         println!("✅ Docker Compose environment started");
+        
+        // Give containers a moment to fully start before proceeding
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        
         Ok(())
     }
 
