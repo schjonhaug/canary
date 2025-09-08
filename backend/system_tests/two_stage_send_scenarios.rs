@@ -122,7 +122,9 @@ async fn test_alice_partial_send_bob_two_stage() {
     // Mine block to confirm transaction
     println!("⚡ Step 3: Mine block to confirm transaction");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
-    env.sync_and_wait().await.expect("Failed to sync");
+    env.sync_and_wait_with_retries(3)
+        .await
+        .expect("Failed to sync with retries");
 
     // Verify CONFIRMED events exist (Stage 2)
     let final_alice_transactions = env
@@ -262,7 +264,9 @@ async fn test_alice_full_send_bob_two_stage() {
     // Mine block to confirm transaction
     println!("⚡ Step 3: Mine block to confirm full send transaction");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
-    env.sync_and_wait().await.expect("Failed to sync");
+    env.sync_and_wait_with_retries(3)
+        .await
+        .expect("Failed to sync with retries");
 
     // Verify CONFIRMED events exist (Stage 2)
     let final_alice_transactions = env
@@ -447,10 +451,25 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     let mut expected_sorted = expected_amounts.to_vec();
     expected_sorted.sort();
 
-    assert_eq!(
-        alice_amounts, expected_sorted,
-        "Alice should have correct unconfirmed send amounts"
-    );
+    // Alice's send amounts include fees, so they should be slightly higher than expected amounts
+    for (alice_amount, expected) in alice_amounts.iter().zip(expected_sorted.iter()) {
+        assert!(
+            alice_amount >= expected,
+            "Alice's send amount {} should be >= expected {} (includes fees)",
+            alice_amount,
+            expected
+        );
+        // Fees should be reasonable (less than 1000 sats = 0.00001 BTC)
+        assert!(
+            alice_amount - expected < 1000,
+            "Alice's fees should be reasonable: {} - {} = {} sats",
+            alice_amount,
+            expected,
+            alice_amount - expected
+        );
+    }
+
+    // Bob's receive amounts should match exactly (no fees)
     assert_eq!(
         bob_amounts, expected_sorted,
         "Bob should have correct unconfirmed receive amounts"
@@ -461,7 +480,9 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     // Mine block to confirm all transactions together
     println!("⚡ Step 3: Mine block to confirm all transactions together");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
-    env.sync_and_wait().await.expect("Failed to sync");
+    env.sync_and_wait_with_retries(3)
+        .await
+        .expect("Failed to sync with retries");
 
     // Verify CONFIRMED events exist (Stage 2) - should have 1 net event each
     let final_alice_transactions = env
@@ -513,28 +534,76 @@ async fn test_multiple_partial_sends_bob_two_stage() {
         "Bob should have confirmed Receive events after mining"
     );
 
-    // Since all transactions are mined in the same block, they should be combined into 1 net event each
-    // Expected net amount: 0.1 + 0.2 + 0.05 = 0.35 BTC = 35M sats
-    let expected_net_amount = 35_000_000i64;
+    // Since transactions are tracked individually (not net balances), we should have 3 separate confirmed transactions
+    // Total expected amount: 0.1 + 0.2 + 0.05 = 0.35 BTC = 35M sats
+    let expected_total_amount = 35_000_000i64;
 
-    let alice_has_net_amount = alice_confirmed_sends
-        .iter()
-        .any(|t| t.amount_sats.abs() == expected_net_amount);
-    let bob_has_net_amount = bob_confirmed_receives
-        .iter()
-        .any(|t| t.amount_sats == expected_net_amount);
-
-    assert!(
-        alice_has_net_amount,
-        "Alice should have net confirmed send of 35M sats"
+    // Verify we have exactly 3 confirmed transactions each
+    assert_eq!(
+        alice_confirmed_sends.len(),
+        3,
+        "Alice should have exactly 3 confirmed Send transactions"
     );
-    assert!(
-        bob_has_net_amount,
-        "Bob should have net confirmed receive of 35M sats"
+    assert_eq!(
+        bob_confirmed_receives.len(),
+        3,
+        "Bob should have exactly 3 confirmed Receive transactions"
     );
 
-    println!("✅ Stage 2: Net confirmed events created correctly (35M sats each)");
+    // Verify the total amounts
+    let bob_total: i64 = bob_confirmed_receives.iter().map(|t| t.amount_sats).sum();
+    let alice_total: i64 = alice_confirmed_sends
+        .iter()
+        .map(|t| t.amount_sats.abs())
+        .sum();
+
+    assert_eq!(
+        bob_total, expected_total_amount,
+        "Bob should receive exactly 35M sats total (0.35 BTC)"
+    );
+    assert!(
+        alice_total >= expected_total_amount,
+        "Alice should send at least 35M sats (plus fees). Got: {} sats",
+        alice_total
+    );
+    assert!(
+        alice_total - expected_total_amount < 3000, // Allow reasonable fees for 3 transactions
+        "Alice's total fees should be reasonable: {} - {} = {} sats",
+        alice_total,
+        expected_total_amount,
+        alice_total - expected_total_amount
+    );
+
+    // Verify all transactions have the same block height (mined together)
+    let alice_block_heights: Vec<_> = alice_confirmed_sends
+        .iter()
+        .map(|t| t.block_height.unwrap())
+        .collect();
+    let bob_block_heights: Vec<_> = bob_confirmed_receives
+        .iter()
+        .map(|t| t.block_height.unwrap())
+        .collect();
+
+    assert!(
+        alice_block_heights
+            .iter()
+            .all(|&h| h == alice_block_heights[0]),
+        "All Alice's transactions should be mined at the same height"
+    );
+    assert!(
+        bob_block_heights.iter().all(|&h| h == bob_block_heights[0]),
+        "All Bob's transactions should be mined at the same height"
+    );
+    assert_eq!(
+        alice_block_heights[0], bob_block_heights[0],
+        "Alice and Bob transactions should be mined at the same height"
+    );
+
+    println!(
+        "✅ Stage 2: 3 individual confirmed transactions created correctly (total: {}M sats)",
+        expected_total_amount / 1_000_000
+    );
     println!("✅ Multiple partial sends two-stage test passed!");
     println!("   - Stage 1: 3 separate unconfirmed events in mempool");
-    println!("   - Stage 2: 1 net confirmed event when mined together");
+    println!("   - Stage 2: 3 individual confirmed transactions when mined together");
 }

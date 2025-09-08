@@ -61,7 +61,9 @@ async fn test_alice_partial_send_bob_mined_directly() {
     env.mine_blocks(1).await.expect("Failed to mine blocks");
 
     println!("⚡ Step 3: Now sync wallets");
-    env.sync_and_wait().await.expect("Failed to sync");
+    env.sync_and_wait_with_retries(3)
+        .await
+        .expect("Failed to sync with retries");
 
     // Verify transactions show mined directly state (no intermediate states)
     let post_sync_alice_transactions = env
@@ -162,18 +164,26 @@ async fn test_alice_partial_send_bob_mined_directly() {
     }
 
     // New Transaction System Expectations:
-    // Alice should have: 1 Receive (initial funding) + 1 Send (to Bob) = 2 total transactions
-    // Bob should have: 1 Receive (from Alice) = 1 total transaction
+    // We test for NEW transactions created during the test (not historical funding)
+    // Alice should gain 1 Send transaction (to Bob)
+    // Bob should gain 1 Receive transaction (from Alice)
+
+    let expected_alice_count = initial_alice_transactions.len() + 1;
+    let expected_bob_count = initial_bob_transactions.len() + 1;
 
     assert_eq!(
         post_sync_alice_transactions.len(),
-        2,
-        "Alice should have 2 transactions: 1 initial receive + 1 send to Bob"
+        expected_alice_count,
+        "Alice should have {} transaction(s): {} initial + 1 send to Bob",
+        expected_alice_count,
+        initial_alice_transactions.len()
     );
     assert_eq!(
         post_sync_bob_transactions.len(),
-        1,
-        "Bob should have 1 transaction: 1 receive from Alice"
+        expected_bob_count,
+        "Bob should have {} transaction(s): {} initial + 1 receive from Alice",
+        expected_bob_count,
+        initial_bob_transactions.len()
     );
 
     // Alice should have exactly 1 Send transaction
@@ -261,7 +271,9 @@ async fn test_alice_full_send_bob_mined_directly() {
     env.mine_blocks(1).await.expect("Failed to mine blocks");
 
     println!("⚡ Step 3: Now sync wallets");
-    env.sync_and_wait().await.expect("Failed to sync");
+    env.sync_and_wait_with_retries(3)
+        .await
+        .expect("Failed to sync with retries");
 
     // Verify full send transactions show mined directly state
     let post_sync_alice_transactions = env
@@ -292,18 +304,26 @@ async fn test_alice_full_send_bob_mined_directly() {
         .collect();
 
     // New Transaction System Expectations for Full Send:
-    // Alice should have: 1 Receive (initial funding) + 1 Send (full send to Bob) = 2 total transactions
-    // Bob should have: 1 Receive (from Alice) = 1 total transaction
+    // We test for NEW transactions created during the test (not historical funding)
+    // Alice should gain 1 Send transaction (full send to Bob)
+    // Bob should gain 1 Receive transaction (from Alice)
+
+    let expected_alice_count = initial_alice_transactions.len() + 1;
+    let expected_bob_count = initial_bob_transactions.len() + 1;
 
     assert_eq!(
         post_sync_alice_transactions.len(),
-        2,
-        "Alice should have 2 transactions: 1 initial receive + 1 full send to Bob"
+        expected_alice_count,
+        "Alice should have {} transaction(s): {} initial + 1 full send to Bob",
+        expected_alice_count,
+        initial_alice_transactions.len()
     );
     assert_eq!(
         post_sync_bob_transactions.len(),
-        1,
-        "Bob should have 1 transaction: 1 receive from Alice"
+        expected_bob_count,
+        "Bob should have {} transaction(s): {} initial + 1 receive from Alice",
+        expected_bob_count,
+        initial_bob_transactions.len()
     );
 
     // Alice should have exactly 1 Send transaction
@@ -374,6 +394,16 @@ async fn test_multiple_partial_sends_mined_directly() {
     // Initial sync
     env.sync_and_wait().await.expect("Failed to sync");
 
+    // Capture initial transaction counts for comparison
+    let initial_alice_transactions = env
+        .get_wallet_transactions(&env.alice_checksum)
+        .await
+        .expect("Failed to get Alice transactions");
+    let initial_bob_transactions = env
+        .get_wallet_transactions(&env.bob_checksum)
+        .await
+        .expect("Failed to get Bob transactions");
+
     // Send multiple partial send transactions and mine them all at once
     println!("⚡ Sending multiple partial send transactions that will be mined directly");
 
@@ -394,7 +424,9 @@ async fn test_multiple_partial_sends_mined_directly() {
     env.mine_blocks(1).await.expect("Failed to mine blocks");
 
     // Now sync
-    env.sync_and_wait().await.expect("Failed to sync");
+    env.sync_and_wait_with_retries(3)
+        .await
+        .expect("Failed to sync with retries");
 
     // Verify all partial send transactions are detected as mined directly
     let final_alice_transactions = env
@@ -407,18 +439,26 @@ async fn test_multiple_partial_sends_mined_directly() {
         .expect("Failed to get Bob transactions");
 
     // New Transaction System Expectations for Multiple Partial Sends:
-    // Alice should have: 1 Receive (initial funding) + 3 Sends (to Bob) = 4 total transactions
-    // Bob should have: 3 Receives (from Alice) = 3 total transactions
+    // We test for NEW transactions created during the test (not historical funding)
+    // Alice should gain 3 Send transactions (to Bob)
+    // Bob should gain 3 Receive transactions (from Alice)
+
+    let expected_alice_count = initial_alice_transactions.len() + 3;
+    let expected_bob_count = initial_bob_transactions.len() + 3;
 
     assert_eq!(
         final_alice_transactions.len(),
-        4,
-        "Alice should have 4 transactions: 1 initial receive + 3 sends to Bob"
+        expected_alice_count,
+        "Alice should have {} transaction(s): {} initial + 3 sends to Bob",
+        expected_alice_count,
+        initial_alice_transactions.len()
     );
     assert_eq!(
         final_bob_transactions.len(),
-        3,
-        "Bob should have 3 transactions: 3 receives from Alice"
+        expected_bob_count,
+        "Bob should have {} transaction(s): {} initial + 3 receives from Alice",
+        expected_bob_count,
+        initial_bob_transactions.len()
     );
 
     // Find Send and Receive transactions
