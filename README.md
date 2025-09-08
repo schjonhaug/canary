@@ -15,3 +15,41 @@ Canary is a **Bitcoin monitoring and early warning system** built in [Rust](http
 - ✅ Transaction received and confirmed
 - 📤 **RBF (Replace-By-Fee)** detection - fee bumping notifications
 - 🚀 **CPFP (Child-Pays-For-Parent)** detection - transaction acceleration notifications
+
+## Development & Testing
+
+### Running System Tests
+
+The project includes comprehensive system tests that use Docker to create isolated Bitcoin regtest environments. These tests cover:
+
+- **Advanced Transactions**: RBF (Replace-By-Fee) and CPFP (Child-Pays-For-Parent) scenarios
+- **High Index Scanning**: Deep wallet address discovery for funds at high indexes  
+- **Direct Mining**: Transactions that get mined directly without mempool delays
+- **Two-Stage Scenarios**: Complex transaction flows with multiple confirmations
+
+#### Prerequisites
+- Docker and Docker Compose installed
+- Rust toolchain for building
+
+#### Run All System Tests
+```bash
+# Run all 10 system tests (sequential to avoid Docker conflicts)
+cargo test --test advanced_transactions --test mined_directly_scenarios --test two_stage_send_scenarios --test high_index_scanning -- --ignored --test-threads=1
+```
+
+#### Run Individual Test Categories
+```bash
+# Advanced transactions (RBF, CPFP) - 3 tests
+cargo test --test advanced_transactions -- --ignored
+
+# High index scanning - 1 test
+cargo test --test high_index_scanning -- --ignored
+
+# Mined directly scenarios - 3 tests
+cargo test --test mined_directly_scenarios -- --ignored
+
+# Two-stage send scenarios - 3 tests
+cargo test --test two_stage_send_scenarios -- --ignored
+```
+
+**Note**: System tests must run sequentially (`--test-threads=1`) to avoid Docker resource conflicts between parallel test environments.
