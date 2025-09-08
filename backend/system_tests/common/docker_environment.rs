@@ -218,6 +218,176 @@ impl IsolatedTestEnvironment {
         })
     }
 
+    /// Create a new isolated test environment with Charlie wallet for high index tests
+    pub async fn new_with_charlie() -> Result<Self, Box<dyn std::error::Error>> {
+        // Generate unique test ID for isolation
+        let test_id = Uuid::new_v4().to_string()[..8].to_string();
+
+        // Clean up any orphaned test containers from previous runs
+        Self::cleanup_orphaned_test_containers();
+
+        // Use test_id to generate consistent port offset to avoid conflicts
+        let test_id_bytes = test_id.as_bytes();
+        let test_offset = (test_id_bytes[0] as u16) * 10;
+
+        // Find available ports for Bitcoin RPC and Fulcrum with same offset
+        let bitcoin_rpc_port = Self::find_available_port_with_offset(28332, test_offset)?;
+        let fulcrum_port = Self::find_available_port_with_offset(50001, test_offset)?;
+
+        println!(
+            "🚀 Creating isolated test environment with Charlie: {}",
+            test_id
+        );
+        println!("   Bitcoin RPC Port: {}", bitcoin_rpc_port);
+        println!("   Fulcrum Electrum Port: {}", fulcrum_port);
+
+        // Create temporary directory for test data
+        let temp_dir = tempdir()?;
+        let temp_path = temp_dir.path().to_string_lossy().to_string();
+
+        // Create compose directory within temp dir
+        let compose_dir = temp_dir.path().join("compose");
+        fs::create_dir_all(&compose_dir)?;
+
+        // Create test-specific docker-compose.yml
+        Self::create_test_docker_compose(&compose_dir, &test_id, bitcoin_rpc_port, fulcrum_port)?;
+
+        // Create test database
+        let db_path = temp_dir.path().join("test.db");
+        // Set FOSS mode for simpler testing without Stripe dependencies
+        std::env::set_var("CANARY_MODE", "foss");
+
+        let test_config = AppConfig {
+            network: NetworkConfig::Regtest,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: temp_path.clone(),
+        };
+
+        let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
+
+        // In FOSS mode, the hardcoded foss-user is created automatically as admin
+        let test_user_id = "foss-user".to_string();
+
+        // Start Docker Compose environment
+        Self::docker_compose_up(&compose_dir)?;
+
+        // Wait for services to be ready
+        Self::wait_for_bitcoin_ready(&compose_dir, &test_id).await?;
+        Self::wait_for_fulcrum_ready(&compose_dir, fulcrum_port).await?;
+
+        // Setup all test wallets including Charlie for high index tests
+        Self::setup_test_wallets(&compose_dir, &test_id).await?;
+
+        // Fund Alice and Charlie (Charlie at high index 250)
+        Self::fund_test_wallets(&compose_dir, &test_id).await?;
+
+        // Create wallet manager (connects to Fulcrum)
+        let wallet_dir = temp_dir.path().join("wallets");
+        std::fs::create_dir_all(&wallet_dir)?;
+
+        let (notification_sender, _notification_receiver) =
+            broadcast::channel::<TransactionNotification>(100);
+
+        let mut wallet_manager = WalletManager::new(
+            notification_sender,
+            wallet_dir,
+            &db_path.to_string_lossy(),
+            bdk_wallet::bitcoin::Network::Regtest,
+            &format!("tcp://127.0.0.1:{}", fulcrum_port),
+            &test_config,
+        )
+        .await;
+
+        // Create AppServices to access wallet creation service
+        let wallet_creation_service = canary::wallet::WalletCreationService::new(
+            wallet_manager.wallet_dir.clone(),
+            metadata_db.clone(),
+            wallet_manager.electrum_client.clone(),
+            wallet_manager.get_network(),
+        );
+        let app_services = AppServices {
+            metadata_db: metadata_db.clone(),
+            wallet_creation_service,
+        };
+
+        // Create wallets using the correct XPUB descriptors from docker-utils.sh
+        let alice_descriptor = "wpkh([805c684b/84h/1h/0h]tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)#8nt3y08q";
+        let bob_descriptor = "wpkh([aeea3541/84h/1h/0h]tpubDDCjkgMuodinFyfhacZPTzffAKtCbuZejpkSMJB673c9ZSsVrq5FnL5rhjFjyCDva5Pka7sn9UDe7xmzpRCNnKNqXbteTnPzLRVNcsvCcpk/<0;1>/*)#ff9zpyxa";
+        let charlie_descriptor = "wpkh(tpubDCxzhZZE31g2EqSv1UajMAw5Hd62htydz9r2XBkrccHgBh8uw3n62zr6Zjmj64tfTk8Tjxo6VctjUMAh5DXWTErfQPC6RmQhTdtNnXuTXTQ/<0;1>/*)#sq32h3ch";
+
+        let alice_metadata = app_services
+            .wallet_creation_service
+            .create_wallet_non_blocking(
+                "Alice",
+                alice_descriptor,
+                &test_user_id,
+                true,
+                Some("auto"),
+                Some("20"),
+            )
+            .await?;
+        let bob_metadata = app_services
+            .wallet_creation_service
+            .create_wallet_non_blocking(
+                "Bob",
+                bob_descriptor,
+                &test_user_id,
+                true,
+                Some("auto"),
+                Some("20"),
+            )
+            .await?;
+        let charlie_metadata = app_services
+            .wallet_creation_service
+            .create_wallet_non_blocking(
+                "Charlie",
+                charlie_descriptor,
+                &test_user_id,
+                false,
+                Some("auto"),
+                Some("250"),
+            )
+            .await?;
+
+        let alice_checksum = alice_metadata.checksum;
+        let bob_checksum = bob_metadata.checksum;
+        let charlie_checksum = charlie_metadata.checksum;
+
+        println!("✅ Test environment with Charlie ready:");
+        println!("   Alice checksum: {}", alice_checksum);
+        println!("   Bob checksum: {}", bob_checksum);
+        println!("   Charlie checksum: {}", charlie_checksum);
+
+        // Wait for all wallets to be marked as ready before proceeding
+        Self::wait_for_wallets_ready(
+            &metadata_db,
+            &[&alice_checksum, &bob_checksum, &charlie_checksum],
+        )
+        .await?;
+
+        // CRITICAL: Do an initial sync to ensure historical transactions are properly processed
+        // This prevents the first test sync from detecting historical transactions as new
+        println!("🔄 Running initial sync to establish historical transaction baseline...");
+        let _ = wallet_manager
+            .sync_tier_parallel(SubscriptionTier::Team)
+            .await;
+        sleep(Duration::from_millis(500)).await;
+        println!("✅ Initial historical sync completed");
+
+        Ok(IsolatedTestEnvironment {
+            metadata_db,
+            wallet_manager,
+            _temp_dir: temp_dir,
+            alice_checksum,
+            bob_checksum,
+            charlie_checksum,
+            compose_dir,
+            test_id,
+            bitcoin_rpc_port,
+            fulcrum_port,
+        })
+    }
 
     /// Find an available port starting from the given port with offset per test
     /// Uses a more robust port allocation strategy to avoid conflicts
@@ -1168,6 +1338,47 @@ volumes:
         Ok(())
     }
 
+    /// Wait for a specific transaction to appear in a wallet's transaction list
+    pub async fn wait_for_transaction_in_wallet(
+        &mut self,
+        wallet_checksum: &str,
+        txid: &str,
+        timeout_secs: u64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let start = std::time::Instant::now();
+        let timeout = Duration::from_secs(timeout_secs);
+
+        while start.elapsed() < timeout {
+            // Sync the wallet
+            self.sync_and_wait().await?;
+
+            // Check if the transaction is now present
+            let transactions = self.get_wallet_transactions(wallet_checksum).await?;
+            if transactions.iter().any(|tx| tx.txid == txid) {
+                println!(
+                    "✅ Transaction {} found in wallet {} after {:.1}s",
+                    txid,
+                    wallet_checksum,
+                    start.elapsed().as_secs_f64()
+                );
+                return Ok(());
+            }
+
+            println!(
+                "⏳ Waiting for transaction {} to appear in wallet {} ({:.1}s elapsed)...",
+                txid,
+                wallet_checksum,
+                start.elapsed().as_secs_f64()
+            );
+            sleep(Duration::from_secs(2)).await;
+        }
+
+        Err(format!(
+            "Timeout waiting for transaction {} to appear in wallet {} after {}s",
+            txid, wallet_checksum, timeout_secs
+        )
+        .into())
+    }
 
     /// Get all transactions for a wallet from the database
     pub async fn get_wallet_transactions(
@@ -1181,7 +1392,68 @@ volumes:
         Ok(transactions)
     }
 
+    /// Send transaction between wallets (will be RBF-replaceable by default in regtest)
+    pub async fn send_rbf_transaction(
+        &self,
+        from_wallet: &str,
+        to_wallet: &str,
+        amount: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        // Enable RBF for the transaction
+        self.send_transaction_with_options(from_wallet, to_wallet, amount, true, None)
+            .await
+    }
 
+    /// Replace transaction with higher fee using Bitcoin Core's bumpfee
+    pub async fn replace_transaction(
+        &self,
+        wallet: &str,
+        txid: &str,
+        _fee_rate: f64,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        println!(
+            "🔄 Bumping fee for transaction {} (automatic fee calculation)...",
+            txid
+        );
+
+        let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
+
+        // Load wallet first
+        let _ = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[&format!("-rpcwallet={}", wallet), "loadwallet", wallet],
+        );
+
+        // Use bumpfee to replace the transaction
+        let result = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[&format!("-rpcwallet={}", wallet), "bumpfee", txid],
+        )?;
+
+        // Parse JSON result to get new txid
+        let json_result: serde_json::Value = serde_json::from_str(&result)?;
+
+        if let Some(new_txid) = json_result.get("txid").and_then(|v| v.as_str()) {
+            let old_fee = json_result
+                .get("origfee")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let new_fee = json_result
+                .get("fee")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+
+            println!("✅ RBF replacement successful!");
+            println!("   Original TXID: {}", txid);
+            println!("   New TXID: {}", new_txid);
+            println!("   Original fee: {} BTC", old_fee);
+            println!("   New fee: {} BTC", new_fee);
+
+            Ok(new_txid.to_string())
+        } else {
+            Err(format!("Failed to parse bumpfee result: {}", result).into())
+        }
+    }
 
     /// Send a simple transaction (non-RBF) - convenience wrapper
     pub async fn send_transaction(
@@ -1193,6 +1465,124 @@ volumes:
         // Use the proper system test method that works with isolated containers
         self.send_transaction_with_options(from_wallet, to_wallet, amount, false, None)
             .await
+    }
+
+    /// Create a CPFP (Child-Pays-For-Parent) transaction
+    /// This creates a transaction that spends from an unconfirmed parent transaction with a high fee
+    pub async fn create_cpfp_transaction(
+        &self,
+        wallet: &str,
+        parent_txid: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        println!(
+            "👶 Creating CPFP child transaction spending from parent: {}",
+            parent_txid
+        );
+
+        let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
+
+        // Load wallet first
+        let _ = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[&format!("-rpcwallet={}", wallet), "loadwallet", wallet],
+        );
+
+        // Get transaction details to find spendable outputs
+        let raw_tx_result = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[
+                &format!("-rpcwallet={}", wallet),
+                "gettransaction",
+                parent_txid,
+            ],
+        )?;
+
+        let tx_json: serde_json::Value = serde_json::from_str(&raw_tx_result)?;
+
+        // Find the first output that belongs to this wallet (we can spend from it)
+        let details = tx_json["details"]
+            .as_array()
+            .ok_or("No details found in transaction")?;
+
+        let mut receive_detail = None;
+        for detail in details {
+            if detail["category"] == "receive" {
+                receive_detail = Some(detail);
+                break;
+            }
+        }
+
+        let receive_detail =
+            receive_detail.ok_or("No receive output found in parent transaction")?;
+        let receive_amount = receive_detail["amount"]
+            .as_f64()
+            .ok_or("Could not parse receive amount")?;
+
+        // Create a child transaction that spends from the parent with higher fee
+        // Send most of it back to ourselves, keeping a high fee
+        let child_amount = receive_amount - 0.0001; // Leave 0.0001 BTC as fee (high fee for CPFP)
+
+        if child_amount <= 0.0 {
+            return Err("Insufficient amount in parent transaction for CPFP".into());
+        }
+
+        // Get a new address to send the child transaction to
+        let child_address = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[&format!("-rpcwallet={}", wallet), "getnewaddress"],
+        )?
+        .trim()
+        .trim_matches('"')
+        .to_string();
+
+        // Create raw transaction spending from parent
+        let vout = receive_detail["vout"]
+            .as_u64()
+            .ok_or("Could not parse vout")?;
+        let create_raw_tx_result = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[
+                &format!("-rpcwallet={}", wallet),
+                "createrawtransaction",
+                &format!(r#"[{{"txid":"{}","vout":{}}}]"#, parent_txid, vout),
+                &format!(r#"{{"{}":"{}"}}"#, child_address, child_amount),
+            ],
+        )?;
+
+        let raw_tx = create_raw_tx_result.trim().trim_matches('"');
+
+        // Sign the raw transaction
+        let signed_result = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[
+                &format!("-rpcwallet={}", wallet),
+                "signrawtransactionwithwallet",
+                raw_tx,
+            ],
+        )?;
+
+        let signed_json: serde_json::Value = serde_json::from_str(&signed_result)?;
+        let signed_hex = signed_json["hex"]
+            .as_str()
+            .ok_or("Could not get signed transaction hex")?;
+
+        // Broadcast the child transaction
+        let child_txid =
+            Self::bitcoin_cli(&bitcoin_container_name, &["sendrawtransaction", signed_hex])?
+                .trim()
+                .trim_matches('"')
+                .to_string();
+
+        println!("✅ CPFP child transaction created: {}", child_txid);
+        println!("   Parent: {}", parent_txid);
+        println!("   Child: {}", child_txid);
+        println!(
+            "   Child amount: {} BTC (fee: {} BTC)",
+            child_amount,
+            receive_amount - child_amount
+        );
+
+        Ok(child_txid)
     }
 }
 
