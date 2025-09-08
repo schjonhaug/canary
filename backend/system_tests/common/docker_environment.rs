@@ -14,7 +14,7 @@ use tokio::sync::broadcast;
 use tokio::time::sleep;
 use uuid::Uuid;
 
-pub const SYNC_WAIT_MS: u64 = 10000; // Time to wait for mempool propagation and sync to complete
+pub const SYNC_WAIT_MS: u64 = 15000; // Time to wait for mempool propagation and sync to complete (increased for multiple tx scenarios)
 
 /// Helper struct to manage isolated test environment with Docker Compose
 #[allow(dead_code)] // charlie_checksum and bitcoin_rpc_port used in other test files
@@ -772,7 +772,8 @@ volumes:
 
         // For now, use a fixed delay to let Fulcrum sync
         // This is simpler than trying to query Fulcrum's height which is causing connection issues
-        sleep(Duration::from_secs(5)).await;
+        // Increased to 15 seconds for multiple transaction scenarios
+        sleep(Duration::from_secs(15)).await;
 
         println!("   ✅ Fulcrum should have synced");
         Ok(())
