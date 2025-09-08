@@ -203,9 +203,9 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
     // Step 3: Mine block to confirm replacement
     println!("⛏️ Step 3: Mining block to confirm replacement transaction");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
-    env.sync_and_wait()
+    env.sync_and_wait_with_retries(3)
         .await
-        .expect("Failed to sync after mining");
+        .expect("Failed to sync after mining with retries");
 
     // Verify final confirmed state
     let final_alice_txs = env
@@ -488,7 +488,7 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     // Step 4: Mine to confirm final replacement
     println!("⛏️ Step 4: Mining block to confirm final replacement");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
-    env.sync_and_wait().await.expect("Failed to sync");
+    env.sync_and_wait_with_retries(3).await.expect("Failed to sync with retries");
 
     // Verify final state
     let final_alice_txs = env
@@ -763,9 +763,9 @@ async fn test_cpfp_detection_and_tracking() {
     // Step 3: Mine block to confirm both transactions together (CPFP effect)
     println!("⛏️ Step 3: Mining block to confirm both parent and child together (CPFP effect)");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
-    env.sync_and_wait()
+    env.sync_and_wait_with_retries(3)
         .await
-        .expect("Failed to sync after mining");
+        .expect("Failed to sync after mining with retries");
 
     // Verify both transactions are confirmed in the same block
     let final_alice_txs = env
