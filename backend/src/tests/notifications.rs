@@ -1,5 +1,5 @@
 use crate::metadata::{
-    Contact, EventType, Language, NotificationMethod, ProviderType, Transaction,
+    Contact, EventType, Language, NotificationMethod, ProviderType, Transaction, TransactionNotification,
 };
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use crate::ntfy_provider::NtfyProvider;
@@ -21,7 +21,9 @@ fn create_test_transaction(
         block_height: if confirmed { Some(100) } else { None },
         first_seen_at: 1672574400,
         confirmed_at: if confirmed { Some(1672574400) } else { None },
-        is_rbf: false,
+        transaction_status: "pending".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
         parent_txid: None,
         notification_status: vec![],
     }
@@ -64,13 +66,14 @@ async fn test_ntfy_provider_info() {
 async fn test_ntfy_send_notification() {
     let provider = NtfyProvider::new();
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
+    let notification = TransactionNotification::Confirmed(event);
 
     let mut contact = create_test_contact("Test User", Language::English);
     contact.notification_methods =
         vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
 
     let results = provider
-        .send_notification(&event, "Test Wallet", &[contact])
+        .send_notification(&notification, "Test Wallet", &[contact])
         .await;
 
     assert_eq!(results.len(), 1);
@@ -78,7 +81,7 @@ async fn test_ntfy_send_notification() {
     assert_eq!(method.notification_target, "test-topic");
     assert_eq!(
         message,
-        "✅ Receive confirmed: 1.00000000 BTC to Test Wallet. Total balance: 1.50000000 BTC"
+        "✅ Received: 1.00000000 BTC to Test Wallet"
     );
     // Note: Actual result.success depends on ntfy.sh availability
 }
@@ -87,6 +90,7 @@ async fn test_ntfy_send_notification() {
 async fn test_ntfy_filters_only_ntfy_methods() {
     let provider = NtfyProvider::new();
     let event = create_test_transaction(EventType::Send, 50_000_000, false);
+    let notification = TransactionNotification::Pending(event);
 
     let mut contact = create_test_contact("Test User", Language::Norwegian);
     contact.notification_methods = vec![
@@ -95,7 +99,7 @@ async fn test_ntfy_filters_only_ntfy_methods() {
     ];
 
     let results = provider
-        .send_notification(&event, "Test Wallet", &[contact])
+        .send_notification(&notification, "Test Wallet", &[contact])
         .await;
 
     // Should only process the ntfy method
@@ -147,6 +151,7 @@ async fn test_twilio_send_notification() {
 
     let provider = TwilioProvider::from_env().unwrap();
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
+    let notification = TransactionNotification::Confirmed(event);
 
     let mut contact = create_test_contact("Test User", Language::English);
     contact.notification_methods = vec![create_notification_method(
@@ -155,7 +160,7 @@ async fn test_twilio_send_notification() {
     )];
 
     let results = provider
-        .send_notification(&event, "Test Wallet", &[contact])
+        .send_notification(&notification, "Test Wallet", &[contact])
         .await;
 
     assert_eq!(results.len(), 1);
@@ -163,7 +168,7 @@ async fn test_twilio_send_notification() {
     assert_eq!(method.notification_target, "+15551234567");
     assert_eq!(
         message,
-        "✅ Receive confirmed: 1.00000000 BTC to Test Wallet. Total balance: 1.50000000 BTC"
+        "✅ Received: 1.00000000 BTC to Test Wallet"
     );
 
     // Clean up
@@ -180,6 +185,7 @@ async fn test_twilio_filters_only_sms_methods() {
 
     let provider = TwilioProvider::from_env().unwrap();
     let event = create_test_transaction(EventType::Send, 50_000_000, false);
+    let notification = TransactionNotification::Pending(event);
 
     let mut contact = create_test_contact("Test User", Language::Norwegian);
     contact.notification_methods = vec![
@@ -188,7 +194,7 @@ async fn test_twilio_filters_only_sms_methods() {
     ];
 
     let results = provider
-        .send_notification(&event, "Test Wallet", &[contact])
+        .send_notification(&notification, "Test Wallet", &[contact])
         .await;
 
     // Should only process the SMS method
@@ -214,7 +220,7 @@ struct MockProvider {
 impl NotificationProvider for MockProvider {
     async fn send_notification(
         &self,
-        _transaction: &Transaction,
+        _notification: &TransactionNotification,
         _wallet_name: &str,
         contacts: &[Contact],
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
@@ -277,19 +283,20 @@ async fn test_notification_manager() {
 
     // Send notifications
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
+    let notification = TransactionNotification::Confirmed(event);
     let mut contact = create_test_contact("Test User", Language::English);
     contact.notification_methods =
         vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
 
     let results = manager
-        .send_notifications("success", &event, "Test Wallet", &[contact.clone()])
+        .send_notifications("success", &notification, "Test Wallet", &[contact.clone()])
         .await
         .unwrap();
     assert_eq!(results.len(), 1);
     assert!(results[0].1.success);
 
     let results = manager
-        .send_notifications("failure", &event, "Test Wallet", &[contact])
+        .send_notifications("failure", &notification, "Test Wallet", &[contact])
         .await
         .unwrap();
     assert_eq!(results.len(), 1);
@@ -303,10 +310,11 @@ async fn test_notification_manager_unknown_provider() {
 
     let manager = NotificationManager::new();
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
+    let notification = TransactionNotification::Confirmed(event);
     let contact = create_test_contact("Test User", Language::English);
 
     let result = manager
-        .send_notifications("unknown", &event, "Test Wallet", &[contact])
+        .send_notifications("unknown", &notification, "Test Wallet", &[contact])
         .await;
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not found"));

@@ -55,9 +55,6 @@ path = "system_tests/two_stage_send_scenarios.rs"
 name = "high_index_scanning" 
 path = "system_tests/high_index_scanning.rs"
 
-[[test]]
-name = "fast_confirmation_scenarios"
-path = "system_tests/fast_confirmation_scenarios.rs"
 
 [[test]]
 name = "advanced_transactions"

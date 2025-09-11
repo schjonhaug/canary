@@ -1,5 +1,5 @@
 use canary::config::{AppConfig, NetworkConfig};
-use canary::metadata::{EventType, MetadataDb, TransactionEvent, TransactionEventWithWallet};
+use canary::metadata::{EventType, MetadataDb, TransactionNotification};
 use canary::subscription::SubscriptionTier;
 use canary::wallet::WalletManager;
 use std::process::Command;
@@ -46,7 +46,7 @@ async fn debug_wallet_drain_detection() {
     let wallet_dir = temp_dir.path().join("wallets");
     std::fs::create_dir_all(&wallet_dir).expect("Failed to create wallet dir");
 
-    let (event_sender, _event_receiver) = broadcast::channel::<TransactionEvent>(100);
+    let (event_sender, _event_receiver) = broadcast::channel::<TransactionNotification>(100);
 
     let mut wallet_manager = WalletManager::new(
         event_sender,
@@ -90,7 +90,7 @@ async fn debug_wallet_drain_detection() {
 
     // Check initial events
     let initial_events = metadata_db
-        .get_events_by_wallet_checksum(&bob_checksum, None)
+        .get_transactions_by_wallet_checksum(&bob_checksum, None)
         .await
         .expect("Failed to get initial events");
 
@@ -98,7 +98,7 @@ async fn debug_wallet_drain_detection() {
     for event in &initial_events {
         println!(
             "   - {:?}: {} sats, confirmed: {}",
-            event.event_type, event.amount_sats, event.is_confirmed
+            event.transaction_type, event.amount_sats, event.confirmed_at.is_some()
         );
     }
 
@@ -123,7 +123,7 @@ async fn debug_wallet_drain_detection() {
 
     // Check events after drain
     let post_drain_events = metadata_db
-        .get_events_by_wallet_checksum(&bob_checksum, None)
+        .get_transactions_by_wallet_checksum(&bob_checksum, None)
         .await
         .expect("Failed to get post-drain events");
 
@@ -133,8 +133,8 @@ async fn debug_wallet_drain_detection() {
     );
     for event in &post_drain_events {
         println!(
-            "   - {:?}: {} sats, confirmed: {}, rbf: {}, cpfp: {}",
-            event.event_type, event.amount_sats, event.is_confirmed, event.is_rbf, event.is_cpfp
+            "   - {:?}: {} sats, confirmed: {}",
+            event.transaction_type, event.amount_sats, event.confirmed_at.is_some()
         );
     }
 
@@ -144,14 +144,14 @@ async fn debug_wallet_drain_detection() {
     // Look specifically for send events
     let send_events: Vec<_> = post_drain_events
         .iter()
-        .filter(|e| e.event_type == EventType::Send)
+        .filter(|e| e.transaction_type == EventType::Send)
         .collect();
 
     println!("💸 Send events found: {}", send_events.len());
     for event in &send_events {
         println!(
             "   - Send: {} sats, confirmed: {}",
-            event.amount_sats, event.is_confirmed
+            event.amount_sats, event.confirmed_at.is_some()
         );
     }
 
@@ -183,15 +183,15 @@ async fn debug_wallet_drain_detection() {
     sleep(Duration::from_millis(2000)).await;
 
     let final_events = metadata_db
-        .get_events_by_wallet_checksum(&bob_checksum, None)
+        .get_transactions_by_wallet_checksum(&bob_checksum, None)
         .await
         .expect("Failed to get final events");
 
     println!("📊 Final events for Bob: {} events", final_events.len());
     for event in &final_events {
         println!(
-            "   - {:?}: {} sats, confirmed: {}, rbf: {}, cpfp: {}",
-            event.event_type, event.amount_sats, event.is_confirmed, event.is_rbf, event.is_cpfp
+            "   - {:?}: {} sats, confirmed: {}",
+            event.transaction_type, event.amount_sats, event.confirmed_at.is_some()
         );
     }
 

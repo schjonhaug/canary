@@ -29,7 +29,7 @@ async fn create_test_app() -> axum::Router {
         data_dir: temp_path.to_string(),
     };
 
-    let (event_tx, _event_rx) = broadcast::channel::<canary::metadata::TransactionEvent>(100);
+    let (event_tx, _event_rx) = broadcast::channel::<canary::metadata::TransactionNotification>(100);
     let _current_block_header = Arc::new(Mutex::new(None::<canary::electrum::BlockHeader>));
 
     let wallet_manager = Arc::new(Mutex::new(
