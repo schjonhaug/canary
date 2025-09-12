@@ -3101,6 +3101,23 @@ pub async fn get_wallet_detail(
         }
     };
 
+    // Add fiat values if user has a preferred currency
+    let mut wallet_with_fiat = wallet;
+    if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await {
+        if let Some(currency) = user_record.preferred_fiat_currency {
+            if let Ok(rates) = app_services.metadata_db.get_exchange_rates().await {
+                if let Some(rate) = rates.get(&currency) {
+                    // Convert satoshis to BTC and multiply by rate
+                    if let Some(balance_sats) = wallet_with_fiat.balance_total {
+                        let balance_btc = balance_sats as f64 / 100_000_000.0;
+                        wallet_with_fiat.balance_fiat = Some(balance_btc * rate.rate_per_btc);
+                        wallet_with_fiat.fiat_currency = Some(currency.clone());
+                    }
+                }
+            }
+        }
+    }
+
     let response_time = start_time.elapsed();
     println!(
         "⚡ Non-blocking wallet detail served in {:?}",
@@ -3109,7 +3126,7 @@ pub async fn get_wallet_detail(
 
     let wallet_detail = WalletDetailResponse {
         timestamp,
-        wallet,
+        wallet: wallet_with_fiat,
         transactions,
         contacts,
     };
