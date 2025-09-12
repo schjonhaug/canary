@@ -5,11 +5,16 @@ use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
+use futures::future::join_all;
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, Semaphore};
+
+/// Maximum number of wallets to sync in parallel
+const MAX_PARALLEL_SYNCS: usize = 10;
 
 /// Standalone wallet creation function that doesn't require WalletManager mutex
 /// This allows wallet creation to be non-blocking and concurrent
@@ -932,12 +937,33 @@ impl WalletManager {
         Ok(())
     }
 
+    /// Load a wallet from disk for sync operations (independent of WalletManager state)
+    async fn load_wallet_for_sync(
+        wallet_path: PathBuf,
+        network: Network,
+    ) -> Result<PersistedWallet<Connection>> {
+        // Open the SQLite connection
+        let mut db = Connection::open(&wallet_path)
+            .map_err(|e| anyhow!("Failed to open wallet database: {}", e))?;
+
+        // Load the wallet
+        let wallet_opt = Wallet::load()
+            .extract_keys()
+            .check_network(network)
+            .load_wallet(&mut db)
+            .map_err(|e| anyhow!("Failed to load wallet: {}", e))?;
+
+        wallet_opt.ok_or_else(|| anyhow!("No wallet data found in file"))
+    }
+
     /// Sync all wallets for a specific subscription tier in parallel
     pub async fn sync_tier_parallel(
         &mut self,
         tier: crate::subscription::SubscriptionTier,
     ) -> Result<()> {
         use crate::sync::WalletSyncService;
+
+        let sync_start = Instant::now();
 
         // First, perform wallet cleanup (remove deleted wallets)
         self.cleanup_deleted_wallets().await?;
@@ -957,78 +983,115 @@ impl WalletManager {
         }
 
         println!(
-            "🔄 Starting sync for {} {:?} tier wallets",
+            "🔄 Starting parallel sync for {} {:?} tier wallets",
             wallets.len(),
             tier
         );
 
-        // Create sync service with proper parameters
-        let sync_service =
-            WalletSyncService::new(self.metadata_db.clone(), self.notification_sender.clone());
+        // Create semaphore to limit concurrent syncs
+        let semaphore = Arc::new(Semaphore::new(MAX_PARALLEL_SYNCS));
 
-        // Process each wallet with new transaction-based sync
-        for wallet_metadata in wallets {
-            // Check if wallet is loaded in memory
-            let wallet_exists_in_memory = self
-                .wallets
-                .iter()
-                .any(|(checksum, _)| checksum == &wallet_metadata.checksum);
+        // Prepare shared resources
+        let metadata_db = self.metadata_db.clone();
+        let notification_sender = self.notification_sender.clone();
+        let electrum_client = self.electrum_client.clone();
+        let wallet_dir = self.wallet_dir.clone();
+        let network = self.network;
 
-            // If wallet is not in memory but is ready in DB, load it from disk
-            if !wallet_exists_in_memory {
-                let wallet_filename = format!("{}.sqlite", wallet_metadata.checksum);
-                let wallet_path = self.wallet_dir.join(&wallet_filename);
+        // Create parallel sync tasks
+        let sync_tasks: Vec<_> = wallets
+            .into_iter()
+            .map(|wallet_metadata| {
+                let semaphore = semaphore.clone();
+                let metadata_db = metadata_db.clone();
+                let notification_sender = notification_sender.clone();
+                let electrum_client = electrum_client.clone();
+                let wallet_dir = wallet_dir.clone();
 
-                if wallet_path.exists() {
-                    println!(
-                        "📥 Loading wallet {} from disk for sync",
-                        wallet_metadata.name
-                    );
-                    if let Err(e) = self.load_wallet_from_file(&wallet_path).await {
+                tokio::spawn(async move {
+                    // Acquire semaphore permit
+                    let _permit = semaphore
+                        .acquire()
+                        .await
+                        .map_err(|e| anyhow!("Failed to acquire semaphore: {}", e))?;
+
+                    let wallet_start = Instant::now();
+                    let wallet_filename = format!("{}.sqlite", wallet_metadata.checksum);
+                    let wallet_path = wallet_dir.join(&wallet_filename);
+
+                    // Check if wallet file exists
+                    if !wallet_path.exists() {
                         eprintln!(
-                            "❌ Failed to load wallet {} from disk: {}",
-                            wallet_metadata.name, e
+                            "❌ Wallet file not found for {}: {}",
+                            wallet_metadata.name,
+                            wallet_path.display()
                         );
-                        continue; // Skip this wallet if loading fails
+                        return Err(anyhow!("Wallet file not found"));
                     }
-                } else {
-                    eprintln!(
-                        "❌ Wallet file not found for {}: {}",
-                        wallet_metadata.name,
-                        wallet_path.display()
-                    );
-                    continue;
-                }
-            }
 
-            // Find the wallet in our Vec<(String, PersistedWallet)> (should exist now)
-            if let Some((_checksum, persisted_wallet)) = self
-                .wallets
-                .iter_mut()
-                .find(|(checksum, _)| checksum == &wallet_metadata.checksum)
-            {
-                match sync_service
-                    .sync_wallet_by_checksum(
-                        persisted_wallet,
-                        &wallet_metadata.checksum,
-                        self.electrum_client.as_ref(),
-                    )
-                    .await
-                {
-                    Ok(_) => {
-                        println!("✅ Synced wallet: {}", wallet_metadata.name);
+                    // Load wallet from disk
+                    let mut wallet = match Self::load_wallet_for_sync(wallet_path, network).await {
+                        Ok(w) => w,
+                        Err(e) => {
+                            eprintln!(
+                                "❌ Failed to load wallet {} from disk: {}",
+                                wallet_metadata.name, e
+                            );
+                            return Err(e);
+                        }
+                    };
+
+                    // Create sync service
+                    let sync_service = WalletSyncService::new(metadata_db, notification_sender);
+
+                    // Perform sync
+                    match sync_service
+                        .sync_wallet_by_checksum(
+                            &mut wallet,
+                            &wallet_metadata.checksum,
+                            electrum_client.as_ref(),
+                        )
+                        .await
+                    {
+                        Ok(_) => {
+                            let sync_duration = wallet_start.elapsed();
+                            println!(
+                                "✅ Synced wallet {} in {:.2}s",
+                                wallet_metadata.name,
+                                sync_duration.as_secs_f64()
+                            );
+                            Ok(wallet_metadata.name)
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Failed to sync wallet {}: {}", wallet_metadata.name, e);
+                            Err(e)
+                        }
                     }
-                    Err(e) => {
-                        eprintln!("❌ Failed to sync wallet {}: {}", wallet_metadata.name, e);
-                    }
-                }
-            } else {
-                eprintln!(
-                    "❌ Wallet {} still not found in memory after loading attempt",
-                    wallet_metadata.name
-                );
+                })
+            })
+            .collect();
+
+        // Wait for all sync tasks to complete
+        let results = join_all(sync_tasks).await;
+
+        // Count successes and failures
+        let mut success_count = 0;
+        let mut failure_count = 0;
+
+        for result in results {
+            match result {
+                Ok(Ok(_)) => success_count += 1,
+                _ => failure_count += 1,
             }
         }
+
+        let total_duration = sync_start.elapsed();
+        println!(
+            "🏁 Parallel sync completed in {:.2}s - Success: {}, Failed: {}",
+            total_duration.as_secs_f64(),
+            success_count,
+            failure_count
+        );
 
         Ok(())
     }
