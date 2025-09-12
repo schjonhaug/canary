@@ -125,7 +125,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8"></TableHead>
+                <TableHead className="w-8 hidden sm:table-cell"></TableHead>
                 <TableHead>Date/Time</TableHead>
                 {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
@@ -136,7 +136,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
             <TableBody>
               {[1, 2, 3, 4, 5].map((i) => (
                 <TableRow key={i}>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Skeleton className="h-4 w-4" />
                   </TableCell>
                   <TableCell>
@@ -195,7 +195,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
             <TableCaption>A list of all transactions from the Canary system.</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8"></TableHead>
+                <TableHead className="w-8 hidden sm:table-cell"></TableHead>
                 <TableHead>Date/Time</TableHead>
                 {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
@@ -214,7 +214,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       className={`cursor-pointer hover:bg-muted/50 transition-colors ${isExpanded ? 'bg-muted/30' : ''}`}
                       onClick={() => toggleRowExpansion(transaction.txid)}
                     >
-                      <TableCell className="text-center">
+                      <TableCell className="text-center hidden sm:table-cell">
                         {isExpanded ? (
                           <ChevronDown className="h-4 w-4 transition-transform duration-200" />
                         ) : (
@@ -279,7 +279,179 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       </TableCell>
                     </TableRow>
                     <TableRow className={`bg-muted/20 transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'h-auto' : 'h-0'}`} style={{ lineHeight: isExpanded ? 'normal' : '0' }}>
-                      <TableCell colSpan={walletsCount > 1 ? 7 : 6} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'}`}>
+                      <TableCell colSpan={walletsCount > 1 ? 6 : 5} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'} sm:hidden`}>
+                        <div className={`px-4 transform transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'py-3 translate-y-0 max-h-96' : 'py-0 -translate-y-2 max-h-0'}`}>
+                            <div className="space-y-4">
+                              {/* Transaction Details */}
+                              <div>
+                                <h4 className="text-sm font-medium mb-2">Transaction Details</h4>
+                                <div className="space-y-1 ml-2">
+                                  <div className="flex items-center gap-3 text-sm">
+                                    <span className="font-medium min-w-[80px]">Transaction ID:</span>
+                                    <span className="font-mono text-xs break-all">{transaction.txid}</span>
+                                  </div>
+                                  {transaction.fee_sats && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="font-medium min-w-[80px]">Fee:</span>
+                                      <span className="font-mono text-xs">{formatBitcoinAmount(transaction.fee_sats)}</span>
+                                    </div>
+                                  )}
+                                  {transaction.transaction_status === "replaced" && transaction.replaced_by_txid && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="font-medium min-w-[80px]">Replaced by:</span>
+                                      <span className="font-mono text-xs break-all text-orange-600">{transaction.replaced_by_txid}</span>
+                                    </div>
+                                  )}
+                                  {transaction.replaced_at && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="font-medium min-w-[80px]">Replaced at:</span>
+                                      <span className="text-xs">{formatDateTime(transaction.replaced_at)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Notifications */}
+                              {transaction.notification_status && transaction.notification_status.length > 0 && (
+                                <div>
+                                  {(() => {
+                                    // Group notifications by type
+                                    const groupedNotifications = transaction.notification_status.reduce((acc, notification) => {
+                                      const type = notification.notification_type === 'pending' ? 'pending' : 'confirmed'
+                                      if (!acc[type]) acc[type] = []
+                                      acc[type].push(notification)
+                                      return acc
+                                    }, {} as Record<string, typeof transaction.notification_status>)
+
+                                    const pendingNotifications = groupedNotifications.pending || []
+                                    const confirmedNotifications = groupedNotifications.confirmed || []
+
+                                    // Get timestamps for headings
+                                    const getPendingTimestamp = () => {
+                                      if (pendingNotifications.length === 0) return null
+                                      const earliest = pendingNotifications.reduce((earliest, current) => {
+                                        const earliestTime = new Date(earliest.created_at).getTime()
+                                        const currentTime = new Date(current.created_at).getTime()
+                                        return currentTime < earliestTime ? current : earliest
+                                      })
+                                      return formatDateTime(earliest.created_at)
+                                    }
+
+                                    const getConfirmedTimestamp = () => {
+                                      if (confirmedNotifications.length === 0) return null
+                                      const earliest = confirmedNotifications.reduce((earliest, current) => {
+                                        const earliestTime = new Date(earliest.created_at).getTime()
+                                        const currentTime = new Date(current.created_at).getTime()
+                                        return currentTime < earliestTime ? current : earliest
+                                      })
+                                      return formatDateTime(earliest.created_at)
+                                    }
+
+                                    const renderNotificationGroup = (notifications: typeof transaction.notification_status) => {
+                                      // Group notifications by contact name to avoid repetition
+                                      const notificationsByContact = notifications.reduce((acc, notification) => {
+                                        const contactName = notification.contact_name
+                                        if (!acc[contactName]) acc[contactName] = []
+                                        acc[contactName].push(notification)
+                                        return acc
+                                      }, {} as Record<string, typeof notifications>)
+
+                                      return Object.entries(notificationsByContact)
+                                        .sort(([a], [b]) => a.localeCompare(b))
+                                        .map(([contactName, contactNotifications]) => (
+                                        <div key={contactName} className="space-y-1">
+                                          {contactNotifications.map((notification, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 text-sm">
+                                              <span className="font-medium">{contactName}</span>
+                                              <div className="flex items-center gap-1">
+                                                {(() => {
+                                                  const providerType = notification.provider_type || notification.provider_name.toLowerCase()
+                                                  switch (providerType) {
+                                                    case 'email':
+                                                      return <Mail className="h-3 w-3" />
+                                                    case 'sms':
+                                                    case 'twilio':
+                                                      return <MessageCircle className="h-3 w-3" />
+                                                    case 'ntfy':
+                                                    default:
+                                                      return <Bell className="h-3 w-3" />
+                                                  }
+                                                })()}
+                                                <span className="font-mono text-xs">
+                                                  {notification.notification_target || 'Unknown target'}
+                                                </span>
+                                              </div>
+                                              {/* Only show status if there's an error (not sent/delivered successfully) */}
+                                              {notification.status !== 'sent' && notification.status !== 'delivered' && (
+                                                <div className="flex items-center gap-1">
+                                                  <XCircle className="h-3 w-3 text-red-500" />
+                                                  <span className="text-xs text-red-600">
+                                                    {notification.status}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {notification.error_message && (
+                                                <span className="text-xs text-red-600 ml-2">
+                                                  {notification.error_message}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ))
+                                    }
+
+                                    return (
+                                      <div className="space-y-3">
+                                        {/* Headings Row */}
+                                        <div className="flex items-center">
+                                          <div className="flex-1">
+                                            {pendingNotifications.length > 0 && (
+                                              <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                                PENDING - {getPendingTimestamp()}
+                                              </h5>
+                                            )}
+                                          </div>
+                                          {pendingNotifications.length > 0 && confirmedNotifications.length > 0 && (
+                                            <div className="flex items-center justify-center px-4">
+                                              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                            </div>
+                                          )}
+                                          <div className="flex-1 text-right">
+                                            {confirmedNotifications.length > 0 && (
+                                              <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                                CONFIRMED - {getConfirmedTimestamp()}
+                                              </h5>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Content Row */}
+                                        <div className="flex justify-between items-start gap-8">
+                                          <div className="flex-1">
+                                            {pendingNotifications.length > 0 && (
+                                              <div className="space-y-2 ml-2">
+                                                {renderNotificationGroup(pendingNotifications)}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="flex-1">
+                                            {confirmedNotifications.length > 0 && (
+                                              <div className="space-y-2 ml-2">
+                                                {renderNotificationGroup(confirmedNotifications)}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
+                              </div>
+                            )}
+                            </div>
+                          </div>
+                        </TableCell>
+                      <TableCell colSpan={walletsCount > 1 ? 7 : 6} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'} hidden sm:table-cell`}>
                         <div className={`px-4 transform transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'py-3 translate-y-0 max-h-96' : 'py-0 -translate-y-2 max-h-0'}`}>
                             <div className="space-y-4">
                               {/* Transaction Details */}
