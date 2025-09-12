@@ -257,16 +257,6 @@ export default function WalletDetailPage() {
                     />
                   </div>
                 </nav>
-                {wallet.balance_fiat !== undefined && wallet.fiat_currency && (
-                  <div className="text-lg text-muted-foreground ml-4">
-                    {new Intl.NumberFormat(undefined, { 
-                      style: 'currency', 
-                      currency: wallet.fiat_currency,
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0
-                    }).format(wallet.balance_fiat)}
-                  </div>
-                )}
               </div>
             </div>
           </div>
