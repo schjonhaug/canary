@@ -210,8 +210,8 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
                           {new Intl.NumberFormat(undefined, { 
                             style: 'currency', 
                             currency: wallet.fiat_currency,
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
                           }).format(wallet.balance_fiat)}
                         </div>
                       )}

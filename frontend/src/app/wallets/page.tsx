@@ -26,6 +26,21 @@ export default function WalletsPage() {
     }, 0)
   }
 
+  const getTotalFiatBalance = () => {
+    // Only calculate if all wallets have fiat values and same currency
+    const firstCurrency = wallets[0]?.fiat_currency
+    if (!firstCurrency) return null
+    
+    const allSameCurrency = wallets.every(w => w.fiat_currency === firstCurrency)
+    if (!allSameCurrency) return null
+    
+    const total = wallets.reduce((sum, wallet) => {
+      return sum + (wallet.balance_fiat || 0)
+    }, 0)
+    
+    return { amount: total, currency: firstCurrency }
+  }
+
   // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
     if (isSaasMode && !isLoading && !isAuthenticated) {
@@ -82,6 +97,24 @@ export default function WalletsPage() {
                   {wallets.length > 1 && (
                     <p className="text-sm text-muted-foreground">
                       Tracking {wallets.length} wallets with a total balance of {formatBitcoinAmount(getTotalBalance())}
+                      {(() => {
+                        const fiatTotal = getTotalFiatBalance()
+                        if (fiatTotal) {
+                          return (
+                            <span>
+                              {' '}(
+                              {new Intl.NumberFormat(undefined, { 
+                                style: 'currency', 
+                                currency: fiatTotal.currency,
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0
+                              }).format(fiatTotal.amount)}
+                              )
+                            </span>
+                          )
+                        }
+                        return null
+                      })()}
                     </p>
                   )}
                 </div>
