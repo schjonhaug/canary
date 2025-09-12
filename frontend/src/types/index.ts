@@ -8,6 +8,8 @@ export interface Wallet {
   hex_color: string
   created_at: string
   balance_total: number
+  balance_fiat?: number
+  fiat_currency?: string
   last_activity: string | null
   status: string // 'pending' | 'ready' | 'deleted'
   contact_count: number

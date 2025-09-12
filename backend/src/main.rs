@@ -5,6 +5,7 @@ mod config;
 mod electrum;
 mod email_provider;
 mod email_service;
+mod exchange_rates;
 mod message_formatter;
 mod metadata;
 mod migrations;
@@ -155,6 +156,24 @@ async fn main() -> anyhow::Result<()> {
             .unwrap_or(None)
     };
     let current_block_header = Arc::new(Mutex::new(existing_header));
+
+    // Initialize exchange rate service and start background refresh task
+    {
+        let manager = wallet_manager.lock().await;
+        let exchange_rate_service = Arc::new(exchange_rates::ExchangeRateService::new(
+            Arc::new(manager.metadata_db.clone()),
+        ));
+        
+        // Start background task to refresh exchange rates every 10 minutes
+        exchange_rate_service.clone().start_refresh_task();
+        
+        // Fetch initial exchange rates
+        tokio::spawn(async move {
+            if let Err(e) = exchange_rate_service.get_rates().await {
+                eprintln!("Failed to fetch initial exchange rates: {}", e);
+            }
+        });
+    }
 
     // Create notification manager and register providers based on operating mode
     let mut notification_manager = NotificationManager::new();

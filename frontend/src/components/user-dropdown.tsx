@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { User, LogOut, ChevronDown, CreditCard } from 'lucide-react'
+import { User, LogOut, ChevronDown, CreditCard, Settings } from 'lucide-react'
 import { getTierDisplayName } from '@/lib/pricing-data'
 import Link from 'next/link'
 
@@ -57,18 +57,27 @@ export function UserDropdown() {
           </div>
         </div>
         
-        {isSaasMode && !user.is_admin && (
+        {isSaasMode && (
           <>
             <DropdownMenuSeparator />
             
-            <Link href="/settings/subscription" className="block">
+            <Link href="/settings" className="block">
               <DropdownMenuItem className="cursor-pointer">
-                <CreditCard className="mr-2 h-4 w-4" />
-                <span>Subscription</span>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
               </DropdownMenuItem>
             </Link>
             
-            {billingStatus && (
+            {!user.is_admin && (
+              <Link href="/settings/subscription" className="block">
+                <DropdownMenuItem className="cursor-pointer">
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  <span>Subscription</span>
+                </DropdownMenuItem>
+              </Link>
+            )}
+            
+            {billingStatus && !user.is_admin && (
               <div className="px-2 py-1">
                 <div className="text-xs text-muted-foreground space-y-1">
                   <div className="flex justify-between">

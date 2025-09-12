@@ -205,6 +205,16 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
                       <div className={`text-xl font-bold font-mono ${isInactive ? 'text-muted-foreground' : ''}`}>
                         {formatBitcoinAmount(wallet.balance_total || 0)}
                       </div>
+                      {wallet.balance_fiat !== undefined && wallet.fiat_currency && (
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {new Intl.NumberFormat('en-US', { 
+                            style: 'currency', 
+                            currency: wallet.fiat_currency,
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          }).format(wallet.balance_fiat)}
+                        </div>
+                      )}
                     </div>
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                       <span>

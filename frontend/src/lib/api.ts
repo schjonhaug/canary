@@ -188,9 +188,18 @@ class ApiClient {
 
   // Auth API methods
   async register(email: string, password: string, name: string, marketingEmails: boolean = false): Promise<{ message: string }> {
+    // Include browser locale for smart currency selection
+    const browserLocale = typeof window !== 'undefined' ? navigator.language : 'en-US'
+    
     return this.request<{ message: string }>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, name, marketing_emails_opt_in: marketingEmails }),
+      body: JSON.stringify({ 
+        email, 
+        password, 
+        name, 
+        marketing_emails_opt_in: marketingEmails,
+        browser_locale: browserLocale 
+      }),
     })
   }
 
@@ -319,6 +328,23 @@ class ApiClient {
         sync_interval_seconds: number
       }
     }>('/api/billing/status')
+  }
+
+  // User preferences API methods
+  async getUserPreferences(): Promise<{ preferred_fiat_currency: string }> {
+    return this.request<{ preferred_fiat_currency: string }>('/api/user/preferences')
+  }
+
+  async updateUserPreferences(currency: string): Promise<{ preferred_fiat_currency: string }> {
+    return this.request<{ preferred_fiat_currency: string }>('/api/user/preferences', {
+      method: 'PUT',
+      body: JSON.stringify({ preferred_fiat_currency: currency }),
+    })
+  }
+
+  // Exchange rates API methods
+  async getExchangeRates(): Promise<{ rates: Record<string, { currency: string, rate_per_btc: number, last_updated: string }> }> {
+    return this.request<{ rates: Record<string, { currency: string, rate_per_btc: number, last_updated: string }> }>('/api/exchange-rates')
   }
 }
 

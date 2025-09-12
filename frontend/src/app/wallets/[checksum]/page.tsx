@@ -274,6 +274,16 @@ export default function WalletDetailPage() {
                 <div className="text-2xl font-bold font-mono">
                   {formatBitcoinAmount(wallet.balance_total || 0)}
                 </div>
+                {wallet.balance_fiat !== undefined && wallet.fiat_currency && (
+                  <div className="text-base text-muted-foreground mt-1">
+                    {new Intl.NumberFormat('en-US', { 
+                      style: 'currency', 
+                      currency: wallet.fiat_currency,
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    }).format(wallet.balance_fiat)}
+                  </div>
+                )}
               </div>
               
 

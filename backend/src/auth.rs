@@ -55,6 +55,8 @@ pub struct RegisterRequest {
     pub email: String,
     pub password: String,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub browser_locale: Option<String>,
     #[serde(default)]
     pub marketing_emails_opt_in: bool,
 }
@@ -92,6 +94,7 @@ pub struct AuthUserResponse {
     pub email_verified: bool,
     pub subscription_tier: crate::subscription::SubscriptionTier,
     pub created_at: String,
+    pub preferred_fiat_currency: Option<String>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -102,6 +105,16 @@ pub struct UpdateUserRequest {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct UpdateUserResponse {
     pub user: AuthUserResponse,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateUserPreferencesRequest {
+    pub preferred_fiat_currency: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UserPreferencesResponse {
+    pub preferred_fiat_currency: String,
 }
 
 // Development mode configuration

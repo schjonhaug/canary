@@ -2,11 +2,12 @@ use crate::admin_notifications::AdminNotifications;
 use crate::auth::{
     authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUser,
     AuthUserResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
-    UpdateUserRequest, UpdateUserResponse,
+    UpdateUserRequest, UpdateUserResponse, UpdateUserPreferencesRequest, UserPreferencesResponse,
 };
 use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
 use crate::email_service::EmailService;
+use crate::exchange_rates;
 use crate::metadata::{
     Contact, EventType, Language, MetadataDb, NotificationMethod, ProviderType,
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
@@ -2894,7 +2895,24 @@ pub async fn get_wallets_list(
         .get_wallets_list_for_user(&user.user_id, user.is_admin)
         .await
     {
-        Ok(wallets_response) => {
+        Ok(mut wallets_response) => {
+            // Add fiat values if user has a preferred currency
+            if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await {
+                if let Some(currency) = user_record.preferred_fiat_currency {
+                    if let Ok(rates) = app_services.metadata_db.get_exchange_rates().await {
+                        if let Some(rate) = rates.get(&currency) {
+                            for wallet in &mut wallets_response.wallets {
+                                if let Some(balance_sats) = wallet.balance_total {
+                                    let balance_btc = balance_sats as f64 / 100_000_000.0;
+                                    wallet.balance_fiat = Some(balance_btc * rate.rate_per_btc);
+                                    wallet.fiat_currency = Some(currency.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             let response_time = start_time.elapsed();
             println!("⚡ Non-blocking wallet list served in {:?}", response_time);
             (StatusCode::OK, Json(wallets_response)).into_response()
@@ -3196,6 +3214,10 @@ pub async fn register(
     // For dev mode, auto-verify emails. For production, require verification.
     let email_verified = is_dev_email;
 
+    // Determine preferred currency from browser locale
+    let preferred_currency = request.browser_locale.as_ref()
+        .map(|locale| exchange_rates::ExchangeRateService::locale_to_currency(locale));
+
     // Create user - no mutex blocking!
     let user_id = match app_services
         .metadata_db
@@ -3204,6 +3226,7 @@ pub async fn register(
             &password_hash,
             Some(&request.name),
             email_verified,
+            preferred_currency,
         )
         .await
     {
@@ -3516,6 +3539,7 @@ pub async fn login(
         email_verified: user_record.email_verified,
         subscription_tier: user_record.subscription_tier,
         created_at: user_record.created_at,
+        preferred_fiat_currency: user_record.preferred_fiat_currency,
     };
 
     let response_time = start_time.elapsed();
@@ -3891,6 +3915,7 @@ pub async fn me(
             email_verified: db_user.email_verified,
             subscription_tier: db_user.subscription_tier,
             created_at: db_user.created_at,
+            preferred_fiat_currency: db_user.preferred_fiat_currency,
         },
         Ok(None) => {
             return (
@@ -3986,6 +4011,7 @@ pub async fn update_user(
             email_verified: db_user.email_verified,
             subscription_tier: db_user.subscription_tier,
             created_at: db_user.created_at,
+            preferred_fiat_currency: db_user.preferred_fiat_currency,
         },
         Ok(None) => {
             return (
@@ -4703,7 +4729,8 @@ pub async fn get_checkout_session_details(
         get_current_block_header,
         get_providers,
         create_stripe_checkout_session, create_stripe_customer_portal, get_billing_status, get_billing_pricing, handle_stripe_webhook,
-        register, login, verify_email, forgot_password, reset_password, logout, me, update_user
+        register, login, verify_email, forgot_password, reset_password, logout, me, update_user,
+        get_user_preferences, update_user_preferences, get_exchange_rates
     ),
     components(schemas(
         CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
@@ -4713,7 +4740,8 @@ pub async fn get_checkout_session_details(
         BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
         CreateCheckoutSessionRequest, CreateCustomerPortalRequest, BillingStatusResponse, CheckoutSessionResponse, CustomerPortalResponse,
         PricingInfo, FrontendTierPricing, FrontendPriceInfo,
-        RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse
+        RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse,
+        UpdateUserPreferencesRequest, UserPreferencesResponse
     )),
     tags(
         (name = "wallet", description = "Wallet management endpoints"),
@@ -4803,6 +4831,7 @@ pub fn create_router_with_services(
         )
         .route("/auth/login", post(login))
         .route("/block-headers/current", get(get_current_block_header))
+        .route("/exchange-rates", get(get_exchange_rates))
         .with_state((
             app_services.clone(),
             stripe_billing.clone(),
@@ -4812,6 +4841,7 @@ pub fn create_router_with_services(
     let app_routes_auth = Router::new()
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
+        .route("/user/preferences", get(get_user_preferences).put(update_user_preferences))
         .route("/billing/status", get(get_billing_status))
         .with_state((
             app_services.clone(),
@@ -4830,4 +4860,159 @@ pub fn create_router_with_services(
         .nest("/api", api_routes)
         .layer(CorsLayer::permissive())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/user/preferences",
+    responses(
+        (status = 200, description = "User preferences", body = UserPreferencesResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse)
+    ),
+    tag = "auth",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn get_user_preferences(
+    State((app_services, _stripe_billing, _config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+    headers: HeaderMap,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Get user's preferred currency
+    let currency = match app_services.metadata_db.get_user_preferred_currency(&user.user_id).await {
+        Ok(currency) => currency,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get user preferences: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    Json(UserPreferencesResponse {
+        preferred_fiat_currency: currency,
+    })
+    .into_response()
+}
+
+#[utoipa::path(
+    put,
+    path = "/api/user/preferences",
+    request_body = UpdateUserPreferencesRequest,
+    responses(
+        (status = 200, description = "Preferences updated", body = UserPreferencesResponse),
+        (status = 400, description = "Invalid currency", body = ErrorResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse)
+    ),
+    tag = "auth",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn update_user_preferences(
+    State((app_services, _stripe_billing, _config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+    headers: HeaderMap,
+    Json(request): Json<UpdateUserPreferencesRequest>,
+) -> Response {
+    // Authenticate user
+    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Authentication required".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Validate currency is supported
+    if !exchange_rates::SUPPORTED_CURRENCIES.contains(&request.preferred_fiat_currency.as_str()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!("Unsupported currency: {}", request.preferred_fiat_currency),
+            }),
+        )
+            .into_response();
+    }
+
+    // Update user's preferred currency
+    if let Err(e) = app_services
+        .metadata_db
+        .update_user_preferred_currency(&user.user_id, &request.preferred_fiat_currency)
+        .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to update preferences: {}", e),
+            }),
+        )
+            .into_response();
+    }
+
+    Json(UserPreferencesResponse {
+        preferred_fiat_currency: request.preferred_fiat_currency,
+    })
+    .into_response()
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/exchange-rates",
+    responses(
+        (status = 200, description = "Current exchange rates", body = serde_json::Value)
+    ),
+    tag = "blockchain"
+)]
+pub async fn get_exchange_rates(
+    State((app_services, _stripe_billing, _config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+) -> Response {
+    // Get all cached exchange rates
+    match app_services.metadata_db.get_exchange_rates().await {
+        Ok(rates) => Json(serde_json::json!({
+            "rates": rates,
+            "supported_currencies": exchange_rates::SUPPORTED_CURRENCIES,
+        }))
+        .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to get exchange rates: {}", e),
+            }),
+        )
+            .into_response(),
+    }
 }

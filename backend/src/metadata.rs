@@ -1,5 +1,6 @@
 use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
+use crate::exchange_rates;
 use crate::migrations::MigrationRunner;
 use crate::subscription::SubscriptionTier;
 use anyhow::{anyhow, Context, Result};
@@ -50,6 +51,8 @@ pub struct UserRecord {
     pub subscription_started_at: Option<String>,
     pub subscription_ends_at: Option<String>,
     pub created_at: String,
+    // User preferences
+    pub preferred_fiat_currency: Option<String>,
 }
 
 impl UserRecord {}
@@ -115,6 +118,10 @@ pub struct WalletMetadata {
     pub contact_count: Option<i64>,
     pub user_id: String,
     pub is_active: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub balance_fiat: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fiat_currency: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -443,8 +450,8 @@ impl MetadataDb {
             if !foss_user_exists {
                 // Create the hardcoded FOSS user
                 conn.execute(
-                    "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at) 
-                     VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 1, 'team', 'active', datetime('now'))",
+                    "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency) 
+                     VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 1, 'team', 'active', datetime('now'), 'USD')",
                     [],
                 )?;
                 
@@ -489,9 +496,9 @@ impl MetadataDb {
                     
                     let user_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
-                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at) 
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'))",
-                        params![&user_id, email, &password_hash, name, is_admin, true, tier, "pending"], // Dev users follow same flow as real users
+                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency) 
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), ?9)",
+                        params![&user_id, email, &password_hash, name, is_admin, true, tier, "pending", "USD"], // Dev users follow same flow as real users
                     )?;
                     
                     println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
@@ -583,6 +590,8 @@ impl MetadataDb {
                         contact_count: Some(row.get(8)?),
                         user_id: row.get(9)?,
                         is_active: row.get::<_, i64>(10).unwrap_or(1) != 0,
+                        balance_fiat: None,
+                        fiat_currency: None,
                     })
                 },
             ) {
@@ -621,6 +630,8 @@ impl MetadataDb {
                         contact_count: Some(row.get(8)?),
                         user_id: row.get(9)?,
                         is_active: row.get::<_, i64>(10).unwrap_or(1) != 0,
+                        balance_fiat: None,
+                        fiat_currency: None,
                     })
                 },
             ) {
@@ -685,6 +696,8 @@ impl MetadataDb {
                     contact_count: Some(row.get(8)?),
                     user_id: row.get(9)?,
                     is_active: row.get::<_, i64>(10).unwrap_or(1) != 0, // SQLite stores bool as int
+                    balance_fiat: None,
+                    fiat_currency: None,
                 })
             })?;
 
@@ -732,6 +745,8 @@ impl MetadataDb {
                     contact_count: Some(row.get(8)?),
                     user_id: row.get(9)?,
                     is_active: row.get::<_, i64>(10).unwrap_or(1) != 0, // SQLite stores bool as int
+                    balance_fiat: None,
+                    fiat_currency: None,
                 })
             })?;
 
@@ -1648,6 +1663,8 @@ impl MetadataDb {
                         user_id: row.get(8)?,
                         created_at: row.get(9)?,
                         is_active: true, // Query already filters for active wallets
+                        balance_fiat: None,
+                        fiat_currency: None,
                     })
                 }
             )?;
@@ -1701,6 +1718,8 @@ impl MetadataDb {
                     contact_count: row.get(8).unwrap_or(Some(0)),
                     user_id: row.get(9)?,
                     is_active: row.get(10)?,
+                    balance_fiat: None,
+                    fiat_currency: None,
                 })
             })?;
 
@@ -1751,6 +1770,8 @@ impl MetadataDb {
                     contact_count: row.get(8).unwrap_or(Some(0)),
                     user_id: row.get(9)?,
                     is_active: row.get(10)?,
+                    balance_fiat: None,
+                    fiat_currency: None,
                 })
             })?;
 
@@ -1875,11 +1896,13 @@ impl MetadataDb {
         password_hash: &str,
         name: Option<&str>,
         email_verified: bool,
+        preferred_currency: Option<&str>,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let email = email.to_string();
         let password_hash = password_hash.to_string();
         let name = name.map(|n| n.to_string());
+        let preferred_currency = preferred_currency.map(|c| c.to_string());
 
         let result = spawn_blocking(move || -> Result<(String, bool)> {
             let conn = pool.get()?;
@@ -1920,8 +1943,8 @@ impl MetadataDb {
             
             // Create new user
             tx.execute(
-                "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "team", "pending"],
+                "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, preferred_fiat_currency) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD")],
             )?;
             
             tx.commit()?;
@@ -1940,7 +1963,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE email = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE email = ?1")?
                 .query_row(params![&email], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -1957,6 +1980,7 @@ impl MetadataDb {
                         subscription_started_at: row.get(11)?,
                         subscription_ends_at: row.get(12)?,
                         created_at: row.get(13)?,
+                        preferred_fiat_currency: row.get(14)?,
                     })
                 })
                 .ok();
@@ -1971,7 +1995,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -1988,6 +2012,7 @@ impl MetadataDb {
                         subscription_started_at: row.get(11)?,
                         subscription_ends_at: row.get(12)?,
                         created_at: row.get(13)?,
+                        preferred_fiat_currency: row.get(14)?,
                     })
                 })
                 .ok();
@@ -2005,7 +2030,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at FROM users WHERE stripe_customer_id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE stripe_customer_id = ?1")?
                 .query_row(params![stripe_customer_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -2022,6 +2047,7 @@ impl MetadataDb {
                         subscription_started_at: row.get(11)?,
                         subscription_ends_at: row.get(12)?,
                         created_at: row.get(13)?,
+                        preferred_fiat_currency: row.get(14)?,
                     })
                 })
                 .ok();
@@ -2054,7 +2080,7 @@ impl MetadataDb {
                 "SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, 
                         subscription_status, trial_ends_at, subscription_started_at,
                         stripe_customer_id, stripe_subscription_id, subscription_ends_at,
-                        created_at
+                        created_at, preferred_fiat_currency
                  FROM users"
             )?;
             
@@ -2074,6 +2100,7 @@ impl MetadataDb {
                     stripe_subscription_id: row.get(11)?,
                     subscription_ends_at: row.get(12)?,
                     created_at: row.get(13)?,
+                    preferred_fiat_currency: row.get(14)?,
                 })
             })?;
             
@@ -2760,6 +2787,89 @@ impl MetadataDb {
                 params![&replaced_by_txid, replaced_at, &checksum, &original_txid],
             )?;
             Ok(affected > 0)
+        })
+        .await?
+    }
+
+    // Exchange rate methods
+    pub async fn get_exchange_rates(&self) -> Result<std::collections::HashMap<String, exchange_rates::ExchangeRate>> {
+        let pool = self.pool.clone();
+        spawn_blocking(move || -> Result<std::collections::HashMap<String, exchange_rates::ExchangeRate>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare("SELECT currency, rate_per_btc, last_updated FROM exchange_rates")?;
+            let rate_iter = stmt.query_map(params![], |row| {
+                Ok(exchange_rates::ExchangeRate {
+                    currency: row.get(0)?,
+                    rate_per_btc: row.get(1)?,
+                    last_updated: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(2)?)
+                        .map_err(|e| bdk_wallet::rusqlite::Error::FromSqlConversionFailure(
+                            2,
+                            bdk_wallet::rusqlite::types::Type::Text,
+                            Box::new(e)
+                        ))?
+                        .with_timezone(&chrono::Utc),
+                })
+            })?;
+            
+            let mut rates = std::collections::HashMap::new();
+            for rate in rate_iter {
+                let rate = rate?;
+                rates.insert(rate.currency.clone(), rate);
+            }
+            Ok(rates)
+        })
+        .await?
+    }
+
+    pub async fn store_exchange_rates(&self, rates: &std::collections::HashMap<String, exchange_rates::ExchangeRate>) -> Result<()> {
+        let pool = self.pool.clone();
+        let rates = rates.clone();
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            let tx = conn.unchecked_transaction()?;
+            
+            // Clear old rates
+            tx.execute("DELETE FROM exchange_rates", params![])?;
+            
+            // Insert new rates
+            for (currency, rate) in rates {
+                tx.execute(
+                    "INSERT INTO exchange_rates (currency, rate_per_btc, last_updated) VALUES (?1, ?2, ?3)",
+                    params![currency, rate.rate_per_btc, rate.last_updated.to_rfc3339()],
+                )?;
+            }
+            
+            tx.commit()?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn get_user_preferred_currency(&self, user_id: &str) -> Result<String> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        spawn_blocking(move || -> Result<String> {
+            let conn = pool.get()?;
+            let currency: Option<String> = conn
+                .prepare("SELECT preferred_fiat_currency FROM users WHERE id = ?1")?
+                .query_row(params![user_id], |row| row.get(0))
+                .optional()?;
+            Ok(currency.unwrap_or_else(|| "USD".to_string()))
+        })
+        .await?
+    }
+
+    pub async fn update_user_preferred_currency(&self, user_id: &str, currency: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let currency = currency.to_string();
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET preferred_fiat_currency = ?1 WHERE id = ?2",
+                params![currency, user_id],
+            )?;
+            Ok(())
         })
         .await?
     }
