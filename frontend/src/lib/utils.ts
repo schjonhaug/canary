@@ -97,7 +97,15 @@ export function formatDateTime(dateTime: string | number): string {
     return "Invalid date"
   }
   
-  return date.toLocaleString()
+  // Use browser's locale with consistent formatting options
+  return date.toLocaleString(undefined, {
+    year: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false // Use 24-hour format for consistency
+  })
 }
 
 export function formatDate(dateTime: string): string {
