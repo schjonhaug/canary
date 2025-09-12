@@ -938,10 +938,11 @@ impl WalletManager {
     }
 
     /// Load a wallet from disk for sync operations (independent of WalletManager state)
+    /// Returns both the wallet and the database connection for persistence
     async fn load_wallet_for_sync(
         wallet_path: PathBuf,
         network: Network,
-    ) -> Result<PersistedWallet<Connection>> {
+    ) -> Result<(PersistedWallet<Connection>, Connection)> {
         // Open the SQLite connection
         let mut db = Connection::open(&wallet_path)
             .map_err(|e| anyhow!("Failed to open wallet database: {}", e))?;
@@ -953,7 +954,8 @@ impl WalletManager {
             .load_wallet(&mut db)
             .map_err(|e| anyhow!("Failed to load wallet: {}", e))?;
 
-        wallet_opt.ok_or_else(|| anyhow!("No wallet data found in file"))
+        let wallet = wallet_opt.ok_or_else(|| anyhow!("No wallet data found in file"))?;
+        Ok((wallet, db))
     }
 
     /// Sync all wallets for a specific subscription tier in parallel
@@ -1029,9 +1031,9 @@ impl WalletManager {
                         return Err(anyhow!("Wallet file not found"));
                     }
 
-                    // Load wallet from disk
-                    let mut wallet = match Self::load_wallet_for_sync(wallet_path, network).await {
-                        Ok(w) => w,
+                    // Load wallet from disk (with database connection for persistence)
+                    let (mut wallet, mut db) = match Self::load_wallet_for_sync(wallet_path, network).await {
+                        Ok((w, db)) => (w, db),
                         Err(e) => {
                             eprintln!(
                                 "❌ Failed to load wallet {} from disk: {}",
@@ -1054,6 +1056,14 @@ impl WalletManager {
                         .await
                     {
                         Ok(_) => {
+                            // Persist wallet changes (including revealed addresses) back to disk
+                            if let Err(e) = wallet.persist(&mut db) {
+                                eprintln!(
+                                    "⚠️ Failed to persist wallet {} after sync: {}",
+                                    wallet_metadata.name, e
+                                );
+                            }
+                            
                             let sync_duration = wallet_start.elapsed();
                             println!(
                                 "✅ Synced wallet {} in {:.2}s",
