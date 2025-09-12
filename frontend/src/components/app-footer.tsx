@@ -22,23 +22,15 @@ export function AppFooter() {
           />
           <div>
             <h3 className="text-lg font-bold tracking-wide">Canary</h3>
-            <p className="text-muted-foreground text-sm">Bitcoin Wallet Alert System</p>
+            {blockHeader ? (
+              <p className="text-muted-foreground text-sm">
+                Block {blockHeader.height.toLocaleString()} • {blockHeaderTime}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm">Connecting to network...</p>
+            )}
           </div>
         </div>
-        
-        {/* Blockchain Info */}
-        {blockHeader && (
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Block height:</span>
-              <span className="font-mono font-medium">{blockHeader.height.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Time:</span>
-              <span>{blockHeaderTime}</span>
-            </div>
-          </div>
-        )}
         
         <BuildInfo />
       </div>
