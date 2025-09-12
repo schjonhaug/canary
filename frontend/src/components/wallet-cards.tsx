@@ -207,7 +207,7 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
                       </div>
                       {wallet.balance_fiat !== undefined && wallet.fiat_currency && (
                         <div className="text-sm text-muted-foreground mt-1">
-                          {new Intl.NumberFormat('en-US', { 
+                          {new Intl.NumberFormat(undefined, { 
                             style: 'currency', 
                             currency: wallet.fiat_currency,
                             minimumFractionDigits: 2,
