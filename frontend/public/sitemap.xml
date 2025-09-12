@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+    
+    <!-- Homepage - highest priority -->
+    <url>
+        <loc>https://canarybitcoin.com/</loc>
+        <lastmod>2025-01-12</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+    
+    <!-- Pricing section (important for conversions) -->
+    <url>
+        <loc>https://canarybitcoin.com/#pricing</loc>
+        <lastmod>2025-01-12</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    
+    <!-- Features section -->
+    <url>
+        <loc>https://canarybitcoin.com/#features</loc>
+        <lastmod>2025-01-12</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <!-- FAQ section (good for SEO) -->
+    <url>
+        <loc>https://canarybitcoin.com/#faq</loc>
+        <lastmod>2025-01-12</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    
+    <!-- Sign up page (conversion page) -->
+    <url>
+        <loc>https://canarybitcoin.com/sign-up</loc>
+        <lastmod>2025-01-12</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <!-- Sign in page -->
+    <url>
+        <loc>https://canarybitcoin.com/sign-in</loc>
+        <lastmod>2025-01-12</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.5</priority>
+    </url>
+    
+    <!-- Forgot password -->
+    <url>
+        <loc>https://canarybitcoin.com/forgot-password</loc>
+        <lastmod>2025-01-12</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.3</priority>
+    </url>
+    
+</urlset>

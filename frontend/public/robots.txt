@@ -1,0 +1,34 @@
+# robots.txt for Canary Bitcoin Wallet Monitoring
+# https://canarybitcoin.com
+
+# Allow all crawlers
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /wallets/
+Disallow: /settings/
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /forgot-password
+Disallow: /reset-password/
+Disallow: /verify-email/
+
+# Sitemap location
+Sitemap: https://canarybitcoin.com/sitemap.xml
+
+# Crawl delay (in seconds) - be respectful
+Crawl-delay: 1
+
+# Google specific
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /wallets/
+Disallow: /settings/
+
+# Bing specific  
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /wallets/
+Disallow: /settings/

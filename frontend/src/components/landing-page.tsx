@@ -10,44 +10,55 @@ import { PlanComparison } from "./plan-comparison"
 const features = [
   {
     icon: <Bell className="h-5 w-5" />,
-    title: "Instant Notifications",
-    description: "Real-time alerts via email, SMS and push notifications delivered straight to your device"
+    title: "Instant Bitcoin Transaction Notifications",
+    description: "Real-time Bitcoin wallet alerts via email, SMS and push notifications delivered straight to your device"
   },
   {
     icon: <Shield className="h-5 w-5" />,
-    title: "Read-Only Monitoring",
-    description: "Watch-only access using descriptors - we never touch your keys"
+    title: "Secure Watch-Only Bitcoin Monitoring",
+    description: "Watch-only Bitcoin wallet access using XPUB descriptors - we never touch your private keys"
   },
   {
     icon: <Zap className="h-5 w-5" />,
-    title: "Fast Sync",
-    description: "Sync intervals from 10 minutes down to 5 seconds based on your plan"
+    title: "Real-Time Bitcoin Wallet Sync",
+    description: "Bitcoin wallet sync intervals from 10 minutes down to 2 minutes based on your subscription plan"
   }
 ]
 
 
 const faqs = [
   {
-    question: "What is Canary?",
-    answer: "Canary is a professional Bitcoin wallet notification service that monitors your wallets and sends instant alerts for all transactions through email, SMS and push notifications. Never miss an important transaction again."
+    question: "What is Canary Bitcoin wallet monitoring?",
+    answer: "Canary is a professional Bitcoin wallet monitoring and notification service that watches your Bitcoin wallets using XPUB descriptors and sends instant alerts for all transactions through email, SMS and push notifications. Perfect for monitoring cold storage, hardware wallets, and watch-only Bitcoin addresses."
+  },
+  {
+    question: "How does Bitcoin wallet monitoring work without private keys?",
+    answer: "Canary uses your wallet's XPUB (extended public key) or descriptor for watch-only Bitcoin monitoring. This gives us read-only access to track your Bitcoin addresses and detect transactions. We never have access to your private keys and cannot move your Bitcoin - ensuring complete security for your cold storage monitoring."
+  },
+  {
+    question: "What is XPUB wallet monitoring?",
+    answer: "XPUB monitoring allows you to track all addresses in your Bitcoin wallet without exposing private keys. By providing your wallet's XPUB or descriptor, Canary can monitor unlimited addresses, detect transactions at any depth (even 200+ addresses deep), and alert you instantly when Bitcoin moves."
+  },
+  {
+    question: "Can I monitor Bitcoin cold storage wallets?",
+    answer: "Yes! Canary is perfect for Bitcoin cold storage monitoring. Whether you're using hardware wallets like Ledger or Trezor, paper wallets, or any other cold storage solution, simply provide your XPUB or descriptor for secure watch-only monitoring with instant notifications."
+  },
+  {
+    question: "How fast are Bitcoin transaction notifications?",
+    answer: "With our Team plan, you get near real-time Bitcoin transaction notifications with sync intervals as fast as 2 minutes on mainnet. Most notifications arrive within seconds of transaction detection. Personal plans sync every 10 minutes, still ensuring timely alerts for your Bitcoin wallets."
+  },
+  {
+    question: "What Bitcoin wallet types are supported?",
+    answer: "Canary supports all major Bitcoin wallet types including Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH), and Taproot (P2TR) addresses. We automatically detect your wallet type from the XPUB or you can specify it manually. Multi-signature and hardware wallet monitoring are fully supported."
   },
   {
     question: "Why is it called Canary?",
-    answer: "A canary in the coal mine - When your bitcoins are in cold storage, you seldom check on them. Canary acts as an early warning system that alerts you the moment your coins move, giving you immediate notification of any activity on your wallets."
+    answer: "Like a canary in a coal mine providing early warning, Canary acts as your Bitcoin wallet's early warning system. When your Bitcoin is in cold storage, you rarely check on it. Canary monitors 24/7 and alerts you instantly when your Bitcoin moves, providing peace of mind for long-term holders."
   },
   {
-    question: "Is it safe to use?",
-    answer: "Yes! Canary only requires your wallet descriptor (xpub) for monitoring. This gives us read-only access to watch your addresses. We never have access to your private keys and cannot move your funds."
-  },
-
-  {
-    question: "How fast are notifications?",
-    answer: "With our Team plan, you get near real-time notifications with sync intervals as fast as 2 minutes. Most notifications arrive within seconds of transaction confirmation."
-  },
-  {
-    question: "Can I upgrade or downgrade anytime?",
-    answer: "Yes! You can change your plan at any time. Upgrades take effect immediately, and downgrades apply at the end of your billing cycle."
-  },
+    question: "Can I track Bitcoin without downloading the blockchain?",
+    answer: "Yes! Canary connects to professional Electrum servers to monitor the Bitcoin blockchain for you. No need to run a full node or download the blockchain - just provide your XPUB and start receiving instant notifications for all Bitcoin wallet activity."
+  }
 ]
 
 export default function LandingPage() {
