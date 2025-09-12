@@ -18,6 +18,22 @@ Canary is a **Bitcoin monitoring and early warning system** built in [Rust](http
 
 ## Development & Testing
 
+### Displaying Git Version in Footer
+
+The frontend displays the git version and commit hash in the footer. To generate this build info locally:
+
+```bash
+# Generate build info (creates src/lib/build-info.json)
+cd frontend && node scripts/generate-build-info.js
+
+# Then start the dev server
+npm run dev
+```
+
+The footer will display in format: `v0.13.0 • 5e66fe3` (tag and commit) or just the commit hash if no tag exists.
+
+**Note**: The build info is automatically generated during production builds via the webpack configuration. For local development, you need to run the script manually.
+
 ### Running System Tests
 
 The project includes comprehensive system tests that use Docker to create isolated Bitcoin regtest environments. These tests cover:
