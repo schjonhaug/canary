@@ -1,5 +1,5 @@
 export function BuildInfo() {
-  let buildInfo: { tag?: string; commit: string } | null = null
+  let buildInfo: { commit: string } | null = null
   
   try {
     // Try to import build-info.json - will throw if file doesn't exist
@@ -11,15 +11,10 @@ export function BuildInfo() {
   }
   
   if (!buildInfo) return null
-  
-  // Format: "v0.8.1 • 7ab035e" or just "7ab035e" if no tag
-  const displayVersion = buildInfo.tag 
-    ? `${buildInfo.tag} • ${buildInfo.commit}`
-    : buildInfo.commit
 
   return (
     <div className="text-muted-foreground text-sm font-mono">
-      {displayVersion}
+      {buildInfo.commit}
     </div>
   )
 }

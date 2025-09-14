@@ -9,24 +9,11 @@ function generateBuildInfo() {
     // Check if we're in a git repository
     execSync('git rev-parse --git-dir', { encoding: 'utf-8' });
     
-    let tag = null;
-    let commit = null;
-    
-    // Try to get tag
-    try {
-      tag = execSync('git describe --tags --abbrev=0', { encoding: 'utf-8' }).trim();
-    } catch (e) {
-      // No tags found, that's okay
-    }
-    
     // Get commit hash
-    commit = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+    const commit = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
     
     const buildInfo = {
-      tag,
-      commit,
-      timestamp: new Date().toISOString(),
-      version: tag || commit
+      commit
     };
     
     // Ensure the directory exists
