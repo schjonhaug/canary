@@ -70,14 +70,22 @@ async fn main() -> anyhow::Result<()> {
     println!("  Bind address: {}", config.bind_address);
     println!("  Wallet directory: {}", config.effective_wallet_dir());
     println!("  Metadata DB: {}", config.effective_metadata_db());
-    // Display network-appropriate sync intervals
-    let (personal_sync, _team_sync) =
-        SubscriptionTier::Personal.get_sync_intervals(&config.network);
-    let (_, team_sync_team) = SubscriptionTier::Team.get_sync_intervals(&config.network);
-    println!(
-        "  Sync intervals: Personal={}s, Team={}s (network: {:?})",
-        personal_sync, team_sync_team, config.network
-    );
+    // Display mode-appropriate sync intervals
+    if config.is_foss_mode() {
+        let sync_interval = config.get_sync_interval();
+        println!(
+            "  Sync interval: {}s (FOSS mode, network: {:?})",
+            sync_interval, config.network
+        );
+    } else {
+        let (personal_sync, _team_sync) =
+            SubscriptionTier::Personal.get_sync_intervals(&config.network);
+        let (_, team_sync_team) = SubscriptionTier::Team.get_sync_intervals(&config.network);
+        println!(
+            "  Sync intervals: Personal={}s, Team={}s (SAAS mode, network: {:?})",
+            personal_sync, team_sync_team, config.network
+        );
+    }
 
     // Log operating mode
     println!(
@@ -295,18 +303,77 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
-    // Separate tier-based sync tasks
-    let (personal_sync_interval, team_sync_interval) =
-        SubscriptionTier::Personal.get_sync_intervals(&config.network);
+    // Mode-based sync task configuration
+    if config.is_foss_mode() {
+        // FOSS mode: Single sync task using CANARY_SYNC_INTERVAL
+        let sync_interval = config.get_sync_interval();
+        let foss_wallet_manager = Arc::clone(&wallet_manager);
 
-    // Team tier sync task (more frequent)
-    let team_wallet_manager = Arc::clone(&wallet_manager);
-    println!(
-        "🕐 Team tier sync interval: {}s (network: {:?})",
-        team_sync_interval, config.network
-    );
-    tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(team_sync_interval));
+        println!(
+            "🕐 FOSS sync interval: {}s (network: {:?})",
+            sync_interval, config.network
+        );
+
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_secs(sync_interval));
+
+            loop {
+                interval.tick().await;
+
+                let mutex_wait_start = Instant::now();
+                let mut manager = foss_wallet_manager.lock().await;
+                let mutex_wait_time = mutex_wait_start.elapsed();
+
+                if mutex_wait_time.as_millis() > 10 {
+                    println!(
+                        "🔒 FOSS sync task waited {:?} for wallet manager mutex",
+                        mutex_wait_time
+                    );
+                }
+
+                // In FOSS mode, sync all wallets together (no tier separation)
+                let sync_start = Instant::now();
+
+                // Sync Team tier wallets (but in FOSS mode, these are just regular wallets)
+                if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Team).await {
+                    eprintln!("❌ Failed to sync Team tier wallets: {}", e);
+                }
+
+                // Sync Personal tier wallets
+                if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Personal).await {
+                    eprintln!("❌ Failed to sync Personal tier wallets: {}", e);
+                }
+
+                let sync_duration = sync_start.elapsed();
+                if sync_duration.as_millis() > 100 {
+                    println!("⚡ FOSS sync completed in {:?}", sync_duration);
+                }
+
+                // Explicitly release the mutex and log timing
+                let mutex_hold_duration = mutex_wait_start.elapsed();
+                drop(manager);
+
+                if mutex_hold_duration.as_millis() > 1000 {
+                    println!(
+                        "🔓 FOSS sync task held wallet manager mutex for {:?}",
+                        mutex_hold_duration
+                    );
+                }
+            }
+        });
+    } else {
+        // SAAS mode: Separate tier-based sync tasks
+        let (personal_sync_interval, team_sync_interval) =
+            SubscriptionTier::Personal.get_sync_intervals(&config.network);
+
+        // Team tier sync task (more frequent)
+        let team_wallet_manager = Arc::clone(&wallet_manager);
+        println!(
+            "🕐 Team tier sync interval: {}s (network: {:?})",
+            team_sync_interval, config.network
+        );
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_secs(team_sync_interval));
 
         loop {
             interval.tick().await;
@@ -374,12 +441,20 @@ async fn main() -> anyhow::Result<()> {
             );
         }
     });
+    }
 
-    // Block header sync task (runs with team frequency since it's more critical)
+    // Block header sync task (mode-aware frequency)
+    let block_sync_interval = if config.is_foss_mode() {
+        config.get_sync_interval()
+    } else {
+        let (_, team_sync_interval) = SubscriptionTier::Personal.get_sync_intervals(&config.network);
+        team_sync_interval
+    };
+
     let block_sync_wallet_manager = Arc::clone(&wallet_manager);
     let block_sync_current_block_header = Arc::clone(&current_block_header);
     tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(team_sync_interval));
+        let mut interval = interval(Duration::from_secs(block_sync_interval));
 
         loop {
             interval.tick().await;

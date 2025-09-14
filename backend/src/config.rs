@@ -289,6 +289,32 @@ impl AppConfig {
         format!("{}/{}/metadata.sqlite", self.data_dir, self.network_name())
     }
 
+    /// Get sync interval based on mode and configuration
+    /// FOSS mode: Uses CANARY_SYNC_INTERVAL with network defaults
+    /// SAAS mode: Delegates to subscription tier logic
+    pub fn get_sync_interval(&self) -> u64 {
+        if self.is_foss_mode() {
+            // FOSS mode: Use legacy CANARY_SYNC_INTERVAL or network-based defaults
+            std::env::var("CANARY_SYNC_INTERVAL")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(|| self.get_network_default_sync_interval())
+        } else {
+            // SAAS mode: Use subscription tier logic (handled elsewhere)
+            // This is a fallback - normally subscription tiers handle this
+            self.get_network_default_sync_interval()
+        }
+    }
+
+    /// Get network-appropriate sync interval defaults
+    fn get_network_default_sync_interval(&self) -> u64 {
+        match self.network {
+            NetworkConfig::Regtest => 30,  // 30s for regtest (fast local network)
+            NetworkConfig::Testnet => 60,  // 60s for testnet
+            NetworkConfig::Mainnet => 300, // 5 minutes for mainnet (conservative default)
+        }
+    }
+
     // Helper methods for tests
     #[cfg(test)]
     pub fn wallet_dir_path(&self) -> String {
@@ -499,6 +525,71 @@ mod tests {
             mainnet_config.electrum_url(),
             "ssl://electrum.blockstream.info:50002"
         );
+    }
+
+    #[test]
+    fn test_foss_mode_sync_interval_legacy_fallback() {
+        // Set CANARY_MODE to foss and CANARY_SYNC_INTERVAL
+        std::env::set_var("CANARY_MODE", "foss");
+        std::env::set_var("CANARY_SYNC_INTERVAL", "42");
+
+        let config = AppConfig {
+            network: NetworkConfig::Mainnet,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: "./database".to_string(),
+        };
+
+        assert_eq!(config.get_sync_interval(), 42);
+
+        // Clean up
+        std::env::remove_var("CANARY_MODE");
+        std::env::remove_var("CANARY_SYNC_INTERVAL");
+    }
+
+    #[test]
+    fn test_foss_mode_sync_interval_network_defaults() {
+        // Set CANARY_MODE to foss but no CANARY_SYNC_INTERVAL
+        std::env::set_var("CANARY_MODE", "foss");
+        std::env::remove_var("CANARY_SYNC_INTERVAL");
+
+        let regtest_config = AppConfig {
+            network: NetworkConfig::Regtest,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: "./database".to_string(),
+        };
+        assert_eq!(regtest_config.get_sync_interval(), 30);
+
+        let mainnet_config = AppConfig {
+            network: NetworkConfig::Mainnet,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: "./database".to_string(),
+        };
+        assert_eq!(mainnet_config.get_sync_interval(), 300);
+
+        // Clean up
+        std::env::remove_var("CANARY_MODE");
+    }
+
+    #[test]
+    fn test_saas_mode_sync_interval_fallback() {
+        // Set CANARY_MODE to saas
+        std::env::set_var("CANARY_MODE", "saas");
+
+        let config = AppConfig {
+            network: NetworkConfig::Mainnet,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: "./database".to_string(),
+        };
+
+        // In SAAS mode, should use network defaults as fallback
+        assert_eq!(config.get_sync_interval(), 300);
+
+        // Clean up
+        std::env::remove_var("CANARY_MODE");
     }
 
     #[test]

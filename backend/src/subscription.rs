@@ -38,9 +38,10 @@ impl SubscriptionTier {
         }
     }
 
-    /// Get network-appropriate sync intervals for this tier
+    /// Get network-appropriate sync intervals for this tier (SAAS mode only)
+    /// This should only be called in SAAS mode with subscription tiers
     pub fn get_sync_intervals(&self, network: &NetworkConfig) -> (u64, u64) {
-        // Check for environment variable overrides first
+        // Check for tier-specific environment variable overrides first
         let env_personal = match network {
             NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_REGTEST")
                 .ok()
@@ -65,12 +66,7 @@ impl SubscriptionTier {
                 .and_then(|s| s.parse().ok()),
         };
 
-        // Check for legacy CANARY_SYNC_INTERVAL fallback (for Umbrel compatibility)
-        let legacy_interval = std::env::var("CANARY_SYNC_INTERVAL")
-            .ok()
-            .and_then(|s| s.parse().ok());
-
-        // Use defaults if no environment override
+        // SAAS tier-specific defaults
         let (default_personal, default_team) = match network {
             NetworkConfig::Regtest => {
                 // Moderate intervals for regtest to prevent startup conflicts
@@ -87,16 +83,10 @@ impl SubscriptionTier {
             }
         };
 
-        // Apply priority: tier-specific env vars > legacy env var > defaults
-        let personal_interval = env_personal
-            .or(legacy_interval)
-            .unwrap_or(default_personal);
-
-        let team_interval = env_team
-            .or(legacy_interval)
-            .unwrap_or(default_team);
-
-        (personal_interval, team_interval)
+        (
+            env_personal.unwrap_or(default_personal),
+            env_team.unwrap_or(default_team),
+        )
     }
 
     /// Get limits for API limit checking - uses reasonable default intervals
@@ -170,35 +160,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_legacy_sync_interval_fallback() {
-        // Temporarily set and unset environment variables for testing
-        std::env::set_var("CANARY_SYNC_INTERVAL", "42");
-
-        // Clear any tier-specific variables that might interfere
-        std::env::remove_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET");
-        std::env::remove_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET");
-
-        let (personal, team) = SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
-        assert_eq!(personal, 42);
-        assert_eq!(team, 42);
-
-        // Clean up
-        std::env::remove_var("CANARY_SYNC_INTERVAL");
-    }
-
-    #[test]
-    fn test_tier_specific_override_legacy() {
-        // Set both legacy and tier-specific
-        std::env::set_var("CANARY_SYNC_INTERVAL", "99");
+    fn test_tier_specific_intervals() {
+        // Set tier-specific environment variables
         std::env::set_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET", "15");
         std::env::set_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET", "30");
 
         let (personal, team) = SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
-        assert_eq!(personal, 15); // Tier-specific should win
-        assert_eq!(team, 30);      // Tier-specific should win
+        assert_eq!(personal, 15);
+        assert_eq!(team, 30);
 
         // Clean up
-        std::env::remove_var("CANARY_SYNC_INTERVAL");
         std::env::remove_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET");
         std::env::remove_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET");
     }
