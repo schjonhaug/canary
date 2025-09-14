@@ -382,7 +382,7 @@ async fn main() -> anyhow::Result<()> {
             let mut manager = team_wallet_manager.lock().await;
             let mutex_wait_time = mutex_wait_start.elapsed();
 
-            if mutex_wait_time.as_millis() > 10 {
+            if mutex_wait_time.as_millis() > 1000 {
                 println!(
                     "🔒 Team sync task waited {:?} for wallet manager mutex",
                     mutex_wait_time
@@ -394,13 +394,8 @@ async fn main() -> anyhow::Result<()> {
                 eprintln!("Team tier sync failed: {}", e);
             }
 
-            // Explicitly release the mutex and log timing
-            let mutex_hold_duration = mutex_wait_start.elapsed();
+            // Drop mutex without excessive logging
             drop(manager);
-            println!(
-                "🔓 Released team tier sync mutex after {:?}",
-                mutex_hold_duration
-            );
         }
     });
 
@@ -420,7 +415,7 @@ async fn main() -> anyhow::Result<()> {
             let mut manager = personal_wallet_manager.lock().await;
             let mutex_wait_time = mutex_wait_start.elapsed();
 
-            if mutex_wait_time.as_millis() > 10 {
+            if mutex_wait_time.as_millis() > 1000 {
                 println!(
                     "🔒 Personal sync task waited {:?} for wallet manager mutex",
                     mutex_wait_time
@@ -432,13 +427,8 @@ async fn main() -> anyhow::Result<()> {
                 eprintln!("Personal tier sync failed: {}", e);
             }
 
-            // Explicitly release the mutex and log timing
-            let mutex_hold_duration = mutex_wait_start.elapsed();
+            // Drop mutex without excessive logging
             drop(manager);
-            println!(
-                "🔓 Released personal tier sync mutex after {:?}",
-                mutex_hold_duration
-            );
         }
     });
     }
@@ -463,7 +453,7 @@ async fn main() -> anyhow::Result<()> {
             let manager = block_sync_wallet_manager.lock().await;
             let mutex_wait_time = mutex_wait_start.elapsed();
 
-            if mutex_wait_time.as_millis() > 10 {
+            if mutex_wait_time.as_millis() > 1000 {
                 println!(
                     "🔒 Block sync task waited {:?} for wallet manager mutex",
                     mutex_wait_time
@@ -532,13 +522,8 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            // Explicitly release the mutex and log timing
-            let mutex_hold_duration = mutex_wait_start.elapsed();
+            // Drop mutex without excessive logging
             drop(manager);
-            println!(
-                "🔓 Released block sync mutex after {:?}",
-                mutex_hold_duration
-            );
         }
     });
 
