@@ -339,6 +339,7 @@ pub struct WalletManager {
     pub metadata_db: MetadataDb,
     pub notification_sender: broadcast::Sender<TransactionNotification>,
     network: Network,
+    config: AppConfig,
 }
 
 impl WalletManager {
@@ -389,6 +390,7 @@ impl WalletManager {
             metadata_db,
             notification_sender,
             network,
+            config: config.clone(),
         };
 
         // Load active wallets on startup (only wallets with active subscriptions)
@@ -575,7 +577,7 @@ impl WalletManager {
                 None
             };
 
-            if let Err(e) = client.full_scan_wallet(&mut wallet, custom_stop_gap) {
+            if let Err(e) = client.full_scan_wallet(&mut wallet, custom_stop_gap).await {
                 error!(
                     "[{}] Warning: Failed to full scan wallet during background creation: {}",
                     checksum, e
@@ -624,7 +626,7 @@ impl WalletManager {
                         );
 
                         // Sync the newly revealed addresses
-                        if let Err(e) = client.sync_wallet(&mut wallet) {
+                        if let Err(e) = client.sync_wallet(&mut wallet).await {
                             error!(
                                 "[{}] Warning: Failed to sync during deep scan batch {}: {}",
                                 checksum, batch, e
@@ -903,6 +905,7 @@ impl WalletManager {
         let metadata_db = self.metadata_db.clone();
         let notification_sender = self.notification_sender.clone();
         let electrum_client = self.electrum_client.clone();
+        let config = self.config.clone();
 
         // Create parallel sync tasks using in-memory wallets
         let sync_tasks: Vec<_> = wallet_refs
@@ -912,6 +915,7 @@ impl WalletManager {
                 let metadata_db = metadata_db.clone();
                 let notification_sender = notification_sender.clone();
                 let electrum_client = electrum_client.clone();
+                let config = config.clone();
 
                 tokio::spawn(async move {
                     // Acquire semaphore permit
@@ -926,8 +930,8 @@ impl WalletManager {
                     let mut wallet_data = wallet_arc.lock().await;
                     let (wallet, conn) = &mut *wallet_data;
 
-                    // Create sync service
-                    let sync_service = WalletSyncService::new(metadata_db, notification_sender);
+                    // Create sync service with config for mode-based retry logic
+                    let sync_service = WalletSyncService::new(metadata_db, notification_sender, config);
 
                     // Perform sync
                     match sync_service

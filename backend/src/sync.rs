@@ -1,26 +1,32 @@
+use crate::config::AppConfig;
 use crate::electrum::ElectrumClient;
 use crate::metadata::{
     EventType, MetadataDb, Transaction, TransactionInsert, TransactionNotification,
 };
 use anyhow::Result;
 use bdk_wallet::{rusqlite::Connection, PersistedWallet};
+use std::time::Duration;
 use tokio::sync::broadcast;
+use tokio::time::sleep;
 
 /// Transaction-based wallet sync service
 /// This replaces the old balance-based sync logic with proper transaction tracking
 pub struct WalletSyncService {
     metadata_db: MetadataDb,
     notification_sender: broadcast::Sender<TransactionNotification>,
+    config: AppConfig,
 }
 
 impl WalletSyncService {
     pub fn new(
         metadata_db: MetadataDb,
         notification_sender: broadcast::Sender<TransactionNotification>,
+        config: AppConfig,
     ) -> Self {
         Self {
             metadata_db,
             notification_sender,
+            config,
         }
     }
 
@@ -31,12 +37,60 @@ impl WalletSyncService {
         wallet_checksum: &str,
         electrum_client: Option<&ElectrumClient>,
     ) -> Result<bool> {
+        let sync_start = std::time::Instant::now();
         println!("[{}] Starting transaction-based sync", wallet_checksum);
 
-        // Perform the actual sync with Electrum
+        // Perform the actual sync with Electrum with mode-based retry logic
         if let Some(client) = electrum_client {
-            if let Err(e) = client.sync_wallet(wallet) {
-                eprintln!("[{}] Failed to sync with Electrum: {}", wallet_checksum, e);
+            let max_retries = if self.config.is_saas_mode() { 3 } else { 1 };
+            let use_exponential_backoff = self.config.is_saas_mode();
+
+            let mut last_error = None;
+            for attempt in 1..=max_retries {
+                match client.sync_wallet(wallet).await {
+                    Ok(()) => {
+                        if attempt > 1 {
+                            println!("[{}] Sync succeeded on attempt {}/{}", wallet_checksum, attempt, max_retries);
+                        }
+                        break;
+                    }
+                    Err(e) => {
+                        last_error = Some(e);
+
+                        // Enhanced error categorization for SAAS mode
+                        if self.config.is_saas_mode() && attempt < max_retries {
+                            let error_msg = last_error.as_ref().unwrap().to_string();
+                            let error_type = Self::categorize_error(&error_msg);
+
+                            let delay_secs = if use_exponential_backoff {
+                                // Exponential backoff: 5s, 10s, 20s
+                                5 * (2u64.pow(attempt - 1))
+                            } else {
+                                0
+                            };
+
+                            println!("[{}] Sync attempt {}/{} failed ({}), retrying in {}s: {}",
+                                wallet_checksum, attempt, max_retries, error_type, delay_secs, error_msg);
+
+                            if delay_secs > 0 {
+                                sleep(Duration::from_secs(delay_secs)).await;
+                            }
+                        } else if attempt < max_retries {
+                            // FOSS mode - simple retry without categorization
+                            println!("[{}] Sync attempt {}/{} failed: {}",
+                                wallet_checksum, attempt, max_retries, last_error.as_ref().unwrap());
+                        }
+                    }
+                }
+            }
+
+            // If all retries failed, handle the error
+            if let Some(error) = last_error {
+                if self.config.is_saas_mode() {
+                    eprintln!("[{}] Failed to sync with Electrum after {} attempts: {}", wallet_checksum, max_retries, error);
+                } else {
+                    eprintln!("[{}] Failed to sync with Electrum: {}", wallet_checksum, error);
+                }
                 return Ok(false);
             }
         }
@@ -58,10 +112,17 @@ impl WalletSyncService {
             .update_wallet_balance_by_checksum(wallet_checksum, current_balance.to_sat() as i64)
             .await?;
 
+        let sync_duration = sync_start.elapsed();
         println!(
-            "[{}] Sync complete, changes: {}",
-            wallet_checksum, has_changes
+            "[{}] Sync complete in {:.2}s, changes: {}",
+            wallet_checksum, sync_duration.as_secs_f64(), has_changes
         );
+
+        // Log warning for unusually long syncs (SAAS mode only)
+        if self.config.is_saas_mode() && sync_duration.as_secs() > 120 {
+            eprintln!("[{}] WARNING: Sync took {:.1}s (>120s), potential performance issue",
+                wallet_checksum, sync_duration.as_secs_f64());
+        }
         Ok(has_changes)
     }
 
@@ -544,7 +605,7 @@ impl WalletSyncService {
                     let block_height = Some(anchor.block_id.height);
                     // Fetch actual block timestamp from Electrum
                     let confirmed_at = if let Some(electrum_client) = electrum_client {
-                        match electrum_client.get_block_header(anchor.block_id.height) {
+                        match electrum_client.get_block_header(anchor.block_id.height).await {
                             Ok(header) => Some(header.timestamp),
                             Err(e) => {
                                 eprintln!(
@@ -700,5 +761,24 @@ impl WalletSyncService {
         }
 
         Ok(cpfp_relationships)
+    }
+
+    /// Categorize error types for better diagnostics (SAAS mode)
+    fn categorize_error(error_msg: &str) -> &'static str {
+        let msg_lower = error_msg.to_lowercase();
+
+        if msg_lower.contains("timeout") || msg_lower.contains("timed out") {
+            "TIMEOUT"
+        } else if msg_lower.contains("connection") || msg_lower.contains("connect") {
+            "CONNECTION"
+        } else if msg_lower.contains("network") || msg_lower.contains("dns") {
+            "NETWORK"
+        } else if msg_lower.contains("server") || msg_lower.contains("electrum") {
+            "SERVER"
+        } else if msg_lower.contains("task") || msg_lower.contains("spawn") {
+            "TASK"
+        } else {
+            "UNKNOWN"
+        }
     }
 }

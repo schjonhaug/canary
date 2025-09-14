@@ -245,19 +245,19 @@ async fn main() -> anyhow::Result<()> {
                 let metadata_db = manager.metadata_db.clone();
                 drop(manager); // Release the lock before potential blocking
 
-                // Run the blocking operation in a separate thread with timeout
+                // Run the async operation with timeout
                 let height_result = tokio::time::timeout(
                     timeout_duration,
-                    tokio::task::spawn_blocking(move || client.get_current_block_height()),
+                    client.get_current_block_height(),
                 )
                 .await;
 
                 match height_result {
-                    Ok(Ok(Ok(height))) => {
+                    Ok(Ok(height)) => {
                         // Successfully got height, now get the header
                         let manager = initial_wallet_manager.lock().await;
                         if let Some(ref electrum_client) = manager.electrum_client {
-                            match electrum_client.get_block_header(height) {
+                            match electrum_client.get_block_header(height).await {
                                 Ok(block_header) => {
                                     println!(
                                         "📦 Initial block header fetched: height={}",
@@ -281,11 +281,8 @@ async fn main() -> anyhow::Result<()> {
                             }
                         }
                     }
-                    Ok(Ok(Err(e))) => {
-                        eprintln!("❌ Electrum error getting block height: {}", e);
-                    }
                     Ok(Err(e)) => {
-                        eprintln!("❌ Task error getting block height: {}", e);
+                        eprintln!("❌ Electrum error getting block height: {}", e);
                     }
                     Err(_) => {
                         eprintln!("⏱️  Timeout getting block height from Electrum (5s exceeded)");
@@ -409,19 +406,19 @@ async fn main() -> anyhow::Result<()> {
                 let stored_height = stored_header.as_ref().map(|h| h.height).unwrap_or(0);
                 drop(stored_header);
 
-                // Run blocking operation in separate thread with timeout
+                // Run async operation with timeout
                 let height_result = tokio::time::timeout(
                     Duration::from_secs(5),
-                    tokio::task::spawn_blocking(move || client.get_current_block_height()),
+                    client.get_current_block_height(),
                 )
                 .await;
 
                 match height_result {
-                    Ok(Ok(Ok(current_height))) => {
+                    Ok(Ok(current_height)) => {
                         if current_height > stored_height {
                             // Get the actual block header
                             if let Some(ref electrum_client) = manager.electrum_client {
-                                match electrum_client.get_block_header(current_height) {
+                                match electrum_client.get_block_header(current_height).await {
                                     Ok(block_header) => {
                                         println!(
                                             "📦 New block header: height={} (was {})",
@@ -451,11 +448,8 @@ async fn main() -> anyhow::Result<()> {
                             }
                         }
                     }
-                    Ok(Ok(Err(e))) => {
-                        eprintln!("Electrum error checking block height: {}", e);
-                    }
                     Ok(Err(e)) => {
-                        eprintln!("Task error checking block height: {}", e);
+                        eprintln!("Electrum error checking block height: {}", e);
                     }
                     Err(_) => {
                         eprintln!("⏱️  Timeout checking block height (sync task)");

@@ -7,6 +7,8 @@ use bdk_wallet::{KeychainKind, PersistedWallet};
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::time::timeout;
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BlockHeader {
@@ -116,7 +118,7 @@ impl ElectrumClient {
         }
     }
 
-    pub fn full_scan_wallet(
+    pub async fn full_scan_wallet(
         &self,
         wallet: &mut PersistedWallet<Connection>,
         custom_stop_gap: Option<usize>,
@@ -164,13 +166,17 @@ impl ElectrumClient {
                 }
             });
 
-            // Perform the full scan with custom or default stop gap
+            // Perform the full scan with timeout protection (120 seconds for more intensive operation)
             let stop_gap = custom_stop_gap.unwrap_or(STOP_GAP);
             println!("Using stop gap: {}", stop_gap);
-            let update = self
-                .client
-                .full_scan(request, stop_gap, BATCH_SIZE, false)
-                .map_err(|e| anyhow!("Full scan failed: {}", e))?;
+            let client = Arc::clone(&self.client);
+            let update = timeout(Duration::from_secs(120), tokio::task::spawn_blocking(move || {
+                client.full_scan(request, stop_gap, BATCH_SIZE, false)
+            }))
+            .await
+            .map_err(|_| anyhow!("Full scan operation timed out after 120 seconds"))?
+            .map_err(|e| anyhow!("Full scan task failed: {}", e))?
+            .map_err(|e| anyhow!("Full scan failed: {}", e))?;
 
             println!(); // New line after scan progress
 
@@ -211,7 +217,7 @@ impl ElectrumClient {
         Ok(())
     }
 
-    pub fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
+    pub async fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
         // Populate the electrum client's transaction cache
         self.client
             .populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
@@ -219,11 +225,15 @@ impl ElectrumClient {
         // Start sync request (only checks known addresses)
         let request = wallet.start_sync_with_revealed_spks();
 
-        // Perform the sync
-        let update = self
-            .client
-            .sync(request, BATCH_SIZE, false)
-            .map_err(|e| anyhow!("Sync failed: {}", e))?;
+        // Perform the sync with timeout protection
+        let client = Arc::clone(&self.client);
+        let update = timeout(Duration::from_secs(60), tokio::task::spawn_blocking(move || {
+            client.sync(request, BATCH_SIZE, false)
+        }))
+        .await
+        .map_err(|_| anyhow!("Sync operation timed out after 60 seconds"))?
+        .map_err(|e| anyhow!("Sync task failed: {}", e))?
+        .map_err(|e| anyhow!("Sync failed: {}", e))?;
 
         // Apply the update
         wallet
@@ -238,12 +248,16 @@ impl ElectrumClient {
         if ext_revealed || int_revealed {
             println!("New addresses revealed, performing additional sync...");
 
-            // Sync only the newly revealed addresses
+            // Sync only the newly revealed addresses with timeout
             let request = wallet.start_sync_with_revealed_spks();
-            let update = self
-                .client
-                .sync(request, BATCH_SIZE, false)
-                .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
+            let client = Arc::clone(&self.client);
+            let update = timeout(Duration::from_secs(60), tokio::task::spawn_blocking(move || {
+                client.sync(request, BATCH_SIZE, false)
+            }))
+            .await
+            .map_err(|_| anyhow!("Additional sync operation timed out after 60 seconds"))?
+            .map_err(|e| anyhow!("Additional sync task failed: {}", e))?
+            .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
 
             wallet
                 .apply_update(update)
@@ -253,12 +267,15 @@ impl ElectrumClient {
         Ok(())
     }
 
-    pub fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
-        let header = self
-            .client
-            .inner
-            .block_header(height as usize)
-            .map_err(|e| anyhow!("Failed to get block header for height {}: {}", height, e))?;
+    pub async fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
+        let client = Arc::clone(&self.client);
+        let header = timeout(Duration::from_secs(10), tokio::task::spawn_blocking(move || {
+            client.inner.block_header(height as usize)
+        }))
+        .await
+        .map_err(|_| anyhow!("Get block header operation timed out after 10 seconds"))?
+        .map_err(|e| anyhow!("Get block header task failed: {}", e))?
+        .map_err(|e| anyhow!("Failed to get block header for height {}: {}", height, e))?;
 
         Ok(BlockHeader {
             height,
@@ -266,13 +283,16 @@ impl ElectrumClient {
         })
     }
 
-    pub fn get_current_block_height(&self) -> Result<u32> {
-        let height = self
-            .client
-            .inner
-            .block_headers_subscribe()
-            .map_err(|e| anyhow!("Failed to get current block height: {}", e))?
-            .height;
+    pub async fn get_current_block_height(&self) -> Result<u32> {
+        let client = Arc::clone(&self.client);
+        let height = timeout(Duration::from_secs(10), tokio::task::spawn_blocking(move || {
+            client.inner.block_headers_subscribe()
+        }))
+        .await
+        .map_err(|_| anyhow!("Get current block height operation timed out after 10 seconds"))?
+        .map_err(|e| anyhow!("Get current block height task failed: {}", e))?
+        .map_err(|e| anyhow!("Failed to get current block height: {}", e))?
+        .height;
         Ok(height as u32)
     }
 }
