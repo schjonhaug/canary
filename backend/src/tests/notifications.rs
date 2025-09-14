@@ -1,5 +1,6 @@
 use crate::metadata::{
-    Contact, EventType, Language, NotificationMethod, ProviderType, Transaction, TransactionNotification,
+    Contact, EventType, Language, NotificationMethod, ProviderType, Transaction,
+    TransactionNotification,
 };
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use crate::ntfy_provider::NtfyProvider;
@@ -79,10 +80,7 @@ async fn test_ntfy_send_notification() {
     assert_eq!(results.len(), 1);
     let (method, _result, message) = &results[0];
     assert_eq!(method.notification_target, "test-topic");
-    assert_eq!(
-        message,
-        "✅ Received: 1.00000000 BTC to Test Wallet"
-    );
+    assert_eq!(message, "✅ Received: 1.00000000 BTC to Test Wallet");
     // Note: Actual result.success depends on ntfy.sh availability
 }
 
@@ -166,10 +164,7 @@ async fn test_twilio_send_notification() {
     assert_eq!(results.len(), 1);
     let (method, _result, message) = &results[0];
     assert_eq!(method.notification_target, "+15551234567");
-    assert_eq!(
-        message,
-        "✅ Received: 1.00000000 BTC to Test Wallet"
-    );
+    assert_eq!(message, "✅ Received: 1.00000000 BTC to Test Wallet");
 
     // Clean up
     std::env::remove_var("TWILIO_ACCOUNT_SID");

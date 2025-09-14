@@ -94,12 +94,12 @@ fn test_create_norwegian_message_receive_confirmed() {
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 
-    let message =
-        MessageFormatter::create_localized_message(&notification, "Test Wallet", &Language::Norwegian);
-    assert_eq!(
-        message,
-        "✅ Mottatt: 1,00000000 BTC til Test Wallet"
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::Norwegian,
     );
+    assert_eq!(message, "✅ Mottatt: 1,00000000 BTC til Test Wallet");
 }
 
 #[test]
@@ -107,8 +107,11 @@ fn test_create_norwegian_message_receive_unconfirmed() {
     let event = create_test_transaction(EventType::Receive, 50_000_000, false);
     let notification = TransactionNotification::Pending(event);
 
-    let message =
-        MessageFormatter::create_localized_message(&notification, "Test Wallet", &Language::Norwegian);
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::Norwegian,
+    );
     assert_eq!(
         message,
         "💸 Mottar: 0,50000000 BTC til Test Wallet (ubekreftet)"
@@ -120,12 +123,12 @@ fn test_create_norwegian_message_send_confirmed() {
     let event = create_test_transaction(EventType::Send, 25_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 
-    let message =
-        MessageFormatter::create_localized_message(&notification, "Test Wallet", &Language::Norwegian);
-    assert_eq!(
-        message,
-        "✅ Sendt: 0,25000000 BTC fra Test Wallet"
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::Norwegian,
     );
+    assert_eq!(message, "✅ Sendt: 0,25000000 BTC fra Test Wallet");
 }
 
 #[test]
@@ -133,12 +136,12 @@ fn test_create_norwegian_message_send_unconfirmed() {
     let event = create_test_transaction(EventType::Send, 75_000_000, false);
     let notification = TransactionNotification::Pending(event);
 
-    let message =
-        MessageFormatter::create_localized_message(&notification, "Test Wallet", &Language::Norwegian);
-    assert_eq!(
-        message,
-        "📤 Sender: 0,75000000 BTC fra Test Wallet"
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::Norwegian,
     );
+    assert_eq!(message, "📤 Sender: 0,75000000 BTC fra Test Wallet");
 }
 
 #[test]
@@ -146,12 +149,12 @@ fn test_create_english_message_receive_confirmed() {
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 
-    let message =
-        MessageFormatter::create_localized_message(&notification, "Test Wallet", &Language::English);
-    assert_eq!(
-        message,
-        "✅ Received: 1.00000000 BTC to Test Wallet"
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::English,
     );
+    assert_eq!(message, "✅ Received: 1.00000000 BTC to Test Wallet");
 }
 
 #[test]
@@ -159,8 +162,11 @@ fn test_create_english_message_receive_unconfirmed() {
     let event = create_test_transaction(EventType::Receive, 50_000_000, false);
     let notification = TransactionNotification::Pending(event);
 
-    let message =
-        MessageFormatter::create_localized_message(&notification, "Test Wallet", &Language::English);
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::English,
+    );
     assert_eq!(
         message,
         "💸 Receiving: 0.50000000 BTC to Test Wallet (unconfirmed)"
@@ -172,12 +178,12 @@ fn test_create_english_message_send_confirmed() {
     let event = create_test_transaction(EventType::Send, 25_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 
-    let message =
-        MessageFormatter::create_localized_message(&notification, "Test Wallet", &Language::English);
-    assert_eq!(
-        message,
-        "✅ Sent: 0.25000000 BTC from Test Wallet"
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::English,
     );
+    assert_eq!(message, "✅ Sent: 0.25000000 BTC from Test Wallet");
 }
 
 #[test]
@@ -185,10 +191,10 @@ fn test_create_english_message_send_unconfirmed() {
     let event = create_test_transaction(EventType::Send, 75_000_000, false);
     let notification = TransactionNotification::Pending(event);
 
-    let message =
-        MessageFormatter::create_localized_message(&notification, "Test Wallet", &Language::English);
-    assert_eq!(
-        message,
-        "📤 Sending: 0.75000000 BTC from Test Wallet"
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::English,
     );
+    assert_eq!(message, "📤 Sending: 0.75000000 BTC from Test Wallet");
 }

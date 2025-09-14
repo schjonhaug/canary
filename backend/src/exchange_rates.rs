@@ -10,11 +10,10 @@ use crate::metadata::MetadataDb;
 
 // All supported fiat currencies from CoinGecko
 pub const SUPPORTED_CURRENCIES: &[&str] = &[
-    "USD", "AED", "ARS", "AUD", "BDT", "BHD", "BMD", "BRL", "CAD", "CHF", 
-    "CLP", "CNY", "CZK", "DKK", "EUR", "GBP", "GEL", "HKD", "HUF", "IDR", 
-    "ILS", "INR", "JPY", "KRW", "KWD", "LKR", "MMK", "MXN", "MYR", "NGN", 
-    "NOK", "NZD", "PHP", "PKR", "PLN", "RUB", "SAR", "SEK", "SGD", "THB", 
-    "TRY", "TWD", "UAH", "VEF", "VND", "ZAR"
+    "USD", "AED", "ARS", "AUD", "BDT", "BHD", "BMD", "BRL", "CAD", "CHF", "CLP", "CNY", "CZK",
+    "DKK", "EUR", "GBP", "GEL", "HKD", "HUF", "IDR", "ILS", "INR", "JPY", "KRW", "KWD", "LKR",
+    "MMK", "MXN", "MYR", "NGN", "NOK", "NZD", "PHP", "PKR", "PLN", "RUB", "SAR", "SEK", "SGD",
+    "THB", "TRY", "TWD", "UAH", "VEF", "VND", "ZAR",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,7 +41,7 @@ impl ExchangeRateService {
     pub fn locale_to_currency(locale: &str) -> &'static str {
         // Extract the country code from locale (e.g., "en-US" -> "US")
         let locale_lower = locale.to_lowercase();
-        
+
         // Direct locale mappings
         match locale_lower.as_str() {
             // Americas
@@ -52,7 +51,7 @@ impl ExchangeRateService {
             l if l.starts_with("pt-br") => "BRL",
             l if l.starts_with("es-ar") => "ARS",
             l if l.starts_with("es-cl") => "CLP",
-            
+
             // Europe
             l if l.starts_with("en-gb") => "GBP",
             l if l.starts_with("de-ch") => "CHF",
@@ -67,7 +66,7 @@ impl ExchangeRateService {
             l if l.starts_with("ru-ru") => "RUB",
             l if l.starts_with("uk-ua") => "UAH",
             l if l.starts_with("tr-tr") => "TRY",
-            
+
             // Eurozone countries
             l if l.starts_with("de-de") || l.starts_with("de-at") => "EUR",
             l if l.starts_with("fr-fr") || l.starts_with("fr-be") => "EUR",
@@ -77,7 +76,7 @@ impl ExchangeRateService {
             l if l.starts_with("pt-pt") => "EUR",
             l if l.starts_with("el-gr") => "EUR",
             l if l.starts_with("fi-fi") => "EUR",
-            
+
             // Asia-Pacific
             l if l.starts_with("zh-cn") => "CNY",
             l if l.starts_with("zh-tw") => "TWD",
@@ -99,7 +98,7 @@ impl ExchangeRateService {
             l if l.starts_with("bn-bd") || l.starts_with("en-bd") => "BDT",
             l if l.starts_with("si-lk") || l.starts_with("en-lk") => "LKR",
             l if l.starts_with("my-mm") => "MMK",
-            
+
             // Middle East
             l if l.starts_with("ar-sa") => "SAR",
             l if l.starts_with("ar-ae") => "AED",
@@ -107,11 +106,11 @@ impl ExchangeRateService {
             l if l.starts_with("ar-bh") => "BHD",
             l if l.starts_with("he-il") => "ILS",
             l if l.starts_with("ka-ge") => "GEL",
-            
+
             // Africa
             l if l.starts_with("en-za") || l.starts_with("af-za") => "ZAR",
             l if l.starts_with("en-ng") => "NGN",
-            
+
             // Default to USD for unknown locales
             _ => "USD",
         }
@@ -124,21 +123,21 @@ impl ExchangeRateService {
             "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={}",
             currencies
         );
-        
+
         eprintln!("Fetching exchange rates from CoinGecko...");
-        
+
         let response = reqwest::get(&url)
             .await
             .context("Failed to fetch exchange rates")?;
-        
+
         let data: CoinGeckoResponse = response
             .json()
             .await
             .context("Failed to parse exchange rates response")?;
-        
+
         let now = Utc::now();
         let mut rates = HashMap::new();
-        
+
         for (currency, rate) in data.bitcoin {
             let currency_upper = currency.to_uppercase();
             rates.insert(
@@ -150,7 +149,7 @@ impl ExchangeRateService {
                 },
             );
         }
-        
+
         eprintln!("Fetched {} exchange rates", rates.len());
         Ok(rates)
     }
@@ -159,27 +158,23 @@ impl ExchangeRateService {
     pub async fn get_rates(&self) -> Result<HashMap<String, ExchangeRate>> {
         // Check cache first
         let cached_rates = self.metadata_db.get_exchange_rates().await?;
-        
+
         // Check if cache is fresh (less than 10 minutes old)
         if !cached_rates.is_empty() {
-            let oldest_update = cached_rates
-                .values()
-                .map(|r| r.last_updated)
-                .min()
-                .unwrap();
-            
+            let oldest_update = cached_rates.values().map(|r| r.last_updated).min().unwrap();
+
             if Utc::now() - oldest_update < Duration::minutes(10) {
                 eprintln!("Using cached exchange rates");
                 return Ok(cached_rates);
             }
         }
-        
+
         // Fetch fresh rates
         let rates = self.fetch_rates().await?;
-        
+
         // Store in cache
         self.metadata_db.store_exchange_rates(&rates).await?;
-        
+
         Ok(rates)
     }
 
@@ -187,10 +182,10 @@ impl ExchangeRateService {
     pub fn start_refresh_task(self: Arc<Self>) {
         tokio::spawn(async move {
             let mut interval = interval(std::time::Duration::from_secs(600)); // 10 minutes
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if let Err(e) = self.fetch_and_store_rates().await {
                     eprintln!("Failed to refresh exchange rates: {}", e);
                 }

@@ -2,7 +2,7 @@ use crate::admin_notifications::AdminNotifications;
 use crate::auth::{
     authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUser,
     AuthUserResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
-    UpdateUserRequest, UpdateUserResponse, UpdateUserPreferencesRequest, UserPreferencesResponse,
+    UpdateUserPreferencesRequest, UpdateUserRequest, UpdateUserResponse, UserPreferencesResponse,
 };
 use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
@@ -2897,7 +2897,9 @@ pub async fn get_wallets_list(
     {
         Ok(mut wallets_response) => {
             // Add fiat values if user has a preferred currency
-            if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await {
+            if let Ok(Some(user_record)) =
+                app_services.metadata_db.get_user_by_id(&user.user_id).await
+            {
                 if let Some(currency) = user_record.preferred_fiat_currency {
                     if let Ok(rates) = app_services.metadata_db.get_exchange_rates().await {
                         if let Some(rate) = rates.get(&currency) {
@@ -2912,7 +2914,7 @@ pub async fn get_wallets_list(
                     }
                 }
             }
-            
+
             let response_time = start_time.elapsed();
             println!("⚡ Non-blocking wallet list served in {:?}", response_time);
             (StatusCode::OK, Json(wallets_response)).into_response()
@@ -3232,7 +3234,9 @@ pub async fn register(
     let email_verified = is_dev_email;
 
     // Determine preferred currency from browser locale
-    let preferred_currency = request.browser_locale.as_ref()
+    let preferred_currency = request
+        .browser_locale
+        .as_ref()
         .map(|locale| exchange_rates::ExchangeRateService::locale_to_currency(locale));
 
     // Create user - no mutex blocking!
@@ -4858,7 +4862,10 @@ pub fn create_router_with_services(
     let app_routes_auth = Router::new()
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
-        .route("/user/preferences", get(get_user_preferences).put(update_user_preferences))
+        .route(
+            "/user/preferences",
+            get(get_user_preferences).put(update_user_preferences),
+        )
         .route("/billing/status", get(get_billing_status))
         .with_state((
             app_services.clone(),
@@ -4914,7 +4921,11 @@ pub async fn get_user_preferences(
     };
 
     // Get user's preferred currency
-    let currency = match app_services.metadata_db.get_user_preferred_currency(&user.user_id).await {
+    let currency = match app_services
+        .metadata_db
+        .get_user_preferred_currency(&user.user_id)
+        .await
+    {
         Ok(currency) => currency,
         Err(e) => {
             return (

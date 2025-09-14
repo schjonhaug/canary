@@ -38,6 +38,7 @@ async fn debug_wallet_drain_detection() {
             "hashedpassword",
             Some("Debug User"),
             true,
+            None, // preferred_currency
         )
         .await
         .expect("Failed to create user");
@@ -98,7 +99,9 @@ async fn debug_wallet_drain_detection() {
     for event in &initial_events {
         println!(
             "   - {:?}: {} sats, confirmed: {}",
-            event.transaction_type, event.amount_sats, event.confirmed_at.is_some()
+            event.transaction_type,
+            event.amount_sats,
+            event.confirmed_at.is_some()
         );
     }
 
@@ -134,7 +137,9 @@ async fn debug_wallet_drain_detection() {
     for event in &post_drain_events {
         println!(
             "   - {:?}: {} sats, confirmed: {}",
-            event.transaction_type, event.amount_sats, event.confirmed_at.is_some()
+            event.transaction_type,
+            event.amount_sats,
+            event.confirmed_at.is_some()
         );
     }
 
@@ -151,7 +156,8 @@ async fn debug_wallet_drain_detection() {
     for event in &send_events {
         println!(
             "   - Send: {} sats, confirmed: {}",
-            event.amount_sats, event.confirmed_at.is_some()
+            event.amount_sats,
+            event.confirmed_at.is_some()
         );
     }
 
@@ -191,7 +197,9 @@ async fn debug_wallet_drain_detection() {
     for event in &final_events {
         println!(
             "   - {:?}: {} sats, confirmed: {}",
-            event.transaction_type, event.amount_sats, event.confirmed_at.is_some()
+            event.transaction_type,
+            event.amount_sats,
+            event.confirmed_at.is_some()
         );
     }
 

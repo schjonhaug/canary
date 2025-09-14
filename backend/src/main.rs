@@ -122,15 +122,6 @@ async fn main() -> anyhow::Result<()> {
         .await,
     ));
 
-    // Load existing wallets into memory on startup
-    println!("🔄 Loading existing wallets into memory...");
-    {
-        let mut manager = wallet_manager.lock().await;
-        if let Err(e) = manager.sync_wallet_list().await {
-            eprintln!("⚠️ Failed to load wallets on startup: {}", e);
-        }
-    }
-
     // Create new non-blocking architecture: Separate metadata access from heavy wallet operations
     let app_services = {
         let manager = wallet_manager.lock().await;
@@ -139,6 +130,7 @@ async fn main() -> anyhow::Result<()> {
             manager.metadata_db.clone(),
             manager.electrum_client.clone(),
             manager.get_network(),
+            manager.wallets.clone(), // Pass reference to in-memory wallet storage
         );
         Arc::new(api::AppServices {
             metadata_db: manager.metadata_db.clone(),
@@ -160,13 +152,13 @@ async fn main() -> anyhow::Result<()> {
     // Initialize exchange rate service and start background refresh task
     {
         let manager = wallet_manager.lock().await;
-        let exchange_rate_service = Arc::new(exchange_rates::ExchangeRateService::new(
-            Arc::new(manager.metadata_db.clone()),
-        ));
-        
+        let exchange_rate_service = Arc::new(exchange_rates::ExchangeRateService::new(Arc::new(
+            manager.metadata_db.clone(),
+        )));
+
         // Start background task to refresh exchange rates every 10 minutes
         exchange_rate_service.clone().start_refresh_task();
-        
+
         // Fetch initial exchange rates
         tokio::spawn(async move {
             if let Err(e) = exchange_rate_service.get_rates().await {

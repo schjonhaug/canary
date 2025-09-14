@@ -156,6 +156,7 @@ impl IsolatedTestEnvironment {
             metadata_db.clone(),
             wallet_manager.electrum_client.clone(),
             wallet_manager.get_network(),
+            wallet_manager.wallets.clone(),
         );
         let app_services = AppServices {
             metadata_db: metadata_db.clone(),
@@ -313,6 +314,7 @@ impl IsolatedTestEnvironment {
             metadata_db.clone(),
             wallet_manager.electrum_client.clone(),
             wallet_manager.get_network(),
+            wallet_manager.wallets.clone(),
         );
         let app_services = AppServices {
             metadata_db: metadata_db.clone(),
@@ -407,72 +409,81 @@ impl IsolatedTestEnvironment {
         Fut: std::future::Future<Output = Result<Self, Box<dyn std::error::Error>>>,
     {
         let mut last_error = None;
-        
+
         for attempt in 1..=max_retries {
-            println!("🔄 Test environment creation attempt {}/{}", attempt, max_retries);
-            
+            println!(
+                "🔄 Test environment creation attempt {}/{}",
+                attempt, max_retries
+            );
+
             match create_fn().await {
                 Ok(env) => {
-                    println!("✅ Test environment created successfully on attempt {}", attempt);
+                    println!(
+                        "✅ Test environment created successfully on attempt {}",
+                        attempt
+                    );
                     return Ok(env);
                 }
                 Err(e) => {
                     println!("❌ Attempt {} failed: {}", attempt, e);
                     last_error = Some(e);
-                    
+
                     if attempt < max_retries {
                         // Wait before retrying, with exponential backoff
                         let wait_time = attempt * 2;
                         println!("⏳ Waiting {}s before retry...", wait_time);
                         sleep(Duration::from_secs(wait_time as u64)).await;
-                        
+
                         // Clean up any partial resources before retrying
                         Self::cleanup_orphaned_test_containers();
                     }
                 }
             }
         }
-        
+
         Err(last_error.unwrap_or_else(|| "All retry attempts failed".into()))
     }
 
     /// Find an available port using a more robust allocation strategy  
     /// Uses timestamp + random to ensure uniqueness across parallel tests
     fn find_available_port_with_offset(
-        _start_port: u16, // Unused now, but kept for API compatibility
+        _start_port: u16,  // Unused now, but kept for API compatibility
         _test_offset: u16, // Unused now, but kept for API compatibility
     ) -> Result<u16, Box<dyn std::error::Error>> {
         use rand::Rng;
         let mut rng = rand::thread_rng();
-        
+
         // Use current timestamp in microseconds to ensure uniqueness
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_micros() as u32;
-            
+
         // Create a unique offset based on timestamp and random number
         let unique_offset = (now % 10000) + rng.gen_range(0..1000);
-        
+
         // Try multiple port ranges to avoid conflicts
         let port_ranges = [
-            (30000, 32000),  // Range 1
-            (32000, 34000),  // Range 2
-            (34000, 36000),  // Range 3  
-            (36000, 38000),  // Range 4
-            (38000, 40000),  // Range 5
-            (40000, 42000),  // Range 6
-            (42000, 44000),  // Range 7
-            (44000, 46000),  // Range 8
-            (46000, 48000),  // Range 9
-            (48000, 50000),  // Range 10
+            (30000, 32000), // Range 1
+            (32000, 34000), // Range 2
+            (34000, 36000), // Range 3
+            (36000, 38000), // Range 4
+            (38000, 40000), // Range 5
+            (40000, 42000), // Range 6
+            (42000, 44000), // Range 7
+            (44000, 46000), // Range 8
+            (46000, 48000), // Range 9
+            (48000, 50000), // Range 10
         ];
 
         // First, try a deterministic port based on start_port + unique offset
         for (range_start, range_end) in port_ranges {
             let candidate_port = (range_start + (unique_offset % (range_end - range_start))) as u16;
             if Self::is_port_available(candidate_port) {
-                println!("   Selected deterministic port {} (offset: {})", candidate_port, unique_offset);
+                println!(
+                    "   Selected deterministic port {} (offset: {})",
+                    candidate_port, unique_offset
+                );
                 return Ok(candidate_port);
             }
         }
@@ -482,7 +493,10 @@ impl IsolatedTestEnvironment {
             for _ in 0..20 {
                 let random_port = rng.gen_range(range_start..range_end) as u16;
                 if Self::is_port_available(random_port) {
-                    println!("   Selected random port {} from range {}-{}", random_port, range_start, range_end);
+                    println!(
+                        "   Selected random port {} from range {}-{}",
+                        random_port, range_start, range_end
+                    );
                     return Ok(random_port);
                 }
             }
@@ -505,7 +519,13 @@ impl IsolatedTestEnvironment {
 
         // Check if Docker has any containers using this port (both running and stopped)
         let running_check = std::process::Command::new("docker")
-            .args(&["ps", "-a", "--filter", &format!("publish={}", port), "--quiet"])
+            .args(&[
+                "ps",
+                "-a",
+                "--filter",
+                &format!("publish={}", port),
+                "--quiet",
+            ])
             .output();
 
         if let Ok(output) = running_check {
@@ -517,7 +537,14 @@ impl IsolatedTestEnvironment {
 
         // Additional check for containers that might be binding to this port internally
         let port_check = std::process::Command::new("docker")
-            .args(&["ps", "-a", "--format", "{{.Ports}}", "--filter", "name=test-"])
+            .args(&[
+                "ps",
+                "-a",
+                "--format",
+                "{{.Ports}}",
+                "--filter",
+                "name=test-",
+            ])
             .output();
 
         if let Ok(output) = port_check {
@@ -554,14 +581,17 @@ impl IsolatedTestEnvironment {
                             .args(&["stop"])
                             .args(&container_ids)
                             .output();
-                        
+
                         let _ = Command::new("docker")
                             .args(&["rm", "-f"])
                             .args(&container_ids)
                             .output();
                     }
 
-                    println!("   ✅ Stopped and removed {} containers", container_ids.len());
+                    println!(
+                        "   ✅ Stopped and removed {} containers",
+                        container_ids.len()
+                    );
                 } else {
                     println!("   No orphaned test containers found");
                 }
@@ -765,10 +795,10 @@ volumes:
         }
 
         println!("✅ Docker Compose environment started");
-        
+
         // Give containers a moment to fully start before proceeding
         std::thread::sleep(std::time::Duration::from_secs(2));
-        
+
         Ok(())
     }
 

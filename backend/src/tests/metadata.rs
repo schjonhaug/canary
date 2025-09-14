@@ -31,6 +31,7 @@ async fn test_delete_wallet_contact_authorization() {
             "hashedpassword",
             Some("Test User"),
             true,
+            None, // preferred_currency
         )
         .await
         .unwrap();
@@ -40,6 +41,7 @@ async fn test_delete_wallet_contact_authorization() {
             "hashedpassword",
             Some("Other User"),
             true,
+            None, // preferred_currency
         )
         .await
         .unwrap();
@@ -115,6 +117,7 @@ async fn test_delete_wallet_contact_nonexistent() {
             "hashedpassword",
             Some("Test User"),
             true,
+            None, // preferred_currency
         )
         .await
         .unwrap();
@@ -137,11 +140,23 @@ async fn test_delete_wallet_contact_wrong_wallet() {
 
     // Create test users and wallets
     let user1_id = db
-        .create_user("user1@example.com", "hashedpassword", Some("User 1"), true)
+        .create_user(
+            "user1@example.com",
+            "hashedpassword",
+            Some("User 1"),
+            true,
+            None,
+        )
         .await
         .unwrap();
     let user2_id = db
-        .create_user("user2@example.com", "hashedpassword", Some("User 2"), true)
+        .create_user(
+            "user2@example.com",
+            "hashedpassword",
+            Some("User 2"),
+            true,
+            None,
+        )
         .await
         .unwrap();
 

@@ -7,11 +7,12 @@ use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
 use futures::future::join_all;
 use miniscript::{Descriptor, DescriptorPublicKey};
-use std::fs;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{broadcast, Semaphore};
+use tokio::sync::{broadcast, Mutex, Semaphore};
+use tracing::{debug, error, info, warn};
 
 /// Maximum number of wallets to sync in parallel
 const MAX_PARALLEL_SYNCS: usize = 10;
@@ -23,6 +24,8 @@ pub struct WalletCreationService {
     metadata_db: MetadataDb,
     electrum_client: Option<ElectrumClient>,
     network: Network,
+    // Reference to in-memory wallet storage for adding new wallets
+    wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
 }
 
 impl WalletCreationService {
@@ -31,12 +34,14 @@ impl WalletCreationService {
         metadata_db: MetadataDb,
         electrum_client: Option<ElectrumClient>,
         network: Network,
+        wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
     ) -> Self {
         Self {
             wallet_dir,
             metadata_db,
             electrum_client,
             network,
+            wallets,
         }
     }
 
@@ -53,9 +58,9 @@ impl WalletCreationService {
     ) -> Result<WalletMetadata> {
         use crate::xpub_converter::XpubConverter;
 
-        println!("Creating wallet from multipath descriptor:");
-        println!("  Name: {}", name);
-        println!("  Input descriptor: {}", descriptor_str);
+        debug!("Creating wallet from multipath descriptor:");
+        debug!(" Name: {}", name);
+        debug!(" Input descriptor: {}", descriptor_str);
 
         // Validate network compatibility (defense-in-depth)
         XpubConverter::validate_descriptor_network(descriptor_str, self.network)?;
@@ -65,7 +70,7 @@ impl WalletCreationService {
             if let Some(script_type_str) = script_type {
                 if script_type_str != "auto" {
                     // Fast path: XPUB + known script type = skip probing
-                    println!(
+                    debug!(
                         "Fast path: XPUB with known script type '{}'",
                         script_type_str
                     );
@@ -82,7 +87,7 @@ impl WalletCreationService {
             }
             // For unknown XPUB script types, fall through to use XPUB as descriptor
             // Background task will handle script type detection
-            println!("Detected XPUB format - background task will handle script type detection");
+            debug!("Detected XPUB format - background task will handle script type detection");
         }
 
         // Strip key origin to prevent duplicate wallets with same XPUB
@@ -105,14 +110,14 @@ impl WalletCreationService {
         // Extract checksum from the normalized descriptor for consistent filename
         let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
         let wallet_filename_with_ext = format!("{}.sqlite", checksum);
-        println!(
+        debug!(
             "[{}] Wallet filename: {}",
             checksum, wallet_filename_with_ext
         );
 
         // Create wallet file path
         let wallet_path = self.wallet_dir.join(&wallet_filename_with_ext);
-        println!("[{}] Wallet file path: {}", checksum, wallet_path.display());
+        debug!("[{}] Wallet file path: {}", checksum, wallet_path.display());
 
         // Check if wallet file already exists
         if wallet_path.exists() {
@@ -124,7 +129,7 @@ impl WalletCreationService {
             .metadata_db
             .insert_wallet(name, &normalized_descriptor, user_id)
             .await?;
-        println!(
+        debug!(
             "[{}] Metadata saved with checksum: {}",
             checksum, wallet_checksum
         );
@@ -142,34 +147,49 @@ impl WalletCreationService {
         let network = self.network;
         let checksum_clone = checksum.clone();
         let stop_gap_clone = stop_gap.map(|s| s.to_string());
+        let wallets_clone = self.wallets.clone();
+        let wallet_path_clone = wallet_path.clone();
 
         tokio::spawn(async move {
-            println!(
+            debug!(
                 "[{}] Starting background wallet creation with stop gap: {:?}",
                 checksum_clone, stop_gap_clone
             );
             if let Err(e) = WalletManager::complete_wallet_creation_with_stop_gap(
-                wallet_path,
+                wallet_path_clone.clone(),
                 receive_descriptor,
                 change_descriptor,
                 network,
                 electrum_client_clone,
                 metadata_db_clone,
-                checksum_clone,
+                checksum_clone.clone(),
                 is_fresh_wallet,
                 stop_gap_clone.as_deref(),
             )
             .await
             {
-                eprintln!(
+                error!(
                     "[{}] Background wallet creation failed: {}",
                     wallet_checksum, e
                 );
             } else {
-                eprintln!(
+                debug!(
                     "[{}] Background wallet creation with scan depth completed",
                     wallet_checksum
                 );
+
+                // Add newly created wallet to in-memory storage
+                if let Ok((wallet, conn)) =
+                    WalletManager::load_wallet_from_disk(&wallet_path_clone, network).await
+                {
+                    let mut wallets_map = wallets_clone.lock().await;
+                    wallets_map
+                        .insert(checksum_clone.clone(), Arc::new(Mutex::new((wallet, conn))));
+                    debug!(
+                        "[{}] Added newly created wallet to in-memory storage",
+                        checksum_clone
+                    );
+                }
             }
         });
 
@@ -187,7 +207,7 @@ impl WalletCreationService {
     ) -> Result<WalletMetadata> {
         use crate::xpub_converter::{ScriptType, XpubConverter};
 
-        println!(
+        debug!(
             "Creating XPUB wallet with known script type: {}",
             script_type_str
         );
@@ -208,7 +228,7 @@ impl WalletCreationService {
         let converter = XpubConverter::new(self.network, self.electrum_client.as_ref());
         let descriptor = converter.generate_descriptor_for_type(xpub, &script_type)?;
 
-        println!("Generated descriptor: {}", descriptor);
+        debug!("Generated descriptor: {}", descriptor);
 
         // Strip key origin for consistency
         let normalized_descriptor = WalletManager::strip_key_origin_static(&descriptor)?;
@@ -242,7 +262,7 @@ impl WalletCreationService {
             .metadata_db
             .insert_wallet(name, &normalized_descriptor, user_id)
             .await?;
-        println!(
+        debug!(
             "[{}] Metadata saved with checksum: {}",
             checksum, wallet_checksum
         );
@@ -260,34 +280,49 @@ impl WalletCreationService {
         let network = self.network;
         let checksum_clone = checksum.clone();
         let stop_gap_clone = stop_gap.map(|s| s.to_string());
+        let wallets_clone = self.wallets.clone();
+        let wallet_path_clone = wallet_path.clone();
 
         tokio::spawn(async move {
-            println!(
+            debug!(
                 "[{}] Starting background wallet creation with stop gap: {:?}",
                 checksum_clone, stop_gap_clone
             );
             if let Err(e) = WalletManager::complete_wallet_creation_with_stop_gap(
-                wallet_path,
+                wallet_path_clone.clone(),
                 receive_descriptor,
                 change_descriptor,
                 network,
                 electrum_client_clone,
                 metadata_db_clone,
-                checksum_clone,
+                checksum_clone.clone(),
                 true, // Fresh wallet for XPUB with known type
                 stop_gap_clone.as_deref(),
             )
             .await
             {
-                eprintln!(
+                error!(
                     "[{}] Background wallet creation failed: {}",
                     wallet_checksum, e
                 );
             } else {
-                eprintln!(
+                debug!(
                     "[{}] Background wallet creation with scan depth completed",
                     wallet_checksum
                 );
+
+                // Add newly created wallet to in-memory storage
+                if let Ok((wallet, conn)) =
+                    WalletManager::load_wallet_from_disk(&wallet_path_clone, network).await
+                {
+                    let mut wallets_map = wallets_clone.lock().await;
+                    wallets_map
+                        .insert(checksum_clone.clone(), Arc::new(Mutex::new((wallet, conn))));
+                    debug!(
+                        "[{}] Added newly created wallet to in-memory storage",
+                        checksum_clone
+                    );
+                }
             }
         });
 
@@ -296,7 +331,9 @@ impl WalletCreationService {
 }
 
 pub struct WalletManager {
-    pub wallets: Vec<(String, PersistedWallet<Connection>)>, // (checksum, wallet)
+    // Thread-safe HashMap for in-memory wallet storage
+    // Each wallet has its own mutex for parallel access
+    pub wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
     pub wallet_dir: PathBuf,
     pub electrum_client: Option<ElectrumClient>,
     pub metadata_db: MetadataDb,
@@ -314,21 +351,21 @@ impl WalletManager {
         config: &AppConfig,
     ) -> Self {
         if let Err(e) = std::fs::create_dir_all(&wallet_dir) {
-            eprintln!("Warning: Failed to create wallet directory: {}", e);
+            warn!("Failed to create wallet directory: {}", e);
         }
 
         // Initialize electrum client
         let electrum_client = match ElectrumClient::new(electrum_url) {
             Ok(client) => {
-                println!("✅ Connected to Electrum server: {}", electrum_url);
+                info!("Connected to Electrum server: {}", electrum_url);
                 Some(client)
             }
             Err(e) => {
-                eprintln!(
+                error!(
                     "❌ Failed to connect to Electrum server {}: {}",
                     electrum_url, e
                 );
-                eprintln!("   Wallet sync will not work without Electrum connection!");
+                info!("Wallet sync will not work without Electrum connection!");
                 None
             }
         };
@@ -337,25 +374,41 @@ impl WalletManager {
         let metadata_db = match MetadataDb::new(metadata_db_path, config).await {
             Ok(db) => db,
             Err(e) => {
-                eprintln!("Warning: Failed to create metadata database: {}", e);
+                warn!("Failed to create metadata database: {}", e);
                 panic!("Cannot create WalletManager without metadata database");
             }
         };
 
-        // let sync_service = WalletSyncService::new(metadata_db.clone(), event_sender.clone()); // Temporarily commented out
+        // Initialize thread-safe wallet storage
+        let wallets = Arc::new(Mutex::new(HashMap::new()));
 
-        let manager = WalletManager {
-            wallets: Vec::new(),
-            wallet_dir,
+        let mut manager = WalletManager {
+            wallets: wallets.clone(),
+            wallet_dir: wallet_dir.clone(),
             electrum_client,
             metadata_db,
             notification_sender,
             network,
         };
 
-        // Don't load wallets at startup - this blocks the server from starting!
-        // Wallets will be loaded on-demand during the first sync cycle
-        println!("🚀 Non-blocking startup: Deferring wallet loading to background sync task");
+        // Load active wallets on startup (only wallets with active subscriptions)
+        info!("Loading active wallets into memory...");
+        let load_start = Instant::now();
+
+        // Get wallets with active subscriptions from the database
+        match manager.load_active_wallets().await {
+            Ok(count) => {
+                debug!(
+                    "✅ Loaded {} active wallets into memory in {:?}",
+                    count,
+                    load_start.elapsed()
+                );
+            }
+            Err(e) => {
+                warn!("Failed to load wallets on startup: {}", e);
+                info!("Wallets will be loaded on-demand during sync");
+            }
+        }
 
         manager
     }
@@ -363,218 +416,6 @@ impl WalletManager {
     /// Get the network configuration used by all wallets
     pub fn get_network(&self) -> Network {
         self.network
-    }
-
-    /// Create or load a SQLite connection for a wallet
-    pub fn create_sqlite_connection(&self, wallet_path: &PathBuf) -> Result<Connection> {
-        let conn = Connection::open(wallet_path)
-            .map_err(|e| anyhow!("Failed to create/load wallet database: {}", e))?;
-
-        Ok(conn)
-    }
-
-    /// Intelligently sync wallet list with database - removes deleted/expired wallets,
-    /// loads only new wallets, avoids redundant disk I/O for already-loaded wallets
-    pub async fn sync_wallet_list(&mut self) -> Result<()> {
-        let start_time = Instant::now();
-
-        // Get ready wallets from database (source of truth)
-        let ready_wallets = self.metadata_db.get_ready_wallets().await?;
-
-        // Create set of valid checksums from database
-        let valid_checksums: std::collections::HashSet<String> =
-            ready_wallets.iter().map(|w| w.checksum.clone()).collect();
-
-        // Track statistics
-        let _wallets_before = self.wallets.len();
-        let mut removed_count = 0;
-        let mut added_count = 0;
-        let mut missing_count = 0;
-
-        // First collect wallets that need to be removed (deleted or expired users)
-        let mut wallets_to_remove = Vec::new();
-        for (checksum, _) in &self.wallets {
-            if !valid_checksums.contains(checksum) {
-                wallets_to_remove.push(checksum.clone());
-            }
-        }
-
-        // Clean up each removed wallet: memory, disk, and database
-        for checksum in wallets_to_remove {
-            removed_count += 1;
-            println!("🗑️ Cleaning up wallet {} (deleted or expired)", checksum);
-
-            // Remove from memory
-            self.wallets
-                .retain(|(stored_checksum, _)| stored_checksum != &checksum);
-
-            // Delete wallet file from disk
-            let wallet_filename = format!("{}.sqlite", checksum);
-            let wallet_path = self.wallet_dir.join(&wallet_filename);
-            if wallet_path.exists() {
-                if let Err(e) = std::fs::remove_file(&wallet_path) {
-                    eprintln!(
-                        "  Warning: Failed to delete wallet file {}: {}",
-                        wallet_path.display(),
-                        e
-                    );
-                } else {
-                    println!("  ✅ Deleted wallet file: {}", wallet_path.display());
-                }
-            }
-
-            // Hard delete from database (if it was marked as deleted)
-            if let Err(e) = self
-                .metadata_db
-                .hard_delete_wallet_by_checksum(&checksum)
-                .await
-            {
-                eprintln!(
-                    "  Warning: Failed to hard delete wallet {} from database: {}",
-                    checksum, e
-                );
-            } else {
-                println!("  ✅ Hard deleted wallet {} from database", checksum);
-            }
-        }
-
-        // Create set of already loaded wallets
-        let loaded_checksums: std::collections::HashSet<String> = self
-            .wallets
-            .iter()
-            .map(|(checksum, _)| checksum.clone())
-            .collect();
-
-        // Load only NEW wallets not in memory
-        for wallet_metadata in ready_wallets {
-            if !loaded_checksums.contains(&wallet_metadata.checksum) {
-                let wallet_path = self
-                    .wallet_dir
-                    .join(format!("{}.sqlite", wallet_metadata.checksum));
-
-                if wallet_path.exists() {
-                    if let Err(e) = self.load_wallet_from_file(&wallet_path).await {
-                        eprintln!(
-                            "Failed to load new wallet {} from {}: {}",
-                            wallet_metadata.checksum,
-                            wallet_path.display(),
-                            e
-                        );
-                    } else {
-                        added_count += 1;
-                        println!(
-                            "✅ Loaded new wallet {} into memory",
-                            wallet_metadata.checksum
-                        );
-                    }
-                } else {
-                    eprintln!(
-                        "Warning: Wallet file missing for {} ({}). Expected at: {}",
-                        wallet_metadata.name,
-                        wallet_metadata.checksum,
-                        wallet_path.display()
-                    );
-                    missing_count += 1;
-                }
-            }
-        }
-
-        let duration = start_time.elapsed();
-
-        if removed_count > 0 || added_count > 0 {
-            println!(
-                "📊 Wallet sync completed in {:?}: {} in memory (+{} new, -{} removed)",
-                duration,
-                self.wallets.len(),
-                added_count,
-                removed_count
-            );
-        } else {
-            println!(
-                "⚡ Wallet list unchanged in {:?}: {} wallets in memory",
-                duration,
-                self.wallets.len()
-            );
-        }
-
-        if missing_count > 0 {
-            eprintln!("⚠️  {} wallet files were missing", missing_count);
-        }
-
-        Ok(())
-    }
-
-    /// Optional cleanup function to identify orphaned wallet files
-    /// (files that exist but aren't registered in the database)
-    #[allow(dead_code)]
-    async fn cleanup_orphaned_wallet_files(&self) -> Result<()> {
-        let entries = fs::read_dir(&self.wallet_dir)?;
-        let mut orphaned = Vec::new();
-
-        for entry in entries {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.extension().and_then(|s| s.to_str()) == Some("sqlite") {
-                let filename = path.file_stem().and_then(|n| n.to_str()).unwrap_or("");
-
-                // Check if this wallet exists in the database
-                if let Ok(None) = self.metadata_db.get_wallet_by_checksum(filename).await {
-                    orphaned.push((filename.to_string(), path.clone()));
-                }
-            }
-        }
-
-        if !orphaned.is_empty() {
-            println!("⚠️  Found {} orphaned wallet files:", orphaned.len());
-            for (checksum, path) in orphaned {
-                println!("  - {} at {}", checksum, path.display());
-                // Optionally delete or move to backup directory
-                // fs::remove_file(&path)?;
-            }
-        } else {
-            println!("✅ No orphaned wallet files found");
-        }
-
-        Ok(())
-    }
-
-    async fn load_wallet_from_file(&mut self, wallet_path: &PathBuf) -> Result<()> {
-        let start_time = Instant::now();
-        let filename = wallet_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("unknown");
-
-        // Open the SQLite connection
-        let mut db = self.create_sqlite_connection(wallet_path)?;
-
-        // Try to load the wallet (we don't know the descriptors, so we let BDK figure it out)
-        let wallet_opt = Wallet::load()
-            .extract_keys()
-            .check_network(self.get_network())
-            .load_wallet(&mut db)
-            .map_err(|e| anyhow!("Failed to load wallet: {}", e))?;
-
-        if let Some(wallet) = wallet_opt {
-            // Extract checksum from filename (remove .sqlite extension)
-            // Since we now use checksums as filenames, this is already the checksum
-            let checksum = filename
-                .strip_suffix(".sqlite")
-                .unwrap_or(filename)
-                .to_string();
-
-            // Check if wallet already exists before adding
-            if !self.wallets.iter().any(|(cs, _)| cs == &checksum) {
-                let load_duration = start_time.elapsed();
-                println!("  ⏱️ Loaded wallet {} in {:?}", checksum, load_duration);
-                self.wallets.push((checksum, wallet));
-            }
-        } else {
-            println!("  ⚠ No wallet data found in file");
-        }
-
-        Ok(())
     }
 
     /// Strip key origin information from descriptor to prevent duplicates
@@ -598,7 +439,7 @@ impl WalletManager {
         // Strip key origin if present
         let stripped_without_checksum = if key_origin_pattern.is_match(without_checksum) {
             let result = key_origin_pattern.replace_all(without_checksum, "");
-            println!("  Stripped key origin: {} -> {}", without_checksum, result);
+            debug!(" Stripped key origin: {} -> {}", without_checksum, result);
             result.to_string()
         } else {
             // No key origin found, return without checksum
@@ -612,7 +453,7 @@ impl WalletManager {
 
         // Convert back to string with new checksum
         let final_descriptor = descriptor.to_string();
-        println!("  Final normalized descriptor: {}", final_descriptor);
+        debug!(" Final normalized descriptor: {}", final_descriptor);
 
         Ok(final_descriptor)
     }
@@ -643,8 +484,8 @@ impl WalletManager {
         let receive_descriptor = descriptors[0].to_string();
         let change_descriptor = descriptors[1].to_string();
 
-        println!("  Receive descriptor: {}", receive_descriptor);
-        println!("  Change descriptor: {}", change_descriptor);
+        debug!(" Receive descriptor: {}", receive_descriptor);
+        debug!(" Change descriptor: {}", change_descriptor);
 
         Ok((receive_descriptor, change_descriptor))
     }
@@ -661,7 +502,7 @@ impl WalletManager {
         is_fresh_wallet: bool,
         stop_gap: Option<&str>,
     ) -> Result<()> {
-        println!(
+        debug!(
             "[{}] Starting background wallet creation with stop gap: {:?}",
             checksum, stop_gap
         );
@@ -698,7 +539,7 @@ impl WalletManager {
         if let Some(stop_gap_str) = stop_gap {
             if stop_gap_str != "auto" {
                 if let Ok(max_index) = stop_gap_str.parse::<u32>() {
-                    println!(
+                    debug!(
                         "[{}] Applying custom stop gap: {} addresses",
                         checksum, max_index
                     );
@@ -713,7 +554,7 @@ impl WalletManager {
 
                     // Persist the revealed addresses
                     if let Err(e) = wallet.persist(&mut db) {
-                        eprintln!(
+                        error!(
                             "[{}] Warning: Failed to persist revealed addresses: {}",
                             checksum, e
                         );
@@ -735,14 +576,14 @@ impl WalletManager {
             };
 
             if let Err(e) = client.full_scan_wallet(&mut wallet, custom_stop_gap) {
-                eprintln!(
+                error!(
                     "[{}] Warning: Failed to full scan wallet during background creation: {}",
                     checksum, e
                 );
             } else {
                 // Persist after sync
                 if let Err(e) = wallet.persist(&mut db) {
-                    eprintln!(
+                    error!(
                         "[{}] Warning: Failed to persist wallet after sync: {}",
                         checksum, e
                     );
@@ -753,7 +594,7 @@ impl WalletManager {
                     && wallet.balance().total().to_sat() == 0
                     && stop_gap.unwrap_or("auto") == "auto"
                 {
-                    println!(
+                    debug!(
                         "[{}] No funds found in initial scan, starting deep scan...",
                         checksum
                     );
@@ -761,7 +602,7 @@ impl WalletManager {
                     // Deep scan in batches up to 500 addresses (only for auto mode)
                     for batch in 1..=5 {
                         let reveal_to = batch * 100;
-                        println!(
+                        debug!(
                             "[{}] Deep scan batch {}: checking addresses up to index {}",
                             checksum, batch, reveal_to
                         );
@@ -774,7 +615,7 @@ impl WalletManager {
                             .reveal_addresses_to(bdk_wallet::KeychainKind::Internal, reveal_to)
                             .collect();
 
-                        println!(
+                        debug!(
                             "[{}] Revealed {} external, {} internal addresses (total: {} each)",
                             checksum,
                             ext_revealed.len(),
@@ -784,7 +625,7 @@ impl WalletManager {
 
                         // Sync the newly revealed addresses
                         if let Err(e) = client.sync_wallet(&mut wallet) {
-                            eprintln!(
+                            error!(
                                 "[{}] Warning: Failed to sync during deep scan batch {}: {}",
                                 checksum, batch, e
                             );
@@ -794,7 +635,7 @@ impl WalletManager {
                         // Check if we found any activity - if so, we should continue scanning
                         let current_balance = wallet.balance().total().to_sat();
                         if current_balance > 0 {
-                            println!(
+                            debug!(
                                 "[{}] Found activity during deep scan! Balance: {} sats",
                                 checksum, current_balance
                             );
@@ -804,7 +645,7 @@ impl WalletManager {
 
                     // Final persistence after deep scanning
                     if let Err(e) = wallet.persist(&mut db) {
-                        eprintln!(
+                        error!(
                             "[{}] Warning: Failed to persist after deep scan: {}",
                             checksum, e
                         );
@@ -819,7 +660,7 @@ impl WalletManager {
             .update_wallet_balance_by_checksum(&checksum, balance)
             .await
         {
-            eprintln!(
+            error!(
                 "[{}] Warning: Failed to update wallet balance: {}",
                 checksum, e
             );
@@ -835,7 +676,7 @@ impl WalletManager {
             )
             .await
         {
-            eprintln!(
+            error!(
                 "[{}] Warning: Failed to extract historical transactions: {}",
                 checksum, e
             );
@@ -843,7 +684,7 @@ impl WalletManager {
 
         // Update last synced timestamp
         if let Err(e) = metadata_db.update_wallet_last_synced(&checksum).await {
-            eprintln!(
+            error!(
                 "[{}] Warning: Failed to update wallet last synced: {}",
                 checksum, e
             );
@@ -851,18 +692,18 @@ impl WalletManager {
 
         // Mark wallet as ready after deep scan and transaction extraction is complete
         if let Err(e) = metadata_db.update_wallet_status(&checksum, "ready").await {
-            eprintln!(
+            error!(
                 "[{}] Warning: Failed to mark wallet as ready: {}",
                 checksum, e
             );
         } else {
-            println!(
+            debug!(
                 "[{}] ✅ Wallet marked as ready - available for frontend display",
                 checksum
             );
         }
 
-        println!(
+        debug!(
             "[{}] Background wallet creation with scan depth completed",
             checksum
         );
@@ -871,6 +712,8 @@ impl WalletManager {
 
     /// Clean up deleted wallets - remove from memory, disk, and database
     async fn cleanup_deleted_wallets(&mut self) -> Result<()> {
+        use std::collections::HashSet;
+
         // Get ready wallets from database (source of truth)
         let ready_wallets = self.metadata_db.get_ready_wallets().await?;
 
@@ -878,14 +721,19 @@ impl WalletManager {
         let deleted_wallets = self.metadata_db.get_deleted_wallets().await?;
 
         // Create set of valid checksums from database
-        let valid_checksums: std::collections::HashSet<String> =
+        let valid_checksums: HashSet<String> =
             ready_wallets.iter().map(|w| w.checksum.clone()).collect();
 
-        // Collect wallets that need to be removed from memory (deleted or expired users)
+        // Collect wallets that need to be removed
         let mut wallets_to_remove = Vec::new();
-        for (checksum, _) in &self.wallets {
-            if !valid_checksums.contains(checksum) {
-                wallets_to_remove.push(checksum.clone());
+
+        // Check wallets in memory against valid checksums
+        {
+            let wallets_map = self.wallets.lock().await;
+            for checksum in wallets_map.keys() {
+                if !valid_checksums.contains(checksum) {
+                    wallets_to_remove.push(checksum.clone());
+                }
             }
         }
 
@@ -898,24 +746,34 @@ impl WalletManager {
 
         // Clean up each removed wallet: memory, disk, and database
         for checksum in wallets_to_remove {
-            println!("🗑️ Cleaning up wallet {} (deleted or expired)", checksum);
+            debug!("Cleaning up wallet {} (deleted or expired)", checksum);
 
             // Remove from memory (if it was loaded)
-            self.wallets
-                .retain(|(stored_checksum, _)| stored_checksum != &checksum);
+            {
+                let mut wallets_map = self.wallets.lock().await;
+                if let Some(wallet_arc) = wallets_map.remove(&checksum) {
+                    // Persist final state before removal
+                    let mut wallet_data = wallet_arc.lock().await;
+                    let (wallet, conn) = &mut *wallet_data;
+                    if let Err(e) = wallet.persist(conn) {
+                        warn!("Failed to persist wallet before removal: {}", e);
+                    }
+                    debug!("Removed wallet from memory");
+                }
+            }
 
             // Delete wallet file from disk (whether it was in memory or not)
             let wallet_filename = format!("{}.sqlite", checksum);
             let wallet_path = self.wallet_dir.join(&wallet_filename);
             if wallet_path.exists() {
                 if let Err(e) = std::fs::remove_file(&wallet_path) {
-                    eprintln!(
+                    error!(
                         "  Warning: Failed to delete wallet file {}: {}",
                         wallet_path.display(),
                         e
                     );
                 } else {
-                    println!("  ✅ Deleted wallet file: {}", wallet_path.display());
+                    debug!("Deleted wallet file: {}", wallet_path.display());
                 }
             }
 
@@ -925,37 +783,16 @@ impl WalletManager {
                 .hard_delete_wallet_by_checksum(&checksum)
                 .await
             {
-                eprintln!(
+                error!(
                     "  Warning: Failed to hard delete wallet {} from database: {}",
                     checksum, e
                 );
             } else {
-                println!("  ✅ Hard deleted wallet {} from database", checksum);
+                debug!("Hard deleted wallet {} from database", checksum);
             }
         }
 
         Ok(())
-    }
-
-    /// Load a wallet from disk for sync operations (independent of WalletManager state)
-    /// Returns both the wallet and the database connection for persistence
-    async fn load_wallet_for_sync(
-        wallet_path: PathBuf,
-        network: Network,
-    ) -> Result<(PersistedWallet<Connection>, Connection)> {
-        // Open the SQLite connection
-        let mut db = Connection::open(&wallet_path)
-            .map_err(|e| anyhow!("Failed to open wallet database: {}", e))?;
-
-        // Load the wallet
-        let wallet_opt = Wallet::load()
-            .extract_keys()
-            .check_network(network)
-            .load_wallet(&mut db)
-            .map_err(|e| anyhow!("Failed to load wallet: {}", e))?;
-
-        let wallet = wallet_opt.ok_or_else(|| anyhow!("No wallet data found in file"))?;
-        Ok((wallet, db))
     }
 
     /// Sync all wallets for a specific subscription tier in parallel
@@ -967,28 +804,97 @@ impl WalletManager {
 
         let sync_start = Instant::now();
 
-        // First, perform wallet cleanup (remove deleted wallets)
+        // First, perform wallet cleanup (remove deleted wallets from memory and disk)
         self.cleanup_deleted_wallets().await?;
 
         // Convert Network to NetworkConfig for the query
         let network_config = NetworkConfig::from_network(self.network);
 
         // Get wallets for this tier from metadata
-        let wallets = self
+        let tier_wallets = self
             .metadata_db
             .get_wallets_for_tier_sync(&tier, &network_config)
             .await?;
 
-        if wallets.is_empty() {
-            println!("📭 No {:?} tier wallets to sync", tier);
+        if tier_wallets.is_empty() {
+            debug!("No {:?} tier wallets to sync", tier);
             return Ok(());
         }
 
-        println!(
-            "🔄 Starting parallel sync for {} {:?} tier wallets",
-            wallets.len(),
+        debug!(
+            "🔄 Starting parallel sync for {} {:?} tier wallets (in-memory)",
+            tier_wallets.len(),
             tier
         );
+
+        // Ensure all tier wallets are loaded in memory
+        {
+            let wallets_map = self.wallets.lock().await;
+            let mut missing_wallets = Vec::new();
+
+            for wallet_metadata in &tier_wallets {
+                if !wallets_map.contains_key(&wallet_metadata.checksum) {
+                    missing_wallets.push(wallet_metadata.clone());
+                }
+            }
+
+            drop(wallets_map); // Release lock before loading
+
+            // Load any missing wallets into memory
+            if !missing_wallets.is_empty() {
+                info!(
+                    " Loading {} missing wallets into memory",
+                    missing_wallets.len()
+                );
+                for wallet_metadata in missing_wallets {
+                    let wallet_path = self
+                        .wallet_dir
+                        .join(format!("{}.sqlite", wallet_metadata.checksum));
+                    if wallet_path.exists() {
+                        match Self::load_wallet_from_disk(&wallet_path, self.network).await {
+                            Ok((wallet, conn)) => {
+                                let mut wallets_map = self.wallets.lock().await;
+                                wallets_map.insert(
+                                    wallet_metadata.checksum.clone(),
+                                    Arc::new(Mutex::new((wallet, conn))),
+                                );
+                                debug!(
+                                    " Loaded wallet: {} ({})",
+                                    wallet_metadata.name, wallet_metadata.checksum
+                                );
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Failed to load wallet {} into memory: {}",
+                                    wallet_metadata.name, e
+                                );
+                            }
+                        }
+                    } else {
+                        error!("Wallet file not found: {}", wallet_path.display());
+                    }
+                }
+            }
+        }
+
+        // Get wallet references from in-memory storage
+        let wallet_refs: Vec<_> = {
+            let wallets_map = self.wallets.lock().await;
+
+            tier_wallets
+                .iter()
+                .filter_map(|metadata| {
+                    wallets_map
+                        .get(&metadata.checksum)
+                        .map(|wallet_arc| (metadata.clone(), wallet_arc.clone()))
+                })
+                .collect()
+        };
+
+        if wallet_refs.is_empty() {
+            warn!("No wallets found in memory for sync");
+            return Ok(());
+        }
 
         // Create semaphore to limit concurrent syncs
         let semaphore = Arc::new(Semaphore::new(MAX_PARALLEL_SYNCS));
@@ -997,18 +903,15 @@ impl WalletManager {
         let metadata_db = self.metadata_db.clone();
         let notification_sender = self.notification_sender.clone();
         let electrum_client = self.electrum_client.clone();
-        let wallet_dir = self.wallet_dir.clone();
-        let network = self.network;
 
-        // Create parallel sync tasks
-        let sync_tasks: Vec<_> = wallets
+        // Create parallel sync tasks using in-memory wallets
+        let sync_tasks: Vec<_> = wallet_refs
             .into_iter()
-            .map(|wallet_metadata| {
+            .map(|(wallet_metadata, wallet_arc)| {
                 let semaphore = semaphore.clone();
                 let metadata_db = metadata_db.clone();
                 let notification_sender = notification_sender.clone();
                 let electrum_client = electrum_client.clone();
-                let wallet_dir = wallet_dir.clone();
 
                 tokio::spawn(async move {
                     // Acquire semaphore permit
@@ -1018,30 +921,10 @@ impl WalletManager {
                         .map_err(|e| anyhow!("Failed to acquire semaphore: {}", e))?;
 
                     let wallet_start = Instant::now();
-                    let wallet_filename = format!("{}.sqlite", wallet_metadata.checksum);
-                    let wallet_path = wallet_dir.join(&wallet_filename);
 
-                    // Check if wallet file exists
-                    if !wallet_path.exists() {
-                        eprintln!(
-                            "❌ Wallet file not found for {}: {}",
-                            wallet_metadata.name,
-                            wallet_path.display()
-                        );
-                        return Err(anyhow!("Wallet file not found"));
-                    }
-
-                    // Load wallet from disk (with database connection for persistence)
-                    let (mut wallet, mut db) = match Self::load_wallet_for_sync(wallet_path, network).await {
-                        Ok((w, db)) => (w, db),
-                        Err(e) => {
-                            eprintln!(
-                                "❌ Failed to load wallet {} from disk: {}",
-                                wallet_metadata.name, e
-                            );
-                            return Err(e);
-                        }
-                    };
+                    // Lock the specific wallet for sync
+                    let mut wallet_data = wallet_arc.lock().await;
+                    let (wallet, conn) = &mut *wallet_data;
 
                     // Create sync service
                     let sync_service = WalletSyncService::new(metadata_db, notification_sender);
@@ -1049,31 +932,31 @@ impl WalletManager {
                     // Perform sync
                     match sync_service
                         .sync_wallet_by_checksum(
-                            &mut wallet,
+                            wallet,
                             &wallet_metadata.checksum,
                             electrum_client.as_ref(),
                         )
                         .await
                     {
                         Ok(_) => {
-                            // Persist wallet changes (including revealed addresses) back to disk
-                            if let Err(e) = wallet.persist(&mut db) {
-                                eprintln!(
+                            // Persist wallet changes back to disk (wallet stays in memory)
+                            if let Err(e) = wallet.persist(conn) {
+                                error!(
                                     "⚠️ Failed to persist wallet {} after sync: {}",
                                     wallet_metadata.name, e
                                 );
                             }
-                            
+
                             let sync_duration = wallet_start.elapsed();
-                            println!(
-                                "✅ Synced wallet {} in {:.2}s",
+                            debug!(
+                                "✅ Synced wallet {} in {:.2}s (from memory)",
                                 wallet_metadata.name,
                                 sync_duration.as_secs_f64()
                             );
                             Ok(wallet_metadata.name)
                         }
                         Err(e) => {
-                            eprintln!("❌ Failed to sync wallet {}: {}", wallet_metadata.name, e);
+                            warn!("Failed to sync wallet {}: {}", wallet_metadata.name, e);
                             Err(e)
                         }
                     }
@@ -1096,8 +979,8 @@ impl WalletManager {
         }
 
         let total_duration = sync_start.elapsed();
-        println!(
-            "🏁 Parallel sync completed in {:.2}s - Success: {}, Failed: {}",
+        debug!(
+            "🏁 Parallel in-memory sync completed in {:.2}s - Success: {}, Failed: {}",
             total_duration.as_secs_f64(),
             success_count,
             failure_count
@@ -1224,5 +1107,80 @@ impl WalletManager {
         checksum: &str,
     ) -> Result<Option<crate::metadata::WalletMetadata>, anyhow::Error> {
         self.metadata_db.get_wallet_by_checksum(checksum).await
+    }
+
+    /// Load all active wallets from disk into memory
+    /// This is called on startup to pre-load wallets with active subscriptions
+    async fn load_active_wallets(&mut self) -> Result<usize> {
+        // Get ready wallets from the database (wallets with active subscriptions)
+        let active_wallets = self.metadata_db.get_ready_wallets().await?;
+
+        let mut loaded_count = 0;
+        let mut wallets_map = self.wallets.lock().await;
+
+        for wallet_metadata in active_wallets {
+            let wallet_path = self
+                .wallet_dir
+                .join(format!("{}.sqlite", wallet_metadata.checksum));
+
+            if wallet_path.exists() {
+                match Self::load_wallet_from_disk(&wallet_path, self.network).await {
+                    Ok((wallet, conn)) => {
+                        wallets_map.insert(
+                            wallet_metadata.checksum.clone(),
+                            Arc::new(Mutex::new((wallet, conn))),
+                        );
+                        loaded_count += 1;
+                        debug!(
+                            " Loaded wallet: {} ({})",
+                            wallet_metadata.name, wallet_metadata.checksum
+                        );
+                    }
+                    Err(e) => {
+                        warn!(
+                            " Failed to load wallet {} from {}: {}",
+                            wallet_metadata.name,
+                            wallet_path.display(),
+                            e
+                        );
+                    }
+                }
+            } else {
+                warn!(
+                    " Wallet file not found for {}: {}",
+                    wallet_metadata.name,
+                    wallet_path.display()
+                );
+            }
+        }
+
+        Ok(loaded_count)
+    }
+
+    /// Load a single wallet from disk
+    /// Returns the wallet and its database connection
+    async fn load_wallet_from_disk(
+        wallet_path: &PathBuf,
+        network: Network,
+    ) -> Result<(PersistedWallet<Connection>, Connection)> {
+        // Run blocking I/O in a separate thread
+        let path = wallet_path.clone();
+        let result = tokio::task::spawn_blocking(move || {
+            let conn = Connection::open(&path)
+                .map_err(|e| anyhow!("Failed to open wallet database: {}", e))?;
+
+            let mut conn = conn;
+            let wallet = Wallet::load()
+                .extract_keys()
+                .check_network(network)
+                .load_wallet(&mut conn)
+                .map_err(|e| anyhow!("Failed to load wallet from database: {}", e))?;
+
+            let wallet_opt = wallet.ok_or_else(|| anyhow!("No wallet data found in file"))?;
+            Ok::<(PersistedWallet<Connection>, Connection), anyhow::Error>((wallet_opt, conn))
+        })
+        .await??;
+
+        Ok(result)
     }
 }

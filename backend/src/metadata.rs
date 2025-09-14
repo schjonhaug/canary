@@ -2792,36 +2792,48 @@ impl MetadataDb {
     }
 
     // Exchange rate methods
-    pub async fn get_exchange_rates(&self) -> Result<std::collections::HashMap<String, exchange_rates::ExchangeRate>> {
+    pub async fn get_exchange_rates(
+        &self,
+    ) -> Result<std::collections::HashMap<String, exchange_rates::ExchangeRate>> {
         let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<std::collections::HashMap<String, exchange_rates::ExchangeRate>> {
-            let conn = pool.get()?;
-            let mut stmt = conn.prepare("SELECT currency, rate_per_btc, last_updated FROM exchange_rates")?;
-            let rate_iter = stmt.query_map(params![], |row| {
-                Ok(exchange_rates::ExchangeRate {
-                    currency: row.get(0)?,
-                    rate_per_btc: row.get(1)?,
-                    last_updated: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(2)?)
-                        .map_err(|e| bdk_wallet::rusqlite::Error::FromSqlConversionFailure(
-                            2,
-                            bdk_wallet::rusqlite::types::Type::Text,
-                            Box::new(e)
-                        ))?
+        spawn_blocking(
+            move || -> Result<std::collections::HashMap<String, exchange_rates::ExchangeRate>> {
+                let conn = pool.get()?;
+                let mut stmt = conn
+                    .prepare("SELECT currency, rate_per_btc, last_updated FROM exchange_rates")?;
+                let rate_iter = stmt.query_map(params![], |row| {
+                    Ok(exchange_rates::ExchangeRate {
+                        currency: row.get(0)?,
+                        rate_per_btc: row.get(1)?,
+                        last_updated: chrono::DateTime::parse_from_rfc3339(
+                            &row.get::<_, String>(2)?,
+                        )
+                        .map_err(|e| {
+                            bdk_wallet::rusqlite::Error::FromSqlConversionFailure(
+                                2,
+                                bdk_wallet::rusqlite::types::Type::Text,
+                                Box::new(e),
+                            )
+                        })?
                         .with_timezone(&chrono::Utc),
-                })
-            })?;
-            
-            let mut rates = std::collections::HashMap::new();
-            for rate in rate_iter {
-                let rate = rate?;
-                rates.insert(rate.currency.clone(), rate);
-            }
-            Ok(rates)
-        })
+                    })
+                })?;
+
+                let mut rates = std::collections::HashMap::new();
+                for rate in rate_iter {
+                    let rate = rate?;
+                    rates.insert(rate.currency.clone(), rate);
+                }
+                Ok(rates)
+            },
+        )
         .await?
     }
 
-    pub async fn store_exchange_rates(&self, rates: &std::collections::HashMap<String, exchange_rates::ExchangeRate>) -> Result<()> {
+    pub async fn store_exchange_rates(
+        &self,
+        rates: &std::collections::HashMap<String, exchange_rates::ExchangeRate>,
+    ) -> Result<()> {
         let pool = self.pool.clone();
         let rates = rates.clone();
         spawn_blocking(move || -> Result<()> {
@@ -2859,7 +2871,11 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn update_user_preferred_currency(&self, user_id: &str, currency: &str) -> Result<()> {
+    pub async fn update_user_preferred_currency(
+        &self,
+        user_id: &str,
+        currency: &str,
+    ) -> Result<()> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let currency = currency.to_string();
