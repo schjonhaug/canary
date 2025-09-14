@@ -39,8 +39,8 @@ impl ExchangeRateService {
 
     /// Map browser locale to appropriate fiat currency
     pub fn locale_to_currency(locale: &str) -> &'static str {
-        // Extract the country code from locale (e.g., "en-US" -> "US")
-        let locale_lower = locale.to_lowercase();
+        // Normalize locale format: convert underscores to hyphens (e.g., "no_NO" -> "no-no")
+        let locale_lower = locale.to_lowercase().replace('_', "-");
 
         // Direct locale mappings
         match locale_lower.as_str() {
