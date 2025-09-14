@@ -1093,8 +1093,6 @@ pub async fn get_wallet(
     headers: HeaderMap,
     Path(checksum): Path<String>,
 ) -> Response {
-    let start_time = std::time::Instant::now();
-
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(
         &config,
@@ -2824,8 +2822,6 @@ pub async fn get_current_block_header(
         ConfigState,
     )>,
 ) -> Response {
-    let start_time = std::time::Instant::now();
-
     let result = app_services.metadata_db.get_current_block_header().await;
 
 
@@ -2870,8 +2866,6 @@ pub async fn get_wallets_list(
     )>,
     headers: HeaderMap,
 ) -> Response {
-    let start_time = std::time::Instant::now();
-
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(
         &config,
@@ -2947,8 +2941,6 @@ pub async fn get_wallet_detail(
     Path(checksum): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let start_time = std::time::Instant::now();
-
     // Authenticate user based on operating mode
     let user = match authenticate_user_mode_aware(
         &config,
@@ -3393,8 +3385,6 @@ pub async fn login(
     )>,
     Json(request): Json<LoginRequest>,
 ) -> Response {
-    let start_time = std::time::Instant::now();
-
     // Check if user exists - no mutex blocking!
     let user_record = match app_services
         .metadata_db
