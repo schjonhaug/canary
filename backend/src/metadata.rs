@@ -448,14 +448,20 @@ impl MetadataDb {
             )?;
 
             if !foss_user_exists {
-                // Create the hardcoded FOSS user
+                // Detect system locale for currency, fallback to USD
+                let default_currency = std::env::var("LANG")
+                    .or_else(|_| std::env::var("LC_ALL"))
+                    .map(|locale| crate::exchange_rates::ExchangeRateService::locale_to_currency(&locale))
+                    .unwrap_or("USD");
+
+                // Create the hardcoded FOSS user with locale-based currency
                 conn.execute(
-                    "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency) 
-                     VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 1, 'team', 'active', datetime('now'), 'USD')",
-                    [],
+                    "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
+                     VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 1, 'team', 'active', datetime('now'), ?1)",
+                    [default_currency],
                 )?;
-                
-                println!("✅ Created FOSS user: admin@local (foss-user)");
+
+                println!("✅ Created FOSS user: admin@local (foss-user) with currency: {}", default_currency);
             }
 
             Ok(())

@@ -3,8 +3,9 @@
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, Settings } from "lucide-react"
 import { UserDropdown } from "@/components/user-dropdown"
+import { useAuth } from "@/contexts/auth-context"
 
 interface AppHeaderProps {
   showAddWallet?: boolean
@@ -13,12 +14,14 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ showAddWallet = false, onAddWallet, customLogo }: AppHeaderProps) {
+  const { isSaasMode } = useAuth()
+
   return (
     <div className="mb-4 sm:mb-6 flex items-center justify-between">
       <Link href="/" className="flex items-center gap-2 sm:gap-4 hover:opacity-80 transition-opacity">
         <div className="relative w-10 h-10 sm:w-12 sm:h-12">
           {customLogo ? (
-            <div 
+            <div
               className="absolute inset-0 w-full h-full [&>svg]:w-full [&>svg]:h-full [&>svg]:transition-all [&>svg]:duration-500 [&>svg]:ease-in-out animate-in fade-in-0 duration-500"
               dangerouslySetInnerHTML={{ __html: customLogo }}
             />
@@ -45,7 +48,21 @@ export function AppHeader({ showAddWallet = false, onAddWallet, customLogo }: Ap
             <span className="hidden sm:inline">Add Wallet</span>
           </Button>
         )}
-        
+
+        {/* Settings button for FOSS mode */}
+        {!isSaasMode && (
+          <Link href="/settings">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 sm:gap-2"
+            >
+              <Settings size={16} />
+              <span className="hidden sm:inline">Settings</span>
+            </Button>
+          </Link>
+        )}
+
         <UserDropdown />
       </div>
     </div>

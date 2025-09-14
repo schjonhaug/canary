@@ -4868,24 +4868,21 @@ pub fn create_router_with_services(
     )
 )]
 pub async fn get_user_preferences(
-    State((app_services, _stripe_billing, _config)): State<(
+    State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
         StripeBillingState,
         ConfigState,
     )>,
     headers: HeaderMap,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user (works in both SAAS and FOSS mode)
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
-        Err(_) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
-                }),
-            )
-                .into_response();
+        Err(err) => {
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 
@@ -4928,7 +4925,7 @@ pub async fn get_user_preferences(
     )
 )]
 pub async fn update_user_preferences(
-    State((app_services, _stripe_billing, _config)): State<(
+    State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
         StripeBillingState,
         ConfigState,
@@ -4936,17 +4933,14 @@ pub async fn update_user_preferences(
     headers: HeaderMap,
     Json(request): Json<UpdateUserPreferencesRequest>,
 ) -> Response {
-    // Authenticate user
-    let user = match authenticate_user(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+    // Authenticate user (works in both SAAS and FOSS mode)
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
         Ok(user) => user,
-        Err(_) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
-                }),
-            )
-                .into_response();
+        Err(err) => {
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
 

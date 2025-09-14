@@ -103,8 +103,8 @@ export default function WalletsPage() {
                           return (
                             <span>
                               {' '}(
-                              {new Intl.NumberFormat(undefined, { 
-                                style: 'currency', 
+                              {new Intl.NumberFormat(undefined, {
+                                style: 'currency',
                                 currency: fiatTotal.currency,
                                 minimumFractionDigits: 0,
                                 maximumFractionDigits: 0
