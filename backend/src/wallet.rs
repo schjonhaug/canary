@@ -165,6 +165,7 @@ impl WalletCreationService {
                 checksum_clone.clone(),
                 is_fresh_wallet,
                 stop_gap_clone.as_deref(),
+                wallets_clone,
             )
             .await
             {
@@ -178,18 +179,6 @@ impl WalletCreationService {
                     wallet_checksum
                 );
 
-                // Add newly created wallet to in-memory storage
-                if let Ok((wallet, conn)) =
-                    WalletManager::load_wallet_from_disk(&wallet_path_clone, network).await
-                {
-                    let mut wallets_map = wallets_clone.lock().await;
-                    wallets_map
-                        .insert(checksum_clone.clone(), Arc::new(Mutex::new((wallet, conn))));
-                    debug!(
-                        "[{}] Added newly created wallet to in-memory storage",
-                        checksum_clone
-                    );
-                }
             }
         });
 
@@ -298,6 +287,7 @@ impl WalletCreationService {
                 checksum_clone.clone(),
                 true, // Fresh wallet for XPUB with known type
                 stop_gap_clone.as_deref(),
+                wallets_clone,
             )
             .await
             {
@@ -311,18 +301,6 @@ impl WalletCreationService {
                     wallet_checksum
                 );
 
-                // Add newly created wallet to in-memory storage
-                if let Ok((wallet, conn)) =
-                    WalletManager::load_wallet_from_disk(&wallet_path_clone, network).await
-                {
-                    let mut wallets_map = wallets_clone.lock().await;
-                    wallets_map
-                        .insert(checksum_clone.clone(), Arc::new(Mutex::new((wallet, conn))));
-                    debug!(
-                        "[{}] Added newly created wallet to in-memory storage",
-                        checksum_clone
-                    );
-                }
             }
         });
 
@@ -503,6 +481,7 @@ impl WalletManager {
         checksum: String,
         is_fresh_wallet: bool,
         stop_gap: Option<&str>,
+        wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
     ) -> Result<()> {
         debug!(
             "[{}] Starting background wallet creation with stop gap: {:?}",
@@ -701,6 +680,21 @@ impl WalletManager {
         } else {
             debug!(
                 "[{}] ✅ Wallet marked as ready - available for frontend display",
+                checksum
+            );
+        }
+
+        // Add wallet to in-memory storage after it's fully set up and marked as ready
+        if let Ok((wallet, conn)) = Self::load_wallet_from_disk(&wallet_path, network).await {
+            let mut wallets_map = wallets.lock().await;
+            wallets_map.insert(checksum.clone(), Arc::new(Mutex::new((wallet, conn))));
+            debug!(
+                "[{}] Added newly created wallet to in-memory storage after full setup",
+                checksum
+            );
+        } else {
+            error!(
+                "[{}] Failed to load wallet into memory after creation",
                 checksum
             );
         }
