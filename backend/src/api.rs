@@ -1142,11 +1142,6 @@ pub async fn get_wallet(
                 }
             }
 
-            let response_time = start_time.elapsed();
-            println!(
-                "⚡ Non-blocking wallet metadata served in {:?}",
-                response_time
-            );
             (StatusCode::OK, Json(wallet)).into_response()
         }
         Ok(None) => (
@@ -2833,8 +2828,6 @@ pub async fn get_current_block_header(
 
     let result = app_services.metadata_db.get_current_block_header().await;
 
-    let elapsed = start_time.elapsed();
-    info!("get_current_block_header completed in {:?}", elapsed);
 
     match result {
         Ok(Some(block_header)) => (StatusCode::OK, Json(block_header)).into_response(),
@@ -2915,8 +2908,6 @@ pub async fn get_wallets_list(
                 }
             }
 
-            let response_time = start_time.elapsed();
-            println!("⚡ Non-blocking wallet list served in {:?}", response_time);
             (StatusCode::OK, Json(wallets_response)).into_response()
         }
         Err(e) => (
@@ -3051,11 +3042,6 @@ pub async fn get_wallet_detail(
             }
         };
 
-        let response_time = start_time.elapsed();
-        println!(
-            "⚡ Non-blocking wallet detail (pending) served in {:?}",
-            response_time
-        );
 
         let wallet_detail = WalletDetailResponse {
             timestamp,
@@ -3120,11 +3106,6 @@ pub async fn get_wallet_detail(
         }
     }
 
-    let response_time = start_time.elapsed();
-    println!(
-        "⚡ Non-blocking wallet detail served in {:?}",
-        response_time
-    );
 
     let wallet_detail = WalletDetailResponse {
         timestamp,
@@ -3563,8 +3544,6 @@ pub async fn login(
         preferred_fiat_currency: user_record.preferred_fiat_currency,
     };
 
-    let response_time = start_time.elapsed();
-    println!("⚡ Non-blocking login completed in {:?}", response_time);
 
     Json(AuthResponse {
         token,
