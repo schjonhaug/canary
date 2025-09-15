@@ -39,12 +39,13 @@ export const metadata: Metadata = {
     siteName: "Canary Bitcoin",
     locale: "en_US",
     type: "website",
+    images: ["/images/opengraph-image.png"],
   },
   twitter: {
     card: "summary_large_image",
     title: "Bitcoin Wallet Monitoring & Notifications",
     description: "Never miss a Bitcoin transaction with professional wallet monitoring. Instant email, SMS & push notifications.",
-    images: ["/images/canary-twitter.png"],
+    images: ["/images/x-image.png"],
     creator: "@canarybitcoin",
   },
   alternates: {
