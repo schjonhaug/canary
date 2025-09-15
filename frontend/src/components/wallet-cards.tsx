@@ -218,8 +218,12 @@ export function WalletCards({ wallets, error, lastUpdate }: WalletCardsProps) {
                     </div>
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                       <span>
-                        {wallet.last_activity 
-                          ? `Last activity: ${formatDateTime(parseInt(wallet.last_activity))}` 
+                        {wallet.last_activity
+                          ? `Last activity: ${new Date(parseInt(wallet.last_activity) * 1000).toLocaleDateString(undefined, {
+                              year: '2-digit',
+                              month: '2-digit',
+                              day: '2-digit'
+                            })}`
                           : "No recent activity"
                         }
                       </span>
