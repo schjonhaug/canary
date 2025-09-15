@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://canarybitcoin.com'),
   title: "Bitcoin Wallet Monitoring & Notifications | Canary - Watch-Only Bitcoin Tracker",
   description: "Professional Bitcoin wallet monitoring with instant email, SMS & push notifications. Watch-only access using XPUB descriptors - never touch your keys. 30-day free trial.",
   keywords: "bitcoin wallet monitoring, bitcoin transaction notifications, bitcoin wallet alerts, watch-only bitcoin wallet, bitcoin wallet tracker, xpub monitoring, bitcoin cold storage monitoring, bitcoin address monitoring",
