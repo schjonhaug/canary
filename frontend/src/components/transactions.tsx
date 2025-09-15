@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { CheckCircle, Baby, Mail, MessageCircle, Bell, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
+import { TransactionCard } from "./transaction-card"
 
 interface TransactionsProps {
   selectedWalletChecksum?: string | null
@@ -107,11 +108,11 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
 
   const getCardDescription = () => {
     if (selectedWalletChecksum) {
-      return filteredTransactions.length > 0 
+      return filteredTransactions.length > 0
         ? `${filteredTransactions.length} transaction${filteredTransactions.length !== 1 ? 's' : ''} for selected wallet`
         : "No transactions found for selected wallet"
     }
-    return "Bitcoin transactions from all wallets"
+    return ""
   }
 
   if (!hasReceivedData) {
@@ -122,44 +123,67 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
           <CardDescription>Loading transactions...</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8 hidden sm:table-cell"></TableHead>
-                <TableHead>Date/Time</TableHead>
-                {walletsCount > 1 && <TableHead>Wallet</TableHead>}
-                <TableHead>Transaction</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Details</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <TableRow key={i}>
-                  <TableCell className="hidden sm:table-cell">
+          {/* Mobile Loading - Cards */}
+          <div className="block md:hidden space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Card key={i} className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-6 w-20" />
                     <Skeleton className="h-4 w-4" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-32" />
-                  </TableCell>
-                  {walletsCount > 1 && (
-                    <TableCell>
-                      <Skeleton className="h-6 w-20" />
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <Skeleton className="h-4 w-28" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-28" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-8" />
-                  </TableCell>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  {walletsCount > 1 && <Skeleton className="h-4 w-28" />}
+                  <Skeleton className="h-4 w-40" />
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop Loading - Table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8 hidden sm:table-cell"></TableHead>
+                  <TableHead>Date/Time</TableHead>
+                  {walletsCount > 1 && <TableHead>Wallet</TableHead>}
+                  <TableHead>Transaction</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Details</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <TableRow key={i}>
+                    <TableCell className="hidden sm:table-cell">
+                      <Skeleton className="h-4 w-4" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    {walletsCount > 1 && (
+                      <TableCell>
+                        <Skeleton className="h-6 w-20" />
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-8" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     )
@@ -185,13 +209,27 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
       <CardContent>
         {filteredTransactions.length === 0 ? (
           <p className="text-muted-foreground">
-            {selectedWalletChecksum 
-              ? "No transactions found for the selected wallet." 
+            {selectedWalletChecksum
+              ? "No transactions found for the selected wallet."
               : "No transactions found."
             }
           </p>
         ) : (
-          <Table>
+          <>
+            {/* Mobile View - Cards (visible on screens smaller than 768px) */}
+            <div className="block md:hidden">
+              {filteredTransactions.map((transaction) => (
+                <TransactionCard
+                  key={transaction.txid}
+                  transaction={transaction}
+                  showWalletName={walletsCount > 1}
+                />
+              ))}
+            </div>
+
+            {/* Desktop View - Table (visible on screens 768px and larger) */}
+            <div className="hidden md:block">
+              <Table>
             <TableCaption>A list of all transactions from the Canary system.</TableCaption>
             <TableHeader>
               <TableRow>
@@ -329,22 +367,72 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                     // Get timestamps for headings
                                     const getPendingTimestamp = () => {
                                       if (pendingNotifications.length === 0) return null
-                                      const earliest = pendingNotifications.reduce((earliest, current) => {
-                                        const earliestTime = new Date(earliest.created_at).getTime()
-                                        const currentTime = new Date(current.created_at).getTime()
-                                        return currentTime < earliestTime ? current : earliest
-                                      })
-                                      return formatDateTime(earliest.created_at)
+                                      try {
+                                        const earliest = pendingNotifications.reduce((earliest, current) => {
+                                          if (!earliest?.created_at || !current?.created_at) return earliest || current
+                                          const earliestTime = new Date(earliest.created_at).getTime()
+                                          const currentTime = new Date(current.created_at).getTime()
+                                          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
+                                          return currentTime < earliestTime ? current : earliest
+                                        })
+                                        if (!earliest?.created_at) return null
+
+                                        // Safari-compatible date formatting
+                                        let dateStr = earliest.created_at
+                                        if (typeof dateStr === 'string') {
+                                          if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+                                            dateStr = dateStr.replace(' ', 'T') + 'Z'
+                                          }
+                                        }
+
+                                        const date = new Date(dateStr)
+                                        if (isNaN(date.getTime())) return null
+
+                                        return date.toLocaleString(undefined, {
+                                          year: '2-digit',
+                                          month: '2-digit',
+                                          day: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })
+                                      } catch (e) {
+                                        return null
+                                      }
                                     }
 
                                     const getConfirmedTimestamp = () => {
                                       if (confirmedNotifications.length === 0) return null
-                                      const earliest = confirmedNotifications.reduce((earliest, current) => {
-                                        const earliestTime = new Date(earliest.created_at).getTime()
-                                        const currentTime = new Date(current.created_at).getTime()
-                                        return currentTime < earliestTime ? current : earliest
-                                      })
-                                      return formatDateTime(earliest.created_at)
+                                      try {
+                                        const earliest = confirmedNotifications.reduce((earliest, current) => {
+                                          if (!earliest?.created_at || !current?.created_at) return earliest || current
+                                          const earliestTime = new Date(earliest.created_at).getTime()
+                                          const currentTime = new Date(current.created_at).getTime()
+                                          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
+                                          return currentTime < earliestTime ? current : earliest
+                                        })
+                                        if (!earliest?.created_at) return null
+
+                                        // Safari-compatible date formatting
+                                        let dateStr = earliest.created_at
+                                        if (typeof dateStr === 'string') {
+                                          if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+                                            dateStr = dateStr.replace(' ', 'T') + 'Z'
+                                          }
+                                        }
+
+                                        const date = new Date(dateStr)
+                                        if (isNaN(date.getTime())) return null
+
+                                        return date.toLocaleString(undefined, {
+                                          year: '2-digit',
+                                          month: '2-digit',
+                                          day: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })
+                                      } catch (e) {
+                                        return null
+                                      }
                                     }
 
                                     const renderNotificationGroup = (notifications: typeof transaction.notification_status) => {
@@ -501,22 +589,72 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                     // Get timestamps for headings
                                     const getPendingTimestamp = () => {
                                       if (pendingNotifications.length === 0) return null
-                                      const earliest = pendingNotifications.reduce((earliest, current) => {
-                                        const earliestTime = new Date(earliest.created_at).getTime()
-                                        const currentTime = new Date(current.created_at).getTime()
-                                        return currentTime < earliestTime ? current : earliest
-                                      })
-                                      return formatDateTime(earliest.created_at)
+                                      try {
+                                        const earliest = pendingNotifications.reduce((earliest, current) => {
+                                          if (!earliest?.created_at || !current?.created_at) return earliest || current
+                                          const earliestTime = new Date(earliest.created_at).getTime()
+                                          const currentTime = new Date(current.created_at).getTime()
+                                          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
+                                          return currentTime < earliestTime ? current : earliest
+                                        })
+                                        if (!earliest?.created_at) return null
+
+                                        // Safari-compatible date formatting
+                                        let dateStr = earliest.created_at
+                                        if (typeof dateStr === 'string') {
+                                          if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+                                            dateStr = dateStr.replace(' ', 'T') + 'Z'
+                                          }
+                                        }
+
+                                        const date = new Date(dateStr)
+                                        if (isNaN(date.getTime())) return null
+
+                                        return date.toLocaleString(undefined, {
+                                          year: '2-digit',
+                                          month: '2-digit',
+                                          day: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })
+                                      } catch (e) {
+                                        return null
+                                      }
                                     }
 
                                     const getConfirmedTimestamp = () => {
                                       if (confirmedNotifications.length === 0) return null
-                                      const earliest = confirmedNotifications.reduce((earliest, current) => {
-                                        const earliestTime = new Date(earliest.created_at).getTime()
-                                        const currentTime = new Date(current.created_at).getTime()
-                                        return currentTime < earliestTime ? current : earliest
-                                      })
-                                      return formatDateTime(earliest.created_at)
+                                      try {
+                                        const earliest = confirmedNotifications.reduce((earliest, current) => {
+                                          if (!earliest?.created_at || !current?.created_at) return earliest || current
+                                          const earliestTime = new Date(earliest.created_at).getTime()
+                                          const currentTime = new Date(current.created_at).getTime()
+                                          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
+                                          return currentTime < earliestTime ? current : earliest
+                                        })
+                                        if (!earliest?.created_at) return null
+
+                                        // Safari-compatible date formatting
+                                        let dateStr = earliest.created_at
+                                        if (typeof dateStr === 'string') {
+                                          if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+                                            dateStr = dateStr.replace(' ', 'T') + 'Z'
+                                          }
+                                        }
+
+                                        const date = new Date(dateStr)
+                                        if (isNaN(date.getTime())) return null
+
+                                        return date.toLocaleString(undefined, {
+                                          year: '2-digit',
+                                          month: '2-digit',
+                                          day: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })
+                                      } catch (e) {
+                                        return null
+                                      }
                                     }
 
                                     const renderNotificationGroup = (notifications: typeof transaction.notification_status) => {
@@ -628,7 +766,9 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                 )
               })}
             </TableBody>
-          </Table>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
