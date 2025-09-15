@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle } from "lucide-react"
 import Link from "next/link"
-import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount, formatDateTime } from "@/lib/utils"
+import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount } from "@/lib/utils"
 
 import { Wallet } from "../types"
 

@@ -395,7 +395,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                           hour: '2-digit',
                                           minute: '2-digit',
                                         })
-                                      } catch (e) {
+                                      } catch {
                                         return null
                                       }
                                     }
@@ -430,7 +430,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                           hour: '2-digit',
                                           minute: '2-digit',
                                         })
-                                      } catch (e) {
+                                      } catch {
                                         return null
                                       }
                                     }
@@ -617,7 +617,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                           hour: '2-digit',
                                           minute: '2-digit',
                                         })
-                                      } catch (e) {
+                                      } catch {
                                         return null
                                       }
                                     }
@@ -652,7 +652,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                           hour: '2-digit',
                                           minute: '2-digit',
                                         })
-                                      } catch (e) {
+                                      } catch {
                                         return null
                                       }
                                     }

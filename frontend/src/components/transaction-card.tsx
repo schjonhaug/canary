@@ -14,9 +14,7 @@ import {
   XCircle,
   Loader2,
   ArrowRight,
-  Clock,
-  Hash,
-  DollarSign
+  Clock
 } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
@@ -83,43 +81,43 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
     const pendingNotifications = groupedNotifications.pending || []
     const confirmedNotifications = groupedNotifications.confirmed || []
 
-    const getPendingTimestamp = () => {
-      if (pendingNotifications.length === 0) return null
-      try {
-        const earliest = pendingNotifications.reduce((earliest, current) => {
-          if (!earliest?.created_at || !current?.created_at) return earliest || current
-          const earliestTime = new Date(earliest.created_at).getTime()
-          const currentTime = new Date(current.created_at).getTime()
-          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
-          return currentTime < earliestTime ? current : earliest
-        })
-        if (!earliest?.created_at) return null
-        const formatted = formatDateTime(earliest.created_at)
-        return formatted === "Invalid date" ? null : formatted
-      } catch (e) {
-        console.error("Error getting pending timestamp:", e)
-        return null
-      }
-    }
+    // const getPendingTimestamp = () => {
+    //   if (pendingNotifications.length === 0) return null
+    //   try {
+    //     const earliest = pendingNotifications.reduce((earliest, current) => {
+    //       if (!earliest?.created_at || !current?.created_at) return earliest || current
+    //       const earliestTime = new Date(earliest.created_at).getTime()
+    //       const currentTime = new Date(current.created_at).getTime()
+    //       if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
+    //       return currentTime < earliestTime ? current : earliest
+    //     })
+    //     if (!earliest?.created_at) return null
+    //     const formatted = formatDateTime(earliest.created_at)
+    //     return formatted === "Invalid date" ? null : formatted
+    //   } catch (e) {
+    //     console.error("Error getting pending timestamp:", e)
+    //     return null
+    //   }
+    // }
 
-    const getConfirmedTimestamp = () => {
-      if (confirmedNotifications.length === 0) return null
-      try {
-        const earliest = confirmedNotifications.reduce((earliest, current) => {
-          if (!earliest?.created_at || !current?.created_at) return earliest || current
-          const earliestTime = new Date(earliest.created_at).getTime()
-          const currentTime = new Date(current.created_at).getTime()
-          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
-          return currentTime < earliestTime ? current : earliest
-        })
-        if (!earliest?.created_at) return null
-        const formatted = formatDateTime(earliest.created_at)
-        return formatted === "Invalid date" ? null : formatted
-      } catch (e) {
-        console.error("Error getting confirmed timestamp:", e)
-        return null
-      }
-    }
+    // const getConfirmedTimestamp = () => {
+    //   if (confirmedNotifications.length === 0) return null
+    //   try {
+    //     const earliest = confirmedNotifications.reduce((earliest, current) => {
+    //       if (!earliest?.created_at || !current?.created_at) return earliest || current
+    //       const earliestTime = new Date(earliest.created_at).getTime()
+    //       const currentTime = new Date(current.created_at).getTime()
+    //       if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
+    //       return currentTime < earliestTime ? current : earliest
+    //     })
+    //     if (!earliest?.created_at) return null
+    //     const formatted = formatDateTime(earliest.created_at)
+    //     return formatted === "Invalid date" ? null : formatted
+    //   } catch (e) {
+    //     console.error("Error getting confirmed timestamp:", e)
+    //     return null
+    //   }
+    // }
 
     const renderNotificationGroup = (notifications: typeof transaction.notification_status, title: string) => {
       const notificationsByContact = notifications.reduce((acc, notification) => {
@@ -201,7 +199,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                     hour: '2-digit',
                     minute: '2-digit'
                   })}`
-                } catch (e) {
+                } catch {
                   return ''
                 }
               })()}
@@ -240,7 +238,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                     hour: '2-digit',
                     minute: '2-digit'
                   })}`
-                } catch (e) {
+                } catch {
                   return ''
                 }
               })()}
@@ -287,10 +285,14 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                 )}
               </Badge>
               {transaction.parent_txid && (
-                <Baby className="h-4 w-4" title="CPFP transaction" />
+                <span title="CPFP transaction">
+                  <Baby className="h-4 w-4" />
+                </span>
               )}
               {transaction.replaced_by_txid && (
-                <ArrowRight className="h-4 w-4 text-orange-500" title="Replaced by RBF" />
+                <span title="Replaced by RBF">
+                  <ArrowRight className="h-4 w-4 text-orange-500" />
+                </span>
               )}
             </div>
             <div className="flex items-center gap-1">
@@ -317,18 +319,8 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
             <div className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {(() => {
-                const dateTime = transaction.confirmed_at || transaction.first_seen_at
-                let date: Date
-
-                if (typeof dateTime === 'number') {
-                  date = new Date(dateTime * 1000)
-                } else {
-                  if (dateTime.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                    date = new Date(dateTime + ' UTC')
-                  } else {
-                    date = new Date(dateTime)
-                  }
-                }
+                const dateTime = transaction.confirmed_at ?? transaction.first_seen_at
+                const date = new Date(dateTime * 1000)
 
                 return date.toLocaleDateString(undefined, {
                   year: '2-digit',
