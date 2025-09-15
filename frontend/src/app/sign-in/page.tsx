@@ -100,7 +100,8 @@ export default function SignInPage() {
                   {[
                     { email: 'delivered+admin@resend.dev', label: 'Admin' },
                     { email: 'delivered+alice@resend.dev', label: 'Alice (Personal)' },
-                    { email: 'delivered+bob@resend.dev', label: 'Bob (Team)' }
+                    { email: 'delivered+bob@resend.dev', label: 'Bob (Team)' },
+                    { email: 'delivered+charlie@resend.dev', label: 'Charlie (Team)' }
                   ].map(({ email, label }) => (
                     <Button
                       key={email}
