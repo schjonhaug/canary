@@ -260,7 +260,10 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                         )}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {formatDateTime(transaction.confirmed_at || transaction.first_seen_at)}
+                        {formatDateTime(Math.min(
+                          transaction.first_seen_at,
+                          transaction.confirmed_at || Infinity
+                        ))}
                       </TableCell>
                       {walletsCount > 1 && (
                         <TableCell className="font-medium">{transaction.wallet_name}</TableCell>

@@ -64,3 +64,7 @@ path = "system_tests/advanced_transactions.rs"
 [[test]]
 name = "mined_directly_scenarios"
 path = "system_tests/mined_directly_scenarios.rs"
+
+[[test]]
+name = "transaction_timestamp_scenarios"
+path = "system_tests/transaction_timestamp_scenarios.rs"

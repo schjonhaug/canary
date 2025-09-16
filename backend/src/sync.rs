@@ -103,7 +103,7 @@ impl WalletSyncService {
 
         // Process all transactions and detect changes
         let has_changes = self
-            .process_wallet_transactions(wallet, wallet_checksum)
+            .process_wallet_transactions(wallet, wallet_checksum, electrum_client)
             .await?;
 
         // Update wallet balance in metadata
@@ -131,6 +131,7 @@ impl WalletSyncService {
         &self,
         wallet: &PersistedWallet<Connection>,
         wallet_checksum: &str,
+        electrum_client: Option<&ElectrumClient>,
     ) -> Result<bool> {
         let mut has_changes = false;
 
@@ -157,7 +158,7 @@ impl WalletSyncService {
         // We no longer calculate balances - they are computed on-demand by the frontend
 
         // Get canonical (non-conflicting) transactions from BDK
-        let canonical_transactions_data: Vec<_> = wallet
+        let mut canonical_transactions_data: Vec<_> = wallet
             .transactions()
             .map(|tx_item| {
                 let txid = tx_item.tx_node.txid.to_string();
@@ -178,22 +179,48 @@ impl WalletSyncService {
                             .as_secs()
                     });
 
-                let confirmed_at = if is_confirmed {
-                    Some(first_seen_at) // Use same timestamp for confirmed_at in this context
-                } else {
-                    None
-                };
-
                 (
                     txid,
                     net_amount,
                     block_height,
                     is_confirmed,
                     first_seen_at,
-                    confirmed_at,
+                    None as Option<u64>, // Will be filled in next step
                 )
             })
             .collect();
+
+        // Fetch block timestamps for confirmed transactions
+        for tx_data in &mut canonical_transactions_data {
+            let (_txid, _net_amount, block_height, is_confirmed, first_seen_at, ref mut confirmed_at) = tx_data;
+
+            *confirmed_at = if *is_confirmed {
+                // Fetch actual block timestamp from Electrum
+                if let Some(client) = electrum_client {
+                    if let Some(height) = block_height {
+                        match client.get_block_header(*height).await {
+                            Ok(header) => Some(header.timestamp),
+                            Err(e) => {
+                                eprintln!(
+                                    "[{}] Failed to fetch block header for height {}: {}",
+                                    wallet_checksum, height, e
+                                );
+                                // Fallback to first_seen_at only if we can't fetch block header
+                                Some(*first_seen_at)
+                            }
+                        }
+                    } else {
+                        // Confirmed but no height? Shouldn't happen but fallback
+                        Some(*first_seen_at)
+                    }
+                } else {
+                    // No electrum client available, use first_seen_at as fallback
+                    Some(*first_seen_at)
+                }
+            } else {
+                None
+            };
+        }
 
         // Get ALL transactions (including non-canonical/conflicted ones) for RBF detection
         let all_txs_from_bdk: Vec<String> = wallet

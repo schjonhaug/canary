@@ -22,6 +22,17 @@ System tests (also called End-to-End tests) test the complete Canary application
 ### **`high_index_scanning.rs`** - Deep address scanning (high index detection)
 - `test_high_index_fund_detection` - Detect funds at high address indexes (250+) for wallet recovery
 
+### **`transaction_timestamp_scenarios.rs`** - Transaction timestamp validation
+- `test_mempool_first_transaction_timestamp` - Verify mempool-first transactions show mempool time
+- `test_direct_mining_transaction_timestamp` - Verify direct-mined transactions show block time
+
+**⚠️ Important**: These timestamp tests must be run **individually** due to Docker timing dependencies:
+```bash
+# Run tests one by one (not all together)
+cargo test --test transaction_timestamp_scenarios test_mempool_first_transaction_timestamp -- --ignored --nocapture
+cargo test --test transaction_timestamp_scenarios test_direct_mining_transaction_timestamp -- --ignored --nocapture
+```
+
 ## Prerequisites
 
 - Docker installed and running
