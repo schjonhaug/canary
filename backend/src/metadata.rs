@@ -1128,7 +1128,7 @@ impl MetadataDb {
     ) -> Result<Vec<TransactionWithWallet>> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
-        let limit = limit.unwrap_or(100);
+        let limit = limit.unwrap_or(10000);  // Large default for sync operations
 
         spawn_blocking(move || -> Result<Vec<TransactionWithWallet>> {
             let conn = pool.get()?;
