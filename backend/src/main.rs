@@ -334,14 +334,10 @@ async fn main() -> anyhow::Result<()> {
                 // In FOSS mode, sync all wallets together (no tier separation)
                 let sync_start = Instant::now();
 
-                // Sync Team tier wallets (but in FOSS mode, these are just regular wallets)
+                // In FOSS mode, all wallets belong to the hardcoded "team" tier user
+                // No need to sync Personal tier since no FOSS wallets use that tier
                 if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Team).await {
-                    eprintln!("❌ Failed to sync Team tier wallets: {}", e);
-                }
-
-                // Sync Personal tier wallets
-                if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Personal).await {
-                    eprintln!("❌ Failed to sync Personal tier wallets: {}", e);
+                    eprintln!("❌ Failed to sync FOSS wallets: {}", e);
                 }
 
                 let sync_duration = sync_start.elapsed();

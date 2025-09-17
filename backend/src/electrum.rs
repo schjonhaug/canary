@@ -225,15 +225,11 @@ impl ElectrumClient {
         // Start sync request (only checks known addresses)
         let request = wallet.start_sync_with_revealed_spks();
 
-        // Perform the sync with timeout protection
-        let client = Arc::clone(&self.client);
-        let update = timeout(Duration::from_secs(60), tokio::task::spawn_blocking(move || {
-            client.sync(request, BATCH_SIZE, false)
-        }))
-        .await
-        .map_err(|_| anyhow!("Sync operation timed out after 60 seconds"))?
-        .map_err(|e| anyhow!("Sync task failed: {}", e))?
-        .map_err(|e| anyhow!("Sync failed: {}", e))?;
+        // Perform the sync directly (restored original performance)
+        let update = self
+            .client
+            .sync(request, BATCH_SIZE, false)
+            .map_err(|e| anyhow!("Sync failed: {}", e))?;
 
         // Apply the update
         wallet
