@@ -244,16 +244,12 @@ impl ElectrumClient {
         if ext_revealed || int_revealed {
             println!("New addresses revealed, performing additional sync...");
 
-            // Sync only the newly revealed addresses with timeout
+            // Sync only the newly revealed addresses (direct sync for better performance)
             let request = wallet.start_sync_with_revealed_spks();
-            let client = Arc::clone(&self.client);
-            let update = timeout(Duration::from_secs(60), tokio::task::spawn_blocking(move || {
-                client.sync(request, BATCH_SIZE, false)
-            }))
-            .await
-            .map_err(|_| anyhow!("Additional sync operation timed out after 60 seconds"))?
-            .map_err(|e| anyhow!("Additional sync task failed: {}", e))?
-            .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
+            let update = self
+                .client
+                .sync(request, BATCH_SIZE, false)
+                .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
 
             wallet
                 .apply_update(update)
