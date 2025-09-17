@@ -141,6 +141,10 @@ impl WalletSyncService {
             .get_transactions_by_wallet_checksum(wallet_checksum, None)
             .await?;
 
+        // Create HashMap for O(1) transaction lookups to avoid individual database queries
+        let existing_tx_map: std::collections::HashMap<String, &crate::metadata::TransactionWithWallet> =
+            existing_transactions.iter().map(|tx| (tx.txid.clone(), tx)).collect();
+
         // Sort existing transactions by first_seen_at ASC (oldest first) for proper balance calculation
         let mut existing_txs_sorted = existing_transactions
             .iter()
@@ -191,9 +195,6 @@ impl WalletSyncService {
             .collect();
 
         // Fetch block timestamps ONLY for NEW confirmed transactions
-        let total_tx_count = canonical_transactions_data.len();
-        let mut new_tx_count = 0;
-        let mut block_header_fetch_count = 0;
 
         for tx_data in &mut canonical_transactions_data {
             let (txid, _net_amount, block_height, is_confirmed, first_seen_at, ref mut confirmed_at) = tx_data;
@@ -208,14 +209,10 @@ impl WalletSyncService {
                 *confirmed_at = existing.confirmed_at;
             } else {
                 // NEW transaction - determine appropriate timestamp
-                new_tx_count += 1;
                 *confirmed_at = if *is_confirmed {
                     // New confirmed transaction - fetch block timestamp
                     if let Some(client) = electrum_client {
                         if let Some(height) = block_height {
-                            block_header_fetch_count += 1;
-                            println!("[{}] Fetching block header for new tx {} at height {}",
-                                wallet_checksum, txid, height);
                             match client.get_block_header(*height).await {
                                 Ok(header) => Some(header.timestamp),
                                 Err(e) => {
@@ -238,8 +235,6 @@ impl WalletSyncService {
             }
         }
 
-        println!("[{}] Transaction processing: {} total, {} new, {} block header fetches",
-            wallet_checksum, total_tx_count, new_tx_count, block_header_fetch_count);
 
         // Get ALL transactions (including non-canonical/conflicted ones) for RBF detection
         let all_txs_from_bdk: Vec<String> = wallet
@@ -270,11 +265,8 @@ impl WalletSyncService {
         for (txid, net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) in
             &all_transactions
         {
-            // Check if we already know about this transaction
-            let existing_tx = self
-                .metadata_db
-                .get_transaction_by_txid(wallet_checksum, &txid)
-                .await?;
+            // Check if we already know about this transaction using in-memory lookup
+            let existing_tx = existing_tx_map.get(txid);
 
             match existing_tx {
                 None => {
@@ -382,12 +374,8 @@ impl WalletSyncService {
             let all_bdk_txs: Vec<_> = wallet.tx_graph().full_txs().collect();
 
             for conflicted_txid in &conflicted_txids {
-                // Check if this conflicted transaction is in our pending transactions
-                if let Some(pending_tx) = self
-                    .metadata_db
-                    .get_transaction_by_txid(wallet_checksum, conflicted_txid)
-                    .await?
-                {
+                // Check if this conflicted transaction is in our pending transactions using in-memory lookup
+                if let Some(pending_tx) = existing_tx_map.get(conflicted_txid) {
                     if pending_tx.transaction_status == "pending" {
                         // Find the conflicted transaction's inputs
                         let conflicted_tx_inputs: Option<Vec<_>> = all_bdk_txs
