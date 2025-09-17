@@ -191,6 +191,10 @@ impl WalletSyncService {
             .collect();
 
         // Fetch block timestamps ONLY for NEW confirmed transactions
+        let total_tx_count = canonical_transactions_data.len();
+        let mut new_tx_count = 0;
+        let mut block_header_fetch_count = 0;
+
         for tx_data in &mut canonical_transactions_data {
             let (txid, _net_amount, block_height, is_confirmed, first_seen_at, ref mut confirmed_at) = tx_data;
 
@@ -204,10 +208,14 @@ impl WalletSyncService {
                 *confirmed_at = existing.confirmed_at;
             } else {
                 // NEW transaction - determine appropriate timestamp
+                new_tx_count += 1;
                 *confirmed_at = if *is_confirmed {
                     // New confirmed transaction - fetch block timestamp
                     if let Some(client) = electrum_client {
                         if let Some(height) = block_height {
+                            block_header_fetch_count += 1;
+                            println!("[{}] Fetching block header for new tx {} at height {}",
+                                wallet_checksum, txid, height);
                             match client.get_block_header(*height).await {
                                 Ok(header) => Some(header.timestamp),
                                 Err(e) => {
@@ -229,6 +237,9 @@ impl WalletSyncService {
                 };
             }
         }
+
+        println!("[{}] Transaction processing: {} total, {} new, {} block header fetches",
+            wallet_checksum, total_tx_count, new_tx_count, block_header_fetch_count);
 
         // Get ALL transactions (including non-canonical/conflicted ones) for RBF detection
         let all_txs_from_bdk: Vec<String> = wallet
