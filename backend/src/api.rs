@@ -501,35 +501,39 @@ pub async fn create_wallet_non_blocking(
     // Get user's subscription tier and check wallet limit
     match app_services.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(user_record)) => {
-            // Count existing wallets for the user
-            match app_services
-                .metadata_db
-                .count_wallets_for_user(&user.user_id)
-                .await
-            {
-                Ok(wallet_count) => {
-                    // Check limit based on subscription tier
-                    let tier_limits = user_record.subscription_tier.limits_for_api();
-                    if let Err(limit_err) =
-                        check_limit(wallet_count, tier_limits.max_wallets, "Wallet")
-                    {
+            let bypass_limits = config.is_foss_mode() || user_record.is_admin;
+
+            if !bypass_limits {
+                // Count existing wallets for the user
+                match app_services
+                    .metadata_db
+                    .count_wallets_for_user(&user.user_id)
+                    .await
+                {
+                    Ok(wallet_count) => {
+                        // Check limit based on subscription tier
+                        let tier_limits = user_record.subscription_tier.limits_for_api();
+                        if let Err(limit_err) =
+                            check_limit(wallet_count, tier_limits.max_wallets, "Wallet")
+                        {
+                            return (
+                                StatusCode::FORBIDDEN,
+                                Json(ErrorResponse {
+                                    error: limit_err.to_string(),
+                                }),
+                            )
+                                .into_response();
+                        }
+                    }
+                    Err(e) => {
                         return (
-                            StatusCode::FORBIDDEN,
+                            StatusCode::INTERNAL_SERVER_ERROR,
                             Json(ErrorResponse {
-                                error: limit_err.to_string(),
+                                error: format!("Failed to check wallet limit: {}", e),
                             }),
                         )
                             .into_response();
                     }
-                }
-                Err(e) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: format!("Failed to check wallet limit: {}", e),
-                        }),
-                    )
-                        .into_response();
                 }
             }
         }
@@ -1282,36 +1286,39 @@ pub async fn create_wallet_contact(
         }
     };
 
-    // Count existing contacts for the wallet and check limit
-    match app_services
-        .metadata_db
-        .count_contacts_for_wallet(&wallet_checksum)
-        .await
-    {
-        Ok(contact_count) => {
-            let tier_limits = user_record.subscription_tier.limits_for_api();
-            if let Err(limit_err) = check_limit(
-                contact_count,
-                tier_limits.max_contacts_per_wallet,
-                "Contact",
-            ) {
+    // Count existing contacts for the wallet and check limit unless limits are bypassed
+    let bypass_limits = config.is_foss_mode() || user_record.is_admin;
+    if !bypass_limits {
+        match app_services
+            .metadata_db
+            .count_contacts_for_wallet(&wallet_checksum)
+            .await
+        {
+            Ok(contact_count) => {
+                let tier_limits = user_record.subscription_tier.limits_for_api();
+                if let Err(limit_err) = check_limit(
+                    contact_count,
+                    tier_limits.max_contacts_per_wallet,
+                    "Contact",
+                ) {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(ErrorResponse {
+                            error: limit_err.to_string(),
+                        }),
+                    )
+                        .into_response();
+                }
+            }
+            Err(e) => {
                 return (
-                    StatusCode::FORBIDDEN,
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse {
-                        error: limit_err.to_string(),
+                        error: format!("Failed to check contact limit: {}", e),
                     }),
                 )
                     .into_response();
             }
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to check contact limit: {}", e),
-                }),
-            )
-                .into_response();
         }
     }
 
@@ -2824,7 +2831,6 @@ pub async fn get_current_block_header(
 ) -> Response {
     let result = app_services.metadata_db.get_current_block_header().await;
 
-
     match result {
         Ok(Some(block_header)) => (StatusCode::OK, Json(block_header)).into_response(),
         Ok(None) => (
@@ -3034,7 +3040,6 @@ pub async fn get_wallet_detail(
             }
         };
 
-
         let wallet_detail = WalletDetailResponse {
             timestamp,
             wallet,
@@ -3097,7 +3102,6 @@ pub async fn get_wallet_detail(
             }
         }
     }
-
 
     let wallet_detail = WalletDetailResponse {
         timestamp,
@@ -3533,7 +3537,6 @@ pub async fn login(
         created_at: user_record.created_at,
         preferred_fiat_currency: user_record.preferred_fiat_currency,
     };
-
 
     Json(AuthResponse {
         token,

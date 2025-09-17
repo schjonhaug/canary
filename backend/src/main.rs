@@ -254,11 +254,8 @@ async fn main() -> anyhow::Result<()> {
                 drop(manager); // Release the lock before potential blocking
 
                 // Run the async operation with timeout
-                let height_result = tokio::time::timeout(
-                    timeout_duration,
-                    client.get_current_block_height(),
-                )
-                .await;
+                let height_result =
+                    tokio::time::timeout(timeout_duration, client.get_current_block_height()).await;
 
                 match height_result {
                     Ok(Ok(height)) => {
@@ -371,69 +368,70 @@ async fn main() -> anyhow::Result<()> {
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(team_sync_interval));
 
-        loop {
-            interval.tick().await;
+            loop {
+                interval.tick().await;
 
-            let mutex_wait_start = Instant::now();
-            let mut manager = team_wallet_manager.lock().await;
-            let mutex_wait_time = mutex_wait_start.elapsed();
+                let mutex_wait_start = Instant::now();
+                let mut manager = team_wallet_manager.lock().await;
+                let mutex_wait_time = mutex_wait_start.elapsed();
 
-            if mutex_wait_time.as_millis() > 1000 {
-                println!(
-                    "🔒 Team sync task waited {:?} for wallet manager mutex",
-                    mutex_wait_time
-                );
+                if mutex_wait_time.as_millis() > 1000 {
+                    println!(
+                        "🔒 Team sync task waited {:?} for wallet manager mutex",
+                        mutex_wait_time
+                    );
+                }
+
+                // Sync Team tier wallets
+                if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Team).await {
+                    eprintln!("Team tier sync failed: {}", e);
+                }
+
+                // Drop mutex without excessive logging
+                drop(manager);
             }
+        });
 
-            // Sync Team tier wallets
-            if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Team).await {
-                eprintln!("Team tier sync failed: {}", e);
+        // Personal tier sync task (less frequent)
+        let personal_wallet_manager = Arc::clone(&wallet_manager);
+        println!(
+            "🕐 Personal tier sync interval: {}s (network: {:?})",
+            personal_sync_interval, config.network
+        );
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_secs(personal_sync_interval));
+
+            loop {
+                interval.tick().await;
+
+                let mutex_wait_start = Instant::now();
+                let mut manager = personal_wallet_manager.lock().await;
+                let mutex_wait_time = mutex_wait_start.elapsed();
+
+                if mutex_wait_time.as_millis() > 1000 {
+                    println!(
+                        "🔒 Personal sync task waited {:?} for wallet manager mutex",
+                        mutex_wait_time
+                    );
+                }
+
+                // Sync Personal tier wallets
+                if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Personal).await {
+                    eprintln!("Personal tier sync failed: {}", e);
+                }
+
+                // Drop mutex without excessive logging
+                drop(manager);
             }
-
-            // Drop mutex without excessive logging
-            drop(manager);
-        }
-    });
-
-    // Personal tier sync task (less frequent)
-    let personal_wallet_manager = Arc::clone(&wallet_manager);
-    println!(
-        "🕐 Personal tier sync interval: {}s (network: {:?})",
-        personal_sync_interval, config.network
-    );
-    tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(personal_sync_interval));
-
-        loop {
-            interval.tick().await;
-
-            let mutex_wait_start = Instant::now();
-            let mut manager = personal_wallet_manager.lock().await;
-            let mutex_wait_time = mutex_wait_start.elapsed();
-
-            if mutex_wait_time.as_millis() > 1000 {
-                println!(
-                    "🔒 Personal sync task waited {:?} for wallet manager mutex",
-                    mutex_wait_time
-                );
-            }
-
-            // Sync Personal tier wallets
-            if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Personal).await {
-                eprintln!("Personal tier sync failed: {}", e);
-            }
-
-            // Drop mutex without excessive logging
-            drop(manager);
-        }
-    });
+        });
     }
 
     // Block header sync task (mode-aware frequency)
     let block_sync_interval = if config.is_foss_mode() {
         config.get_sync_interval()
     } else {
-        let (_, team_sync_interval) = SubscriptionTier::Personal.get_sync_intervals(&config.network);
+        let (_, team_sync_interval) =
+            SubscriptionTier::Personal.get_sync_intervals(&config.network);
         team_sync_interval
     };
 
@@ -468,11 +466,9 @@ async fn main() -> anyhow::Result<()> {
                 drop(stored_header);
 
                 // Run async operation with timeout
-                let height_result = tokio::time::timeout(
-                    Duration::from_secs(5),
-                    client.get_current_block_height(),
-                )
-                .await;
+                let height_result =
+                    tokio::time::timeout(Duration::from_secs(5), client.get_current_block_height())
+                        .await;
 
                 match height_result {
                     Ok(Ok(current_height)) => {
