@@ -190,36 +190,44 @@ impl WalletSyncService {
             })
             .collect();
 
-        // Fetch block timestamps for confirmed transactions
+        // Fetch block timestamps ONLY for NEW confirmed transactions
         for tx_data in &mut canonical_transactions_data {
-            let (_txid, _net_amount, block_height, is_confirmed, first_seen_at, ref mut confirmed_at) = tx_data;
+            let (txid, _net_amount, block_height, is_confirmed, first_seen_at, ref mut confirmed_at) = tx_data;
 
-            *confirmed_at = if *is_confirmed {
-                // Fetch actual block timestamp from Electrum
-                if let Some(client) = electrum_client {
-                    if let Some(height) = block_height {
-                        match client.get_block_header(*height).await {
-                            Ok(header) => Some(header.timestamp),
-                            Err(e) => {
-                                eprintln!(
-                                    "[{}] Failed to fetch block header for height {}: {}",
-                                    wallet_checksum, height, e
-                                );
-                                // Fallback to first_seen_at only if we can't fetch block header
-                                Some(*first_seen_at)
+            // Check if this is an existing transaction
+            let existing_tx = existing_transactions
+                .iter()
+                .find(|tx| tx.txid == *txid);
+
+            if let Some(existing) = existing_tx {
+                // Existing transaction - preserve its confirmed_at timestamp
+                *confirmed_at = existing.confirmed_at;
+            } else {
+                // NEW transaction - determine appropriate timestamp
+                *confirmed_at = if *is_confirmed {
+                    // New confirmed transaction - fetch block timestamp
+                    if let Some(client) = electrum_client {
+                        if let Some(height) = block_height {
+                            match client.get_block_header(*height).await {
+                                Ok(header) => Some(header.timestamp),
+                                Err(e) => {
+                                    eprintln!(
+                                        "[{}] Failed to fetch block header for new tx {} at height {}: {}",
+                                        wallet_checksum, txid, height, e
+                                    );
+                                    Some(*first_seen_at) // Fallback
+                                }
                             }
+                        } else {
+                            Some(*first_seen_at)
                         }
                     } else {
-                        // Confirmed but no height? Shouldn't happen but fallback
                         Some(*first_seen_at)
                     }
                 } else {
-                    // No electrum client available, use first_seen_at as fallback
-                    Some(*first_seen_at)
-                }
-            } else {
-                None
-            };
+                    None // Mempool transaction
+                };
+            }
         }
 
         // Get ALL transactions (including non-canonical/conflicted ones) for RBF detection
