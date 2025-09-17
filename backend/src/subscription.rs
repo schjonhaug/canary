@@ -165,7 +165,8 @@ mod tests {
         std::env::set_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET", "15");
         std::env::set_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET", "30");
 
-        let (personal, team) = SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
+        let (personal, team) =
+            SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
         assert_eq!(personal, 15);
         assert_eq!(team, 30);
 
@@ -181,9 +182,10 @@ mod tests {
         std::env::remove_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET");
         std::env::remove_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET");
 
-        let (personal, team) = SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
+        let (personal, team) =
+            SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
         assert_eq!(personal, 600); // Mainnet default for Personal
-        assert_eq!(team, 120);     // Mainnet default for Team
+        assert_eq!(team, 120); // Mainnet default for Team
     }
 }
 

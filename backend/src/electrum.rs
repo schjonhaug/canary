@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::task::spawn_blocking;
 use tokio::time::timeout;
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -18,6 +19,9 @@ pub struct BlockHeader {
 
 pub const STOP_GAP: usize = 20;
 pub const BATCH_SIZE: usize = 20;
+const PRIMARY_SYNC_TIMEOUT_SECS: u64 = 60;
+const FULL_SCAN_TIMEOUT_SECS: u64 = 120;
+const BLOCK_OP_TIMEOUT_SECS: u64 = 10;
 
 #[derive(Clone)]
 pub struct ElectrumClient {
@@ -202,11 +206,14 @@ impl ElectrumClient {
             let stop_gap = custom_stop_gap.unwrap_or(STOP_GAP);
             println!("Using stop gap: {}", stop_gap);
             let client = Arc::clone(&self.client);
-            let update = timeout(Duration::from_secs(120), tokio::task::spawn_blocking(move || {
-                client.full_scan(request, stop_gap, BATCH_SIZE, false)
-            }))
+            let update = timeout(
+                Duration::from_secs(FULL_SCAN_TIMEOUT_SECS),
+                spawn_blocking(move || client.full_scan(request, stop_gap, BATCH_SIZE, false)),
+            )
             .await
-            .map_err(|_| anyhow!("Full scan operation timed out after 120 seconds"))?
+            .map_err(|_| {
+                anyhow!("Full scan operation timed out after {FULL_SCAN_TIMEOUT_SECS} seconds")
+            })?
             .map_err(|e| anyhow!("Full scan task failed: {}", e))?
             .map_err(|e| anyhow!("Full scan failed: {}", e))?;
 
@@ -264,12 +271,17 @@ impl ElectrumClient {
         // Start sync request (only checks known addresses)
         let request = wallet.start_sync_with_revealed_spks();
 
-        // Perform the sync directly (restored original performance)
+        // Perform the sync with timeout protection to avoid indefinite hangs
         let electrum_sync_start = Instant::now();
-        let update = self
-            .client
-            .sync(request, BATCH_SIZE, false)
-            .map_err(|e| anyhow!("Sync failed: {}", e))?;
+        let client = Arc::clone(&self.client);
+        let update = timeout(
+            Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
+            spawn_blocking(move || client.sync(request, BATCH_SIZE, false)),
+        )
+        .await
+        .map_err(|_| anyhow!("Sync operation timed out after {PRIMARY_SYNC_TIMEOUT_SECS} seconds"))?
+        .map_err(|e| anyhow!("Sync task failed: {}", e))?
+        .map_err(|e| anyhow!("Sync failed: {}", e))?;
         println!(
             "  [electrum] primary sync completed in {:.2?}",
             electrum_sync_start.elapsed()
@@ -293,13 +305,22 @@ impl ElectrumClient {
         if stop_gap_external || stop_gap_internal {
             println!("New addresses revealed, performing additional sync...");
 
-            // Sync only the newly revealed addresses (direct sync for better performance)
+            // Sync only the newly revealed addresses with timeout protection
             let request = wallet.start_sync_with_revealed_spks();
             let additional_sync_start = Instant::now();
-            let update = self
-                .client
-                .sync(request, BATCH_SIZE, false)
-                .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
+            let client = Arc::clone(&self.client);
+            let update = timeout(
+                Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
+                spawn_blocking(move || client.sync(request, BATCH_SIZE, false)),
+            )
+            .await
+            .map_err(|_| {
+                anyhow!(
+                    "Additional sync operation timed out after {PRIMARY_SYNC_TIMEOUT_SECS} seconds"
+                )
+            })?
+            .map_err(|e| anyhow!("Additional sync task failed: {}", e))?
+            .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
             println!(
                 "  [electrum] additional sync completed in {:.2?}",
                 additional_sync_start.elapsed()
@@ -325,11 +346,14 @@ impl ElectrumClient {
 
     pub async fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
         let client = Arc::clone(&self.client);
-        let header = timeout(Duration::from_secs(10), tokio::task::spawn_blocking(move || {
-            client.inner.block_header(height as usize)
-        }))
+        let header = timeout(
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            spawn_blocking(move || client.inner.block_header(height as usize)),
+        )
         .await
-        .map_err(|_| anyhow!("Get block header operation timed out after 10 seconds"))?
+        .map_err(|_| {
+            anyhow!("Get block header operation timed out after {BLOCK_OP_TIMEOUT_SECS} seconds")
+        })?
         .map_err(|e| anyhow!("Get block header task failed: {}", e))?
         .map_err(|e| anyhow!("Failed to get block header for height {}: {}", height, e))?;
 
@@ -341,11 +365,11 @@ impl ElectrumClient {
 
     pub async fn get_current_block_height(&self) -> Result<u32> {
         let client = Arc::clone(&self.client);
-        let height = timeout(Duration::from_secs(10), tokio::task::spawn_blocking(move || {
+        let height = timeout(Duration::from_secs(BLOCK_OP_TIMEOUT_SECS), spawn_blocking(move || {
             client.inner.block_headers_subscribe()
         }))
         .await
-        .map_err(|_| anyhow!("Get current block height operation timed out after 10 seconds"))?
+        .map_err(|_| anyhow!("Get current block height operation timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"))?
         .map_err(|e| anyhow!("Get current block height task failed: {}", e))?
         .map_err(|e| anyhow!("Failed to get current block height: {}", e))?
         .height;

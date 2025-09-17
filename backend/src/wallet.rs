@@ -178,7 +178,6 @@ impl WalletCreationService {
                     "[{}] Background wallet creation with scan depth completed",
                     wallet_checksum
                 );
-
             }
         });
 
@@ -300,7 +299,6 @@ impl WalletCreationService {
                     "[{}] Background wallet creation with scan depth completed",
                     wallet_checksum
                 );
-
             }
         });
 
@@ -925,7 +923,8 @@ impl WalletManager {
                     let (wallet, conn) = &mut *wallet_data;
 
                     // Create sync service with config for mode-based retry logic
-                    let sync_service = WalletSyncService::new(metadata_db, notification_sender, config);
+                    let sync_service =
+                        WalletSyncService::new(metadata_db, notification_sender, config);
 
                     // Perform sync
                     match sync_service

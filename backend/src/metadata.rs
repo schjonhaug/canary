@@ -476,11 +476,11 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
-            
+
             // Create a temporary auth service to hash passwords
             let auth_service = AuthService::new("temp".to_string(), None);
             let password_hash = auth_service.hash_password(DEV_TEST_PASSWORD)?;
-            
+
             for (index, email) in DEV_TEST_EMAILS.iter().enumerate() {
                 // Check if user already exists
                 let exists: bool = conn.query_row(
@@ -488,7 +488,7 @@ impl MetadataDb {
                     [email],
                     |row| row.get(0)
                 )?;
-                
+
                 if !exists {
                     let (name, tier) = match *email {
                         "delivered+admin@resend.dev" => ("Admin", "team"), // Admin flag will give unlimited access
@@ -496,21 +496,21 @@ impl MetadataDb {
                         "delivered+bob@resend.dev" => ("Bob", "team"),
                         _ => ("Test User", "personal"),
                     };
-                    
+
                     // First user becomes admin
                     let is_admin = index == 0;
-                    
+
                     let user_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
-                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency) 
+                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), ?9)",
                         params![&user_id, email, &password_hash, name, is_admin, true, tier, "pending", "USD"], // Dev users follow same flow as real users
                     )?;
-                    
+
                     println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
                 }
             }
-            
+
             Ok(())
         }).await?
     }
@@ -551,12 +551,12 @@ impl MetadataDb {
             let conn = pool.get()?;
             let hex_color = calculate_wallet_color(&descriptor);
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-            
+
             // Extract checksum from descriptor (part after #)
             let checksum = descriptor.split('#').last()
                 .ok_or_else(|| anyhow::anyhow!("Invalid descriptor format: missing checksum"))?
                 .to_string();
-            
+
             conn.execute(
                 "INSERT INTO wallets (checksum, name, descriptor, hex_color, balance_total, last_activity, status, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![&checksum, &name, &descriptor, &hex_color, "0", &current_time, "pending", user_id],
@@ -575,12 +575,12 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
             match conn.query_row(
-                "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
+                "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                         (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
-                 FROM wallets w 
-                 LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
-                 WHERE w.descriptor = ?1 
+                 FROM wallets w
+                 LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
+                 WHERE w.descriptor = ?1
                  GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.status, w.user_id, w.is_active",
                 params![descriptor],
                 |row| {
@@ -615,12 +615,12 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
             match conn.query_row(
-                "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
+                "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                         (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
-                 FROM wallets w 
-                 LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
-                 WHERE w.checksum = ?1 
+                 FROM wallets w
+                 LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
+                 WHERE w.checksum = ?1
                  GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.status, w.user_id, w.is_active",
                 params![checksum],
                 |row| {
@@ -658,37 +658,37 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
-            
+
             let query = match user_id {
                 Some(_) => {
-                    "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
+                    "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                             (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                             w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
-                     FROM wallets w 
-                     LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                     FROM wallets w
+                     LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
                      WHERE w.user_id = ?1 AND w.status != 'deleted'
                      GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.status, w.user_id, w.is_active
                      ORDER BY w.created_at DESC"
                 }
                 None => {
-                    "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
+                    "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                             (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                             w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
-                     FROM wallets w 
-                     LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                     FROM wallets w
+                     LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
                      WHERE w.status != 'deleted'
                      GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.status, w.user_id, w.is_active
                      ORDER BY w.created_at DESC"
                 }
             };
-            
+
             let mut stmt = conn.prepare(query)?;
 
             let params: Vec<&dyn ToSql> = match user_id.as_ref() {
                 Some(uid) => vec![uid],
                 None => vec![],
             };
-            
+
             let wallet_iter = stmt.query_map(&params[..], |row| {
                 Ok(WalletMetadata {
                     checksum: row.get(0)?,
@@ -726,18 +726,18 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
-            
-            let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, 
+
+            let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                                (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                                w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
-                        FROM wallets w 
-                        LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                        FROM wallets w
+                        LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
                         WHERE w.user_id = ?1
                         GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.status, w.user_id, w.is_active
                         ORDER BY w.created_at ASC"; // Oldest first for subscription limits
-            
+
             let mut stmt = conn.prepare(query)?;
-            
+
             let wallet_iter = stmt.query_map(&[&user_id], |row| {
                 Ok(WalletMetadata {
                     checksum: row.get(0)?,
@@ -818,10 +818,10 @@ impl MetadataDb {
             let existing_contact_name: Option<String> = if provider == "email" {
                 if let Some(contact_id) = exclude_id {
                     conn.query_row(
-                        "SELECT c.name FROM contacts c 
-                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
-                         WHERE cnm.wallet_checksum = ?1 
-                         AND cnm.provider_type = ?2 
+                        "SELECT c.name FROM contacts c
+                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
+                         WHERE cnm.wallet_checksum = ?1
+                         AND cnm.provider_type = ?2
                          AND LOWER(cnm.notification_target) = LOWER(?3)
                          AND c.id != ?4
                          LIMIT 1",
@@ -831,10 +831,10 @@ impl MetadataDb {
                     .optional()?
                 } else {
                     conn.query_row(
-                        "SELECT c.name FROM contacts c 
-                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
-                         WHERE cnm.wallet_checksum = ?1 
-                         AND cnm.provider_type = ?2 
+                        "SELECT c.name FROM contacts c
+                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
+                         WHERE cnm.wallet_checksum = ?1
+                         AND cnm.provider_type = ?2
                          AND LOWER(cnm.notification_target) = LOWER(?3)
                          LIMIT 1",
                         params![&checksum, &provider, &target],
@@ -845,10 +845,10 @@ impl MetadataDb {
             } else if let Some(contact_id) = exclude_id {
                 // For SMS and other types, exact match
                 conn.query_row(
-                    "SELECT c.name FROM contacts c 
-                     JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
-                     WHERE cnm.wallet_checksum = ?1 
-                     AND cnm.provider_type = ?2 
+                    "SELECT c.name FROM contacts c
+                     JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
+                     WHERE cnm.wallet_checksum = ?1
+                     AND cnm.provider_type = ?2
                      AND cnm.notification_target = ?3
                      AND c.id != ?4
                      LIMIT 1",
@@ -858,10 +858,10 @@ impl MetadataDb {
                 .optional()?
             } else {
                 conn.query_row(
-                    "SELECT c.name FROM contacts c 
-                     JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
-                     WHERE cnm.wallet_checksum = ?1 
-                     AND cnm.provider_type = ?2 
+                    "SELECT c.name FROM contacts c
+                     JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
+                     WHERE cnm.wallet_checksum = ?1
+                     AND cnm.provider_type = ?2
                      AND cnm.notification_target = ?3
                      LIMIT 1",
                     params![&checksum, &provider, &target],
@@ -901,10 +901,10 @@ impl MetadataDb {
                 let existing_contact_name: Option<String> = if provider_type == "email" {
                     if let Some(contact_id) = &exclude_id {
                         conn.query_row(
-                            "SELECT c.name FROM contacts c 
-                             JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
-                             WHERE cnm.wallet_checksum = ?1 
-                             AND cnm.provider_type = ?2 
+                            "SELECT c.name FROM contacts c
+                             JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
+                             WHERE cnm.wallet_checksum = ?1
+                             AND cnm.provider_type = ?2
                              AND LOWER(cnm.notification_target) = LOWER(?3)
                              AND c.id != ?4
                              LIMIT 1",
@@ -914,10 +914,10 @@ impl MetadataDb {
                         .optional()?
                     } else {
                         conn.query_row(
-                            "SELECT c.name FROM contacts c 
-                             JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
-                             WHERE cnm.wallet_checksum = ?1 
-                             AND cnm.provider_type = ?2 
+                            "SELECT c.name FROM contacts c
+                             JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
+                             WHERE cnm.wallet_checksum = ?1
+                             AND cnm.provider_type = ?2
                              AND LOWER(cnm.notification_target) = LOWER(?3)
                              LIMIT 1",
                             params![&checksum, provider_type, notification_target],
@@ -928,10 +928,10 @@ impl MetadataDb {
                 } else if let Some(contact_id) = &exclude_id {
                     // For SMS and other types, exact match
                     conn.query_row(
-                        "SELECT c.name FROM contacts c 
-                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
-                         WHERE cnm.wallet_checksum = ?1 
-                         AND cnm.provider_type = ?2 
+                        "SELECT c.name FROM contacts c
+                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
+                         WHERE cnm.wallet_checksum = ?1
+                         AND cnm.provider_type = ?2
                          AND cnm.notification_target = ?3
                          AND c.id != ?4
                          LIMIT 1",
@@ -941,10 +941,10 @@ impl MetadataDb {
                     .optional()?
                 } else {
                     conn.query_row(
-                        "SELECT c.name FROM contacts c 
-                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id 
-                         WHERE cnm.wallet_checksum = ?1 
-                         AND cnm.provider_type = ?2 
+                        "SELECT c.name FROM contacts c
+                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
+                         WHERE cnm.wallet_checksum = ?1
+                         AND cnm.provider_type = ?2
                          AND cnm.notification_target = ?3
                          LIMIT 1",
                         params![&checksum, provider_type, notification_target],
@@ -1037,7 +1037,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at) 
+                "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                 params![
                     &transaction.txid,
@@ -1070,8 +1070,8 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<Transaction>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at 
-                 FROM transactions 
+                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at
+                 FROM transactions
                  WHERE wallet_checksum = ?1 AND txid = ?2"
             )?;
 
@@ -1128,16 +1128,16 @@ impl MetadataDb {
     ) -> Result<Vec<TransactionWithWallet>> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
-        let limit = limit.unwrap_or(10000);  // Large default for sync operations
+        let limit = limit.unwrap_or(10000); // Large default for sync operations
 
         spawn_blocking(move || -> Result<Vec<TransactionWithWallet>> {
             let conn = pool.get()?;
-            
+
             // First get transactions
             let mut stmt = conn.prepare(
-                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.parent_txid, t.transaction_status, t.replaced_by_txid, t.replaced_at 
-                 FROM transactions t 
-                 JOIN wallets w ON t.wallet_checksum = w.checksum 
+                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.parent_txid, t.transaction_status, t.replaced_by_txid, t.replaced_at
+                 FROM transactions t
+                 JOIN wallets w ON t.wallet_checksum = w.checksum
                  WHERE t.wallet_checksum = ?1
                  ORDER BY t.first_seen_at DESC, t.txid DESC
                  LIMIT ?2"
@@ -1165,19 +1165,19 @@ impl MetadataDb {
             let mut transactions = Vec::new();
             for transaction in transaction_iter {
                 let mut tx = transaction?;
-                
+
                 // Get notification status for this transaction
                 let mut notification_stmt = conn.prepare(
-                    "SELECT nl.contact_name_snapshot, nl.provider_name, nl.status, nl.error_message, 
+                    "SELECT nl.contact_name_snapshot, nl.provider_name, nl.status, nl.error_message,
                             nl.notification_target_snapshot, nl.provider_type_snapshot, nl.created_at, nl.message_content, nl.notification_type
-                     FROM notification_logs nl 
+                     FROM notification_logs nl
                      WHERE nl.transaction_txid = ?1 AND nl.transaction_wallet_checksum = ?2
                      ORDER BY nl.created_at ASC"
                 )?;
-                
+
                 let notification_iter = notification_stmt.query_map([&tx.txid, &tx.wallet_checksum], |row| {
                     let notification_type: String = row.get(8)?;
-                    
+
                     Ok(NotificationStatus {
                         contact_name: row.get::<_, Option<String>>(0)?.unwrap_or("Unknown".to_string()),
                         provider_name: row.get(1)?,
@@ -1189,11 +1189,11 @@ impl MetadataDb {
                         notification_type,
                     })
                 })?;
-                
+
                 for notification in notification_iter {
                     tx.notification_status.push(notification?);
                 }
-                
+
                 transactions.push(tx);
             }
 
@@ -1217,14 +1217,14 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
-            
+
             // Insert contact with UUID
             let contact_id = Uuid::new_v4().to_string();
             tx.execute(
                 "INSERT INTO contacts (id, wallet_checksum, name, language) VALUES (?1, ?2, ?3, ?4)",
                 params![&contact_id, checksum, &name, language.as_str()],
             )?;
-            
+
             // Insert notification methods
             for (provider_type, notification_target) in notification_methods {
                 let method_id = Uuid::new_v4().to_string();
@@ -1233,7 +1233,7 @@ impl MetadataDb {
                     params![&method_id, &contact_id, provider_type.as_str(), &notification_target, &checksum],
                 )?;
             }
-            
+
             tx.commit()?;
             Ok(contact_id)
         }).await?
@@ -1259,8 +1259,8 @@ impl MetadataDb {
             let conn = pool.get()?;
 
             // Get ALL contacts ordered by created_at ASC (oldest first) for limits enforcement
-            let query = "SELECT id, wallet_checksum, name, language, created_at, is_active 
-                         FROM contacts 
+            let query = "SELECT id, wallet_checksum, name, language, created_at, is_active
+                         FROM contacts
                          WHERE wallet_checksum = ?1 ORDER BY created_at ASC";
             let mut stmt = conn.prepare(query)?;
 
@@ -1290,7 +1290,7 @@ impl MetadataDb {
             // Get notification methods for each contact
             for (contact_id, contact) in contacts.iter_mut() {
                 let methods_query = "SELECT id, provider_type, notification_target, created_at
-                                   FROM contact_notification_methods 
+                                   FROM contact_notification_methods
                                    WHERE contact_id = ?1";
                 let mut methods_stmt = conn.prepare(methods_query)?;
 
@@ -1329,12 +1329,12 @@ impl MetadataDb {
 
             // Get contacts for the wallet (active only or all based on parameter)
             let query = if include_inactive {
-                "SELECT id, wallet_checksum, name, language, created_at, is_active 
-                 FROM contacts 
+                "SELECT id, wallet_checksum, name, language, created_at, is_active
+                 FROM contacts
                  WHERE wallet_checksum = ?1 ORDER BY name, created_at"
             } else {
                 "SELECT id, wallet_checksum, name, language, created_at, 1 as is_active
-                 FROM contacts 
+                 FROM contacts
                  WHERE wallet_checksum = ?1 AND is_active = 1 ORDER BY name, created_at"
             };
             let mut stmt = conn.prepare(query)?;
@@ -1371,8 +1371,8 @@ impl MetadataDb {
                     .collect::<Vec<_>>()
                     .join(",");
                 let query = format!(
-                    "SELECT id, contact_id, provider_type, notification_target, created_at 
-                     FROM contact_notification_methods 
+                    "SELECT id, contact_id, provider_type, notification_target, created_at
+                     FROM contact_notification_methods
                      WHERE contact_id IN ({}) ORDER BY contact_id, provider_type",
                     placeholders
                 );
@@ -1458,8 +1458,8 @@ impl MetadataDb {
             let conn = pool.get()?;
 
             // Get the contact
-            let query = "SELECT id, wallet_checksum, name, language, created_at, is_active 
-                         FROM contacts 
+            let query = "SELECT id, wallet_checksum, name, language, created_at, is_active
+                         FROM contacts
                          WHERE id = ?1 AND wallet_checksum = ?2";
             let mut stmt = conn.prepare(query)?;
             let contact_result = stmt.query_row(params![contact_id, checksum], |row| {
@@ -1483,7 +1483,7 @@ impl MetadataDb {
 
             // Get notification methods for this contact
             let methods_query = "SELECT id, provider_type, notification_target, created_at
-                               FROM contact_notification_methods 
+                               FROM contact_notification_methods
                                WHERE contact_id = ?1";
             let mut methods_stmt = conn.prepare(methods_query)?;
             let methods_iter = methods_stmt.query_map(params![contact_id], |row| {
@@ -1614,13 +1614,13 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
             let tier_limits = crate::subscription::SubscriptionTier::from(tier_str.clone()).limits(&network);
-            
+
             let mut stmt = conn.prepare(
-                "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.balance_total, 
+                "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.balance_total,
                         w.last_activity, w.last_synced_at, w.status, w.user_id, w.created_at
-                 FROM wallets w 
+                 FROM wallets w
                  JOIN users u ON w.user_id = u.id
-                 WHERE w.is_active = 1 AND w.status = 'ready' 
+                 WHERE w.is_active = 1 AND w.status = 'ready'
                    AND u.subscription_tier = ?1
                    AND (
                     -- Admin users bypass all subscription checks
@@ -1630,8 +1630,8 @@ impl MetadataDb {
                     (
                       -- Active subscriptions
                       u.subscription_status = 'active'
-                      OR 
-                      -- Trial users within trial period  
+                      OR
+                      -- Trial users within trial period
                       (u.subscription_status = 'trialing' AND datetime(u.trial_ends_at) > datetime('now'))
                       OR
                       -- Cancelled users still within their paid period
@@ -1645,7 +1645,7 @@ impl MetadataDb {
                     -- Regular users follow timing rules
                     (
                       -- Never synced before
-                      w.last_synced_at IS NULL 
+                      w.last_synced_at IS NULL
                       OR
                       -- Or due for sync based on tier interval
                       datetime(w.last_synced_at) <= datetime('now', '-' || ?2 || ' seconds')
@@ -1655,7 +1655,7 @@ impl MetadataDb {
             )?;
 
             let wallet_rows = stmt.query_map(
-                params![tier_str, tier_limits.sync_interval_secs], 
+                params![tier_str, tier_limits.sync_interval_secs],
                 |row| {
                     Ok(WalletMetadata {
                         checksum: row.get(0)?,
@@ -1691,17 +1691,17 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
 
-            let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, 
-                                w.created_at, w.balance_total, 
-                                (SELECT MAX(t.first_seen_at) FROM transactions t 
+            let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color,
+                                w.created_at, w.balance_total,
+                                (SELECT MAX(t.first_seen_at) FROM transactions t
                                  WHERE t.wallet_checksum = w.checksum) as last_activity,
-                                w.status, COUNT(c.id) as contact_count, 
+                                w.status, COUNT(c.id) as contact_count,
                                 w.user_id, w.is_active
-                         FROM wallets w 
-                         LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                         FROM wallets w
+                         LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
                          WHERE w.is_active = 1 AND w.status = 'ready'
-                         GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, 
-                                  w.created_at, w.balance_total, w.status, 
+                         GROUP BY w.checksum, w.name, w.descriptor, w.hex_color,
+                                  w.created_at, w.balance_total, w.status,
                                   w.user_id, w.is_active
                          ORDER BY w.created_at DESC";
 
@@ -1743,17 +1743,17 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
 
-            let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, 
-                                w.created_at, w.balance_total, 
-                                (SELECT MAX(t.first_seen_at) FROM transactions t 
+            let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color,
+                                w.created_at, w.balance_total,
+                                (SELECT MAX(t.first_seen_at) FROM transactions t
                                  WHERE t.wallet_checksum = w.checksum) as last_activity,
-                                w.status, COUNT(c.id) as contact_count, 
+                                w.status, COUNT(c.id) as contact_count,
                                 w.user_id, w.is_active
-                         FROM wallets w 
-                         LEFT JOIN contacts c ON w.checksum = c.wallet_checksum 
+                         FROM wallets w
+                         LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
                          WHERE w.status = 'deleted'
-                         GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, 
-                                  w.created_at, w.balance_total, w.status, 
+                         GROUP BY w.checksum, w.name, w.descriptor, w.hex_color,
+                                  w.created_at, w.balance_total, w.status,
                                   w.user_id, w.is_active
                          ORDER BY w.created_at DESC";
 
@@ -1795,7 +1795,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT OR REPLACE INTO current_block_header (id, height, timestamp, updated_at) 
+                "INSERT OR REPLACE INTO current_block_header (id, height, timestamp, updated_at)
                  VALUES (1, ?1, ?2, datetime('now'))",
                 params![block_header.height, block_header.timestamp,],
             )?;
@@ -1861,7 +1861,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             let log_id = uuid::Uuid::new_v4().to_string();
-            
+
             // Get the contact info at the time of notification to preserve it
             let (contact_name, notification_target, provider_type): (String, String, String) = conn.query_row(
                 "SELECT c.name, cnm.notification_target, cnm.provider_type
@@ -1871,9 +1871,9 @@ impl MetadataDb {
                 params![&notification_method_id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))
             ).unwrap_or_else(|_| ("Unknown Contact".to_string(), "Unknown Target".to_string(), "unknown".to_string()));
-            
+
             conn.execute(
-                "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot) 
+                "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     &log_id,
@@ -1913,46 +1913,46 @@ impl MetadataDb {
         let result = spawn_blocking(move || -> Result<(String, bool)> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
-            
+
             // Check if user already exists
             let existing: Option<String> = tx
                 .prepare("SELECT id FROM users WHERE email = ?1")?
                 .query_row(params![&email], |row| row.get(0))
                 .ok();
-            
+
             if let Some(_id) = existing {
                 tx.rollback()?;
                 return Err(anyhow::anyhow!("User with this email already exists"));
             }
-            
+
             // Determine if this user should be admin (first user becomes admin)
             let admin_count: i64 = tx.query_row(
                 "SELECT COUNT(*) FROM users WHERE is_admin = 1",
                 [],
                 |row| row.get(0)
             )?;
-            
+
             let final_is_admin = admin_count == 0;
-            
+
             if final_is_admin {
                 println!("Creating first admin user: {}", email);
             } else {
                 println!("Creating regular user: {} (existing admins: {})", email, admin_count);
             }
-            
+
             let user_name = name;
-            
+
             // Generate UUID for new user
             let user_id = Uuid::new_v4().to_string();
-            
+
             println!("DEBUG: Creating user {} with name {:?}, is_admin={}", email, user_name, final_is_admin);
-            
+
             // Create new user
             tx.execute(
                 "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, preferred_fiat_currency) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD")],
             )?;
-            
+
             tx.commit()?;
             Ok((user_id, final_is_admin))
         }).await??; // First ? for JoinError, second ? for inner Result
@@ -2083,13 +2083,13 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<UserRecord>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, 
+                "SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier,
                         subscription_status, trial_ends_at, subscription_started_at,
                         stripe_customer_id, stripe_subscription_id, subscription_ends_at,
                         created_at, preferred_fiat_currency
                  FROM users"
             )?;
-            
+
             let user_iter = stmt.query_map([], |row| {
                 Ok(UserRecord {
                     id: row.get(0)?,
@@ -2109,12 +2109,12 @@ impl MetadataDb {
                     preferred_fiat_currency: row.get(14)?,
                 })
             })?;
-            
+
             let mut users = Vec::new();
             for user in user_iter {
                 users.push(user?);
             }
-            
+
             Ok(users)
         })
         .await?
@@ -2170,7 +2170,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
-                "UPDATE users SET 
+                "UPDATE users SET
                     subscription_status = ?1,
                     trial_ends_at = ?2
                 WHERE id = ?3",
@@ -2195,7 +2195,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
-                "UPDATE users SET 
+                "UPDATE users SET
                     subscription_status = ?1,
                     stripe_subscription_id = COALESCE(?2, stripe_subscription_id)
                 WHERE id = ?3",
@@ -2228,10 +2228,10 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
-                "UPDATE users SET 
-                    subscription_tier = ?1, 
-                    subscription_status = ?2, 
-                    stripe_subscription_id = ?3, 
+                "UPDATE users SET
+                    subscription_tier = ?1,
+                    subscription_status = ?2,
+                    stripe_subscription_id = ?3,
                     subscription_started_at = ?4,
                     subscription_ends_at = ?5,
                     trial_ends_at = COALESCE(?6, trial_ends_at)
@@ -2334,28 +2334,28 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<String>> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
-            
+
             // Get user_id for valid, non-expired token
             let user_id: Option<String> = tx
                 .prepare("SELECT user_id FROM email_verification_tokens WHERE token = ?1 AND expires_at > ?2")?
                 .query_row(params![&token, &current_time], |row| row.get(0))
                 .ok();
-            
+
             tracing::debug!("Token query result: {:?}", user_id);
-            
+
             if let Some(user_id) = user_id {
                 // Mark user as verified
                 tx.execute(
                     "UPDATE users SET email_verified = TRUE WHERE id = ?1",
                     params![user_id],
                 )?;
-                
+
                 // Delete the token
                 tx.execute(
                     "DELETE FROM email_verification_tokens WHERE token = ?1",
                     params![&token],
                 )?;
-                
+
                 tx.commit()?;
                 Ok(Some(user_id))
             } else {
@@ -2376,13 +2376,13 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
-            
+
             // Delete any existing tokens for this user
             conn.execute(
                 "DELETE FROM password_reset_tokens WHERE user_id = ?1",
                 params![&user_id],
             )?;
-            
+
             // Create new token
             conn.execute(
                 "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?1, ?2, ?3)",
@@ -2442,46 +2442,46 @@ impl MetadataDb {
             let conn = pool.get()?;
             let current_time = chrono::Utc::now();
             let current_time_str = current_time.format("%Y-%m-%d %H:%M:%S").to_string();
-            
+
             // Check if blocked
             let blocked: Option<String> = conn
                 .prepare("SELECT blocked_until FROM otp_attempts WHERE phone_number = ?1")?
                 .query_row(params![&phone_number], |row| row.get(0))
                 .ok();
-            
+
             if let Some(blocked_until) = blocked {
                 if blocked_until > current_time_str {
                     return Ok(false); // Still blocked
                 }
             }
-            
+
             // Check recent attempts (last 15 minutes)
             let fifteen_minutes_ago = (current_time - chrono::Duration::minutes(15))
                 .format("%Y-%m-%d %H:%M:%S").to_string();
-            
+
             let recent_attempts: i32 = conn
                 .prepare("SELECT attempt_count FROM otp_attempts WHERE phone_number = ?1 AND last_attempt > ?2")?
                 .query_row(params![&phone_number, &fifteen_minutes_ago], |row| row.get(0))
                 .unwrap_or(0);
-            
+
             if recent_attempts >= 5 {
                 // Block for 30 minutes
                 let blocked_until = (current_time + chrono::Duration::minutes(30))
                     .format("%Y-%m-%d %H:%M:%S").to_string();
-                
+
                 conn.execute(
                     "UPDATE otp_attempts SET blocked_until = ?1 WHERE phone_number = ?2",
                     params![&blocked_until, &phone_number],
                 )?;
-                
+
                 return Ok(false);
             }
-            
+
             // Update attempt count
             let exists: bool = conn
                 .prepare("SELECT 1 FROM otp_attempts WHERE phone_number = ?1")?
                 .exists(params![&phone_number])?;
-            
+
             if exists {
                 conn.execute(
                     "UPDATE otp_attempts SET attempt_count = attempt_count + 1, last_attempt = ?1 WHERE phone_number = ?2",
@@ -2493,7 +2493,7 @@ impl MetadataDb {
                     params![&phone_number, &current_time_str],
                 )?;
             }
-            
+
             Ok(true)
         }).await?
     }
@@ -2533,9 +2533,9 @@ impl MetadataDb {
         spawn_blocking(move || {
             let conn = pool.get()?;
             let expires_at = chrono::Utc::now() + chrono::Duration::minutes(10);
-            
+
             conn.execute(
-                "INSERT INTO pending_contact_verifications 
+                "INSERT INTO pending_contact_verifications
                  (wallet_checksum, provider_type, notification_target, contact_name, language, verification_code, expires_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
@@ -2564,10 +2564,10 @@ impl MetadataDb {
         spawn_blocking(move || {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, contact_name, language, verification_code 
-                 FROM pending_contact_verifications 
-                 WHERE wallet_checksum = ?1 
-                 AND notification_target = ?2 
+                "SELECT id, contact_name, language, verification_code
+                 FROM pending_contact_verifications
+                 WHERE wallet_checksum = ?1
+                 AND notification_target = ?2
                  AND expires_at > datetime('now')
                  ORDER BY created_at DESC
                  LIMIT 1",
@@ -2592,8 +2592,8 @@ impl MetadataDb {
         spawn_blocking(move || {
             let conn = pool.get()?;
             conn.execute(
-                "UPDATE pending_contact_verifications 
-                 SET verified_at = CURRENT_TIMESTAMP 
+                "UPDATE pending_contact_verifications
+                 SET verified_at = CURRENT_TIMESTAMP
                  WHERE id = ?1",
                 params![verification_id],
             )?;
@@ -2614,8 +2614,8 @@ impl MetadataDb {
 
             // Also clean up old completed verifications (older than 24 hours)
             let deleted_completed = conn.execute(
-                "DELETE FROM pending_contact_verifications 
-                 WHERE verified_at IS NOT NULL 
+                "DELETE FROM pending_contact_verifications
+                 WHERE verified_at IS NOT NULL
                  AND verified_at <= datetime('now', '-24 hours')",
                 [],
             )?;
@@ -2683,8 +2683,8 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM pending_contact_verifications 
-                 WHERE wallet_checksum = ?1 
+                "SELECT COUNT(*) FROM pending_contact_verifications
+                 WHERE wallet_checksum = ?1
                  AND notification_target = ?2
                  AND verified_at IS NOT NULL
                  AND verified_at > datetime('now', '-30 minutes')",
@@ -2714,45 +2714,45 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
-            
+
             // Start transaction
             conn.execute("BEGIN TRANSACTION", [])?;
-            
+
             match (|| -> Result<()> {
                 // Update contact basics
                 conn.execute(
                     "UPDATE contacts SET name = ?1, language = ?2 WHERE id = ?3 AND wallet_checksum = ?4",
                     params![contact_name, lang.as_str(), contact_id, checksum],
                 )?;
-                
+
                 // Check if contact was updated (exists and belongs to wallet)
                 let affected: i64 = conn.query_row(
                     "SELECT changes()",
                     [],
                     |row| row.get(0),
                 )?;
-                
+
                 if affected == 0 {
                     return Err(anyhow::anyhow!("Contact not found or access denied"));
                 }
-                
+
                 // Delete all old notification methods
                 conn.execute(
                     "DELETE FROM contact_notification_methods WHERE contact_id = ?1",
                     params![contact_id],
                 )?;
-                
+
                 // Insert new methods
                 for (provider_type, target) in new_methods {
                     let method_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
-                        "INSERT INTO contact_notification_methods 
-                         (id, contact_id, provider_type, notification_target, wallet_checksum) 
+                        "INSERT INTO contact_notification_methods
+                         (id, contact_id, provider_type, notification_target, wallet_checksum)
                          VALUES (?1, ?2, ?3, ?4, ?5)",
                         params![method_id, contact_id, provider_type.as_str(), target, checksum],
                     )?;
                 }
-                
+
                 Ok(())
             })() {
                 Ok(()) => {
@@ -2787,7 +2787,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
             let affected = conn.execute(
-                "UPDATE transactions 
+                "UPDATE transactions
                  SET transaction_status = 'replaced', replaced_by_txid = ?1, replaced_at = ?2
                  WHERE wallet_checksum = ?3 AND txid = ?4 AND transaction_status = 'pending'",
                 params![&replaced_by_txid, replaced_at, &checksum, &original_txid],
@@ -2845,10 +2845,10 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             let tx = conn.unchecked_transaction()?;
-            
+
             // Clear old rates
             tx.execute("DELETE FROM exchange_rates", params![])?;
-            
+
             // Insert new rates
             for (currency, rate) in rates {
                 tx.execute(
@@ -2856,7 +2856,7 @@ impl MetadataDb {
                     params![currency, rate.rate_per_btc, rate.last_updated.to_rfc3339()],
                 )?;
             }
-            
+
             tx.commit()?;
             Ok(())
         })

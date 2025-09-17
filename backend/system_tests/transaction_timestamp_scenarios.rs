@@ -5,13 +5,19 @@ mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
 /// Helper function to sync with retries for better reliability
-async fn sync_with_retries(env: &mut IsolatedTestEnvironment, retries: u32) -> Result<(), Box<dyn std::error::Error>> {
+async fn sync_with_retries(
+    env: &mut IsolatedTestEnvironment,
+    retries: u32,
+) -> Result<(), Box<dyn std::error::Error>> {
     for attempt in 1..=retries {
         match env.sync_and_wait().await {
             Ok(()) => return Ok(()),
             Err(e) => {
                 if attempt < retries {
-                    println!("⚠️ Sync attempt {}/{} failed: {}, retrying in 5s...", attempt, retries, e);
+                    println!(
+                        "⚠️ Sync attempt {}/{} failed: {}, retrying in 5s...",
+                        attempt, retries, e
+                    );
                     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
                 } else {
                     return Err(e);
@@ -38,7 +44,9 @@ async fn test_mempool_first_transaction_timestamp() {
         .expect("Failed to create test environment");
 
     // Initial sync to establish baseline
-    sync_with_retries(&mut env, 3).await.expect("Failed to sync");
+    sync_with_retries(&mut env, 3)
+        .await
+        .expect("Failed to sync");
 
     println!("🕐 Test 1: Transaction seen in mempool first");
 
@@ -75,7 +83,10 @@ async fn test_mempool_first_transaction_timestamp() {
         .expect("Should find unconfirmed send transaction");
 
     let mempool_first_seen = unconfirmed_tx.first_seen_at;
-    println!("✅ Transaction detected in mempool with first_seen_at: {}", mempool_first_seen);
+    println!(
+        "✅ Transaction detected in mempool with first_seen_at: {}",
+        mempool_first_seen
+    );
 
     // Step 3: Wait a bit, then mine block
     println!("⚡ Step 3: Wait 5 seconds, then mine block");
@@ -117,11 +128,16 @@ async fn test_mempool_first_transaction_timestamp() {
     println!("   confirmed_at: {:?}", confirmed_tx.confirmed_at);
 
     // Verify the transaction uses the oldest timestamp (mempool time)
-    let display_time = confirmed_tx.first_seen_at.min(confirmed_tx.confirmed_at.unwrap_or(u64::MAX));
+    let display_time = confirmed_tx
+        .first_seen_at
+        .min(confirmed_tx.confirmed_at.unwrap_or(u64::MAX));
     println!("   Display time (min of both): {}", display_time);
 
     // Assertions
-    assert!(confirmed_tx.confirmed_at.is_some(), "Transaction should be confirmed");
+    assert!(
+        confirmed_tx.confirmed_at.is_some(),
+        "Transaction should be confirmed"
+    );
     assert_eq!(
         confirmed_tx.first_seen_at, mempool_first_seen,
         "first_seen_at should be preserved from mempool detection"
@@ -156,7 +172,9 @@ async fn test_direct_mining_transaction_timestamp() {
         .expect("Failed to create test environment");
 
     // Initial sync to establish baseline
-    sync_with_retries(&mut env, 3).await.expect("Failed to sync");
+    sync_with_retries(&mut env, 3)
+        .await
+        .expect("Failed to sync");
 
     println!("🕐 Test 2: Transaction mined directly (no mempool)");
 
@@ -183,9 +201,7 @@ async fn test_direct_mining_transaction_timestamp() {
 
     // Step 3: Now sync wallets (transaction will be discovered as confirmed)
     println!("⚡ Step 3: Sync wallets (transaction discovered as already confirmed)");
-    env.sync_and_wait()
-        .await
-        .expect("Failed to sync");
+    env.sync_and_wait().await.expect("Failed to sync");
 
     // Get transactions after sync
     let alice_txs = env
@@ -205,12 +221,20 @@ async fn test_direct_mining_transaction_timestamp() {
     println!("   block_height: {:?}", confirmed_tx.block_height);
 
     // Calculate display time (minimum of available timestamps)
-    let display_time = confirmed_tx.first_seen_at.min(confirmed_tx.confirmed_at.unwrap_or(u64::MAX));
+    let display_time = confirmed_tx
+        .first_seen_at
+        .min(confirmed_tx.confirmed_at.unwrap_or(u64::MAX));
     println!("   Display time (min of both): {}", display_time);
 
     // Assertions
-    assert!(confirmed_tx.block_height.is_some(), "Transaction should be confirmed");
-    assert!(confirmed_tx.confirmed_at.is_some(), "confirmed_at should be set");
+    assert!(
+        confirmed_tx.block_height.is_some(),
+        "Transaction should be confirmed"
+    );
+    assert!(
+        confirmed_tx.confirmed_at.is_some(),
+        "confirmed_at should be set"
+    );
 
     // For direct mining, confirmed_at should contain the block timestamp
     let confirmed_at = confirmed_tx.confirmed_at.unwrap();
@@ -236,4 +260,3 @@ async fn test_direct_mining_transaction_timestamp() {
 
     println!("✅ Test 2 passed: Direct-mined transaction shows block timestamp");
 }
-

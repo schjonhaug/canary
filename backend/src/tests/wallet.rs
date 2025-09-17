@@ -116,17 +116,17 @@ mod tests {
             (Network::Bitcoin, "xpub6BmTxpDFqy", "xpub6BmTxpDFqy"), // Already normalized
             (Network::Bitcoin, "ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNpj7MmV", "xpub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNpj7MmV"),
             (Network::Bitcoin, "zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs", "xpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs"),
-            
+
             // Testnet cases
             (Network::Testnet, "tpub6BmTxpDFqy", "tpub6BmTxpDFqy"), // Already normalized
             (Network::Testnet, "upub5EFU65HtV5TeiSHmZZm7FUffBGy8UKeqp7vw43jYbvjNECs", "tpub5EFU65HtV5TeiSHmZZm7FUffBGy8UKeqp7vw43jYbvjNECs"),
             (Network::Testnet, "vpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc", "tpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc"),
-            
+
             // Cross-network normalization (mainnet keys on testnet)
             (Network::Testnet, "xpub6BmTxpDFqy", "tpub6BmTxpDFqy"),
             (Network::Testnet, "ypub6Ww3ibxVfGzL", "tpub6Ww3ibxVfGzL"),
             (Network::Testnet, "zpub6rFR7y4Q2Aij", "tpub6rFR7y4Q2Aij"),
-            
+
             // Regtest (uses testnet format)
             (Network::Regtest, "xpub6BmTxpDFqy", "tpub6BmTxpDFqy"),
             (Network::Regtest, "tpub6BmTxpDFqy", "tpub6BmTxpDFqy"),
@@ -195,11 +195,11 @@ mod tests {
         let test_cases = vec![
             // Mainnet keys (using real mainnet XPUBs from existing tests)
             ("zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs", Some(Network::Bitcoin)),
-            
+
             // Testnet keys (using real testnet XPUB from existing tests)
             ("tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5", Some(Network::Testnet)),
             ("vpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc", Some(Network::Testnet)),
-            
+
             // Invalid or non-XPUB formats
             ("invalid_key", None),
             ("short", None),
@@ -227,13 +227,13 @@ mod tests {
         let valid_cases = vec![
             // Mainnet keys on mainnet
             ("zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs", Network::Bitcoin),
-            
+
             // Testnet keys on testnet/regtest
             ("tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5", Network::Testnet),
             ("vpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc", Network::Testnet),
             ("tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5", Network::Regtest),
             ("vpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc", Network::Regtest),
-            
+
             // Non-XPUB strings should pass (not validated)
             ("invalid_key", Network::Bitcoin),
             ("short", Network::Testnet),
@@ -255,7 +255,7 @@ mod tests {
             // Mainnet keys on testnet/regtest
             ("zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs", Network::Testnet),
             ("zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs", Network::Regtest),
-            
+
             // Testnet keys on mainnet
             ("tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5", Network::Bitcoin),
             ("vpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc", Network::Bitcoin),
@@ -285,13 +285,13 @@ mod tests {
             ("zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs", Network::Bitcoin),
             ("wpkh(zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs/<0;1>/*)", Network::Bitcoin),
             ("wpkh([805c684b/84h/1h/0h]zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs/<0;1>/*)#8nt3y08q", Network::Bitcoin),
-            
+
             // Testnet descriptors on testnet/regtest
             ("tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5", Network::Testnet),
             ("wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)", Network::Testnet),
             ("wpkh([805c684b/84h/1h/0h]tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)#8nt3y08q", Network::Regtest),
             ("sh(wpkh(vpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc/<0;1>/*))", Network::Testnet),
-            
+
             // Non-XPUB descriptors should pass
             ("wpkh(0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798)", Network::Bitcoin),
         ];
@@ -313,7 +313,7 @@ mod tests {
             ("zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs", Network::Testnet),
             ("wpkh(zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs/<0;1>/*)", Network::Testnet),
             ("wpkh([805c684b/84h/1h/0h]zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs/<0;1>/*)#8nt3y08q", Network::Testnet),
-            
+
             // Testnet descriptors on mainnet
             ("tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5", Network::Bitcoin),
             ("wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)", Network::Bitcoin),
