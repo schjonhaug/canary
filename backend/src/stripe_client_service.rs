@@ -29,6 +29,11 @@ pub struct CheckoutSession {
     pub url: Option<String>,
     pub customer: Option<String>,
     pub subscription: Option<String>,
+    pub payment_status: Option<String>,
+    pub mode: Option<String>,
+    pub amount_total: Option<i64>,
+    pub currency: Option<String>,
+    pub metadata: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,8 +178,11 @@ impl StripeClientService {
             ("customer_update[address]".to_string(), "auto".to_string()),
         ];
 
-        for (key, value) in metadata {
-            form_data.push((format!("subscription_data[metadata][{}]", key), value));
+        for (key, value) in metadata.clone() {
+            // Add metadata to subscription
+            form_data.push((format!("subscription_data[metadata][{}]", key), value.clone()));
+            // Also add metadata to checkout session itself for retrieval
+            form_data.push((format!("metadata[{}]", key), value));
         }
 
         // Note: Upsells are now configured directly in Stripe Dashboard on the price,
@@ -448,5 +456,34 @@ impl StripeClientService {
 
         let subscription: Subscription = response.json().await?;
         Ok(subscription)
+    }
+
+    pub async fn get_checkout_session(&self, session_id: &str) -> Result<CheckoutSession> {
+        let url = format!("https://api.stripe.com/v1/checkout/sessions/{}", session_id);
+
+        // Add expand parameter to get more details about the session
+        let response = self
+            .add_stripe_headers(self.client.get(&url))
+            .query(&[("expand[]", "line_items")])
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await?;
+
+            if status == 404 {
+                return Err(anyhow::anyhow!("Checkout session not found"));
+            }
+
+            tracing::error!("❌ Stripe get checkout session failed: {}", error_text);
+            return Err(anyhow::anyhow!(
+                "Stripe get checkout session failed: {}",
+                error_text
+            ));
+        }
+
+        let session: CheckoutSession = response.json().await?;
+        Ok(session)
     }
 }

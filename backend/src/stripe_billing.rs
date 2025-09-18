@@ -49,6 +49,10 @@ pub struct CheckoutSessionDetails {
     pub customer_id: Option<String>,
     pub subscription_id: Option<String>,
     pub status: Option<String>,
+    pub tier: Option<String>,
+    pub billing_period: Option<String>,
+    pub amount_total: Option<i64>,
+    pub currency: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -440,7 +444,8 @@ impl StripeBilling {
         // Create subscription metadata
         let mut metadata = HashMap::new();
         metadata.insert("user_id".to_string(), user_id.to_string());
-        metadata.insert("tier".to_string(), format!("{:?}", tier));
+        metadata.insert("tier".to_string(), tier.as_str().to_string());
+        metadata.insert("billing_period".to_string(), billing_cycle.to_string());
 
         let session = self
             .client
@@ -918,12 +923,47 @@ impl StripeBilling {
         &self,
         session_id: &str,
     ) -> Result<CheckoutSessionDetails> {
-        // For now, return a placeholder
+        // Get the checkout session from Stripe
+        let session = self.client.get_checkout_session(session_id).await?;
+
+        // Map payment_status to simpler status for frontend
+        let status = session.payment_status.as_deref().map(|s| {
+            match s {
+                "paid" => "complete",
+                "unpaid" => "pending",
+                _ => s,
+            }
+            .to_string()
+        });
+
+        // Extract tier and billing period from metadata
+        let mut tier: Option<String> = None;
+        let mut billing_period: Option<String> = None;
+
+        if let Some(metadata) = &session.metadata {
+            tier = metadata.get("tier").cloned();
+            billing_period = metadata.get("billing_period").cloned();
+
+            // If billing_period is not in metadata, try to infer from the amount
+            if billing_period.is_none() && session.amount_total.is_some() {
+                // Check if amount matches yearly pricing (typically higher than monthly)
+                // This is a fallback - metadata should normally contain this info
+                if let Some(amount) = session.amount_total {
+                    // Yearly subscriptions are typically > $100 (e.g., $108 for Personal yearly)
+                    billing_period = Some(if amount > 10000 { "yearly" } else { "monthly" }.to_string());
+                }
+            }
+        }
+
         Ok(CheckoutSessionDetails {
-            session_id: session_id.to_string(),
-            customer_id: None,
-            subscription_id: None,
-            status: Some("pending".to_string()),
+            session_id: session.id.unwrap_or_else(|| session_id.to_string()),
+            customer_id: session.customer,
+            subscription_id: session.subscription,
+            status,
+            tier,
+            billing_period,
+            amount_total: session.amount_total,
+            currency: session.currency,
         })
     }
 
