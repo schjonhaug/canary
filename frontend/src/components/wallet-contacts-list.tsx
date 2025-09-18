@@ -97,9 +97,37 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                         ) : (
                           <Bell className="h-3 w-3 shrink-0" />
                         )}
-                        <span className="truncate">
-                          {method.display_target || method.notification_target}
-                        </span>
+                        {method.provider_type === 'sms' ? (
+                          <a
+                            href={`tel:${method.notification_target}`}
+                            className="truncate text-blue-600 hover:text-blue-800 underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {method.display_target || method.notification_target}
+                          </a>
+                        ) : method.provider_type === 'email' ? (
+                          <a
+                            href={`mailto:${method.notification_target}`}
+                            className="truncate text-blue-600 hover:text-blue-800 underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {method.display_target || method.notification_target}
+                          </a>
+                        ) : method.provider_type === 'ntfy' ? (
+                          <a
+                            href={`https://ntfy.sh/${method.notification_target}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="truncate text-blue-600 hover:text-blue-800 underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {method.display_target || method.notification_target}
+                          </a>
+                        ) : (
+                          <span className="truncate">
+                            {method.display_target || method.notification_target}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
