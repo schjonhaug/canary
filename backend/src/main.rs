@@ -166,13 +166,6 @@ async fn main() -> anyhow::Result<()> {
 
         // Start background task to refresh exchange rates every 10 minutes
         exchange_rate_service.clone().start_refresh_task();
-
-        // Fetch initial exchange rates
-        tokio::spawn(async move {
-            if let Err(e) = exchange_rate_service.get_rates().await {
-                eprintln!("Failed to fetch initial exchange rates: {}", e);
-            }
-        });
     }
 
     // Create notification manager and register providers based on operating mode
