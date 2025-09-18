@@ -1,1 +1,0 @@
-There is a bug that when we are waiting for the wallet to complete syncing, it is in the pending state, and the front-end is listening every second while that happens. However, if you do a reload of the page while it’s waiting, it seems that this one-second polling is not working anymore. is it falling back to the ordinary polling in that case?
