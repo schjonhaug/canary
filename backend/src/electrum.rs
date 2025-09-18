@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::task::spawn_blocking;
 use tokio::time::timeout;
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BlockHeader {
@@ -83,7 +84,7 @@ impl ElectrumClient {
             }
         }
 
-        println!(
+        debug!(
             "  [stop-gap {:?}] usage scan inspected {} txs / {} outputs in {:.2?}; highest_used={}",
             keychain,
             tx_scanned,
@@ -117,9 +118,13 @@ impl ElectrumClient {
             } else {
                 "internal"
             };
-            println!(
+            debug!(
                 "  Need more {} addresses: highest used={}, current revealed={}, need={} (scan {:.2?})",
-                keychain_str, highest_used, current_index, required_index, usage_scan_duration
+                keychain_str,
+                highest_used,
+                current_index,
+                required_index,
+                usage_scan_duration
             );
 
             // Reveal addresses up to the required index
@@ -128,7 +133,7 @@ impl ElectrumClient {
                 .reveal_addresses_to(keychain, required_index)
                 .collect();
             let reveal_duration = reveal_start.elapsed();
-            println!(
+            debug!(
                 "  Revealed {} new {} addresses in {:.2?}",
                 revealed.len(),
                 keychain_str,
@@ -142,7 +147,7 @@ impl ElectrumClient {
             } else {
                 "internal"
             };
-            println!(
+            debug!(
                 "  Stop gap already satisfied for {} keychain (highest={}, current={}, required={}) after {:.2?}",
                 keychain_str,
                 highest_used,
@@ -159,31 +164,31 @@ impl ElectrumClient {
         wallet: &mut PersistedWallet<Connection>,
         custom_stop_gap: Option<usize>,
     ) -> Result<()> {
-        println!("Full scanning with electrum...");
+        info!("Full scanning with electrum...");
 
         // Print initial balance
         let balance_before = wallet.balance();
-        println!("Wallet balance before syncing: {}", balance_before.total());
+        info!("Wallet balance before syncing: {}", balance_before.total());
 
         // Initial reveal of addresses (start with a smaller batch)
         const INITIAL_REVEAL: u32 = 50;
 
-        println!("Initial address revelation:");
+        info!("Initial address revelation:");
         let ext_revealed: Vec<_> = wallet
             .reveal_addresses_to(KeychainKind::External, INITIAL_REVEAL)
             .collect();
-        println!("  Revealed {} external addresses", ext_revealed.len());
+        info!("  Revealed {} external addresses", ext_revealed.len());
 
         let int_revealed: Vec<_> = wallet
             .reveal_addresses_to(KeychainKind::Internal, INITIAL_REVEAL)
             .collect();
-        println!("  Revealed {} internal addresses", int_revealed.len());
+        info!("  Revealed {} internal addresses", int_revealed.len());
 
         // Loop until we've satisfied the stop gap for both keychains
         let mut scan_iteration = 0;
         loop {
             scan_iteration += 1;
-            println!("\nScan iteration {}", scan_iteration);
+            info!("\nScan iteration {}", scan_iteration);
 
             // Populate the electrum client's transaction cache
             self.client
@@ -204,7 +209,7 @@ impl ElectrumClient {
 
             // Perform the full scan with timeout protection (120 seconds for more intensive operation)
             let stop_gap = custom_stop_gap.unwrap_or(STOP_GAP);
-            println!("Using stop gap: {}", stop_gap);
+            info!("Using stop gap: {}", stop_gap);
             let client = Arc::clone(&self.client);
             let update = timeout(
                 Duration::from_secs(FULL_SCAN_TIMEOUT_SECS),
@@ -230,25 +235,25 @@ impl ElectrumClient {
 
             // If no new addresses were revealed, we're done
             if !ext_needs_more && !int_needs_more {
-                println!("Stop gap satisfied for both keychains");
+                info!("Stop gap satisfied for both keychains");
                 break;
             }
 
             // Safety check to prevent infinite loops
             if scan_iteration > 10 {
-                println!("Warning: Reached maximum scan iterations");
+                warn!("Warning: Reached maximum scan iterations");
                 break;
             }
         }
 
         // Print final balance
         let balance_after = wallet.balance();
-        println!("Wallet balance after syncing: {}", balance_after.total());
+        info!("Wallet balance after syncing: {}", balance_after.total());
 
         // Print final address statistics
         let ext_total = wallet.next_derivation_index(KeychainKind::External);
         let int_total = wallet.next_derivation_index(KeychainKind::Internal);
-        println!(
+        info!(
             "Total addresses revealed - External: {}, Internal: {}",
             ext_total, int_total
         );
@@ -263,8 +268,8 @@ impl ElectrumClient {
         let cache_start = Instant::now();
         self.client
             .populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
-        println!(
-            "  [electrum] populate_tx_cache completed in {:.2?}",
+        debug!(
+            "[electrum] populate_tx_cache completed in {:.2?}",
             cache_start.elapsed()
         );
 
@@ -282,8 +287,8 @@ impl ElectrumClient {
         .map_err(|_| anyhow!("Sync operation timed out after {PRIMARY_SYNC_TIMEOUT_SECS} seconds"))?
         .map_err(|e| anyhow!("Sync task failed: {}", e))?
         .map_err(|e| anyhow!("Sync failed: {}", e))?;
-        println!(
-            "  [electrum] primary sync completed in {:.2?}",
+        debug!(
+            "[electrum] primary sync completed in {:.2?}",
             electrum_sync_start.elapsed()
         );
 
@@ -292,8 +297,8 @@ impl ElectrumClient {
         wallet
             .apply_update(update)
             .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
-        println!(
-            "  [electrum] apply_update completed in {:.2?}",
+        debug!(
+            "[electrum] apply_update completed in {:.2?}",
             apply_start.elapsed()
         );
 
@@ -303,7 +308,7 @@ impl ElectrumClient {
 
         // If new addresses were revealed, we need to sync them too
         if stop_gap_external || stop_gap_internal {
-            println!("New addresses revealed, performing additional sync...");
+            debug!("New addresses revealed, performing additional sync...");
 
             // Sync only the newly revealed addresses with timeout protection
             let request = wallet.start_sync_with_revealed_spks();
@@ -321,8 +326,8 @@ impl ElectrumClient {
             })?
             .map_err(|e| anyhow!("Additional sync task failed: {}", e))?
             .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
-            println!(
-                "  [electrum] additional sync completed in {:.2?}",
+            debug!(
+                "[electrum] additional sync completed in {:.2?}",
                 additional_sync_start.elapsed()
             );
 
@@ -330,14 +335,14 @@ impl ElectrumClient {
             wallet
                 .apply_update(update)
                 .map_err(|e| anyhow!("Failed to apply additional update: {}", e))?;
-            println!(
-                "  [electrum] additional apply_update completed in {:.2?}",
+            debug!(
+                "[electrum] additional apply_update completed in {:.2?}",
                 additional_apply_start.elapsed()
             );
         }
 
-        println!(
-            "  [electrum] total Electrum client sync duration {:.2?}",
+        debug!(
+            "[electrum] total Electrum client sync duration {:.2?}",
             total_start.elapsed()
         );
 

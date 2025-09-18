@@ -8,6 +8,7 @@ use bdk_wallet::{rusqlite::Connection, PersistedWallet};
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 use tokio::time::sleep;
+use tracing::{debug, error, info, warn};
 
 /// Transaction-based wallet sync service
 /// This replaces the old balance-based sync logic with proper transaction tracking
@@ -15,6 +16,14 @@ pub struct WalletSyncService {
     metadata_db: MetadataDb,
     notification_sender: broadcast::Sender<TransactionNotification>,
     config: AppConfig,
+}
+
+#[derive(Debug, Default)]
+struct TransactionProcessSummary {
+    has_changes: bool,
+    new_transactions: usize,
+    confirmation_updates: usize,
+    conflicts_marked: usize,
 }
 
 impl WalletSyncService {
@@ -38,7 +47,9 @@ impl WalletSyncService {
         electrum_client: Option<&ElectrumClient>,
     ) -> Result<bool> {
         let sync_start = Instant::now();
-        println!("[{}] Starting transaction-based sync", wallet_checksum);
+        info!("[{}] Starting transaction-based sync", wallet_checksum);
+        let mut electrum_duration = Duration::ZERO;
+        let mut electrum_attempts: u32 = 0;
 
         // Perform the actual sync with Electrum with mode-based retry logic
         if let Some(client) = electrum_client {
@@ -46,8 +57,6 @@ impl WalletSyncService {
             let use_exponential_backoff = self.config.is_saas_mode();
 
             let mut last_error = None;
-            let mut electrum_attempts: u32 = 0;
-            let mut electrum_duration = Duration::ZERO;
 
             for attempt in 1..=max_retries {
                 let attempt_start = Instant::now();
@@ -58,12 +67,12 @@ impl WalletSyncService {
 
                 match result {
                     Ok(()) => {
-                        println!(
+                        debug!(
                             "[{}] Electrum sync attempt {} succeeded in {:.2?}",
                             wallet_checksum, attempt, attempt_elapsed
                         );
                         if attempt > 1 {
-                            println!(
+                            debug!(
                                 "[{}] Sync succeeded on attempt {}/{}",
                                 wallet_checksum, attempt, max_retries
                             );
@@ -72,19 +81,16 @@ impl WalletSyncService {
                         break;
                     }
                     Err(e) => {
-                        last_error = Some(e);
-                        println!(
+                        let error_message = e.to_string();
+                        warn!(
                             "[{}] Electrum sync attempt {} failed in {:.2?}: {}",
-                            wallet_checksum,
-                            attempt,
-                            attempt_elapsed,
-                            last_error.as_ref().unwrap()
+                            wallet_checksum, attempt, attempt_elapsed, error_message
                         );
+                        last_error = Some(e);
 
                         // Enhanced error categorization for SAAS mode
                         if self.config.is_saas_mode() && attempt < max_retries {
-                            let error_msg = last_error.as_ref().unwrap().to_string();
-                            let error_type = Self::categorize_error(&error_msg);
+                            let error_type = Self::categorize_error(&error_message);
 
                             let delay_secs = if use_exponential_backoff {
                                 // Exponential backoff: 5s, 10s, 20s
@@ -93,14 +99,14 @@ impl WalletSyncService {
                                 0
                             };
 
-                            println!(
+                            warn!(
                                 "[{}] Sync attempt {}/{} failed ({}), retrying in {}s: {}",
                                 wallet_checksum,
                                 attempt,
                                 max_retries,
                                 error_type,
                                 delay_secs,
-                                error_msg
+                                error_message
                             );
 
                             if delay_secs > 0 {
@@ -108,34 +114,24 @@ impl WalletSyncService {
                             }
                         } else if attempt < max_retries {
                             // FOSS mode - simple retry without categorization
-                            println!(
+                            warn!(
                                 "[{}] Sync attempt {}/{} failed: {}",
-                                wallet_checksum,
-                                attempt,
-                                max_retries,
-                                last_error.as_ref().unwrap()
+                                wallet_checksum, attempt, max_retries, error_message
                             );
                         }
                     }
                 }
             }
 
-            if electrum_attempts > 0 {
-                println!(
-                    "[{}] Electrum sync phase completed in {:.2?} over {} attempt(s)",
-                    wallet_checksum, electrum_duration, electrum_attempts
-                );
-            }
-
             // If all retries failed, handle the error
             if let Some(error) = last_error {
                 if self.config.is_saas_mode() {
-                    eprintln!(
+                    error!(
                         "[{}] Failed to sync with Electrum after {} attempts: {}",
                         wallet_checksum, max_retries, error
                     );
                 } else {
-                    eprintln!(
+                    error!(
                         "[{}] Failed to sync with Electrum: {}",
                         wallet_checksum, error
                     );
@@ -150,7 +146,7 @@ impl WalletSyncService {
             .metadata_db
             .update_wallet_last_synced(wallet_checksum)
             .await;
-        println!(
+        debug!(
             "[{}] Metadata last_synced_at update took {:.2?}",
             wallet_checksum,
             last_synced_start.elapsed()
@@ -158,10 +154,10 @@ impl WalletSyncService {
 
         // Process all transactions and detect changes
         let tx_process_start = Instant::now();
-        let has_changes = self
+        let summary = self
             .process_wallet_transactions(wallet, wallet_checksum, electrum_client)
             .await?;
-        println!(
+        debug!(
             "[{}] Transaction processing took {:.2?}",
             wallet_checksum,
             tx_process_start.elapsed()
@@ -173,29 +169,34 @@ impl WalletSyncService {
         self.metadata_db
             .update_wallet_balance_by_checksum(wallet_checksum, current_balance.to_sat() as i64)
             .await?;
-        println!(
+        debug!(
             "[{}] Wallet balance metadata update took {:.2?}",
             wallet_checksum,
             balance_update_start.elapsed()
         );
 
         let sync_duration = sync_start.elapsed();
-        println!(
-            "[{}] Sync complete in {:.2}s, changes: {}",
+        info!(
+            "[{}] Sync complete in {:.2}s (electrum {:.2}s across {} attempt(s)); changes={}, new_transactions={}, confirmations={}, conflicts_marked={}",
             wallet_checksum,
             sync_duration.as_secs_f64(),
-            has_changes
+            electrum_duration.as_secs_f64(),
+            electrum_attempts,
+            summary.has_changes,
+            summary.new_transactions,
+            summary.confirmation_updates,
+            summary.conflicts_marked
         );
 
         // Log warning for unusually long syncs (SAAS mode only)
         if self.config.is_saas_mode() && sync_duration.as_secs() > 120 {
-            eprintln!(
+            warn!(
                 "[{}] WARNING: Sync took {:.1}s (>120s), potential performance issue",
                 wallet_checksum,
                 sync_duration.as_secs_f64()
             );
         }
-        Ok(has_changes)
+        Ok(summary.has_changes)
     }
 
     /// Process all transactions in the wallet and sync with database
@@ -204,7 +205,7 @@ impl WalletSyncService {
         wallet: &PersistedWallet<Connection>,
         wallet_checksum: &str,
         electrum_client: Option<&ElectrumClient>,
-    ) -> Result<bool> {
+    ) -> Result<TransactionProcessSummary> {
         let mut has_changes = false;
 
         let fetch_existing_start = Instant::now();
@@ -214,7 +215,7 @@ impl WalletSyncService {
             .metadata_db
             .get_transactions_by_wallet_checksum(wallet_checksum, None)
             .await?;
-        println!(
+        debug!(
             "[{}] Loaded {} existing transactions from metadata in {:.2?}",
             wallet_checksum,
             existing_transactions.len(),
@@ -279,7 +280,7 @@ impl WalletSyncService {
                 )
             })
             .collect();
-        println!(
+        debug!(
             "[{}] Built canonical transaction snapshot ({} items) in {:.2?}",
             wallet_checksum,
             canonical_transactions_data.len(),
@@ -316,9 +317,12 @@ impl WalletSyncService {
                             let header_result = match client.get_block_header(*height).await {
                                 Ok(header) => Some(header.timestamp),
                                 Err(e) => {
-                                    eprintln!(
+                                    warn!(
                                         "[{}] Failed to fetch block header for new tx {} at height {}: {}",
-                                        wallet_checksum, txid, height, e
+                                        wallet_checksum,
+                                        txid,
+                                        height,
+                                        e
                                     );
                                     Some(*first_seen_at) // Fallback
                                 }
@@ -339,7 +343,7 @@ impl WalletSyncService {
         }
 
         if block_header_fetch_count > 0 {
-            println!(
+            debug!(
                 "[{}] Block header lookups: {} in {:.2?}",
                 wallet_checksum, block_header_fetch_count, block_header_fetch_duration
             );
@@ -366,7 +370,7 @@ impl WalletSyncService {
         let sort_start = Instant::now();
         let mut all_transactions = canonical_transactions_data;
         all_transactions.sort_by_key(|(_, _, _, _, first_seen_at, _)| *first_seen_at);
-        println!(
+        debug!(
             "[{}] Sorted canonical transactions in {:.2?}",
             wallet_checksum,
             sort_start.elapsed()
@@ -376,7 +380,7 @@ impl WalletSyncService {
         let cpfp_start = Instant::now();
         let cpfp_relationships =
             self.detect_cpfp_relationships(wallet, wallet_checksum, &all_transactions)?;
-        println!(
+        debug!(
             "[{}] CPFP detection completed in {:.2?}",
             wallet_checksum,
             cpfp_start.elapsed()
@@ -433,16 +437,16 @@ impl WalletSyncService {
 
                     has_changes = true;
                     new_tx_count += 1;
-                    println!(
-                        "[{}] New transaction: {} {} ({:.8} BTC)",
+                    debug!(
+                        "[{}] New transaction recorded: status={}, type={}, amount_sats={}",
                         wallet_checksum,
                         if transaction.block_height.is_some() {
-                            "✅ Confirmed"
+                            "confirmed"
                         } else {
-                            "⏳ Pending"
+                            "pending"
                         },
                         transaction.transaction_type.as_str(),
-                        transaction.amount_sats as f64 / 100_000_000.0
+                        transaction.amount_sats
                     );
                 }
                 Some(existing) => {
@@ -477,7 +481,7 @@ impl WalletSyncService {
 
                         has_changes = true;
                         confirmation_updates += 1;
-                        println!(
+                        debug!(
                             "[{}] Transaction confirmed: {} at height {}",
                             wallet_checksum, &txid, block_height_value
                         );
@@ -494,7 +498,7 @@ impl WalletSyncService {
         // BDK has already identified conflicted transactions - these are the ones that got replaced
 
         if !conflicted_txids.is_empty() {
-            println!(
+            debug!(
                 "[{}] Found {} conflicted transactions from BDK",
                 wallet_checksum,
                 conflicted_txids.len()
@@ -556,10 +560,15 @@ impl WalletSyncService {
                                             && pending_tx.transaction_type == EventType::Receive);
 
                                     if has_shared_inputs && same_type {
-                                        println!(
+                                        debug!(
                                             "[{}] BDK conflict detected: {} replaced by {} (shared {} inputs)",
-                                            wallet_checksum, conflicted_txid, canonical_txid,
-                                            conflicted_inputs.iter().filter(|input| canonical_inputs.contains(input)).count()
+                                            wallet_checksum,
+                                            conflicted_txid,
+                                            canonical_txid,
+                                            conflicted_inputs
+                                                .iter()
+                                                .filter(|input| canonical_inputs.contains(input))
+                                                .count()
                                         );
 
                                         let replacement_marked = self
@@ -582,20 +591,22 @@ impl WalletSyncService {
                             }
 
                             if !found_replacement {
-                                println!(
+                                debug!(
                                     "[{}] BDK detected conflict for {} but couldn't find canonical replacement with shared inputs",
-                                    wallet_checksum, conflicted_txid
+                                    wallet_checksum,
+                                    conflicted_txid
                                 );
                             }
                         } else {
-                            println!(
+                            debug!(
                                 "[{}] Could not find conflicted transaction {} in BDK's full transaction set",
-                                wallet_checksum, conflicted_txid
+                                wallet_checksum,
+                                conflicted_txid
                             );
                         }
                     }
                 } else {
-                    println!(
+                    debug!(
                         "[{}] Conflicted transaction {} not in our database - may be historical",
                         wallet_checksum, conflicted_txid
                     );
@@ -605,26 +616,31 @@ impl WalletSyncService {
 
         let conflict_detection_duration = conflict_detection_start.elapsed();
 
-        println!(
+        debug!(
             "[{}] Transaction processing loop took {:.2?}",
             wallet_checksum, processing_loop_duration
         );
-        println!(
+        debug!(
             "[{}] Conflict handling duration: {:.2?} (conflicts_marked={})",
             wallet_checksum, conflict_detection_duration, conflicts_marked
         );
-        println!(
+        debug!(
             "[{}] Transaction changes summary: new={}, confirmations={}",
             wallet_checksum, new_tx_count, confirmation_updates
         );
 
-        println!(
+        debug!(
             "[{}] End-to-end transaction processing time {:.2?}",
             wallet_checksum,
             fetch_existing_start.elapsed()
         );
 
-        Ok(has_changes)
+        Ok(TransactionProcessSummary {
+            has_changes,
+            new_transactions: new_tx_count,
+            confirmation_updates,
+            conflicts_marked,
+        })
     }
 
     /// Send notification for a new transaction (either pending or directly confirmed)
@@ -661,7 +677,7 @@ impl WalletSyncService {
         // Send through broadcast channel
         if let Err(_) = self.notification_sender.send(notification) {
             // Log but don't fail sync if no one is listening
-            println!(
+            debug!(
                 "[{}] No notification listeners active",
                 transaction.wallet_checksum
             );
@@ -680,7 +696,7 @@ impl WalletSyncService {
         // Send through broadcast channel
         if let Err(_) = self.notification_sender.send(notification) {
             // Log but don't fail sync if no one is listening
-            println!(
+            debug!(
                 "[{}] No notification listeners active",
                 transaction.wallet_checksum
             );
@@ -696,7 +712,7 @@ impl WalletSyncService {
         metadata_db: &MetadataDb,
         electrum_client: Option<&crate::electrum::ElectrumClient>,
     ) -> Result<()> {
-        println!("[{}] Extracting historical transactions", wallet_checksum);
+        debug!("[{}] Extracting historical transactions", wallet_checksum);
 
         // Collect all transactions and sort them chronologically
         let mut all_transactions: Vec<_> = wallet.transactions().collect();
@@ -737,7 +753,7 @@ impl WalletSyncService {
             }
         });
 
-        println!(
+        debug!(
             "[{}] Found {} historical transactions to process",
             wallet_checksum,
             all_transactions.len()
@@ -759,7 +775,7 @@ impl WalletSyncService {
 
         let initial_balance = current_balance - total_net_change;
 
-        println!(
+        debug!(
             "[{}] Current balance: {:.8} BTC, Initial balance: {:.8} BTC",
             wallet_checksum,
             current_balance as f64 / 100_000_000.0,
@@ -797,7 +813,7 @@ impl WalletSyncService {
                         {
                             Ok(header) => Some(header.timestamp),
                             Err(e) => {
-                                eprintln!(
+                                warn!(
                                     "[{}] Failed to fetch block header for height {}: {}",
                                     wallet_checksum, anchor.block_id.height, e
                                 );
@@ -866,14 +882,14 @@ impl WalletSyncService {
 
             // Insert individual transaction
             if let Err(e) = metadata_db.insert_transaction(&transaction_insert).await {
-                eprintln!(
+                warn!(
                     "[{}] Failed to insert historical transaction {}: {}",
                     wallet_checksum, transaction_insert.txid, e
                 );
             }
         }
 
-        println!(
+        debug!(
             "[{}] Historical transaction extraction completed",
             wallet_checksum
         );
@@ -934,7 +950,7 @@ impl WalletSyncService {
                         if parent_txid != child_txid {
                             // Found CPFP relationship: child spends from parent
                             cpfp_relationships.insert(child_txid.clone(), parent_txid.clone());
-                            println!(
+                            debug!(
                                 "[{}] CPFP detected: {} (child) spends from {} (parent) output {}:{}",
                                 wallet_checksum,
                                 child_txid,
