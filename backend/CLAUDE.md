@@ -171,6 +171,9 @@ NEXT_PUBLIC_SYNC_INTERVAL=60000
   - `tests/stripe_integration_tests.rs` - Stripe webhook processing and billing flows
   - `tests/contact_duplicates_test.rs` - Contact management and duplicate prevention
 - **System Tests**: End-to-end Docker-based testing in `system_tests/` directory (see `system_tests/README.md`)
+  - `system_tests/balance_alert_scenarios.rs` - Real Bitcoin transaction balance alert testing with Docker Bitcoin Core
+  - `system_tests/mined_directly_scenarios.rs` - Transaction detection when mined before sync
+  - `system_tests/two_stage_send_scenarios.rs` - Unconfirmed → confirmed transaction flow testing
 
 #### Running Specific Tests
 ```bash
@@ -182,9 +185,11 @@ cargo test --test balance_alerts_system_tests -- --test-threads=1
 
 # Run system tests (requires Docker)
 cargo test --test mined_directly_scenarios -- --ignored
+cargo test --test balance_alert_scenarios -- --ignored
 
 # Run with debug output
 cargo test balance_alerts_system_tests -- --test-threads=1 --nocapture
+cargo test test_balance_alert_below_threshold --test balance_alert_scenarios -- --ignored --nocapture
 ```
 
 ### Frontend  

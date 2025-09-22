@@ -68,3 +68,7 @@ path = "system_tests/mined_directly_scenarios.rs"
 [[test]]
 name = "transaction_timestamp_scenarios"
 path = "system_tests/transaction_timestamp_scenarios.rs"
+
+[[test]]
+name = "balance_alert_scenarios"
+path = "system_tests/balance_alert_scenarios.rs"

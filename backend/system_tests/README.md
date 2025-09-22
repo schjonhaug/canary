@@ -26,6 +26,13 @@ System tests (also called End-to-End tests) test the complete Canary application
 - `test_mempool_first_transaction_timestamp` - Verify mempool-first transactions show mempool time
 - `test_direct_mining_transaction_timestamp` - Verify direct-mined transactions show block time
 
+### **`balance_alert_scenarios.rs`** - Balance alert system testing
+- `test_balance_alert_below_threshold` - Alert triggers when balance drops below threshold
+- `test_balance_alert_above_threshold` - Alert triggers when balance rises above threshold
+- `test_balance_drain_alert_equals_zero` - Alert triggers when wallet is completely drained
+- `test_multiple_balance_alerts` - Multiple alerts on same wallet trigger independently
+- `test_balance_alert_deactivation` - Deactivated alerts don't trigger
+
 **⚠️ Important**: These timestamp tests must be run **individually** due to Docker timing dependencies:
 ```bash
 # Run tests one by one (not all together)
@@ -51,6 +58,7 @@ cargo test --test mined_directly_scenarios -- --ignored
 cargo test --test two_stage_send_scenarios -- --ignored
 cargo test --test high_index_scanning -- --ignored
 cargo test --test advanced_transactions -- --ignored
+cargo test --test balance_alert_scenarios -- --ignored
 
 # Run individual test (clean output)
 cargo test test_alice_partial_send_bob_mined_directly --test mined_directly_scenarios -- --ignored
@@ -62,9 +70,11 @@ cargo test test_multiple_partial_sends_mined_directly --test mined_directly_scen
 ```bash
 # Run test category with full output (shows all debug info)
 cargo test --test mined_directly_scenarios -- --ignored --nocapture
+cargo test --test balance_alert_scenarios -- --ignored --nocapture
 
 # Run individual test with detailed output
 cargo test test_alice_full_send_bob_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
+cargo test test_balance_alert_below_threshold --test balance_alert_scenarios -- --ignored --nocapture
 
 # Run with debug logs (most verbose - shows internal BDK/wallet operations)
 RUST_LOG=debug cargo test test_alice_partial_send_bob_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
@@ -76,6 +86,7 @@ RUST_LOG=debug cargo test test_alice_partial_send_bob_mined_directly --test mine
 # List all tests in a specific test file (most useful)
 cargo test --test mined_directly_scenarios -- --list
 cargo test --test two_stage_send_scenarios -- --list
+cargo test --test balance_alert_scenarios -- --list
 
 # Find all test names across all files using grep
 grep -r "async fn test_" system_tests/ | grep -v ".rs~"
@@ -112,6 +123,25 @@ Each system test:
 - **Charlie**: Funded with 0.5 BTC at index 250 (high-index testing)
 
 Each test gets fresh containers with predictable, deterministic wallet states.
+
+### Balance Alert System Tests
+
+The balance alert tests verify the complete notification system using real Bitcoin transactions:
+
+- **Real Balance Detection**: Uses actual wallet balances from BDK after Bitcoin transactions
+- **Alert Triggering**: Tests the `check_balance_alerts` method with real balance changes
+- **Multiple Alert Types**: Above, Below, and Equals (wallet drain) scenarios
+- **Threshold Testing**: Various BTC amounts (0.2, 0.3, 0.5, 0.8 BTC) as thresholds
+- **Alert Management**: Tests deactivation and multiple alerts per wallet
+
+**Key Features Tested:**
+- Balance drops below threshold (Alice sends large amount)
+- Balance rises above threshold (Bob receives funds)
+- Wallet drain detection (balance equals exactly 0)
+- Multiple alerts firing independently
+- Deactivated alerts being ignored
+
+**Note**: Balance alert tests use manual triggering of `check_balance_alerts()` to ensure deterministic testing, bypassing the automatic sync-based checking.
 
 ## Performance Notes
 
