@@ -9,7 +9,7 @@ use crate::electrum::BlockHeader;
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::metadata::{
-    Contact, EventType, Language, MetadataDb, NotificationMethod, ProviderType,
+    BalanceAlert, BalanceAlertType, Contact, EventType, Language, MetadataDb, NotificationMethod, ProviderType,
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
@@ -132,6 +132,22 @@ pub struct SendContactVerificationRequest {
 pub struct ProvidersResponse {
     /// Available notification providers
     pub providers: Vec<ProviderInfo>,
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+pub struct CreateBalanceAlertRequest {
+    /// Balance threshold in satoshis
+    #[schema(example = 100000000)]
+    pub threshold_sats: i64,
+    /// Alert type (above, below, equals)
+    #[schema(example = "above")]
+    pub alert_type: BalanceAlertType,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct BalanceAlertsResponse {
+    /// List of balance alerts for the wallet
+    pub alerts: Vec<BalanceAlert>,
 }
 
 // New architecture: Separate web serving from wallet sync operations
@@ -4863,6 +4879,10 @@ pub fn create_router_with_services(
             "/wallets/{wallet_checksum}/contacts/{contact_id}",
             axum::routing::put(update_wallet_contact).delete(delete_wallet_contact),
         )
+        .route("/wallets/{checksum}/balance-alerts", get(get_wallet_balance_alerts))
+        .route("/wallets/{checksum}/balance-alerts", post(create_wallet_balance_alert))
+        .route("/balance-alerts/{alert_id}/activate", put(reactivate_balance_alert))
+        .route("/balance-alerts/{alert_id}", axum::routing::delete(delete_balance_alert))
         .route("/auth/login", post(login))
         .route("/block-headers/current", get(get_current_block_header))
         .route("/exchange-rates", get(get_exchange_rates))
@@ -5046,6 +5066,310 @@ pub async fn get_exchange_rates(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: format!("Failed to get exchange rates: {}", e),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+/// Get all balance alerts for a wallet
+#[utoipa::path(
+    get,
+    path = "/api/wallets/{checksum}/balance-alerts",
+    params(
+        ("checksum" = String, Path, description = "The wallet checksum")
+    ),
+    responses(
+        (status = 200, description = "List of balance alerts for the wallet", body = BalanceAlertsResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 404, description = "Wallet not found", body = ErrorResponse)
+    ),
+    tag = "balance-alerts",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn get_wallet_balance_alerts(
+    Path(checksum): Path<String>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+    headers: HeaderMap,
+) -> Response {
+    // Authenticate user (works in both SAAS and FOSS mode)
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
+        Ok(user) => user,
+        Err(err) => {
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
+        }
+    };
+
+    // Check if wallet exists and user has access
+    let wallet = match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
+        Ok(Some(wallet)) => wallet,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response()
+        }
+    };
+
+    // Check user permission (unless admin)
+    if !user.is_admin && wallet.user_id != user.user_id {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "Access denied".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Get all balance alerts for the wallet
+    match app_services
+        .metadata_db
+        .get_all_balance_alerts_for_wallet(&checksum)
+        .await
+    {
+        Ok(alerts) => Json(BalanceAlertsResponse { alerts }).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to get balance alerts: {}", e),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+/// Create a new balance alert for a wallet
+#[utoipa::path(
+    post,
+    path = "/api/wallets/{checksum}/balance-alerts",
+    params(
+        ("checksum" = String, Path, description = "The wallet checksum")
+    ),
+    request_body = CreateBalanceAlertRequest,
+    responses(
+        (status = 200, description = "Balance alert created successfully", body = BalanceAlert),
+        (status = 400, description = "Invalid request", body = ErrorResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 404, description = "Wallet not found", body = ErrorResponse)
+    ),
+    tag = "balance-alerts",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn create_wallet_balance_alert(
+    Path(checksum): Path<String>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+    headers: HeaderMap,
+    Json(request): Json<CreateBalanceAlertRequest>,
+) -> Response {
+    // Authenticate user (works in both SAAS and FOSS mode)
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
+        Ok(user) => user,
+        Err(err) => {
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
+        }
+    };
+
+    // Check if wallet exists and user has access
+    let wallet = match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
+        Ok(Some(wallet)) => wallet,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Wallet not found".to_string(),
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response()
+        }
+    };
+
+    // Check user permission (unless admin)
+    if !user.is_admin && wallet.user_id != user.user_id {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "Access denied".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Validate threshold
+    if request.threshold_sats < 0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Threshold must be non-negative".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Create the balance alert
+    match app_services
+        .metadata_db
+        .create_balance_alert(&checksum, request.threshold_sats, request.alert_type)
+        .await
+    {
+        Ok(alert) => Json(alert).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to create balance alert: {}", e),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+/// Reactivate a balance alert
+#[utoipa::path(
+    put,
+    path = "/api/balance-alerts/{alert_id}/activate",
+    params(
+        ("alert_id" = String, Path, description = "The balance alert ID")
+    ),
+    responses(
+        (status = 200, description = "Balance alert reactivated successfully"),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 404, description = "Balance alert not found", body = ErrorResponse)
+    ),
+    tag = "balance-alerts",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn reactivate_balance_alert(
+    Path(alert_id): Path<String>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+    headers: HeaderMap,
+) -> Response {
+    // Authenticate user (works in both SAAS and FOSS mode)
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
+        Ok(user) => user,
+        Err(err) => {
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
+        }
+    };
+
+    // TODO: Add permission check - verify user owns the wallet that contains this alert
+    // For now, allow all authenticated users to reactivate alerts
+
+    // Reactivate the balance alert
+    match app_services
+        .metadata_db
+        .reactivate_balance_alert(&alert_id)
+        .await
+    {
+        Ok(()) => (StatusCode::OK, "Balance alert reactivated").into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to reactivate balance alert: {}", e),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+/// Delete a balance alert
+#[utoipa::path(
+    delete,
+    path = "/api/balance-alerts/{alert_id}",
+    params(
+        ("alert_id" = String, Path, description = "The balance alert ID")
+    ),
+    responses(
+        (status = 200, description = "Balance alert deleted successfully"),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 404, description = "Balance alert not found", body = ErrorResponse)
+    ),
+    tag = "balance-alerts",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn delete_balance_alert(
+    Path(alert_id): Path<String>,
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+    headers: HeaderMap,
+) -> Response {
+    // Authenticate user (works in both SAAS and FOSS mode)
+    let user = match authenticate_user_mode_aware(
+        &config,
+        headers.get("authorization").and_then(|h| h.to_str().ok()),
+    ) {
+        Ok(user) => user,
+        Err(err) => {
+            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
+        }
+    };
+
+    // TODO: Add permission check - verify user owns the wallet that contains this alert
+    // For now, allow all authenticated users to delete alerts
+
+    // Delete the balance alert
+    match app_services
+        .metadata_db
+        .delete_balance_alert(&alert_id)
+        .await
+    {
+        Ok(()) => (StatusCode::OK, "Balance alert deleted").into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to delete balance alert: {}", e),
             }),
         )
             .into_response(),

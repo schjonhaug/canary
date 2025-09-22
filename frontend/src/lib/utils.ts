@@ -195,3 +195,29 @@ export function getTierDisplayName(tier: string): string {
       return tier
   }
 }
+
+// Bitcoin amount input utilities
+export function satsToBtc(sats: number): number {
+  return sats / 100_000_000
+}
+
+export function btcToSats(btc: number): number {
+  return Math.round(btc * 100_000_000)
+}
+
+export function formatBtcAmount(btc: number): string {
+  return btc.toLocaleString(undefined, {
+    minimumFractionDigits: 8,
+    maximumFractionDigits: 8
+  })
+}
+
+export function parseBtcInput(input: string): number | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  const num = parseFloat(trimmed)
+  if (isNaN(num) || num < 0) return null
+
+  return num
+}

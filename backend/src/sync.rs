@@ -175,6 +175,22 @@ impl WalletSyncService {
             balance_update_start.elapsed()
         );
 
+        // Check balance alerts only if wallet has changes
+        if summary.has_changes {
+            let balance_alert_start = Instant::now();
+            if let Err(e) = self.check_balance_alerts(wallet_checksum, current_balance.to_sat() as i64).await {
+                warn!(
+                    "[{}] Balance alert checking failed: {}",
+                    wallet_checksum, e
+                );
+            }
+            debug!(
+                "[{}] Balance alert checking took {:.2?}",
+                wallet_checksum,
+                balance_alert_start.elapsed()
+            );
+        }
+
         let sync_duration = sync_start.elapsed();
         info!(
             "[{}] Sync complete in {:.2}s (electrum {:.2}s across {} attempt(s)); changes={}, new_transactions={}, confirmations={}, conflicts_marked={}",
@@ -985,5 +1001,120 @@ impl WalletSyncService {
         } else {
             "UNKNOWN"
         }
+    }
+
+    /// Check balance alerts and send notifications for triggered thresholds
+    async fn check_balance_alerts(&self, wallet_checksum: &str, current_balance_sats: i64) -> Result<()> {
+        debug!("[{}] Checking balance alerts for balance: {} sats", wallet_checksum, current_balance_sats);
+
+        // Get all active balance alerts for this wallet
+        let active_alerts = self
+            .metadata_db
+            .get_active_balance_alerts_for_wallet(wallet_checksum)
+            .await?;
+
+        if active_alerts.is_empty() {
+            debug!("[{}] No active balance alerts to check", wallet_checksum);
+            return Ok(());
+        }
+
+        debug!("[{}] Found {} active balance alerts to check", wallet_checksum, active_alerts.len());
+
+        for alert in active_alerts {
+            let should_trigger = match alert.alert_type {
+                crate::metadata::BalanceAlertType::Above => current_balance_sats > alert.threshold_sats,
+                crate::metadata::BalanceAlertType::Below => current_balance_sats < alert.threshold_sats,
+                crate::metadata::BalanceAlertType::Equals => current_balance_sats == alert.threshold_sats,
+            };
+
+            if should_trigger {
+                info!(
+                    "[{}] Balance alert triggered: {} {} {} sats (current: {} sats)",
+                    wallet_checksum,
+                    alert.alert_type.as_str(),
+                    alert.threshold_sats,
+                    alert.alert_type.as_str(),
+                    current_balance_sats
+                );
+
+                // Create notification record in balance_alert_notifications table
+                if let Err(e) = self
+                    .metadata_db
+                    .create_balance_alert_notification(
+                        &alert.id,
+                        wallet_checksum,
+                        alert.threshold_sats,
+                        current_balance_sats,
+                        alert.alert_type,
+                    )
+                    .await
+                {
+                    warn!(
+                        "[{}] Failed to create balance alert notification record: {}",
+                        wallet_checksum, e
+                    );
+                }
+
+                // Send balance alert notification via existing notification system
+                if let Err(e) = self.send_balance_alert_notification(&alert, wallet_checksum, current_balance_sats).await {
+                    warn!(
+                        "[{}] Failed to send balance alert notification: {}",
+                        wallet_checksum, e
+                    );
+                }
+
+                // Disable the alert after triggering (requires manual reactivation)
+                if let Err(e) = self.metadata_db.disable_balance_alert_after_trigger(&alert.id).await {
+                    warn!(
+                        "[{}] Failed to disable balance alert after trigger: {}",
+                        wallet_checksum, e
+                    );
+                } else {
+                    debug!(
+                        "[{}] Disabled balance alert {} after triggering",
+                        wallet_checksum, alert.id
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Send balance alert notification using existing notification system
+    async fn send_balance_alert_notification(
+        &self,
+        alert: &crate::metadata::BalanceAlert,
+        wallet_checksum: &str,
+        current_balance_sats: i64,
+    ) -> Result<()> {
+        // Create a balance alert notification that mimics transaction notifications
+        let balance_alert_notification = crate::metadata::BalanceAlertNotification {
+            id: uuid::Uuid::new_v4().to_string(),
+            balance_alert_id: alert.id.clone(),
+            wallet_checksum: wallet_checksum.to_string(),
+            threshold_sats: alert.threshold_sats,
+            current_balance_sats,
+            alert_type: alert.alert_type,
+            notification_sent_at: chrono::Utc::now().timestamp() as u64,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        // Send notification via broadcast channel (same as transaction notifications)
+        if let Err(e) = self.notification_sender.send(
+            crate::metadata::TransactionNotification::BalanceAlert(balance_alert_notification)
+        ) {
+            warn!(
+                "[{}] Failed to send balance alert notification via broadcast: {}",
+                wallet_checksum, e
+            );
+        } else {
+            debug!(
+                "[{}] Sent balance alert notification via broadcast channel",
+                wallet_checksum
+            );
+        }
+
+        Ok(())
     }
 }

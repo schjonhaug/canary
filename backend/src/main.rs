@@ -544,22 +544,23 @@ async fn main() -> anyhow::Result<()> {
         while let Ok(notification) = rx.recv().await {
             let manager = notification_worker_manager.lock().await;
 
-            // Extract the transaction and notification type from the notification
-            let (transaction, notification_type) = match &notification {
-                TransactionNotification::Pending(tx) => (tx, "pending"),
-                TransactionNotification::Confirmed(tx) => (tx, "confirmed"),
+            // Handle notification and extract wallet information
+            let (wallet_checksum, notification_type) = match &notification {
+                TransactionNotification::Pending(tx) => (&tx.wallet_checksum, "pending"),
+                TransactionNotification::Confirmed(tx) => (&tx.wallet_checksum, "confirmed"),
+                TransactionNotification::BalanceAlert(alert) => (&alert.wallet_checksum, "balance_alert"),
             };
 
-            // Get wallet information for the transaction
+            // Get wallet information for the notification
             let wallet_manager_lock = notification_wallet_manager.lock().await;
             if let Ok(Some(wallet_info)) = wallet_manager_lock
-                .get_wallet_by_checksum(&transaction.wallet_checksum)
+                .get_wallet_by_checksum(wallet_checksum)
                 .await
             {
                 // Get contacts for this wallet
                 if let Ok(contacts) = wallet_manager_lock
                     .metadata_db
-                    .get_contacts_with_notification_methods(&transaction.wallet_checksum)
+                    .get_contacts_with_notification_methods(wallet_checksum)
                     .await
                 {
                     if !contacts.is_empty() {
@@ -592,24 +593,48 @@ async fn main() -> anyhow::Result<()> {
 
                                     // Log the notification attempt to database (keep this for audit)
                                     if let Some(ref method_id) = notification_method.id {
-                                        // Use transaction txid for logging
-                                        let txid = &transaction.txid;
                                         let status = if result.success { "sent" } else { "failed" };
-                                        if let Err(e) = wallet_manager_lock
-                                            .metadata_db
-                                            .insert_notification_log_for_transaction(
-                                                txid,
-                                                &transaction.wallet_checksum,
-                                                method_id,
-                                                provider_name,
-                                                result.provider_id.as_deref(),
-                                                status,
-                                                result.error_message.as_deref(),
-                                                &message,
-                                                notification_type,
-                                            )
-                                            .await
-                                        {
+
+                                        // Handle logging based on notification type
+                                        let log_result = match &notification {
+                                            TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
+                                                // Log transaction notifications
+                                                wallet_manager_lock
+                                                    .metadata_db
+                                                    .insert_notification_log_for_transaction(
+                                                        &tx.txid,
+                                                        &tx.wallet_checksum,
+                                                        method_id,
+                                                        provider_name,
+                                                        result.provider_id.as_deref(),
+                                                        status,
+                                                        result.error_message.as_deref(),
+                                                        &message,
+                                                        notification_type,
+                                                    )
+                                                    .await
+                                            }
+                                            TransactionNotification::BalanceAlert(alert) => {
+                                                // For balance alerts, we can use the alert ID as a transaction ID placeholder
+                                                // or create a separate logging method for balance alerts
+                                                wallet_manager_lock
+                                                    .metadata_db
+                                                    .insert_notification_log_for_transaction(
+                                                        &alert.id, // Use alert ID as txid placeholder
+                                                        &alert.wallet_checksum,
+                                                        method_id,
+                                                        provider_name,
+                                                        result.provider_id.as_deref(),
+                                                        status,
+                                                        result.error_message.as_deref(),
+                                                        &message,
+                                                        notification_type,
+                                                    )
+                                                    .await
+                                            }
+                                        };
+
+                                        if let Err(e) = log_result {
                                             eprintln!(
                                                 "❌ Failed to log notification to database: {}",
                                                 e

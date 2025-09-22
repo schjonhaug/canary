@@ -7,9 +7,10 @@ import { InlineWalletNameEdit } from "@/components/inline-wallet-name-edit"
 import { WalletContactsList } from "@/components/wallet-contacts-list"
 import { ContactModal } from "@/components/contact-modal"
 import { DeleteWalletModal } from "@/components/delete-wallet-modal"
+import { BalanceAlertsModal } from "@/components/balance-alerts-modal"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Trash2, AlertCircle, Plus, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Trash2, AlertCircle, Plus, AlertTriangle, Bell } from "lucide-react"
 import Link from "next/link"
 import { useWalletDetail } from "@/hooks/useWalletDetail"
 import { useWalletsContext } from "@/contexts/wallets-context"
@@ -32,6 +33,7 @@ export default function WalletDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
+  const [isBalanceAlertsModalOpen, setIsBalanceAlertsModalOpen] = useState(false)
 
   // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
@@ -289,7 +291,7 @@ export default function WalletDetailPage() {
 
               <div className="pt-2 border-t">
                 <div className="text-sm text-muted-foreground mb-2">Contacts</div>
-                <WalletContactsList 
+                <WalletContactsList
                   walletChecksum={wallet.checksum}
                   contacts={contacts}
                   onContactsUpdated={handleWalletUpdated}
@@ -308,6 +310,19 @@ export default function WalletDetailPage() {
                     </Button>
                   </div>
                 )}
+              </div>
+
+              <div className="pt-2 border-t">
+                <div className="text-sm text-muted-foreground mb-2">Alerts</div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsBalanceAlertsModalOpen(true)}
+                  className="h-8 gap-1 w-full"
+                >
+                  <Bell size={14} />
+                  Balance Alerts
+                </Button>
               </div>
 
               {!(isSaasMode && user?.is_admin) && (
@@ -372,6 +387,13 @@ export default function WalletDetailPage() {
           } : undefined}
         />
       </Suspense>
+
+      <BalanceAlertsModal
+        isOpen={isBalanceAlertsModalOpen}
+        onClose={() => setIsBalanceAlertsModalOpen(false)}
+        walletChecksum={wallet.checksum}
+        currentBalance={wallet.balance_total || 0}
+      />
     </>
   )
 }

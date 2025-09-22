@@ -104,3 +104,19 @@ export interface WalletDetailResponse {
   transactions: Transaction[]
   contacts: Contact[]
 }
+
+// Balance Alert Types
+export interface BalanceAlert {
+  id: string
+  wallet_checksum: string
+  threshold_sats: number
+  alert_type: 'above' | 'below' | 'equals'
+  is_active: boolean
+  last_triggered_at?: number // Unix timestamp
+  created_at: string
+}
+
+export interface CreateBalanceAlertRequest {
+  threshold_sats: number
+  alert_type: 'above' | 'below' | 'equals'
+}

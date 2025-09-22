@@ -43,10 +43,11 @@ impl NotificationProvider for NtfyProvider {
                     &contact.language,
                 );
 
-                // Extract transaction info from notification
-                let (transaction, is_confirmed) = match notification {
-                    TransactionNotification::Pending(tx) => (tx, false),
-                    TransactionNotification::Confirmed(tx) => (tx, true),
+                // Extract notification details for ntfy headers
+                let (priority, notification_type, txid) = match notification {
+                    TransactionNotification::Pending(tx) => ("high", "pending", &tx.txid),
+                    TransactionNotification::Confirmed(tx) => ("default", "confirmed", &tx.txid),
+                    TransactionNotification::BalanceAlert(alert) => ("urgent", "balance_alert", &alert.id),
                 };
 
                 let topic = &method.notification_target;
@@ -57,13 +58,18 @@ impl NotificationProvider for NtfyProvider {
                     .post(&ntfy_url)
                     .header("Content-Type", "text/plain; charset=utf-8")
                     .header("Title", format!("Canary - {}", wallet_name))
-                    .header("Priority", if is_confirmed { "default" } else { "high" })
+                    .header("Priority", priority)
                     .header(
                         "Tags",
-                        if transaction.transaction_type == EventType::Receive {
-                            "money_with_wings"
-                        } else {
-                            "arrow_right"
+                        match notification {
+                            TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
+                                if tx.transaction_type == EventType::Receive {
+                                    "money_with_wings"
+                                } else {
+                                    "arrow_right"
+                                }
+                            }
+                            TransactionNotification::BalanceAlert(_) => "chart_with_upwards_trend",
                         },
                     )
                     .body(message.clone())

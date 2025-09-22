@@ -50,47 +50,80 @@ impl NotificationProvider for EmailProvider {
                 let email_address = &method.notification_target;
 
                 let result = if let Some(email_service) = &self.email_service {
-                    // Extract transaction from notification
-                    let (transaction, _is_confirmed) = match notification {
-                        TransactionNotification::Pending(tx) => (tx, false),
-                        TransactionNotification::Confirmed(tx) => (tx, true),
-                    };
+                    match notification {
+                        TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
+                            // Clone data for background task
+                            let email_service_clone = email_service.clone();
+                            let email_address = email_address.to_string();
+                            let contact_name = contact.name.clone();
+                            let wallet_name = wallet_name.to_string();
+                            let transaction_clone = tx.clone();
+                            let message_clone = message.clone();
+                            let _method_id = method.id.clone();
 
-                    // Clone data for background task
-                    let email_service_clone = email_service.clone();
-                    let email_address = email_address.to_string();
-                    let contact_name = contact.name.clone();
-                    let wallet_name = wallet_name.to_string();
-                    let transaction_clone = transaction.clone();
-                    let message_clone = message.clone();
-                    let _method_id = method.id.clone();
+                            // Spawn background task for email sending - don't wait for it
+                            tokio::spawn(async move {
+                                match Self::send_transaction_email_static(
+                                    &email_service_clone,
+                                    &email_address,
+                                    &contact_name,
+                                    &wallet_name,
+                                    &transaction_clone,
+                                    &message_clone,
+                                )
+                                .await
+                                {
+                                    Ok(_) => {
+                                        // Email success will be logged in main summary
+                                    }
+                                    Err(e) => {
+                                        eprintln!("❌ Failed to send email to {}: {}", email_address, e);
+                                    }
+                                }
+                            });
 
-                    // Spawn background task for email sending - don't wait for it
-                    tokio::spawn(async move {
-                        match Self::send_transaction_email_static(
-                            &email_service_clone,
-                            &email_address,
-                            &contact_name,
-                            &wallet_name,
-                            &transaction_clone,
-                            &message_clone,
-                        )
-                        .await
-                        {
-                            Ok(_) => {
-                                // Email success will be logged in main summary
-                            }
-                            Err(e) => {
-                                eprintln!("❌ Failed to send email to {}: {}", email_address, e);
+                            // Return success immediately - email will be sent in background
+                            NotificationResult {
+                                success: true,
+                                provider_id: Some("email".to_string()),
+                                error_message: None,
                             }
                         }
-                    });
+                        TransactionNotification::BalanceAlert(_alert) => {
+                            // Clone data for background task
+                            let email_service_clone = email_service.clone();
+                            let email_address = email_address.to_string();
+                            let contact_name = contact.name.clone();
+                            let wallet_name = wallet_name.to_string();
+                            let message_clone = message.clone();
 
-                    // Return success immediately - email will be sent in background
-                    NotificationResult {
-                        success: true,
-                        provider_id: Some("email".to_string()),
-                        error_message: None,
+                            // Spawn background task for balance alert email sending
+                            tokio::spawn(async move {
+                                match Self::send_balance_alert_email_static(
+                                    &email_service_clone,
+                                    &email_address,
+                                    &contact_name,
+                                    &wallet_name,
+                                    &message_clone,
+                                )
+                                .await
+                                {
+                                    Ok(_) => {
+                                        // Email success will be logged in main summary
+                                    }
+                                    Err(e) => {
+                                        eprintln!("❌ Failed to send balance alert email to {}: {}", email_address, e);
+                                    }
+                                }
+                            });
+
+                            // Return success immediately - email will be sent in background
+                            NotificationResult {
+                                success: true,
+                                provider_id: Some("email".to_string()),
+                                error_message: None,
+                            }
+                        }
                     }
                 } else {
                     NotificationResult {
@@ -143,6 +176,24 @@ impl EmailProvider {
             to_name,
             wallet_name,
             transaction,
+            message,
+        )
+        .await
+    }
+
+    // Static version for balance alerts
+    async fn send_balance_alert_email_static(
+        email_service: &EmailService,
+        to_email: &str,
+        to_name: &str,
+        wallet_name: &str,
+        message: &str,
+    ) -> Result<()> {
+        Self::send_balance_alert_email_impl(
+            email_service,
+            to_email,
+            to_name,
+            wallet_name,
             message,
         )
         .await
@@ -207,6 +258,62 @@ impl EmailProvider {
             to_name,
             message,
             &transaction.wallet_checksum[..8]
+        );
+
+        // Send using the Resend email service
+        email_service
+            .send_transaction_notification(to_email, to_name, &subject, &html_body, &text_body)
+            .await
+    }
+
+    // Shared implementation for balance alerts
+    async fn send_balance_alert_email_impl(
+        email_service: &EmailService,
+        to_email: &str,
+        to_name: &str,
+        wallet_name: &str,
+        message: &str,
+    ) -> Result<()> {
+        let subject = format!("📊 Balance Alert - {}", wallet_name);
+
+        // Create HTML body for balance alert
+        let html_body = format!(
+            r#"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>{}</title>
+            </head>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h1 style="margin: 0; font-size: 24px;">📊 Balance Alert</h1>
+                    <p style="margin: 5px 0 0 0; opacity: 0.9;">Wallet: {}</p>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <p style="margin: 0; font-size: 16px; color: #333;">Hi {},</p>
+                    <p style="margin: 15px 0; font-size: 16px; color: #333;">{}</p>
+                </div>
+
+                <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
+                    <p>This notification was sent by Canary Wallet</p>
+                </div>
+            </body>
+            </html>
+            "#,
+            subject,
+            wallet_name,
+            to_name,
+            message
+        );
+
+        let text_body = format!(
+            "{}\n\nHi {},\n\n{}\n\nWallet: {}\n\nThis notification was sent by Canary Wallet",
+            subject,
+            to_name,
+            message,
+            wallet_name
         );
 
         // Send using the Resend email service

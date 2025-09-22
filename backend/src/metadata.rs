@@ -156,12 +156,55 @@ pub enum ProviderType {
     Email,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
+pub enum BalanceAlertType {
+    #[serde(rename = "above")]
+    Above,
+    #[serde(rename = "below")]
+    Below,
+    #[serde(rename = "equals")]
+    Equals,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct BalanceAlert {
+    pub id: String, // UUIDv4
+    pub wallet_checksum: String,
+    pub threshold_sats: i64,
+    pub alert_type: BalanceAlertType,
+    pub is_active: bool,
+    pub last_triggered_at: Option<u64>, // Unix timestamp
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct BalanceAlertNotification {
+    pub id: String, // UUIDv4
+    pub balance_alert_id: String,
+    pub wallet_checksum: String,
+    pub threshold_sats: i64,
+    pub current_balance_sats: i64,
+    pub alert_type: BalanceAlertType,
+    pub notification_sent_at: u64, // Unix timestamp
+    pub created_at: String,
+}
+
 impl ProviderType {
     pub fn as_str(&self) -> &'static str {
         match self {
             ProviderType::Sms => "sms",
             ProviderType::Ntfy => "ntfy",
             ProviderType::Email => "email",
+        }
+    }
+}
+
+impl BalanceAlertType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BalanceAlertType::Above => "above",
+            BalanceAlertType::Below => "below",
+            BalanceAlertType::Equals => "equals",
         }
     }
 }
@@ -173,6 +216,17 @@ impl From<&str> for ProviderType {
             "ntfy" => ProviderType::Ntfy,
             "email" => ProviderType::Email,
             _ => ProviderType::Ntfy, // Default fallback
+        }
+    }
+}
+
+impl From<&str> for BalanceAlertType {
+    fn from(s: &str) -> Self {
+        match s {
+            "above" => BalanceAlertType::Above,
+            "below" => BalanceAlertType::Below,
+            "equals" => BalanceAlertType::Equals,
+            _ => panic!("Invalid balance alert type: {}", s),
         }
     }
 }
@@ -203,6 +257,8 @@ pub enum TransactionNotification {
     Pending(Transaction),
     /// Transaction confirmed in block (second notification round)
     Confirmed(Transaction),
+    /// Balance alert triggered (balance threshold crossed)
+    BalanceAlert(BalanceAlertNotification),
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
@@ -2892,6 +2948,223 @@ impl MetadataDb {
                 params![currency, user_id],
             )?;
             Ok(())
+        })
+        .await?
+    }
+
+    // ============================
+    // BALANCE ALERTS CRUD METHODS
+    // ============================
+
+    pub async fn create_balance_alert(
+        &self,
+        wallet_checksum: &str,
+        threshold_sats: i64,
+        alert_type: BalanceAlertType,
+    ) -> Result<BalanceAlert> {
+        let pool = self.pool.clone();
+        let wallet_checksum = wallet_checksum.to_string();
+        let alert_id = Uuid::new_v4().to_string();
+        let alert_type_str = alert_type.as_str().to_string();
+
+        spawn_blocking(move || -> Result<BalanceAlert> {
+            let conn = pool.get()?;
+            let current_time = chrono::Utc::now().to_rfc3339();
+
+            conn.execute(
+                "INSERT INTO balance_alerts (id, wallet_checksum, threshold_sats, alert_type, is_active, created_at)
+                 VALUES (?1, ?2, ?3, ?4, 1, ?5)",
+                params![alert_id, wallet_checksum, threshold_sats, alert_type_str, current_time],
+            )?;
+
+            Ok(BalanceAlert {
+                id: alert_id,
+                wallet_checksum,
+                threshold_sats,
+                alert_type,
+                is_active: true,
+                last_triggered_at: None,
+                created_at: current_time,
+            })
+        })
+        .await?
+    }
+
+    pub async fn get_active_balance_alerts_for_wallet(
+        &self,
+        wallet_checksum: &str,
+    ) -> Result<Vec<BalanceAlert>> {
+        let pool = self.pool.clone();
+        let wallet_checksum = wallet_checksum.to_string();
+
+        spawn_blocking(move || -> Result<Vec<BalanceAlert>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at
+                 FROM balance_alerts
+                 WHERE wallet_checksum = ?1 AND is_active = 1"
+            )?;
+
+            let alert_iter = stmt.query_map(params![wallet_checksum], |row| {
+                Ok(BalanceAlert {
+                    id: row.get(0)?,
+                    wallet_checksum: row.get(1)?,
+                    threshold_sats: row.get(2)?,
+                    alert_type: BalanceAlertType::from(row.get::<_, String>(3)?.as_str()),
+                    is_active: row.get::<_, i64>(4)? != 0,
+                    last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
+                    created_at: row.get(6)?,
+                })
+            })?;
+
+            let mut alerts = Vec::new();
+            for alert in alert_iter {
+                alerts.push(alert?);
+            }
+            Ok(alerts)
+        })
+        .await?
+    }
+
+    pub async fn get_all_balance_alerts_for_wallet(
+        &self,
+        wallet_checksum: &str,
+    ) -> Result<Vec<BalanceAlert>> {
+        let pool = self.pool.clone();
+        let wallet_checksum = wallet_checksum.to_string();
+
+        spawn_blocking(move || -> Result<Vec<BalanceAlert>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at
+                 FROM balance_alerts
+                 WHERE wallet_checksum = ?1
+                 ORDER BY created_at DESC"
+            )?;
+
+            let alert_iter = stmt.query_map(params![wallet_checksum], |row| {
+                Ok(BalanceAlert {
+                    id: row.get(0)?,
+                    wallet_checksum: row.get(1)?,
+                    threshold_sats: row.get(2)?,
+                    alert_type: BalanceAlertType::from(row.get::<_, String>(3)?.as_str()),
+                    is_active: row.get::<_, i64>(4)? != 0,
+                    last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
+                    created_at: row.get(6)?,
+                })
+            })?;
+
+            let mut alerts = Vec::new();
+            for alert in alert_iter {
+                alerts.push(alert?);
+            }
+            Ok(alerts)
+        })
+        .await?
+    }
+
+    pub async fn disable_balance_alert_after_trigger(
+        &self,
+        alert_id: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let alert_id = alert_id.to_string();
+        let triggered_at = chrono::Utc::now().timestamp() as u64;
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE balance_alerts
+                 SET is_active = 0, last_triggered_at = ?1
+                 WHERE id = ?2",
+                params![triggered_at as i64, alert_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn reactivate_balance_alert(
+        &self,
+        alert_id: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let alert_id = alert_id.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE balance_alerts SET is_active = 1 WHERE id = ?1",
+                params![alert_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn delete_balance_alert(
+        &self,
+        alert_id: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let alert_id = alert_id.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "DELETE FROM balance_alerts WHERE id = ?1",
+                params![alert_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn create_balance_alert_notification(
+        &self,
+        balance_alert_id: &str,
+        wallet_checksum: &str,
+        threshold_sats: i64,
+        current_balance_sats: i64,
+        alert_type: BalanceAlertType,
+    ) -> Result<BalanceAlertNotification> {
+        let pool = self.pool.clone();
+        let notification_id = Uuid::new_v4().to_string();
+        let balance_alert_id = balance_alert_id.to_string();
+        let wallet_checksum = wallet_checksum.to_string();
+        let alert_type_str = alert_type.as_str().to_string();
+        let notification_sent_at = chrono::Utc::now().timestamp() as u64;
+
+        spawn_blocking(move || -> Result<BalanceAlertNotification> {
+            let conn = pool.get()?;
+            let current_time = chrono::Utc::now().to_rfc3339();
+
+            conn.execute(
+                "INSERT INTO balance_alert_notifications
+                 (id, balance_alert_id, wallet_checksum, threshold_sats, current_balance_sats, alert_type, notification_sent_at, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![
+                    notification_id,
+                    balance_alert_id,
+                    wallet_checksum,
+                    threshold_sats,
+                    current_balance_sats,
+                    alert_type_str,
+                    notification_sent_at as i64,
+                    current_time
+                ],
+            )?;
+
+            Ok(BalanceAlertNotification {
+                id: notification_id,
+                balance_alert_id,
+                wallet_checksum,
+                threshold_sats,
+                current_balance_sats,
+                alert_type,
+                notification_sent_at,
+                created_at: current_time,
+            })
         })
         .await?
     }

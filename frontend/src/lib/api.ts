@@ -1,5 +1,5 @@
 import { getApiBaseUrl, handleApiResponse } from './utils'
-import { Wallet, Contact, TransactionEvent } from '../types'
+import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest } from '../types'
 
 export interface ProviderInfo {
   name: string
@@ -345,6 +345,31 @@ class ApiClient {
   // Exchange rates API methods
   async getExchangeRates(): Promise<{ rates: Record<string, { currency: string, rate_per_btc: number, last_updated: string }> }> {
     return this.request<{ rates: Record<string, { currency: string, rate_per_btc: number, last_updated: string }> }>('/api/exchange-rates')
+  }
+
+  // Balance Alert API methods
+  async getBalanceAlerts(walletChecksum: string): Promise<BalanceAlert[]> {
+    const response = await this.request<{ alerts: BalanceAlert[] }>(`/api/wallets/${walletChecksum}/balance-alerts`)
+    return response.alerts
+  }
+
+  async createBalanceAlert(walletChecksum: string, alertData: CreateBalanceAlertRequest): Promise<BalanceAlert> {
+    return this.request<BalanceAlert>(`/api/wallets/${walletChecksum}/balance-alerts`, {
+      method: 'POST',
+      body: JSON.stringify(alertData),
+    })
+  }
+
+  async reactivateBalanceAlert(alertId: string): Promise<BalanceAlert> {
+    return this.request<BalanceAlert>(`/api/balance-alerts/${alertId}/activate`, {
+      method: 'PUT',
+    })
+  }
+
+  async deleteBalanceAlert(alertId: string): Promise<void> {
+    return this.request<void>(`/api/balance-alerts/${alertId}`, {
+      method: 'DELETE',
+    })
   }
 }
 

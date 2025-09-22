@@ -47,14 +47,67 @@ impl MessageFormatter {
         wallet_name: &str,
         language: &Language,
     ) -> String {
-        // Extract transaction and confirmation status from notification
-        let (transaction, is_confirmed) = match notification {
-            TransactionNotification::Pending(tx) => (tx, false),
-            TransactionNotification::Confirmed(tx) => (tx, true),
-        };
+        // Handle different notification types
+        match notification {
+            TransactionNotification::Pending(tx) => {
+                Self::create_transaction_message(tx, wallet_name, language, false)
+            }
+            TransactionNotification::Confirmed(tx) => {
+                Self::create_transaction_message(tx, wallet_name, language, true)
+            }
+            TransactionNotification::BalanceAlert(alert) => {
+                Self::create_balance_alert_message(alert, wallet_name, language)
+            }
+        }
+    }
 
+    /// Generate localized message for balance alert notification
+    fn create_balance_alert_message(
+        alert: &crate::metadata::BalanceAlertNotification,
+        wallet_name: &str,
+        language: &Language,
+    ) -> String {
+        let threshold_btc = Self::format_btc_amount(alert.threshold_sats, language);
+        let current_btc = Self::format_btc_amount(alert.current_balance_sats, language);
+
+        match alert.alert_type {
+            crate::metadata::BalanceAlertType::Equals => {
+                if alert.threshold_sats == 0 {
+                    // Special wallet drain alert
+                    match language {
+                        Language::Norwegian => format!("🚨 Lommebok tømt: {} saldo er nå 0 BTC", wallet_name),
+                        Language::English => format!("🚨 Wallet Drain Alert: {} balance is now 0 BTC", wallet_name),
+                    }
+                } else {
+                    match language {
+                        Language::Norwegian => format!("📊 Saldo varsel: {} saldo er nå {} BTC", wallet_name, current_btc),
+                        Language::English => format!("📊 Balance Alert: {} balance is now {} BTC", wallet_name, current_btc),
+                    }
+                }
+            }
+            crate::metadata::BalanceAlertType::Above => {
+                match language {
+                    Language::Norwegian => format!("📊 Saldo varsel: {} saldo er nå over {} BTC (nåværende: {} BTC)", wallet_name, threshold_btc, current_btc),
+                    Language::English => format!("📊 Balance Alert: {} balance is now above {} BTC (current: {} BTC)", wallet_name, threshold_btc, current_btc),
+                }
+            }
+            crate::metadata::BalanceAlertType::Below => {
+                match language {
+                    Language::Norwegian => format!("📊 Saldo varsel: {} saldo er nå under {} BTC (nåværende: {} BTC)", wallet_name, threshold_btc, current_btc),
+                    Language::English => format!("📊 Balance Alert: {} balance is now below {} BTC (current: {} BTC)", wallet_name, threshold_btc, current_btc),
+                }
+            }
+        }
+    }
+
+    /// Generate localized message for transaction notification
+    fn create_transaction_message(
+        transaction: &crate::metadata::Transaction,
+        wallet_name: &str,
+        language: &Language,
+        is_confirmed: bool,
+    ) -> String {
         // No balance display in notifications for privacy reasons
-
         match transaction.transaction_type {
             EventType::Send => {
                 if is_confirmed {
@@ -92,8 +145,6 @@ impl MessageFormatter {
                             &replaced_by[..8.min(replaced_by.len())]
                         ),
                     }
-                // } else if transaction.is_cpfp {
-                //     ...CPFP logic...
                 } else {
                     let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
                     match language {
