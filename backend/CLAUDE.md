@@ -164,6 +164,29 @@ NEXT_PUBLIC_SYNC_INTERVAL=60000
 - Integration tests in `tests/` directory
 - Unit tests in `src/tests/` modules
 
+#### Test Categories
+- **Unit Tests**: Individual component testing in `src/tests/` modules
+- **Integration Tests**: Full database and API testing in `tests/` directory
+  - `tests/balance_alerts_system_tests.rs` - Balance alert CRUD operations, alert types, edge cases, performance
+  - `tests/stripe_integration_tests.rs` - Stripe webhook processing and billing flows
+  - `tests/contact_duplicates_test.rs` - Contact management and duplicate prevention
+- **System Tests**: End-to-end Docker-based testing in `system_tests/` directory (see `system_tests/README.md`)
+
+#### Running Specific Tests
+```bash
+# Run all integration tests
+cargo test -- --test-threads=1
+
+# Run specific test file
+cargo test --test balance_alerts_system_tests -- --test-threads=1
+
+# Run system tests (requires Docker)
+cargo test --test mined_directly_scenarios -- --ignored
+
+# Run with debug output
+cargo test balance_alerts_system_tests -- --test-threads=1 --nocapture
+```
+
 ### Frontend  
 - Jest with React Testing Library: `npm test`
 - Component tests focus on subscription limits, modals, contact management
