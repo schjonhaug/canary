@@ -128,9 +128,9 @@ export default function BillingPage() {
               </CardTitle>
               <CardDescription>Your active subscription and usage</CardDescription>
             </div>
-            {billingStatus?.stripe_customer_id && (
-              <Button 
-                variant="outline" 
+            {billingStatus?.stripe_customer_id && !isTrialUser && (
+              <Button
+                variant="outline"
                 onClick={handleManageBilling}
                 disabled={isPortalLoading}
               >
