@@ -178,7 +178,7 @@ impl WalletSyncService {
         // Check balance alerts only if wallet has changes
         if summary.has_changes {
             let balance_alert_start = Instant::now();
-            if let Err(e) = self.check_balance_alerts(wallet_checksum, current_balance.to_sat() as i64).await {
+            if let Err(e) = self.check_balance_alerts(wallet_checksum, current_balance.to_sat() as i64).await.map(|_| ()) {
                 warn!(
                     "[{}] Balance alert checking failed: {}",
                     wallet_checksum, e
@@ -1004,7 +1004,8 @@ impl WalletSyncService {
     }
 
     /// Check balance alerts and send notifications for triggered thresholds
-    async fn check_balance_alerts(&self, wallet_checksum: &str, current_balance_sats: i64) -> Result<()> {
+    pub async fn check_balance_alerts(&self, wallet_checksum: &str, current_balance_sats: i64) -> Result<Vec<crate::metadata::BalanceAlert>> {
+        let mut triggered_alerts = Vec::new();
         debug!("[{}] Checking balance alerts for balance: {} sats", wallet_checksum, current_balance_sats);
 
         // Get all active balance alerts for this wallet
@@ -1015,7 +1016,7 @@ impl WalletSyncService {
 
         if active_alerts.is_empty() {
             debug!("[{}] No active balance alerts to check", wallet_checksum);
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         debug!("[{}] Found {} active balance alerts to check", wallet_checksum, active_alerts.len());
@@ -1036,6 +1037,9 @@ impl WalletSyncService {
                     alert.alert_type.as_str(),
                     current_balance_sats
                 );
+
+                // Add to triggered alerts list for testing
+                triggered_alerts.push(alert.clone());
 
                 // Create notification record in balance_alert_notifications table
                 if let Err(e) = self
@@ -1078,7 +1082,7 @@ impl WalletSyncService {
             }
         }
 
-        Ok(())
+        Ok(triggered_alerts)
     }
 
     /// Send balance alert notification using existing notification system
