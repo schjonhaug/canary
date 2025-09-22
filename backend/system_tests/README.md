@@ -33,6 +33,16 @@ System tests (also called End-to-End tests) test the complete Canary application
 - `test_multiple_balance_alerts` - Multiple alerts on same wallet trigger independently
 - `test_balance_alert_deactivation` - Deactivated alerts don't trigger
 
+**⚠️ Important**: Balance alert tests must be run **individually** due to Docker port conflicts:
+```bash
+# Run balance alert tests one by one (not all together)
+cargo test --test balance_alert_scenarios test_balance_alert_below_threshold -- --ignored --nocapture
+cargo test --test balance_alert_scenarios test_balance_alert_above_threshold -- --ignored --nocapture
+cargo test --test balance_alert_scenarios test_balance_drain_alert_equals_zero -- --ignored --nocapture
+cargo test --test balance_alert_scenarios test_multiple_balance_alerts -- --ignored --nocapture
+cargo test --test balance_alert_scenarios test_balance_alert_deactivation -- --ignored --nocapture
+```
+
 **⚠️ Important**: These timestamp tests must be run **individually** due to Docker timing dependencies:
 ```bash
 # Run tests one by one (not all together)
