@@ -3087,17 +3087,46 @@ impl MetadataDb {
     pub async fn reactivate_balance_alert(
         &self,
         alert_id: &str,
-    ) -> Result<()> {
+    ) -> Result<BalanceAlert> {
         let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
+        spawn_blocking(move || -> Result<BalanceAlert> {
             let conn = pool.get()?;
+
+            // Update the alert
             conn.execute(
                 "UPDATE balance_alerts SET is_active = 1 WHERE id = ?1",
                 params![alert_id],
             )?;
-            Ok(())
+
+            // Fetch and return the updated alert
+            let mut stmt = conn.prepare(
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at
+                 FROM balance_alerts WHERE id = ?1"
+            )?;
+
+            let alert = stmt.query_row(params![alert_id], |row| {
+                let alert_type_str: String = row.get(3)?;
+                let alert_type = match alert_type_str.as_str() {
+                    "above" => BalanceAlertType::Above,
+                    "below" => BalanceAlertType::Below,
+                    "equals" => BalanceAlertType::Equals,
+                    _ => return Err(bdk_wallet::rusqlite::Error::InvalidColumnType(3, "alert_type".to_string(), bdk_wallet::rusqlite::types::Type::Text)),
+                };
+
+                Ok(BalanceAlert {
+                    id: row.get(0)?,
+                    wallet_checksum: row.get(1)?,
+                    threshold_sats: row.get(2)?,
+                    alert_type,
+                    is_active: row.get(4)?,
+                    last_triggered_at: row.get(5)?,
+                    created_at: row.get(6)?,
+                })
+            })?;
+
+            Ok(alert)
         })
         .await?
     }

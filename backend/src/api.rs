@@ -5270,7 +5270,7 @@ pub async fn create_wallet_balance_alert(
         ("alert_id" = String, Path, description = "The balance alert ID")
     ),
     responses(
-        (status = 200, description = "Balance alert reactivated successfully"),
+        (status = 200, description = "Balance alert reactivated successfully", body = BalanceAlert),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 404, description = "Balance alert not found", body = ErrorResponse)
     ),
@@ -5308,7 +5308,7 @@ pub async fn reactivate_balance_alert(
         .reactivate_balance_alert(&alert_id)
         .await
     {
-        Ok(()) => (StatusCode::OK, "Balance alert reactivated").into_response(),
+        Ok(alert) => Json(alert).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
