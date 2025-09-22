@@ -799,7 +799,7 @@ impl StripeBilling {
                     }
                 }
                 "customer.subscription.deleted" => {
-                    // Subscription cancelled/ended completely - mark user as expired immediately
+                    // Subscription cancelled/ended - need to check if it's current subscription in API layer
                     if let Some(data) = &event.data {
                         if let Some(subscription_obj) = &data.object {
                             if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(
@@ -807,17 +807,17 @@ impl StripeBilling {
                             ) {
                                 let customer_id =
                                     subscription.get("customer").and_then(|c| c.as_str());
-                                let subscription_id =
+                                let deleted_subscription_id =
                                     subscription.get("id").and_then(|s| s.as_str());
                                 let status = subscription.get("status").and_then(|s| s.as_str());
 
-                                tracing::info!("🗑️ Subscription deleted - Customer: {:?}, Subscription: {:?}, Status: {:?}", 
-                                    customer_id, subscription_id, status);
+                                tracing::info!("🗑️ Subscription deleted - Customer: {:?}, Subscription: {:?}, Status: {:?}",
+                                    customer_id, deleted_subscription_id, status);
 
-                                if let Some(customer_id) = customer_id {
-                                    // Mark user as expired immediately (trial ended or subscription cancelled)
+                                if let (Some(customer_id), Some(deleted_subscription_id)) = (customer_id, deleted_subscription_id) {
+                                    // Create a conditional update that the API layer will verify
                                     let update = SubscriptionUpdate {
-                                        user_id: format!("stripe_customer:{}", customer_id),
+                                        user_id: format!("stripe_customer:{}:{}", customer_id, deleted_subscription_id),
                                         subscription_tier: "team".to_string(), // Keep current tier
                                         subscription_status: "expired".to_string(),
                                         stripe_subscription_id: None, // Clear subscription ID
@@ -826,11 +826,6 @@ impl StripeBilling {
                                         trial_ends_at: None,
                                     };
                                     updates.push(update);
-
-                                    tracing::info!(
-                                        "📉 Marked user as expired for customer: {}",
-                                        customer_id
-                                    );
                                 }
                             }
                         }

@@ -4512,30 +4512,71 @@ pub async fn handle_stripe_webhook(
 
                 // Check if this is a customer ID lookup (from subscription cancellation)
                 let actual_user_id = if update.user_id.starts_with("stripe_customer:") {
-                    let customer_id = update.user_id.strip_prefix("stripe_customer:").unwrap();
-                    tracing::info!("Looking up user by Stripe customer ID: {}", customer_id);
+                    let parts: Vec<&str> = update.user_id.strip_prefix("stripe_customer:").unwrap().split(':').collect();
 
-                    // Find user by Stripe customer ID - no mutex blocking!
-                    match app_services
-                        .metadata_db
-                        .get_user_by_stripe_customer_id(customer_id)
-                        .await
-                    {
-                        Ok(Some(user)) => {
-                            tracing::info!("Found user {} for customer {}", user.id, customer_id);
-                            user.id
+                    if parts.len() == 2 {
+                        // Special case: subscription deletion with customer_id:subscription_id
+                        let customer_id = parts[0];
+                        let deleted_subscription_id = parts[1];
+
+                        tracing::info!("Checking subscription deletion for customer {} - subscription {}", customer_id, deleted_subscription_id);
+
+                        // Find user and check if deleted subscription matches current subscription
+                        match app_services
+                            .metadata_db
+                            .get_user_by_stripe_customer_id(customer_id)
+                            .await
+                        {
+                            Ok(Some(user)) => {
+                                if let Some(current_subscription_id) = &user.stripe_subscription_id {
+                                    if current_subscription_id == deleted_subscription_id {
+                                        tracing::info!("📉 Marked user {} as expired (current subscription {} deleted)", user.id, deleted_subscription_id);
+                                        user.id
+                                    } else {
+                                        tracing::info!("🚮 Ignoring deletion of old subscription {} for user {} (current: {})", deleted_subscription_id, user.id, current_subscription_id);
+                                        continue; // Skip this update - it's an old subscription
+                                    }
+                                } else {
+                                    tracing::info!("🚮 Ignoring deletion of subscription {} for user {} (no current subscription)", deleted_subscription_id, user.id);
+                                    continue; // Skip this update - user has no current subscription
+                                }
+                            }
+                            Ok(None) => {
+                                tracing::warn!("No user found for Stripe customer ID: {}", customer_id);
+                                continue; // Skip this update
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to lookup user by customer ID {}: {}", customer_id, e);
+                                continue; // Skip this update
+                            }
                         }
-                        Ok(None) => {
-                            tracing::warn!("No user found for Stripe customer ID: {}", customer_id);
-                            continue; // Skip this update
-                        }
-                        Err(e) => {
-                            tracing::error!(
-                                "Failed to lookup user by customer ID {}: {}",
-                                customer_id,
-                                e
-                            );
-                            continue; // Skip this update
+                    } else {
+                        // Regular customer ID lookup
+                        let customer_id = parts[0];
+                        tracing::info!("Looking up user by Stripe customer ID: {}", customer_id);
+
+                        // Find user by Stripe customer ID - no mutex blocking!
+                        match app_services
+                            .metadata_db
+                            .get_user_by_stripe_customer_id(customer_id)
+                            .await
+                        {
+                            Ok(Some(user)) => {
+                                tracing::info!("Found user {} for customer {}", user.id, customer_id);
+                                user.id
+                            }
+                            Ok(None) => {
+                                tracing::warn!("No user found for Stripe customer ID: {}", customer_id);
+                                continue; // Skip this update
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to lookup user by customer ID {}: {}",
+                                    customer_id,
+                                    e
+                                );
+                                continue; // Skip this update
+                            }
                         }
                     }
                 } else {
