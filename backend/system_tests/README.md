@@ -150,8 +150,13 @@ The balance alert tests verify the complete notification system using real Bitco
 - Wallet drain detection (balance equals exactly 0)
 - Multiple alerts firing independently
 - Deactivated alerts being ignored
+- Auto-deactivation after triggering (alerts automatically deactivate and record timestamps)
 
-**Note**: Balance alert tests use manual triggering of `check_balance_alerts()` to ensure deterministic testing, bypassing the automatic sync-based checking.
+**Implementation Details:**
+- Uses real sync service integration - alerts are checked during wallet sync operations
+- Tests verify `last_triggered_at` timestamps and automatic alert deactivation
+- Handles transaction fees in wallet drain scenarios (balance may be small amount, not exactly 0)
+- Balance alert checking only occurs when wallet has changes during sync
 
 ## Performance Notes
 
