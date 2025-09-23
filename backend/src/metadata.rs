@@ -550,6 +550,7 @@ impl MetadataDb {
                         "delivered+admin@resend.dev" => ("Admin", "team"), // Admin flag will give unlimited access
                         "delivered+alice@resend.dev" => ("Alice", "personal"),
                         "delivered+bob@resend.dev" => ("Bob", "team"),
+                        "delivered+charlie@resend.dev" => ("Charlie", "team"),
                         _ => ("Test User", "personal"),
                     };
 
