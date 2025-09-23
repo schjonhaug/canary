@@ -212,7 +212,7 @@ export default function LandingPage() {
                     <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="text-sm">Above 0.01 BTC</span>
+                        <span className="text-sm">Above 0.1 BTC</span>
                       </div>
                       <span className="text-xs text-green-600 font-medium">ACTIVE</span>
                     </div>
@@ -220,7 +220,7 @@ export default function LandingPage() {
                     <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-orange-600" />
-                        <span className="text-sm">Below 0.1 BTC</span>
+                        <span className="text-sm">Below 0.01 BTC</span>
                       </div>
                       <span className="text-xs text-orange-600 font-medium">ACTIVE</span>
                     </div>
