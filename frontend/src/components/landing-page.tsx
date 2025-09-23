@@ -70,7 +70,7 @@ const faqs = [
   },
   {
     question: "What balance alert types are available?",
-    answer: "You can create three types of balance alerts: 'Above' alerts trigger when your total balance exceeds a threshold (great for detecting when deposits arrive), 'Below' alerts warn when total balance drops under an amount (spending warnings), and 'Equals' alerts detect exact balance amounts like wallet drains (balance = 0) or specific targets."
+    answer: "You can create three types of balance alerts: 'Above' alerts trigger when your total balance exceeds a threshold (monitor when holdings reach milestones), 'Below' alerts warn when total balance drops under an amount (low balance warnings), and 'Equals' alerts detect exact balance amounts like wallet drains (balance = 0) or specific targets."
   },
   {
     question: "Can I monitor multiple Bitcoin wallets with different balance thresholds?",
@@ -155,8 +155,8 @@ export default function LandingPage() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Never Miss Critical Balance Changes</h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Set custom balance thresholds and get instant alerts when your total wallet balance crosses important levels.
-              Perfect for monitoring cold storage, detecting wallet drains, or tracking balance changes.
+              Set custom balance thresholds to monitor your total wallet holdings. Get alerts when your balance reaches specific levels.
+              Perfect for cold storage monitoring, wallet drain detection, or tracking important balance milestones.
             </p>
           </div>
 
@@ -170,7 +170,7 @@ export default function LandingPage() {
                     <h3 className="font-semibold text-green-800">Above Threshold Alerts</h3>
                   </div>
                   <p className="text-sm text-green-700">
-                    Get notified when your total balance rises above a set threshold. Perfect for detecting when large deposits arrive.
+                    Get notified when your total balance rises above a set threshold. Monitor when your holdings reach important milestones.
                   </p>
                 </CardContent>
               </Card>
@@ -182,7 +182,7 @@ export default function LandingPage() {
                     <h3 className="font-semibold text-orange-800">Below Threshold Alerts</h3>
                   </div>
                   <p className="text-sm text-orange-700">
-                    Get notified when your total balance drops below a set threshold. Monitor low balance warnings or spending patterns.
+                    Get notified when your total balance drops below a set threshold. Set low balance warnings for your holdings.
                   </p>
                 </CardContent>
               </Card>
