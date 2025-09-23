@@ -7,6 +7,7 @@ export const allFeatures = [
   { id: 'email', label: 'Email notifications', personal: true, team: true },
   { id: 'sms', label: 'SMS notifications', personal: true, team: true },
   { id: 'push', label: 'Push notifications', personal: true, team: true },
+  { id: 'balance-alerts', label: 'Custom balance alerts', personal: true, team: true },
   { id: 'analysis', label: 'Transaction analysis (RBF/CPFP)', personal: true, team: true },
 ]
 

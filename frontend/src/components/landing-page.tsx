@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Zap, Shield, Bell, ArrowRight } from "lucide-react"
+import { Zap, Shield, Bell, ArrowRight, TrendingUp, TrendingDown, Target, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { PlanComparison } from "./plan-comparison"
@@ -12,6 +12,11 @@ const features = [
     icon: <Bell className="h-5 w-5" />,
     title: "Instant Bitcoin Transaction Notifications",
     description: "Real-time Bitcoin wallet alerts via email, SMS and push notifications delivered straight to your device"
+  },
+  {
+    icon: <TrendingUp className="h-5 w-5" />,
+    title: "Intelligent Balance Alert System",
+    description: "Custom balance thresholds with alerts for wallet drains, large deposits, or reaching specific amounts. Never miss critical balance changes."
   },
   {
     icon: <Shield className="h-5 w-5" />,
@@ -58,6 +63,18 @@ const faqs = [
   {
     question: "Can I track Bitcoin without downloading the blockchain?",
     answer: "Yes! Canary connects to professional Electrum servers to monitor the Bitcoin blockchain for you. No need to run a full node or download the blockchain - just provide your XPUB and start receiving instant notifications for all Bitcoin wallet activity."
+  },
+  {
+    question: "How do Bitcoin balance alerts work?",
+    answer: "Canary's balance alert system lets you set custom thresholds to monitor your Bitcoin holdings. Create alerts for when your balance goes above a certain amount (detect large deposits), below a threshold (low balance warning), or equals zero (wallet drain detection). Perfect for tracking cold storage without manual checking."
+  },
+  {
+    question: "What balance alert types are available?",
+    answer: "You can create three types of balance alerts: 'Above' alerts trigger when your balance exceeds a threshold (great for large incoming transactions), 'Below' alerts warn when balance drops under an amount (spending warnings), and 'Equals' alerts detect exact amounts like wallet drains (balance = 0) or specific targets."
+  },
+  {
+    question: "Can I monitor multiple Bitcoin wallets with different balance thresholds?",
+    answer: "Yes! Each Bitcoin wallet can have its own set of custom balance alerts. With our Team plan, you can monitor up to 5 wallets, each with unique balance thresholds. Perfect for Uncle Jims monitoring family Bitcoin holdings or businesses tracking multiple treasury wallets with different alert requirements."
   }
 ]
 
@@ -85,11 +102,11 @@ export default function LandingPage() {
             className="mx-auto mb-6"
           />
           <h1 className="text-4xl font-bold tracking-tight mb-4">
-            Never Miss a Bitcoin Transaction
+            Complete Bitcoin Wealth Monitoring
           </h1>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Professional Bitcoin wallet monitoring with instant notifications via email, SMS, and push. 
-            Watch-only access using any wallet descriptor - we never touch your keys.
+            Professional Bitcoin monitoring with transaction alerts AND intelligent balance notifications.
+            Set custom thresholds, monitor wallet drains, track large movements - all with watch-only security.
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Button size="lg" asChild>
@@ -110,12 +127,12 @@ export default function LandingPage() {
       {/* Features Grid */}
       <section className="container mx-auto px-4 py-12">
         <div className="text-center mb-10">
-          <h2 className="text-2xl font-semibold mb-3">Professional Bitcoin Monitoring</h2>
+          <h2 className="text-2xl font-semibold mb-3">Complete Bitcoin Wealth Monitoring</h2>
           <p className="text-muted-foreground">
-            Professional monitoring with read-only security
+            Transaction tracking, balance alerts, and secure watch-only monitoring
           </p>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto">
           {features.map((feature, index) => (
             <Card key={index} className="border-muted">
               <CardHeader className="pb-3">
@@ -129,6 +146,103 @@ export default function LandingPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      </section>
+
+      {/* Balance Alerts Feature Highlight */}
+      <section className="container mx-auto px-4 py-16 bg-muted/30">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Never Miss Critical Balance Changes</h2>
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+              Set intelligent balance thresholds and get instant alerts when your Bitcoin holdings cross important levels.
+              Perfect for monitoring cold storage, detecting unauthorized transactions, or tracking large movements.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Alert Types */}
+            <div className="space-y-6">
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    <h3 className="font-semibold text-green-800">Above Threshold Alerts</h3>
+                  </div>
+                  <p className="text-sm text-green-700">
+                    Get notified when large deposits arrive. Perfect for tracking incoming payments or detecting unexpected windfalls.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-orange-200 bg-orange-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <TrendingDown className="h-5 w-5 text-orange-600" />
+                    <h3 className="font-semibold text-orange-800">Below Threshold Alerts</h3>
+                  </div>
+                  <p className="text-sm text-orange-700">
+                    Monitor low balance warnings or spending patterns. Keep track of your holdings without constant checking.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Target className="h-5 w-5 text-red-600" />
+                    <h3 className="font-semibold text-red-800">Wallet Drain Detection</h3>
+                  </div>
+                  <p className="text-sm text-red-700">
+                    Instant alerts when your balance hits zero or specific amounts. Critical security monitoring for cold storage.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Visual Example */}
+            <div className="space-y-4">
+              <Card className="border-2 border-blue-200">
+                <CardHeader>
+                  <CardTitle className="text-lg">Your Bitcoin Wallet</CardTitle>
+                  <div className="text-2xl font-bold font-mono text-blue-600">0.05000000 BTC</div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-sm">Above 0.01000000 BTC</span>
+                      </div>
+                      <span className="text-xs text-green-600 font-medium">ACTIVE</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-orange-600" />
+                        <span className="text-sm">Below 0.10000000 BTC</span>
+                      </div>
+                      <span className="text-xs text-orange-600 font-medium">ACTIVE</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Target className="h-4 w-4 text-red-600" />
+                        <span className="text-sm">Equals 0.00000000 BTC</span>
+                      </div>
+                      <span className="text-xs text-red-600 font-medium">ACTIVE</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-xs text-muted-foreground text-center">
+                      All alerts delivered via email, SMS & push notifications
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -181,10 +295,10 @@ export default function LandingPage() {
         <Card className="bg-primary text-primary-foreground max-w-3xl mx-auto">
           <CardContent className="text-center py-10">
             <h2 className="text-2xl font-semibold mb-3">
-              Start Monitoring Your Bitcoin Today
+              Start Complete Bitcoin Monitoring Today
             </h2>
             <p className="mb-6 opacity-90">
-              Never miss another Bitcoin transaction
+              Transaction alerts, balance monitoring, and peace of mind for your Bitcoin wealth
             </p>
             <div className="flex gap-3 justify-center flex-wrap">
               <Button size="lg" variant="secondary" asChild>
