@@ -205,14 +205,14 @@ export default function LandingPage() {
               <Card className="border-2 border-blue-200">
                 <CardHeader>
                   <CardTitle className="text-lg">Your Bitcoin Wallet</CardTitle>
-                  <div className="text-2xl font-bold font-mono text-blue-600">0.05000000 BTC</div>
+                  <div className="text-2xl font-bold font-mono text-blue-600">0.05 BTC</div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="text-sm">Above 0.01000000 BTC</span>
+                        <span className="text-sm">Above 0.01 BTC</span>
                       </div>
                       <span className="text-xs text-green-600 font-medium">ACTIVE</span>
                     </div>
@@ -220,7 +220,7 @@ export default function LandingPage() {
                     <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-orange-600" />
-                        <span className="text-sm">Below 0.10000000 BTC</span>
+                        <span className="text-sm">Below 0.1 BTC</span>
                       </div>
                       <span className="text-xs text-orange-600 font-medium">ACTIVE</span>
                     </div>
@@ -228,7 +228,7 @@ export default function LandingPage() {
                     <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                       <div className="flex items-center gap-2">
                         <Target className="h-4 w-4 text-red-600" />
-                        <span className="text-sm">Equals 0.00000000 BTC</span>
+                        <span className="text-sm">Equals 0 BTC</span>
                       </div>
                       <span className="text-xs text-red-600 font-medium">ACTIVE</span>
                     </div>
