@@ -376,6 +376,23 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
               </div>
             </div>
 
+            {/* Transaction Timeline - Always show */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
+                <span className="font-semibold">
+                  PENDING - {formatDateTime(transaction.first_seen_at)}
+                </span>
+                {transaction.confirmed_at && (
+                  <>
+                    <ArrowRight className="h-3 w-3" />
+                    <span className="font-semibold">
+                      CONFIRMED - {formatDateTime(transaction.confirmed_at)}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
             {/* Notification Details */}
             {renderNotificationDetails()}
           </div>

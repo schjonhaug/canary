@@ -352,6 +352,23 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                 </div>
                               </div>
 
+                              {/* Transaction Timeline - Always show */}
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
+                                  <span className="font-semibold">
+                                    PENDING - {formatDateTime(transaction.first_seen_at)}
+                                  </span>
+                                  {transaction.confirmed_at && (
+                                    <>
+                                      <ArrowRight className="h-3 w-3" />
+                                      <span className="font-semibold">
+                                        CONFIRMED - {formatDateTime(transaction.confirmed_at)}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
                               {/* Notifications */}
                               {transaction.notification_status && transaction.notification_status.length > 0 && (
                                 <div>
@@ -570,6 +587,23 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                       <span className="font-medium min-w-[80px]">Replaced at:</span>
                                       <span className="text-xs">{formatDateTime(transaction.replaced_at)}</span>
                                     </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Transaction Timeline - Always show */}
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
+                                  <span className="font-semibold">
+                                    PENDING - {formatDateTime(transaction.first_seen_at)}
+                                  </span>
+                                  {transaction.confirmed_at && (
+                                    <>
+                                      <ArrowRight className="h-3 w-3" />
+                                      <span className="font-semibold">
+                                        CONFIRMED - {formatDateTime(transaction.confirmed_at)}
+                                      </span>
+                                    </>
                                   )}
                                 </div>
                               </div>
