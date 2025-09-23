@@ -3131,23 +3131,6 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn deactivate_balance_alert(
-        &self,
-        alert_id: &str,
-    ) -> Result<()> {
-        let pool = self.pool.clone();
-        let alert_id = alert_id.to_string();
-
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
-            conn.execute(
-                "UPDATE balance_alerts SET is_active = 0 WHERE id = ?1",
-                params![alert_id],
-            )?;
-            Ok(())
-        })
-        .await?
-    }
 
     pub async fn delete_balance_alert(
         &self,

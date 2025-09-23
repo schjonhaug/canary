@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use reqwest;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -154,29 +154,6 @@ impl ExchangeRateService {
         Ok(rates)
     }
 
-    /// Get exchange rates, using cache if fresh enough (10 minutes)
-    pub async fn get_rates(&self) -> Result<HashMap<String, ExchangeRate>> {
-        // Check cache first
-        let cached_rates = self.metadata_db.get_exchange_rates().await?;
-
-        // Check if cache is fresh (less than 10 minutes old)
-        if !cached_rates.is_empty() {
-            let oldest_update = cached_rates.values().map(|r| r.last_updated).min().unwrap();
-
-            if Utc::now() - oldest_update < Duration::minutes(10) {
-                eprintln!("Using cached exchange rates");
-                return Ok(cached_rates);
-            }
-        }
-
-        // Fetch fresh rates
-        let rates = self.fetch_rates().await?;
-
-        // Store in cache
-        self.metadata_db.store_exchange_rates(&rates).await?;
-
-        Ok(rates)
-    }
 
     /// Start background task to refresh exchange rates periodically
     pub fn start_refresh_task(self: Arc<Self>) {

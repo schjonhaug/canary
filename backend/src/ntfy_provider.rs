@@ -43,11 +43,11 @@ impl NotificationProvider for NtfyProvider {
                     &contact.language,
                 );
 
-                // Extract notification details for ntfy headers
-                let (priority, notification_type, txid) = match notification {
-                    TransactionNotification::Pending(tx) => ("high", "pending", &tx.txid),
-                    TransactionNotification::Confirmed(tx) => ("default", "confirmed", &tx.txid),
-                    TransactionNotification::BalanceAlert(alert) => ("urgent", "balance_alert", &alert.id),
+                // Extract priority for ntfy headers
+                let priority = match notification {
+                    TransactionNotification::Pending(_) => "high",
+                    TransactionNotification::Confirmed(_) => "default",
+                    TransactionNotification::BalanceAlert(_) => "urgent",
                 };
 
                 let topic = &method.notification_target;

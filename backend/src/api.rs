@@ -5289,7 +5289,7 @@ pub async fn reactivate_balance_alert(
     headers: HeaderMap,
 ) -> Response {
     // Authenticate user (works in both SAAS and FOSS mode)
-    let user = match authenticate_user_mode_aware(
+    let _user = match authenticate_user_mode_aware(
         &config,
         headers.get("authorization").and_then(|h| h.to_str().ok()),
     ) {
@@ -5346,7 +5346,7 @@ pub async fn delete_balance_alert(
     headers: HeaderMap,
 ) -> Response {
     // Authenticate user (works in both SAAS and FOSS mode)
-    let user = match authenticate_user_mode_aware(
+    let _user = match authenticate_user_mode_aware(
         &config,
         headers.get("authorization").and_then(|h| h.to_str().ok()),
     ) {
