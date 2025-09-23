@@ -21,7 +21,7 @@ const features = [
   {
     icon: <Shield className="h-5 w-5" />,
     title: "Secure Watch-Only Bitcoin Monitoring",
-    description: "Watch-only Bitcoin wallet access using XPUB descriptors - we never touch your private keys"
+    description: "Watch-only Bitcoin wallet access using XPUBs or descriptors - we never touch your private keys"
   },
   {
     icon: <Zap className="h-5 w-5" />,
@@ -34,7 +34,7 @@ const features = [
 const faqs = [
   {
     question: "What is Canary Bitcoin wallet monitoring?",
-    answer: "Canary is a professional Bitcoin wallet monitoring and notification service that watches your Bitcoin wallets using XPUB descriptors and sends instant alerts for all transactions through email, SMS and push notifications. Perfect for monitoring cold storage, hardware wallets, and watch-only Bitcoin addresses."
+    answer: "Canary is a professional Bitcoin wallet monitoring and notification service that watches your Bitcoin wallets using XPUBs or descriptors and sends instant alerts for all transactions through email, SMS and push notifications. Perfect for monitoring cold storage, hardware wallets, and watch-only Bitcoin addresses."
   },
   {
     question: "How does Bitcoin wallet monitoring work without private keys?",
