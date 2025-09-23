@@ -66,11 +66,11 @@ const faqs = [
   },
   {
     question: "How do Bitcoin balance alerts work?",
-    answer: "Canary's balance alert system lets you set custom thresholds to monitor your Bitcoin holdings. Create alerts for when your balance goes above a certain amount (detect large deposits), below a threshold (low balance warning), or equals zero (wallet drain detection). Perfect for tracking cold storage without manual checking."
+    answer: "Canary's balance alert system lets you set custom thresholds to monitor your total wallet balance. Create alerts for when your balance goes above a certain amount, below a threshold (low balance warning), or equals zero (wallet drain detection). Perfect for tracking cold storage without manual checking."
   },
   {
     question: "What balance alert types are available?",
-    answer: "You can create three types of balance alerts: 'Above' alerts trigger when your balance exceeds a threshold (great for large incoming transactions), 'Below' alerts warn when balance drops under an amount (spending warnings), and 'Equals' alerts detect exact amounts like wallet drains (balance = 0) or specific targets."
+    answer: "You can create three types of balance alerts: 'Above' alerts trigger when your total balance exceeds a threshold (great for detecting when deposits arrive), 'Below' alerts warn when total balance drops under an amount (spending warnings), and 'Equals' alerts detect exact balance amounts like wallet drains (balance = 0) or specific targets."
   },
   {
     question: "Can I monitor multiple Bitcoin wallets with different balance thresholds?",
@@ -155,8 +155,8 @@ export default function LandingPage() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Never Miss Critical Balance Changes</h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Set intelligent balance thresholds and get instant alerts when your Bitcoin holdings cross important levels.
-              Perfect for monitoring cold storage, detecting unauthorized transactions, or tracking large movements.
+              Set custom balance thresholds and get instant alerts when your total wallet balance crosses important levels.
+              Perfect for monitoring cold storage, detecting wallet drains, or tracking balance changes.
             </p>
           </div>
 
@@ -170,7 +170,7 @@ export default function LandingPage() {
                     <h3 className="font-semibold text-green-800">Above Threshold Alerts</h3>
                   </div>
                   <p className="text-sm text-green-700">
-                    Get notified when large deposits arrive. Perfect for tracking incoming payments or detecting unexpected windfalls.
+                    Get notified when your total balance rises above a set threshold. Perfect for detecting when large deposits arrive.
                   </p>
                 </CardContent>
               </Card>
@@ -182,7 +182,7 @@ export default function LandingPage() {
                     <h3 className="font-semibold text-orange-800">Below Threshold Alerts</h3>
                   </div>
                   <p className="text-sm text-orange-700">
-                    Monitor low balance warnings or spending patterns. Keep track of your holdings without constant checking.
+                    Get notified when your total balance drops below a set threshold. Monitor low balance warnings or spending patterns.
                   </p>
                 </CardContent>
               </Card>
@@ -194,7 +194,7 @@ export default function LandingPage() {
                     <h3 className="font-semibold text-red-800">Wallet Drain Detection</h3>
                   </div>
                   <p className="text-sm text-red-700">
-                    Instant alerts when your balance hits zero or specific amounts. Critical security monitoring for cold storage.
+                    Get notified when your total balance equals a specific amount, like zero for wallet drains. Critical security monitoring.
                   </p>
                 </CardContent>
               </Card>
