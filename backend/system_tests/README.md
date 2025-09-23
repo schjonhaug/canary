@@ -73,6 +73,11 @@ cargo test --test balance_alert_scenarios -- --ignored
 # Run individual test (clean output)
 cargo test test_alice_partial_send_bob_mined_directly --test mined_directly_scenarios -- --ignored
 cargo test test_multiple_partial_sends_mined_directly --test mined_directly_scenarios -- --ignored
+cargo test test_balance_alert_below_threshold --test balance_alert_scenarios -- --ignored
+cargo test test_balance_alert_above_threshold --test balance_alert_scenarios -- --ignored
+cargo test test_balance_drain_alert_equals_zero --test balance_alert_scenarios -- --ignored
+cargo test test_multiple_balance_alerts --test balance_alert_scenarios -- --ignored
+cargo test test_balance_alert_deactivation --test balance_alert_scenarios -- --ignored
 ```
 
 ### Detailed Output for Manual Verification
@@ -85,6 +90,10 @@ cargo test --test balance_alert_scenarios -- --ignored --nocapture
 # Run individual test with detailed output
 cargo test test_alice_full_send_bob_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
 cargo test test_balance_alert_below_threshold --test balance_alert_scenarios -- --ignored --nocapture
+cargo test test_balance_alert_above_threshold --test balance_alert_scenarios -- --ignored --nocapture
+cargo test test_balance_drain_alert_equals_zero --test balance_alert_scenarios -- --ignored --nocapture
+cargo test test_multiple_balance_alerts --test balance_alert_scenarios -- --ignored --nocapture
+cargo test test_balance_alert_deactivation --test balance_alert_scenarios -- --ignored --nocapture
 
 # Run with debug logs (most verbose - shows internal BDK/wallet operations)
 RUST_LOG=debug cargo test test_alice_partial_send_bob_mined_directly --test mined_directly_scenarios -- --ignored --nocapture
