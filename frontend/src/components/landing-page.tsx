@@ -106,7 +106,7 @@ export default function LandingPage() {
           </h1>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
             Professional Bitcoin monitoring with transaction alerts AND intelligent balance notifications.
-            Set custom thresholds, monitor wallet drains, track large movements - all with watch-only security.
+            Set custom balance thresholds, monitor wallet drains, track all transactions - all with watch-only security.
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Button size="lg" asChild>
