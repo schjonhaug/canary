@@ -398,54 +398,62 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
 
                                       return Object.entries(notificationsByContact)
                                         .sort(([a], [b]) => a.localeCompare(b))
-                                        .map(([contactName, contactNotifications]) => (
-                                        <div key={contactName} className="space-y-1">
-                                          {contactNotifications.map((notification, idx) => {
-                                            const notificationTime = notification.created_at ? formatDateTime(notification.created_at) : 'Unknown time'
-                                            return (
-                                              <div
-                                                key={idx}
-                                                className="flex items-center gap-2 text-sm"
-                                                title={`Notification sent at: ${notificationTime}`}
-                                              >
-                                                <span className="font-medium">{contactName}</span>
-                                                <div className="flex items-center gap-1">
-                                                {(() => {
+                                        .map(([contactName, contactNotifications]) => {
+                                          // Check if any notifications failed
+                                          const hasErrors = contactNotifications.some(n =>
+                                            n.status !== 'sent' && n.status !== 'delivered'
+                                          )
+
+                                          return (
+                                            <div key={contactName} className="flex items-center gap-2 text-sm">
+                                              <span className="font-medium">{contactName}:</span>
+                                              <div className="flex items-center gap-1">
+                                                {contactNotifications.map((notification, idx) => {
+                                                  const notificationTime = notification.created_at ? formatDateTime(notification.created_at) : 'Unknown time'
                                                   const providerType = notification.provider_type || notification.provider_name.toLowerCase()
-                                                  switch (providerType) {
-                                                    case 'email':
-                                                      return <Mail className="h-3 w-3" />
-                                                    case 'sms':
-                                                    case 'twilio':
-                                                      return <MessageCircle className="h-3 w-3" />
-                                                    case 'ntfy':
-                                                    default:
-                                                      return <Bell className="h-3 w-3" />
+                                                  const target = notification.notification_target || 'Unknown target'
+                                                  const hasError = notification.status !== 'sent' && notification.status !== 'delivered'
+
+                                                  let tooltipText = `${target}\nSent at: ${notificationTime}`
+                                                  if (hasError) {
+                                                    tooltipText += `\nStatus: ${notification.status}`
+                                                    if (notification.error_message) {
+                                                      tooltipText += `\nError: ${notification.error_message}`
+                                                    }
                                                   }
-                                                })()}
-                                                <span className="font-mono text-xs">
-                                                  {notification.notification_target || 'Unknown target'}
-                                                </span>
-                                              </div>
-                                              {/* Only show status if there's an error (not sent/delivered successfully) */}
-                                              {notification.status !== 'sent' && notification.status !== 'delivered' && (
-                                                <div className="flex items-center gap-1">
-                                                  <XCircle className="h-3 w-3 text-red-500" />
-                                                  <span className="text-xs text-red-600">
-                                                    {notification.status}
+
+                                                  const iconClass = hasError ? "h-3 w-3 text-red-500" : "h-3 w-3"
+
+                                                  return (
+                                                    <span
+                                                      key={idx}
+                                                      title={tooltipText}
+                                                      className={hasError ? "cursor-help" : ""}
+                                                    >
+                                                      {(() => {
+                                                        switch (providerType) {
+                                                          case 'email':
+                                                            return <Mail className={iconClass} />
+                                                          case 'sms':
+                                                          case 'twilio':
+                                                            return <MessageCircle className={iconClass} />
+                                                          case 'ntfy':
+                                                          default:
+                                                            return <Bell className={iconClass} />
+                                                        }
+                                                      })()}
+                                                    </span>
+                                                  )
+                                                })}
+                                                {hasErrors && (
+                                                  <span title="Some notifications failed">
+                                                    <XCircle className="h-3 w-3 text-red-500 ml-1" />
                                                   </span>
-                                                </div>
-                                              )}
-                                              {notification.error_message && (
-                                                <span className="text-xs text-red-600 ml-2">
-                                                  {notification.error_message}
-                                                </span>
-                                              )}
+                                                )}
+                                              </div>
                                             </div>
-                                            )
-                                          })}
-                                        </div>
-                                      ))
+                                          )
+                                        })
                                     }
 
                                     return (
@@ -576,54 +584,62 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
 
                                       return Object.entries(notificationsByContact)
                                         .sort(([a], [b]) => a.localeCompare(b))
-                                        .map(([contactName, contactNotifications]) => (
-                                        <div key={contactName} className="space-y-1">
-                                          {contactNotifications.map((notification, idx) => {
-                                            const notificationTime = notification.created_at ? formatDateTime(notification.created_at) : 'Unknown time'
-                                            return (
-                                              <div
-                                                key={idx}
-                                                className="flex items-center gap-2 text-sm"
-                                                title={`Notification sent at: ${notificationTime}`}
-                                              >
-                                                <span className="font-medium">{contactName}</span>
-                                                <div className="flex items-center gap-1">
-                                                {(() => {
+                                        .map(([contactName, contactNotifications]) => {
+                                          // Check if any notifications failed
+                                          const hasErrors = contactNotifications.some(n =>
+                                            n.status !== 'sent' && n.status !== 'delivered'
+                                          )
+
+                                          return (
+                                            <div key={contactName} className="flex items-center gap-2 text-sm">
+                                              <span className="font-medium">{contactName}:</span>
+                                              <div className="flex items-center gap-1">
+                                                {contactNotifications.map((notification, idx) => {
+                                                  const notificationTime = notification.created_at ? formatDateTime(notification.created_at) : 'Unknown time'
                                                   const providerType = notification.provider_type || notification.provider_name.toLowerCase()
-                                                  switch (providerType) {
-                                                    case 'email':
-                                                      return <Mail className="h-3 w-3" />
-                                                    case 'sms':
-                                                    case 'twilio':
-                                                      return <MessageCircle className="h-3 w-3" />
-                                                    case 'ntfy':
-                                                    default:
-                                                      return <Bell className="h-3 w-3" />
+                                                  const target = notification.notification_target || 'Unknown target'
+                                                  const hasError = notification.status !== 'sent' && notification.status !== 'delivered'
+
+                                                  let tooltipText = `${target}\nSent at: ${notificationTime}`
+                                                  if (hasError) {
+                                                    tooltipText += `\nStatus: ${notification.status}`
+                                                    if (notification.error_message) {
+                                                      tooltipText += `\nError: ${notification.error_message}`
+                                                    }
                                                   }
-                                                })()}
-                                                <span className="font-mono text-xs">
-                                                  {notification.notification_target || 'Unknown target'}
-                                                </span>
-                                              </div>
-                                              {/* Only show status if there's an error (not sent/delivered successfully) */}
-                                              {notification.status !== 'sent' && notification.status !== 'delivered' && (
-                                                <div className="flex items-center gap-1">
-                                                  <XCircle className="h-3 w-3 text-red-500" />
-                                                  <span className="text-xs text-red-600">
-                                                    {notification.status}
+
+                                                  const iconClass = hasError ? "h-3 w-3 text-red-500" : "h-3 w-3"
+
+                                                  return (
+                                                    <span
+                                                      key={idx}
+                                                      title={tooltipText}
+                                                      className={hasError ? "cursor-help" : ""}
+                                                    >
+                                                      {(() => {
+                                                        switch (providerType) {
+                                                          case 'email':
+                                                            return <Mail className={iconClass} />
+                                                          case 'sms':
+                                                          case 'twilio':
+                                                            return <MessageCircle className={iconClass} />
+                                                          case 'ntfy':
+                                                          default:
+                                                            return <Bell className={iconClass} />
+                                                        }
+                                                      })()}
+                                                    </span>
+                                                  )
+                                                })}
+                                                {hasErrors && (
+                                                  <span title="Some notifications failed">
+                                                    <XCircle className="h-3 w-3 text-red-500 ml-1" />
                                                   </span>
-                                                </div>
-                                              )}
-                                              {notification.error_message && (
-                                                <span className="text-xs text-red-600 ml-2">
-                                                  {notification.error_message}
-                                                </span>
-                                              )}
+                                                )}
+                                              </div>
                                             </div>
-                                            )
-                                          })}
-                                        </div>
-                                      ))
+                                          )
+                                        })
                                     }
 
                                     return (
