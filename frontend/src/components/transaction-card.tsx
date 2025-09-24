@@ -264,17 +264,10 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
               )}
             </div>
             <div className="flex items-center gap-1">
-              {notificationSummary ? (
-                notificationSummary.icons.map((iconInfo, idx) => (
-                  <span key={idx} title={`${iconInfo.count} ${iconInfo.type} notification${iconInfo.count !== 1 ? 's' : ''}`}>
-                    {iconInfo.icon}
-                  </span>
-                ))
-              ) : null}
               {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground ml-1" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground ml-1" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               )}
             </div>
           </div>

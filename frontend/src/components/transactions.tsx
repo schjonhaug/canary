@@ -238,7 +238,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                 {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Notifications</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -307,20 +306,9 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       <TableCell className="font-mono">
                         {formatBitcoinAmount(transaction.amount_sats, transaction.transaction_type)}
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {notificationSummary && (
-                          <div className="flex items-center gap-1">
-                            {notificationSummary.icons.map((iconInfo, idx) => (
-                              <span key={idx} title={`${iconInfo.count} ${iconInfo.type} notification${iconInfo.count !== 1 ? 's' : ''}`}>
-                                {iconInfo.icon}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </TableCell>
                     </TableRow>
                     <TableRow className={`bg-muted/20 transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'h-auto' : 'h-0'}`} style={{ lineHeight: isExpanded ? 'normal' : '0' }}>
-                      <TableCell colSpan={walletsCount > 1 ? 6 : 5} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'} sm:hidden`}>
+                      <TableCell colSpan={walletsCount > 1 ? 5 : 4} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'} sm:hidden`}>
                         <div className={`px-4 transform transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'py-3 translate-y-0 max-h-96' : 'py-0 -translate-y-2 max-h-0'}`}>
                             <div className="space-y-4">
                               {/* Transaction Details */}
@@ -506,7 +494,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                             </div>
                           </div>
                         </TableCell>
-                      <TableCell colSpan={walletsCount > 1 ? 7 : 6} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'} hidden sm:table-cell`}>
+                      <TableCell colSpan={walletsCount > 1 ? 6 : 5} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'} hidden sm:table-cell`}>
                         <div className={`px-4 transform transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'py-3 translate-y-0 max-h-96' : 'py-0 -translate-y-2 max-h-0'}`}>
                             <div className="space-y-4">
                               {/* Transaction Details */}
