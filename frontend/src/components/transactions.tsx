@@ -233,11 +233,11 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
             <TableCaption>A list of all transactions from the Canary system.</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8 hidden sm:table-cell"></TableHead>
                 <TableHead>Date/Time</TableHead>
                 {walletsCount > 1 && <TableHead>Wallet</TableHead>}
                 <TableHead>Transaction</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead className="w-8"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -251,13 +251,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       className={`cursor-pointer hover:bg-muted/50 transition-colors ${isExpanded ? 'bg-muted/30' : ''}`}
                       onClick={() => toggleRowExpansion(transaction.txid)}
                     >
-                      <TableCell className="text-center hidden sm:table-cell">
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 transition-transform duration-200" />
-                        )}
-                      </TableCell>
                       <TableCell className="text-sm">
                         {formatDateTime(Math.min(
                           transaction.first_seen_at,
@@ -305,6 +298,13 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       </TableCell>
                       <TableCell className="font-mono">
                         {formatBitcoinAmount(transaction.amount_sats, transaction.transaction_type)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 transition-transform duration-200" />
+                        )}
                       </TableCell>
                     </TableRow>
                     <TableRow className={`bg-muted/20 transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'h-auto' : 'h-0'}`} style={{ lineHeight: isExpanded ? 'normal' : '0' }}>
@@ -494,7 +494,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                             </div>
                           </div>
                         </TableCell>
-                      <TableCell colSpan={walletsCount > 1 ? 6 : 5} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'} hidden sm:table-cell`}>
+                      <TableCell colSpan={walletsCount > 1 ? 5 : 4} className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'p-0' : 'p-0 h-0'} hidden sm:table-cell`}>
                         <div className={`px-4 transform transition-all duration-300 ease-out overflow-hidden ${isExpanded ? 'py-3 translate-y-0 max-h-96' : 'py-0 -translate-y-2 max-h-0'}`}>
                             <div className="space-y-4">
                               {/* Transaction Details */}

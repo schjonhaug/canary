@@ -279,20 +279,10 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
             </div>
             <div className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              {(() => {
-                // Use the oldest available timestamp
-                const dateTime = Math.min(
-                  transaction.first_seen_at,
-                  transaction.confirmed_at || Infinity
-                )
-                const date = new Date(dateTime * 1000)
-
-                return date.toLocaleDateString(undefined, {
-                  year: '2-digit',
-                  month: '2-digit',
-                  day: '2-digit'
-                })
-              })()}
+              {formatDateTime(Math.min(
+                transaction.first_seen_at,
+                transaction.confirmed_at || Infinity
+              ))}
             </div>
           </div>
 
