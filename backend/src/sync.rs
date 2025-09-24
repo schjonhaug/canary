@@ -321,8 +321,38 @@ impl WalletSyncService {
             let existing_tx = existing_transactions.iter().find(|tx| tx.txid == *txid);
 
             if let Some(existing) = existing_tx {
-                // Existing transaction - preserve its confirmed_at timestamp
-                *confirmed_at = existing.confirmed_at;
+                // Existing transaction - check if it's transitioning from pending to confirmed
+                if *is_confirmed && existing.confirmed_at.is_none() {
+                    // Transaction is now confirmed but wasn't before - fetch new block timestamp
+                    *confirmed_at = if let Some(client) = electrum_client {
+                        if let Some(height) = block_height {
+                            let header_fetch_start = Instant::now();
+                            let header_result = match client.get_block_header(*height).await {
+                                Ok(header) => Some(header.timestamp),
+                                Err(e) => {
+                                    warn!(
+                                        "[{}] Failed to fetch block header for newly confirmed tx {} at height {}: {}",
+                                        wallet_checksum,
+                                        txid,
+                                        height,
+                                        e
+                                    );
+                                    Some(*first_seen_at) // Fallback
+                                }
+                            };
+                            block_header_fetch_count += 1;
+                            block_header_fetch_duration += header_fetch_start.elapsed();
+                            header_result
+                        } else {
+                            Some(*first_seen_at)
+                        }
+                    } else {
+                        Some(*first_seen_at)
+                    }
+                } else {
+                    // Preserve existing confirmed_at if already confirmed
+                    *confirmed_at = existing.confirmed_at;
+                }
             } else {
                 // NEW transaction - determine appropriate timestamp
                 *confirmed_at = if *is_confirmed {

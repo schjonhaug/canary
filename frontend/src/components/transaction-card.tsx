@@ -134,34 +134,41 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([contactName, contactNotifications]) => (
               <div key={contactName} className="space-y-1 ml-2">
-                {contactNotifications.map((notification, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-sm">
-                    <span className="font-medium flex-shrink-0">{contactName}</span>
-                    <div className="flex items-center gap-1 flex-1 min-w-0">
-                      {(() => {
-                        const providerType = notification.provider_type || notification.provider_name.toLowerCase()
-                        switch (providerType) {
-                          case 'email':
-                            return <Mail className="h-3 w-3 flex-shrink-0" />
-                          case 'sms':
-                          case 'twilio':
-                            return <MessageCircle className="h-3 w-3 flex-shrink-0" />
-                          case 'ntfy':
-                          default:
-                            return <Bell className="h-3 w-3 flex-shrink-0" />
-                        }
-                      })()}
-                      <span className="font-mono text-xs truncate">
-                        {notification.notification_target || 'Unknown target'}
-                      </span>
-                    </div>
-                    {notification.status !== 'sent' && notification.status !== 'delivered' && (
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <XCircle className="h-3 w-3 text-red-500" />
+                {contactNotifications.map((notification, idx) => {
+                  const notificationTime = notification.created_at ? formatDateTime(notification.created_at) : 'Unknown time'
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-2 text-sm"
+                      title={`Notification sent at: ${notificationTime}`}
+                    >
+                      <span className="font-medium flex-shrink-0">{contactName}</span>
+                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                        {(() => {
+                          const providerType = notification.provider_type || notification.provider_name.toLowerCase()
+                          switch (providerType) {
+                            case 'email':
+                              return <Mail className="h-3 w-3 flex-shrink-0" />
+                            case 'sms':
+                            case 'twilio':
+                              return <MessageCircle className="h-3 w-3 flex-shrink-0" />
+                            case 'ntfy':
+                            default:
+                              return <Bell className="h-3 w-3 flex-shrink-0" />
+                          }
+                        })()}
+                        <span className="font-mono text-xs truncate">
+                          {notification.notification_target || 'Unknown target'}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {notification.status !== 'sent' && notification.status !== 'delivered' && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <XCircle className="h-3 w-3 text-red-500" />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             ))}
         </div>
@@ -173,36 +180,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
         {pendingNotifications.length > 0 && (
           <div className="space-y-2">
             <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              PENDING{(() => {
-                if (pendingNotifications.length === 0) return ''
-                const notification = pendingNotifications[0]
-                if (!notification?.created_at) return ''
-                try {
-                  // Safari-compatible date formatting
-                  let dateStr = notification.created_at
-
-                  // Handle different date formats
-                  if (typeof dateStr === 'string') {
-                    // Convert "YYYY-MM-DD HH:mm:ss" to "YYYY-MM-DDTHH:mm:ss" for Safari
-                    if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                      dateStr = dateStr.replace(' ', 'T') + 'Z' // Add Z for UTC
-                    }
-                  }
-
-                  const date = new Date(dateStr)
-                  if (isNaN(date.getTime())) return ''
-
-                  return ` - ${date.toLocaleString(undefined, {
-                    year: '2-digit',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}`
-                } catch {
-                  return ''
-                }
-              })()}
+              PENDING - {formatDateTime(transaction.first_seen_at)}
             </h5>
             <div className="ml-2">
               {renderNotificationGroup(pendingNotifications, "Pending")}
@@ -212,36 +190,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
         {confirmedNotifications.length > 0 && (
           <div className="space-y-2">
             <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              CONFIRMED{(() => {
-                if (confirmedNotifications.length === 0) return ''
-                const notification = confirmedNotifications[0]
-                if (!notification?.created_at) return ''
-                try {
-                  // Safari-compatible date formatting
-                  let dateStr = notification.created_at
-
-                  // Handle different date formats
-                  if (typeof dateStr === 'string') {
-                    // Convert "YYYY-MM-DD HH:mm:ss" to "YYYY-MM-DDTHH:mm:ss" for Safari
-                    if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                      dateStr = dateStr.replace(' ', 'T') + 'Z' // Add Z for UTC
-                    }
-                  }
-
-                  const date = new Date(dateStr)
-                  if (isNaN(date.getTime())) return ''
-
-                  return ` - ${date.toLocaleString(undefined, {
-                    year: '2-digit',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}`
-                } catch {
-                  return ''
-                }
-              })()}
+              CONFIRMED{transaction.confirmed_at ? ` - ${formatDateTime(transaction.confirmed_at)}` : ''}
             </h5>
             <div className="ml-2">
               {renderNotificationGroup(confirmedNotifications, "Confirmed")}
@@ -376,22 +325,24 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
               </div>
             </div>
 
-            {/* Transaction Timeline - Always show */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
-                <span className="font-semibold">
-                  PENDING - {formatDateTime(transaction.first_seen_at)}
-                </span>
-                {transaction.confirmed_at && (
-                  <>
-                    <ArrowRight className="h-3 w-3" />
-                    <span className="font-semibold">
-                      CONFIRMED - {formatDateTime(transaction.confirmed_at)}
-                    </span>
-                  </>
-                )}
+            {/* Transaction Timeline - Show only when no contacts */}
+            {(!transaction.notification_status || transaction.notification_status.length === 0) && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
+                  <span className="font-semibold">
+                    PENDING - {formatDateTime(transaction.first_seen_at)}
+                  </span>
+                  {transaction.confirmed_at && (
+                    <>
+                      <ArrowRight className="h-3 w-3" />
+                      <span className="font-semibold">
+                        CONFIRMED - {formatDateTime(transaction.confirmed_at)}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Notification Details */}
             {renderNotificationDetails()}

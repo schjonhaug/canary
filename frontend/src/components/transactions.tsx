@@ -352,22 +352,24 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                 </div>
                               </div>
 
-                              {/* Transaction Timeline - Always show */}
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
-                                  <span className="font-semibold">
-                                    PENDING - {formatDateTime(transaction.first_seen_at)}
-                                  </span>
-                                  {transaction.confirmed_at && (
-                                    <>
-                                      <ArrowRight className="h-3 w-3" />
-                                      <span className="font-semibold">
-                                        CONFIRMED - {formatDateTime(transaction.confirmed_at)}
-                                      </span>
-                                    </>
-                                  )}
+                              {/* Transaction Timeline - Show only when no contacts */}
+                              {(!transaction.notification_status || transaction.notification_status.length === 0) && (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
+                                    <span className="font-semibold">
+                                      PENDING - {formatDateTime(transaction.first_seen_at)}
+                                    </span>
+                                    {transaction.confirmed_at && (
+                                      <>
+                                        <ArrowRight className="h-3 w-3" />
+                                        <span className="font-semibold">
+                                          CONFIRMED - {formatDateTime(transaction.confirmed_at)}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
 
                               {/* Notifications */}
                               {transaction.notification_status && transaction.notification_status.length > 0 && (
@@ -384,76 +386,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                     const pendingNotifications = groupedNotifications.pending || []
                                     const confirmedNotifications = groupedNotifications.confirmed || []
 
-                                    // Get timestamps for headings
-                                    const getPendingTimestamp = () => {
-                                      if (pendingNotifications.length === 0) return null
-                                      try {
-                                        const earliest = pendingNotifications.reduce((earliest, current) => {
-                                          if (!earliest?.created_at || !current?.created_at) return earliest || current
-                                          const earliestTime = new Date(earliest.created_at).getTime()
-                                          const currentTime = new Date(current.created_at).getTime()
-                                          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
-                                          return currentTime < earliestTime ? current : earliest
-                                        })
-                                        if (!earliest?.created_at) return null
-
-                                        // Safari-compatible date formatting
-                                        let dateStr = earliest.created_at
-                                        if (typeof dateStr === 'string') {
-                                          if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                                            dateStr = dateStr.replace(' ', 'T') + 'Z'
-                                          }
-                                        }
-
-                                        const date = new Date(dateStr)
-                                        if (isNaN(date.getTime())) return null
-
-                                        return date.toLocaleString(undefined, {
-                                          year: '2-digit',
-                                          month: '2-digit',
-                                          day: '2-digit',
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                        })
-                                      } catch {
-                                        return null
-                                      }
-                                    }
-
-                                    const getConfirmedTimestamp = () => {
-                                      if (confirmedNotifications.length === 0) return null
-                                      try {
-                                        const earliest = confirmedNotifications.reduce((earliest, current) => {
-                                          if (!earliest?.created_at || !current?.created_at) return earliest || current
-                                          const earliestTime = new Date(earliest.created_at).getTime()
-                                          const currentTime = new Date(current.created_at).getTime()
-                                          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
-                                          return currentTime < earliestTime ? current : earliest
-                                        })
-                                        if (!earliest?.created_at) return null
-
-                                        // Safari-compatible date formatting
-                                        let dateStr = earliest.created_at
-                                        if (typeof dateStr === 'string') {
-                                          if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                                            dateStr = dateStr.replace(' ', 'T') + 'Z'
-                                          }
-                                        }
-
-                                        const date = new Date(dateStr)
-                                        if (isNaN(date.getTime())) return null
-
-                                        return date.toLocaleString(undefined, {
-                                          year: '2-digit',
-                                          month: '2-digit',
-                                          day: '2-digit',
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                        })
-                                      } catch {
-                                        return null
-                                      }
-                                    }
 
                                     const renderNotificationGroup = (notifications: typeof transaction.notification_status) => {
                                       // Group notifications by contact name to avoid repetition
@@ -468,10 +400,16 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                         .sort(([a], [b]) => a.localeCompare(b))
                                         .map(([contactName, contactNotifications]) => (
                                         <div key={contactName} className="space-y-1">
-                                          {contactNotifications.map((notification, idx) => (
-                                            <div key={idx} className="flex items-center gap-2 text-sm">
-                                              <span className="font-medium">{contactName}</span>
-                                              <div className="flex items-center gap-1">
+                                          {contactNotifications.map((notification, idx) => {
+                                            const notificationTime = notification.created_at ? formatDateTime(notification.created_at) : 'Unknown time'
+                                            return (
+                                              <div
+                                                key={idx}
+                                                className="flex items-center gap-2 text-sm"
+                                                title={`Notification sent at: ${notificationTime}`}
+                                              >
+                                                <span className="font-medium">{contactName}</span>
+                                                <div className="flex items-center gap-1">
                                                 {(() => {
                                                   const providerType = notification.provider_type || notification.provider_name.toLowerCase()
                                                   switch (providerType) {
@@ -504,7 +442,8 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                                 </span>
                                               )}
                                             </div>
-                                          ))}
+                                            )
+                                          })}
                                         </div>
                                       ))
                                     }
@@ -516,7 +455,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                           <div className="flex-1">
                                             {pendingNotifications.length > 0 && (
                                               <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                                PENDING - {getPendingTimestamp()}
+                                                PENDING - {formatDateTime(transaction.first_seen_at)}
                                               </h5>
                                             )}
                                           </div>
@@ -528,7 +467,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                           <div className="flex-1 text-right">
                                             {confirmedNotifications.length > 0 && (
                                               <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                                CONFIRMED - {getConfirmedTimestamp()}
+                                                CONFIRMED{transaction.confirmed_at ? ` - ${formatDateTime(transaction.confirmed_at)}` : ''}
                                               </h5>
                                             )}
                                           </div>
@@ -591,22 +530,24 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                 </div>
                               </div>
 
-                              {/* Transaction Timeline - Always show */}
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
-                                  <span className="font-semibold">
-                                    PENDING - {formatDateTime(transaction.first_seen_at)}
-                                  </span>
-                                  {transaction.confirmed_at && (
-                                    <>
-                                      <ArrowRight className="h-3 w-3" />
-                                      <span className="font-semibold">
-                                        CONFIRMED - {formatDateTime(transaction.confirmed_at)}
-                                      </span>
-                                    </>
-                                  )}
+                              {/* Transaction Timeline - Show only when no contacts */}
+                              {(!transaction.notification_status || transaction.notification_status.length === 0) && (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
+                                    <span className="font-semibold">
+                                      PENDING - {formatDateTime(transaction.first_seen_at)}
+                                    </span>
+                                    {transaction.confirmed_at && (
+                                      <>
+                                        <ArrowRight className="h-3 w-3" />
+                                        <span className="font-semibold">
+                                          CONFIRMED - {formatDateTime(transaction.confirmed_at)}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
 
                               {/* Notifications */}
                               {transaction.notification_status && transaction.notification_status.length > 0 && (
@@ -623,76 +564,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                     const pendingNotifications = groupedNotifications.pending || []
                                     const confirmedNotifications = groupedNotifications.confirmed || []
 
-                                    // Get timestamps for headings
-                                    const getPendingTimestamp = () => {
-                                      if (pendingNotifications.length === 0) return null
-                                      try {
-                                        const earliest = pendingNotifications.reduce((earliest, current) => {
-                                          if (!earliest?.created_at || !current?.created_at) return earliest || current
-                                          const earliestTime = new Date(earliest.created_at).getTime()
-                                          const currentTime = new Date(current.created_at).getTime()
-                                          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
-                                          return currentTime < earliestTime ? current : earliest
-                                        })
-                                        if (!earliest?.created_at) return null
-
-                                        // Safari-compatible date formatting
-                                        let dateStr = earliest.created_at
-                                        if (typeof dateStr === 'string') {
-                                          if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                                            dateStr = dateStr.replace(' ', 'T') + 'Z'
-                                          }
-                                        }
-
-                                        const date = new Date(dateStr)
-                                        if (isNaN(date.getTime())) return null
-
-                                        return date.toLocaleString(undefined, {
-                                          year: '2-digit',
-                                          month: '2-digit',
-                                          day: '2-digit',
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                        })
-                                      } catch {
-                                        return null
-                                      }
-                                    }
-
-                                    const getConfirmedTimestamp = () => {
-                                      if (confirmedNotifications.length === 0) return null
-                                      try {
-                                        const earliest = confirmedNotifications.reduce((earliest, current) => {
-                                          if (!earliest?.created_at || !current?.created_at) return earliest || current
-                                          const earliestTime = new Date(earliest.created_at).getTime()
-                                          const currentTime = new Date(current.created_at).getTime()
-                                          if (isNaN(earliestTime) || isNaN(currentTime)) return earliest
-                                          return currentTime < earliestTime ? current : earliest
-                                        })
-                                        if (!earliest?.created_at) return null
-
-                                        // Safari-compatible date formatting
-                                        let dateStr = earliest.created_at
-                                        if (typeof dateStr === 'string') {
-                                          if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                                            dateStr = dateStr.replace(' ', 'T') + 'Z'
-                                          }
-                                        }
-
-                                        const date = new Date(dateStr)
-                                        if (isNaN(date.getTime())) return null
-
-                                        return date.toLocaleString(undefined, {
-                                          year: '2-digit',
-                                          month: '2-digit',
-                                          day: '2-digit',
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                        })
-                                      } catch {
-                                        return null
-                                      }
-                                    }
 
                                     const renderNotificationGroup = (notifications: typeof transaction.notification_status) => {
                                       // Group notifications by contact name to avoid repetition
@@ -707,10 +578,16 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                         .sort(([a], [b]) => a.localeCompare(b))
                                         .map(([contactName, contactNotifications]) => (
                                         <div key={contactName} className="space-y-1">
-                                          {contactNotifications.map((notification, idx) => (
-                                            <div key={idx} className="flex items-center gap-2 text-sm">
-                                              <span className="font-medium">{contactName}</span>
-                                              <div className="flex items-center gap-1">
+                                          {contactNotifications.map((notification, idx) => {
+                                            const notificationTime = notification.created_at ? formatDateTime(notification.created_at) : 'Unknown time'
+                                            return (
+                                              <div
+                                                key={idx}
+                                                className="flex items-center gap-2 text-sm"
+                                                title={`Notification sent at: ${notificationTime}`}
+                                              >
+                                                <span className="font-medium">{contactName}</span>
+                                                <div className="flex items-center gap-1">
                                                 {(() => {
                                                   const providerType = notification.provider_type || notification.provider_name.toLowerCase()
                                                   switch (providerType) {
@@ -743,7 +620,8 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                                 </span>
                                               )}
                                             </div>
-                                          ))}
+                                            )
+                                          })}
                                         </div>
                                       ))
                                     }
@@ -755,7 +633,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                           <div className="flex-1">
                                             {pendingNotifications.length > 0 && (
                                               <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                                PENDING - {getPendingTimestamp()}
+                                                PENDING - {formatDateTime(transaction.first_seen_at)}
                                               </h5>
                                             )}
                                           </div>
@@ -767,7 +645,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                           <div className="flex-1 text-right">
                                             {confirmedNotifications.length > 0 && (
                                               <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                                CONFIRMED - {getConfirmedTimestamp()}
+                                                CONFIRMED{transaction.confirmed_at ? ` - ${formatDateTime(transaction.confirmed_at)}` : ''}
                                               </h5>
                                             )}
                                           </div>
