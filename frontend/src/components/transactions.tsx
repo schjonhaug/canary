@@ -99,20 +99,30 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
     : transactions
 
   const getCardTitle = () => {
+    const transactionCount = filteredTransactions.length
+    const countText = transactionCount === 1 ? "1 Transaction" : `${transactionCount} Transactions`
+
     if (selectedWalletChecksum && filteredTransactions.length > 0) {
       const walletName = filteredTransactions[0]?.wallet_name || `Wallet ${selectedWalletChecksum}`
-      return `Transactions - ${walletName}`
+      return `${countText} - ${walletName}`
     }
-    return "Transactions"
+    return countText
   }
 
   const getCardDescription = () => {
+    const transactionCount = filteredTransactions.length
+    const countText = transactionCount === 1 ? "1 transaction" : `${transactionCount} transactions`
+
     if (selectedWalletChecksum) {
-      return filteredTransactions.length > 0
-        ? `${filteredTransactions.length} transaction${filteredTransactions.length !== 1 ? 's' : ''} for selected wallet`
-        : "No transactions found for selected wallet"
+      if (transactionCount === 0) {
+        return "No transactions found for the selected wallet."
+      }
+
+      const walletName = filteredTransactions[0]?.wallet_name || `Wallet ${selectedWalletChecksum}`
+      return `A list of ${countText} for ${walletName}.`
     }
-    return ""
+
+    return `A list of ${countText} from the Canary system.`
   }
 
   if (!hasReceivedData) {

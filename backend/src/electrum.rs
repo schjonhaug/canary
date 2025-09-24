@@ -101,16 +101,17 @@ impl ElectrumClient {
         }
     }
 
-    /// Ensure we have at least STOP_GAP addresses revealed beyond the highest used index
+    /// Ensure we have at least the specified stop gap addresses revealed beyond the highest used index
     fn ensure_stop_gap_maintained(
         wallet: &mut PersistedWallet<Connection>,
         keychain: KeychainKind,
+        stop_gap: usize,
     ) -> Result<bool> {
         let calc_start = Instant::now();
         let highest_used = Self::get_highest_used_index(wallet, keychain);
         let usage_scan_duration = calc_start.elapsed();
         let current_index = wallet.next_derivation_index(keychain);
-        let required_index = highest_used + STOP_GAP as u32;
+        let required_index = highest_used + stop_gap as u32;
 
         if current_index <= required_index {
             let keychain_str = if keychain == KeychainKind::External {
@@ -170,17 +171,17 @@ impl ElectrumClient {
         let balance_before = wallet.balance();
         info!("Wallet balance before syncing: {}", balance_before.total());
 
-        // Initial reveal of addresses (start with a smaller batch)
-        const INITIAL_REVEAL: u32 = 50;
+        let stop_gap = custom_stop_gap.unwrap_or(STOP_GAP);
+        let initial_reveal: u32 = std::cmp::max(stop_gap as u32, 50);
 
-        info!("Initial address revelation:");
+        info!("Initial address revelation (up to index {}):", initial_reveal);
         let ext_revealed: Vec<_> = wallet
-            .reveal_addresses_to(KeychainKind::External, INITIAL_REVEAL)
+            .reveal_addresses_to(KeychainKind::External, initial_reveal)
             .collect();
         info!("  Revealed {} external addresses", ext_revealed.len());
 
         let int_revealed: Vec<_> = wallet
-            .reveal_addresses_to(KeychainKind::Internal, INITIAL_REVEAL)
+            .reveal_addresses_to(KeychainKind::Internal, initial_reveal)
             .collect();
         info!("  Revealed {} internal addresses", int_revealed.len());
 
@@ -230,8 +231,10 @@ impl ElectrumClient {
                 .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
 
             // Check if we need to reveal more addresses to satisfy the stop gap
-            let ext_needs_more = Self::ensure_stop_gap_maintained(wallet, KeychainKind::External)?;
-            let int_needs_more = Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal)?;
+            let ext_needs_more =
+                Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, stop_gap)?;
+            let int_needs_more =
+                Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, stop_gap)?;
 
             // If no new addresses were revealed, we're done
             if !ext_needs_more && !int_needs_more {
@@ -303,8 +306,10 @@ impl ElectrumClient {
         );
 
         // After sync, check if we need to reveal more addresses to maintain stop gap
-        let stop_gap_external = Self::ensure_stop_gap_maintained(wallet, KeychainKind::External)?;
-        let stop_gap_internal = Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal)?;
+        let stop_gap_external =
+            Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP)?;
+        let stop_gap_internal =
+            Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP)?;
 
         // If new addresses were revealed, we need to sync them too
         if stop_gap_external || stop_gap_internal {
