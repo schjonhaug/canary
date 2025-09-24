@@ -99,30 +99,23 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
     : transactions
 
   const getCardTitle = () => {
-    const transactionCount = filteredTransactions.length
-    const countText = transactionCount === 1 ? "1 Transaction" : `${transactionCount} Transactions`
-
     if (selectedWalletChecksum && filteredTransactions.length > 0) {
       const walletName = filteredTransactions[0]?.wallet_name || `Wallet ${selectedWalletChecksum}`
-      return `${countText} - ${walletName}`
+      return `Transactions - ${walletName}`
     }
-    return countText
+    return "Transactions"
   }
 
   const getCardDescription = () => {
-    const transactionCount = filteredTransactions.length
-    const countText = transactionCount === 1 ? "1 transaction" : `${transactionCount} transactions`
-
-    if (selectedWalletChecksum) {
-      if (transactionCount === 0) {
-        return "No transactions found for the selected wallet."
-      }
-
-      const walletName = filteredTransactions[0]?.wallet_name || `Wallet ${selectedWalletChecksum}`
-      return `A list of ${countText} for ${walletName}.`
+    if (selectedWalletChecksum && filteredTransactions.length === 0) {
+      return "No transactions found for the selected wallet."
     }
+    return undefined
+  }
 
-    return `A list of ${countText} from the Canary system.`
+  const getTableCaption = () => {
+    const transactionCount = filteredTransactions.length
+    return `${transactionCount} ${transactionCount === 1 ? 'transaction' : 'transactions'}`
   }
 
   if (!hasReceivedData) {
@@ -214,7 +207,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
     <Card>
       <CardHeader>
         <CardTitle>{getCardTitle()}</CardTitle>
-        <CardDescription>{getCardDescription()}</CardDescription>
+        {getCardDescription() && <CardDescription>{getCardDescription()}</CardDescription>}
       </CardHeader>
       <CardContent>
         {filteredTransactions.length === 0 ? (
@@ -240,7 +233,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
             {/* Desktop View - Table (visible on screens 768px and larger) */}
             <div className="hidden md:block">
               <Table>
-            <TableCaption>A list of all transactions from the Canary system.</TableCaption>
+            <TableCaption>{getTableCaption()}</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>Date/Time</TableHead>
