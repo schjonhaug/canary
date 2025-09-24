@@ -74,7 +74,7 @@ async fn test_balance_alert_database_operations() {
 
     // Test 4: Deactivate balance alert
     metadata_db
-        .deactivate_balance_alert(&alert.id)
+        .disable_balance_alert_after_trigger(&alert.id)
         .await
         .unwrap();
 
@@ -313,7 +313,7 @@ async fn test_wallet_drain_alert_special_case() {
 
     // Test deactivation and reactivation
     metadata_db
-        .deactivate_balance_alert(&drain_alert.id)
+        .disable_balance_alert_after_trigger(&drain_alert.id)
         .await
         .unwrap();
 

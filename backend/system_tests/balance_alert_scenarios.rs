@@ -463,7 +463,7 @@ async fn test_balance_alert_deactivation() {
     // Deactivate the alert
     println!("🛑 Deactivating balance alert...");
     env.metadata_db
-        .deactivate_balance_alert(&alert.id)
+        .disable_balance_alert_after_trigger(&alert.id)
         .await
         .expect("Failed to deactivate alert");
 
