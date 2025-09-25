@@ -270,16 +270,16 @@ export default function WalletDetailPage() {
         {/* Wallet Info Sidebar */}
         <div className="lg:col-span-1">
           <Card>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div>
-                <div className="text-sm text-muted-foreground">Balance</div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">Balance</div>
                 <div className="text-2xl font-bold font-mono">
                   {formatBitcoinAmount(wallet.balance_total || 0)}
                 </div>
                 {wallet.balance_fiat !== undefined && wallet.fiat_currency && (
-                  <div className="text-base text-muted-foreground mt-1">
-                    {new Intl.NumberFormat(undefined, { 
-                      style: 'currency', 
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {new Intl.NumberFormat(undefined, {
+                      style: 'currency',
                       currency: wallet.fiat_currency,
                       minimumFractionDigits: 0,
                       maximumFractionDigits: 0
@@ -287,10 +287,9 @@ export default function WalletDetailPage() {
                   </div>
                 )}
               </div>
-              
 
               <div className="pt-2 border-t">
-                <div className="text-sm text-muted-foreground mb-2">Contacts</div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">Contacts</div>
                 <WalletContactsList
                   walletChecksum={wallet.checksum}
                   contacts={contacts}
@@ -320,7 +319,7 @@ export default function WalletDetailPage() {
               </div>
 
               {!(isSaasMode && user?.is_admin) && (
-                <div className="pt-4 border-t flex justify-end">
+                <div className="pt-2 border-t flex justify-end">
                   <Button
                     variant="ghost"
                     size="sm"

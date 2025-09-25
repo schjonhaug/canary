@@ -179,7 +179,7 @@ export function BalanceAlertsList({
       {/* Existing Alerts */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-medium text-muted-foreground">Balance Alerts</h4>
+          <h4 className="text-sm font-medium text-muted-foreground">Balance Alerts</h4>
           {!showCreateForm && (
             <Button
               variant="ghost"
