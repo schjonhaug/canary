@@ -207,7 +207,7 @@ export function btcToSats(btc: number): number {
 
 export function formatBtcAmount(btc: number): string {
   return btc.toLocaleString(undefined, {
-    minimumFractionDigits: 8,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 8
   })
 }
