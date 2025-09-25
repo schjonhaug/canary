@@ -16,6 +16,7 @@ import { useWalletDetail } from "@/hooks/useWalletDetail"
 import { useWalletsContext } from "@/contexts/wallets-context"
 import { formatBitcoinAmount, hasReachedContactLimit } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 
@@ -102,7 +103,7 @@ export default function WalletDetailPage() {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <LoadingSpinner size="lg" className="mx-auto" />
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
@@ -118,7 +119,7 @@ export default function WalletDetailPage() {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <LoadingSpinner size="lg" className="mx-auto" />
           <p className="mt-4 text-gray-600">Loading wallet...</p>
         </div>
       </div>
@@ -343,7 +344,7 @@ export default function WalletDetailPage() {
 
         {/* Transaction Events */}
         <div className="lg:col-span-2">
-          <Transactions 
+          <Transactions
             transactions={transactions}
             isConnected={isConnected}
             error={error}

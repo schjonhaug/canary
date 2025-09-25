@@ -40,6 +40,7 @@ import {
   formatBtcAmount,
   parseBtcInput
 } from "@/lib/utils"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 interface BalanceAlertsModalProps {
   isOpen: boolean
@@ -267,7 +268,7 @@ export function BalanceAlertsModal({
 
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                <LoadingSpinner size="md" />
               </div>
             ) : alerts.length === 0 ? (
               <Card>

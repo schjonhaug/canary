@@ -1,5 +1,6 @@
 import { Card, CardDescription, CardHeader, CardTitle } from "./card"
-import { AlertTriangle, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle, XCircle } from "lucide-react"
+import { Alert, AlertDescription } from "./alert"
 
 interface ErrorDisplayProps {
   title?: string
@@ -16,10 +17,10 @@ export function ErrorDisplay({
 }: ErrorDisplayProps) {
   if (variant === 'inline') {
     return (
-      <div className={`p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 ${className}`}>
-        <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-        <p className="text-sm text-red-700">{message}</p>
-      </div>
+      <Alert variant="destructive" className={className}>
+        <XCircle className="h-4 w-4" />
+        <AlertDescription>{message}</AlertDescription>
+      </Alert>
     )
   }
 
@@ -45,9 +46,9 @@ interface SuccessDisplayProps {
 
 export function SuccessDisplay({ message, className = "" }: SuccessDisplayProps) {
   return (
-    <div className={`p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 ${className}`}>
-      <XCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-      <p className="text-sm text-green-700">{message}</p>
-    </div>
+    <Alert className={`border-green-200 bg-green-50 text-green-700 ${className}`}>
+      <CheckCircle className="h-4 w-4 text-green-600" />
+      <AlertDescription className="text-green-700">{message}</AlertDescription>
+    </Alert>
   )
 }

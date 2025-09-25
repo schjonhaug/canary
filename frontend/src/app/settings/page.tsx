@@ -10,6 +10,7 @@ import { ArrowLeft, CreditCard, Globe } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 // Supported fiat currencies from the backend
 const SUPPORTED_CURRENCIES = [
@@ -116,7 +117,7 @@ export default function SettingsPage() {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <LoadingSpinner size="lg" className="mx-auto" />
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
