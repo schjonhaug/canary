@@ -3215,6 +3215,46 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn check_duplicate_balance_alert(
+        &self,
+        wallet_checksum: &str,
+        threshold_sats: i64,
+        alert_type: BalanceAlertType,
+    ) -> Result<Option<BalanceAlert>> {
+        let pool = self.pool.clone();
+        let wallet_checksum = wallet_checksum.to_string();
+        let alert_type_str = alert_type.as_str().to_string();
+
+        spawn_blocking(move || -> Result<Option<BalanceAlert>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at
+                 FROM balance_alerts
+                 WHERE wallet_checksum = ?1 AND alert_type = ?2 AND threshold_sats = ?3
+                 LIMIT 1"
+            )?;
+
+            let row = stmt.query_row(params![wallet_checksum, alert_type_str, threshold_sats], |row| {
+                Ok(BalanceAlert {
+                    id: row.get(0)?,
+                    wallet_checksum: row.get(1)?,
+                    threshold_sats: row.get(2)?,
+                    alert_type: BalanceAlertType::from(row.get::<_, String>(3)?.as_str()),
+                    is_active: row.get::<_, i64>(4)? != 0,
+                    last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
+                    created_at: row.get(6)?,
+                })
+            });
+
+            match row {
+                Ok(alert) => Ok(Some(alert)),
+                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
+        })
+        .await?
+    }
+
     pub async fn create_balance_alert_notification(
         &self,
         balance_alert_id: &str,

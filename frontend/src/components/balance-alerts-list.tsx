@@ -6,13 +6,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   Bell,
   Plus,
   Trash2,
   RotateCcw,
-  CheckCircle,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
@@ -21,7 +19,6 @@ import {
 import { api } from "@/lib/api"
 import { BalanceAlert, CreateBalanceAlertRequest } from "@/types"
 import {
-  formatBitcoinAmount,
   satsToBtc,
   btcToSats,
   formatBtcAmount,
@@ -32,7 +29,6 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 interface BalanceAlertsListProps {
   walletChecksum: string
-  currentBalance: number // in satoshis
 }
 
 const ALERT_TYPE_OPTIONS = [
@@ -57,8 +53,7 @@ const ALERT_TYPE_OPTIONS = [
 ] as const
 
 export function BalanceAlertsList({
-  walletChecksum,
-  currentBalance
+  walletChecksum
 }: BalanceAlertsListProps) {
   const [alerts, setAlerts] = useState<BalanceAlert[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -96,7 +91,30 @@ export function BalanceAlertsList({
       return
     }
 
+    // Check for negative amounts
+    if (thresholdBtc < 0) {
+      setError('Amount cannot be negative')
+      return
+    }
+
     const thresholdSats = btcToSats(thresholdBtc)
+
+    // Check for "below 0" alerts (logically impossible)
+    if (alertType === 'below' && thresholdSats === 0) {
+      setError('Cannot create alert for "below 0" - balance cannot go below zero')
+      return
+    }
+
+    // Check for duplicate alert
+    const duplicate = alerts.find(alert =>
+      alert.alert_type === alertType &&
+      alert.threshold_sats === thresholdSats
+    )
+
+    if (duplicate) {
+      setError('An alert with this type and amount already exists')
+      return
+    }
 
     setIsSubmitting(true)
     setError(null)
@@ -169,11 +187,6 @@ export function BalanceAlertsList({
 
   return (
     <div className="space-y-3">
-      {error && (
-        <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
-          {error}
-        </div>
-      )}
 
 
       {/* Existing Alerts */}
@@ -323,6 +336,12 @@ export function BalanceAlertsList({
               </p>
             </div>
           </div>
+
+          {error && (
+            <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+              {error}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2">
             <Button

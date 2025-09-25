@@ -242,7 +242,7 @@ export function parseBtcInput(input: string): number | null {
   }
 
   const num = parseFloat(normalizedInput)
-  if (isNaN(num) || num < 0) return null
+  if (isNaN(num)) return null
 
   return num
 }

@@ -314,7 +314,6 @@ export default function WalletDetailPage() {
               <div className="pt-2 border-t">
                 <BalanceAlertsList
                   walletChecksum={wallet.checksum}
-                  currentBalance={wallet.balance_total || 0}
                 />
               </div>
 

@@ -5245,6 +5245,46 @@ pub async fn create_wallet_balance_alert(
             .into_response();
     }
 
+    // Validate "below 0" alert (logically impossible)
+    if request.alert_type == BalanceAlertType::Below && request.threshold_sats == 0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Cannot create alert for 'below 0' - balance cannot go below zero".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Check for duplicate balance alert
+    match app_services
+        .metadata_db
+        .check_duplicate_balance_alert(&checksum, request.threshold_sats, request.alert_type)
+        .await
+    {
+        Ok(Some(_existing_alert)) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(ErrorResponse {
+                    error: "An alert with this type and threshold already exists".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Ok(None) => {
+            // No duplicate, continue with creation
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to check for duplicate alert: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
     // Create the balance alert
     match app_services
         .metadata_db

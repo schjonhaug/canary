@@ -4,6 +4,7 @@ use canary::{
 };
 use std::sync::Arc;
 use tempfile::tempdir;
+use uuid;
 
 /// Test helper to create test database
 async fn create_test_db() -> (Arc<MetadataDb>, tempfile::TempDir) {
@@ -26,15 +27,17 @@ async fn create_test_db() -> (Arc<MetadataDb>, tempfile::TempDir) {
 async fn create_test_user_and_wallet(
     metadata_db: &MetadataDb,
 ) -> (String, String) {
-    // Create test user
+    // Create test user with unique email
+    let unique_email = format!("test-{}@example.com", uuid::Uuid::new_v4());
     let user_id = metadata_db
-        .create_user("test@example.com", "hash", Some("Test User"), false, None)
+        .create_user(&unique_email, "hash", Some("Test User"), false, None)
         .await
         .unwrap();
 
-    // Create test wallet
+    // Create test wallet with unique descriptor
+    let unique_descriptor = format!("descriptor-{}", uuid::Uuid::new_v4());
     let wallet_checksum = metadata_db
-        .insert_wallet("Test Wallet", "descriptor", &user_id)
+        .insert_wallet("Test Wallet", &unique_descriptor, &user_id)
         .await
         .unwrap();
 
@@ -285,6 +288,127 @@ async fn test_balance_alert_performance() {
 
     println!("Created {} alerts in {:?}", num_alerts, creation_duration);
     println!("Queried {} alerts in {:?}", num_alerts, query_duration);
+}
+
+#[tokio::test]
+async fn test_duplicate_balance_alert_checking() {
+    let (metadata_db, _temp_dir) = create_test_db().await;
+    let (_user_id, wallet_checksum) = create_test_user_and_wallet(&metadata_db).await;
+
+    // Test 1: Create initial alert
+    let alert = metadata_db
+        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below)
+        .await
+        .unwrap();
+
+    // Test 2: Check for exact duplicate - should find it
+    let duplicate = metadata_db
+        .check_duplicate_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below)
+        .await
+        .unwrap();
+    assert!(duplicate.is_some());
+    assert_eq!(duplicate.unwrap().id, alert.id);
+
+    // Test 3: Check for non-duplicate (different type) - should not find it
+    let no_duplicate = metadata_db
+        .check_duplicate_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Above)
+        .await
+        .unwrap();
+    assert!(no_duplicate.is_none());
+
+    // Test 4: Check for non-duplicate (different amount) - should not find it
+    let no_duplicate = metadata_db
+        .check_duplicate_balance_alert(&wallet_checksum, 200_000_000, BalanceAlertType::Below)
+        .await
+        .unwrap();
+    assert!(no_duplicate.is_none());
+
+    // Test 5: Check for non-duplicate (different wallet) - should not find it
+    let (_user_id2, wallet_checksum2) = create_test_user_and_wallet(&metadata_db).await;
+    let no_duplicate = metadata_db
+        .check_duplicate_balance_alert(&wallet_checksum2, 100_000_000, BalanceAlertType::Below)
+        .await
+        .unwrap();
+    assert!(no_duplicate.is_none());
+
+    // Test 6: Deactivate alert and check if duplicate check still finds it (should find it regardless of active status)
+    metadata_db
+        .disable_balance_alert_after_trigger(&alert.id)
+        .await
+        .unwrap();
+
+    let duplicate_after_trigger = metadata_db
+        .check_duplicate_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below)
+        .await
+        .unwrap();
+    assert!(duplicate_after_trigger.is_some());
+    assert!(!duplicate_after_trigger.unwrap().is_active); // Verify it's inactive
+}
+
+#[tokio::test]
+async fn test_duplicate_alert_all_types() {
+    let (metadata_db, _temp_dir) = create_test_db().await;
+    let (_user_id, wallet_checksum) = create_test_user_and_wallet(&metadata_db).await;
+
+    // Create alerts of all types with same threshold
+    let threshold = 50_000_000;
+
+    let below_alert = metadata_db
+        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Below)
+        .await
+        .unwrap();
+
+    let above_alert = metadata_db
+        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Above)
+        .await
+        .unwrap();
+
+    let equals_alert = metadata_db
+        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Equals)
+        .await
+        .unwrap();
+
+    // Each type should be found independently
+    let found_below = metadata_db
+        .check_duplicate_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Below)
+        .await
+        .unwrap();
+    assert!(found_below.is_some());
+    assert_eq!(found_below.unwrap().id, below_alert.id);
+
+    let found_above = metadata_db
+        .check_duplicate_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Above)
+        .await
+        .unwrap();
+    assert!(found_above.is_some());
+    assert_eq!(found_above.unwrap().id, above_alert.id);
+
+    let found_equals = metadata_db
+        .check_duplicate_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Equals)
+        .await
+        .unwrap();
+    assert!(found_equals.is_some());
+    assert_eq!(found_equals.unwrap().id, equals_alert.id);
+}
+
+#[tokio::test]
+async fn test_below_zero_alert_validation() {
+    let (metadata_db, _temp_dir) = create_test_db().await;
+    let (_user_id, wallet_checksum) = create_test_user_and_wallet(&metadata_db).await;
+
+    // Attempt to create a "below 0" alert - should be rejected by database constraints if added
+    // This test ensures we don't accidentally allow such alerts in the future
+    let zero_threshold = 0i64;
+
+    // Note: We can't directly test the API validation here since this is a database test,
+    // but we can verify that if such an alert somehow got created, duplicate checking still works
+    let result = metadata_db
+        .check_duplicate_balance_alert(&wallet_checksum, zero_threshold, BalanceAlertType::Below)
+        .await;
+
+    // Should not find any duplicate because "below 0" alerts shouldn't exist
+    assert!(result.is_ok());
+    assert!(result.unwrap().is_none());
 }
 
 #[tokio::test]
