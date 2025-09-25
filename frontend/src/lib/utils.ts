@@ -54,13 +54,13 @@ export async function loadCanarySvg(hexColor: string): Promise<string> {
 
 // Bitcoin amount formatting utility  
 export function formatBitcoinAmount(sats: number | null | undefined, eventType?: 'send' | 'receive'): string {
-  if (sats === null || sats === undefined) return "0.00000000 BTC"
+  if (sats === null || sats === undefined) return "0 BTC"
   
   const absSats = Math.abs(sats)
   const btc = absSats / 100_000_000
-  const formattedAmount = btc.toLocaleString(undefined, { 
-    minimumFractionDigits: 8, 
-    maximumFractionDigits: 8 
+  const formattedAmount = btc.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 8
   })
   
   // Show sign based on event type for better UX
