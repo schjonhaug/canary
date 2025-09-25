@@ -615,12 +615,11 @@ async fn main() -> anyhow::Result<()> {
                                                     .await
                                             }
                                             TransactionNotification::BalanceAlert(alert) => {
-                                                // For balance alerts, we can use the alert ID as a transaction ID placeholder
-                                                // or create a separate logging method for balance alerts
+                                                // Use separate logging method for balance alerts
                                                 wallet_manager_lock
                                                     .metadata_db
-                                                    .insert_notification_log_for_transaction(
-                                                        &alert.id, // Use alert ID as txid placeholder
+                                                    .insert_notification_log_for_balance_alert(
+                                                        &alert.balance_alert_id,
                                                         &alert.wallet_checksum,
                                                         method_id,
                                                         provider_name,
@@ -628,7 +627,6 @@ async fn main() -> anyhow::Result<()> {
                                                         status,
                                                         result.error_message.as_deref(),
                                                         &message,
-                                                        notification_type,
                                                     )
                                                     .await
                                             }

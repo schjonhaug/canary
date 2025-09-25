@@ -1952,6 +1952,70 @@ impl MetadataDb {
         }).await?
     }
 
+    /// Insert notification log for balance alert notifications (separate from transactions)
+    pub async fn insert_notification_log_for_balance_alert(
+        &self,
+        balance_alert_id: &str,
+        wallet_checksum: &str,
+        notification_method_id: &str,
+        provider_name: &str,
+        provider_message_id: Option<&str>,
+        status: &str,
+        error_message: Option<&str>,
+        message_content: &str,
+    ) -> Result<String> {
+        let pool = self.pool.clone();
+        let balance_alert_id = balance_alert_id.to_string();
+        let wallet_checksum = wallet_checksum.to_string();
+        let notification_method_id = notification_method_id.to_string();
+        let provider_name = provider_name.to_string();
+        let provider_message_id = provider_message_id.map(|s| s.to_string());
+        let status = status.to_string();
+        let error_message = error_message.map(|s| s.to_string());
+        let message_content = message_content.to_string();
+
+        spawn_blocking(move || -> Result<String> {
+            let conn = pool.get()?;
+            let log_id = uuid::Uuid::new_v4().to_string();
+
+            // Get contact info for snapshot
+            let (contact_name, notification_target, provider_type) = conn
+                .prepare(
+                    "SELECT c.name, cnm.notification_target, cnm.provider_type
+                     FROM contact_notification_methods cnm
+                     JOIN contacts c ON cnm.contact_id = c.id
+                     WHERE cnm.id = ?1"
+                )?
+                .query_row(params![&notification_method_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                }).unwrap_or_else(|_| ("Unknown Contact".to_string(), "Unknown Target".to_string(), "unknown".to_string()));
+
+            conn.execute(
+                "INSERT INTO balance_alert_notification_logs (id, balance_alert_id, wallet_checksum, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                params![
+                    &log_id,
+                    &balance_alert_id,
+                    &wallet_checksum,
+                    &notification_method_id,
+                    &provider_name,
+                    &provider_message_id,
+                    &status,
+                    &error_message,
+                    &message_content,
+                    &contact_name,
+                    &notification_target,
+                    &provider_type,
+                ],
+            )?;
+            Ok(log_id)
+        }).await?
+    }
+
     // User management methods
     pub async fn create_user(
         &self,
