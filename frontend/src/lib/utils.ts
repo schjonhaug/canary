@@ -52,24 +52,37 @@ export async function loadCanarySvg(hexColor: string): Promise<string> {
   return processedSvg
 }
 
-// Bitcoin amount formatting utility  
-export function formatBitcoinAmount(sats: number | null | undefined, eventType?: 'send' | 'receive'): string {
+// Bitcoin amount formatting for balances (no trailing zeros)
+export function formatBitcoinAmount(sats: number | null | undefined): string {
   if (sats === null || sats === undefined) return "0 BTC"
-  
-  const absSats = Math.abs(sats)
-  const btc = absSats / 100_000_000
+
+  const btc = sats / 100_000_000
   const formattedAmount = btc.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 8
   })
-  
+
+  return `${formattedAmount} BTC`
+}
+
+// Bitcoin amount formatting for transactions (full 8-digit precision)
+export function formatTransactionAmount(sats: number | null | undefined, eventType?: 'send' | 'receive'): string {
+  if (sats === null || sats === undefined) return "0.00000000 BTC"
+
+  const absSats = Math.abs(sats)
+  const btc = absSats / 100_000_000
+  const formattedAmount = btc.toLocaleString(undefined, {
+    minimumFractionDigits: 8,
+    maximumFractionDigits: 8
+  })
+
   // Show sign based on event type for better UX
   if (eventType === 'send') {
     return `−${formattedAmount} BTC`  // Unicode minus sign
   } else if (eventType === 'receive') {
     return `+${formattedAmount} BTC`
   }
-  
+
   // Default: no sign (for balance totals, etc.)
   return `${formattedAmount} BTC`
 }

@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { CheckCircle, Baby, Mail, MessageCircle, Bell, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
 import { Transaction } from "../types"
-import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
+import { formatBitcoinAmount, formatTransactionAmount, formatDateTime } from "@/lib/utils"
 import { TransactionCard } from "./transaction-card"
 
 interface TransactionsProps {
@@ -300,7 +300,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                         </div>
                       </TableCell>
                       <TableCell className="font-mono">
-                        {formatBitcoinAmount(transaction.amount_sats, transaction.transaction_type)}
+                        {formatTransactionAmount(transaction.amount_sats, transaction.transaction_type)}
                       </TableCell>
                       <TableCell className="text-center">
                         {isExpanded ? (
@@ -325,7 +325,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                   {transaction.fee_sats && (
                                     <div className="flex items-center gap-3 text-sm">
                                       <span className="font-medium min-w-[80px]">Fee:</span>
-                                      <span className="font-mono text-xs">{formatBitcoinAmount(transaction.fee_sats)}</span>
+                                      <span className="font-mono text-xs">{formatTransactionAmount(transaction.fee_sats)}</span>
                                     </div>
                                   )}
                                   {transaction.transaction_status === "replaced" && transaction.replaced_by_txid && (
@@ -511,7 +511,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                   {transaction.fee_sats && (
                                     <div className="flex items-center gap-3 text-sm">
                                       <span className="font-medium min-w-[80px]">Fee:</span>
-                                      <span className="font-mono text-xs">{formatBitcoinAmount(transaction.fee_sats)}</span>
+                                      <span className="font-mono text-xs">{formatTransactionAmount(transaction.fee_sats)}</span>
                                     </div>
                                   )}
                                   {transaction.transaction_status === "replaced" && transaction.replaced_by_txid && (

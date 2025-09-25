@@ -17,7 +17,7 @@ import {
   Clock
 } from "lucide-react"
 import { Transaction } from "../types"
-import { formatBitcoinAmount, formatDateTime } from "@/lib/utils"
+import { formatBitcoinAmount, formatTransactionAmount, formatDateTime } from "@/lib/utils"
 
 interface TransactionCardProps {
   transaction: Transaction
@@ -275,7 +275,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
           {/* Amount and Date Row */}
           <div className="flex items-center justify-between">
             <div className="font-mono text-lg font-semibold">
-              {formatBitcoinAmount(transaction.amount_sats, transaction.transaction_type)}
+              {formatTransactionAmount(transaction.amount_sats, transaction.transaction_type)}
             </div>
             <div className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
@@ -309,7 +309,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                 {transaction.fee_sats && (
                   <div className="flex items-center gap-3 text-sm">
                     <span className="font-medium min-w-[80px]">Fee:</span>
-                    <span className="font-mono text-xs">{formatBitcoinAmount(transaction.fee_sats)}</span>
+                    <span className="font-mono text-xs">{formatTransactionAmount(transaction.fee_sats)}</span>
                   </div>
                 )}
                 {transaction.transaction_status === "replaced" && transaction.replaced_by_txid && (
