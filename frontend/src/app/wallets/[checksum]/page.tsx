@@ -289,26 +289,26 @@ export default function WalletDetailPage() {
               </div>
 
               <div className="pt-2 border-t">
-                <div className="text-sm font-medium text-muted-foreground mb-2">Contacts</div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-muted-foreground">Contacts</div>
+                  {!(isSaasMode && user?.is_admin) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleAddContact}
+                      className="h-6 px-2 text-xs gap-1"
+                    >
+                      <Plus className="h-3 w-3" />
+                      New
+                    </Button>
+                  )}
+                </div>
                 <WalletContactsList
                   walletChecksum={wallet.checksum}
                   contacts={contacts}
                   onContactsUpdated={handleWalletUpdated}
                   isWalletActive={wallet.is_active !== false}
                 />
-                {!(isSaasMode && user?.is_admin) && (
-                  <div className="mt-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleAddContact}
-                      className="h-8 gap-1 w-full"
-                    >
-                      <Plus size={14} />
-                      Add Contact
-                    </Button>
-                  </div>
-                )}
               </div>
 
               <div className="pt-2 border-t">
