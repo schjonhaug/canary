@@ -1,0 +1,350 @@
+"use client"
+
+import { useState, useEffect, useCallback } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Bell,
+  Plus,
+  Trash2,
+  RotateCcw,
+  CheckCircle,
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Target
+} from "lucide-react"
+import { api } from "@/lib/api"
+import { BalanceAlert, CreateBalanceAlertRequest } from "@/types"
+import {
+  formatBitcoinAmount,
+  satsToBtc,
+  btcToSats,
+  formatBtcAmount,
+  parseBtcInput,
+  getBtcPlaceholder
+} from "@/lib/utils"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+
+interface BalanceAlertsListProps {
+  walletChecksum: string
+  currentBalance: number // in satoshis
+}
+
+const ALERT_TYPE_OPTIONS = [
+  {
+    value: 'above',
+    label: 'Above',
+    icon: TrendingUp,
+    description: 'Alert when balance goes above this amount'
+  },
+  {
+    value: 'below',
+    label: 'Below',
+    icon: TrendingDown,
+    description: 'Alert when balance goes below this amount'
+  },
+  {
+    value: 'equals',
+    label: 'Equals',
+    icon: Target,
+    description: 'Alert when balance equals this amount (e.g., wallet drain)'
+  },
+] as const
+
+export function BalanceAlertsList({
+  walletChecksum,
+  currentBalance
+}: BalanceAlertsListProps) {
+  const [alerts, setAlerts] = useState<BalanceAlert[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Form state for creating new alerts
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [alertType, setAlertType] = useState<'above' | 'below' | 'equals'>('below')
+  const [thresholdInput, setThresholdInput] = useState('')
+
+  const loadAlerts = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const alertList = await api.getBalanceAlerts(walletChecksum)
+      setAlerts(alertList)
+      setError(null)
+    } catch (err) {
+      console.error('Failed to load balance alerts:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load balance alerts')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [walletChecksum])
+
+  // Load alerts on mount
+  useEffect(() => {
+    loadAlerts()
+  }, [walletChecksum, loadAlerts])
+
+  const handleCreateAlert = async () => {
+    const thresholdBtc = parseBtcInput(thresholdInput)
+    if (thresholdBtc === null) {
+      setError('Please enter a valid Bitcoin amount')
+      return
+    }
+
+    const thresholdSats = btcToSats(thresholdBtc)
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const alertData: CreateBalanceAlertRequest = {
+        threshold_sats: thresholdSats,
+        alert_type: alertType
+      }
+
+      const newAlert = await api.createBalanceAlert(walletChecksum, alertData)
+      setAlerts(prev => [...prev, newAlert])
+      setShowCreateForm(false)
+      setThresholdInput('')
+    } catch (err) {
+      console.error('Failed to create balance alert:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create balance alert')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleReactivateAlert = async (alertId: string) => {
+    try {
+      const updatedAlert = await api.reactivateBalanceAlert(alertId)
+      setAlerts(prev => prev.map(alert =>
+        alert.id === alertId ? updatedAlert : alert
+      ))
+      setError(null)
+    } catch (err) {
+      console.error('Failed to reactivate alert:', err)
+      setError(err instanceof Error ? err.message : 'Failed to reactivate alert')
+    }
+  }
+
+  const handleDeleteAlert = async (alertId: string) => {
+    try {
+      await api.deleteBalanceAlert(alertId)
+      setAlerts(prev => prev.filter(alert => alert.id !== alertId))
+      setError(null)
+    } catch (err) {
+      console.error('Failed to delete alert:', err)
+      setError(err instanceof Error ? err.message : 'Failed to delete alert')
+    }
+  }
+
+  const getAlertStatus = (alert: BalanceAlert) => {
+    if (!alert.is_active) {
+      return {
+        status: 'fired',
+        variant: 'destructive' as const,
+        icon: AlertTriangle,
+        label: 'Fired'
+      }
+    }
+    return null // Don't show status for active alerts
+  }
+
+  const getAlertTypeIcon = (type: string) => {
+    return ALERT_TYPE_OPTIONS.find(opt => opt.value === type)?.icon || Target
+  }
+
+  const formatAlertDescription = (alert: BalanceAlert) => {
+    const btcAmount = formatBtcAmount(satsToBtc(alert.threshold_sats))
+    const typeLabel = ALERT_TYPE_OPTIONS.find(opt => opt.value === alert.alert_type)?.label || alert.alert_type
+
+    return `${typeLabel} ${btcAmount} BTC`
+  }
+
+
+  return (
+    <div className="space-y-3">
+      {error && (
+        <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+          {error}
+        </div>
+      )}
+
+
+      {/* Existing Alerts */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-medium text-muted-foreground">Balance Alerts</h4>
+          {!showCreateForm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCreateForm(true)}
+              className="h-6 px-2 text-xs gap-1"
+            >
+              <Plus className="h-3 w-3" />
+              New
+            </Button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <LoadingSpinner size="sm" />
+          </div>
+        ) : alerts.length === 0 ? (
+          <div className="text-center text-muted-foreground text-xs py-3">
+            <Bell className="h-4 w-4 mx-auto mb-1 opacity-50" />
+            <p>No alerts set</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {alerts.map((alert) => {
+              const status = getAlertStatus(alert)
+              const AlertIcon = getAlertTypeIcon(alert.alert_type)
+
+              return (
+                <div key={alert.id} className="p-2 border rounded text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <AlertIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">
+                          {formatAlertDescription(alert)}
+                        </div>
+                        {alert.last_triggered_at && (
+                          <div className="text-xs text-muted-foreground">
+                            Fired {new Date(alert.last_triggered_at * 1000).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {status && (
+                        <Badge variant={status.variant} className="gap-1 text-xs px-1 py-0">
+                          <status.icon className="h-2 w-2" />
+                          {status.label}
+                        </Badge>
+                      )}
+
+                      <div className="flex">
+                        {!alert.is_active && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReactivateAlert(alert.id)}
+                            className="h-5 w-5 p-0"
+                            title="Reactivate alert"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteAlert(alert.id)}
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
+                          title="Delete alert"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Create Alert Form */}
+      {showCreateForm && (
+        <div className="p-3 border rounded space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-medium">Create New Alert</h4>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCreateForm(false)}
+              className="h-5 w-5 p-0"
+            >
+              ×
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Alert Type</Label>
+              <RadioGroup
+                value={alertType}
+                onValueChange={(value) => setAlertType(value as typeof alertType)}
+                className="mt-2"
+              >
+                {ALERT_TYPE_OPTIONS.map((option) => {
+                  const IconComponent = option.icon
+                  return (
+                    <div key={option.value} className="flex items-center space-x-2">
+                      <RadioGroupItem value={option.value} id={option.value} />
+                      <Label
+                        htmlFor={option.value}
+                        className="text-xs flex items-center gap-2 cursor-pointer flex-1"
+                      >
+                        <IconComponent className="h-3 w-3" />
+                        <span>{option.label}</span>
+                      </Label>
+                    </div>
+                  )
+                })}
+              </RadioGroup>
+              <p className="text-xs text-muted-foreground mt-1">
+                {ALERT_TYPE_OPTIONS.find(opt => opt.value === alertType)?.description}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="threshold-amount" className="text-xs">Bitcoin Amount</Label>
+              <Input
+                id="threshold-amount"
+                value={thresholdInput}
+                onChange={(e) => setThresholdInput(e.target.value)}
+                placeholder={getBtcPlaceholder()}
+                disabled={isSubmitting}
+                className="font-mono h-8 text-xs"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter amount in BTC
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCreateForm(false)}
+              disabled={isSubmitting}
+              className="h-7 px-2 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCreateAlert}
+              disabled={isSubmitting || !thresholdInput.trim()}
+              className="h-7 px-2 text-xs"
+            >
+              {isSubmitting ? "Creating..." : "Create"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

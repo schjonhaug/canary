@@ -38,7 +38,8 @@ import {
   satsToBtc,
   btcToSats,
   formatBtcAmount,
-  parseBtcInput
+  parseBtcInput,
+  getBtcPlaceholder
 } from "@/lib/utils"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
@@ -389,7 +390,7 @@ export function BalanceAlertsModal({
                       id="threshold-amount"
                       value={thresholdInput}
                       onChange={(e) => setThresholdInput(e.target.value)}
-                      placeholder="0.00000000"
+                      placeholder={getBtcPlaceholder()}
                       disabled={isSubmitting}
                       className="font-mono"
                     />

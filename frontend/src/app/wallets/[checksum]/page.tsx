@@ -7,7 +7,7 @@ import { InlineWalletNameEdit } from "@/components/inline-wallet-name-edit"
 import { WalletContactsList } from "@/components/wallet-contacts-list"
 import { ContactModal } from "@/components/contact-modal"
 import { DeleteWalletModal } from "@/components/delete-wallet-modal"
-import { BalanceAlertsModal } from "@/components/balance-alerts-modal"
+import { BalanceAlertsList } from "@/components/balance-alerts-list"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Trash2, AlertCircle, Plus, AlertTriangle, Bell } from "lucide-react"
@@ -34,7 +34,6 @@ export default function WalletDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
-  const [isBalanceAlertsModalOpen, setIsBalanceAlertsModalOpen] = useState(false)
 
   // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
@@ -314,16 +313,10 @@ export default function WalletDetailPage() {
               </div>
 
               <div className="pt-2 border-t">
-                <div className="text-sm text-muted-foreground mb-2">Alerts</div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsBalanceAlertsModalOpen(true)}
-                  className="h-8 gap-1 w-full"
-                >
-                  <Bell size={14} />
-                  Balance Alerts
-                </Button>
+                <BalanceAlertsList
+                  walletChecksum={wallet.checksum}
+                  currentBalance={wallet.balance_total || 0}
+                />
               </div>
 
               {!(isSaasMode && user?.is_admin) && (
@@ -389,12 +382,6 @@ export default function WalletDetailPage() {
         />
       </Suspense>
 
-      <BalanceAlertsModal
-        isOpen={isBalanceAlertsModalOpen}
-        onClose={() => setIsBalanceAlertsModalOpen(false)}
-        walletChecksum={wallet.checksum}
-        currentBalance={wallet.balance_total || 0}
-      />
     </>
   )
 }

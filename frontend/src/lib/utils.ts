@@ -216,8 +216,30 @@ export function parseBtcInput(input: string): number | null {
   const trimmed = input.trim()
   if (!trimmed) return null
 
-  const num = parseFloat(trimmed)
+  // Use the browser's locale to determine decimal separator
+  const formatter = new Intl.NumberFormat()
+  const parts = formatter.formatToParts(1.1)
+  const decimalSeparator = parts.find(part => part.type === 'decimal')?.value || '.'
+
+  // Normalize the input based on the browser's locale
+  let normalizedInput = trimmed
+  if (decimalSeparator === ',') {
+    // If locale uses comma as decimal, replace comma with dot for parseFloat
+    normalizedInput = trimmed.replace(',', '.')
+  }
+
+  const num = parseFloat(normalizedInput)
   if (isNaN(num) || num < 0) return null
 
   return num
+}
+
+export function getBtcPlaceholder(): string {
+  // Use the browser's locale to determine decimal separator
+  const formatter = new Intl.NumberFormat()
+  const parts = formatter.formatToParts(1.1)
+  const decimalSeparator = parts.find(part => part.type === 'decimal')?.value || '.'
+
+  // Return placeholder with locale-appropriate decimal separator
+  return `0${decimalSeparator}00000000`
 }
