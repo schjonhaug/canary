@@ -95,10 +95,10 @@ export default function LandingPage() {
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-3xl mx-auto">
           <Image
-            src="/images/canary.svg"
+            src="/images/canarybitcoin.svg"
             alt="Canary Logo"
-            width={80}
-            height={80}
+            width={300}
+            height={300}
             className="mx-auto mb-6"
           />
           <h1 className="text-4xl font-bold tracking-tight mb-4">
