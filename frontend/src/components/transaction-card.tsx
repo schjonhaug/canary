@@ -129,8 +129,8 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
 
       return (
         <div className="space-y-2">
-          <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</h5>
-          <div className="ml-2 space-y-1">
+          {title && <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</h5>}
+          <div className="space-y-1">
             {Object.entries(notificationsByContact)
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([contactName, contactNotifications]) => {
@@ -197,23 +197,24 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
     return (
       <div className="space-y-3 mt-3 pt-3 border-t">
         {pendingNotifications.length > 0 && (
-          <div className="space-y-2">
+          <div className="border rounded-md bg-muted/30 p-3 space-y-2">
             <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               PENDING - {formatDateTime(transaction.first_seen_at)}
             </h5>
-            <div className="ml-2">
-              {renderNotificationGroup(pendingNotifications, "Pending")}
-            </div>
+            {renderNotificationGroup(pendingNotifications, "")}
+          </div>
+        )}
+        {pendingNotifications.length > 0 && confirmedNotifications.length > 0 && (
+          <div className="flex justify-center py-2">
+            <ArrowRight className="h-4 w-4 text-muted-foreground transform rotate-90" />
           </div>
         )}
         {confirmedNotifications.length > 0 && (
-          <div className="space-y-2">
+          <div className="border rounded-md bg-muted/30 p-3 space-y-2">
             <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               CONFIRMED{transaction.confirmed_at ? ` - ${formatDateTime(transaction.confirmed_at)}` : ''}
             </h5>
-            <div className="ml-2">
-              {renderNotificationGroup(confirmedNotifications, "Confirmed")}
-            </div>
+            {renderNotificationGroup(confirmedNotifications, "")}
           </div>
         )}
       </div>
@@ -298,13 +299,19 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
         {/* Expanded Details */}
         {isExpanded && (
           <div className="mt-3 pt-3 border-t space-y-4">
-            {/* Transaction Details */}
             <div>
-              <h4 className="text-sm font-medium mb-2">Transaction Details</h4>
-              <div className="space-y-1 ml-2">
+              <div className="space-y-1">
                 <div className="flex items-center gap-3 text-sm">
                   <span className="font-medium min-w-[80px]">Transaction ID:</span>
-                  <span className="font-mono text-xs break-all">{transaction.txid}</span>
+                  <a
+                    href={`https://mempool.space/tx/${transaction.txid}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-xs text-blue-600 hover:text-blue-800 underline"
+                    title={`View ${transaction.txid} on Mempool Space`}
+                  >
+                    {transaction.txid.slice(0, 5)}...{transaction.txid.slice(-5)}
+                  </a>
                 </div>
                 {transaction.fee_sats && (
                   <div className="flex items-center gap-3 text-sm">
@@ -315,7 +322,15 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                 {transaction.transaction_status === "replaced" && transaction.replaced_by_txid && (
                   <div className="flex items-center gap-3 text-sm">
                     <span className="font-medium min-w-[80px]">Replaced by:</span>
-                    <span className="font-mono text-xs break-all text-orange-600">{transaction.replaced_by_txid}</span>
+                    <a
+                      href={`https://mempool.space/tx/${transaction.replaced_by_txid}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs text-orange-600 hover:text-orange-800 underline"
+                      title={`View ${transaction.replaced_by_txid} on Mempool Space`}
+                    >
+                      {transaction.replaced_by_txid.slice(0, 5)}...{transaction.replaced_by_txid.slice(-5)}
+                    </a>
                   </div>
                 )}
                 {transaction.replaced_at && (
