@@ -92,10 +92,15 @@ export default function BillingPage() {
   const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
   const limits = billingStatus?.limits
   const isTrialUser = billingStatus?.subscription_status === 'trialing'
-  
+  const isCancelledUser = billingStatus?.subscription_status === 'canceled'
+
   // Calculate days remaining in trial
-  const trialDaysRemaining = billingStatus?.trial_ends_at ? 
+  const trialDaysRemaining = billingStatus?.trial_ends_at ?
     Math.max(0, Math.ceil((new Date(billingStatus.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))) : 0
+
+  // Calculate days remaining until subscription ends (for cancelled subscriptions)
+  const subscriptionDaysRemaining = billingStatus?.subscription_ends_at ?
+    Math.max(0, Math.ceil((new Date(billingStatus.subscription_ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))) : 0
 
   // Check if limits are exceeded
   const walletCount = billingStatus?.wallet_count || 0
@@ -181,6 +186,26 @@ export default function BillingPage() {
             </div>
           )}
 
+          {/* Cancelled Status - Access Until Period End */}
+          {billingStatus?.subscription_status === 'canceled' && subscriptionDaysRemaining > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                <div className="font-medium text-yellow-700">Subscription Cancelled</div>
+              </div>
+              <div className="text-sm text-yellow-600 mb-3">
+                Your subscription has been cancelled. You have access until {new Date(billingStatus?.subscription_ends_at || '').toLocaleDateString()} ({subscriptionDaysRemaining} days remaining).
+              </div>
+              <Button
+                onClick={() => setShowUpgradeModal(true)}
+                size="sm"
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              >
+                Reactivate Subscription
+              </Button>
+            </div>
+          )}
+
           {/* Expired Status - Subscription Ended */}
           {billingStatus?.subscription_status === 'expired' && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -191,9 +216,9 @@ export default function BillingPage() {
               <div className="text-sm text-red-600 mb-3">
                 Your subscription has expired. Wallet syncing has stopped completely, but your data is preserved.
               </div>
-              <Button 
-                onClick={() => setShowUpgradeModal(true)} 
-                size="sm" 
+              <Button
+                onClick={() => setShowUpgradeModal(true)}
+                size="sm"
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
                 Reactivate Subscription
@@ -235,7 +260,14 @@ export default function BillingPage() {
                   </Badge>
                 </div>
               )}
-              {!isTrialUser && (
+              {isCancelledUser && subscriptionDaysRemaining > 0 && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                    Access until: {subscriptionDaysRemaining} days left
+                  </Badge>
+                </div>
+              )}
+              {!isTrialUser && !isCancelledUser && (
                 <span className="text-muted-foreground">{getTierDescription(currentTier)}</span>
               )}
             </div>
@@ -243,6 +275,12 @@ export default function BillingPage() {
               <Button onClick={() => setShowUpgradeModal(true)} className="bg-blue-600 hover:bg-blue-700">
                 <Zap className="mr-2 h-4 w-4" />
                 Subscribe
+              </Button>
+            )}
+            {isCancelledUser && subscriptionDaysRemaining > 0 && (
+              <Button onClick={() => setShowUpgradeModal(true)} className="bg-yellow-600 hover:bg-yellow-700">
+                <Zap className="mr-2 h-4 w-4" />
+                Reactivate
               </Button>
             )}
           </div>

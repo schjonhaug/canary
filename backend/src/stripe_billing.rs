@@ -675,6 +675,8 @@ impl StripeBilling {
                                 let status = subscription.get("status").and_then(|s| s.as_str());
                                 let trial_end =
                                     subscription.get("trial_end").and_then(|t| t.as_i64());
+                                let current_period_end =
+                                    subscription.get("current_period_end").and_then(|t| t.as_i64());
                                 let customer_id =
                                     subscription.get("customer").and_then(|c| c.as_str());
                                 let subscription_id =
@@ -684,14 +686,21 @@ impl StripeBilling {
                                 let tier =
                                     self.determine_tier_from_subscription_items(&subscription);
 
-                                tracing::info!("🆕 New subscription - Status: {:?}, Trial end: {:?}, Customer: {:?}, Tier: {}", 
-                                    status, trial_end, customer_id, tier);
+                                tracing::info!("🆕 New subscription - Status: {:?}, Trial end: {:?}, Period end: {:?}, Customer: {:?}, Tier: {}",
+                                    status, trial_end, current_period_end, customer_id, tier);
 
                                 if let (Some(customer_id), Some(subscription_id)) =
                                     (customer_id, subscription_id)
                                 {
                                     // Convert trial_end timestamp to ISO string
                                     let trial_ends_at = trial_end.map(|ts| {
+                                        chrono::DateTime::from_timestamp(ts, 0)
+                                            .map(|dt| dt.to_rfc3339())
+                                            .unwrap_or_default()
+                                    });
+
+                                    // Convert current_period_end timestamp to ISO string
+                                    let subscription_ends_at = current_period_end.map(|ts| {
                                         chrono::DateTime::from_timestamp(ts, 0)
                                             .map(|dt| dt.to_rfc3339())
                                             .unwrap_or_default()
@@ -707,7 +716,7 @@ impl StripeBilling {
                                         subscription_started_at: Some(
                                             chrono::Utc::now().to_rfc3339(),
                                         ),
-                                        subscription_ends_at: None,
+                                        subscription_ends_at,
                                         trial_ends_at,
                                     };
                                     updates.push(update);
@@ -729,13 +738,15 @@ impl StripeBilling {
                                     subscription.get("customer").and_then(|c| c.as_str());
                                 let subscription_id =
                                     subscription.get("id").and_then(|s| s.as_str());
+                                let current_period_end =
+                                    subscription.get("current_period_end").and_then(|t| t.as_i64());
 
                                 // Determine current tier from subscription items (more reliable than metadata)
                                 let current_tier =
                                     self.determine_tier_from_subscription_items(&subscription);
 
-                                tracing::info!("🔄 Subscription updated - Customer: {:?}, Status: {:?}, Tier: {}", 
-                                    customer_id, current_status, current_tier);
+                                tracing::info!("🔄 Subscription updated - Customer: {:?}, Status: {:?}, Tier: {}, Period end: {:?}",
+                                    customer_id, current_status, current_tier, current_period_end);
 
                                 if let (Some(customer_id), Some(subscription_id)) =
                                     (customer_id, subscription_id)
@@ -775,6 +786,13 @@ impl StripeBilling {
                                             reason
                                         );
 
+                                        // Convert current_period_end timestamp to ISO string
+                                        let subscription_ends_at = current_period_end.map(|ts| {
+                                            chrono::DateTime::from_timestamp(ts, 0)
+                                                .map(|dt| dt.to_rfc3339())
+                                                .unwrap_or_default()
+                                        });
+
                                         let update = SubscriptionUpdate {
                                             user_id: self
                                                 .extract_user_id_from_customer(customer_id),
@@ -788,7 +806,7 @@ impl StripeBilling {
                                             subscription_started_at: Some(
                                                 chrono::Utc::now().to_rfc3339(),
                                             ),
-                                            subscription_ends_at: None,
+                                            subscription_ends_at,
                                             trial_ends_at: None, // Clear trial info for active subscriptions
                                         };
                                         updates.push(update);

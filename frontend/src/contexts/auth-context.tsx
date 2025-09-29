@@ -19,6 +19,7 @@ interface BillingStatus {
   subscription_status: string
   trial_ends_at?: string
   subscription_started_at?: string
+  subscription_ends_at?: string
   stripe_customer_id?: string
   wallet_count: number
   contact_count: number
