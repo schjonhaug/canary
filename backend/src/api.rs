@@ -330,6 +330,8 @@ pub struct BillingStatusResponse {
     pub trial_ends_at: Option<String>,
     /// Subscription started date (if active)
     pub subscription_started_at: Option<String>,
+    /// Subscription end date (for cancelled subscriptions)
+    pub subscription_ends_at: Option<String>,
     /// Stripe customer ID
     pub stripe_customer_id: Option<String>,
     /// Current wallet count
@@ -4406,6 +4408,7 @@ pub async fn get_billing_status(
         subscription_status: user_record.subscription_status,
         trial_ends_at: user_record.trial_ends_at,
         subscription_started_at: user_record.subscription_started_at,
+        subscription_ends_at: user_record.subscription_ends_at,
         stripe_customer_id: user_record.stripe_customer_id,
         wallet_count,
         contact_count,
