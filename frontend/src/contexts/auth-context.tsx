@@ -203,13 +203,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Logout error:', error)
       }
     }
-    
+
     setUser(null)
     setToken(null)
     setBillingStatus(null)
     localStorage.removeItem('auth_token')
     api.setAuthToken(null)
-    router.push('/sign-in')
+    // Don't redirect here - let the calling component handle navigation
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -16,7 +17,8 @@ import { getTierDisplayName } from '@/lib/pricing-data'
 import Link from 'next/link'
 
 export function UserDropdown() {
-  const { user, billingStatus, logout, isSaasMode, isFossMode } = useAuth()
+  const { user, billingStatus, isSaasMode, isFossMode } = useAuth()
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
 
   // In FOSS mode or if no user, don't show anything
@@ -98,7 +100,7 @@ export function UserDropdown() {
         
         <DropdownMenuItem
           className="cursor-pointer"
-          onClick={() => logout()}
+          onClick={() => router.push('/sign-out')}
         >
           <LogOut className="mr-2 h-4 w-4" />
           <span>Sign out</span>
