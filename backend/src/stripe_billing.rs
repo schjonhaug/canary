@@ -675,8 +675,17 @@ impl StripeBilling {
                                 let status = subscription.get("status").and_then(|s| s.as_str());
                                 let trial_end =
                                     subscription.get("trial_end").and_then(|t| t.as_i64());
-                                let current_period_end =
-                                    subscription.get("current_period_end").and_then(|t| t.as_i64());
+
+                                // Extract current_period_end from subscription items (more reliable than top level)
+                                let current_period_end = subscription
+                                    .get("items")
+                                    .and_then(|items| items.get("data"))
+                                    .and_then(|data| data.as_array())
+                                    .and_then(|arr| arr.first())
+                                    .and_then(|item| item.get("current_period_end"))
+                                    .and_then(|t| t.as_i64())
+                                    .or_else(|| subscription.get("current_period_end").and_then(|t| t.as_i64()));
+
                                 let customer_id =
                                     subscription.get("customer").and_then(|c| c.as_str());
                                 let subscription_id =
@@ -738,8 +747,17 @@ impl StripeBilling {
                                     subscription.get("customer").and_then(|c| c.as_str());
                                 let subscription_id =
                                     subscription.get("id").and_then(|s| s.as_str());
-                                let current_period_end =
-                                    subscription.get("current_period_end").and_then(|t| t.as_i64());
+
+                                // Extract current_period_end from subscription items (more reliable than top level)
+                                let current_period_end = subscription
+                                    .get("items")
+                                    .and_then(|items| items.get("data"))
+                                    .and_then(|data| data.as_array())
+                                    .and_then(|arr| arr.first())
+                                    .and_then(|item| item.get("current_period_end"))
+                                    .and_then(|t| t.as_i64())
+                                    .or_else(|| subscription.get("current_period_end").and_then(|t| t.as_i64()));
+
                                 let cancel_at_period_end =
                                     subscription.get("cancel_at_period_end").and_then(|b| b.as_bool());
                                 let cancel_at =
@@ -748,12 +766,6 @@ impl StripeBilling {
                                 // Determine current tier from subscription items (more reliable than metadata)
                                 let current_tier =
                                     self.determine_tier_from_subscription_items(&subscription);
-
-                                // Debug: Log full subscription object if period_end is missing
-                                if current_period_end.is_none() {
-                                    tracing::warn!("⚠️ current_period_end is None! Full subscription object: {}",
-                                        serde_json::to_string_pretty(&subscription).unwrap_or_else(|_| "Failed to serialize".to_string()));
-                                }
 
                                 tracing::info!("🔄 Subscription updated - Customer: {:?}, Status: {:?}, Tier: {}, Period end: {:?}, Cancel at period end: {:?}, Cancel at: {:?}",
                                     customer_id, current_status, current_tier, current_period_end, cancel_at_period_end, cancel_at);
@@ -791,17 +803,10 @@ impl StripeBilling {
                                     }
 
                                     // Check for subscription cancellation
-                                    if let Some(previous_attrs) =
-                                        subscription.get("previous_attributes")
-                                    {
-                                        if let Some(previous_cancel_at_period_end) =
-                                            previous_attrs.get("cancel_at_period_end").and_then(|b| b.as_bool())
-                                        {
-                                            if !previous_cancel_at_period_end && cancel_at_period_end == Some(true) {
-                                                should_update = true;
-                                                reason = "Subscription cancelled (retains access until period end)".to_string();
-                                            }
-                                        }
+                                    // If cancel_at_period_end is true, always update to set the end date
+                                    if cancel_at_period_end == Some(true) {
+                                        should_update = true;
+                                        reason = "Subscription cancelled (retains access until period end)".to_string();
                                     }
 
                                     if should_update {
