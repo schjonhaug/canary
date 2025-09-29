@@ -197,10 +197,12 @@ export default function BillingPage() {
                 Your subscription has been cancelled. You have access until {new Date(billingStatus?.subscription_ends_at || '').toLocaleDateString()} ({subscriptionDaysRemaining} days remaining).
               </div>
               <Button
-                onClick={() => setShowUpgradeModal(true)}
+                onClick={handleManageBilling}
+                disabled={isPortalLoading}
                 size="sm"
                 className="bg-yellow-600 hover:bg-yellow-700 text-white"
               >
+                {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Reactivate Subscription
               </Button>
             </div>
@@ -278,8 +280,8 @@ export default function BillingPage() {
               </Button>
             )}
             {isCancelledUser && subscriptionDaysRemaining > 0 && (
-              <Button onClick={() => setShowUpgradeModal(true)} className="bg-yellow-600 hover:bg-yellow-700">
-                <Zap className="mr-2 h-4 w-4" />
+              <Button onClick={handleManageBilling} disabled={isPortalLoading} className="bg-yellow-600 hover:bg-yellow-700">
+                {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Reactivate
               </Button>
             )}
