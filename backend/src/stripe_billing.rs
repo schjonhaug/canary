@@ -740,13 +740,23 @@ impl StripeBilling {
                                     subscription.get("id").and_then(|s| s.as_str());
                                 let current_period_end =
                                     subscription.get("current_period_end").and_then(|t| t.as_i64());
+                                let cancel_at_period_end =
+                                    subscription.get("cancel_at_period_end").and_then(|b| b.as_bool());
+                                let cancel_at =
+                                    subscription.get("cancel_at").and_then(|t| t.as_i64());
 
                                 // Determine current tier from subscription items (more reliable than metadata)
                                 let current_tier =
                                     self.determine_tier_from_subscription_items(&subscription);
 
-                                tracing::info!("🔄 Subscription updated - Customer: {:?}, Status: {:?}, Tier: {}, Period end: {:?}",
-                                    customer_id, current_status, current_tier, current_period_end);
+                                // Debug: Log full subscription object if period_end is missing
+                                if current_period_end.is_none() {
+                                    tracing::warn!("⚠️ current_period_end is None! Full subscription object: {}",
+                                        serde_json::to_string_pretty(&subscription).unwrap_or_else(|_| "Failed to serialize".to_string()));
+                                }
+
+                                tracing::info!("🔄 Subscription updated - Customer: {:?}, Status: {:?}, Tier: {}, Period end: {:?}, Cancel at period end: {:?}, Cancel at: {:?}",
+                                    customer_id, current_status, current_tier, current_period_end, cancel_at_period_end, cancel_at);
 
                                 if let (Some(customer_id), Some(subscription_id)) =
                                     (customer_id, subscription_id)
@@ -780,6 +790,20 @@ impl StripeBilling {
                                         }
                                     }
 
+                                    // Check for subscription cancellation
+                                    if let Some(previous_attrs) =
+                                        subscription.get("previous_attributes")
+                                    {
+                                        if let Some(previous_cancel_at_period_end) =
+                                            previous_attrs.get("cancel_at_period_end").and_then(|b| b.as_bool())
+                                        {
+                                            if !previous_cancel_at_period_end && cancel_at_period_end == Some(true) {
+                                                should_update = true;
+                                                reason = "Subscription cancelled (retains access until period end)".to_string();
+                                            }
+                                        }
+                                    }
+
                                     if should_update {
                                         tracing::info!(
                                             "✅ Processing subscription update: {}",
@@ -787,19 +811,27 @@ impl StripeBilling {
                                         );
 
                                         // Convert current_period_end timestamp to ISO string
-                                        let subscription_ends_at = current_period_end.map(|ts| {
-                                            chrono::DateTime::from_timestamp(ts, 0)
-                                                .map(|dt| dt.to_rfc3339())
-                                                .unwrap_or_default()
-                                        });
+                                        // Use cancel_at if available (set when cancel_at_period_end is true)
+                                        let subscription_ends_at = cancel_at
+                                            .or(current_period_end)
+                                            .map(|ts| {
+                                                chrono::DateTime::from_timestamp(ts, 0)
+                                                    .map(|dt| dt.to_rfc3339())
+                                                    .unwrap_or_default()
+                                            });
+
+                                        // Override status to "canceled" if cancel_at_period_end is true
+                                        let final_status = if cancel_at_period_end == Some(true) {
+                                            "canceled".to_string()
+                                        } else {
+                                            current_status.unwrap_or("unknown").to_string()
+                                        };
 
                                         let update = SubscriptionUpdate {
                                             user_id: self
                                                 .extract_user_id_from_customer(customer_id),
                                             subscription_tier: current_tier,
-                                            subscription_status: current_status
-                                                .unwrap_or("unknown")
-                                                .to_string(),
+                                            subscription_status: final_status,
                                             stripe_subscription_id: Some(
                                                 subscription_id.to_string(),
                                             ),
