@@ -174,7 +174,10 @@ impl ElectrumClient {
         let stop_gap = custom_stop_gap.unwrap_or(STOP_GAP);
         let initial_reveal: u32 = std::cmp::max(stop_gap as u32, 50);
 
-        info!("Initial address revelation (up to index {}):", initial_reveal);
+        info!(
+            "Initial address revelation (up to index {}):",
+            initial_reveal
+        );
         let ext_revealed: Vec<_> = wallet
             .reveal_addresses_to(KeychainKind::External, initial_reveal)
             .collect();

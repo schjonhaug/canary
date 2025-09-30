@@ -51,7 +51,8 @@ impl NotificationProvider for EmailProvider {
 
                 let result = if let Some(email_service) = &self.email_service {
                     match notification {
-                        TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
+                        TransactionNotification::Pending(tx)
+                        | TransactionNotification::Confirmed(tx) => {
                             // Clone data for background task
                             let email_service_clone = email_service.clone();
                             let email_address = email_address.to_string();
@@ -77,7 +78,10 @@ impl NotificationProvider for EmailProvider {
                                         // Email success will be logged in main summary
                                     }
                                     Err(e) => {
-                                        eprintln!("❌ Failed to send email to {}: {}", email_address, e);
+                                        eprintln!(
+                                            "❌ Failed to send email to {}: {}",
+                                            email_address, e
+                                        );
                                     }
                                 }
                             });
@@ -112,7 +116,10 @@ impl NotificationProvider for EmailProvider {
                                         // Email success will be logged in main summary
                                     }
                                     Err(e) => {
-                                        eprintln!("❌ Failed to send balance alert email to {}: {}", email_address, e);
+                                        eprintln!(
+                                            "❌ Failed to send balance alert email to {}: {}",
+                                            email_address, e
+                                        );
                                     }
                                 }
                             });
@@ -189,14 +196,8 @@ impl EmailProvider {
         wallet_name: &str,
         message: &str,
     ) -> Result<()> {
-        Self::send_balance_alert_email_impl(
-            email_service,
-            to_email,
-            to_name,
-            wallet_name,
-            message,
-        )
-        .await
+        Self::send_balance_alert_email_impl(email_service, to_email, to_name, wallet_name, message)
+            .await
     }
 
     // Shared implementation
@@ -302,18 +303,12 @@ impl EmailProvider {
             </body>
             </html>
             "#,
-            subject,
-            wallet_name,
-            to_name,
-            message
+            subject, wallet_name, to_name, message
         );
 
         let text_body = format!(
             "{}\n\nHi {},\n\n{}\n\nWallet: {}\n\nThis notification was sent by Canary Wallet",
-            subject,
-            to_name,
-            message,
-            wallet_name
+            subject, to_name, message, wallet_name
         );
 
         // Send using the Resend email service

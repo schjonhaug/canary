@@ -19,14 +19,16 @@ async fn create_test_db() -> (Arc<MetadataDb>, tempfile::TempDir) {
         data_dir: temp_dir.path().to_str().unwrap().to_string(),
     };
 
-    let db = Arc::new(MetadataDb::new(test_db_path.to_str().unwrap(), &test_config).await.unwrap());
+    let db = Arc::new(
+        MetadataDb::new(test_db_path.to_str().unwrap(), &test_config)
+            .await
+            .unwrap(),
+    );
     (db, temp_dir)
 }
 
 /// Test helper to create a test user and wallet
-async fn create_test_user_and_wallet(
-    metadata_db: &MetadataDb,
-) -> (String, String) {
+async fn create_test_user_and_wallet(metadata_db: &MetadataDb) -> (String, String) {
     // Create test user with unique email
     let unique_email = format!("test-{}@example.com", uuid::Uuid::new_v4());
     let user_id = metadata_db
@@ -95,10 +97,7 @@ async fn test_balance_alert_database_operations() {
     assert!(reactivated_alert.is_active);
 
     // Test 6: Delete balance alert
-    metadata_db
-        .delete_balance_alert(&alert.id)
-        .await
-        .unwrap();
+    metadata_db.delete_balance_alert(&alert.id).await.unwrap();
 
     let alerts = metadata_db
         .get_all_balance_alerts_for_wallet(&wallet_checksum)
@@ -283,8 +282,16 @@ async fn test_balance_alert_performance() {
     assert_eq!(active_alerts.len(), num_alerts);
 
     // Performance assertions (adjust thresholds as needed)
-    assert!(creation_duration.as_millis() < 5000, "Creation took too long: {:?}", creation_duration);
-    assert!(query_duration.as_millis() < 100, "Query took too long: {:?}", query_duration);
+    assert!(
+        creation_duration.as_millis() < 5000,
+        "Creation took too long: {:?}",
+        creation_duration
+    );
+    assert!(
+        query_duration.as_millis() < 100,
+        "Query took too long: {:?}",
+        query_duration
+    );
 
     println!("Created {} alerts in {:?}", num_alerts, creation_duration);
     println!("Queried {} alerts in {:?}", num_alerts, query_duration);

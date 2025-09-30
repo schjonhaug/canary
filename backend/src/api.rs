@@ -9,8 +9,8 @@ use crate::electrum::BlockHeader;
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::metadata::{
-    BalanceAlert, BalanceAlertType, Contact, EventType, Language, MetadataDb, NotificationMethod, ProviderType,
-    WalletDetailResponse, WalletMetadata, WalletsListResponse,
+    BalanceAlert, BalanceAlertType, Contact, EventType, Language, MetadataDb, NotificationMethod,
+    ProviderType, WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
 use crate::stripe_billing::{
@@ -4531,14 +4531,23 @@ pub async fn handle_stripe_webhook(
 
                 // Check if this is a customer ID lookup (from subscription cancellation)
                 let actual_user_id = if update.user_id.starts_with("stripe_customer:") {
-                    let parts: Vec<&str> = update.user_id.strip_prefix("stripe_customer:").unwrap().split(':').collect();
+                    let parts: Vec<&str> = update
+                        .user_id
+                        .strip_prefix("stripe_customer:")
+                        .unwrap()
+                        .split(':')
+                        .collect();
 
                     if parts.len() == 2 {
                         // Special case: subscription deletion with customer_id:subscription_id
                         let customer_id = parts[0];
                         let deleted_subscription_id = parts[1];
 
-                        tracing::info!("Checking subscription deletion for customer {} - subscription {}", customer_id, deleted_subscription_id);
+                        tracing::info!(
+                            "Checking subscription deletion for customer {} - subscription {}",
+                            customer_id,
+                            deleted_subscription_id
+                        );
 
                         // Find user and check if deleted subscription matches current subscription
                         match app_services
@@ -4547,7 +4556,8 @@ pub async fn handle_stripe_webhook(
                             .await
                         {
                             Ok(Some(user)) => {
-                                if let Some(current_subscription_id) = &user.stripe_subscription_id {
+                                if let Some(current_subscription_id) = &user.stripe_subscription_id
+                                {
                                     if current_subscription_id == deleted_subscription_id {
                                         tracing::info!("📉 Marked user {} as expired (current subscription {} deleted)", user.id, deleted_subscription_id);
                                         user.id
@@ -4561,11 +4571,18 @@ pub async fn handle_stripe_webhook(
                                 }
                             }
                             Ok(None) => {
-                                tracing::warn!("No user found for Stripe customer ID: {}", customer_id);
+                                tracing::warn!(
+                                    "No user found for Stripe customer ID: {}",
+                                    customer_id
+                                );
                                 continue; // Skip this update
                             }
                             Err(e) => {
-                                tracing::error!("Failed to lookup user by customer ID {}: {}", customer_id, e);
+                                tracing::error!(
+                                    "Failed to lookup user by customer ID {}: {}",
+                                    customer_id,
+                                    e
+                                );
                                 continue; // Skip this update
                             }
                         }
@@ -4581,11 +4598,18 @@ pub async fn handle_stripe_webhook(
                             .await
                         {
                             Ok(Some(user)) => {
-                                tracing::info!("Found user {} for customer {}", user.id, customer_id);
+                                tracing::info!(
+                                    "Found user {} for customer {}",
+                                    user.id,
+                                    customer_id
+                                );
                                 user.id
                             }
                             Ok(None) => {
-                                tracing::warn!("No user found for Stripe customer ID: {}", customer_id);
+                                tracing::warn!(
+                                    "No user found for Stripe customer ID: {}",
+                                    customer_id
+                                );
                                 continue; // Skip this update
                             }
                             Err(e) => {
@@ -4882,10 +4906,22 @@ pub fn create_router_with_services(
             "/wallets/{wallet_checksum}/contacts/{contact_id}",
             axum::routing::put(update_wallet_contact).delete(delete_wallet_contact),
         )
-        .route("/wallets/{checksum}/balance-alerts", get(get_wallet_balance_alerts))
-        .route("/wallets/{checksum}/balance-alerts", post(create_wallet_balance_alert))
-        .route("/balance-alerts/{alert_id}/activate", put(reactivate_balance_alert))
-        .route("/balance-alerts/{alert_id}", axum::routing::delete(delete_balance_alert))
+        .route(
+            "/wallets/{checksum}/balance-alerts",
+            get(get_wallet_balance_alerts),
+        )
+        .route(
+            "/wallets/{checksum}/balance-alerts",
+            post(create_wallet_balance_alert),
+        )
+        .route(
+            "/balance-alerts/{alert_id}/activate",
+            put(reactivate_balance_alert),
+        )
+        .route(
+            "/balance-alerts/{alert_id}",
+            axum::routing::delete(delete_balance_alert),
+        )
         .route("/auth/login", post(login))
         .route("/block-headers/current", get(get_current_block_header))
         .route("/exchange-rates", get(get_exchange_rates))
@@ -5113,7 +5149,11 @@ pub async fn get_wallet_balance_alerts(
     };
 
     // Check if wallet exists and user has access
-    let wallet = match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
+    let wallet = match app_services
+        .metadata_db
+        .get_wallet_by_checksum(&checksum)
+        .await
+    {
         Ok(Some(wallet)) => wallet,
         Ok(None) => {
             return (
@@ -5204,7 +5244,11 @@ pub async fn create_wallet_balance_alert(
     };
 
     // Check if wallet exists and user has access
-    let wallet = match app_services.metadata_db.get_wallet_by_checksum(&checksum).await {
+    let wallet = match app_services
+        .metadata_db
+        .get_wallet_by_checksum(&checksum)
+        .await
+    {
         Ok(Some(wallet)) => wallet,
         Ok(None) => {
             return (
@@ -5253,7 +5297,8 @@ pub async fn create_wallet_balance_alert(
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: "Cannot create alert for 'below 0' - balance cannot go below zero".to_string(),
+                error: "Cannot create alert for 'below 0' - balance cannot go below zero"
+                    .to_string(),
             }),
         )
             .into_response();

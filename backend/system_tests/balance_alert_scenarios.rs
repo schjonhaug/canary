@@ -38,7 +38,6 @@ async fn setup_balance_alert(
     Ok(alert)
 }
 
-
 /// Test 1: Balance Alert Below Threshold
 /// Purpose: Test balance alert triggers when wallet balance drops below threshold
 #[tokio::test]
@@ -58,8 +57,11 @@ async fn test_balance_alert_below_threshold() {
         .await
         .expect("Failed to get Alice balance");
 
-    println!("💰 Alice initial balance: {} sats ({:.8} BTC)",
-             initial_balance, initial_balance as f64 / 100_000_000.0);
+    println!(
+        "💰 Alice initial balance: {} sats ({:.8} BTC)",
+        initial_balance,
+        initial_balance as f64 / 100_000_000.0
+    );
 
     // Create balance alert: trigger when balance < 0.5 BTC (50,000,000 sats)
     let threshold_sats = 50_000_000; // 0.5 BTC
@@ -72,8 +74,11 @@ async fn test_balance_alert_below_threshold() {
     .await
     .expect("Failed to create balance alert");
 
-    println!("🚨 Created balance alert: Below {} sats ({:.8} BTC)",
-             threshold_sats, threshold_sats as f64 / 100_000_000.0);
+    println!(
+        "🚨 Created balance alert: Below {} sats ({:.8} BTC)",
+        threshold_sats,
+        threshold_sats as f64 / 100_000_000.0
+    );
 
     // Alice sends 0.6 BTC to Bob (should trigger below 0.5 BTC alert)
     println!("⚡ Alice sends 0.6 BTC to Bob...");
@@ -97,11 +102,15 @@ async fn test_balance_alert_below_threshold() {
         .await
         .expect("Failed to get Alice balance");
 
-    println!("💰 Alice new balance: {} sats ({:.8} BTC)",
-             new_balance, new_balance as f64 / 100_000_000.0);
+    println!(
+        "💰 Alice new balance: {} sats ({:.8} BTC)",
+        new_balance,
+        new_balance as f64 / 100_000_000.0
+    );
 
     // Check if alert was triggered during sync (it will be deactivated after triggering)
-    let updated_alert = env.metadata_db
+    let updated_alert = env
+        .metadata_db
         .get_all_balance_alerts_for_wallet(&env.alice_checksum)
         .await
         .expect("Failed to get all alerts")
@@ -113,16 +122,29 @@ async fn test_balance_alert_below_threshold() {
     println!("   Alert ID: {}", updated_alert.id);
     println!("   Threshold: {} sats", updated_alert.threshold_sats);
     println!("   Type: {:?}", updated_alert.alert_type);
-    println!("   Active: {} (should be false after triggering)", updated_alert.is_active);
+    println!(
+        "   Active: {} (should be false after triggering)",
+        updated_alert.is_active
+    );
     println!("   Last triggered: {:?}", updated_alert.last_triggered_at);
 
     // Verify alert was triggered (it should be deactivated and have a last_triggered_at timestamp)
-    assert!(!updated_alert.is_active, "Alert should be deactivated after triggering");
-    assert!(updated_alert.last_triggered_at.is_some(), "Alert should have a last_triggered_at timestamp");
+    assert!(
+        !updated_alert.is_active,
+        "Alert should be deactivated after triggering"
+    );
+    assert!(
+        updated_alert.last_triggered_at.is_some(),
+        "Alert should have a last_triggered_at timestamp"
+    );
 
     // Verify balance is actually below threshold
-    assert!(new_balance < threshold_sats,
-            "Balance {} should be below threshold {}", new_balance, threshold_sats);
+    assert!(
+        new_balance < threshold_sats,
+        "Balance {} should be below threshold {}",
+        new_balance,
+        threshold_sats
+    );
 
     println!("✅ Test 1 passed: Balance alert below threshold triggered correctly");
 }
@@ -146,8 +168,11 @@ async fn test_balance_alert_above_threshold() {
         .await
         .expect("Failed to get Bob balance");
 
-    println!("💰 Bob initial balance: {} sats ({:.8} BTC)",
-             initial_balance, initial_balance as f64 / 100_000_000.0);
+    println!(
+        "💰 Bob initial balance: {} sats ({:.8} BTC)",
+        initial_balance,
+        initial_balance as f64 / 100_000_000.0
+    );
 
     // Create balance alert: trigger when balance > 0.2 BTC (20,000,000 sats)
     let threshold_sats = 20_000_000; // 0.2 BTC
@@ -160,8 +185,11 @@ async fn test_balance_alert_above_threshold() {
     .await
     .expect("Failed to create balance alert");
 
-    println!("🚨 Created balance alert: Above {} sats ({:.8} BTC)",
-             threshold_sats, threshold_sats as f64 / 100_000_000.0);
+    println!(
+        "🚨 Created balance alert: Above {} sats ({:.8} BTC)",
+        threshold_sats,
+        threshold_sats as f64 / 100_000_000.0
+    );
 
     // Alice sends 0.3 BTC to Bob (should trigger above 0.2 BTC alert)
     println!("⚡ Alice sends 0.3 BTC to Bob...");
@@ -185,11 +213,15 @@ async fn test_balance_alert_above_threshold() {
         .await
         .expect("Failed to get Bob balance");
 
-    println!("💰 Bob new balance: {} sats ({:.8} BTC)",
-             new_balance, new_balance as f64 / 100_000_000.0);
+    println!(
+        "💰 Bob new balance: {} sats ({:.8} BTC)",
+        new_balance,
+        new_balance as f64 / 100_000_000.0
+    );
 
     // Check if alert was triggered during sync
-    let updated_alert = env.metadata_db
+    let updated_alert = env
+        .metadata_db
         .get_all_balance_alerts_for_wallet(&env.bob_checksum)
         .await
         .expect("Failed to get all alerts")
@@ -199,16 +231,29 @@ async fn test_balance_alert_above_threshold() {
 
     println!("🔍 Alert status after sync:");
     println!("   Alert ID: {}", updated_alert.id);
-    println!("   Active: {} (should be false after triggering)", updated_alert.is_active);
+    println!(
+        "   Active: {} (should be false after triggering)",
+        updated_alert.is_active
+    );
     println!("   Last triggered: {:?}", updated_alert.last_triggered_at);
 
     // Verify alert was triggered
-    assert!(!updated_alert.is_active, "Alert should be deactivated after triggering");
-    assert!(updated_alert.last_triggered_at.is_some(), "Alert should have a last_triggered_at timestamp");
+    assert!(
+        !updated_alert.is_active,
+        "Alert should be deactivated after triggering"
+    );
+    assert!(
+        updated_alert.last_triggered_at.is_some(),
+        "Alert should have a last_triggered_at timestamp"
+    );
 
     // Verify balance is actually above threshold
-    assert!(new_balance > threshold_sats,
-            "Balance {} should be above threshold {}", new_balance, threshold_sats);
+    assert!(
+        new_balance > threshold_sats,
+        "Balance {} should be above threshold {}",
+        new_balance,
+        threshold_sats
+    );
 
     println!("✅ Test 2 passed: Balance alert above threshold triggered correctly");
 }
@@ -234,16 +279,23 @@ async fn test_balance_drain_alert_equals_zero() {
         .await
         .expect("Failed to send setup transaction");
 
-    env.mine_blocks(1).await.expect("Failed to mine setup block");
-    env.sync_and_wait().await.expect("Failed to sync after setup");
+    env.mine_blocks(1)
+        .await
+        .expect("Failed to mine setup block");
+    env.sync_and_wait()
+        .await
+        .expect("Failed to sync after setup");
 
     // Get Bob's balance after receiving funds
     let bob_balance = get_wallet_balance(&env, &env.bob_checksum)
         .await
         .expect("Failed to get Bob balance");
 
-    println!("💰 Bob balance after receiving: {} sats ({:.8} BTC)",
-             bob_balance, bob_balance as f64 / 100_000_000.0);
+    println!(
+        "💰 Bob balance after receiving: {} sats ({:.8} BTC)",
+        bob_balance,
+        bob_balance as f64 / 100_000_000.0
+    );
 
     // Create balance alert: trigger when Bob's balance equals 0
     let threshold_sats = 0;
@@ -256,14 +308,20 @@ async fn test_balance_drain_alert_equals_zero() {
     .await
     .expect("Failed to create balance alert");
 
-    println!("🚨 Created balance alert: Equals {} sats (wallet drain)", threshold_sats);
+    println!(
+        "🚨 Created balance alert: Equals {} sats (wallet drain)",
+        threshold_sats
+    );
 
     // Bob sends almost all his funds back to Alice (leaving a bit for fees)
     // We'll send slightly less than the balance to account for transaction fees
     println!("⚡ Bob drains wallet by sending funds back to Alice...");
     let send_amount = bob_balance - 1000; // Leave 1,000 sats for fees (should result in small balance)
     let send_amount_btc = format!("{:.8}", send_amount as f64 / 100_000_000.0);
-    println!("   Sending {} BTC (leaving ~1,000 sats for fees)", send_amount_btc);
+    println!(
+        "   Sending {} BTC (leaving ~1,000 sats for fees)",
+        send_amount_btc
+    );
     let _drain_txid = env
         .send_transaction("bob", "alice", &send_amount_btc)
         .await
@@ -284,11 +342,15 @@ async fn test_balance_drain_alert_equals_zero() {
         .await
         .expect("Failed to get Bob balance");
 
-    println!("💰 Bob final balance: {} sats ({:.8} BTC)",
-             final_balance, final_balance as f64 / 100_000_000.0);
+    println!(
+        "💰 Bob final balance: {} sats ({:.8} BTC)",
+        final_balance,
+        final_balance as f64 / 100_000_000.0
+    );
 
     // Check if alert was triggered during sync
-    let updated_alert = env.metadata_db
+    let updated_alert = env
+        .metadata_db
         .get_all_balance_alerts_for_wallet(&env.bob_checksum)
         .await
         .expect("Failed to get all alerts")
@@ -298,24 +360,45 @@ async fn test_balance_drain_alert_equals_zero() {
 
     println!("🔍 Alert status after sync:");
     println!("   Alert ID: {}", updated_alert.id);
-    println!("   Active: {} (should be false if triggered)", updated_alert.is_active);
+    println!(
+        "   Active: {} (should be false if triggered)",
+        updated_alert.is_active
+    );
     println!("   Last triggered: {:?}", updated_alert.last_triggered_at);
 
     // Verify alert behavior based on final balance
     // Note: Due to transaction fees, balance is typically a few hundred sats, not exactly 0
     if final_balance == 0 {
         // If balance is exactly 0 (rare), alert should trigger
-        assert!(!updated_alert.is_active, "Alert should be deactivated after triggering");
-        assert!(updated_alert.last_triggered_at.is_some(), "Alert should have a last_triggered_at timestamp");
+        assert!(
+            !updated_alert.is_active,
+            "Alert should be deactivated after triggering"
+        );
+        assert!(
+            updated_alert.last_triggered_at.is_some(),
+            "Alert should have a last_triggered_at timestamp"
+        );
         println!("✅ Test 3 passed: Balance drain alert (equals 0) triggered correctly");
     } else if final_balance > 0 && final_balance < 10000 {
         // More common case: small balance remains due to fees
-        println!("ℹ️  Note: Final balance is {} sats (not exactly 0 due to fees)", final_balance);
-        assert!(updated_alert.is_active, "Alert should remain active when balance is not exactly 0");
-        assert!(updated_alert.last_triggered_at.is_none(), "Alert should not have triggered");
+        println!(
+            "ℹ️  Note: Final balance is {} sats (not exactly 0 due to fees)",
+            final_balance
+        );
+        assert!(
+            updated_alert.is_active,
+            "Alert should remain active when balance is not exactly 0"
+        );
+        assert!(
+            updated_alert.last_triggered_at.is_none(),
+            "Alert should not have triggered"
+        );
         println!("✅ Test 3 passed: Wallet nearly drained (small balance remains for fees)");
     } else {
-        panic!("Unexpected final balance: {} sats (should be near 0, got {} which is > 10,000)", final_balance, final_balance);
+        panic!(
+            "Unexpected final balance: {} sats (should be near 0, got {} which is > 10,000)",
+            final_balance, final_balance
+        );
     }
 }
 
@@ -338,8 +421,11 @@ async fn test_multiple_balance_alerts() {
         .await
         .expect("Failed to get Alice balance");
 
-    println!("💰 Alice initial balance: {} sats ({:.8} BTC)",
-             initial_balance, initial_balance as f64 / 100_000_000.0);
+    println!(
+        "💰 Alice initial balance: {} sats ({:.8} BTC)",
+        initial_balance,
+        initial_balance as f64 / 100_000_000.0
+    );
 
     // Create multiple alerts for Alice's wallet
     let above_alert = setup_balance_alert(
@@ -383,7 +469,9 @@ async fn test_multiple_balance_alerts() {
         .expect("Failed to send small transaction");
 
     env.mine_blocks(1).await.expect("Failed to mine blocks");
-    env.sync_and_wait().await.expect("Failed to sync after small transaction");
+    env.sync_and_wait()
+        .await
+        .expect("Failed to sync after small transaction");
 
     // Alice sends large amount to drop below 0.3 BTC
     println!("⚡ Alice sends 0.8 BTC to Bob to trigger below alert...");
@@ -402,34 +490,62 @@ async fn test_multiple_balance_alerts() {
         .await
         .expect("Failed to get Alice balance");
 
-    println!("💰 Alice new balance: {} sats ({:.8} BTC)",
-             new_balance, new_balance as f64 / 100_000_000.0);
+    println!(
+        "💰 Alice new balance: {} sats ({:.8} BTC)",
+        new_balance,
+        new_balance as f64 / 100_000_000.0
+    );
 
     // Check all alert statuses after both syncs
-    let all_alerts = env.metadata_db
+    let all_alerts = env
+        .metadata_db
         .get_all_balance_alerts_for_wallet(&env.alice_checksum)
         .await
         .expect("Failed to get all alerts");
 
-    let above_updated = all_alerts.iter().find(|a| a.id == above_alert.id)
+    let above_updated = all_alerts
+        .iter()
+        .find(|a| a.id == above_alert.id)
         .expect("Above alert not found");
-    let below_updated = all_alerts.iter().find(|a| a.id == below_alert.id)
+    let below_updated = all_alerts
+        .iter()
+        .find(|a| a.id == below_alert.id)
         .expect("Below alert not found");
-    let equals_updated = all_alerts.iter().find(|a| a.id == equals_alert.id)
+    let equals_updated = all_alerts
+        .iter()
+        .find(|a| a.id == equals_alert.id)
         .expect("Equals alert not found");
 
     println!("🔍 Alert statuses after both syncs:");
-    println!("   Above alert: active={}, triggered={}", above_updated.is_active, above_updated.last_triggered_at.is_some());
-    println!("   Below alert: active={}, triggered={}", below_updated.is_active, below_updated.last_triggered_at.is_some());
-    println!("   Equals alert: active={}, triggered={}", equals_updated.is_active, equals_updated.last_triggered_at.is_some());
+    println!(
+        "   Above alert: active={}, triggered={}",
+        above_updated.is_active,
+        above_updated.last_triggered_at.is_some()
+    );
+    println!(
+        "   Below alert: active={}, triggered={}",
+        below_updated.is_active,
+        below_updated.last_triggered_at.is_some()
+    );
+    println!(
+        "   Equals alert: active={}, triggered={}",
+        equals_updated.is_active,
+        equals_updated.last_triggered_at.is_some()
+    );
 
     // Verify correct alerts were triggered
-    assert!(!above_updated.is_active && above_updated.last_triggered_at.is_some(),
-            "Above alert should have triggered with initial balance");
-    assert!(!below_updated.is_active && below_updated.last_triggered_at.is_some(),
-            "Below alert should have triggered after send");
-    assert!(equals_updated.is_active && equals_updated.last_triggered_at.is_none(),
-            "Equals alert should NOT have triggered");
+    assert!(
+        !above_updated.is_active && above_updated.last_triggered_at.is_some(),
+        "Above alert should have triggered with initial balance"
+    );
+    assert!(
+        !below_updated.is_active && below_updated.last_triggered_at.is_some(),
+        "Below alert should have triggered after send"
+    );
+    assert!(
+        equals_updated.is_active && equals_updated.last_triggered_at.is_none(),
+        "Equals alert should NOT have triggered"
+    );
 
     println!("✅ Test 4 passed: Multiple balance alerts work independently");
 }
@@ -484,11 +600,15 @@ async fn test_balance_alert_deactivation() {
         .await
         .expect("Failed to get Alice balance");
 
-    println!("💰 Alice new balance: {} sats ({:.8} BTC)",
-             new_balance, new_balance as f64 / 100_000_000.0);
+    println!(
+        "💰 Alice new balance: {} sats ({:.8} BTC)",
+        new_balance,
+        new_balance as f64 / 100_000_000.0
+    );
 
     // Check alert status (should remain deactivated and not triggered)
-    let updated_alert = env.metadata_db
+    let updated_alert = env
+        .metadata_db
         .get_all_balance_alerts_for_wallet(&env.alice_checksum)
         .await
         .expect("Failed to get all alerts")
@@ -498,16 +618,28 @@ async fn test_balance_alert_deactivation() {
 
     println!("🔍 Alert status after sync:");
     println!("   Alert ID: {}", updated_alert.id);
-    println!("   Active: {} (should remain false)", updated_alert.is_active);
-    println!("   Last triggered: {:?} (should remain None)", updated_alert.last_triggered_at);
+    println!(
+        "   Active: {} (should remain false)",
+        updated_alert.is_active
+    );
+    println!(
+        "   Last triggered: {:?} (should remain None)",
+        updated_alert.last_triggered_at
+    );
 
     // Verify alert remained deactivated and didn't trigger
     assert!(!updated_alert.is_active, "Alert should remain deactivated");
-    assert!(updated_alert.last_triggered_at.is_none(), "Deactivated alert should not have triggered");
+    assert!(
+        updated_alert.last_triggered_at.is_none(),
+        "Deactivated alert should not have triggered"
+    );
 
     // Verify balance would have triggered if alert was active
-    assert!(new_balance < 50_000_000,
-            "Balance {} should be below threshold (would trigger if active)", new_balance);
+    assert!(
+        new_balance < 50_000_000,
+        "Balance {} should be below threshold (would trigger if active)",
+        new_balance
+    );
 
     println!("✅ Test 5 passed: Deactivated balance alert correctly ignored");
 }

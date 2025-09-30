@@ -62,7 +62,8 @@ impl NotificationProvider for NtfyProvider {
                     .header(
                         "Tags",
                         match notification {
-                            TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
+                            TransactionNotification::Pending(tx)
+                            | TransactionNotification::Confirmed(tx) => {
                                 if tx.transaction_type == EventType::Receive {
                                     "money_with_wings"
                                 } else {

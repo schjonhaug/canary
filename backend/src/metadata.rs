@@ -3128,10 +3128,7 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn disable_balance_alert_after_trigger(
-        &self,
-        alert_id: &str,
-    ) -> Result<()> {
+    pub async fn disable_balance_alert_after_trigger(&self, alert_id: &str) -> Result<()> {
         let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
         let triggered_at = chrono::Utc::now().timestamp() as u64;
@@ -3149,10 +3146,7 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn reactivate_balance_alert(
-        &self,
-        alert_id: &str,
-    ) -> Result<BalanceAlert> {
+    pub async fn reactivate_balance_alert(&self, alert_id: &str) -> Result<BalanceAlert> {
         let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
 
@@ -3196,11 +3190,7 @@ impl MetadataDb {
         .await?
     }
 
-
-    pub async fn delete_balance_alert(
-        &self,
-        alert_id: &str,
-    ) -> Result<()> {
+    pub async fn delete_balance_alert(&self, alert_id: &str) -> Result<()> {
         let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
 

@@ -310,6 +310,112 @@ This verification code will expire in 10 minutes. If you didn't request this ver
             .await
     }
 
+    pub async fn send_trial_ending_notification(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        trial_ends_at: &str,
+    ) -> Result<()> {
+        let billing_url = format!(
+            "{}/billing",
+            std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set")
+        );
+
+        let subject = "Your Canary trial ends in 3 days";
+        let html_body = format!(
+            r#"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>{}</title>
+            </head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #1f2937;">Canary Wallet</h1>
+                </div>
+
+                <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h2 style="color: #1f2937; margin-top: 0;">Your Trial is Ending Soon</h2>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        Hi {name},
+                    </p>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        Your 30-day Canary Wallet Team trial will end in 3 days on <strong>{trial_end_date}</strong>.
+                    </p>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        To continue enjoying uninterrupted Bitcoin wallet monitoring with automatic transaction notifications, please subscribe to one of our plans.
+                    </p>
+
+                    <div style="background-color: #fff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+                        <p style="color: #1f2937; margin: 0; font-weight: 500;">What happens when your trial ends?</p>
+                        <ul style="color: #4b5563; margin: 10px 0; padding-left: 20px;">
+                            <li>Wallet syncing will stop</li>
+                            <li>Transaction notifications will pause</li>
+                            <li>Your wallet data remains safe and accessible</li>
+                        </ul>
+                    </div>
+
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{billing_url}"
+                           style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
+                            View Subscription Plans
+                        </a>
+                    </div>
+
+                    <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+                        Choose the plan that's right for you:
+                    </p>
+                    <ul style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+                        <li><strong>Personal ($9/month):</strong> 1 wallet, 1 contact, 10-minute sync</li>
+                        <li><strong>Team ($29/month):</strong> 5 wallets, 5 contacts per wallet, 2-minute sync</li>
+                    </ul>
+                </div>
+
+                <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
+                    <p>© 2024 Canary Wallet. All rights reserved.</p>
+                </div>
+            </body>
+            </html>
+            "#,
+            subject,
+            name = to_name,
+            trial_end_date = trial_ends_at,
+            billing_url = billing_url
+        );
+
+        let text_body = format!(
+            r#"
+Your Trial is Ending Soon - Canary Wallet
+
+Hi {name},
+
+Your 30-day Canary Wallet Team trial will end in 3 days on {trial_end_date}.
+
+To continue enjoying uninterrupted Bitcoin wallet monitoring with automatic transaction notifications, please subscribe to one of our plans.
+
+What happens when your trial ends?
+- Wallet syncing will stop
+- Transaction notifications will pause
+- Your wallet data remains safe and accessible
+
+Choose the plan that's right for you:
+- Personal ($9/month): 1 wallet, 1 contact, 10-minute sync
+- Team ($29/month): 5 wallets, 5 contacts per wallet, 2-minute sync
+
+View subscription plans: {billing_url}
+
+© 2024 Canary Wallet. All rights reserved.
+            "#,
+            name = to_name,
+            trial_end_date = trial_ends_at,
+            billing_url = billing_url
+        );
+
+        self.send_email(to_email, to_name, subject, &html_body, &text_body)
+            .await
+    }
+
     pub async fn add_to_marketing_audience(&self, email: &str, name: &str) -> Result<()> {
         let audience_id = std::env::var("RESEND_AUDIENCE_ID")
             .map_err(|_| anyhow!("RESEND_AUDIENCE_ID environment variable not set"))?;

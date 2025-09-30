@@ -178,11 +178,12 @@ impl WalletSyncService {
         // Check balance alerts only if wallet has changes
         if summary.has_changes {
             let balance_alert_start = Instant::now();
-            if let Err(e) = self.check_balance_alerts(wallet_checksum, current_balance.to_sat() as i64).await.map(|_| ()) {
-                warn!(
-                    "[{}] Balance alert checking failed: {}",
-                    wallet_checksum, e
-                );
+            if let Err(e) = self
+                .check_balance_alerts(wallet_checksum, current_balance.to_sat() as i64)
+                .await
+                .map(|_| ())
+            {
+                warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
             }
             debug!(
                 "[{}] Balance alert checking took {:.2?}",
@@ -1034,9 +1035,16 @@ impl WalletSyncService {
     }
 
     /// Check balance alerts and send notifications for triggered thresholds
-    pub async fn check_balance_alerts(&self, wallet_checksum: &str, current_balance_sats: i64) -> Result<Vec<crate::metadata::BalanceAlert>> {
+    pub async fn check_balance_alerts(
+        &self,
+        wallet_checksum: &str,
+        current_balance_sats: i64,
+    ) -> Result<Vec<crate::metadata::BalanceAlert>> {
         let mut triggered_alerts = Vec::new();
-        debug!("[{}] Checking balance alerts for balance: {} sats", wallet_checksum, current_balance_sats);
+        debug!(
+            "[{}] Checking balance alerts for balance: {} sats",
+            wallet_checksum, current_balance_sats
+        );
 
         // Get all active balance alerts for this wallet
         let active_alerts = self
@@ -1049,13 +1057,23 @@ impl WalletSyncService {
             return Ok(Vec::new());
         }
 
-        debug!("[{}] Found {} active balance alerts to check", wallet_checksum, active_alerts.len());
+        debug!(
+            "[{}] Found {} active balance alerts to check",
+            wallet_checksum,
+            active_alerts.len()
+        );
 
         for alert in active_alerts {
             let should_trigger = match alert.alert_type {
-                crate::metadata::BalanceAlertType::Above => current_balance_sats > alert.threshold_sats,
-                crate::metadata::BalanceAlertType::Below => current_balance_sats < alert.threshold_sats,
-                crate::metadata::BalanceAlertType::Equals => current_balance_sats == alert.threshold_sats,
+                crate::metadata::BalanceAlertType::Above => {
+                    current_balance_sats > alert.threshold_sats
+                }
+                crate::metadata::BalanceAlertType::Below => {
+                    current_balance_sats < alert.threshold_sats
+                }
+                crate::metadata::BalanceAlertType::Equals => {
+                    current_balance_sats == alert.threshold_sats
+                }
             };
 
             if should_trigger {
@@ -1090,7 +1108,10 @@ impl WalletSyncService {
                 }
 
                 // Send balance alert notification via existing notification system
-                if let Err(e) = self.send_balance_alert_notification(&alert, wallet_checksum, current_balance_sats).await {
+                if let Err(e) = self
+                    .send_balance_alert_notification(&alert, wallet_checksum, current_balance_sats)
+                    .await
+                {
                     warn!(
                         "[{}] Failed to send balance alert notification: {}",
                         wallet_checksum, e
@@ -1098,7 +1119,11 @@ impl WalletSyncService {
                 }
 
                 // Disable the alert after triggering (requires manual reactivation)
-                if let Err(e) = self.metadata_db.disable_balance_alert_after_trigger(&alert.id).await {
+                if let Err(e) = self
+                    .metadata_db
+                    .disable_balance_alert_after_trigger(&alert.id)
+                    .await
+                {
                     warn!(
                         "[{}] Failed to disable balance alert after trigger: {}",
                         wallet_checksum, e
@@ -1135,9 +1160,12 @@ impl WalletSyncService {
         };
 
         // Send notification via broadcast channel (same as transaction notifications)
-        if let Err(e) = self.notification_sender.send(
-            crate::metadata::TransactionNotification::BalanceAlert(balance_alert_notification)
-        ) {
+        if let Err(e) =
+            self.notification_sender
+                .send(crate::metadata::TransactionNotification::BalanceAlert(
+                    balance_alert_notification,
+                ))
+        {
             warn!(
                 "[{}] Failed to send balance alert notification via broadcast: {}",
                 wallet_checksum, e

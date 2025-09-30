@@ -154,7 +154,6 @@ impl ExchangeRateService {
         Ok(rates)
     }
 
-
     /// Start background task to refresh exchange rates periodically
     pub fn start_refresh_task(self: Arc<Self>) {
         tokio::spawn(async move {

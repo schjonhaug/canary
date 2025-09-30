@@ -180,7 +180,10 @@ impl StripeClientService {
 
         for (key, value) in metadata.clone() {
             // Add metadata to subscription
-            form_data.push((format!("subscription_data[metadata][{}]", key), value.clone()));
+            form_data.push((
+                format!("subscription_data[metadata][{}]", key),
+                value.clone(),
+            ));
             // Also add metadata to checkout session itself for retrieval
             form_data.push((format!("metadata[{}]", key), value));
         }

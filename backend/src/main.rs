@@ -213,7 +213,7 @@ async fn main() -> anyhow::Result<()> {
     // Initialize Stripe billing only in SAAS mode
     let stripe_billing = if config.is_saas_mode() {
         println!("🏦 SAAS mode: Initializing Stripe billing...");
-        match StripeBilling::new().await {
+        match StripeBilling::new(Arc::new(app_services.metadata_db.clone())).await {
             Ok(billing) => {
                 println!("✅ Stripe billing initialized successfully");
                 Some(Arc::new(billing))
@@ -548,7 +548,9 @@ async fn main() -> anyhow::Result<()> {
             let (wallet_checksum, notification_type) = match &notification {
                 TransactionNotification::Pending(tx) => (&tx.wallet_checksum, "pending"),
                 TransactionNotification::Confirmed(tx) => (&tx.wallet_checksum, "confirmed"),
-                TransactionNotification::BalanceAlert(alert) => (&alert.wallet_checksum, "balance_alert"),
+                TransactionNotification::BalanceAlert(alert) => {
+                    (&alert.wallet_checksum, "balance_alert")
+                }
             };
 
             // Get wallet information for the notification
@@ -597,7 +599,8 @@ async fn main() -> anyhow::Result<()> {
 
                                         // Handle logging based on notification type
                                         let log_result = match &notification {
-                                            TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
+                                            TransactionNotification::Pending(tx)
+                                            | TransactionNotification::Confirmed(tx) => {
                                                 // Log transaction notifications
                                                 wallet_manager_lock
                                                     .metadata_db

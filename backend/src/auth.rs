@@ -122,9 +122,9 @@ const DEV_MODE: bool = cfg!(debug_assertions);
 
 // Dev mode test email addresses (bypass email verification in dev mode)
 pub const DEV_TEST_EMAILS: [&str; 4] = [
-    "delivered+admin@resend.dev", // Team tier + Admin
-    "delivered+alice@resend.dev", // Personal tier
-    "delivered+bob@resend.dev",   // Team tier
+    "delivered+admin@resend.dev",   // Team tier + Admin
+    "delivered+alice@resend.dev",   // Personal tier
+    "delivered+bob@resend.dev",     // Team tier
     "delivered+charlie@resend.dev", // Team tier
 ];
 

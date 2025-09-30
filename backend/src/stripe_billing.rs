@@ -2,9 +2,10 @@ use anyhow::Result;
 use chrono;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use utoipa::ToSchema;
 
-use crate::metadata::UserRecord;
+use crate::metadata::{MetadataDb, UserRecord};
 use crate::stripe_client_service::StripeClientService;
 use crate::subscription::SubscriptionTier;
 
@@ -30,6 +31,8 @@ pub struct StripeBilling {
     webhook_secret: String,
     // Cache full pricing info loaded from Stripe on startup
     cached_pricing: PricingInfo,
+    // Metadata database for user lookups during webhook processing
+    metadata_db: Arc<MetadataDb>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -80,7 +83,7 @@ pub struct FrontendPriceInfo {
 }
 
 impl StripeBilling {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(metadata_db: Arc<MetadataDb>) -> Result<Self> {
         let secret_key = std::env::var("STRIPE_SECRET_KEY")
             .map_err(|_| anyhow::anyhow!("STRIPE_SECRET_KEY environment variable not set"))?;
 
@@ -96,6 +99,7 @@ impl StripeBilling {
                 tiers: Vec::new(),
                 yearly_discount_percent: None,
             },
+            metadata_db,
         };
 
         // Load products and prices from Stripe on startup
@@ -626,8 +630,102 @@ impl StripeBilling {
         if let Some(event_type) = &event.r#type {
             match event_type.as_str() {
                 "customer.subscription.trial_will_end" => {
-                    // Fired 3 days before trial ends - we can notify the user
+                    // Fired 3 days before trial ends - send notification to user
                     tracing::info!("⏰ Trial ending soon for subscription");
+
+                    if let Some(data) = &event.data {
+                        if let Some(subscription_obj) = &data.object {
+                            if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(
+                                subscription_obj.clone(),
+                            ) {
+                                let customer_id =
+                                    subscription.get("customer").and_then(|c| c.as_str());
+                                let trial_end =
+                                    subscription.get("trial_end").and_then(|t| t.as_i64());
+
+                                tracing::info!("📧 Processing trial_will_end - Customer: {:?}, Trial end: {:?}",
+                                    customer_id, trial_end);
+
+                                if let (Some(customer_id), Some(trial_end_timestamp)) =
+                                    (customer_id, trial_end)
+                                {
+                                    // Look up user by Stripe customer ID
+                                    match self
+                                        .metadata_db
+                                        .get_user_by_stripe_customer_id(customer_id)
+                                        .await
+                                    {
+                                        Ok(Some(user)) if user.email_verified => {
+                                            // Format trial end date for email
+                                            let trial_ends_at = chrono::DateTime::from_timestamp(
+                                                trial_end_timestamp,
+                                                0,
+                                            )
+                                            .map(|dt| dt.format("%B %d, %Y").to_string())
+                                            .unwrap_or_else(|| "soon".to_string());
+
+                                            let user_name =
+                                                user.name.as_deref().unwrap_or(&user.email);
+
+                                            // Attempt to send email notification
+                                            use crate::email_service::EmailService;
+                                            match EmailService::from_env() {
+                                                Ok(email_service) => {
+                                                    match email_service
+                                                        .send_trial_ending_notification(
+                                                            &user.email,
+                                                            user_name,
+                                                            &trial_ends_at,
+                                                        )
+                                                        .await
+                                                    {
+                                                        Ok(_) => {
+                                                            tracing::info!(
+                                                                "✅ Trial ending notification sent to {}",
+                                                                user.email
+                                                            );
+                                                        }
+                                                        Err(e) => {
+                                                            tracing::error!(
+                                                                "❌ Failed to send trial ending notification to {}: {}",
+                                                                user.email,
+                                                                e
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    tracing::warn!(
+                                                        "⚠️  Email service not configured, skipping trial ending notification: {}",
+                                                        e
+                                                    );
+                                                }
+                                            }
+                                        }
+                                        Ok(Some(user)) => {
+                                            tracing::info!(
+                                                "⏭️  User {} email not verified, skipping trial ending notification",
+                                                user.email
+                                            );
+                                        }
+                                        Ok(None) => {
+                                            tracing::warn!(
+                                                "⚠️  No user found for Stripe customer {}",
+                                                customer_id
+                                            );
+                                        }
+                                        Err(e) => {
+                                            tracing::error!(
+                                                "❌ Error looking up user by Stripe customer {}: {}",
+                                                customer_id,
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 "checkout.session.completed" => {
                     if let Some(data) = &event.data {
@@ -684,7 +782,11 @@ impl StripeBilling {
                                     .and_then(|arr| arr.first())
                                     .and_then(|item| item.get("current_period_end"))
                                     .and_then(|t| t.as_i64())
-                                    .or_else(|| subscription.get("current_period_end").and_then(|t| t.as_i64()));
+                                    .or_else(|| {
+                                        subscription
+                                            .get("current_period_end")
+                                            .and_then(|t| t.as_i64())
+                                    });
 
                                 let customer_id =
                                     subscription.get("customer").and_then(|c| c.as_str());
@@ -756,10 +858,15 @@ impl StripeBilling {
                                     .and_then(|arr| arr.first())
                                     .and_then(|item| item.get("current_period_end"))
                                     .and_then(|t| t.as_i64())
-                                    .or_else(|| subscription.get("current_period_end").and_then(|t| t.as_i64()));
+                                    .or_else(|| {
+                                        subscription
+                                            .get("current_period_end")
+                                            .and_then(|t| t.as_i64())
+                                    });
 
-                                let cancel_at_period_end =
-                                    subscription.get("cancel_at_period_end").and_then(|b| b.as_bool());
+                                let cancel_at_period_end = subscription
+                                    .get("cancel_at_period_end")
+                                    .and_then(|b| b.as_bool());
                                 let cancel_at =
                                     subscription.get("cancel_at").and_then(|t| t.as_i64());
 
@@ -817,9 +924,8 @@ impl StripeBilling {
 
                                         // Convert current_period_end timestamp to ISO string
                                         // Use cancel_at if available (set when cancel_at_period_end is true)
-                                        let subscription_ends_at = cancel_at
-                                            .or(current_period_end)
-                                            .map(|ts| {
+                                        let subscription_ends_at =
+                                            cancel_at.or(current_period_end).map(|ts| {
                                                 chrono::DateTime::from_timestamp(ts, 0)
                                                     .map(|dt| dt.to_rfc3339())
                                                     .unwrap_or_default()
@@ -869,10 +975,15 @@ impl StripeBilling {
                                 tracing::info!("🗑️ Subscription deleted - Customer: {:?}, Subscription: {:?}, Status: {:?}",
                                     customer_id, deleted_subscription_id, status);
 
-                                if let (Some(customer_id), Some(deleted_subscription_id)) = (customer_id, deleted_subscription_id) {
+                                if let (Some(customer_id), Some(deleted_subscription_id)) =
+                                    (customer_id, deleted_subscription_id)
+                                {
                                     // Create a conditional update that the API layer will verify
                                     let update = SubscriptionUpdate {
-                                        user_id: format!("stripe_customer:{}:{}", customer_id, deleted_subscription_id),
+                                        user_id: format!(
+                                            "stripe_customer:{}:{}",
+                                            customer_id, deleted_subscription_id
+                                        ),
                                         subscription_tier: "team".to_string(), // Keep current tier
                                         subscription_status: "expired".to_string(),
                                         stripe_subscription_id: None, // Clear subscription ID
@@ -1000,7 +1111,8 @@ impl StripeBilling {
                 // This is a fallback - metadata should normally contain this info
                 if let Some(amount) = session.amount_total {
                     // Yearly subscriptions are typically > $100 (e.g., $108 for Personal yearly)
-                    billing_period = Some(if amount > 10000 { "yearly" } else { "monthly" }.to_string());
+                    billing_period =
+                        Some(if amount > 10000 { "yearly" } else { "monthly" }.to_string());
                 }
             }
         }
