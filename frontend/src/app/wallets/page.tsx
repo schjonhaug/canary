@@ -49,7 +49,7 @@ export default function WalletsPage() {
     }
   }, [isSaasMode, isAuthenticated, authLoading, router])
 
-  // Show loading state while auth or wallets are loading
+  // Show loading spinner while auth or wallets are loading
   if (authLoading || walletsLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -121,7 +121,7 @@ export default function WalletsPage() {
                 </div>
               </div>
             </div>
-            <WalletCards 
+            <WalletCards
               wallets={wallets}
               error={error}
               lastUpdate={lastUpdate}
