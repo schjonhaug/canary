@@ -9,6 +9,7 @@ interface WalletsContextType {
   error: string | null
   lastUpdate: number | null
   isConnected: boolean
+  isLoading: boolean
   onAddWallet: () => void
   currentWallet?: Wallet | null
   setCurrentWallet?: (wallet: Wallet | null) => void

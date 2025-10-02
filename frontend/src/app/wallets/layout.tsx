@@ -32,7 +32,7 @@ export default function WalletsLayout({
   
   // Only fetch wallets list on the main wallets page, not on detail pages
   const shouldFetchWallets = pathname === '/wallets'
-  const { wallets, error, lastUpdate, isConnected, refresh: refetchWallets, addWallet } = useWalletsList(shouldFetchWallets)
+  const { wallets, error, lastUpdate, isConnected, isLoading, refresh: refetchWallets, addWallet } = useWalletsList(shouldFetchWallets)
   
   // Load SVG when current wallet data is available for detail pages
   useEffect(() => {
@@ -88,7 +88,7 @@ export default function WalletsLayout({
       />
 
       {/* Pass wallet data to children via React context or props */}
-      <WalletsContext.Provider value={{ wallets, error, lastUpdate, isConnected, onAddWallet: handleAddWallet, currentWallet, setCurrentWallet }}>
+      <WalletsContext.Provider value={{ wallets, error, lastUpdate, isConnected, isLoading, onAddWallet: handleAddWallet, currentWallet, setCurrentWallet }}>
         {children}
       </WalletsContext.Provider>
 

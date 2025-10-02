@@ -12,8 +12,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
-  const { wallets, error, lastUpdate, isConnected, onAddWallet } = useWalletsContext()
-  const { isAuthenticated, isLoading, user, isSaasMode } = useAuth()
+  const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading, onAddWallet } = useWalletsContext()
+  const { isAuthenticated, isLoading: authLoading, user, isSaasMode } = useAuth()
   const router = useRouter()
 
   // Set page title
@@ -44,13 +44,13 @@ export default function WalletsPage() {
 
   // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
-    if (isSaasMode && !isLoading && !isAuthenticated) {
+    if (isSaasMode && !authLoading && !isAuthenticated) {
       router.push('/sign-in')
     }
-  }, [isSaasMode, isAuthenticated, isLoading, router])
+  }, [isSaasMode, isAuthenticated, authLoading, router])
 
-  // Show loading state while auth is loading
-  if (isLoading) {
+  // Show loading state while auth or wallets are loading
+  if (authLoading || walletsLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
