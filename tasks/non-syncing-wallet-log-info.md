@@ -1,0 +1,1 @@
+When trial accounts expire (or people dont resubscribe), their wallets will not be synced. We need to print information about this in the log so we can see how many wallets are not synced.
