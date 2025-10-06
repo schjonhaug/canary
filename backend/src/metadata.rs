@@ -1756,7 +1756,7 @@ impl MetadataDb {
                                 w.user_id, w.is_active
                          FROM wallets w
                          LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
-                         WHERE w.is_active = 1 AND w.status = 'ready'
+                         WHERE w.status = 'ready'
                          GROUP BY w.checksum, w.name, w.descriptor, w.hex_color,
                                   w.created_at, w.balance_total, w.status,
                                   w.user_id, w.is_active
