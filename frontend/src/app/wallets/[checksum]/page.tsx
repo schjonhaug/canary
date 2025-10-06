@@ -287,7 +287,9 @@ export default function WalletDetailPage() {
           <AlertTriangle className="h-4 w-4 text-orange-600" />
           <AlertTitle className="text-orange-700">Wallet Inactive</AlertTitle>
           <AlertDescription className="text-orange-600">
-            This wallet exceeds your subscription tier limits and won&apos;t sync automatically. 
+            {billingStatus?.subscription_status === 'expired'
+              ? "Your subscription has expired - wallet won't sync automatically."
+              : "This wallet exceeds your subscription tier limits and won't sync automatically."}{' '}
             Transaction history and balance shown may be outdated.
             <span className="block mt-2">
               <Link href="/settings/subscription">

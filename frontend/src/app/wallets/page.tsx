@@ -13,7 +13,7 @@ import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
   const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading, onAddWallet } = useWalletsContext()
-  const { isAuthenticated, isLoading: authLoading, user, isSaasMode } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user, isSaasMode, billingStatus } = useAuth()
   const router = useRouter()
 
   // Set page title
@@ -125,6 +125,7 @@ export default function WalletsPage() {
               wallets={wallets}
               error={error}
               lastUpdate={lastUpdate}
+              subscriptionStatus={billingStatus?.subscription_status}
             />
           </section>
 

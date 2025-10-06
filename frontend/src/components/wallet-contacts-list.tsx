@@ -17,7 +17,7 @@ interface WalletContactsListProps {
 export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated, isWalletActive = true }: WalletContactsListProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
-  const { user, isSaasMode } = useAuth()
+  const { user, isSaasMode, billingStatus } = useAuth()
 
   // All notification methods are available for all tiers - no need to check provider type
 
@@ -83,7 +83,9 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                 </div>
                 {shouldShowInactiveState && (
                   <div className="text-xs text-orange-600 mb-1">
-                    This contact exceeds your subscription tier limits and won&apos;t receive notifications
+                    {billingStatus?.subscription_status === 'expired'
+                      ? "Your subscription has expired - contact won't receive notifications"
+                      : "This contact exceeds your subscription tier limits and won't receive notifications"}
                   </div>
                 )}
                 <div className="space-y-1">
