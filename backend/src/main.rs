@@ -417,6 +417,43 @@ async fn main() -> anyhow::Result<()> {
                 drop(manager);
             }
         });
+
+        // Log non-syncing wallets summary at startup (SAAS mode only)
+        let startup_wallet_manager = Arc::clone(&wallet_manager);
+        tokio::spawn(async move {
+            // Wait a moment for sync tasks to start
+            tokio::time::sleep(Duration::from_secs(2)).await;
+
+            let manager = startup_wallet_manager.lock().await;
+            if let Ok(non_syncing_summary) = manager.metadata_db.get_non_syncing_wallets_summary().await {
+                if non_syncing_summary.total_non_syncing > 0 {
+                    let mut reasons = Vec::new();
+                    if non_syncing_summary.expired_trials > 0 {
+                        reasons.push(format!("{} expired trials", non_syncing_summary.expired_trials));
+                    }
+                    if non_syncing_summary.cancelled_subscriptions > 0 {
+                        reasons.push(format!("{} cancelled", non_syncing_summary.cancelled_subscriptions));
+                    }
+                    if non_syncing_summary.expired_subscriptions > 0 {
+                        reasons.push(format!("{} expired", non_syncing_summary.expired_subscriptions));
+                    }
+                    if non_syncing_summary.past_due_subscriptions > 0 {
+                        reasons.push(format!("{} past_due", non_syncing_summary.past_due_subscriptions));
+                    }
+                    if non_syncing_summary.inactive_wallets > 0 {
+                        reasons.push(format!("{} inactive (tier limits)", non_syncing_summary.inactive_wallets));
+                    }
+
+                    println!(
+                        "🔒 Startup subscription status: {} wallets not syncing ({})",
+                        non_syncing_summary.total_non_syncing,
+                        reasons.join(", ")
+                    );
+                } else {
+                    println!("✅ All wallets have active subscriptions");
+                }
+            }
+        });
     }
 
     // Block header sync task (mode-aware frequency)

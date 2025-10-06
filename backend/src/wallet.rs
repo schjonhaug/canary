@@ -810,6 +810,34 @@ impl WalletManager {
             .get_wallets_for_tier_sync(&tier, &network_config)
             .await?;
 
+        // Get summary of non-syncing wallets
+        if let Ok(non_syncing_summary) = self.metadata_db.get_non_syncing_wallets_summary().await {
+            if non_syncing_summary.total_non_syncing > 0 {
+                let mut reasons = Vec::new();
+                if non_syncing_summary.expired_trials > 0 {
+                    reasons.push(format!("{} expired trials", non_syncing_summary.expired_trials));
+                }
+                if non_syncing_summary.cancelled_subscriptions > 0 {
+                    reasons.push(format!("{} cancelled", non_syncing_summary.cancelled_subscriptions));
+                }
+                if non_syncing_summary.expired_subscriptions > 0 {
+                    reasons.push(format!("{} expired", non_syncing_summary.expired_subscriptions));
+                }
+                if non_syncing_summary.past_due_subscriptions > 0 {
+                    reasons.push(format!("{} past_due", non_syncing_summary.past_due_subscriptions));
+                }
+                if non_syncing_summary.inactive_wallets > 0 {
+                    reasons.push(format!("{} inactive", non_syncing_summary.inactive_wallets));
+                }
+
+                info!(
+                    "🔒 Subscription status: {} wallets not syncing ({})",
+                    non_syncing_summary.total_non_syncing,
+                    reasons.join(", ")
+                );
+            }
+        }
+
         if tier_wallets.is_empty() {
             debug!("No {:?} tier wallets to sync", tier);
             return Ok(());

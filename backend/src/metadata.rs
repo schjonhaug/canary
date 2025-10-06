@@ -307,6 +307,16 @@ pub struct WalletDetailResponse {
 }
 
 #[derive(Debug, Clone)]
+pub struct NonSyncingWalletsSummary {
+    pub expired_trials: usize,
+    pub cancelled_subscriptions: usize,
+    pub expired_subscriptions: usize,
+    pub past_due_subscriptions: usize,
+    pub inactive_wallets: usize,
+    pub total_non_syncing: usize,
+}
+
+#[derive(Debug, Clone)]
 pub struct TransactionInsert {
     pub txid: String, // Bitcoin transaction ID (hash)
     pub wallet_checksum: String,
@@ -1738,6 +1748,86 @@ impl MetadataDb {
             }
 
             Ok(due_wallets)
+        })
+        .await?
+    }
+
+    /// Get summary of wallets that are not being synced due to subscription issues
+    pub async fn get_non_syncing_wallets_summary(&self) -> Result<NonSyncingWalletsSummary> {
+        let pool = self.pool.clone();
+
+        spawn_blocking(move || -> Result<NonSyncingWalletsSummary> {
+            let conn = pool.get()?;
+
+            // Count expired trials (trialing but past trial_ends_at)
+            let expired_trials: usize = conn.query_row(
+                "SELECT COUNT(DISTINCT w.checksum)
+                 FROM wallets w
+                 JOIN users u ON w.user_id = u.id
+                 WHERE w.is_active = 1 AND w.status = 'ready'
+                   AND u.is_admin = 0
+                   AND u.subscription_status = 'trialing'
+                   AND datetime(u.trial_ends_at) <= datetime('now')",
+                [],
+                |row| row.get(0)
+            )?;
+
+            // Count cancelled subscriptions (cancelled and past subscription_ends_at)
+            let cancelled_subscriptions: usize = conn.query_row(
+                "SELECT COUNT(DISTINCT w.checksum)
+                 FROM wallets w
+                 JOIN users u ON w.user_id = u.id
+                 WHERE w.is_active = 1 AND w.status = 'ready'
+                   AND u.is_admin = 0
+                   AND u.subscription_status = 'canceled'
+                   AND (u.subscription_ends_at IS NULL OR datetime(u.subscription_ends_at) <= datetime('now'))",
+                [],
+                |row| row.get(0)
+            )?;
+
+            // Count expired subscriptions
+            let expired_subscriptions: usize = conn.query_row(
+                "SELECT COUNT(DISTINCT w.checksum)
+                 FROM wallets w
+                 JOIN users u ON w.user_id = u.id
+                 WHERE w.is_active = 1 AND w.status = 'ready'
+                   AND u.is_admin = 0
+                   AND u.subscription_status = 'expired'",
+                [],
+                |row| row.get(0)
+            )?;
+
+            // Count past_due subscriptions
+            let past_due_subscriptions: usize = conn.query_row(
+                "SELECT COUNT(DISTINCT w.checksum)
+                 FROM wallets w
+                 JOIN users u ON w.user_id = u.id
+                 WHERE w.is_active = 1 AND w.status = 'ready'
+                   AND u.is_admin = 0
+                   AND u.subscription_status = 'past_due'",
+                [],
+                |row| row.get(0)
+            )?;
+
+            // Count inactive wallets (due to tier limits)
+            let inactive_wallets: usize = conn.query_row(
+                "SELECT COUNT(*)
+                 FROM wallets w
+                 WHERE w.is_active = 0 AND w.status = 'ready'",
+                [],
+                |row| row.get(0)
+            )?;
+
+            let total_non_syncing = expired_trials + cancelled_subscriptions + expired_subscriptions + past_due_subscriptions + inactive_wallets;
+
+            Ok(NonSyncingWalletsSummary {
+                expired_trials,
+                cancelled_subscriptions,
+                expired_subscriptions,
+                past_due_subscriptions,
+                inactive_wallets,
+                total_non_syncing,
+            })
         })
         .await?
     }
