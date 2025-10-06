@@ -1,8 +1,7 @@
-use crate::email_service::EmailService;
+use crate::email_service::{BatchEmailRequest, EmailService};
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionNotification};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
-use anyhow::Result;
 use async_trait::async_trait;
 use serde_json;
 
@@ -33,8 +32,38 @@ impl NotificationProvider for EmailProvider {
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
+        // If no email service configured, return early
+        let Some(email_service) = &self.email_service else {
+            // Return error for all email methods
+            for contact in contacts {
+                for method in contact
+                    .notification_methods
+                    .iter()
+                    .filter(|m| matches!(m.provider_type, ProviderType::Email))
+                {
+                    let message = MessageFormatter::create_localized_message(
+                        notification,
+                        wallet_name,
+                        &contact.language,
+                    );
+                    results.push((
+                        method.clone(),
+                        NotificationResult {
+                            success: false,
+                            provider_id: Some("email".to_string()),
+                            error_message: Some("Resend not configured".to_string()),
+                        },
+                        message,
+                    ));
+                }
+            }
+            return results;
+        };
+
+        // Collect all email data for batch sending
+        let mut batch_data = Vec::new();
+
         for contact in contacts {
-            // Find email notification methods for this contact
             let email_methods: Vec<&NotificationMethod> = contact
                 .notification_methods
                 .iter()
@@ -47,101 +76,93 @@ impl NotificationProvider for EmailProvider {
                     wallet_name,
                     &contact.language,
                 );
-                let email_address = &method.notification_target;
 
-                let result = if let Some(email_service) = &self.email_service {
-                    match notification {
-                        TransactionNotification::Pending(tx)
-                        | TransactionNotification::Confirmed(tx) => {
-                            // Clone data for background task
-                            let email_service_clone = email_service.clone();
-                            let email_address = email_address.to_string();
-                            let contact_name = contact.name.clone();
-                            let wallet_name = wallet_name.to_string();
-                            let transaction_clone = tx.clone();
-                            let message_clone = message.clone();
-                            let _method_id = method.id.clone();
+                // Build email subject and body based on notification type
+                let (subject, html_body, text_body) = match notification {
+                    TransactionNotification::Pending(tx)
+                    | TransactionNotification::Confirmed(tx) => {
+                        let (subject_prefix, emoji) = match tx.transaction_type {
+                            crate::metadata::EventType::Receive => ("Bitcoin Received", "💰"),
+                            crate::metadata::EventType::Send => ("Bitcoin Sent", "📤"),
+                        };
+                        let subject = format!("{} {} - {}", emoji, subject_prefix, wallet_name);
 
-                            // Spawn background task for email sending - don't wait for it
-                            tokio::spawn(async move {
-                                match Self::send_transaction_email_static(
-                                    &email_service_clone,
-                                    &email_address,
-                                    &contact_name,
-                                    &wallet_name,
-                                    &transaction_clone,
-                                    &message_clone,
-                                )
-                                .await
-                                {
-                                    Ok(_) => {
-                                        // Email success will be logged in main summary
-                                    }
-                                    Err(e) => {
-                                        eprintln!(
-                                            "❌ Failed to send email to {}: {}",
-                                            email_address, e
-                                        );
-                                    }
-                                }
-                            });
+                        let html_body = Self::build_transaction_html(
+                            &subject,
+                            emoji,
+                            &contact.name,
+                            &message,
+                            &tx.wallet_checksum,
+                        );
 
-                            // Return success immediately - email will be sent in background
-                            NotificationResult {
-                                success: true,
-                                provider_id: Some("email".to_string()),
-                                error_message: None,
-                            }
-                        }
-                        TransactionNotification::BalanceAlert(_alert) => {
-                            // Clone data for background task
-                            let email_service_clone = email_service.clone();
-                            let email_address = email_address.to_string();
-                            let contact_name = contact.name.clone();
-                            let wallet_name = wallet_name.to_string();
-                            let message_clone = message.clone();
+                        let text_body = Self::build_transaction_text(
+                            &subject,
+                            &contact.name,
+                            &message,
+                            &tx.wallet_checksum,
+                        );
 
-                            // Spawn background task for balance alert email sending
-                            tokio::spawn(async move {
-                                match Self::send_balance_alert_email_static(
-                                    &email_service_clone,
-                                    &email_address,
-                                    &contact_name,
-                                    &wallet_name,
-                                    &message_clone,
-                                )
-                                .await
-                                {
-                                    Ok(_) => {
-                                        // Email success will be logged in main summary
-                                    }
-                                    Err(e) => {
-                                        eprintln!(
-                                            "❌ Failed to send balance alert email to {}: {}",
-                                            email_address, e
-                                        );
-                                    }
-                                }
-                            });
-
-                            // Return success immediately - email will be sent in background
-                            NotificationResult {
-                                success: true,
-                                provider_id: Some("email".to_string()),
-                                error_message: None,
-                            }
-                        }
+                        (subject, html_body, text_body)
                     }
-                } else {
-                    NotificationResult {
-                        success: false,
-                        provider_id: Some("email".to_string()),
-                        error_message: Some("Resend not configured".to_string()),
+                    TransactionNotification::BalanceAlert(_) => {
+                        let subject = format!("📊 Balance Alert - {}", wallet_name);
+                        let html_body = Self::build_balance_alert_html(wallet_name, &contact.name, &message);
+                        let text_body = Self::build_balance_alert_text(wallet_name, &contact.name, &message);
+                        (subject, html_body, text_body)
                     }
                 };
 
-                results.push((method.clone(), result, message));
+                batch_data.push((
+                    method.clone(),
+                    message.clone(),
+                    BatchEmailRequest {
+                        to_email: method.notification_target.clone(),
+                        to_name: contact.name.clone(),
+                        subject,
+                        html_body,
+                        text_body,
+                    },
+                ));
             }
+        }
+
+        // If no emails to send, return empty
+        if batch_data.is_empty() {
+            return results;
+        }
+
+        // Clone email service for background task
+        let email_service_clone = email_service.clone();
+        let batch_requests: Vec<BatchEmailRequest> = batch_data.iter().map(|(_, _, req)| req.clone()).collect();
+
+        // Spawn background task for batch email sending
+        tokio::spawn(async move {
+            let batch_results = email_service_clone.send_batch_emails(batch_requests).await;
+
+            // Log results
+            for (idx, result) in batch_results.iter().enumerate() {
+                match result {
+                    Ok(_email_id) => {
+                        // Success - email sent
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Failed to send batch email {}: {}", idx, e);
+                    }
+                }
+            }
+        });
+
+        // Return success immediately for all methods - emails will be sent in background
+        for (method, message, _) in batch_data {
+            results.push((
+                method,
+                NotificationResult {
+                    success: true,
+                    provider_id: Some("email".to_string()),
+                    error_message: None,
+                },
+                message,
+            ));
         }
 
         results
@@ -168,57 +189,15 @@ impl NotificationProvider for EmailProvider {
 }
 
 impl EmailProvider {
-    // Static version for use in spawned tasks
-    async fn send_transaction_email_static(
-        email_service: &EmailService,
-        to_email: &str,
+    // Helper method to build transaction email HTML
+    fn build_transaction_html(
+        subject: &str,
+        emoji: &str,
         to_name: &str,
-        wallet_name: &str,
-        transaction: &crate::metadata::Transaction,
         message: &str,
-    ) -> Result<()> {
-        Self::send_transaction_email_impl(
-            email_service,
-            to_email,
-            to_name,
-            wallet_name,
-            transaction,
-            message,
-        )
-        .await
-    }
-
-    // Static version for balance alerts
-    async fn send_balance_alert_email_static(
-        email_service: &EmailService,
-        to_email: &str,
-        to_name: &str,
-        wallet_name: &str,
-        message: &str,
-    ) -> Result<()> {
-        Self::send_balance_alert_email_impl(email_service, to_email, to_name, wallet_name, message)
-            .await
-    }
-
-    // Shared implementation
-    async fn send_transaction_email_impl(
-        email_service: &EmailService,
-        to_email: &str,
-        to_name: &str,
-        wallet_name: &str,
-        transaction: &crate::metadata::Transaction,
-        message: &str,
-    ) -> Result<()> {
-        // Determine the type of transaction
-        let (subject, emoji) = match transaction.transaction_type {
-            crate::metadata::EventType::Receive => ("Bitcoin Received", "💰"),
-            crate::metadata::EventType::Send => ("Bitcoin Sent", "📤"),
-        };
-
-        let subject = format!("{} {} - {}", emoji, subject, wallet_name);
-
-        // Create HTML body with better formatting
-        let html_body = format!(
+        wallet_checksum: &str,
+    ) -> String {
+        format!(
             r#"
             <!DOCTYPE html>
             <html>
@@ -239,7 +218,7 @@ impl EmailProvider {
                         Wallet: {}
                     </p>
                 </div>
-                
+
                 <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
                     <p>This notification was sent by Canary Wallet</p>
                 </div>
@@ -250,35 +229,30 @@ impl EmailProvider {
             emoji,
             to_name,
             message,
-            &transaction.wallet_checksum[..8] // Show first 8 chars of wallet checksum
-        );
+            &wallet_checksum[..8] // Show first 8 chars of wallet checksum
+        )
+    }
 
-        let text_body = format!(
+    // Helper method to build transaction email text
+    fn build_transaction_text(
+        subject: &str,
+        to_name: &str,
+        message: &str,
+        wallet_checksum: &str,
+    ) -> String {
+        format!(
             "{}\n\nHi {},\n\n{}\n\nWallet: {}\n\nThis notification was sent by Canary Wallet",
             subject,
             to_name,
             message,
-            &transaction.wallet_checksum[..8]
-        );
-
-        // Send using the Resend email service
-        email_service
-            .send_transaction_notification(to_email, to_name, &subject, &html_body, &text_body)
-            .await
+            &wallet_checksum[..8]
+        )
     }
 
-    // Shared implementation for balance alerts
-    async fn send_balance_alert_email_impl(
-        email_service: &EmailService,
-        to_email: &str,
-        to_name: &str,
-        wallet_name: &str,
-        message: &str,
-    ) -> Result<()> {
+    // Helper method to build balance alert email HTML
+    fn build_balance_alert_html(wallet_name: &str, to_name: &str, message: &str) -> String {
         let subject = format!("📊 Balance Alert - {}", wallet_name);
-
-        // Create HTML body for balance alert
-        let html_body = format!(
+        format!(
             r#"
             <!DOCTYPE html>
             <html>
@@ -304,16 +278,15 @@ impl EmailProvider {
             </html>
             "#,
             subject, wallet_name, to_name, message
-        );
+        )
+    }
 
-        let text_body = format!(
+    // Helper method to build balance alert email text
+    fn build_balance_alert_text(wallet_name: &str, to_name: &str, message: &str) -> String {
+        let subject = format!("📊 Balance Alert - {}", wallet_name);
+        format!(
             "{}\n\nHi {},\n\n{}\n\nWallet: {}\n\nThis notification was sent by Canary Wallet",
             subject, to_name, message, wallet_name
-        );
-
-        // Send using the Resend email service
-        email_service
-            .send_transaction_notification(to_email, to_name, &subject, &html_body, &text_body)
-            .await
+        )
     }
 }
