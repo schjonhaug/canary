@@ -219,10 +219,12 @@ export default function BillingPage() {
                 Your subscription has expired. Wallet syncing has stopped completely, but your data is preserved.
               </div>
               <Button
-                onClick={() => setShowUpgradeModal(true)}
+                onClick={handleManageBilling}
+                disabled={isPortalLoading}
                 size="sm"
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
+                {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Reactivate Subscription
               </Button>
             </div>
