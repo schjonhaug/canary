@@ -187,9 +187,13 @@ impl AppServices {
         tier: &str,
         subscription_status: &str,
         is_admin: bool,
+        trial_ends_at: Option<String>,
     ) -> Result<(), anyhow::Error> {
         // Check if subscription has expired or failed payment
-        let is_subscription_active = matches!(subscription_status, "trialing" | "active");
+        let is_subscription_active = crate::saas::subscription::is_subscription_active(
+            subscription_status,
+            trial_ends_at.as_deref(),
+        );
 
         if is_admin {
             tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
@@ -4412,10 +4416,16 @@ pub async fn get_billing_status(
         sync_interval_seconds: actual_sync_interval,
     };
 
+    // Check if trial has expired and update status accordingly
+    let effective_subscription_status = crate::saas::subscription::get_effective_subscription_status(
+        &user_record.subscription_status,
+        user_record.trial_ends_at.as_deref(),
+    );
+
     let response = BillingStatusResponse {
         user_id: user.user_id.clone(),
         subscription_tier: user_record.subscription_tier.as_str().to_string(),
-        subscription_status: user_record.subscription_status,
+        subscription_status: effective_subscription_status,
         trial_ends_at: user_record.trial_ends_at,
         subscription_started_at: user_record.subscription_started_at,
         subscription_ends_at: user_record.subscription_ends_at,
@@ -4702,6 +4712,7 @@ pub async fn handle_stripe_webhook(
                                         &update.subscription_tier,
                                         &update.subscription_status,
                                         user_record.is_admin,
+                                        user_record.trial_ends_at.clone(),
                                     )
                                     .await
                                 {

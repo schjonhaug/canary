@@ -155,6 +155,46 @@ impl std::fmt::Display for LimitError {
 
 impl std::error::Error for LimitError {}
 
+/// Check if a subscription is currently active
+///
+/// A subscription is active if:
+/// - Status is "active", OR
+/// - Status is "trialing" AND trial_ends_at is in the future
+pub fn is_subscription_active(subscription_status: &str, trial_ends_at: Option<&str>) -> bool {
+    if subscription_status == "trialing" {
+        if let Some(trial_ends_at_str) = trial_ends_at {
+            // Parse trial_ends_at and check if it's in the future
+            if let Ok(trial_ends_at) = chrono::NaiveDateTime::parse_from_str(trial_ends_at_str, "%Y-%m-%d %H:%M:%S") {
+                let now = chrono::Utc::now().naive_utc();
+                trial_ends_at > now // Active if trial hasn't ended yet
+            } else {
+                true // If parse fails, assume active (shouldn't happen)
+            }
+        } else {
+            true // If no trial_ends_at, assume active
+        }
+    } else {
+        subscription_status == "active"
+    }
+}
+
+/// Get the effective subscription status for display
+///
+/// Returns "expired" if trial has ended, otherwise returns the original status
+pub fn get_effective_subscription_status(subscription_status: &str, trial_ends_at: Option<&str>) -> String {
+    if subscription_status == "trialing" {
+        if let Some(trial_ends_at_str) = trial_ends_at {
+            if let Ok(trial_ends_at) = chrono::NaiveDateTime::parse_from_str(trial_ends_at_str, "%Y-%m-%d %H:%M:%S") {
+                let now = chrono::Utc::now().naive_utc();
+                if trial_ends_at < now {
+                    return "expired".to_string();
+                }
+            }
+        }
+    }
+    subscription_status.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,6 +226,67 @@ mod tests {
             SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
         assert_eq!(personal, 600); // Mainnet default for Personal
         assert_eq!(team, 120); // Mainnet default for Team
+    }
+
+    #[test]
+    fn test_is_subscription_active_with_active_status() {
+        assert!(is_subscription_active("active", None));
+        assert!(is_subscription_active("active", Some("2025-01-01 00:00:00")));
+    }
+
+    #[test]
+    fn test_is_subscription_active_with_valid_trial() {
+        // Trial ends in the future
+        let future_date = chrono::Utc::now().naive_utc() + chrono::Duration::days(30);
+        let future_str = future_date.format("%Y-%m-%d %H:%M:%S").to_string();
+        assert!(is_subscription_active("trialing", Some(&future_str)));
+    }
+
+    #[test]
+    fn test_is_subscription_active_with_expired_trial() {
+        // Trial ended in the past
+        let past_date = chrono::Utc::now().naive_utc() - chrono::Duration::days(30);
+        let past_str = past_date.format("%Y-%m-%d %H:%M:%S").to_string();
+        assert!(!is_subscription_active("trialing", Some(&past_str)));
+    }
+
+    #[test]
+    fn test_is_subscription_active_with_other_statuses() {
+        assert!(!is_subscription_active("expired", None));
+        assert!(!is_subscription_active("canceled", None));
+        assert!(!is_subscription_active("past_due", None));
+        assert!(!is_subscription_active("pending", None));
+    }
+
+    #[test]
+    fn test_get_effective_subscription_status_active() {
+        assert_eq!(get_effective_subscription_status("active", None), "active");
+    }
+
+    #[test]
+    fn test_get_effective_subscription_status_valid_trial() {
+        let future_date = chrono::Utc::now().naive_utc() + chrono::Duration::days(30);
+        let future_str = future_date.format("%Y-%m-%d %H:%M:%S").to_string();
+        assert_eq!(
+            get_effective_subscription_status("trialing", Some(&future_str)),
+            "trialing"
+        );
+    }
+
+    #[test]
+    fn test_get_effective_subscription_status_expired_trial() {
+        let past_date = chrono::Utc::now().naive_utc() - chrono::Duration::days(30);
+        let past_str = past_date.format("%Y-%m-%d %H:%M:%S").to_string();
+        assert_eq!(
+            get_effective_subscription_status("trialing", Some(&past_str)),
+            "expired"
+        );
+    }
+
+    #[test]
+    fn test_get_effective_subscription_status_other_statuses() {
+        assert_eq!(get_effective_subscription_status("expired", None), "expired");
+        assert_eq!(get_effective_subscription_status("canceled", None), "canceled");
     }
 }
 

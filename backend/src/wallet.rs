@@ -1022,9 +1022,13 @@ impl WalletManager {
         tier: &str,
         subscription_status: &str,
         is_admin: bool,
+        trial_ends_at: Option<String>,
     ) -> Result<(), anyhow::Error> {
         // Check if subscription has expired or failed payment
-        let is_subscription_active = matches!(subscription_status, "trialing" | "active");
+        let is_subscription_active = crate::saas::subscription::is_subscription_active(
+            subscription_status,
+            trial_ends_at.as_deref(),
+        );
 
         if is_admin {
             tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
