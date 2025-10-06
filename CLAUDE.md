@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, and optional email/password authentication with email verification.
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, optional email/password authentication with email verification, Stripe subscription billing, and balance alert notifications.
 
 ## Architecture
 Built with a **non-blocking web architecture** that separates wallet sync operations from web serving to ensure fast API responses. Features dual-state design with `AppServices` for immediate metadata access and `WalletManager` for background sync operations. Implements plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with email/password and email verification for multi-user support. SMS verification via Twilio Verify is still used for contact verification when adding SMS contacts. Uses polling-based frontend updates rather than server-sent events. **Tier-based serial sync** processes wallets by subscription tier with automatic cleanup of deleted wallets during sync cycles.
@@ -35,8 +35,9 @@ cd backend && CANARY_NETWORK=regtest CANARY_ELECTRUM_URL=tcp://127.0.0.1:50001 c
 
 # Build, test, lint
 cd backend && cargo build
-cd backend && cargo test -- --test-threads=1  # Unit tests only
-cd backend && cargo test --test high_index_scanning -- --ignored  # System tests (requires Docker)
+cd backend && cargo test -- --test-threads=1  # Unit + integration tests
+cd backend && cargo test --test balance_alert_scenarios -- --ignored --nocapture  # System tests (requires Docker)
+cd backend && cargo test --test mined_directly_scenarios -- --ignored --nocapture  # System tests
 cd backend && cargo fmt && cargo clippy
 ```
 
@@ -60,12 +61,13 @@ cd regtest-env && ./docker-utils.sh run-tests <wallet_address>
 ```
 canary/
 ├── backend/          # Rust service with BDK wallet management
-│   ├── src/         # All source code (api.rs, main.rs, wallet management, notifications, subscription.rs)
-│   ├── database/    # Network-specific SQLite databases (database/{network}/)
-│   ├── migrations/  # Database schema migrations (001_initial_schema.sql, 002_add_sync_status.sql, 003_add_deleted_status.sql, 004_add_verified_at.sql)
-│   ├── tests/       # Integration tests (stripe_integration_tests.rs)
-│   ├── tasks/       # Development tasks and documentation
-│   └── xpub-tools/  # XPUB conversion utilities
+│   ├── src/         # All source code (api.rs, main.rs, wallet.rs, metadata.rs, sync.rs, auth.rs, stripe_billing.rs, notification providers, etc.)
+│   ├── database-foss/    # FOSS mode SQLite databases (database-foss/{network}/)
+│   ├── database-saas/    # SAAS mode SQLite databases (database-saas/{network}/)
+│   ├── migrations/  # 12 database schema migrations (001-012)
+│   ├── tests/       # Integration tests (stripe_integration_tests.rs, balance_alerts_system_tests.rs, contact_duplicates_test.rs)
+│   ├── system_tests/     # End-to-end Docker-based tests (balance_alert_scenarios.rs, mined_directly_scenarios.rs, two_stage_send_scenarios.rs, etc.)
+│   └── tasks/       # Development tasks and documentation
 ├── frontend/        # Next.js app with React components
 │   ├── src/
 │   │   ├── app/        # Next.js 13+ app directory (pages, layouts, API routes)
@@ -118,6 +120,16 @@ canary/
 ### Blockchain Data
 - `GET /api/block-headers/current` - Get current block header from database
 
+### Balance Alerts
+- `POST /api/wallets/{checksum}/balance-alerts` - Create balance alert (threshold_sats + alert_type: above/below/equals)
+- `GET /api/wallets/{checksum}/balance-alerts` - List balance alerts for wallet
+- `PUT /api/wallets/{checksum}/balance-alerts/{alert_id}` - Update balance alert configuration
+- `POST /api/wallets/{checksum}/balance-alerts/{alert_id}/reactivate` - Manually reactivate a fired alert
+- `DELETE /api/wallets/{checksum}/balance-alerts/{alert_id}` - Delete balance alert
+- **Auto-disable**: Alerts automatically deactivate after firing, requiring manual reactivation
+- **Notification Integration**: Balance alerts use existing contact notification system
+- **Audit Trail**: Complete history of triggered alerts in `balance_alert_notifications` table
+
 ### Billing & Subscription Management  
 - `POST /api/stripe/checkout` - Create Stripe Checkout session for plan upgrades
 - `POST /api/stripe/portal` - Create Stripe Customer Portal session for subscription management
@@ -154,32 +166,47 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Frontend polling: 60 seconds (configurable via NEXT_PUBLIC_SYNC_INTERVAL)
 
 ## Key Features
+
+### Authentication & User Management
 - **Optional Authentication**: Email/password authentication with email verification
 - **Multi-user Support**: JWT-based sessions with user isolation when auth is enabled
-- **Subscription Tiers**: Two-tier system (Personal, Team) with capacity-based limits and all features enabled for both tiers
+- **Development Mode**: Pre-configured test accounts (delivered+admin@resend.dev, delivered+alice@resend.dev, delivered+bob@resend.dev) with password `password123`
+- **Clean Registration Flow**: Dedicated success page (/sign-up/success) with clear email verification instructions
+
+### Subscription & Billing
+- **Two-tier System**: Personal ($9/month) and Team ($29/month) with capacity-based limits
+- **Stripe Integration**: Native trial subscriptions, webhook-driven status updates, Customer Portal for management
 - **Proactive Limit Enforcement**: Smart upgrade modals prevent users from hitting limits after form completion
-- **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh, Twilio SMS, and Resend email
-- **Multiple Notification Methods**: Each contact can have multiple notification methods (SMS + email + ntfy + future: telegram + webhooks)
-- **Atomic Contact Updates**: PUT endpoint with database transactions prevents data loss during contact modifications
-- **Secure Verification System**: OTP verification for SMS/email with 30-minute validity windows and persistent completion tracking
-- **Multi-language Support**: Norwegian and English with proper Bitcoin amount formatting  
-- **Auto-detection**: Automatically detects provider type from contact address format (phone numbers → SMS, email addresses → email, topics → ntfy)
-- **Normalized Database**: Clean separation of contacts and notification methods for future extensibility
-- **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
-- **Environment Configuration**: Provider selection via .env variables, no database config needed
-- **Performance**: Async SQLite with r2d2 connection pooling
-- **Tier-based Sync**: Individual wallet sync intervals based on user's subscription tier (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
-- **Wallet Deletion**: Soft delete with automatic cleanup - wallets marked as deleted are removed from memory, disk, and database during next sync cycle
-- **Transaction Analysis**: RBF/CPFP detection, accurate timestamps
-- **Network Isolation**: Separate databases per Bitcoin network
-- **Deep Scanning & Script Detection**: Advanced wallet analysis that detects funds at high address indexes (200+) with fast API responses
-- **Dynamic Address Revelation**: Automatically reveals addresses to maintain stop gap, ensuring transactions at any index are detected
-- **Script Type Detection**: Intelligent detection of P2WPKH, P2SH, P2TR, P2PKH from XPUBs with defaults for fresh wallets
+- **Trial Management**: 30-day Team tier trial with automatic Stripe webhook transitions
+- **Never Downgrade Policy**: Users keep tier after expiration but lose wallet syncing
+
+### Wallet Management
+- **Deep Scanning & Script Detection**: Detects funds at high address indexes (200+) with fast API responses
 - **Async Wallet Creation**: Fast POST responses (~1.5s) with background deep scanning and skeleton UI states
-- **User Onboarding**: Guided wallet creation with BIP39 mnemonic generation
-- **Professional UX**: Comprehensive plan comparison modals showing monthly prices with yearly savings
-- **Development Mode**: Quick login options for testing with pre-configured email accounts (delivered+admin@resend.dev, delivered+alice@resend.dev, delivered+bob@resend.dev)
-- **Clean Registration Flow**: Dedicated success page (/sign-up/success) after registration with clear email verification instructions
+- **Dynamic Address Revelation**: Automatically reveals addresses to maintain 20 unused stop gap
+- **Script Type Detection**: Intelligent detection of P2WPKH, P2SH, P2TR, P2PKH from XPUBs
+- **Tier-based Sync**: Individual wallet sync intervals based on subscription tier (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
+- **Wallet Deletion**: Soft delete with automatic cleanup during sync cycles
+- **Transaction Analysis**: RBF/CPFP detection, accurate timestamps with blockchain confirmation tracking
+- **Network Isolation**: Separate databases per Bitcoin network
+
+### Notifications & Alerts
+- **Balance Alerts**: User-configurable alerts for above/below/equals threshold monitoring with auto-disable and manual reactivation
+- **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh, Twilio SMS, and Resend email
+- **Multiple Notification Methods**: Each contact can have multiple notification methods (SMS + email + ntfy)
+- **Auto-detection**: Automatically detects provider type from contact address format
+- **Multi-language Support**: Norwegian and English with proper Bitcoin amount formatting
+- **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
+- **Secure Verification System**: OTP verification for SMS/email with 30-minute validity windows
+- **Admin Notifications**: Infrastructure alerts for trial expirations, non-syncing wallets, and system issues
+
+### Technical Features
+- **Non-blocking Web Architecture**: Fast API responses (<1ms) avoiding wallet mutex locks
+- **Dual State Design**: `AppServices` for immediate metadata access, `WalletManager` for sync operations
+- **Performance**: Async SQLite with r2d2 connection pooling
+- **Normalized Database**: 12 migration files with clean schema design supporting extensibility
+- **Environment Configuration**: Provider selection and network config via .env variables
+- **Atomic Updates**: Database transactions prevent data loss during modifications
 
 ## Subscription Tiers & Limits
 
@@ -203,29 +230,33 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Current Plan Highlighting**: Blue highlighting with "CURRENT PLAN" badge
 
 ### Database Schema
-```sql
--- Users table includes subscription_tier and admin flag
-CREATE TABLE users (
-    id TEXT PRIMARY KEY,
-    subscription_tier TEXT NOT NULL DEFAULT 'team' CHECK (subscription_tier IN ('personal', 'team')),
-    is_admin BOOLEAN NOT NULL DEFAULT 0
-);
+Database consists of 12 migrations providing comprehensive schema:
 
--- Wallets table includes sync management fields
-CREATE TABLE wallets (
-    last_synced_at DATETIME,
-    sync_status TEXT DEFAULT 'pending' CHECK (sync_status IN ('pending', 'ready')),
-    user_id TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users (id)
-);
+**Key Tables:**
+- `users` - Authentication, subscription tier, Stripe integration, admin flags
+- `wallets` - Wallet metadata, sync status, user ownership
+- `contacts` - Contact information with priority ordering (created_at)
+- `contact_notification_methods` - Multiple notification methods per contact
+- `notification_logs` - Delivery status tracking for all notifications
+- `transaction_events` - Transaction-based architecture with event tracking
+- `balance_alerts` - User-configured balance threshold alerts with auto-disable
+- `balance_alert_notifications` - Audit trail for balance alert triggers
+- `email_verification_tokens` - Email verification for authentication
+- `password_reset_tokens` - Password reset functionality
 
--- Contacts table includes created_at for priority ordering
-CREATE TABLE contacts (
-    id TEXT PRIMARY KEY,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN NOT NULL DEFAULT 1
-);
-```
+**Migration Files:**
+1. `001_initial_schema.sql` - Core tables (users, wallets, contacts, events)
+2. `002_add_sync_status.sql` - Wallet sync state management
+3. `003_add_deleted_status.sql` - Soft delete support
+4. `004_add_verified_at.sql` - Contact verification tracking
+5. `005_prevent_duplicate_notification_targets.sql` - Unique constraints
+6. `006_preserve_notification_history.sql` - Historical notification data
+7. `007_add_notification_target_snapshots.sql` - Notification target versioning
+8. `008_transaction_based_refactor.sql` - Transaction events architecture
+9. `009_add_user_preferences.sql` - User settings and preferences
+10. `010_add_balance_alerts.sql` - Balance alert system
+11. `011_add_balance_alert_notification_type.sql` - Balance alert notification types
+12. `012_balance_alert_notification_logs.sql` - Balance alert notification logging
 
 ## Notification Setup
 
@@ -258,6 +289,7 @@ CREATE TABLE contacts (
 2. Add contacts with email addresses: `POST /api/wallets/{checksum}/contacts` (name + language + email)
 3. Email addresses are validated and used for both transaction notifications and auth verification
 4. Automatic email notifications for all transactions sent from notifications@canarybitcoin.com
+5. **Batch Email Optimization**: Uses Resend batch email API to send up to 100 emails per request, avoiding rate limits and improving performance
 
 ### Multiple Notification Methods (Current Architecture)
 - **Current Implementation**: Contacts have single notification method per contact (auto-detected from address format)
@@ -314,13 +346,14 @@ Canary features a fully integrated Stripe billing system with automatic subscrip
 
 ### Stripe Webhook Events Handled
 - **`customer.created`** - Customer created in Stripe
-- **`customer.subscription.created`** - Trial subscription activated, sets status to "trialing"  
+- **`customer.subscription.created`** - Trial subscription activated, sets status to "trialing"
 - **`customer.subscription.updated`** - Subscription changes, detects trial ending transitions
 - **`customer.subscription.deleted`** - Subscription cancelled, preserves access until expiration
-- **`customer.subscription.trial_will_end`** - Fired 3 days before trial ends for notifications
+- **`customer.subscription.trial_will_end`** - Fired 3 days before trial ends, sends email notification to user
 - **`invoice.payment_succeeded`** - Successful payment, ensures continued access
 - **`invoice.payment_failed`** - Failed payment, may affect service access
 - **Customer ID Lookup**: Automatically finds users by `stripe_customer_id` for webhook processing
+- **Trial Notifications**: Automatic email notifications sent 3 days before trial expiration with subscription upgrade prompts
 
 ### Frontend Billing Integration
 - **AuthContext Enhancement**: Integrated billing status into authentication context
@@ -343,7 +376,8 @@ Canary features a fully integrated Stripe billing system with automatic subscrip
 - **`trialing`** - Active 30-day trial period (Stripe native status)
 - **`active`** - Paid subscription in good standing
 - **`canceled`** - Subscription cancelled but access remains until `subscription_ends_at`
-- **`expired`** - Trial or cancelled subscription has expired, no wallet syncing
+- **`expired`** - Trial or cancelled subscription has expired, wallet syncing disabled
+- **Note**: Expired users can view historical wallet data but wallets won't sync. "Manage Billing" button hidden for expired users to avoid confusion with duplicate Customer Portal upgrade prompts.
 
 #### Never Downgrade Policy
 - **Tier Preservation**: Users never lose their subscription tier, even after expiration
@@ -454,9 +488,10 @@ TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 This is separate from the main authentication system and only used when users add phone number contacts.
 
 ## Storage
-- **Wallets**: `database/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
-- **Metadata**: `database/{network}/metadata.sqlite` (normalized schema with users, contacts, contact_notification_methods, events, notification_logs, email_verification_tokens, password_reset_tokens)
-- **Schema**: Four migration files (001_initial_schema.sql, 002_add_sync_status.sql, 003_add_deleted_status.sql, 004_add_verified_at.sql) with normalized design for extensible notification methods, multi-user support, email authentication, and verification tracking
+- **Mode-specific Databases**: `database-foss/{network}/` for FOSS mode, `database-saas/{network}/` for SAAS mode
+- **Wallets**: `database-{mode}/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
+- **Metadata**: `database-{mode}/{network}/metadata.sqlite` (normalized schema with 12 migrations)
+- **Schema**: 12 migration files providing comprehensive schema for all features
 - **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
 
 ## Address Management & Deep Scanning
@@ -477,7 +512,8 @@ The service uses BDK's address revelation mechanism with advanced deep scanning 
 
 ## Development Workflow
 - **Testing**: `./regtest-env/docker-utils.sh` provides complete Bitcoin regtest environment
-- **Database Management**: Three migration files for schema evolution and initialization
+- **Database Management**: 12 migration files for schema evolution covering all features
+- **Docker Environment**: Complete Bitcoin Core + Fulcrum Electrum server for local development
 
 ## Testing & Quality Assurance
 
@@ -516,9 +552,27 @@ Comprehensive test coverage for subscription limits and user interactions:
 - **Edge Cases**: Boundary conditions and invalid input handling
 
 ### Backend Testing
-- **Integration Tests**: Stripe webhook processing and billing flows (`backend/tests/stripe_integration_tests.rs`)
-- **Unit Tests**: Metadata operations (`backend/src/tests/metadata.rs`)
-- **Test Execution**: Must use `--test-threads=1` to prevent SQLite database conflicts
+
+**Integration Tests** (`backend/tests/`)
+- `stripe_integration_tests.rs` - Stripe webhook processing and billing flows
+- `balance_alerts_system_tests.rs` - Balance alert CRUD operations, alert types, edge cases, performance
+- `contact_duplicates_test.rs` - Contact management and duplicate prevention
+- Test execution: `cargo test -- --test-threads=1` (SQLite requires single-threaded)
+
+**System Tests** (`backend/system_tests/`)
+End-to-end Docker-based tests with real Bitcoin transactions:
+- `balance_alert_scenarios.rs` - Real Bitcoin transaction balance alert testing
+- `mined_directly_scenarios.rs` - Transaction detection when mined before sync
+- `two_stage_send_scenarios.rs` - Unconfirmed → confirmed transaction flow
+- `advanced_transactions.rs` - RBF/CPFP detection testing
+- `transaction_timestamp_scenarios.rs` - Transaction timestamp accuracy testing
+- `high_index_scanning.rs` - High address index detection testing
+- Test execution: `cargo test --test balance_alert_scenarios -- --ignored --nocapture`
+- See `backend/system_tests/README.md` for comprehensive documentation
+
+**Unit Tests**
+- Individual component testing in `src/tests/` modules
+- Metadata operations testing
 
 ## Code Standards
 - No commented-out code (use git history)  
@@ -529,6 +583,40 @@ Comprehensive test coverage for subscription limits and user interactions:
 - Type-safe API contracts between frontend and backend
 
 
+## Recent Updates & Changes
+
+### Balance Alerts System (Migrations 010-012)
+- User-configurable balance threshold alerts with above/below/equals conditions
+- Automatic deactivation after firing with manual reactivation required
+- Complete audit trail of balance alert notifications
+- Integration with existing notification system
+- Comprehensive system tests in `balance_alert_scenarios.rs`
+
+### Email Optimization
+- Batch email API implementation using Resend batch endpoint (up to 100 emails per request)
+- Resolves rate limiting issues when sending to multiple recipients
+- Improved performance for multi-wallet transaction notifications
+
+### Subscription Management Improvements
+- Trial ending email notifications 3 days before expiration
+- Fixed expired subscription reactivation flow to use Stripe Customer Portal
+- Hide "Manage Billing" button for expired users to avoid duplicate upgrade prompts
+- Better differentiation between expired subscriptions and tier limits in UI messages
+- Admin notifications for non-syncing wallets by subscription status
+
+### Infrastructure & Logging
+- Comprehensive logging for non-syncing wallets with subscription status context
+- Admin notification system for infrastructure monitoring
+- Documentation for trial extension webhook support verification
+
+### User Experience
+- Skeleton placeholders on wallet detail page during loading
+- Fixed flash of empty wallet screen on login with proper loading states
+- Better error messaging for expired vs. limit-reached scenarios
+
 ## Committing code to git
 
 Always build both the frontend and backend and run and verify all tests before committing. In case of errors, they need to be fixed.
+
+---
+*Last updated: October 2025*
