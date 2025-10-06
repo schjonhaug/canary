@@ -133,7 +133,7 @@ export default function BillingPage() {
               </CardTitle>
               <CardDescription>Your active subscription and usage</CardDescription>
             </div>
-            {billingStatus?.stripe_customer_id && !isTrialUser && (
+            {billingStatus?.stripe_customer_id && !isTrialUser && billingStatus?.subscription_status !== 'expired' && (
               <Button
                 variant="outline"
                 onClick={handleManageBilling}
