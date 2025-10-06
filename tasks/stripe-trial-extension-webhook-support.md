@@ -127,7 +127,32 @@ SET trial_ends_at = datetime('now', '+30 days')
 WHERE email = 'user@example.com';
 ```
 
+## Infrastructure Verification (Completed)
+
+**✅ All required infrastructure is already in place:**
+
+1. **SubscriptionUpdate struct** (`stripe_billing.rs:18-26`)
+   - Has `trial_ends_at: Option<String>` field
+   - Ready to receive trial extension data
+
+2. **Database layer** (`metadata.rs:2420-2428`)
+   - `update_user_subscription()` accepts `trial_ends_at: Option<&str>` parameter
+   - SQL update includes trial_ends_at field
+   - No database schema changes needed
+
+3. **API layer** (`api.rs:4667-4674`)
+   - Webhook handler calls `update_user_subscription()`
+   - Passes `update.trial_ends_at.as_deref()` to database
+   - Full data flow is connected
+
+**Current Issue:**
+- Line 953: `trial_ends_at: None` is hardcoded (ignores actual trial_end data)
+- Missing detection logic for trial_end changes in previous_attributes
+
+**Conclusion:**
+This is a small fix (2 code blocks) with zero infrastructure changes needed. All plumbing exists.
+
 ## Related Files
-- `backend/src/stripe_billing.rs` - Webhook handler
-- `backend/src/metadata.rs` - Database queries (line 1692 filters by trial_ends_at)
-- `backend/src/subscription.rs` - SubscriptionUpdate struct definition
+- `backend/src/stripe_billing.rs` - Webhook handler (lines 839-960)
+- `backend/src/metadata.rs` - Database layer with update_user_subscription (line 2420)
+- `backend/src/api.rs` - API webhook endpoint (line 4667)
