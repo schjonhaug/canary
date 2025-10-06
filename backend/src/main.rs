@@ -814,24 +814,15 @@ async fn apply_startup_subscription_limits(
     let users = manager.metadata_db.get_all_users().await?;
 
     for user in users {
-        // Only apply limits to users who are eligible for syncing
-        // Skip users in 'pending', 'expired', 'past_due' states
-        let should_apply_limits = match user.subscription_status.as_str() {
-            "trialing" | "active" => true,
-            _ => false, // Skip pending, expired, past_due, canceled
-        };
-
-        if !should_apply_limits {
-            tracing::debug!(
-                "⏭️  Skipping limits for user {} (status: {})",
-                user.id,
-                user.subscription_status
-            );
-            continue;
-        }
-
+        // Apply subscription limits for ALL users
+        // The function will deactivate wallets for expired/past_due/canceled users
         if let Err(e) = manager
-            .apply_subscription_limits(&user.id, &user.subscription_tier.as_str(), user.is_admin)
+            .apply_subscription_limits(
+                &user.id,
+                &user.subscription_tier.as_str(),
+                &user.subscription_status,
+                user.is_admin,
+            )
             .await
         {
             tracing::error!(

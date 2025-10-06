@@ -991,12 +991,18 @@ impl WalletManager {
         &self,
         user_id: &str,
         tier: &str,
+        subscription_status: &str,
         is_admin: bool,
     ) -> Result<(), anyhow::Error> {
+        // Check if subscription has expired or failed payment
+        let is_subscription_active = matches!(subscription_status, "trialing" | "active");
+
         if is_admin {
             tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
+        } else if !is_subscription_active {
+            tracing::info!("🎯 Deactivating all wallets for user {} (status: {})", user_id, subscription_status);
         } else {
-            tracing::info!("🎯 Applying {} tier limits for user {}", tier, user_id);
+            tracing::info!("🎯 Applying {} tier limits for user {} (status: {})", tier, user_id, subscription_status);
         }
 
         // Get all wallets for this user ordered by creation time (oldest first)
@@ -1005,9 +1011,11 @@ impl WalletManager {
             .get_wallets_for_user_oldest_first(user_id)
             .await?;
 
-        // Determine wallet limit based on tier or admin status
+        // Determine wallet limit based on subscription status, tier, and admin status
         let wallet_limit = if is_admin {
             usize::MAX // Unlimited for admin
+        } else if !is_subscription_active {
+            0 // No active wallets for expired/past_due/canceled subscriptions
         } else {
             match tier {
                 "personal" => 1,
@@ -1047,6 +1055,8 @@ impl WalletManager {
         // For active wallets, apply contact limits
         let contact_limit = if is_admin {
             usize::MAX // Unlimited for admin
+        } else if !is_subscription_active {
+            0 // No active contacts for expired/past_due/canceled subscriptions
         } else {
             match tier {
                 "personal" => 1,
