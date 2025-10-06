@@ -1,1 +1,0 @@
-there is a regression where accounts with trials that have ran out, or when users dont pay, we need to show this on the wallets in question in the UI, both on /wallets and on individual wallets. This was working properly in the past, so I suspect the code is there still
