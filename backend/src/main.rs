@@ -1,37 +1,31 @@
 mod admin_notifications;
 mod api;
-mod auth;
 mod config;
 mod electrum;
-mod email_provider;
-mod email_service;
 mod exchange_rates;
 mod message_formatter;
 mod metadata;
 mod migrations;
 mod notifications;
 mod ntfy_provider;
-mod stripe_billing;
-mod stripe_client_service;
-mod subscription;
+mod saas;
 mod sync;
-mod twilio_provider;
 mod wallet;
 mod xpub_converter;
 
 use config::AppConfig;
-use email_provider::EmailProvider;
 use metadata::TransactionNotification;
 use notifications::NotificationManager;
 use ntfy_provider::NtfyProvider;
+use saas::email_provider::EmailProvider;
+use saas::stripe_billing::StripeBilling;
+use saas::subscription::SubscriptionTier;
+use saas::twilio_provider::TwilioProvider;
 use std::sync::Arc;
 use std::time::Instant;
-use stripe_billing::StripeBilling;
-use subscription::SubscriptionTier;
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::{interval, Duration};
 use tracing_subscriber;
-use twilio_provider::TwilioProvider;
 use wallet::WalletManager;
 
 #[tokio::main]

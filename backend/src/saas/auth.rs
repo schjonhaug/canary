@@ -1,4 +1,4 @@
-use crate::email_service::EmailService;
+use crate::saas::email_service::EmailService;
 use crate::metadata::TwilioConfig;
 use anyhow::{anyhow, Result};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
@@ -92,7 +92,7 @@ pub struct AuthUserResponse {
     pub name: Option<String>,
     pub is_admin: bool,
     pub email_verified: bool,
-    pub subscription_tier: crate::subscription::SubscriptionTier,
+    pub subscription_tier: super::subscription::SubscriptionTier,
     pub created_at: String,
     pub preferred_fiat_currency: Option<String>,
 }

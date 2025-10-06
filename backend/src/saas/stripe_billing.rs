@@ -6,8 +6,8 @@ use std::sync::Arc;
 use utoipa::ToSchema;
 
 use crate::metadata::{MetadataDb, UserRecord};
-use crate::stripe_client_service::StripeClientService;
-use crate::subscription::SubscriptionTier;
+use crate::saas::stripe_client_service::StripeClientService;
+use crate::saas::subscription::SubscriptionTier;
 
 #[derive(Debug, Clone)]
 pub struct WebhookResult {
@@ -668,7 +668,7 @@ impl StripeBilling {
                                                 user.name.as_deref().unwrap_or(&user.email);
 
                                             // Attempt to send email notification
-                                            use crate::email_service::EmailService;
+                                            use crate::saas::email_service::EmailService;
                                             match EmailService::from_env() {
                                                 Ok(email_service) => {
                                                     match email_service

@@ -7,7 +7,13 @@ edition = "2021"
 name = "canary"
 path = "src/lib.rs"
 
+[features]
+default = ["saas"]
+foss = []
+saas = ["dep:jsonwebtoken", "dep:argon2", "dep:resend-rs"]
+
 [dependencies]
+# Core dependencies (always included)
 bdk_wallet = { version = "2", features = ["rusqlite"] }
 bdk_electrum = "0.23"
 miniscript = "12.3"
@@ -29,18 +35,20 @@ r2d2_sqlite = "0.24"
 async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json"] }
 base64 = "0.22"
-jsonwebtoken = "9.3"
 rand = "0.8"
 sha2 = "0.10"
 hmac = "0.12"
 hex = "0.4"
-argon2 = "0.5"
 uuid = { version = "1", features = ["v4"] }
-resend-rs = "0.16"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 regex = "1.10"
 futures = "0.3"
+
+# SAAS-only dependencies (optional, only included with 'saas' feature)
+jsonwebtoken = { version = "9.3", optional = true }
+argon2 = { version = "0.5", optional = true }
+resend-rs = { version = "0.16", optional = true }
 
 [dev-dependencies]
 http-body-util = "0.1"
