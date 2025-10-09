@@ -144,7 +144,6 @@ canary/
 - **Auto-detection**: Phone numbers (starting with +) → SMS, topics → ntfy, email addresses → email
 - **Normalized Database**: Separate tables for contacts and notification methods for extensibility
 - Generic notification logs with delivery status tracking for all providers
-- `/swagger-ui` - API documentation
 
 ## Network Configuration
 Supports regtest (default), testnet, mainnet with configurable Electrum servers.

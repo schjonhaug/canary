@@ -34,45 +34,30 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 use tracing::info;
-use utoipa::{OpenApi, ToSchema};
-use utoipa_swagger_ui::SwaggerUi;
 
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateWalletRequest {
     /// The name of the wallet
-    #[schema(example = "My Bitcoin Wallet")]
     pub name: String,
     /// The multipath output descriptor for the wallet or extended public key (XPUB)
-    #[schema(
-        example = "wpkh(tpubD6NzVbkrYhZ4XgiXtGrdW5XDAPFCL9h7we1vwNCpn8tGbBcgfVYjXyhWo4E1xkh56hjod1RhGjxbaTLV3X4FyWuejifB9jusQ46QzG87VKp/<0;1>/*)"
-    )]
     pub descriptor: String,
     /// The user's preferred language for notifications (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(example = "en")]
-    pub preferred_language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]    pub preferred_language: Option<String>,
     /// Whether this is a fresh wallet with no transaction history (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(example = false)]
-    pub is_fresh_wallet: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]    pub is_fresh_wallet: Option<bool>,
     /// Script type for XPUB wallets (required when is_fresh_wallet=true and descriptor is XPUB, optional for advanced settings)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(example = "p2wpkh")]
-    pub script_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]    pub script_type: Option<String>,
     /// Stop gap for advanced users (auto, 250, 500, 750, 1000)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(example = "auto")]
-    pub stop_gap: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]    pub stop_gap: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct UpdateWalletRequest {
     /// The new name for the wallet
-    #[schema(example = "Updated Wallet Name")]
     pub name: String,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize)]
 pub struct CreateWalletResponse {
     /// Success message
     pub message: String,
@@ -80,35 +65,31 @@ pub struct CreateWalletResponse {
     pub wallet: WalletMetadata,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize)]
 pub struct ErrorResponse {
     /// Error description
     pub error: String,
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct NotificationMethodRequest {
     /// The provider type (sms or ntfy)
-    #[schema(example = "sms")]
     pub provider_type: ProviderType,
     /// The notification target (phone number or ntfy topic)
-    #[schema(example = "+4712345678")]
     pub notification_target: String,
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateContactWithMethodsRequest {
     /// The name of the contact person
-    #[schema(example = "John Doe")]
     pub name: String,
     /// The language preference for notifications
-    #[schema(example = "en")]
     pub language: Language,
     /// List of notification methods for this contact
     pub notification_methods: Vec<NotificationMethodRequest>,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize)]
 pub struct CreateContactResponse {
     /// Success message
     pub message: String,
@@ -116,7 +97,7 @@ pub struct CreateContactResponse {
     pub contact_id: String, // UUIDv4
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SendContactVerificationRequest {
     /// Contact name
     pub name: String,
@@ -128,23 +109,21 @@ pub struct SendContactVerificationRequest {
     pub email_address: Option<String>,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize)]
 pub struct ProvidersResponse {
     /// Available notification providers
     pub providers: Vec<ProviderInfo>,
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateBalanceAlertRequest {
     /// Balance threshold in satoshis
-    #[schema(example = 100000000)]
     pub threshold_sats: i64,
     /// Alert type (above, below, equals)
-    #[schema(example = "above")]
     pub alert_type: BalanceAlertType,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize)]
 pub struct BalanceAlertsResponse {
     /// List of balance alerts for the wallet
     pub alerts: Vec<BalanceAlert>,
@@ -308,31 +287,28 @@ pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
 
 // Stripe billing request/response structures
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateCheckoutSessionRequest {
     /// The subscription tier to purchase
-    #[schema(example = "team")]
     pub tier: String,
     /// Whether to use yearly billing (default is monthly)
-    #[schema(example = false)]
     pub is_yearly: Option<bool>,
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateCustomerPortalRequest {
     /// Return URL after customer portal session
-    #[schema(example = "https://app.canarybitcoin.com/billing")]
     pub return_url: String,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize)]
 pub struct BillingTierLimits {
     pub max_wallets: i32,             // -1 for unlimited
     pub max_contacts_per_wallet: i32, // -1 for unlimited
     pub sync_interval_seconds: u64,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize)]
 pub struct BillingStatusResponse {
     /// User ID
     pub user_id: String,
@@ -429,23 +405,6 @@ fn authenticate_user_mode_aware(
 
 /// Non-blocking wallet creation using AppServices (avoids WalletManager mutex)
 /// This resolves the regression where wallet creation was taking 30+ seconds
-#[utoipa::path(
-    post,
-    path = "/api/wallets",
-    request_body = CreateWalletRequest,
-    responses(
-        (status = 201, description = "Wallet created successfully", body = CreateWalletResponse),
-        (status = 400, description = "Bad Request", body = ErrorResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Forbidden - subscription limit exceeded", body = ErrorResponse),
-        (status = 409, description = "Conflict - wallet already exists", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse),
-    ),
-    tag = "wallet",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn create_wallet_non_blocking(
     State((app_services, stripe_billing, config)): State<(
         AppServicesState,
@@ -841,24 +800,6 @@ pub async fn create_wallet_non_blocking(
     }
 }
 
-#[utoipa::path(
-    delete,
-    path = "/api/wallets/{id}",
-    params(
-        ("id" = i64, Path, description = "The wallet ID to delete")
-    ),
-    responses(
-        (status = 204, description = "Wallet deleted successfully"),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse),
-    ),
-    tag = "wallet",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn delete_wallet(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -968,25 +909,6 @@ pub async fn delete_wallet(
     }
 }
 
-#[utoipa::path(
-    put,
-    path = "/api/wallets/{id}",
-    params(
-        ("id" = i64, Path, description = "The wallet ID to update")
-    ),
-    request_body = UpdateWalletRequest,
-    responses(
-        (status = 200, description = "Wallet updated successfully"),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse),
-        (status = 400, description = "Invalid request", body = ErrorResponse),
-    ),
-    tag = "wallet",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn update_wallet(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -1103,23 +1025,6 @@ pub async fn update_wallet(
     }
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/wallets/{id}",
-    params(
-        ("id" = i64, Path, description = "The wallet ID to retrieve")
-    ),
-    responses(
-        (status = 200, description = "Wallet found", body = WalletMetadata),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse),
-    ),
-    tag = "wallet",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_wallet(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -1197,25 +1102,6 @@ pub async fn get_wallet(
 
 // Wallet-specific contact management endpoints
 
-#[utoipa::path(
-    post,
-    path = "/api/wallets/{id}/contacts",
-    request_body = CreateContactWithMethodsRequest,
-    params(
-        ("id" = i64, Path, description = "The wallet ID")
-    ),
-    responses(
-        (status = 201, description = "Contact created successfully", body = CreateContactResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
-        (status = 400, description = "Invalid request or phone number", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse),
-    ),
-    tag = "contact",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn create_wallet_contact(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -1532,24 +1418,6 @@ pub async fn create_wallet_contact(
 
 // Global contacts endpoint removed - contacts are now wallet-specific
 
-#[utoipa::path(
-    delete,
-    path = "/api/wallets/{wallet_id}/contacts/{contact_id}",
-    params(
-        ("wallet_id" = i64, Path, description = "The wallet ID"),
-        ("contact_id" = String, Path, description = "The contact ID")
-    ),
-    responses(
-        (status = 204, description = "Contact deleted successfully"),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
-        (status = 404, description = "Contact not found", body = ErrorResponse),
-    ),
-    tag = "contact",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn delete_wallet_contact(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -1654,7 +1522,7 @@ pub async fn delete_wallet_contact(
     }
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct UpdateContactRequest {
     /// Contact name
     pub name: String,
@@ -1664,27 +1532,6 @@ pub struct UpdateContactRequest {
     pub notification_methods: Vec<NotificationMethodRequest>,
 }
 
-#[utoipa::path(
-    put,
-    path = "/api/wallets/{wallet_checksum}/contacts/{contact_id}",
-    params(
-        ("wallet_checksum" = String, Path, description = "The wallet checksum"),
-        ("contact_id" = String, Path, description = "The contact ID")
-    ),
-    request_body = UpdateContactRequest,
-    responses(
-        (status = 200, description = "Contact updated successfully", body = Contact),
-        (status = 400, description = "Bad request", body = ErrorResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Forbidden", body = ErrorResponse),
-        (status = 404, description = "Contact not found", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse),
-    ),
-    tag = "contacts",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn update_wallet_contact(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -2040,23 +1887,6 @@ pub async fn update_wallet_contact(
 
 // This function is now handled by delete_wallet_contact above
 
-#[utoipa::path(
-    get,
-    path = "/api/wallets/{id}/contacts",
-    params(
-        ("id" = i64, Path, description = "The wallet ID")
-    ),
-    responses(
-        (status = 200, description = "List of contacts for wallet", body = Vec<Contact>),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse),
-    ),
-    tag = "wallet",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_wallet_contacts(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -2154,26 +1984,6 @@ pub async fn get_wallet_contacts(
     }
 }
 
-#[utoipa::path(
-    post,
-    path = "/api/wallets/{checksum}/contacts/send-verification",
-    request_body = SendContactVerificationRequest,
-    params(
-        ("checksum" = String, Path, description = "The wallet checksum")
-    ),
-    responses(
-        (status = 200, description = "Verification code sent", body = serde_json::Value),
-        (status = 400, description = "Invalid phone number", body = ErrorResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Forbidden - wallet belongs to another user", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse),
-        (status = 429, description = "Rate limit exceeded", body = ErrorResponse),
-    ),
-    tag = "contact",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn send_contact_verification(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -2572,7 +2382,7 @@ pub async fn send_contact_verification(
     final_result
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct VerifyContactRequest {
     /// Phone number being verified (optional)
     pub phone_number: Option<String>,
@@ -2582,29 +2392,12 @@ pub struct VerifyContactRequest {
     pub code: String,
 }
 
-#[derive(Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize)]
 pub struct VerifyContactResponse {
     pub valid: bool,
     pub message: String,
 }
 
-#[utoipa::path(
-    post,
-    path = "/api/wallets/{checksum}/contacts/verify",
-    request_body = VerifyContactRequest,
-    responses(
-        (status = 200, description = "Contact verification result", body = VerifyContactResponse),
-        (status = 400, description = "Invalid request", body = ErrorResponse),
-        (status = 401, description = "Authentication required", body = ErrorResponse),
-        (status = 403, description = "Access denied", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse),
-    ),
-    tag = "contacts",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn verify_contact(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -2845,15 +2638,6 @@ pub async fn verify_contact(
     }
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/block-headers/current",
-    responses(
-        (status = 200, description = "Current block header from database", body = BlockHeader),
-        (status = 404, description = "No block header found", body = ErrorResponse),
-    ),
-    tag = "blockchain"
-)]
 pub async fn get_current_block_header(
     State((app_services, _stripe_billing, _config)): State<(
         AppServicesState,
@@ -2881,20 +2665,6 @@ pub async fn get_current_block_header(
             .into_response(),
     }
 }
-
-#[utoipa::path(
-    get,
-    path = "/api/wallets",
-    responses(
-        (status = 200, description = "List of all wallets", body = WalletsListResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "wallet",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 
 pub async fn get_wallets_list(
     State((app_services, _stripe_billing, config)): State<(
@@ -2952,24 +2722,6 @@ pub async fn get_wallets_list(
     }
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/wallets/{id}/detail",
-    responses(
-        (status = 200, description = "Wallet detail with transactions", body = WalletDetailResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 403, description = "Access denied", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    params(
-        ("id" = i64, Path, description = "Wallet ID")
-    ),
-    tag = "wallet",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_wallet_detail(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -3146,17 +2898,6 @@ pub async fn get_wallet_detail(
 }
 
 // Auth endpoints
-#[utoipa::path(
-    post,
-    path = "/api/auth/register",
-    request_body = RegisterRequest,
-    responses(
-        (status = 200, description = "Registration successful, verification email sent", body = serde_json::Value),
-        (status = 400, description = "Invalid email, weak password, or user already exists", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "auth"
-)]
 pub async fn register(
     State((app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Json(request): Json<RegisterRequest>,
@@ -3401,18 +3142,6 @@ pub async fn register(
     }
 }
 
-#[utoipa::path(
-    post,
-    path = "/api/auth/login",
-    request_body = LoginRequest,
-    responses(
-        (status = 200, description = "Login successful", body = AuthResponse),
-        (status = 400, description = "Invalid credentials", body = ErrorResponse),
-        (status = 403, description = "Email not verified", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "auth"
-)]
 pub async fn login(
     State((app_services, _stripe_billing, _config)): State<(
         AppServicesState,
@@ -3578,19 +3307,6 @@ pub async fn login(
     .into_response()
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/auth/verify-email/{token}",
-    params(
-        ("token" = String, Path, description = "Email verification token")
-    ),
-    responses(
-        (status = 200, description = "Email verified successfully", body = serde_json::Value),
-        (status = 400, description = "Invalid or expired token", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "auth"
-)]
 pub async fn verify_email(
     State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Path(token): Path<String>,
@@ -3624,17 +3340,6 @@ pub async fn verify_email(
     result
 }
 
-#[utoipa::path(
-    post,
-    path = "/api/auth/forgot-password",
-    request_body = ForgotPasswordRequest,
-    responses(
-        (status = 200, description = "Password reset email sent", body = serde_json::Value),
-        (status = 400, description = "User not found", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "auth"
-)]
 pub async fn forgot_password(
     State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Json(request): Json<ForgotPasswordRequest>,
@@ -3719,20 +3424,6 @@ pub async fn forgot_password(
     .into_response()
 }
 
-#[utoipa::path(
-    post,
-    path = "/api/auth/reset-password/{token}",
-    params(
-        ("token" = String, Path, description = "Password reset token")
-    ),
-    request_body = ResetPasswordRequest,
-    responses(
-        (status = 200, description = "Password reset successfully", body = serde_json::Value),
-        (status = 400, description = "Invalid or expired token", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "auth"
-)]
 pub async fn reset_password(
     State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Path(token): Path<String>,
@@ -3821,18 +3512,6 @@ pub async fn reset_password(
     .into_response()
 }
 
-#[utoipa::path(
-    post,
-    path = "/api/auth/logout",
-    responses(
-        (status = 200, description = "Logged out successfully", body = serde_json::Value),
-        (status = 401, description = "Unauthorized", body = ErrorResponse)
-    ),
-    tag = "auth",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn logout(
     State((app_services, _stripe_billing, _config)): State<(
         AppServicesState,
@@ -3894,18 +3573,6 @@ pub async fn logout(
     .into_response()
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/auth/me",
-    responses(
-        (status = 200, description = "Current user info", body = AuthUserResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse)
-    ),
-    tag = "auth",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn me(
     State((app_services, _stripe_billing, _config)): State<(
         AppServicesState,
@@ -3968,18 +3635,6 @@ pub async fn me(
     Json(serde_json::json!({ "user": user_info })).into_response()
 }
 
-#[utoipa::path(
-    put,
-    path = "/api/auth/user",
-    request_body = UpdateUserRequest,
-    responses(
-        (status = 200, description = "User profile updated successfully", body = UpdateUserResponse),
-        (status = 400, description = "Bad request", body = ErrorResponse),
-        (status = 401, description = "Authentication required", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "auth"
-)]
 pub async fn update_user(
     State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
@@ -4064,15 +3719,6 @@ pub async fn update_user(
     Json(UpdateUserResponse { user: user_info }).into_response()
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/providers",
-    responses(
-        (status = 200, description = "Available notification providers", body = ProvidersResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse),
-    ),
-    tag = "providers"
-)]
 pub async fn get_providers(
     State(notification_manager): State<NotificationManagerState>,
 ) -> Response {
@@ -4083,17 +3729,6 @@ pub async fn get_providers(
 }
 
 // Stripe billing endpoints
-#[utoipa::path(
-    post,
-    path = "/api/stripe/checkout",
-    request_body = CreateCheckoutSessionRequest,
-    responses(
-        (status = 200, description = "Checkout session created successfully", body = CheckoutSessionResponse),
-        (status = 400, description = "Invalid request", body = ErrorResponse),
-        (status = 401, description = "Authentication required", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse),
-    )
-)]
 pub async fn create_stripe_checkout_session(
     State((app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
@@ -4199,17 +3834,6 @@ pub async fn create_stripe_checkout_session(
     }
 }
 
-#[utoipa::path(
-    post,
-    path = "/api/stripe/portal",
-    request_body = CreateCustomerPortalRequest,
-    responses(
-        (status = 200, description = "Customer portal session created", body = CustomerPortalResponse),
-        (status = 400, description = "Invalid request", body = ErrorResponse),
-        (status = 401, description = "Authentication required", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse),
-    )
-)]
 pub async fn create_stripe_customer_portal(
     State((app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
@@ -4316,15 +3940,6 @@ pub async fn create_stripe_customer_portal(
     }
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/billing/status",
-    responses(
-        (status = 200, description = "Current billing status", body = BillingStatusResponse),
-        (status = 401, description = "Authentication required", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse),
-    )
-)]
 pub async fn get_billing_status(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -4442,15 +4057,6 @@ pub async fn get_billing_status(
 }
 
 /// Get pricing information from Stripe
-#[utoipa::path(
-    get,
-    path = "/api/billing/pricing",
-    responses(
-        (status = 200, description = "Pricing information", body = PricingInfo),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "Billing"
-)]
 pub async fn get_billing_pricing(
     State((_app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
 ) -> Response {
@@ -4474,17 +4080,6 @@ pub async fn get_billing_pricing(
 }
 
 /// Handle Stripe webhook events
-#[utoipa::path(
-    post,
-    path = "/api/stripe/webhook",
-    request_body = String,
-    responses(
-        (status = 200, description = "Webhook processed successfully"),
-        (status = 400, description = "Invalid webhook signature", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "Billing"
-)]
 pub async fn handle_stripe_webhook(
     State((app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     headers: HeaderMap,
@@ -4771,19 +4366,6 @@ pub async fn handle_stripe_webhook(
 }
 
 /// Get checkout session details
-#[utoipa::path(
-    get,
-    path = "/api/billing/session/{session_id}",
-    params(
-        ("session_id" = String, Path, description = "Stripe checkout session ID")
-    ),
-    responses(
-        (status = 200, description = "Session details", body = CheckoutSessionDetails),
-        (status = 404, description = "Session not found", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    tag = "Billing"
-)]
 pub async fn get_checkout_session_details(
     State((_app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Path(session_id): Path<String>,
@@ -4817,46 +4399,6 @@ pub async fn get_checkout_session_details(
             .into_response(),
     }
 }
-
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        create_wallet_non_blocking, update_wallet, delete_wallet, get_wallet,
-        get_wallets_list, get_wallet_detail,
-        create_wallet_contact, update_wallet_contact, delete_wallet_contact, get_wallet_contacts,
-        send_contact_verification, verify_contact,
-        get_current_block_header,
-        get_providers,
-        create_stripe_checkout_session, create_stripe_customer_portal, get_billing_status, get_billing_pricing, handle_stripe_webhook,
-        register, login, verify_email, forgot_password, reset_password, logout, me, update_user,
-        get_user_preferences, update_user_preferences, get_exchange_rates
-    ),
-    components(schemas(
-        CreateWalletRequest, UpdateWalletRequest, CreateWalletResponse, ErrorResponse, WalletMetadata,
-        CreateContactWithMethodsRequest, UpdateContactRequest, NotificationMethodRequest, CreateContactResponse, ProvidersResponse,
-        SendContactVerificationRequest, VerifyContactRequest, VerifyContactResponse,
-        Contact, NotificationMethod, ProviderType, EventType, Language,
-        BlockHeader, WalletsListResponse, WalletDetailResponse, ProviderInfo,
-        CreateCheckoutSessionRequest, CreateCustomerPortalRequest, BillingStatusResponse, CheckoutSessionResponse, CustomerPortalResponse,
-        PricingInfo, FrontendTierPricing, FrontendPriceInfo,
-        RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, AuthResponse, AuthUserResponse, UpdateUserRequest, UpdateUserResponse,
-        UpdateUserPreferencesRequest, UserPreferencesResponse
-    )),
-    tags(
-        (name = "wallet", description = "Wallet management endpoints"),
-        (name = "contact", description = "Contact management endpoints"),
-        (name = "providers", description = "Notification provider endpoints"),
-        (name = "transaction", description = "Transaction endpoints"),
-        (name = "blockchain", description = "Blockchain information endpoints"),
-        (name = "auth", description = "Authentication endpoints")
-    ),
-    info(
-        title = "Canary Wallet API",
-        version = "0.2.2",
-        description = "REST API for creating Bitcoin wallets from multipath descriptors",
-    )
-)]
-pub struct ApiDoc;
 
 pub fn create_router_with_services(
     app_services: AppServicesState,
@@ -4977,21 +4519,8 @@ pub fn create_router_with_services(
     Router::new()
         .nest("/api", api_routes)
         .layer(CorsLayer::permissive())
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/user/preferences",
-    responses(
-        (status = 200, description = "User preferences", body = UserPreferencesResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse)
-    ),
-    tag = "auth",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_user_preferences(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -5035,20 +4564,6 @@ pub async fn get_user_preferences(
     .into_response()
 }
 
-#[utoipa::path(
-    put,
-    path = "/api/user/preferences",
-    request_body = UpdateUserPreferencesRequest,
-    responses(
-        (status = 200, description = "Preferences updated", body = UserPreferencesResponse),
-        (status = 400, description = "Invalid currency", body = ErrorResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse)
-    ),
-    tag = "auth",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn update_user_preferences(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -5101,14 +4616,6 @@ pub async fn update_user_preferences(
     .into_response()
 }
 
-#[utoipa::path(
-    get,
-    path = "/api/exchange-rates",
-    responses(
-        (status = 200, description = "Current exchange rates", body = serde_json::Value)
-    ),
-    tag = "blockchain"
-)]
 pub async fn get_exchange_rates(
     State((app_services, _stripe_billing, _config)): State<(
         AppServicesState,
@@ -5134,22 +4641,6 @@ pub async fn get_exchange_rates(
 }
 
 /// Get all balance alerts for a wallet
-#[utoipa::path(
-    get,
-    path = "/api/wallets/{checksum}/balance-alerts",
-    params(
-        ("checksum" = String, Path, description = "The wallet checksum")
-    ),
-    responses(
-        (status = 200, description = "List of balance alerts for the wallet", body = BalanceAlertsResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse)
-    ),
-    tag = "balance-alerts",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_wallet_balance_alerts(
     Path(checksum): Path<String>,
     State((app_services, _stripe_billing, config)): State<(
@@ -5226,24 +4717,6 @@ pub async fn get_wallet_balance_alerts(
 }
 
 /// Create a new balance alert for a wallet
-#[utoipa::path(
-    post,
-    path = "/api/wallets/{checksum}/balance-alerts",
-    params(
-        ("checksum" = String, Path, description = "The wallet checksum")
-    ),
-    request_body = CreateBalanceAlertRequest,
-    responses(
-        (status = 200, description = "Balance alert created successfully", body = BalanceAlert),
-        (status = 400, description = "Invalid request", body = ErrorResponse),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 404, description = "Wallet not found", body = ErrorResponse)
-    ),
-    tag = "balance-alerts",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn create_wallet_balance_alert(
     Path(checksum): Path<String>,
     State((app_services, _stripe_billing, config)): State<(
@@ -5373,22 +4846,6 @@ pub async fn create_wallet_balance_alert(
 }
 
 /// Reactivate a balance alert
-#[utoipa::path(
-    put,
-    path = "/api/balance-alerts/{alert_id}/activate",
-    params(
-        ("alert_id" = String, Path, description = "The balance alert ID")
-    ),
-    responses(
-        (status = 200, description = "Balance alert reactivated successfully", body = BalanceAlert),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 404, description = "Balance alert not found", body = ErrorResponse)
-    ),
-    tag = "balance-alerts",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn reactivate_balance_alert(
     Path(alert_id): Path<String>,
     State((app_services, _stripe_billing, config)): State<(
@@ -5430,22 +4887,6 @@ pub async fn reactivate_balance_alert(
 }
 
 /// Delete a balance alert
-#[utoipa::path(
-    delete,
-    path = "/api/balance-alerts/{alert_id}",
-    params(
-        ("alert_id" = String, Path, description = "The balance alert ID")
-    ),
-    responses(
-        (status = 200, description = "Balance alert deleted successfully"),
-        (status = 401, description = "Unauthorized", body = ErrorResponse),
-        (status = 404, description = "Balance alert not found", body = ErrorResponse)
-    ),
-    tag = "balance-alerts",
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn delete_balance_alert(
     Path(alert_id): Path<String>,
     State((app_services, _stripe_billing, config)): State<(

@@ -12,7 +12,7 @@ use tokio::task::spawn_blocking;
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockHeader {
     pub height: u32,
     pub timestamp: u64,

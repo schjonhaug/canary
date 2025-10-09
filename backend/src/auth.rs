@@ -9,7 +9,6 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
-use utoipa::ToSchema;
 use uuid::Uuid;
 
 /// Load Twilio configuration from environment variables
@@ -50,7 +49,7 @@ pub struct AuthUser {
     pub is_admin: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RegisterRequest {
     pub email: String,
     pub password: String,
@@ -61,23 +60,23 @@ pub struct RegisterRequest {
     pub marketing_emails_opt_in: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ForgotPasswordRequest {
     pub email: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ResetPasswordRequest {
     pub password: String,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct AuthResponse {
     pub token: String,
     pub user: AuthUserResponse,
@@ -85,7 +84,7 @@ pub struct AuthResponse {
     pub requires_name: Option<bool>,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct AuthUserResponse {
     pub id: String, // UUIDv4
     pub email: String,
@@ -97,22 +96,22 @@ pub struct AuthUserResponse {
     pub preferred_fiat_currency: Option<String>,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize)]
 pub struct UpdateUserRequest {
     pub name: String,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct UpdateUserResponse {
     pub user: AuthUserResponse,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize)]
 pub struct UpdateUserPreferencesRequest {
     pub preferred_fiat_currency: String,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct UserPreferencesResponse {
     pub preferred_fiat_currency: String,
 }

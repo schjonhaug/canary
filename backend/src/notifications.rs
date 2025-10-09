@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationResult {
@@ -13,7 +12,7 @@ pub struct NotificationResult {
     pub error_message: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderInfo {
     pub name: String,
     pub display_name: String,

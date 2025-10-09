@@ -3,7 +3,6 @@ use chrono;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use utoipa::ToSchema;
 
 use crate::metadata::{MetadataDb, UserRecord};
 use crate::stripe_client_service::StripeClientService;
@@ -35,18 +34,18 @@ pub struct StripeBilling {
     metadata_db: Arc<MetadataDb>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CheckoutSessionResponse {
     pub url: String,
     pub session_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CustomerPortalResponse {
     pub url: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CheckoutSessionDetails {
     pub session_id: String,
     pub customer_id: Option<String>,
@@ -58,13 +57,13 @@ pub struct CheckoutSessionDetails {
     pub currency: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PricingInfo {
     pub tiers: Vec<FrontendTierPricing>,
     pub yearly_discount_percent: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrontendTierPricing {
     pub tier: String,
     pub name: String,
@@ -74,7 +73,7 @@ pub struct FrontendTierPricing {
     pub features: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrontendPriceInfo {
     pub price_id: String,
     pub amount: i64, // amount in cents

@@ -15,10 +15,9 @@ use std::num::Wrapping;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::task::spawn_blocking;
-use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum EventType {
     #[serde(rename = "send")]
     Send,
@@ -26,7 +25,7 @@ pub enum EventType {
     Receive,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum Language {
     #[serde(rename = "en")]
     English,
@@ -57,7 +56,7 @@ pub struct UserRecord {
 
 impl UserRecord {}
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TwilioConfig {
     pub id: Option<i64>,
     pub account_sid: String,
@@ -105,7 +104,7 @@ impl From<&str> for Language {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WalletMetadata {
     pub checksum: String,
     pub name: String,
@@ -124,7 +123,7 @@ pub struct WalletMetadata {
     pub fiat_currency: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Contact {
     pub id: Option<String>, // UUIDv4
     pub wallet_checksum: String,
@@ -135,7 +134,7 @@ pub struct Contact {
     pub is_active: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NotificationMethod {
     pub id: Option<String>, // UUIDv4
     pub contact_id: String, // UUIDv4
@@ -146,7 +145,7 @@ pub struct NotificationMethod {
     pub created_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum ProviderType {
     #[serde(rename = "sms")]
     Sms,
@@ -156,7 +155,7 @@ pub enum ProviderType {
     Email,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, Copy, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum BalanceAlertType {
     #[serde(rename = "above")]
     Above,
@@ -166,7 +165,7 @@ pub enum BalanceAlertType {
     Equals,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BalanceAlert {
     pub id: String, // UUIDv4
     pub wallet_checksum: String,
@@ -177,7 +176,7 @@ pub struct BalanceAlert {
     pub created_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BalanceAlertNotification {
     pub id: String, // UUIDv4
     pub balance_alert_id: String,
@@ -231,7 +230,7 @@ impl From<&str> for BalanceAlertType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Transaction {
     pub txid: String, // Bitcoin transaction ID (hash) - primary key
     pub wallet_checksum: String,
@@ -261,7 +260,7 @@ pub enum TransactionNotification {
     BalanceAlert(BalanceAlertNotification),
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TransactionWithWallet {
     pub txid: String, // Bitcoin transaction ID (hash) - primary key
     pub wallet_checksum: String,
@@ -280,7 +279,7 @@ pub struct TransactionWithWallet {
     pub notification_status: Vec<NotificationStatus>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NotificationStatus {
     pub contact_name: String,
     pub provider_name: String,
@@ -292,13 +291,13 @@ pub struct NotificationStatus {
     pub notification_type: String,           // "pending" or "confirmed"
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WalletsListResponse {
     pub timestamp: u64,
     pub wallets: Vec<WalletMetadata>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WalletDetailResponse {
     pub timestamp: u64,
     pub wallet: WalletMetadata,
