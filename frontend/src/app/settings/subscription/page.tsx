@@ -14,7 +14,7 @@ import { AppFooter } from "@/components/app-footer"
 import Link from "next/link"
 
 export default function BillingPage() {
-  const { user, billingStatus, isLoading, refreshBillingStatus, isFossMode } = useAuth()
+  const { user, billingStatus, isLoading, refreshBillingStatus, isSelfHostedMode } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
@@ -42,7 +42,7 @@ export default function BillingPage() {
 
 
   // Hide billing page in FOSS mode
-  if (isFossMode) {
+  if (isSelfHostedMode) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8">
         <AppHeader />

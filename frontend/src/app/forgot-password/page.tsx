@@ -18,15 +18,15 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const { isFossMode } = useAuth()
+  const { isSelfHostedMode } = useAuth()
   const router = useRouter()
 
   // Redirect to wallets in FOSS mode
   useEffect(() => {
-    if (isFossMode) {
+    if (isSelfHostedMode) {
       router.push('/wallets')
     }
-  }, [isFossMode, router])
+  }, [isSelfHostedMode, router])
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
   }
 
   // Don't render anything while redirecting in FOSS mode
-  if (isFossMode) {
+  if (isSelfHostedMode) {
     return null
   }
 

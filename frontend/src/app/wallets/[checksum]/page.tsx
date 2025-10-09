@@ -30,7 +30,7 @@ export default function WalletDetailPage() {
   const params = useParams()
   const router = useRouter()
   const checksum = params.checksum as string
-  const { isAuthenticated, isLoading: authLoading, user, billingStatus, isSaasMode, isFossMode } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user, billingStatus, isCloudMode, isSelfHostedMode } = useAuth()
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
@@ -38,10 +38,10 @@ export default function WalletDetailPage() {
 
   // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
-    if (isSaasMode && !authLoading && !isAuthenticated) {
+    if (isCloudMode && !authLoading && !isAuthenticated) {
       router.push('/sign-in')
     }
-  }, [isSaasMode, isAuthenticated, authLoading, router])
+  }, [isCloudMode, isAuthenticated, authLoading, router])
 
   // Get wallet detail data directly using checksum
   const { wallet, transactions, contacts, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
@@ -83,7 +83,7 @@ export default function WalletDetailPage() {
 
   const handleAddContact = () => {
     // In FOSS mode, no limits - always allow adding contacts
-    if (isFossMode) {
+    if (isSelfHostedMode) {
       setIsAddContactModalOpen(true)
       return
     }
@@ -111,7 +111,7 @@ export default function WalletDetailPage() {
   }
 
   // Return null while redirecting unauthenticated users in SAAS mode
-  if (isSaasMode && !isAuthenticated) {
+  if (isCloudMode && !isAuthenticated) {
     return null
   }
 
@@ -282,7 +282,7 @@ export default function WalletDetailPage() {
       )}
 
       {/* Inactive Wallet Warning Banner - only in SAAS mode */}
-      {isSaasMode && wallet && wallet.is_active === false && (
+      {isCloudMode && wallet && wallet.is_active === false && (
         <Alert className="mb-6 border-orange-200 bg-orange-50">
           <AlertTriangle className="h-4 w-4 text-orange-600" />
           <AlertTitle className="text-orange-700">Wallet Inactive</AlertTitle>
@@ -353,7 +353,7 @@ export default function WalletDetailPage() {
               <div className="pt-2 border-t">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-medium text-muted-foreground">Contacts</div>
-                  {!(isSaasMode && user?.is_admin) && (
+                  {!(isCloudMode && user?.is_admin) && (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -379,7 +379,7 @@ export default function WalletDetailPage() {
                 />
               </div>
 
-              {!(isSaasMode && user?.is_admin) && (
+              {!(isCloudMode && user?.is_admin) && (
                 <div className="pt-2 border-t flex justify-end">
                   <Button
                     variant="ghost"

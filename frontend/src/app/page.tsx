@@ -7,15 +7,15 @@ import LandingPage from '@/components/landing-page'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 
 export default function HomePage() {
-  const { isAuthenticated, isLoading, isSaasMode, isFossMode } = useAuth()
+  const { isAuthenticated, isLoading, isCloudMode, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     // If user is authenticated or in FOSS mode, redirect to wallets
-    if (!isLoading && (isAuthenticated || isFossMode)) {
+    if (!isLoading && (isAuthenticated || isSelfHostedMode)) {
       router.push('/wallets')
     }
-  }, [isAuthenticated, isLoading, isFossMode, router])
+  }, [isAuthenticated, isLoading, isSelfHostedMode, router])
 
   // Show loading while checking auth
   if (isLoading) {
@@ -30,13 +30,13 @@ export default function HomePage() {
   }
 
   // FOSS mode: redirect directly to wallets (no landing page)
-  if (isFossMode) {
+  if (isSelfHostedMode) {
     router.push('/wallets')
     return null
   }
 
   // SAAS mode: Show landing page for unauthenticated users
-  if (isSaasMode && !isAuthenticated) {
+  if (isCloudMode && !isAuthenticated) {
     return <LandingPage />
   }
 

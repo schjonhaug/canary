@@ -17,15 +17,15 @@ export default function SignInPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login, isFossMode } = useAuth()
+  const { login, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
   // Redirect to wallets in FOSS mode
   useEffect(() => {
-    if (isFossMode) {
+    if (isSelfHostedMode) {
       router.push('/wallets')
     }
-  }, [isFossMode, router])
+  }, [isSelfHostedMode, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,7 +57,7 @@ export default function SignInPage() {
   }
 
   // Don't render anything while redirecting in FOSS mode
-  if (isFossMode) {
+  if (isSelfHostedMode) {
     return null
   }
 

@@ -19,15 +19,15 @@ export default function SignUpPage() {
   const [marketingEmails, setMarketingEmails] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { register, isFossMode } = useAuth()
+  const { register, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
   // Redirect to wallets in FOSS mode
   useEffect(() => {
-    if (isFossMode) {
+    if (isSelfHostedMode) {
       router.push('/wallets')
     }
-  }, [isFossMode, router])
+  }, [isSelfHostedMode, router])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,7 +46,7 @@ export default function SignUpPage() {
   }
 
   // Don't render anything while redirecting in FOSS mode
-  if (isFossMode) {
+  if (isSelfHostedMode) {
     return null
   }
 

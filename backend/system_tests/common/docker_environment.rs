@@ -105,8 +105,8 @@ impl IsolatedTestEnvironment {
 
         // Create test database
         let db_path = temp_dir.path().join("test.db");
-        // Set FOSS mode for simpler testing without Stripe dependencies
-        std::env::set_var("CANARY_MODE", "foss");
+        // Set self-hosted mode for simpler testing without Stripe dependencies
+        std::env::set_var("CANARY_MODE", "self-hosted");
 
         let test_config = AppConfig {
             network: NetworkConfig::Regtest,
@@ -117,7 +117,7 @@ impl IsolatedTestEnvironment {
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
 
-        // In FOSS mode, the hardcoded foss-user is created automatically as admin
+        // In self-hosted mode, the hardcoded foss-user is created automatically as admin
         let test_user_id = "foss-user".to_string();
 
         // Start Docker Compose environment
@@ -263,8 +263,8 @@ impl IsolatedTestEnvironment {
 
         // Create test database
         let db_path = temp_dir.path().join("test.db");
-        // Set FOSS mode for simpler testing without Stripe dependencies
-        std::env::set_var("CANARY_MODE", "foss");
+        // Set self-hosted mode for simpler testing without Stripe dependencies
+        std::env::set_var("CANARY_MODE", "self-hosted");
 
         let test_config = AppConfig {
             network: NetworkConfig::Regtest,
@@ -275,7 +275,7 @@ impl IsolatedTestEnvironment {
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
 
-        // In FOSS mode, the hardcoded foss-user is created automatically as admin
+        // In self-hosted mode, the hardcoded foss-user is created automatically as admin
         let test_user_id = "foss-user".to_string();
 
         // Start Docker Compose environment

@@ -50,7 +50,7 @@ export function CreateWalletModal({
   const nameRef = useRef<HTMLInputElement>(null)
   
   // Check if auth is enabled
-  const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'saas'
+  const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'cloud'
   
   // Prefill name when modal opens
   useEffect(() => {

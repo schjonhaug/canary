@@ -63,17 +63,17 @@ const SUPPORTED_CURRENCIES = [
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading: authLoading, isSaasMode, billingStatus } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, isCloudMode, billingStatus } = useAuth()
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD')
   const [isUpdating, setIsUpdating] = useState(false)
   const [userPreferences, setUserPreferences] = useState<{ preferred_fiat_currency: string } | null>(null)
 
   // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
-    if (isSaasMode && !authLoading && !isAuthenticated) {
+    if (isCloudMode && !authLoading && !isAuthenticated) {
       router.push('/sign-in')
     }
-  }, [isSaasMode, isAuthenticated, authLoading, router])
+  }, [isCloudMode, isAuthenticated, authLoading, router])
 
   // Fetch user preferences on mount
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function SettingsPage() {
   }
 
   // Return null while redirecting unauthenticated users in SAAS mode
-  if (isSaasMode && !isAuthenticated) {
+  if (isCloudMode && !isAuthenticated) {
     return null
   }
 
@@ -187,7 +187,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Subscription Management */}
-        {isSaasMode && (
+        {isCloudMode && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

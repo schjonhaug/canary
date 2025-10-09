@@ -21,7 +21,7 @@ jest.mock('../../contexts/auth-context', () => ({
     },
     isAuthenticated: true,
     isLoading: false,
-    isSaasMode: true,
+    isCloudMode: true,
     billingStatus: {
       subscription_tier: 'team',
       subscription_status: 'active',

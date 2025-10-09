@@ -14,7 +14,7 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ showAddWallet = false, onAddWallet, customLogo }: AppHeaderProps) {
-  const { isSaasMode } = useAuth()
+  const { isCloudMode } = useAuth()
 
   return (
     <div className="mb-4 sm:mb-6 flex items-center justify-between">
@@ -50,7 +50,7 @@ export function AppHeader({ showAddWallet = false, onAddWallet, customLogo }: Ap
         )}
 
         {/* Settings button for FOSS mode */}
-        {!isSaasMode && (
+        {!isCloudMode && (
           <Link href="/settings">
             <Button
               variant="outline"

@@ -1024,7 +1024,7 @@ impl WalletManager {
         trial_ends_at: Option<String>,
     ) -> Result<(), anyhow::Error> {
         // Check if subscription has expired or failed payment
-        let is_subscription_active = crate::saas::subscription::is_subscription_active(
+        let is_subscription_active = crate::subscription::is_subscription_active(
             subscription_status,
             trial_ends_at.as_deref(),
         );

@@ -56,12 +56,12 @@ cd regtest-env && docker-compose up -d
 All configuration is explicit via environment variables - no hardcoded defaults.
 
 **Quick Start:**
-- **FOSS mode**: `cp .env.example.foss .env`
-- **SAAS mode**: `cp .env.example.saas .env`
+- **self-hosted mode**: `cp .env.example.self-hosted .env`
+- **cloud mode**: `cp .env.example.cloud .env`
 
 **Configuration Files:**
-- `.env.example.foss` - Self-hosted single-user configuration
-- `.env.example.saas` - Hosted service with billing configuration  
+- `.env.example.self-hosted` - Self-hosted single-user configuration
+- `.env.example.cloud` - Hosted service with billing configuration  
 
 The backend will fail fast with clear error messages if required variables are missing.
 
@@ -129,7 +129,7 @@ CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
 CANARY_SYNC_INTERVAL=60
 
 # Authentication (optional)
-CANARY_MODE=saas
+CANARY_MODE=cloud
 JWT_SECRET=your_secure_jwt_secret
 
 # Stripe billing
@@ -137,7 +137,7 @@ STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
 # Notification providers
-# Twilio will be auto-enabled in SAAS mode if configured
+# Twilio will be auto-enabled in cloud mode if configured
 TWILIO_ACCOUNT_SID=your_account_sid
 TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_MESSAGING_SERVICE_SID=your_service_sid

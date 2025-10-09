@@ -488,14 +488,14 @@ impl MetadataDb {
     }
 
     async fn initialize_user_for_mode(&self, config: &AppConfig) -> Result<()> {
-        if config.is_foss_mode() {
-            // FOSS mode: Create hardcoded "foss-user" admin
+        if config.is_self_hosted_mode() {
+            // Self-hosted mode: Create hardcoded "foss-user" admin
             self.ensure_foss_user().await?;
         } else if cfg!(debug_assertions) {
-            // SAAS mode in dev: Create hardcoded dev test users
+            // Cloud mode in dev: Create hardcoded dev test users
             self.ensure_dev_test_users().await?;
         }
-        // SAAS mode in production: Users created via registration
+        // Cloud mode in production: Users created via registration
 
         Ok(())
     }

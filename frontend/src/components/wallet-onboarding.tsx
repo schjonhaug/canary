@@ -17,8 +17,8 @@ interface WalletOnboardingProps {
 }
 
 export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
-  const { billingStatus, isSaasMode } = useAuth()
-  const isPending = isSaasMode && billingStatus?.subscription_status === 'pending'
+  const { billingStatus, isCloudMode } = useAuth()
+  const isPending = isCloudMode && billingStatus?.subscription_status === 'pending'
   
   // If user is in pending status (SAAS mode only), show trial activation message + wallet descriptor info
   if (isPending) {

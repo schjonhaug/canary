@@ -144,33 +144,33 @@ impl AppConfig {
         })
     }
 
-    /// Get the operating mode (saas or foss)
+    /// Get the operating mode (cloud or self-hosted)
     pub fn operating_mode(&self) -> String {
         std::env::var("CANARY_MODE")
-            .unwrap_or_else(|_| "saas".to_string()) // Default to SAAS if not specified
+            .unwrap_or_else(|_| "cloud".to_string()) // Default to cloud if not specified
             .to_lowercase()
     }
 
-    /// Check if running in SAAS mode
-    pub fn is_saas_mode(&self) -> bool {
-        self.operating_mode() == "saas"
+    /// Check if running in cloud mode (hosted service with authentication and billing)
+    pub fn is_cloud_mode(&self) -> bool {
+        self.operating_mode() == "cloud"
     }
 
-    /// Check if running in FOSS mode
-    pub fn is_foss_mode(&self) -> bool {
-        self.operating_mode() == "foss"
+    /// Check if running in self-hosted mode (single-user, no authentication or billing)
+    pub fn is_self_hosted_mode(&self) -> bool {
+        self.operating_mode() == "self-hosted"
     }
 
     /// Check if ntfy provider should be enabled
     pub fn is_ntfy_enabled(&self) -> bool {
-        // ntfy is always available, but in FOSS mode it's the only provider
+        // ntfy is always available, but in self-hosted mode it's the only provider
         true
     }
 
     /// Check if Twilio SMS provider should be enabled
     pub fn is_twilio_enabled(&self) -> bool {
-        // Only allow Twilio in SAAS mode, and only if configured
-        if self.is_foss_mode() {
+        // Only allow Twilio in cloud mode, and only if configured
+        if self.is_self_hosted_mode() {
             return false;
         }
 
@@ -182,22 +182,22 @@ impl AppConfig {
 
     /// Check if email provider should be enabled
     pub fn is_email_enabled(&self) -> bool {
-        // Only allow email in SAAS mode
-        self.is_saas_mode()
+        // Only allow email in cloud mode
+        self.is_cloud_mode()
     }
 
     /// Validate that all required environment variables are set for the current mode
     pub fn validate_required_config(&self) -> Result<(), String> {
-        if self.is_saas_mode() {
-            self.validate_saas_config()
+        if self.is_cloud_mode() {
+            self.validate_cloud_config()
         } else {
-            // FOSS mode has no strict requirements beyond basic config
+            // Self-hosted mode has no strict requirements beyond basic config
             Ok(())
         }
     }
 
-    /// Validate required SAAS mode configuration
-    fn validate_saas_config(&self) -> Result<(), String> {
+    /// Validate required cloud mode configuration
+    fn validate_cloud_config(&self) -> Result<(), String> {
         let mut missing = Vec::new();
 
         // JWT Secret is required for authentication
@@ -247,7 +247,7 @@ impl AppConfig {
             Ok(())
         } else {
             let error_msg = format!(
-                "SAAS mode requires the following environment variables:\n{}",
+                "Cloud mode requires the following environment variables:\n{}",
                 missing
                     .into_iter()
                     .map(|var| format!("  - {}", var))
@@ -290,17 +290,17 @@ impl AppConfig {
     }
 
     /// Get sync interval based on mode and configuration
-    /// FOSS mode: Uses CANARY_SYNC_INTERVAL with network defaults
-    /// SAAS mode: Delegates to subscription tier logic
+    /// Self-hosted mode: Uses CANARY_SYNC_INTERVAL with network defaults
+    /// Cloud mode: Delegates to subscription tier logic
     pub fn get_sync_interval(&self) -> u64 {
-        if self.is_foss_mode() {
-            // FOSS mode: Use legacy CANARY_SYNC_INTERVAL or network-based defaults
+        if self.is_self_hosted_mode() {
+            // Self-hosted mode: Use legacy CANARY_SYNC_INTERVAL or network-based defaults
             std::env::var("CANARY_SYNC_INTERVAL")
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or_else(|| self.get_network_default_sync_interval())
         } else {
-            // SAAS mode: Use subscription tier logic (handled elsewhere)
+            // Cloud mode: Use subscription tier logic (handled elsewhere)
             // This is a fallback - normally subscription tiers handle this
             self.get_network_default_sync_interval()
         }
@@ -528,9 +528,9 @@ mod tests {
     }
 
     #[test]
-    fn test_foss_mode_sync_interval_legacy_fallback() {
-        // Set CANARY_MODE to foss and CANARY_SYNC_INTERVAL
-        std::env::set_var("CANARY_MODE", "foss");
+    fn test_self_hosted_mode_sync_interval_legacy_fallback() {
+        // Set CANARY_MODE to self-hosted and CANARY_SYNC_INTERVAL
+        std::env::set_var("CANARY_MODE", "self-hosted");
         std::env::set_var("CANARY_SYNC_INTERVAL", "42");
 
         let config = AppConfig {
@@ -548,9 +548,9 @@ mod tests {
     }
 
     #[test]
-    fn test_foss_mode_sync_interval_network_defaults() {
-        // Set CANARY_MODE to foss but no CANARY_SYNC_INTERVAL
-        std::env::set_var("CANARY_MODE", "foss");
+    fn test_self_hosted_mode_sync_interval_network_defaults() {
+        // Set CANARY_MODE to self-hosted but no CANARY_SYNC_INTERVAL
+        std::env::set_var("CANARY_MODE", "self-hosted");
         std::env::remove_var("CANARY_SYNC_INTERVAL");
 
         let regtest_config = AppConfig {
@@ -574,9 +574,9 @@ mod tests {
     }
 
     #[test]
-    fn test_saas_mode_sync_interval_fallback() {
-        // Set CANARY_MODE to saas
-        std::env::set_var("CANARY_MODE", "saas");
+    fn test_cloud_mode_sync_interval_fallback() {
+        // Set CANARY_MODE to cloud
+        std::env::set_var("CANARY_MODE", "cloud");
 
         let config = AppConfig {
             network: NetworkConfig::Mainnet,
@@ -585,7 +585,7 @@ mod tests {
             data_dir: "./database".to_string(),
         };
 
-        // In SAAS mode, should use network defaults as fallback
+        // In cloud mode, should use network defaults as fallback
         assert_eq!(config.get_sync_interval(), 300);
 
         // Clean up

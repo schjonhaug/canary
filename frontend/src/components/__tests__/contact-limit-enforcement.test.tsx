@@ -42,12 +42,12 @@ const ContactLimitTestComponent = ({
   userTier, 
   currentContactCount, 
   contacts = [],
-  isFossMode = false
+  isSelfHostedMode = false
 }: { 
   userTier: string
   currentContactCount: number
   contacts?: unknown[]
-  isFossMode?: boolean
+  isSelfHostedMode?: boolean
 }) => {
   const [isAddContactModalOpen, setIsAddContactModalOpen] = React.useState(false)
   const [isPlansModalOpen, setIsPlansModalOpen] = React.useState(false)
@@ -56,7 +56,7 @@ const ContactLimitTestComponent = ({
   
   const handleAddContact = () => {
     // In FOSS mode, no limits - always allow adding contacts
-    if (isFossMode) {
+    if (isSelfHostedMode) {
       setIsAddContactModalOpen(true)
       return
     }
@@ -427,7 +427,7 @@ describe('Contact Limit Enforcement', () => {
         <ContactLimitTestComponent 
           userTier="personal" 
           currentContactCount={10} // Way over personal limit of 1
-          isFossMode={true}
+          isSelfHostedMode={true}
         />
       )
 
@@ -444,7 +444,7 @@ describe('Contact Limit Enforcement', () => {
         <ContactLimitTestComponent 
           userTier="team" 
           currentContactCount={20} // Way over team limit of 5
-          isFossMode={true}
+          isSelfHostedMode={true}
         />
       )
 
@@ -474,7 +474,7 @@ describe('Contact Limit Enforcement', () => {
       // Unmount and re-mount with FOSS mode to reset state
       unmount()
       render(
-        <ContactLimitTestComponent {...props} isFossMode={true} />
+        <ContactLimitTestComponent {...props} isSelfHostedMode={true} />
       )
 
       await user.click(screen.getByTestId('add-contact-btn'))

@@ -17,12 +17,12 @@ import { getTierDisplayName } from '@/lib/pricing-data'
 import Link from 'next/link'
 
 export function UserDropdown() {
-  const { user, billingStatus, isSaasMode, isFossMode } = useAuth()
+  const { user, billingStatus, isCloudMode, isSelfHostedMode } = useAuth()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
 
   // In FOSS mode or if no user, don't show anything
-  if (isFossMode || !user) {
+  if (isSelfHostedMode || !user) {
     return null
   }
 
@@ -59,7 +59,7 @@ export function UserDropdown() {
           </div>
         </div>
         
-        {isSaasMode && (
+        {isCloudMode && (
           <>
             <DropdownMenuSeparator />
             

@@ -25,7 +25,7 @@ export default function WalletsLayout({
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null)
   const pathname = usePathname()
   const router = useRouter()
-  const { user, billingStatus, isFossMode, isSaasMode } = useAuth()
+  const { user, billingStatus, isSelfHostedMode, isCloudMode } = useAuth()
   
   // Check if we're on a wallet detail page
   const isWalletDetailPage = pathname.startsWith('/wallets/') && pathname !== '/wallets'
@@ -50,7 +50,7 @@ export default function WalletsLayout({
 
   const handleAddWallet = () => {
     // In FOSS mode, no limits - always allow adding wallets
-    if (isFossMode) {
+    if (isSelfHostedMode) {
       setIsAddWalletOpen(true)
       return
     }
@@ -82,7 +82,7 @@ export default function WalletsLayout({
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <AppHeader 
-        showAddWallet={(wallets.length > 0 || isWalletDetailPage) && !(isSaasMode && user?.is_admin)}
+        showAddWallet={(wallets.length > 0 || isWalletDetailPage) && !(isCloudMode && user?.is_admin)}
         onAddWallet={handleAddWallet}
         customLogo={isWalletDetailPage ? walletSvg : undefined}
       />

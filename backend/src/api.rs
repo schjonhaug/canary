@@ -190,7 +190,7 @@ impl AppServices {
         trial_ends_at: Option<String>,
     ) -> Result<(), anyhow::Error> {
         // Check if subscription has expired or failed payment
-        let is_subscription_active = crate::saas::subscription::is_subscription_active(
+        let is_subscription_active = crate::subscription::is_subscription_active(
             subscription_status,
             trial_ends_at.as_deref(),
         );
@@ -415,8 +415,8 @@ fn authenticate_user_mode_aware(
     config: &AppConfig,
     auth_header: Option<&str>,
 ) -> Result<AuthUser, String> {
-    if config.is_foss_mode() {
-        // FOSS mode: return hardcoded user
+    if config.is_self_hosted_mode() {
+        // Self-hosted mode: return hardcoded user
         Ok(AuthUser {
             user_id: "foss-user".to_string(),
             is_admin: true,
@@ -533,7 +533,7 @@ pub async fn create_wallet_non_blocking(
     // Get user's subscription tier and check wallet limit
     match app_services.metadata_db.get_user_by_id(&user.user_id).await {
         Ok(Some(user_record)) => {
-            let bypass_limits = config.is_foss_mode() || user_record.is_admin;
+            let bypass_limits = config.is_self_hosted_mode() || user_record.is_admin;
 
             if !bypass_limits {
                 // Count existing wallets for the user
@@ -639,7 +639,7 @@ pub async fn create_wallet_non_blocking(
     {
         Ok(wallet_metadata) => {
             // Check if SAAS mode - if so, auto-add user as contact
-            if config.is_saas_mode() {
+            if config.is_cloud_mode() {
                 // Log the received language from frontend
                 eprintln!(
                     "Received preferred_language from frontend: {:?}",
@@ -1319,7 +1319,7 @@ pub async fn create_wallet_contact(
     };
 
     // Count existing contacts for the wallet and check limit unless limits are bypassed
-    let bypass_limits = config.is_foss_mode() || user_record.is_admin;
+    let bypass_limits = config.is_self_hosted_mode() || user_record.is_admin;
     if !bypass_limits {
         match app_services
             .metadata_db
@@ -4417,7 +4417,7 @@ pub async fn get_billing_status(
     };
 
     // Check if trial has expired and update status accordingly
-    let effective_subscription_status = crate::saas::subscription::get_effective_subscription_status(
+    let effective_subscription_status = crate::subscription::get_effective_subscription_status(
         &user_record.subscription_status,
         user_record.trial_ends_at.as_deref(),
     );

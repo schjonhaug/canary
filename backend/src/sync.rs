@@ -53,8 +53,8 @@ impl WalletSyncService {
 
         // Perform the actual sync with Electrum with mode-based retry logic
         if let Some(client) = electrum_client {
-            let max_retries: u32 = if self.config.is_saas_mode() { 3 } else { 1 };
-            let use_exponential_backoff = self.config.is_saas_mode();
+            let max_retries: u32 = if self.config.is_cloud_mode() { 3 } else { 1 };
+            let use_exponential_backoff = self.config.is_cloud_mode();
 
             let mut last_error = None;
 
@@ -89,7 +89,7 @@ impl WalletSyncService {
                         last_error = Some(e);
 
                         // Enhanced error categorization for SAAS mode
-                        if self.config.is_saas_mode() && attempt < max_retries {
+                        if self.config.is_cloud_mode() && attempt < max_retries {
                             let error_type = Self::categorize_error(&error_message);
 
                             let delay_secs = if use_exponential_backoff {
@@ -125,7 +125,7 @@ impl WalletSyncService {
 
             // If all retries failed, handle the error
             if let Some(error) = last_error {
-                if self.config.is_saas_mode() {
+                if self.config.is_cloud_mode() {
                     error!(
                         "[{}] Failed to sync with Electrum after {} attempts: {}",
                         wallet_checksum, max_retries, error
@@ -206,7 +206,7 @@ impl WalletSyncService {
         );
 
         // Log warning for unusually long syncs (SAAS mode only)
-        if self.config.is_saas_mode() && sync_duration.as_secs() > 120 {
+        if self.config.is_cloud_mode() && sync_duration.as_secs() > 120 {
             warn!(
                 "[{}] WARNING: Sync took {:.1}s (>120s), potential performance issue",
                 wallet_checksum,

@@ -90,7 +90,7 @@ describe('CreateWalletModal', () => {
 
   describe('Wallet Name Prefilling - SAAS Mode', () => {
     beforeEach(() => {
-      process.env.NEXT_PUBLIC_CANARY_MODE = 'saas'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
       mockUseAuth.mockReturnValue({ user: mockUser })
     })
 
@@ -122,7 +122,7 @@ describe('CreateWalletModal', () => {
 
   describe('Wallet Name Prefilling - FOSS Mode', () => {
     beforeEach(() => {
-      process.env.NEXT_PUBLIC_CANARY_MODE = 'foss'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
       mockUseAuth.mockReturnValue({ user: mockUser })
     })
 
@@ -136,7 +136,7 @@ describe('CreateWalletModal', () => {
 
   describe('Focus Management', () => {
     beforeEach(() => {
-      process.env.NEXT_PUBLIC_CANARY_MODE = 'saas'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
       mockUseAuth.mockReturnValue({ user: mockUser })
     })
 
@@ -155,7 +155,7 @@ describe('CreateWalletModal', () => {
     })
 
     it('focuses name field in FOSS mode', () => {
-      process.env.NEXT_PUBLIC_CANARY_MODE = 'foss'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
       
@@ -192,7 +192,7 @@ describe('CreateWalletModal', () => {
     })
 
     it('adds wallet with prefilled name when user submits', async () => {
-      process.env.NEXT_PUBLIC_CANARY_MODE = 'saas'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
       mockUseAuth.mockReturnValue({ user: mockUser })
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
@@ -218,7 +218,7 @@ describe('CreateWalletModal', () => {
     })
 
     it('user can modify prefilled name before submission', async () => {
-      process.env.NEXT_PUBLIC_CANARY_MODE = 'saas'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
       mockUseAuth.mockReturnValue({ user: mockUser })
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
@@ -277,7 +277,7 @@ describe('CreateWalletModal', () => {
 
   describe('Different Canary Modes', () => {
     it('handles FOSS mode', () => {
-      process.env.NEXT_PUBLIC_CANARY_MODE = 'foss'
+      process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
       mockUseAuth.mockReturnValue({ 
         user: { id: 1, phone_number: 'FOSS', name: 'Admin', is_admin: true } 
       })

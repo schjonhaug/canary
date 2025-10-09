@@ -19,7 +19,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
   const [name, setName] = useState(currentName)
   const [isUpdating, setIsUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { user, isSaasMode } = useAuth()
+  const { user, isCloudMode } = useAuth()
 
   const handleEdit = () => {
     setIsEditing(true)
@@ -110,7 +110,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
   }
 
   // For admin users in SaaS mode, show only the name without edit button
-  if (isSaasMode && user?.is_admin) {
+  if (isCloudMode && user?.is_admin) {
     return (
       <div className="flex items-center gap-2 min-w-0">
         <span className={`${textClasses} truncate`} title={currentName}>{currentName}</span>

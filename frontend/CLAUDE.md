@@ -47,8 +47,8 @@ npm run test:watch    # Run tests in watch mode
 - **Automatic token handling**: JWT tokens automatically included in requests when authenticated
 
 #### Operating Modes  
-- **FOSS Mode**: When `NEXT_PUBLIC_CANARY_MODE=foss`, single hardcoded admin user with no authentication, billing, or subscription limits
-- **SAAS Mode**: When `NEXT_PUBLIC_CANARY_MODE=saas` (default), complete email/password authentication with JWT, billing integration, and subscription management
+- **FOSS Mode**: When `NEXT_PUBLIC_CANARY_MODE=self-hosted`, single hardcoded admin user with no authentication, billing, or subscription limits
+- **SAAS Mode**: When `NEXT_PUBLIC_CANARY_MODE=cloud` (default), complete email/password authentication with JWT, billing integration, and subscription management
 
 #### Subscription Management
 - **Tiered billing system**: Personal ($9/month) vs Team ($29/month) tiers with different limits
@@ -128,30 +128,30 @@ npm test -- --watch contact-modal.test.tsx
 ### Quick Start
 Choose your deployment mode and copy the appropriate configuration:
 
-- **FOSS mode**: `cp .env.example.foss .env.local`
-- **SAAS mode**: `cp .env.example.saas .env.local`
+- **self-hosted mode**: `cp .env.example.self-hosted .env.local`
+- **cloud mode**: `cp .env.example.cloud .env.local`
 
 ### Configuration Files
-- `.env.example.foss` - Self-hosted single-user frontend configuration
-- `.env.example.saas` - Hosted service frontend configuration with Stripe billing
+- `.env.example.self-hosted` - Self-hosted single-user frontend configuration
+- `.env.example.cloud` - Hosted service frontend configuration with Stripe billing
 
 ### Environment Variables
 ```bash
 # Operating mode (required)
-NEXT_PUBLIC_CANARY_MODE=saas   # or 'foss' for self-hosted mode
+NEXT_PUBLIC_CANARY_MODE=cloud   # or 'foss' for self-hosted mode
 
 # Backend API URL (required)
 NEXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
 ### Operating Mode Details
-- **SAAS Mode** (`NEXT_PUBLIC_CANARY_MODE=saas`):
+- **SAAS Mode** (`NEXT_PUBLIC_CANARY_MODE=cloud`):
   - Full multi-user authentication with email/password
   - Stripe subscription billing and tier-based limits
   - Multiple notification providers (SMS, email, ntfy)
   - Development: Pre-configured test users (delivered+admin@resend.dev, delivered+alice@resend.dev, delivered+bob@resend.dev) with password `password123`
   - Production: Email verification required for new accounts
-- **FOSS Mode** (`NEXT_PUBLIC_CANARY_MODE=foss`):
+- **FOSS Mode** (`NEXT_PUBLIC_CANARY_MODE=self-hosted`):
   - Single hardcoded admin user (no authentication)  
   - No subscription billing or limits
   - Only ntfy notifications (self-hostable)

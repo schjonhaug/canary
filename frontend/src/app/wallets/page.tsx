@@ -13,7 +13,7 @@ import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
   const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading, onAddWallet } = useWalletsContext()
-  const { isAuthenticated, isLoading: authLoading, user, isSaasMode, billingStatus } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user, isCloudMode, billingStatus } = useAuth()
   const router = useRouter()
 
   // Set page title
@@ -44,10 +44,10 @@ export default function WalletsPage() {
 
   // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
-    if (isSaasMode && !authLoading && !isAuthenticated) {
+    if (isCloudMode && !authLoading && !isAuthenticated) {
       router.push('/sign-in')
     }
-  }, [isSaasMode, isAuthenticated, authLoading, router])
+  }, [isCloudMode, isAuthenticated, authLoading, router])
 
   // Show loading spinner while auth or wallets are loading
   if (authLoading || walletsLoading) {
@@ -62,7 +62,7 @@ export default function WalletsPage() {
   }
 
   // Return null while redirecting unauthenticated users in SAAS mode
-  if (isSaasMode && !isAuthenticated) {
+  if (isCloudMode && !isAuthenticated) {
     return null
   }
 

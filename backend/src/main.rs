@@ -71,10 +71,10 @@ async fn main() -> anyhow::Result<()> {
     println!("  Wallet directory: {}", config.effective_wallet_dir());
     println!("  Metadata DB: {}", config.effective_metadata_db());
     // Display mode-appropriate sync intervals
-    if config.is_foss_mode() {
+    if config.is_self_hosted_mode() {
         let sync_interval = config.get_sync_interval();
         println!(
-            "  Sync interval: {}s (FOSS mode, network: {:?})",
+            "  Sync interval: {}s (self-hosted mode, network: {:?})",
             sync_interval, config.network
         );
     } else {
@@ -92,7 +92,7 @@ async fn main() -> anyhow::Result<()> {
         "🏢 Operating mode: {}",
         config.operating_mode().to_uppercase()
     );
-    if config.is_saas_mode() {
+    if config.is_cloud_mode() {
         println!("   - Multi-user with authentication");
         println!("   - Subscription billing enabled");
         println!("   - All notification providers available");
@@ -171,7 +171,7 @@ async fn main() -> anyhow::Result<()> {
     // Create notification manager and register providers based on operating mode
     let mut notification_manager = NotificationManager::new();
 
-    if config.is_foss_mode() {
+    if config.is_self_hosted_mode() {
         // FOSS mode: Only ntfy provider
         println!("🔔 FOSS mode: Registering ntfy-only notifications");
         notification_manager.register_provider(Arc::new(NtfyProvider::new()));
@@ -210,9 +210,9 @@ async fn main() -> anyhow::Result<()> {
 
     let notification_manager = Arc::new(Mutex::new(notification_manager));
 
-    // Initialize Stripe billing only in SAAS mode
-    let stripe_billing = if config.is_saas_mode() {
-        println!("🏦 SAAS mode: Initializing Stripe billing...");
+    // Initialize Stripe billing only in cloud mode
+    let stripe_billing = if config.is_cloud_mode() {
+        println!("🏦 Cloud mode: Initializing Stripe billing...");
         match StripeBilling::new(Arc::new(app_services.metadata_db.clone())).await {
             Ok(billing) => {
                 println!("✅ Stripe billing initialized successfully");
@@ -294,7 +294,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Mode-based sync task configuration
-    if config.is_foss_mode() {
+    if config.is_self_hosted_mode() {
         // FOSS mode: Single sync task using CANARY_SYNC_INTERVAL
         let sync_interval = config.get_sync_interval();
         let foss_wallet_manager = Arc::clone(&wallet_manager);
@@ -457,7 +457,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Block header sync task (mode-aware frequency)
-    let block_sync_interval = if config.is_foss_mode() {
+    let block_sync_interval = if config.is_self_hosted_mode() {
         config.get_sync_interval()
     } else {
         let (_, team_sync_interval) =
@@ -819,7 +819,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // Apply subscription limits for all existing users at startup (SAAS mode only)
-    if config.is_saas_mode() {
+    if config.is_cloud_mode() {
         tokio::spawn({
             let wallet_manager = wallet_manager.clone();
             async move {

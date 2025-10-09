@@ -36,8 +36,8 @@ interface AuthContextType {
   billingStatus: BillingStatus | null
   isLoading: boolean
   isAuthenticated: boolean
-  isSaasMode: boolean
-  isFossMode: boolean
+  isCloudMode: boolean
+  isSelfHostedMode: boolean
   register: (email: string, password: string, name: string, marketingEmails?: boolean) => Promise<void>
   login: (email: string, password: string) => Promise<void>
   setAuth: (token: string, user: User) => Promise<void>
@@ -58,9 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   // Check operating mode
-  const mode = process.env.NEXT_PUBLIC_CANARY_MODE || 'saas'
-  const isSaasMode = mode === 'saas'
-  const isFossMode = mode === 'foss'
+  const mode = process.env.NEXT_PUBLIC_CANARY_MODE || 'cloud'
+  const isCloudMode = mode === 'cloud'
+  const isSelfHostedMode = mode === 'self-hosted'
   
 
   const fetchUser = useCallback(async () => {
@@ -100,8 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check for existing session on mount
   useEffect(() => {
-    // In FOSS mode, set a default user and skip auth
-    if (isFossMode) {
+    // In self-hosted mode, set a default user and skip auth
+    if (isSelfHostedMode) {
       setUser({
         id: 1,
         email: 'admin@local',
@@ -125,16 +125,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsLoading(false)
     }
-  }, [isFossMode, fetchUser])
+  }, [isSelfHostedMode, fetchUser])
 
   // Fetch billing status after user is loaded
   useEffect(() => {
-    if (user && isSaasMode) {
+    if (user && isCloudMode) {
       fetchBillingStatus().catch(error => {
         console.error('Failed to fetch billing status (non-critical):', error)
       })
     }
-  }, [user, isSaasMode, fetchBillingStatus])
+  }, [user, isCloudMode, fetchBillingStatus])
 
   const refreshBillingStatus = useCallback(async () => {
     if (!token) return
@@ -221,8 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         billingStatus,
         isLoading,
         isAuthenticated: !!token,
-        isSaasMode,
-        isFossMode,
+        isCloudMode,
+        isSelfHostedMode,
         register,
         login,
         setAuth,

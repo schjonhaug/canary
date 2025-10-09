@@ -62,8 +62,8 @@ cd regtest-env && ./docker-utils.sh run-tests <wallet_address>
 canary/
 ├── backend/          # Rust service with BDK wallet management
 │   ├── src/         # All source code (api.rs, main.rs, wallet.rs, metadata.rs, sync.rs, auth.rs, stripe_billing.rs, notification providers, etc.)
-│   ├── database-foss/    # FOSS mode SQLite databases (database-foss/{network}/)
-│   ├── database-saas/    # SAAS mode SQLite databases (database-saas/{network}/)
+│   ├── database-self-hosted/    # self-hosted mode SQLite databases (database-self-hosted/{network}/)
+│   ├── database-cloud/    # cloud mode SQLite databases (database-cloud/{network}/)
 │   ├── migrations/  # 12 database schema migrations (001-012)
 │   ├── tests/       # Integration tests (stripe_integration_tests.rs, balance_alerts_system_tests.rs, contact_duplicates_test.rs)
 │   ├── system_tests/     # End-to-end Docker-based tests (balance_alert_scenarios.rs, mined_directly_scenarios.rs, two_stage_send_scenarios.rs, etc.)
@@ -155,8 +155,8 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - `.env` file in backend directory
 
 **Configuration templates:**
-- **FOSS mode**: Copy `backend/.env.example.foss` → `backend/.env` and `frontend/.env.example.foss` → `frontend/.env.local`
-- **SAAS mode**: Copy `backend/.env.example.saas` → `backend/.env` and `frontend/.env.example.saas` → `frontend/.env.local`
+- **self-hosted mode**: Copy `backend/.env.example.self-hosted` → `backend/.env` and `frontend/.env.example.self-hosted` → `frontend/.env.local`
+- **cloud mode**: Copy `backend/.env.example.cloud` → `backend/.env` and `frontend/.env.example.cloud` → `frontend/.env.local`
 
 **Defaults:**
 - Regtest: tcp://127.0.0.1:50001
@@ -281,7 +281,7 @@ Database consists of 12 migrations providing comprehensive schema:
 ### Resend Email (Optional)
 1. Set environment variables in `.env`:
    ```
-   CANARY_MODE=saas
+   CANARY_MODE=cloud
    RESEND_API_KEY=re_your-resend-api-key
    RESEND_FROM_EMAIL=notifications@canarybitcoin.com
    RESEND_FROM_NAME=Canary Wallet
@@ -302,7 +302,7 @@ Database consists of 12 migrations providing comprehensive schema:
 Enable email/password authentication for multi-user support:
 1. Set environment variables in `.env`:
    ```
-   CANARY_MODE=saas
+   CANARY_MODE=cloud
    JWT_SECRET=your_secure_jwt_secret_here
    # Email service for verification emails (optional in dev mode)
    SMTP_HOST=smtp.gmail.com
@@ -488,7 +488,7 @@ TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 This is separate from the main authentication system and only used when users add phone number contacts.
 
 ## Storage
-- **Mode-specific Databases**: `database-foss/{network}/` for FOSS mode, `database-saas/{network}/` for SAAS mode
+- **Mode-specific Databases**: `database-self-hosted/{network}/` for self-hosted mode, `database-cloud/{network}/` for cloud mode
 - **Wallets**: `database-{mode}/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
 - **Metadata**: `database-{mode}/{network}/metadata.sqlite` (normalized schema with 12 migrations)
 - **Schema**: 12 migration files providing comprehensive schema for all features
