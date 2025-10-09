@@ -1,23 +1,23 @@
 use crate::admin_notifications::AdminNotifications;
+use crate::auth::{
+    authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUser,
+    AuthUserResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
+    UpdateUserPreferencesRequest, UpdateUserRequest, UpdateUserResponse, UserPreferencesResponse,
+};
 use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
+use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::metadata::{
     BalanceAlert, BalanceAlertType, Contact, EventType, Language, MetadataDb, NotificationMethod,
     ProviderType, WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
-use crate::saas::auth::{
-    authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUser,
-    AuthUserResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
-    UpdateUserPreferencesRequest, UpdateUserRequest, UpdateUserResponse, UserPreferencesResponse,
-};
-use crate::saas::email_service::EmailService;
-use crate::saas::stripe_billing::{
+use crate::stripe_billing::{
     CheckoutSessionDetails, CheckoutSessionResponse, CustomerPortalResponse, FrontendPriceInfo,
     FrontendTierPricing, PricingInfo, StripeBilling,
 };
-use crate::saas::subscription::{check_limit, SubscriptionTier};
+use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletCreationService;
 use crate::xpub_converter::XpubConverter;
 use axum::{
@@ -768,7 +768,7 @@ pub async fn create_wallet_non_blocking(
                             if let Err(e) = stripe_service
                                 .create_trial_subscription(
                                     &user_record,
-                                    SubscriptionTier::Team,
+                                    crate::subscription::SubscriptionTier::Team,
                                     &app_services.metadata_db,
                                 )
                                 .await
@@ -2452,7 +2452,7 @@ pub async fn send_contact_verification(
     let verification_code = if is_dev_mode {
         "123456".to_string()
     } else if provider_type == "email" {
-        use crate::saas::email_service::EmailService;
+        use crate::email_service::EmailService;
         EmailService::generate_otp_code()
     } else {
         // SMS uses Twilio Verify which generates its own codes
@@ -2525,7 +2525,7 @@ pub async fn send_contact_verification(
             .await
     } else {
         // Email verification via Resend
-        use crate::saas::email_service::EmailService;
+        use crate::email_service::EmailService;
         let email_service = match EmailService::from_env() {
             Ok(service) => service,
             Err(e) => {
@@ -4403,8 +4403,8 @@ pub async fn get_billing_status(
         .subscription_tier
         .get_sync_intervals(&config.network);
     let actual_sync_interval = match user_record.subscription_tier {
-        SubscriptionTier::Personal => personal_sync,
-        SubscriptionTier::Team => team_sync,
+        crate::subscription::SubscriptionTier::Personal => personal_sync,
+        crate::subscription::SubscriptionTier::Team => team_sync,
     };
 
     let limits = BillingTierLimits {

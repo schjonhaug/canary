@@ -2,7 +2,7 @@ use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
 use crate::exchange_rates;
 use crate::migrations::MigrationRunner;
-use crate::saas::subscription::SubscriptionTier;
+use crate::subscription::SubscriptionTier;
 use anyhow::{anyhow, Context, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
@@ -536,7 +536,7 @@ impl MetadataDb {
     }
 
     async fn ensure_dev_test_users(&self) -> Result<()> {
-        use crate::saas::auth::{AuthService, DEV_TEST_EMAILS, DEV_TEST_PASSWORD};
+        use crate::auth::{AuthService, DEV_TEST_EMAILS, DEV_TEST_PASSWORD};
 
         let pool = self.pool.clone();
 
@@ -1667,20 +1667,20 @@ impl MetadataDb {
     /// Get all wallets for a specific tier that are due for sync
     pub async fn get_wallets_for_tier_sync(
         &self,
-        tier: &SubscriptionTier,
+        tier: &crate::subscription::SubscriptionTier,
         network: &crate::config::NetworkConfig,
     ) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
         let network = network.clone();
         let tier_str = match tier {
-            SubscriptionTier::Personal => "personal",
-            SubscriptionTier::Team => "team",
+            crate::subscription::SubscriptionTier::Personal => "personal",
+            crate::subscription::SubscriptionTier::Team => "team",
         }
         .to_string();
 
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
-            let tier_limits = SubscriptionTier::from(tier_str.clone()).limits(&network);
+            let tier_limits = crate::subscription::SubscriptionTier::from(tier_str.clone()).limits(&network);
 
             let mut stmt = conn.prepare(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.balance_total,

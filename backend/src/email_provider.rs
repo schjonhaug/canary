@@ -1,4 +1,4 @@
-use crate::saas::email_service::{BatchEmailRequest, EmailService};
+use crate::email_service::{BatchEmailRequest, EmailService};
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionNotification};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};

@@ -2,7 +2,6 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::ElectrumClient;
 use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
-use crate::saas::subscription::SubscriptionTier;
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
@@ -793,7 +792,7 @@ impl WalletManager {
     /// Sync all wallets for a specific subscription tier in parallel
     pub async fn sync_tier_parallel(
         &mut self,
-        tier: SubscriptionTier,
+        tier: crate::subscription::SubscriptionTier,
     ) -> Result<()> {
         use crate::sync::WalletSyncService;
 
