@@ -21,9 +21,9 @@ interface PlanComparisonProps {
   hasPaidSubscription?: boolean
 }
 
-export function PlanComparison({ 
-  currentTier, 
-  onUpgrade, 
+export function PlanComparison({
+  currentTier,
+  onUpgrade,
   highlightUpgrades = true,
   showPricing = true,
   isModal = false,
@@ -36,9 +36,18 @@ export function PlanComparison({
   hasPaidSubscription = false
 }: PlanComparisonProps) {
   const { pricing, loading, error } = usePricing()
-  
-  // Only use Stripe pricing
-  const sortedTiers = pricing ? sortTiers(pricing.tiers) : []
+
+  // Add self-hosted tier manually (not from Stripe)
+  const selfHostedTier = {
+    tier: 'selfhosted',
+    name: 'Self-hosted',
+    description: 'Run on your own infrastructure',
+    features: {}
+  }
+
+  // Only use Stripe pricing and prepend self-hosted
+  const stripeTiers = pricing ? sortTiers(pricing.tiers) : []
+  const sortedTiers = [selfHostedTier, ...stripeTiers]
   
   // Filter tiers to show only current tier and higher tiers for modal (unless showAllTiers is true)
   const tiersToShow = isModal && !showAllTiers
@@ -173,7 +182,12 @@ function PlanComparisonContent({
             <CardHeader>
               <CardTitle className="text-lg">{getTierDisplayName(tier.tier)}</CardTitle>
               <CardDescription className="text-sm">{tier.description || getTierDescription(tier.tier)}</CardDescription>
-              {showPricing && monthlyPrice && (
+              {showPricing && tier.tier === 'selfhosted' && (
+                <div className="mt-3">
+                  <span className="text-2xl font-bold text-green-600">Free to Self-host</span>
+                </div>
+              )}
+              {showPricing && monthlyPrice && tier.tier !== 'selfhosted' && (
                 <div className="mt-3">
                   <span className="text-2xl font-bold">{formatPrice(monthlyPrice.amount, monthlyPrice.currency)}</span>
                   <span className="text-muted-foreground text-sm">/month</span>
@@ -192,19 +206,15 @@ function PlanComparisonContent({
             <CardContent>
               <ul className="space-y-2.5">
                 {allFeatures.map((feature) => {
-                  const tierKey = tier.tier as 'personal' | 'team'
+                  const tierKey = tier.tier as 'selfhosted' | 'personal' | 'team'
                   const value = feature[tierKey]
                   const isUnique = feature.unique?.[tierKey as keyof typeof feature.unique] || false
-                  
-                  if (value === false) {
-                    return (
-                      <li key={feature.id} className="flex items-start text-sm text-muted-foreground/50">
-                        <span className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5">–</span>
-                        <span className="line-through">{feature.label}</span>
-                      </li>
-                    )
+
+                  // Skip features that are false or undefined for this tier
+                  if (value === false || value === undefined) {
+                    return null
                   }
-                  
+
                   return (
                     <li key={feature.id} className={`flex items-start text-sm ${isUnique && tier.tier !== 'personal' ? 'font-medium' : ''}`}>
                       <CheckCircle2 className={`h-4 w-4 mr-2 flex-shrink-0 mt-0.5 ${isUnique && tier.tier !== 'personal' ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -216,12 +226,26 @@ function PlanComparisonContent({
                 })}
               </ul>
             </CardContent>
-            
-            
-            {onUpgrade && (!isCurrentTier || isTrialUser) && !showCallToAction && (
+
+
+            {tier.tier === 'selfhosted' && showCallToAction && (
               <CardFooter>
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  asChild
+                >
+                  <a href="https://github.com/schjonhaug/canary" target="_blank" rel="noopener noreferrer">
+                    View on GitHub
+                  </a>
+                </Button>
+              </CardFooter>
+            )}
+
+            {onUpgrade && (!isCurrentTier || isTrialUser) && !showCallToAction && tier.tier !== 'selfhosted' && (
+              <CardFooter>
+                <Button
+                  className="w-full"
                   variant={isUpgrade ? "default" : "outline"}
                   onClick={() => {
                     if (onUpgrade) {
@@ -235,7 +259,7 @@ function PlanComparisonContent({
                 </Button>
               </CardFooter>
             )}
-            
+
           </Card>
         )
       })}

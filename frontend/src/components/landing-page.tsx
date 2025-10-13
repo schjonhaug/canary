@@ -254,7 +254,7 @@ export default function LandingPage() {
             Choose the plan that fits your needs
           </p>
           <p className="text-sm text-green-600 font-medium">
-            ✓ All plans include a 30-day free trial • No credit card required
+            ✓ Cloud plans include a 30-day free trial • No credit card required
           </p>
         </div>
         
