@@ -36,10 +36,12 @@ export default function HomePage() {
   }
 
   // SAAS mode: Show landing page for unauthenticated users
+  // Note: This handles both explicit navigation to / and post-logout redirects
   if (isCloudMode && !isAuthenticated) {
     return <LandingPage />
   }
 
-  // This should not be reached due to the useEffect redirect above
+  // Authenticated users will be redirected by the useEffect above
+  // Return null while redirect is in progress
   return null
 }

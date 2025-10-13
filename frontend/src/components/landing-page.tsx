@@ -95,17 +95,17 @@ export default function LandingPage() {
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-3xl mx-auto">
           <Image
-            src="/images/canarybitcoin.svg"
+            src="/images/canary.svg"
             alt="Canary Logo"
-            width={300}
-            height={300}
+            width={200}
+            height={200}
             className="mx-auto mb-6"
           />
           <h1 className="text-4xl font-bold tracking-tight mb-4">
             Complete Bitcoin Wealth Monitoring
           </h1>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Professional Bitcoin monitoring with transaction alerts AND intelligent balance notifications.
+            Professional Bitcoin monitoring with transaction alerts and intelligent balance notifications.
             Set custom balance thresholds, monitor wallet drains, track all transactions - all with watch-only security.
           </p>
           <div className="flex gap-3 justify-center flex-wrap">

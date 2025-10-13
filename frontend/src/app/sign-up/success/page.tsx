@@ -11,7 +11,7 @@ export default function SignUpSuccessPage() {
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
             <Image
-              src="/images/canarybitcoin.svg"
+              src="/images/canary.svg"
               alt="Canary Logo"
               width={48}
               height={48}
