@@ -3235,6 +3235,7 @@ impl MetadataDb {
         .await?
     }
 
+    #[allow(dead_code)] // Used in system tests
     pub async fn deactivate_balance_alert(&self, alert_id: &str) -> Result<()> {
         let pool = self.pool.clone();
         let alert_id = alert_id.to_string();

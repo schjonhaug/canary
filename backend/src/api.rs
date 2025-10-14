@@ -5,18 +5,14 @@ use crate::auth::{
     UpdateUserPreferencesRequest, UpdateUserRequest, UpdateUserResponse, UserPreferencesResponse,
 };
 use crate::config::AppConfig;
-use crate::electrum::BlockHeader;
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::metadata::{
-    BalanceAlert, BalanceAlertType, Contact, EventType, Language, MetadataDb, NotificationMethod,
-    ProviderType, WalletDetailResponse, WalletMetadata, WalletsListResponse,
+    BalanceAlert, BalanceAlertType, Language, MetadataDb, ProviderType, WalletDetailResponse,
+    WalletMetadata, WalletsListResponse,
 };
 use crate::notifications::{NotificationManager, ProviderInfo};
-use crate::stripe_billing::{
-    CheckoutSessionDetails, CheckoutSessionResponse, CustomerPortalResponse, FrontendPriceInfo,
-    FrontendTierPricing, PricingInfo, StripeBilling,
-};
+use crate::stripe_billing::StripeBilling;
 use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletCreationService;
 use crate::xpub_converter::XpubConverter;
