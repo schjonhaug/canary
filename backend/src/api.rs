@@ -1966,7 +1966,7 @@ pub async fn get_wallet_contacts(
 
     let contacts_result = app_services
         .metadata_db
-        .get_contacts_with_notification_methods(&wallet_checksum)
+        .get_contacts_with_notification_methods_filtered(&wallet_checksum, true)
         .await;
 
     let elapsed = start_time.elapsed();
@@ -2809,7 +2809,7 @@ pub async fn get_wallet_detail(
         // Get contacts - these are available even for pending wallets
         let contacts = match app_services
             .metadata_db
-            .get_contacts_with_notification_methods(&wallet.checksum)
+            .get_contacts_with_notification_methods_filtered(&wallet.checksum, true)
             .await
         {
             Ok(contacts) => contacts,
@@ -2855,7 +2855,7 @@ pub async fn get_wallet_detail(
     // Get contacts - no mutex blocking!
     let contacts = match app_services
         .metadata_db
-        .get_contacts_with_notification_methods(&wallet.checksum)
+        .get_contacts_with_notification_methods_filtered(&wallet.checksum, true)
         .await
     {
         Ok(contacts) => contacts,
