@@ -908,6 +908,20 @@ impl StripeBilling {
                                         }
                                     }
 
+                                    // Check for trial-related changes (trial extension, shortening, etc.)
+                                    // Always update if subscription is trialing to ensure trial_ends_at is kept in sync
+                                    if current_status == Some("trialing") {
+                                        should_update = true;
+                                        if reason.is_empty() {
+                                            if let Some(current_trial_end) = subscription.get("trial_end").and_then(|t| t.as_i64()) {
+                                                let new_date = chrono::DateTime::from_timestamp(current_trial_end, 0)
+                                                    .map(|dt| dt.format("%B %d, %Y").to_string())
+                                                    .unwrap_or_else(|| "unknown".to_string());
+                                                reason = format!("Trial active until {}", new_date);
+                                            }
+                                        }
+                                    }
+
                                     // Check for subscription cancellation
                                     // If cancel_at_period_end is true, always update to set the end date
                                     if cancel_at_period_end == Some(true) {
@@ -930,6 +944,17 @@ impl StripeBilling {
                                                     .unwrap_or_default()
                                             });
 
+                                        // Extract trial_end for trialing subscriptions
+                                        let trial_ends_at = if current_status == Some("trialing") {
+                                            subscription.get("trial_end").and_then(|t| t.as_i64()).map(|ts| {
+                                                chrono::DateTime::from_timestamp(ts, 0)
+                                                    .map(|dt| dt.to_rfc3339())
+                                                    .unwrap_or_default()
+                                            })
+                                        } else {
+                                            None
+                                        };
+
                                         // Override status to "canceled" if cancel_at_period_end is true
                                         let final_status = if cancel_at_period_end == Some(true) {
                                             "canceled".to_string()
@@ -949,7 +974,7 @@ impl StripeBilling {
                                                 chrono::Utc::now().to_rfc3339(),
                                             ),
                                             subscription_ends_at,
-                                            trial_ends_at: None, // Clear trial info for active subscriptions
+                                            trial_ends_at,
                                         };
                                         updates.push(update);
                                     }
