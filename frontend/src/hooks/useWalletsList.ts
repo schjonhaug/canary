@@ -14,6 +14,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
   const [isLoading, setIsLoading] = useState(shouldFetch); // Start as true if we should fetch
   const [isConnected, setIsConnected] = useState(true);
   const [currentPollingInterval, setCurrentPollingInterval] = useState(60000); // Default 60 seconds
+  const [hasInitialData, setHasInitialData] = useState(false); // Track if we've ever loaded data
   const { token, isAuthenticated, billingStatus } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -24,26 +25,30 @@ export function useWalletsList(shouldFetch: boolean = true) {
       return;
     }
 
-    setIsLoading(true);
+    // Only show loading spinner on initial fetch, not on background refreshes
+    // This prevents the "blinking" effect when polling with pending wallets
+    if (!hasInitialData) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
       const headers: HeadersInit = {};
-      
+
       // Add Authorization header if token is available
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      
+
       const response = await fetch('/api/wallets', {
         headers,
       });
-      
+
       if (response.ok) {
         const data: WalletsListResponse = await response.json();
-        
+
         // Note: We now rely on backend's status field instead of client-side pending tracking
-        
+
         setWallets(data.wallets);
         setLastUpdate(data.timestamp);
         setIsConnected(true);
@@ -58,9 +63,13 @@ export function useWalletsList(shouldFetch: boolean = true) {
       setError('Failed to load wallets list');
       setIsConnected(false);
     } finally {
-      setIsLoading(false);
+      // Mark that we've attempted initial data fetch, stop showing loading spinner
+      if (!hasInitialData) {
+        setIsLoading(false);
+        setHasInitialData(true);
+      }
     }
-  }, [token, isAuthenticated, shouldFetch]);
+  }, [token, isAuthenticated, shouldFetch, hasInitialData]);
 
   // Update polling interval when wallets or billing status changes
   useEffect(() => {
