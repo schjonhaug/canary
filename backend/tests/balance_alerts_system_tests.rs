@@ -53,7 +53,7 @@ async fn test_balance_alert_database_operations() {
 
     // Test 1: Create balance alert
     let alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below) // 1 BTC
+        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below, None, None) // 1 BTC
         .await
         .unwrap();
 
@@ -113,17 +113,17 @@ async fn test_balance_alert_types() {
 
     // Test all alert types
     let _below_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 50_000_000, BalanceAlertType::Below)
+        .create_balance_alert(&wallet_checksum, 50_000_000, BalanceAlertType::Below, None, None)
         .await
         .unwrap();
 
     let _above_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 200_000_000, BalanceAlertType::Above)
+        .create_balance_alert(&wallet_checksum, 200_000_000, BalanceAlertType::Above, None, None)
         .await
         .unwrap();
 
     let _equals_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals)
+        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None)
         .await
         .unwrap();
 
@@ -151,12 +151,12 @@ async fn test_balance_alert_edge_cases() {
 
     // Test 1: Multiple alerts of same type
     let alert1 = metadata_db
-        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below)
+        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below, None, None)
         .await
         .unwrap();
 
     let alert2 = metadata_db
-        .create_balance_alert(&wallet_checksum, 50_000_000, BalanceAlertType::Below)
+        .create_balance_alert(&wallet_checksum, 50_000_000, BalanceAlertType::Below, None, None)
         .await
         .unwrap();
 
@@ -170,7 +170,7 @@ async fn test_balance_alert_edge_cases() {
 
     // Test 2: Zero threshold handling
     let zero_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals)
+        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None)
         .await
         .unwrap();
 
@@ -178,7 +178,7 @@ async fn test_balance_alert_edge_cases() {
 
     // Test 3: Very large threshold values
     let large_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, i64::MAX, BalanceAlertType::Above)
+        .create_balance_alert(&wallet_checksum, i64::MAX, BalanceAlertType::Above, None, None)
         .await
         .unwrap();
 
@@ -210,12 +210,12 @@ async fn test_balance_alert_wallet_isolation() {
 
     // Create alerts for each wallet
     let alert1 = metadata_db
-        .create_balance_alert(&wallet1_checksum, 100_000_000, BalanceAlertType::Below)
+        .create_balance_alert(&wallet1_checksum, 100_000_000, BalanceAlertType::Below, None, None)
         .await
         .unwrap();
 
     let alert2 = metadata_db
-        .create_balance_alert(&wallet2_checksum, 200_000_000, BalanceAlertType::Above)
+        .create_balance_alert(&wallet2_checksum, 200_000_000, BalanceAlertType::Above, None, None)
         .await
         .unwrap();
 
@@ -304,7 +304,7 @@ async fn test_duplicate_balance_alert_checking() {
 
     // Test 1: Create initial alert
     let alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below)
+        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below, None, None)
         .await
         .unwrap();
 
@@ -361,17 +361,17 @@ async fn test_duplicate_alert_all_types() {
     let threshold = 50_000_000;
 
     let below_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Below)
+        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Below, None, None)
         .await
         .unwrap();
 
     let above_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Above)
+        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Above, None, None)
         .await
         .unwrap();
 
     let equals_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Equals)
+        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Equals, None, None)
         .await
         .unwrap();
 
@@ -425,7 +425,7 @@ async fn test_wallet_drain_alert_special_case() {
 
     // Create wallet drain alert (balance = 0)
     let drain_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals)
+        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None)
         .await
         .unwrap();
 

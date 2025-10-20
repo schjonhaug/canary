@@ -114,9 +114,15 @@ export interface BalanceAlert {
   is_active: boolean
   last_triggered_at?: number // Unix timestamp
   created_at: string
+  // Fiat threshold support
+  threshold_currency?: string
+  threshold_fiat_amount?: number
 }
 
 export interface CreateBalanceAlertRequest {
-  threshold_sats: number
+  threshold_sats?: number // Option 1: BTC threshold
   alert_type: 'above' | 'below' | 'equals'
+  // Option 2: Fiat threshold
+  threshold_currency?: string
+  threshold_fiat_amount?: number
 }
