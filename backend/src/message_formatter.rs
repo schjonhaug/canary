@@ -41,6 +41,36 @@ impl MessageFormatter {
         }
     }
 
+    /// Format fiat amount based on language preference
+    pub fn format_fiat_amount(amount: f64, currency: &str, language: &Language) -> String {
+        // Format with 2 decimal places for fiat
+        let integer_part = amount.floor() as i64;
+        let decimal_part = ((amount - amount.floor()) * 100.0).round() as i64;
+
+        // Format integer part with locale-specific thousands separators
+        let formatted_integer = match language {
+            Language::Norwegian => {
+                // Norwegian uses space as thousands separator
+                integer_part
+                    .to_formatted_string(&Locale::nb)
+                    .replace('\u{a0}', " ")
+            }
+            Language::English => {
+                // English uses comma as thousands separator
+                integer_part.to_formatted_string(&Locale::en)
+            }
+        };
+
+        // Combine with decimal separator based on language
+        let formatted_amount = match language {
+            Language::Norwegian => format!("{},{:02}", formatted_integer, decimal_part),
+            Language::English => format!("{}.{:02}", formatted_integer, decimal_part),
+        };
+
+        // Add currency symbol/code
+        format!("{} {}", formatted_amount, currency)
+    }
+
     /// Generate localized message for transaction notification
     pub fn create_localized_message(
         notification: &TransactionNotification,
@@ -67,8 +97,27 @@ impl MessageFormatter {
         wallet_name: &str,
         language: &Language,
     ) -> String {
-        let threshold_btc = Self::format_btc_amount(alert.threshold_sats, language);
-        let current_btc = Self::format_btc_amount(alert.current_balance_sats, language);
+        // Check if this is a fiat threshold alert
+        let threshold_display = if let (Some(ref currency), Some(fiat_amount), Some(rate)) = (&alert.threshold_currency, alert.threshold_fiat_amount, alert.exchange_rate_snapshot) {
+            // Fiat threshold: show fiat amount with BTC equivalent
+            let fiat_str = Self::format_fiat_amount(fiat_amount, currency, language);
+            let btc_str = Self::format_btc_amount(alert.threshold_sats, language);
+            format!("{} (≈ {} BTC at {:.0} {}/BTC)", fiat_str, btc_str, rate, currency)
+        } else {
+            // BTC threshold: show only BTC
+            format!("{} BTC", Self::format_btc_amount(alert.threshold_sats, language))
+        };
+
+        let current_display = if let (Some(ref currency), Some(rate)) = (&alert.threshold_currency, alert.exchange_rate_snapshot) {
+            // Calculate current balance in fiat
+            let current_btc = alert.current_balance_sats as f64 / 100_000_000.0;
+            let current_fiat = current_btc * rate;
+            let fiat_str = Self::format_fiat_amount(current_fiat, currency, language);
+            let btc_str = Self::format_btc_amount(alert.current_balance_sats, language);
+            format!("{} (≈ {} BTC)", fiat_str, btc_str)
+        } else {
+            format!("{} BTC", Self::format_btc_amount(alert.current_balance_sats, language))
+        };
 
         match alert.alert_type {
             crate::metadata::BalanceAlertType::Equals => {
@@ -86,34 +135,34 @@ impl MessageFormatter {
                 } else {
                     match language {
                         Language::Norwegian => format!(
-                            "📊 Saldo varsel: {} saldo er nå {} BTC",
-                            wallet_name, current_btc
+                            "📊 Saldo varsel: {} saldo er nå {}",
+                            wallet_name, current_display
                         ),
                         Language::English => format!(
-                            "📊 Balance Alert: {} balance is now {} BTC",
-                            wallet_name, current_btc
+                            "📊 Balance Alert: {} balance is now {}",
+                            wallet_name, current_display
                         ),
                     }
                 }
             }
             crate::metadata::BalanceAlertType::Above => match language {
                 Language::Norwegian => format!(
-                    "📊 Saldo varsel: {} saldo er nå over {} BTC (nåværende: {} BTC)",
-                    wallet_name, threshold_btc, current_btc
+                    "📊 Saldo varsel: {} saldo er nå over {} (nåværende: {})",
+                    wallet_name, threshold_display, current_display
                 ),
                 Language::English => format!(
-                    "📊 Balance Alert: {} balance is now above {} BTC (current: {} BTC)",
-                    wallet_name, threshold_btc, current_btc
+                    "📊 Balance Alert: {} balance is now above {} (current: {})",
+                    wallet_name, threshold_display, current_display
                 ),
             },
             crate::metadata::BalanceAlertType::Below => match language {
                 Language::Norwegian => format!(
-                    "📊 Saldo varsel: {} saldo er nå under {} BTC (nåværende: {} BTC)",
-                    wallet_name, threshold_btc, current_btc
+                    "📊 Saldo varsel: {} saldo er nå under {} (nåværende: {})",
+                    wallet_name, threshold_display, current_display
                 ),
                 Language::English => format!(
-                    "📊 Balance Alert: {} balance is now below {} BTC (current: {} BTC)",
-                    wallet_name, threshold_btc, current_btc
+                    "📊 Balance Alert: {} balance is now below {} (current: {})",
+                    wallet_name, threshold_display, current_display
                 ),
             },
         }

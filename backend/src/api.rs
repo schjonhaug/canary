@@ -113,10 +113,14 @@ pub struct ProvidersResponse {
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateBalanceAlertRequest {
-    /// Balance threshold in satoshis
-    pub threshold_sats: i64,
+    /// Balance threshold in satoshis (Option 1: BTC threshold)
+    pub threshold_sats: Option<i64>,
     /// Alert type (above, below, equals)
     pub alert_type: BalanceAlertType,
+    /// Fiat currency code (Option 2: Fiat threshold)
+    pub threshold_currency: Option<String>, // e.g., "USD", "EUR"
+    /// Fiat amount when currency is set
+    pub threshold_fiat_amount: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -4772,33 +4776,123 @@ pub async fn create_wallet_balance_alert(
             .into_response();
     }
 
-    // Validate threshold
-    if request.threshold_sats < 0 {
+    // Validate threshold type: exactly one must be provided (BTC OR fiat, not both or neither)
+    let is_btc_threshold = request.threshold_sats.is_some();
+    let is_fiat_threshold = request.threshold_currency.is_some() && request.threshold_fiat_amount.is_some();
+
+    if is_btc_threshold == is_fiat_threshold {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: "Threshold must be non-negative".to_string(),
+                error: "Exactly one threshold type must be provided: either threshold_sats (BTC) OR threshold_currency + threshold_fiat_amount (fiat)".to_string(),
             }),
         )
             .into_response();
     }
 
-    // Validate "below 0" alert (logically impossible)
-    if request.alert_type == BalanceAlertType::Below && request.threshold_sats == 0 {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Cannot create alert for 'below 0' - balance cannot go below zero"
-                    .to_string(),
-            }),
-        )
-            .into_response();
-    }
+    // Determine threshold_sats based on threshold type
+    let (threshold_sats, threshold_currency, threshold_fiat_amount) = if is_btc_threshold {
+        // BTC threshold
+        let sats = request.threshold_sats.unwrap();
+
+        // Validate BTC threshold
+        if sats < 0 {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "BTC threshold must be non-negative".to_string(),
+                }),
+            )
+                .into_response();
+        }
+
+        // Validate "below 0" alert (logically impossible)
+        if request.alert_type == BalanceAlertType::Below && sats == 0 {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Cannot create alert for 'below 0' - balance cannot go below zero".to_string(),
+                }),
+            )
+                .into_response();
+        }
+
+        (sats, None, None)
+    } else {
+        // Fiat threshold
+        let currency = request.threshold_currency.unwrap();
+        let fiat_amount = request.threshold_fiat_amount.unwrap();
+
+        // Validate fiat amount
+        if fiat_amount <= 0.0 {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Fiat threshold amount must be positive".to_string(),
+                }),
+            )
+                .into_response();
+        }
+
+        // Validate currency is supported
+        if !crate::exchange_rates::SUPPORTED_CURRENCIES.contains(&currency.as_str()) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: format!("Unsupported currency: {}. Supported currencies: {}", currency, crate::exchange_rates::SUPPORTED_CURRENCIES.join(", ")),
+                }),
+            )
+                .into_response();
+        }
+
+        // Get current exchange rate
+        let exchange_rates = match app_services.metadata_db.get_exchange_rates().await {
+            Ok(rates) => rates,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to fetch exchange rates: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        };
+
+        let rate = match exchange_rates.get(&currency) {
+            Some(rate) => rate.rate_per_btc,
+            None => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(ErrorResponse {
+                        error: format!("Exchange rate for {} is currently unavailable", currency),
+                    }),
+                )
+                    .into_response();
+            }
+        };
+
+        // Convert fiat amount to satoshis: fiat_amount / rate_per_btc * 100_000_000
+        let btc_amount = fiat_amount / rate;
+        let threshold_sats = (btc_amount * 100_000_000.0) as i64;
+
+        if threshold_sats <= 0 {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: format!("Fiat amount {} {} is too small to convert to satoshis", fiat_amount, currency),
+                }),
+            )
+                .into_response();
+        }
+
+        (threshold_sats, Some(currency), Some(fiat_amount))
+    };
 
     // Check for duplicate balance alert
     match app_services
         .metadata_db
-        .check_duplicate_balance_alert(&checksum, request.threshold_sats, request.alert_type)
+        .check_duplicate_balance_alert(&checksum, threshold_sats, request.alert_type)
         .await
     {
         Ok(Some(_existing_alert)) => {
@@ -4827,7 +4921,7 @@ pub async fn create_wallet_balance_alert(
     // Create the balance alert
     match app_services
         .metadata_db
-        .create_balance_alert(&checksum, request.threshold_sats, request.alert_type)
+        .create_balance_alert(&checksum, threshold_sats, request.alert_type, threshold_currency, threshold_fiat_amount)
         .await
     {
         Ok(alert) => Json(alert).into_response(),

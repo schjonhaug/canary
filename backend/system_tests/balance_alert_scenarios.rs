@@ -33,7 +33,7 @@ async fn setup_balance_alert(
 ) -> Result<BalanceAlert, Box<dyn std::error::Error>> {
     let alert = env
         .metadata_db
-        .create_balance_alert(checksum, threshold, alert_type)
+        .create_balance_alert(checksum, threshold, alert_type, None, None)
         .await?;
     Ok(alert)
 }

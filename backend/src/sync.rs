@@ -1064,25 +1064,91 @@ impl WalletSyncService {
         );
 
         for alert in active_alerts {
+            // Determine threshold to compare against
+            // For fiat thresholds, convert current balance to fiat using current exchange rate
+            let (comparison_threshold, exchange_rate_snapshot) = if let (Some(ref currency), Some(fiat_amount)) = (&alert.threshold_currency, alert.threshold_fiat_amount) {
+                // Fiat threshold - need to convert current balance to fiat
+                match self.metadata_db.get_exchange_rates().await {
+                    Ok(rates) => {
+                        match rates.get(currency) {
+                            Some(rate) => {
+                                let rate_per_btc = rate.rate_per_btc;
+                                // Convert current balance from sats to BTC to fiat
+                                let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                                let balance_fiat = balance_btc * rate_per_btc;
+
+                                debug!(
+                                    "[{}] Checking fiat alert: balance {} {} (from {} sats at rate {} {}/BTC), threshold {} {}",
+                                    wallet_checksum, balance_fiat, currency, current_balance_sats, rate_per_btc, currency, fiat_amount, currency
+                                );
+
+                                // For fiat alerts, we compare fiat amounts directly
+                                // We'll use a threshold in "fiat cents" for comparison to avoid floating point issues
+                                let balance_cents = (balance_fiat * 100.0) as i64;
+                                let threshold_cents = (fiat_amount * 100.0) as i64;
+
+                                (threshold_cents, Some(rate_per_btc))
+                            }
+                            None => {
+                                warn!(
+                                    "[{}] Exchange rate for {} not available, skipping fiat alert check",
+                                    wallet_checksum, currency
+                                );
+                                continue;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        warn!(
+                            "[{}] Failed to fetch exchange rates for fiat alert: {}, skipping",
+                            wallet_checksum, e
+                        );
+                        continue;
+                    }
+                }
+            } else {
+                // BTC threshold - compare satoshis directly
+                (alert.threshold_sats, None)
+            };
+
+            // Determine current value for comparison
+            let current_value = if alert.threshold_currency.is_some() {
+                // For fiat alerts, convert current balance to fiat cents
+                if let Some(rate) = exchange_rate_snapshot {
+                    let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                    let balance_fiat = balance_btc * rate;
+                    (balance_fiat * 100.0) as i64
+                } else {
+                    current_balance_sats // Fallback (should not reach here)
+                }
+            } else {
+                current_balance_sats
+            };
+
             let should_trigger = match alert.alert_type {
                 crate::metadata::BalanceAlertType::Above => {
-                    current_balance_sats > alert.threshold_sats
+                    current_value > comparison_threshold
                 }
                 crate::metadata::BalanceAlertType::Below => {
-                    current_balance_sats < alert.threshold_sats
+                    current_value < comparison_threshold
                 }
                 crate::metadata::BalanceAlertType::Equals => {
-                    current_balance_sats == alert.threshold_sats
+                    current_value == comparison_threshold
                 }
             };
 
             if should_trigger {
+                let threshold_desc = if let (Some(ref currency), Some(fiat_amount)) = (&alert.threshold_currency, alert.threshold_fiat_amount) {
+                    format!("{} {} (≈ {} sats)", fiat_amount, currency, alert.threshold_sats)
+                } else {
+                    format!("{} sats", alert.threshold_sats)
+                };
+
                 info!(
-                    "[{}] Balance alert triggered: {} {} {} sats (current: {} sats)",
+                    "[{}] Balance alert triggered: {} {} (current: {} sats)",
                     wallet_checksum,
                     alert.alert_type.as_str(),
-                    alert.threshold_sats,
-                    alert.alert_type.as_str(),
+                    threshold_desc,
                     current_balance_sats
                 );
 
@@ -1098,6 +1164,9 @@ impl WalletSyncService {
                         alert.threshold_sats,
                         current_balance_sats,
                         alert.alert_type,
+                        alert.threshold_currency.clone(),
+                        alert.threshold_fiat_amount,
+                        exchange_rate_snapshot,
                     )
                     .await
                 {
@@ -1109,7 +1178,7 @@ impl WalletSyncService {
 
                 // Send balance alert notification via existing notification system
                 if let Err(e) = self
-                    .send_balance_alert_notification(&alert, wallet_checksum, current_balance_sats)
+                    .send_balance_alert_notification(&alert, wallet_checksum, current_balance_sats, exchange_rate_snapshot)
                     .await
                 {
                     warn!(
@@ -1146,6 +1215,7 @@ impl WalletSyncService {
         alert: &crate::metadata::BalanceAlert,
         wallet_checksum: &str,
         current_balance_sats: i64,
+        exchange_rate_snapshot: Option<f64>,
     ) -> Result<()> {
         // Create a balance alert notification that mimics transaction notifications
         let balance_alert_notification = crate::metadata::BalanceAlertNotification {
@@ -1157,6 +1227,9 @@ impl WalletSyncService {
             alert_type: alert.alert_type,
             notification_sent_at: chrono::Utc::now().timestamp() as u64,
             created_at: chrono::Utc::now().to_rfc3339(),
+            threshold_currency: alert.threshold_currency.clone(),
+            threshold_fiat_amount: alert.threshold_fiat_amount,
+            exchange_rate_snapshot,
         };
 
         // Send notification via broadcast channel (same as transaction notifications)

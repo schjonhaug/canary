@@ -174,6 +174,9 @@ pub struct BalanceAlert {
     pub is_active: bool,
     pub last_triggered_at: Option<u64>, // Unix timestamp
     pub created_at: String,
+    // Fiat threshold support (migration 013)
+    pub threshold_currency: Option<String>, // e.g., "USD", "EUR", None for BTC
+    pub threshold_fiat_amount: Option<f64>, // Fiat amount when currency is set
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -186,6 +189,10 @@ pub struct BalanceAlertNotification {
     pub alert_type: BalanceAlertType,
     pub notification_sent_at: u64, // Unix timestamp
     pub created_at: String,
+    // Fiat threshold snapshot (migration 013)
+    pub threshold_currency: Option<String>,
+    pub threshold_fiat_amount: Option<f64>,
+    pub exchange_rate_snapshot: Option<f64>, // BTC/fiat rate at trigger time
 }
 
 impl ProviderType {
@@ -3115,6 +3122,8 @@ impl MetadataDb {
         wallet_checksum: &str,
         threshold_sats: i64,
         alert_type: BalanceAlertType,
+        threshold_currency: Option<String>,
+        threshold_fiat_amount: Option<f64>,
     ) -> Result<BalanceAlert> {
         let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
@@ -3126,9 +3135,9 @@ impl MetadataDb {
             let current_time = chrono::Utc::now().to_rfc3339();
 
             conn.execute(
-                "INSERT INTO balance_alerts (id, wallet_checksum, threshold_sats, alert_type, is_active, created_at)
-                 VALUES (?1, ?2, ?3, ?4, 1, ?5)",
-                params![alert_id, wallet_checksum, threshold_sats, alert_type_str, current_time],
+                "INSERT INTO balance_alerts (id, wallet_checksum, threshold_sats, alert_type, is_active, created_at, threshold_currency, threshold_fiat_amount)
+                 VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7)",
+                params![alert_id, wallet_checksum, threshold_sats, alert_type_str, current_time, threshold_currency, threshold_fiat_amount],
             )?;
 
             Ok(BalanceAlert {
@@ -3139,6 +3148,8 @@ impl MetadataDb {
                 is_active: true,
                 last_triggered_at: None,
                 created_at: current_time,
+                threshold_currency,
+                threshold_fiat_amount,
             })
         })
         .await?
@@ -3154,7 +3165,8 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<BalanceAlert>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
+                        threshold_currency, threshold_fiat_amount
                  FROM balance_alerts
                  WHERE wallet_checksum = ?1 AND is_active = 1"
             )?;
@@ -3168,6 +3180,8 @@ impl MetadataDb {
                     is_active: row.get::<_, i64>(4)? != 0,
                     last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
                     created_at: row.get(6)?,
+                    threshold_currency: row.get(7)?,
+                    threshold_fiat_amount: row.get(8)?,
                 })
             })?;
 
@@ -3190,7 +3204,8 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<BalanceAlert>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
+                        threshold_currency, threshold_fiat_amount
                  FROM balance_alerts
                  WHERE wallet_checksum = ?1
                  ORDER BY created_at DESC"
@@ -3205,6 +3220,8 @@ impl MetadataDb {
                     is_active: row.get::<_, i64>(4)? != 0,
                     last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
                     created_at: row.get(6)?,
+                    threshold_currency: row.get(7)?,
+                    threshold_fiat_amount: row.get(8)?,
                 })
             })?;
 
@@ -3268,7 +3285,8 @@ impl MetadataDb {
 
             // Fetch and return the updated alert
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
+                        threshold_currency, threshold_fiat_amount
                  FROM balance_alerts WHERE id = ?1"
             )?;
 
@@ -3289,6 +3307,8 @@ impl MetadataDb {
                     is_active: row.get(4)?,
                     last_triggered_at: row.get(5)?,
                     created_at: row.get(6)?,
+                    threshold_currency: row.get(7)?,
+                    threshold_fiat_amount: row.get(8)?,
                 })
             })?;
 
@@ -3359,6 +3379,9 @@ impl MetadataDb {
         threshold_sats: i64,
         current_balance_sats: i64,
         alert_type: BalanceAlertType,
+        threshold_currency: Option<String>,
+        threshold_fiat_amount: Option<f64>,
+        exchange_rate_snapshot: Option<f64>,
     ) -> Result<BalanceAlertNotification> {
         let pool = self.pool.clone();
         let notification_id = Uuid::new_v4().to_string();
@@ -3373,8 +3396,8 @@ impl MetadataDb {
 
             conn.execute(
                 "INSERT INTO balance_alert_notifications
-                 (id, balance_alert_id, wallet_checksum, threshold_sats, current_balance_sats, alert_type, notification_sent_at, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                 (id, balance_alert_id, wallet_checksum, threshold_sats, current_balance_sats, alert_type, notification_sent_at, created_at, threshold_currency, threshold_fiat_amount, exchange_rate_snapshot)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
                     notification_id,
                     balance_alert_id,
@@ -3383,7 +3406,10 @@ impl MetadataDb {
                     current_balance_sats,
                     alert_type_str,
                     notification_sent_at as i64,
-                    current_time
+                    current_time,
+                    threshold_currency,
+                    threshold_fiat_amount,
+                    exchange_rate_snapshot
                 ],
             )?;
 
@@ -3396,6 +3422,9 @@ impl MetadataDb {
                 alert_type,
                 notification_sent_at,
                 created_at: current_time,
+                threshold_currency,
+                threshold_fiat_amount,
+                exchange_rate_snapshot,
             })
         })
         .await?
