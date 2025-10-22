@@ -26,6 +26,7 @@ import {
   getBtcPlaceholder
 } from "@/lib/utils"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { formatFiatAmount } from "@/lib/currencies"
 
 interface BalanceAlertsListProps {
   walletChecksum: string
@@ -64,6 +65,8 @@ export function BalanceAlertsList({
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [alertType, setAlertType] = useState<'above' | 'below' | 'equals'>('below')
   const [thresholdInput, setThresholdInput] = useState('')
+  const [currencyType, setCurrencyType] = useState<'btc' | 'fiat'>('btc')
+  const [preferredCurrency, setPreferredCurrency] = useState<string>('USD')
 
   const loadAlerts = useCallback(async () => {
     setIsLoading(true)
@@ -84,56 +87,120 @@ export function BalanceAlertsList({
     loadAlerts()
   }, [walletChecksum, loadAlerts])
 
+  // Load user's preferred currency
+  useEffect(() => {
+    const fetchPreferredCurrency = async () => {
+      try {
+        const prefs = await api.getUserPreferences()
+        setPreferredCurrency(prefs.preferred_fiat_currency)
+      } catch (err) {
+        console.error('Failed to fetch user preferences:', err)
+        // Keep default USD if fetch fails
+      }
+    }
+    fetchPreferredCurrency()
+  }, [])
+
   const handleCreateAlert = async () => {
-    const thresholdBtc = parseBtcInput(thresholdInput)
-    if (thresholdBtc === null) {
-      setError('Please enter a valid Bitcoin amount')
-      return
-    }
-
-    // Check for negative amounts
-    if (thresholdBtc < 0) {
-      setError('Amount cannot be negative')
-      return
-    }
-
-    const thresholdSats = btcToSats(thresholdBtc)
-
-    // Check for "below 0" alerts (logically impossible)
-    if (alertType === 'below' && thresholdSats === 0) {
-      setError('Cannot create alert for "below 0" - balance cannot go below zero')
-      return
-    }
-
-    // Check for duplicate alert
-    const duplicate = alerts.find(alert =>
-      alert.alert_type === alertType &&
-      alert.threshold_sats === thresholdSats
-    )
-
-    if (duplicate) {
-      setError('An alert with this type and amount already exists')
-      return
-    }
-
-    setIsSubmitting(true)
-    setError(null)
-
-    try {
-      const alertData: CreateBalanceAlertRequest = {
-        threshold_sats: thresholdSats,
-        alert_type: alertType
+    if (currencyType === 'btc') {
+      // BTC threshold validation
+      const thresholdBtc = parseBtcInput(thresholdInput)
+      if (thresholdBtc === null) {
+        setError('Please enter a valid Bitcoin amount')
+        return
       }
 
-      const newAlert = await api.createBalanceAlert(walletChecksum, alertData)
-      setAlerts(prev => [...prev, newAlert])
-      setShowCreateForm(false)
-      setThresholdInput('')
-    } catch (err) {
-      console.error('Failed to create balance alert:', err)
-      setError(err instanceof Error ? err.message : 'Failed to create balance alert')
-    } finally {
-      setIsSubmitting(false)
+      // Check for negative amounts
+      if (thresholdBtc < 0) {
+        setError('Amount cannot be negative')
+        return
+      }
+
+      const thresholdSats = btcToSats(thresholdBtc)
+
+      // Check for "below 0" alerts (logically impossible)
+      if (alertType === 'below' && thresholdSats === 0) {
+        setError('Cannot create alert for "below 0" - balance cannot go below zero')
+        return
+      }
+
+      // Check for duplicate alert
+      const duplicate = alerts.find(alert =>
+        alert.alert_type === alertType &&
+        alert.threshold_sats === thresholdSats &&
+        !alert.threshold_currency
+      )
+
+      if (duplicate) {
+        setError('An alert with this type and amount already exists')
+        return
+      }
+
+      setIsSubmitting(true)
+      setError(null)
+
+      try {
+        const alertData: CreateBalanceAlertRequest = {
+          threshold_sats: thresholdSats,
+          alert_type: alertType
+        }
+
+        const newAlert = await api.createBalanceAlert(walletChecksum, alertData)
+        setAlerts(prev => [...prev, newAlert])
+        setShowCreateForm(false)
+        setThresholdInput('')
+      } catch (err) {
+        console.error('Failed to create balance alert:', err)
+        setError(err instanceof Error ? err.message : 'Failed to create balance alert')
+      } finally {
+        setIsSubmitting(false)
+      }
+    } else {
+      // Fiat threshold validation
+      const thresholdFiat = parseFloat(thresholdInput)
+      if (isNaN(thresholdFiat) || thresholdFiat <= 0) {
+        setError('Please enter a valid positive amount')
+        return
+      }
+
+      // Check for "below 0" alerts (logically impossible)
+      if (alertType === 'below' && thresholdFiat === 0) {
+        setError('Cannot create alert for "below 0" - balance cannot go below zero')
+        return
+      }
+
+      // Check for duplicate alert
+      const duplicate = alerts.find(alert =>
+        alert.alert_type === alertType &&
+        alert.threshold_currency === preferredCurrency &&
+        alert.threshold_fiat_amount === thresholdFiat
+      )
+
+      if (duplicate) {
+        setError('An alert with this type and amount already exists')
+        return
+      }
+
+      setIsSubmitting(true)
+      setError(null)
+
+      try {
+        const alertData: CreateBalanceAlertRequest = {
+          alert_type: alertType,
+          threshold_currency: preferredCurrency,
+          threshold_fiat_amount: thresholdFiat
+        }
+
+        const newAlert = await api.createBalanceAlert(walletChecksum, alertData)
+        setAlerts(prev => [...prev, newAlert])
+        setShowCreateForm(false)
+        setThresholdInput('')
+      } catch (err) {
+        console.error('Failed to create balance alert:', err)
+        setError(err instanceof Error ? err.message : 'Failed to create balance alert')
+      } finally {
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -178,10 +245,17 @@ export function BalanceAlertsList({
   }
 
   const formatAlertDescription = (alert: BalanceAlert) => {
-    const btcAmount = formatBtcAmount(satsToBtc(alert.threshold_sats))
     const typeLabel = ALERT_TYPE_OPTIONS.find(opt => opt.value === alert.alert_type)?.label || alert.alert_type
 
-    return `${typeLabel} ${btcAmount} BTC`
+    if (alert.threshold_currency && alert.threshold_fiat_amount) {
+      // Fiat alert
+      const formattedAmount = formatFiatAmount(alert.threshold_fiat_amount, alert.threshold_currency)
+      return `${typeLabel} ${formattedAmount} ${alert.threshold_currency}`
+    } else {
+      // BTC alert
+      const btcAmount = formatBtcAmount(satsToBtc(alert.threshold_sats))
+      return `${typeLabel} ${btcAmount} BTC`
+    }
   }
 
 
@@ -322,17 +396,44 @@ export function BalanceAlertsList({
             </div>
 
             <div>
-              <Label htmlFor="threshold-amount" className="text-xs">Bitcoin Amount</Label>
+              <Label className="text-xs">Currency Type</Label>
+              <RadioGroup
+                value={currencyType}
+                onValueChange={(value) => {
+                  setCurrencyType(value as 'btc' | 'fiat')
+                  setThresholdInput('') // Clear input when switching types
+                }}
+                className="mt-2 flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="btc" id="currency-btc" />
+                  <Label htmlFor="currency-btc" className="text-xs cursor-pointer">
+                    Bitcoin (BTC)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="fiat" id="currency-fiat" />
+                  <Label htmlFor="currency-fiat" className="text-xs cursor-pointer">
+                    Fiat Currency ({preferredCurrency})
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div>
+              <Label htmlFor="threshold-amount" className="text-xs">
+                {currencyType === 'btc' ? 'Bitcoin Amount' : `Amount (${preferredCurrency})`}
+              </Label>
               <Input
                 id="threshold-amount"
                 value={thresholdInput}
                 onChange={(e) => setThresholdInput(e.target.value)}
-                placeholder={getBtcPlaceholder()}
+                placeholder={currencyType === 'btc' ? getBtcPlaceholder() : '1000'}
                 disabled={isSubmitting}
                 className="font-mono h-8 text-xs"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Enter amount in BTC
+                {currencyType === 'btc' ? 'Enter amount in BTC' : `Enter amount in ${preferredCurrency}`}
               </p>
             </div>
           </div>
