@@ -3345,7 +3345,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<BalanceAlert>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at, threshold_currency, threshold_fiat_amount
                  FROM balance_alerts
                  WHERE wallet_checksum = ?1 AND alert_type = ?2 AND threshold_sats = ?3
                  LIMIT 1"
@@ -3360,6 +3360,8 @@ impl MetadataDb {
                     is_active: row.get::<_, i64>(4)? != 0,
                     last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
                     created_at: row.get(6)?,
+                    threshold_currency: row.get(7)?,
+                    threshold_fiat_amount: row.get(8)?,
                 })
             });
 

@@ -1084,7 +1084,7 @@ impl WalletSyncService {
 
                                 // For fiat alerts, we compare fiat amounts directly
                                 // We'll use a threshold in "fiat cents" for comparison to avoid floating point issues
-                                let balance_cents = (balance_fiat * 100.0) as i64;
+                                let _balance_cents = (balance_fiat * 100.0) as i64;
                                 let threshold_cents = (fiat_amount * 100.0) as i64;
 
                                 (threshold_cents, Some(rate_per_btc))

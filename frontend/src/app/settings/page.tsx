@@ -11,55 +11,7 @@ import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-
-// Supported fiat currencies from the backend
-const SUPPORTED_CURRENCIES = [
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'GBP', name: 'British Pound', symbol: '£' },
-  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-  { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF' },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-  { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
-  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-  { code: 'KRW', name: 'South Korean Won', symbol: '₩' },
-  { code: 'RUB', name: 'Russian Ruble', symbol: '₽' },
-  { code: 'BRL', name: 'Brazilian Real', symbol: 'R$' },
-  { code: 'MXN', name: 'Mexican Peso', symbol: '$' },
-  { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
-  { code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK$' },
-  { code: 'NOK', name: 'Norwegian Krone', symbol: 'kr' },
-  { code: 'SEK', name: 'Swedish Krona', symbol: 'kr' },
-  { code: 'DKK', name: 'Danish Krone', symbol: 'kr' },
-  { code: 'PLN', name: 'Polish Złoty', symbol: 'zł' },
-  { code: 'THB', name: 'Thai Baht', symbol: '฿' },
-  { code: 'IDR', name: 'Indonesian Rupiah', symbol: 'Rp' },
-  { code: 'HUF', name: 'Hungarian Forint', symbol: 'Ft' },
-  { code: 'CZK', name: 'Czech Koruna', symbol: 'Kč' },
-  { code: 'ILS', name: 'Israeli Shekel', symbol: '₪' },
-  { code: 'CLP', name: 'Chilean Peso', symbol: '$' },
-  { code: 'PHP', name: 'Philippine Peso', symbol: '₱' },
-  { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' },
-  { code: 'TRY', name: 'Turkish Lira', symbol: '₺' },
-  { code: 'ZAR', name: 'South African Rand', symbol: 'R' },
-  { code: 'TWD', name: 'Taiwan Dollar', symbol: 'NT$' },
-  { code: 'NZD', name: 'New Zealand Dollar', symbol: 'NZ$' },
-  { code: 'ARS', name: 'Argentine Peso', symbol: '$' },
-  { code: 'SAR', name: 'Saudi Riyal', symbol: '﷼' },
-  { code: 'PKR', name: 'Pakistani Rupee', symbol: '₨' },
-  { code: 'MYR', name: 'Malaysian Ringgit', symbol: 'RM' },
-  { code: 'NGN', name: 'Nigerian Naira', symbol: '₦' },
-  { code: 'VND', name: 'Vietnamese Dong', symbol: '₫' },
-  { code: 'UAH', name: 'Ukrainian Hryvnia', symbol: '₴' },
-  { code: 'GEL', name: 'Georgian Lari', symbol: '₾' },
-  { code: 'BGN', name: 'Bulgarian Lev', symbol: 'лв' },
-  { code: 'RON', name: 'Romanian Leu', symbol: 'lei' },
-  { code: 'BDT', name: 'Bangladeshi Taka', symbol: '৳' },
-  { code: 'VEF', name: 'Venezuelan Bolívar', symbol: 'Bs' },
-  { code: 'LKR', name: 'Sri Lankan Rupee', symbol: 'Rs' },
-  { code: 'XAF', name: 'Central African CFA Franc', symbol: 'FCFA' }
-].sort((a, b) => a.name.localeCompare(b.name))
+import { SUPPORTED_CURRENCIES } from "@/lib/currencies"
 
 export default function SettingsPage() {
   const router = useRouter()
