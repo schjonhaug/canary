@@ -257,6 +257,8 @@ async fn test_balance_alert_performance() {
                 } else {
                     BalanceAlertType::Equals
                 },
+                None, // threshold_currency
+                None, // threshold_fiat_amount
             )
             .await
             .unwrap();
