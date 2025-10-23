@@ -18,9 +18,6 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Generate build-info.json (will use Git if available, otherwise env vars)
-RUN node scripts/generate-build-info.js || echo "Build info generation completed with fallback"
-
 # Build the application
 RUN npm run build
 
