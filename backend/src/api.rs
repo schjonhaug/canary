@@ -4507,10 +4507,6 @@ pub fn create_router_with_services(
             post(create_wallet_balance_alert),
         )
         .route(
-            "/balance-alerts/{alert_id}/activate",
-            put(reactivate_balance_alert),
-        )
-        .route(
             "/balance-alerts/{alert_id}",
             axum::routing::delete(delete_balance_alert),
         )
@@ -5033,47 +5029,6 @@ pub async fn create_wallet_balance_alert(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: format!("Failed to create balance alert: {}", e),
-            }),
-        )
-            .into_response(),
-    }
-}
-
-/// Reactivate a balance alert
-pub async fn reactivate_balance_alert(
-    Path(alert_id): Path<String>,
-    State((app_services, _stripe_billing, config)): State<(
-        AppServicesState,
-        StripeBillingState,
-        ConfigState,
-    )>,
-    headers: HeaderMap,
-) -> Response {
-    // Authenticate user (works in both SAAS and FOSS mode)
-    let _user = match authenticate_user_mode_aware(
-        &config,
-        headers.get("authorization").and_then(|h| h.to_str().ok()),
-    ) {
-        Ok(user) => user,
-        Err(err) => {
-            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
-        }
-    };
-
-    // TODO: Add permission check - verify user owns the wallet that contains this alert
-    // For now, allow all authenticated users to reactivate alerts
-
-    // Reactivate the balance alert
-    match app_services
-        .metadata_db
-        .reactivate_balance_alert(&alert_id)
-        .await
-    {
-        Ok(alert) => Json(alert).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to reactivate balance alert: {}", e),
             }),
         )
             .into_response(),

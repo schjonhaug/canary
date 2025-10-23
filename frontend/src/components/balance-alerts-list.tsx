@@ -4,14 +4,11 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Bell,
   Plus,
   Trash2,
-  RotateCcw,
-  AlertTriangle,
   TrendingUp,
   TrendingDown,
   Target
@@ -191,19 +188,6 @@ export function BalanceAlertsList({
     }
   }
 
-  const handleReactivateAlert = async (alertId: string) => {
-    try {
-      const updatedAlert = await api.reactivateBalanceAlert(alertId)
-      setLocalAlerts(prev => prev.map(alert =>
-        alert.id === alertId ? updatedAlert : alert
-      ))
-      setError(null)
-    } catch (err) {
-      console.error('Failed to reactivate alert:', err)
-      setError(err instanceof Error ? err.message : 'Failed to reactivate alert')
-    }
-  }
-
   const handleDeleteAlert = async (alertId: string) => {
     try {
       await api.deleteBalanceAlert(alertId)
@@ -213,18 +197,6 @@ export function BalanceAlertsList({
       console.error('Failed to delete alert:', err)
       setError(err instanceof Error ? err.message : 'Failed to delete alert')
     }
-  }
-
-  const getAlertStatus = (alert: BalanceAlert) => {
-    if (!alert.is_active) {
-      return {
-        status: 'fired',
-        variant: 'destructive' as const,
-        icon: AlertTriangle,
-        label: 'Fired'
-      }
-    }
-    return null // Don't show status for active alerts
   }
 
   const getAlertTypeIcon = (type: string) => {
@@ -275,7 +247,6 @@ export function BalanceAlertsList({
         ) : (
           <div className="space-y-2">
             {localAlerts.map((alert) => {
-              const status = getAlertStatus(alert)
               const AlertIcon = getAlertTypeIcon(alert.alert_type)
 
               return (
@@ -289,42 +260,22 @@ export function BalanceAlertsList({
                         </div>
                         {alert.last_triggered_at && (
                           <div className="text-xs text-muted-foreground">
-                            Fired {new Date(alert.last_triggered_at * 1000).toLocaleDateString()}
+                            Last fired {new Date(alert.last_triggered_at * 1000).toLocaleDateString()}
                           </div>
                         )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {status && (
-                        <Badge variant={status.variant} className="gap-1 text-xs px-1 py-0">
-                          <status.icon className="h-2 w-2" />
-                          {status.label}
-                        </Badge>
-                      )}
-
-                      <div className="flex">
-                        {!alert.is_active && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleReactivateAlert(alert.id)}
-                            className="h-5 w-5 p-0"
-                            title="Reactivate alert"
-                          >
-                            <RotateCcw className="h-3 w-3" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteAlert(alert.id)}
-                          className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
-                          title="Delete alert"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteAlert(alert.id)}
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
+                        title="Delete alert"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 </div>
