@@ -362,12 +362,6 @@ class ApiClient {
     })
   }
 
-  async reactivateBalanceAlert(alertId: string): Promise<BalanceAlert> {
-    return this.request<BalanceAlert>(`/api/balance-alerts/${alertId}/activate`, {
-      method: 'PUT',
-    })
-  }
-
   async deleteBalanceAlert(alertId: string): Promise<void> {
     return this.request<void>(`/api/balance-alerts/${alertId}`, {
       method: 'DELETE',

@@ -177,6 +177,8 @@ pub struct BalanceAlert {
     // Fiat threshold support (migration 013)
     pub threshold_currency: Option<String>, // e.g., "USD", "EUR", None for BTC
     pub threshold_fiat_amount: Option<f64>, // Fiat amount when currency is set
+    // Crossing detection support (migration 013)
+    pub last_checked_balance_sats: Option<i64>, // For threshold crossing detection
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -3151,6 +3153,7 @@ impl MetadataDb {
                 created_at: current_time,
                 threshold_currency,
                 threshold_fiat_amount,
+                last_checked_balance_sats: None, // Will be initialized on first check
             })
         })
         .await?
@@ -3167,7 +3170,7 @@ impl MetadataDb {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
                 "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
-                        threshold_currency, threshold_fiat_amount
+                        threshold_currency, threshold_fiat_amount, last_checked_balance_sats
                  FROM balance_alerts
                  WHERE wallet_checksum = ?1 AND is_active = 1"
             )?;
@@ -3183,6 +3186,7 @@ impl MetadataDb {
                     created_at: row.get(6)?,
                     threshold_currency: row.get(7)?,
                     threshold_fiat_amount: row.get(8)?,
+                    last_checked_balance_sats: row.get(9)?,
                 })
             })?;
 
@@ -3206,7 +3210,7 @@ impl MetadataDb {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
                 "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
-                        threshold_currency, threshold_fiat_amount
+                        threshold_currency, threshold_fiat_amount, last_checked_balance_sats
                  FROM balance_alerts
                  WHERE wallet_checksum = ?1
                  ORDER BY created_at ASC"
@@ -3223,6 +3227,7 @@ impl MetadataDb {
                     created_at: row.get(6)?,
                     threshold_currency: row.get(7)?,
                     threshold_fiat_amount: row.get(8)?,
+                    last_checked_balance_sats: row.get(9)?,
                 })
             })?;
 
@@ -3235,23 +3240,6 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn disable_balance_alert_after_trigger(&self, alert_id: &str) -> Result<()> {
-        let pool = self.pool.clone();
-        let alert_id = alert_id.to_string();
-        let triggered_at = chrono::Utc::now().timestamp() as u64;
-
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
-            conn.execute(
-                "UPDATE balance_alerts
-                 SET is_active = 0, last_triggered_at = ?1
-                 WHERE id = ?2",
-                params![triggered_at as i64, alert_id],
-            )?;
-            Ok(())
-        })
-        .await?
-    }
 
     #[allow(dead_code)] // Used in system tests
     pub async fn deactivate_balance_alert(&self, alert_id: &str) -> Result<()> {
@@ -3271,49 +3259,39 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn reactivate_balance_alert(&self, alert_id: &str) -> Result<BalanceAlert> {
+    /// Update the last checked balance for an alert (for threshold crossing detection)
+    pub async fn update_alert_last_checked_balance(
+        &self,
+        alert_id: &str,
+        balance_sats: i64,
+    ) -> Result<()> {
         let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
 
-        spawn_blocking(move || -> Result<BalanceAlert> {
+        spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
-
-            // Update the alert
             conn.execute(
-                "UPDATE balance_alerts SET is_active = 1 WHERE id = ?1",
-                params![alert_id],
+                "UPDATE balance_alerts SET last_checked_balance_sats = ?1 WHERE id = ?2",
+                params![balance_sats, alert_id],
             )?;
+            Ok(())
+        })
+        .await?
+    }
 
-            // Fetch and return the updated alert
-            let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
-                        threshold_currency, threshold_fiat_amount
-                 FROM balance_alerts WHERE id = ?1"
+    /// Update the last triggered timestamp when an alert fires
+    pub async fn update_balance_alert_triggered_timestamp(&self, alert_id: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let alert_id = alert_id.to_string();
+        let triggered_at = chrono::Utc::now().timestamp() as u64;
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE balance_alerts SET last_triggered_at = ?1 WHERE id = ?2",
+                params![triggered_at as i64, alert_id],
             )?;
-
-            let alert = stmt.query_row(params![alert_id], |row| {
-                let alert_type_str: String = row.get(3)?;
-                let alert_type = match alert_type_str.as_str() {
-                    "above" => BalanceAlertType::Above,
-                    "below" => BalanceAlertType::Below,
-                    "equals" => BalanceAlertType::Equals,
-                    _ => return Err(bdk_wallet::rusqlite::Error::InvalidColumnType(3, "alert_type".to_string(), bdk_wallet::rusqlite::types::Type::Text)),
-                };
-
-                Ok(BalanceAlert {
-                    id: row.get(0)?,
-                    wallet_checksum: row.get(1)?,
-                    threshold_sats: row.get(2)?,
-                    alert_type,
-                    is_active: row.get(4)?,
-                    last_triggered_at: row.get(5)?,
-                    created_at: row.get(6)?,
-                    threshold_currency: row.get(7)?,
-                    threshold_fiat_amount: row.get(8)?,
-                })
-            })?;
-
-            Ok(alert)
+            Ok(())
         })
         .await?
     }
@@ -3346,7 +3324,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<BalanceAlert>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at, threshold_currency, threshold_fiat_amount
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at, threshold_currency, threshold_fiat_amount, last_checked_balance_sats
                  FROM balance_alerts
                  WHERE wallet_checksum = ?1 AND alert_type = ?2 AND threshold_sats = ?3
                  LIMIT 1"
@@ -3363,6 +3341,7 @@ impl MetadataDb {
                     created_at: row.get(6)?,
                     threshold_currency: row.get(7)?,
                     threshold_fiat_amount: row.get(8)?,
+                    last_checked_balance_sats: row.get(9)?,
                 })
             });
 

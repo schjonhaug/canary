@@ -1123,17 +1123,59 @@ impl WalletSyncService {
                 current_balance_sats
             };
 
-            let should_trigger = match alert.alert_type {
-                crate::metadata::BalanceAlertType::Above => {
-                    current_value > comparison_threshold
+            // Implement threshold crossing detection
+            // Only fire when balance crosses the threshold in the relevant direction
+            let last_checked = alert.last_checked_balance_sats;
+
+            let should_trigger = if let Some(last_checked_value) = last_checked {
+                // For fiat alerts, last_checked_value is already in fiat cents
+                // For BTC alerts, last_checked_value is in satoshis
+                let previous_value = last_checked_value;
+
+                match alert.alert_type {
+                    crate::metadata::BalanceAlertType::Above => {
+                        // Fire when crossing from at-or-below to above
+                        previous_value <= comparison_threshold && current_value > comparison_threshold
+                    }
+                    crate::metadata::BalanceAlertType::Below => {
+                        // Fire when crossing from at-or-above to below
+                        previous_value >= comparison_threshold && current_value < comparison_threshold
+                    }
+                    crate::metadata::BalanceAlertType::Equals => {
+                        // Fire when crossing to equals (from any non-equals value)
+                        previous_value != comparison_threshold && current_value == comparison_threshold
+                    }
                 }
-                crate::metadata::BalanceAlertType::Below => {
-                    current_value < comparison_threshold
-                }
-                crate::metadata::BalanceAlertType::Equals => {
-                    current_value == comparison_threshold
-                }
+            } else {
+                // First check - initialize last_checked_balance_sats without firing
+                debug!(
+                    "[{}] Initializing balance alert {} with current balance: {} sats",
+                    wallet_checksum, alert.id, current_balance_sats
+                );
+                false
             };
+
+            // Update last_checked_balance_sats for next sync cycle
+            // For fiat alerts, store the fiat value (in cents) to detect rate changes
+            // For BTC alerts, store the satoshi value
+            let value_to_store = if alert.threshold_currency.is_some() {
+                // Store fiat value in cents for fiat alerts
+                current_value
+            } else {
+                // Store satoshi value for BTC alerts
+                current_balance_sats
+            };
+
+            if let Err(e) = self
+                .metadata_db
+                .update_alert_last_checked_balance(&alert.id, value_to_store)
+                .await
+            {
+                warn!(
+                    "[{}] Failed to update last_checked_balance for alert {}: {}",
+                    wallet_checksum, alert.id, e
+                );
+            }
 
             if should_trigger {
                 let threshold_desc = if let (Some(ref currency), Some(fiat_amount)) = (&alert.threshold_currency, alert.threshold_fiat_amount) {
@@ -1152,6 +1194,18 @@ impl WalletSyncService {
 
                 // Add to triggered alerts list for testing
                 triggered_alerts.push(alert.clone());
+
+                // Update last_triggered_at timestamp
+                if let Err(e) = self
+                    .metadata_db
+                    .update_balance_alert_triggered_timestamp(&alert.id)
+                    .await
+                {
+                    warn!(
+                        "[{}] Failed to update balance alert triggered timestamp: {}",
+                        wallet_checksum, e
+                    );
+                }
 
                 // Create notification record in balance_alert_notifications table
                 if let Err(e) = self
@@ -1185,22 +1239,11 @@ impl WalletSyncService {
                     );
                 }
 
-                // Disable the alert after triggering (requires manual reactivation)
-                if let Err(e) = self
-                    .metadata_db
-                    .disable_balance_alert_after_trigger(&alert.id)
-                    .await
-                {
-                    warn!(
-                        "[{}] Failed to disable balance alert after trigger: {}",
-                        wallet_checksum, e
-                    );
-                } else {
-                    debug!(
-                        "[{}] Disabled balance alert {} after triggering",
-                        wallet_checksum, alert.id
-                    );
-                }
+                // Alert remains active and will check for next crossing
+                debug!(
+                    "[{}] Balance alert {} triggered, will check for next crossing in future syncs",
+                    wallet_checksum, alert.id
+                );
             }
         }
 
