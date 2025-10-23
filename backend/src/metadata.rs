@@ -3271,33 +3271,6 @@ impl MetadataDb {
         .await?
     }
 
-    /// Get all wallet checksums that have active fiat balance alerts
-    /// Used for rate-triggered alert checking
-    pub async fn get_wallets_with_active_fiat_alerts(&self) -> Result<Vec<String>> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<Vec<String>> {
-            let conn = pool.get()?;
-            let mut stmt = conn.prepare(
-                "SELECT DISTINCT wallet_checksum
-                 FROM balance_alerts
-                 WHERE is_active = 1
-                 AND threshold_currency IS NOT NULL"
-            )?;
-
-            let wallet_iter = stmt.query_map([], |row| {
-                row.get::<_, String>(0)
-            })?;
-
-            let mut wallets = Vec::new();
-            for wallet in wallet_iter {
-                wallets.push(wallet?);
-            }
-            Ok(wallets)
-        })
-        .await?
-    }
-
     pub async fn reactivate_balance_alert(&self, alert_id: &str) -> Result<BalanceAlert> {
         let pool = self.pool.clone();
         let alert_id = alert_id.to_string();

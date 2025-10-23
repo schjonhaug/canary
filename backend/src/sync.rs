@@ -175,22 +175,20 @@ impl WalletSyncService {
             balance_update_start.elapsed()
         );
 
-        // Check balance alerts only if wallet has changes
-        if summary.has_changes {
-            let balance_alert_start = Instant::now();
-            if let Err(e) = self
-                .check_balance_alerts(wallet_checksum, current_balance.to_sat() as i64)
-                .await
-                .map(|_| ())
-            {
-                warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
-            }
-            debug!(
-                "[{}] Balance alert checking took {:.2?}",
-                wallet_checksum,
-                balance_alert_start.elapsed()
-            );
+        // Check balance alerts on every sync (for both BTC and fiat alerts)
+        let balance_alert_start = Instant::now();
+        if let Err(e) = self
+            .check_balance_alerts(wallet_checksum, current_balance.to_sat() as i64)
+            .await
+            .map(|_| ())
+        {
+            warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
         }
+        debug!(
+            "[{}] Balance alert checking took {:.2?}",
+            wallet_checksum,
+            balance_alert_start.elapsed()
+        );
 
         let sync_duration = sync_start.elapsed();
         info!(

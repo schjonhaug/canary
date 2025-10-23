@@ -30,23 +30,13 @@ struct CoinGeckoResponse {
 
 pub struct ExchangeRateService {
     metadata_db: Arc<MetadataDb>,
-    wallet_manager: Option<Arc<tokio::sync::Mutex<crate::wallet::WalletManager>>>,
 }
 
 impl ExchangeRateService {
     pub fn new(metadata_db: Arc<MetadataDb>) -> Self {
         Self {
             metadata_db,
-            wallet_manager: None,
         }
-    }
-
-    /// Set wallet manager for rate-triggered alert checking
-    pub fn set_wallet_manager(
-        &mut self,
-        wallet_manager: Arc<tokio::sync::Mutex<crate::wallet::WalletManager>>,
-    ) {
-        self.wallet_manager = Some(wallet_manager);
     }
 
     /// Map browser locale to appropriate fiat currency
@@ -185,14 +175,6 @@ impl ExchangeRateService {
         let rates = self.fetch_rates().await?;
         self.metadata_db.store_exchange_rates(&rates).await?;
         eprintln!("Exchange rates refreshed successfully");
-
-        // Check balance alerts for wallets with fiat thresholds
-        if let Some(wallet_manager_arc) = &self.wallet_manager {
-            let manager = wallet_manager_arc.lock().await;
-            if let Err(e) = manager.check_alerts_for_rate_changes().await {
-                eprintln!("Failed to check alerts after rate change: {}", e);
-            }
-        }
 
         Ok(())
     }
