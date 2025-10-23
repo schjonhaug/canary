@@ -44,7 +44,7 @@ export default function WalletDetailPage() {
   }, [isCloudMode, isAuthenticated, authLoading, router])
 
   // Get wallet detail data directly using checksum
-  const { wallet, transactions, contacts, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
+  const { wallet, transactions, contacts, balanceAlerts, error, isLoading, isConnected, lastUpdate, refresh } = useWalletDetail(checksum)
   
   // Share wallet data with layout context for SVG loading
   const { setCurrentWallet } = useWalletsContext()
@@ -376,6 +376,7 @@ export default function WalletDetailPage() {
               <div className="pt-2 border-t">
                 <BalanceAlertsList
                   walletChecksum={wallet.checksum}
+                  balanceAlerts={balanceAlerts}
                 />
               </div>
 
