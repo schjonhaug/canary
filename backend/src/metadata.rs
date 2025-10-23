@@ -3209,7 +3209,7 @@ impl MetadataDb {
                         threshold_currency, threshold_fiat_amount
                  FROM balance_alerts
                  WHERE wallet_checksum = ?1
-                 ORDER BY created_at DESC"
+                 ORDER BY created_at ASC"
             )?;
 
             let alert_iter = stmt.query_map(params![wallet_checksum], |row| {
