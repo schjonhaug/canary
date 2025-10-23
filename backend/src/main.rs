@@ -4,6 +4,7 @@ mod auth;
 mod config;
 mod electrum;
 mod email_provider;
+mod email_queue;
 mod email_service;
 mod exchange_rates;
 mod message_formatter;
@@ -208,8 +209,21 @@ async fn main() -> anyhow::Result<()> {
 
         // Register email provider if in SAAS mode
         if config.is_email_enabled() {
-            println!("  - Email notification provider");
-            notification_manager.register_provider(Arc::new(EmailProvider::new()));
+            // Start the email queue worker before registering the provider
+            match email_queue::EmailQueueConfig::from_env() {
+                Ok(email_queue_config) => {
+                    if let Err(e) = email_queue::start_email_queue_worker(email_queue_config).await {
+                        println!("⚠️  Failed to start email queue worker: {}", e);
+                        println!("   Email notifications will not work");
+                    } else {
+                        println!("  - Email notification provider (with rate-limited queue)");
+                        notification_manager.register_provider(Arc::new(EmailProvider::new()));
+                    }
+                }
+                Err(e) => {
+                    println!("⚠️  Email provider enabled but missing configuration: {}", e);
+                }
+            }
         }
     }
 

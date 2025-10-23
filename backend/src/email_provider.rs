@@ -131,38 +131,41 @@ impl NotificationProvider for EmailProvider {
             return results;
         }
 
-        // Clone email service for background task
-        let email_service_clone = email_service.clone();
+        // Extract batch requests for queuing
         let batch_requests: Vec<BatchEmailRequest> = batch_data.iter().map(|(_, _, req)| req.clone()).collect();
 
-        // Spawn background task for batch email sending
-        tokio::spawn(async move {
-            let batch_results = email_service_clone.send_batch_emails(batch_requests).await;
+        // Queue emails for background sending (with rate limiting and retries)
+        let batch_results = email_service.send_batch_emails(batch_requests).await;
 
-            // Log results
-            for (idx, result) in batch_results.iter().enumerate() {
-                match result {
-                    Ok(_email_id) => {
-                        // Success - email sent
-                    }
-                    Err(e) => {
-                        eprintln!("❌ Failed to send batch email {}: {}", idx, e);
-                    }
+        // Process results and return
+        for ((method, message, _), result) in batch_data.into_iter().zip(batch_results.into_iter()) {
+            match result {
+                Ok(_) => {
+                    // Email queued successfully
+                    results.push((
+                        method,
+                        NotificationResult {
+                            success: true,
+                            provider_id: Some("email".to_string()),
+                            error_message: None,
+                        },
+                        message,
+                    ));
+                }
+                Err(e) => {
+                    // Failed to queue email
+                    eprintln!("❌ Failed to queue email: {}", e);
+                    results.push((
+                        method,
+                        NotificationResult {
+                            success: false,
+                            provider_id: Some("email".to_string()),
+                            error_message: Some(format!("Failed to queue: {}", e)),
+                        },
+                        message,
+                    ));
                 }
             }
-        });
-
-        // Return success immediately for all methods - emails will be sent in background
-        for (method, message, _) in batch_data {
-            results.push((
-                method,
-                NotificationResult {
-                    success: true,
-                    provider_id: Some("email".to_string()),
-                    error_message: None,
-                },
-                message,
-            ));
         }
 
         results

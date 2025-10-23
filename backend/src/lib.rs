@@ -7,6 +7,7 @@ pub mod auth;
 pub mod config;
 pub mod electrum;
 pub mod email_provider;
+pub mod email_queue;
 pub mod email_service;
 pub mod exchange_rates;
 pub mod message_formatter;

@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use rand::Rng;
 use resend_rs::types::{ContactData, CreateEmailBaseOptions};
 use resend_rs::Resend;
+use crate::email_queue;
 
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
@@ -461,8 +462,9 @@ View subscription plans: {billing_url}
         }
     }
 
-    /// Send multiple emails in a single batch request using Resend Batch API
-    /// Returns Vec of Results - one per email in the same order as the input
+    /// Queue multiple emails for background sending via the global email queue
+    /// Returns Vec of Results - all success since emails are queued, not sent immediately
+    /// Actual sending happens asynchronously with rate limiting and retries
     pub async fn send_batch_emails(
         &self,
         emails: Vec<BatchEmailRequest>,
@@ -471,92 +473,26 @@ View subscription plans: {billing_url}
             return Vec::new();
         }
 
-        let from = format!(
-            "{} <{}>",
-            self.config.resend_from_name, self.config.resend_from_email
-        );
-
-        // Build batch payload as JSON array
-        let batch_payload: Vec<serde_json::Value> = emails
-            .iter()
-            .map(|req| {
-                serde_json::json!({
-                    "from": from,
-                    "to": [format!("{} <{}>", req.to_name, req.to_email)],
-                    "subject": req.subject,
-                    "html": req.html_body,
-                    "text": req.text_body
-                })
-            })
-            .collect();
-
-        // Use raw HTTP API for batch sending
-        let client = reqwest::Client::new();
-        let response = client
-            .post("https://api.resend.com/emails/batch")
-            .header("Authorization", format!("Bearer {}", self.config.resend_api_key))
-            .header("Content-Type", "application/json")
-            .json(&batch_payload)
-            .send()
-            .await;
-
-        match response {
-            Ok(resp) if resp.status().is_success() => {
-                match resp.json::<BatchSendResponse>().await {
-                    Ok(batch_response) => {
-                        // Map response IDs back to original order
-                        emails
-                            .iter()
-                            .enumerate()
-                            .map(|(idx, _)| {
-                                batch_response
-                                    .data
-                                    .get(idx)
-                                    .map(|email_data| email_data.id.clone())
-                                    .ok_or_else(|| {
-                                        anyhow!("Missing email ID in batch response at index {}", idx)
-                                    })
-                            })
-                            .collect()
-                    }
-                    Err(e) => {
-                        // Failed to parse response
-                        emails
-                            .iter()
-                            .map(|_| Err(anyhow!("Failed to parse batch response: {}", e)))
-                            .collect()
-                    }
-                }
-            }
-            Ok(resp) => {
-                // HTTP error
-                let status = resp.status();
-                let error_text = resp.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        // Queue all emails for background processing
+        match email_queue::queue_emails(emails.clone()) {
+            Ok(_) => {
+                // Return success for all emails - they're queued and will be sent in background
                 emails
                     .iter()
-                    .map(|_| Err(anyhow!("Batch send failed with status {}: {}", status, error_text)))
+                    .enumerate()
+                    .map(|(idx, _)| Ok(format!("queued-{}", idx)))
                     .collect()
             }
             Err(e) => {
-                // Network or other error
+                // Failed to queue - return error for all
+                eprintln!("❌ Failed to queue emails: {}", e);
                 emails
                     .iter()
-                    .map(|_| Err(anyhow!("Batch send request failed: {}", e)))
+                    .map(|_| Err(anyhow!("Failed to queue email: {}", e)))
                     .collect()
             }
         }
     }
-}
-
-/// Response from Resend batch send API
-#[derive(Debug, serde::Deserialize)]
-struct BatchSendResponse {
-    data: Vec<BatchEmailData>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct BatchEmailData {
-    id: String,
 }
 
 /// Request for a single email in a batch
