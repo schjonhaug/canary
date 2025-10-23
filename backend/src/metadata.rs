@@ -310,6 +310,7 @@ pub struct WalletDetailResponse {
     pub wallet: WalletMetadata,
     pub transactions: Vec<TransactionWithWallet>,
     pub contacts: Vec<Contact>,
+    pub balance_alerts: Vec<BalanceAlert>,
 }
 
 #[derive(Debug, Clone)]

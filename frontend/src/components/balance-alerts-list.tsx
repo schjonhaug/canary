@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,11 +25,11 @@ import {
   parseBtcInput,
   getBtcPlaceholder
 } from "@/lib/utils"
-import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { formatFiatAmount } from "@/lib/currencies"
 
 interface BalanceAlertsListProps {
   walletChecksum: string
+  balanceAlerts: BalanceAlert[]
 }
 
 const ALERT_TYPE_OPTIONS = [
@@ -54,10 +54,11 @@ const ALERT_TYPE_OPTIONS = [
 ] as const
 
 export function BalanceAlertsList({
-  walletChecksum
+  walletChecksum,
+  balanceAlerts
 }: BalanceAlertsListProps) {
-  const [alerts, setAlerts] = useState<BalanceAlert[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  // Use local state for optimistic updates
+  const [localAlerts, setLocalAlerts] = useState<BalanceAlert[]>(balanceAlerts)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -68,24 +69,10 @@ export function BalanceAlertsList({
   const [currencyType, setCurrencyType] = useState<'btc' | 'fiat'>('btc')
   const [preferredCurrency, setPreferredCurrency] = useState<string>('USD')
 
-  const loadAlerts = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const alertList = await api.getBalanceAlerts(walletChecksum)
-      setAlerts(alertList)
-      setError(null)
-    } catch (err) {
-      console.error('Failed to load balance alerts:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load balance alerts')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [walletChecksum])
-
-  // Load alerts on mount
+  // Sync local alerts with prop when it changes (from polling)
   useEffect(() => {
-    loadAlerts()
-  }, [walletChecksum, loadAlerts])
+    setLocalAlerts(balanceAlerts)
+  }, [balanceAlerts])
 
   // Load user's preferred currency
   useEffect(() => {
@@ -125,7 +112,7 @@ export function BalanceAlertsList({
       }
 
       // Check for duplicate alert
-      const duplicate = alerts.find(alert =>
+      const duplicate = localAlerts.find(alert =>
         alert.alert_type === alertType &&
         alert.threshold_sats === thresholdSats &&
         !alert.threshold_currency
@@ -146,7 +133,7 @@ export function BalanceAlertsList({
         }
 
         const newAlert = await api.createBalanceAlert(walletChecksum, alertData)
-        setAlerts(prev => [...prev, newAlert])
+        setLocalAlerts(prev => [...prev, newAlert])
         setShowCreateForm(false)
         setThresholdInput('')
       } catch (err) {
@@ -170,7 +157,7 @@ export function BalanceAlertsList({
       }
 
       // Check for duplicate alert
-      const duplicate = alerts.find(alert =>
+      const duplicate = localAlerts.find(alert =>
         alert.alert_type === alertType &&
         alert.threshold_currency === preferredCurrency &&
         alert.threshold_fiat_amount === thresholdFiat
@@ -192,7 +179,7 @@ export function BalanceAlertsList({
         }
 
         const newAlert = await api.createBalanceAlert(walletChecksum, alertData)
-        setAlerts(prev => [...prev, newAlert])
+        setLocalAlerts(prev => [...prev, newAlert])
         setShowCreateForm(false)
         setThresholdInput('')
       } catch (err) {
@@ -207,7 +194,7 @@ export function BalanceAlertsList({
   const handleReactivateAlert = async (alertId: string) => {
     try {
       const updatedAlert = await api.reactivateBalanceAlert(alertId)
-      setAlerts(prev => prev.map(alert =>
+      setLocalAlerts(prev => prev.map(alert =>
         alert.id === alertId ? updatedAlert : alert
       ))
       setError(null)
@@ -220,7 +207,7 @@ export function BalanceAlertsList({
   const handleDeleteAlert = async (alertId: string) => {
     try {
       await api.deleteBalanceAlert(alertId)
-      setAlerts(prev => prev.filter(alert => alert.id !== alertId))
+      setLocalAlerts(prev => prev.filter(alert => alert.id !== alertId))
       setError(null)
     } catch (err) {
       console.error('Failed to delete alert:', err)
@@ -280,18 +267,14 @@ export function BalanceAlertsList({
           )}
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <LoadingSpinner size="sm" />
-          </div>
-        ) : alerts.length === 0 ? (
+        {localAlerts.length === 0 ? (
           <div className="text-center text-muted-foreground text-xs py-3">
             <Bell className="h-4 w-4 mx-auto mb-1 opacity-50" />
             <p>No alerts set</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {alerts.map((alert) => {
+            {localAlerts.map((alert) => {
               const status = getAlertStatus(alert)
               const AlertIcon = getAlertTypeIcon(alert.alert_type)
 

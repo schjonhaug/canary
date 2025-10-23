@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Wallet, Transaction, Contact } from '../types';
+import { Wallet, Transaction, Contact, BalanceAlert } from '../types';
 import { useAuth } from '../contexts/auth-context';
 
 interface WalletDetailResponse {
@@ -7,12 +7,14 @@ interface WalletDetailResponse {
   wallet: Wallet;
   transactions: Transaction[];
   contacts: Contact[];
+  balance_alerts: BalanceAlert[];
 }
 
 export function useWalletDetail(walletChecksum: string | null) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [balanceAlerts, setBalanceAlerts] = useState<BalanceAlert[]>([]);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +55,7 @@ export function useWalletDetail(walletChecksum: string | null) {
         setWallet(data.wallet);
         setTransactions(data.transactions);
         setContacts(data.contacts || []);
+        setBalanceAlerts(data.balance_alerts || []);
         setLastUpdate(data.timestamp);
         setIsConnected(true);
         setError(null);
@@ -85,6 +88,7 @@ export function useWalletDetail(walletChecksum: string | null) {
     setWallet(null);
     setTransactions([]);
     setContacts([]);
+    setBalanceAlerts([]);
     setLastUpdate(null);
     setError(null);
 
@@ -110,12 +114,13 @@ export function useWalletDetail(walletChecksum: string | null) {
     };
   }, [fetchWalletDetail, walletChecksum, getPollingInterval]);
 
-  return { 
+  return {
     wallet,
     transactions,
     contacts,
-    lastUpdate, 
-    error, 
+    balanceAlerts,
+    lastUpdate,
+    error,
     isLoading,
     isConnected,
     refresh, // Manual refresh function

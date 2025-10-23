@@ -2824,11 +2824,25 @@ pub async fn get_wallet_detail(
             }
         };
 
+        // Get balance alerts for the wallet
+        let balance_alerts = match app_services
+            .metadata_db
+            .get_all_balance_alerts_for_wallet(&wallet.checksum)
+            .await
+        {
+            Ok(alerts) => alerts,
+            Err(e) => {
+                eprintln!("Warning: Failed to get balance alerts: {}", e);
+                vec![] // Return empty vec on error, don't fail the whole request
+            }
+        };
+
         let wallet_detail = WalletDetailResponse {
             timestamp,
             wallet,
             transactions: vec![], // Empty transactions for pending wallets
             contacts,
+            balance_alerts,
         };
 
         return (StatusCode::OK, Json(wallet_detail)).into_response();
@@ -2887,11 +2901,25 @@ pub async fn get_wallet_detail(
         }
     }
 
+    // Get balance alerts for the wallet
+    let balance_alerts = match app_services
+        .metadata_db
+        .get_all_balance_alerts_for_wallet(&wallet_with_fiat.checksum)
+        .await
+    {
+        Ok(alerts) => alerts,
+        Err(e) => {
+            eprintln!("Warning: Failed to get balance alerts: {}", e);
+            vec![] // Return empty vec on error, don't fail the whole request
+        }
+    };
+
     let wallet_detail = WalletDetailResponse {
         timestamp,
         wallet: wallet_with_fiat,
         transactions,
         contacts,
+        balance_alerts,
     };
 
     (StatusCode::OK, Json(wallet_detail)).into_response()
