@@ -80,19 +80,15 @@ export function getCurrencyName(code: string): string {
 }
 
 /**
- * Format a fiat amount with currency symbol
+ * Format a fiat amount with currency symbol using browser locale
  */
 export function formatFiatAmount(amount: number, currencyCode: string): string {
-  const symbol = getCurrencySymbol(currencyCode)
-
-  // Format with appropriate decimal places based on currency
-  // Most currencies use 2 decimal places, but some like JPY use 0
-  const decimals = ['JPY', 'KRW', 'VND', 'IDR', 'CLP', 'HUF'].includes(currencyCode) ? 0 : 2
-
-  const formatted = amount.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  })
-
-  return `${symbol}${formatted}`
+  // Use browser's locale (undefined) to format currency appropriately
+  // This handles symbol placement, separators, and decimals based on locale
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: currencyCode,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount)
 }

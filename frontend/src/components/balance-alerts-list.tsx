@@ -235,9 +235,9 @@ export function BalanceAlertsList({
     const typeLabel = ALERT_TYPE_OPTIONS.find(opt => opt.value === alert.alert_type)?.label || alert.alert_type
 
     if (alert.threshold_currency && alert.threshold_fiat_amount) {
-      // Fiat alert
+      // Fiat alert - formatFiatAmount already includes currency symbol
       const formattedAmount = formatFiatAmount(alert.threshold_fiat_amount, alert.threshold_currency)
-      return `${typeLabel} ${formattedAmount} ${alert.threshold_currency}`
+      return `${typeLabel} ${formattedAmount}`
     } else {
       // BTC alert
       const btcAmount = formatBtcAmount(satsToBtc(alert.threshold_sats))
