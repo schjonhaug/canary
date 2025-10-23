@@ -161,14 +161,9 @@ async fn main() -> anyhow::Result<()> {
     // Initialize exchange rate service and start background refresh task
     {
         let manager = wallet_manager.lock().await;
-        let mut exchange_rate_service = exchange_rates::ExchangeRateService::new(Arc::new(
+        let exchange_rate_service = Arc::new(exchange_rates::ExchangeRateService::new(Arc::new(
             manager.metadata_db.clone(),
-        ));
-
-        // Set wallet manager for rate-triggered alert checking
-        exchange_rate_service.set_wallet_manager(Arc::clone(&wallet_manager));
-
-        let exchange_rate_service = Arc::new(exchange_rate_service);
+        )));
 
         // Start background task to refresh exchange rates every 10 minutes
         exchange_rate_service.clone().start_refresh_task();
