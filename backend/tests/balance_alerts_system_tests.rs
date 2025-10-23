@@ -1,9 +1,14 @@
 use canary::{
     config::{AppConfig, NetworkConfig},
-    metadata::{BalanceAlertType, MetadataDb},
+    exchange_rates::ExchangeRate,
+    metadata::{BalanceAlertType, MetadataDb, TransactionNotification},
+    sync::WalletSyncService,
 };
+use chrono::Utc;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
+use tokio::sync::broadcast;
 use uuid;
 
 /// Test helper to create test database
@@ -44,6 +49,15 @@ async fn create_test_user_and_wallet(metadata_db: &MetadataDb) -> (String, Strin
         .unwrap();
 
     (user_id, wallet_checksum)
+}
+
+/// Test helper to create a sync service for balance alert checking
+fn create_sync_service(
+    metadata_db: &MetadataDb,
+    config: &AppConfig,
+) -> WalletSyncService {
+    let (notification_sender, _) = broadcast::channel::<TransactionNotification>(100);
+    WalletSyncService::new(metadata_db.clone(), notification_sender, config.clone())
 }
 
 #[tokio::test]
@@ -461,4 +475,161 @@ async fn test_wallet_drain_alert_special_case() {
         .await
         .unwrap();
     assert!(reactivated.is_active);
+}
+
+#[tokio::test]
+async fn test_fiat_alert_fires_on_exchange_rate_change() {
+    // Setup test database and user
+    let (metadata_db, temp_dir) = create_test_db().await;
+    let (_user_id, wallet_checksum) = create_test_user_and_wallet(&metadata_db).await;
+
+    // Set wallet balance to 1 BTC (100,000,000 sats)
+    let balance_sats = 100_000_000i64;
+    metadata_db
+        .update_wallet_balance_by_checksum(&wallet_checksum, balance_sats)
+        .await
+        .unwrap();
+
+    // Set initial exchange rate: 1 BTC = 50,000 NOK
+    // Current fiat value: 50,000 NOK
+    let mut rates = HashMap::new();
+    rates.insert(
+        "NOK".to_string(),
+        ExchangeRate {
+            currency: "NOK".to_string(),
+            rate_per_btc: 50_000.0,
+            last_updated: Utc::now(),
+        },
+    );
+    metadata_db.store_exchange_rates(&rates).await.unwrap();
+
+    // Create alert: "Above 60,000 NOK" (won't trigger at 50k)
+    let alert = metadata_db
+        .create_balance_alert(
+            &wallet_checksum,
+            0, // threshold_sats not used for fiat
+            BalanceAlertType::Above,
+            Some("NOK".to_string()),
+            Some(60_000.0),
+        )
+        .await
+        .unwrap();
+
+    assert!(alert.is_active, "Alert should be active initially");
+
+    // Create sync service and config
+    let test_config = AppConfig {
+        network: NetworkConfig::Regtest,
+        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
+        bind_address: "127.0.0.1:3000".to_string(),
+        data_dir: temp_dir.path().to_str().unwrap().to_string(),
+    };
+    let sync_service = create_sync_service(&metadata_db, &test_config);
+
+    // Check alerts - should NOT fire at 50k NOK
+    let triggered = sync_service
+        .check_balance_alerts(&wallet_checksum, balance_sats)
+        .await
+        .unwrap();
+    assert_eq!(
+        triggered.len(),
+        0,
+        "Alert should not fire when balance (50k NOK) is below threshold (60k NOK)"
+    );
+
+    // Verify alert is still active by checking it's in active alerts list
+    let active_alerts = metadata_db
+        .get_active_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(active_alerts.len(), 1, "Alert should still be active");
+
+    // Update exchange rate: 1 BTC = 70,000 NOK
+    // New fiat value: 70,000 NOK (above 60k threshold!)
+    rates.clear();
+    rates.insert(
+        "NOK".to_string(),
+        ExchangeRate {
+            currency: "NOK".to_string(),
+            rate_per_btc: 70_000.0,
+            last_updated: Utc::now(),
+        },
+    );
+    metadata_db.store_exchange_rates(&rates).await.unwrap();
+
+    // Check alerts again - SHOULD fire now due to rate change
+    let triggered = sync_service
+        .check_balance_alerts(&wallet_checksum, balance_sats)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        triggered.len(),
+        1,
+        "Alert should fire when balance (70k NOK) exceeds threshold (60k NOK) due to rate change"
+    );
+    assert_eq!(triggered[0].id, alert.id);
+
+    // Verify alert was deactivated after firing
+    let active_alerts = metadata_db
+        .get_active_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(
+        active_alerts.len(),
+        0,
+        "Alert should be deactivated after firing"
+    );
+
+    // Check all alerts to verify it has last_triggered_at
+    let all_alerts = metadata_db
+        .get_all_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(all_alerts.len(), 1);
+    assert!(
+        all_alerts[0].last_triggered_at.is_some(),
+        "Alert should have last_triggered_at timestamp"
+    );
+
+    // Test reactivation and rate change back down
+    let reactivated = metadata_db
+        .reactivate_balance_alert(&alert.id)
+        .await
+        .unwrap();
+    assert!(reactivated.is_active, "Alert should be active after reactivation");
+
+    // Lower rate: 1 BTC = 55,000 NOK (below threshold again)
+    rates.clear();
+    rates.insert(
+        "NOK".to_string(),
+        ExchangeRate {
+            currency: "NOK".to_string(),
+            rate_per_btc: 55_000.0,
+            last_updated: Utc::now(),
+        },
+    );
+    metadata_db.store_exchange_rates(&rates).await.unwrap();
+
+    // Check alerts - should NOT fire (55k < 60k)
+    let triggered = sync_service
+        .check_balance_alerts(&wallet_checksum, balance_sats)
+        .await
+        .unwrap();
+    assert_eq!(
+        triggered.len(),
+        0,
+        "Alert should not fire when rate drops back below threshold"
+    );
+
+    // Alert should still be active
+    let active_alerts = metadata_db
+        .get_active_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(
+        active_alerts.len(),
+        1,
+        "Alert should remain active when condition is not met"
+    );
 }
