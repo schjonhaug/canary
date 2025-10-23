@@ -4946,6 +4946,82 @@ pub async fn create_wallet_balance_alert(
         }
     }
 
+    // Check if alert would trigger immediately based on current balance
+    if let Some(current_balance_sats) = wallet.balance_total {
+        // Determine if alert would trigger
+        let would_trigger = if is_fiat_threshold {
+            // For fiat alerts, convert current balance to fiat and compare
+            let currency = threshold_currency.as_ref().unwrap();
+            let fiat_threshold = threshold_fiat_amount.unwrap();
+
+            // Get exchange rate (we already fetched it above for fiat alerts)
+            if let Ok(exchange_rates) = app_services.metadata_db.get_exchange_rates().await {
+                if let Some(rate) = exchange_rates.get(currency) {
+                    let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                    let balance_fiat = balance_btc * rate.rate_per_btc;
+
+                    match request.alert_type {
+                        BalanceAlertType::Above => balance_fiat > fiat_threshold,
+                        BalanceAlertType::Below => balance_fiat < fiat_threshold,
+                        BalanceAlertType::Equals => (balance_fiat - fiat_threshold).abs() < 0.01,
+                    }
+                } else {
+                    false // Rate not available, skip check
+                }
+            } else {
+                false // Rates not available, skip check
+            }
+        } else {
+            // For BTC alerts, compare satoshis directly
+            match request.alert_type {
+                BalanceAlertType::Above => current_balance_sats > threshold_sats,
+                BalanceAlertType::Below => current_balance_sats < threshold_sats,
+                BalanceAlertType::Equals => current_balance_sats == threshold_sats,
+            }
+        };
+
+        if would_trigger {
+            // Build helpful error message
+            let error_msg = if is_fiat_threshold {
+                let currency = threshold_currency.as_ref().unwrap();
+                let fiat_threshold = threshold_fiat_amount.unwrap();
+
+                // Calculate current balance in fiat
+                if let Ok(exchange_rates) = app_services.metadata_db.get_exchange_rates().await {
+                    if let Some(rate) = exchange_rates.get(currency) {
+                        let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                        let balance_fiat = balance_btc * rate.rate_per_btc;
+
+                        format!(
+                            "Alert would trigger immediately. Current balance: {:.2} {}, threshold: {:.2} {} ({}). Try a different threshold or alert type.",
+                            balance_fiat, currency, fiat_threshold, currency, request.alert_type.as_str()
+                        )
+                    } else {
+                        format!("Alert would trigger immediately based on current balance. Try a different threshold or alert type.")
+                    }
+                } else {
+                    format!("Alert would trigger immediately based on current balance. Try a different threshold or alert type.")
+                }
+            } else {
+                let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                let threshold_btc = threshold_sats as f64 / 100_000_000.0;
+
+                format!(
+                    "Alert would trigger immediately. Current balance: {:.8} BTC, threshold: {:.8} BTC ({}). Try a different threshold or alert type.",
+                    balance_btc, threshold_btc, request.alert_type.as_str()
+                )
+            };
+
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: error_msg,
+                }),
+            )
+                .into_response();
+        }
+    }
+
     // Create the balance alert
     match app_services
         .metadata_db
