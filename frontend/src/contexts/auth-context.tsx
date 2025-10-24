@@ -9,6 +9,7 @@ interface User {
   email: string
   name?: string
   is_admin: boolean
+  is_demo: boolean
   email_verified: boolean
   subscription_tier?: 'personal' | 'team'
 }
@@ -40,6 +41,7 @@ interface AuthContextType {
   isSelfHostedMode: boolean
   register: (email: string, password: string, name: string, marketingEmails?: boolean) => Promise<void>
   login: (email: string, password: string) => Promise<void>
+  demoLogin: () => Promise<void>
   setAuth: (token: string, user: User) => Promise<void>
   forgotPassword: (email: string) => Promise<void>
   resetPassword: (token: string, password: string) => Promise<void>
@@ -107,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: 'admin@local',
         name: 'Admin',
         is_admin: true,
+        is_demo: false,
         email_verified: true,
         subscription_tier: 'team' as const
       })
@@ -152,6 +155,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const data = await api.login(email, password)
+      setToken(data.token)
+      setUser(data.user)
+      localStorage.setItem('auth_token', data.token)
+      api.setAuthToken(data.token)
+      router.push('/')
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const demoLogin = async () => {
+    try {
+      const data = await api.demoLogin()
       setToken(data.token)
       setUser(data.user)
       localStorage.setItem('auth_token', data.token)
@@ -225,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isSelfHostedMode,
         register,
         login,
+        demoLogin,
         setAuth,
         forgotPassword,
         resetPassword,

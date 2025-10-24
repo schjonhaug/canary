@@ -203,10 +203,16 @@ class ApiClient {
     })
   }
 
-  async login(email: string, password: string): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; email_verified: boolean } }> {
-    return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; email_verified: boolean } }>('/api/auth/login', {
+  async login(email: string, password: string): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean } }> {
+    return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean } }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    })
+  }
+
+  async demoLogin(): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean } }> {
+    return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean } }>('/api/auth/demo-login', {
+      method: 'POST',
     })
   }
 
@@ -236,8 +242,8 @@ class ApiClient {
     })
   }
 
-  async getMe(): Promise<{ user: { id: number, email: string, name?: string, is_admin: boolean, email_verified: boolean } }> {
-    return this.request<{ user: { id: number, email: string, name?: string, is_admin: boolean, email_verified: boolean } }>('/api/auth/me')
+  async getMe(): Promise<{ user: { id: number, email: string, name?: string, is_admin: boolean, is_demo: boolean, email_verified: boolean } }> {
+    return this.request<{ user: { id: number, email: string, name?: string, is_admin: boolean, is_demo: boolean, email_verified: boolean } }>('/api/auth/me')
   }
 
   async updateUserProfile(name: string): Promise<{ user: { id: number, email: string, name?: string, is_admin: boolean, email_verified: boolean } }> {
