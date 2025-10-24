@@ -39,6 +39,7 @@ pub struct Claims {
     pub sub: String, // UUIDv4
     pub email: String,
     pub is_admin: bool,
+    pub is_demo: bool,
     pub exp: usize,
     pub iat: usize,
 }
@@ -47,6 +48,7 @@ pub struct Claims {
 pub struct AuthUser {
     pub user_id: String, // UUIDv4
     pub is_admin: bool,
+    pub is_demo: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -90,6 +92,7 @@ pub struct AuthUserResponse {
     pub email: String,
     pub name: Option<String>,
     pub is_admin: bool,
+    pub is_demo: bool,
     pub email_verified: bool,
     pub subscription_tier: crate::subscription::SubscriptionTier,
     pub created_at: String,
@@ -120,11 +123,12 @@ pub struct UserPreferencesResponse {
 const DEV_MODE: bool = cfg!(debug_assertions);
 
 // Dev mode test email addresses (bypass email verification in dev mode)
-pub const DEV_TEST_EMAILS: [&str; 4] = [
+pub const DEV_TEST_EMAILS: [&str; 5] = [
     "delivered+admin@resend.dev",   // Team tier + Admin
     "delivered+alice@resend.dev",   // Personal tier
     "delivered+bob@resend.dev",     // Team tier
     "delivered+charlie@resend.dev", // Team tier
+    "demo@canarybitcoin.com",       // Demo account (read-only)
 ];
 
 // Dev mode password for all test accounts
@@ -317,13 +321,14 @@ impl AuthService {
         contact_email.to_lowercase() == user_email.to_lowercase()
     }
 
-    pub fn generate_token(&self, user_id: &str, email: &str, is_admin: bool) -> Result<String> {
+    pub fn generate_token(&self, user_id: &str, email: &str, is_admin: bool, is_demo: bool) -> Result<String> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
 
         let claims = Claims {
             sub: user_id.to_string(),
             email: email.to_string(),
             is_admin,
+            is_demo,
             exp: now + 7 * 24 * 60 * 60, // 7 days
             iat: now,
         };
@@ -372,5 +377,6 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     Ok(AuthUser {
         user_id: claims.sub,
         is_admin: claims.is_admin,
+        is_demo: claims.is_demo,
     })
 }

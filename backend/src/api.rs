@@ -396,11 +396,26 @@ fn authenticate_user_mode_aware(
         Ok(AuthUser {
             user_id: "foss-user".to_string(),
             is_admin: true,
+            is_demo: false,
         })
     } else {
         // SAAS mode: authenticate using JWT
         authenticate_user(auth_header).map_err(|_| "Authentication required".to_string())
     }
+}
+
+/// Check if user is demo and reject write operations
+fn reject_if_demo(user: &AuthUser) -> Result<(), Response> {
+    if user.is_demo {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "Demo account is read-only. Sign up to create your own wallet at https://canarybitcoin.com".to_string(),
+            }),
+        )
+            .into_response());
+    }
+    Ok(())
 }
 
 /// Non-blocking wallet creation using AppServices (avoids WalletManager mutex)
@@ -426,6 +441,11 @@ pub async fn create_wallet_non_blocking(
             return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
+
+    // Reject demo users from creating wallets
+    if let Err(response) = reject_if_demo(&user) {
+        return response;
+    }
 
     // Validate network compatibility early - before any database operations
     if let Err(e) = XpubConverter::validate_descriptor_network(
@@ -3284,6 +3304,7 @@ pub async fn login(
         &user_record.id,
         &user_record.email,
         user_record.is_admin,
+        user_record.is_demo,
     ) {
         Ok(t) => t,
         Err(e) => {
@@ -3321,6 +3342,7 @@ pub async fn login(
         email: user_record.email,
         name: user_record.name,
         is_admin: user_record.is_admin,
+        is_demo: user_record.is_demo,
         email_verified: user_record.email_verified,
         subscription_tier: user_record.subscription_tier,
         created_at: user_record.created_at,
@@ -3632,6 +3654,7 @@ pub async fn me(
             email: db_user.email,
             name: db_user.name,
             is_admin: user.is_admin,
+            is_demo: user.is_demo,
             email_verified: db_user.email_verified,
             subscription_tier: db_user.subscription_tier,
             created_at: db_user.created_at,
@@ -3716,6 +3739,7 @@ pub async fn update_user(
             email: db_user.email,
             name: db_user.name,
             is_admin: user.is_admin,
+            is_demo: user.is_demo,
             email_verified: db_user.email_verified,
             subscription_tier: db_user.subscription_tier,
             created_at: db_user.created_at,

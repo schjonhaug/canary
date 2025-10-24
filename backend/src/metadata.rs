@@ -40,6 +40,7 @@ pub struct UserRecord {
     pub password_hash: String,
     pub name: Option<String>,
     pub is_admin: bool,
+    pub is_demo: bool,
     pub email_verified: bool,
     // Subscription fields
     pub subscription_tier: SubscriptionTier,
@@ -531,8 +532,8 @@ impl MetadataDb {
 
                 // Create the hardcoded FOSS user with locale-based currency
                 conn.execute(
-                    "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
-                     VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 1, 'team', 'active', datetime('now'), ?1)",
+                    "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
+                     VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 0, 1, 'team', 'active', datetime('now'), ?1)",
                     [default_currency],
                 )?;
 
@@ -565,25 +566,26 @@ impl MetadataDb {
                 )?;
 
                 if !exists {
-                    let (name, tier) = match *email {
-                        "delivered+admin@resend.dev" => ("Admin", "team"), // Admin flag will give unlimited access
-                        "delivered+alice@resend.dev" => ("Alice", "personal"),
-                        "delivered+bob@resend.dev" => ("Bob", "team"),
-                        "delivered+charlie@resend.dev" => ("Charlie", "team"),
-                        _ => ("Test User", "personal"),
+                    let (name, tier, is_demo) = match *email {
+                        "delivered+admin@resend.dev" => ("Admin", "team", false), // Admin flag will give unlimited access
+                        "delivered+alice@resend.dev" => ("Alice", "personal", false),
+                        "delivered+bob@resend.dev" => ("Bob", "team", false),
+                        "delivered+charlie@resend.dev" => ("Charlie", "team", false),
+                        "demo@canarybitcoin.com" => ("Demo User", "team", true), // Demo account with read-only access
+                        _ => ("Test User", "personal", false),
                     };
 
-                    // First user becomes admin
-                    let is_admin = index == 0;
+                    // First user becomes admin (unless demo user)
+                    let is_admin = index == 0 && !is_demo;
 
                     let user_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
-                        "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), ?9)",
-                        params![&user_id, email, &password_hash, name, is_admin, true, tier, "pending", "USD"], // Dev users follow same flow as real users
+                        "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10)",
+                        params![&user_id, email, &password_hash, name, is_admin, is_demo, true, tier, "pending", "USD"], // Dev users follow same flow as real users
                     )?;
 
-                    println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
+                    println!("[DEV MODE] Created test user: {} (admin: {}, demo: {})", email, is_admin, is_demo);
                 }
             }
 
@@ -2169,8 +2171,8 @@ impl MetadataDb {
 
             // Create new user
             tx.execute(
-                "INSERT INTO users (id, email, password_hash, name, is_admin, email_verified, subscription_tier, subscription_status, preferred_fiat_currency) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD")],
+                "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, preferred_fiat_currency) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, false, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD")],
             )?;
 
             tx.commit()?;
@@ -2189,7 +2191,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE email = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE email = ?1")?
                 .query_row(params![&email], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -2197,16 +2199,17 @@ impl MetadataDb {
                         password_hash: row.get(2)?,
                         name: row.get(3)?,
                         is_admin: row.get(4)?,
-                        email_verified: row.get(5)?,
-                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
-                        trial_ends_at: row.get(7)?,
-                        subscription_status: row.get(8)?,
-                        stripe_customer_id: row.get(9)?,
-                        stripe_subscription_id: row.get(10)?,
-                        subscription_started_at: row.get(11)?,
-                        subscription_ends_at: row.get(12)?,
-                        created_at: row.get(13)?,
-                        preferred_fiat_currency: row.get(14)?,
+                        is_demo: row.get(5)?,
+                        email_verified: row.get(6)?,
+                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(7)?),
+                        trial_ends_at: row.get(8)?,
+                        subscription_status: row.get(9)?,
+                        stripe_customer_id: row.get(10)?,
+                        stripe_subscription_id: row.get(11)?,
+                        subscription_started_at: row.get(12)?,
+                        subscription_ends_at: row.get(13)?,
+                        created_at: row.get(14)?,
+                        preferred_fiat_currency: row.get(15)?,
                     })
                 })
                 .ok();
@@ -2221,7 +2224,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -2229,16 +2232,17 @@ impl MetadataDb {
                         password_hash: row.get(2)?,
                         name: row.get(3)?,
                         is_admin: row.get(4)?,
-                        email_verified: row.get(5)?,
-                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
-                        trial_ends_at: row.get(7)?,
-                        subscription_status: row.get(8)?,
-                        stripe_customer_id: row.get(9)?,
-                        stripe_subscription_id: row.get(10)?,
-                        subscription_started_at: row.get(11)?,
-                        subscription_ends_at: row.get(12)?,
-                        created_at: row.get(13)?,
-                        preferred_fiat_currency: row.get(14)?,
+                        is_demo: row.get(5)?,
+                        email_verified: row.get(6)?,
+                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(7)?),
+                        trial_ends_at: row.get(8)?,
+                        subscription_status: row.get(9)?,
+                        stripe_customer_id: row.get(10)?,
+                        stripe_subscription_id: row.get(11)?,
+                        subscription_started_at: row.get(12)?,
+                        subscription_ends_at: row.get(13)?,
+                        created_at: row.get(14)?,
+                        preferred_fiat_currency: row.get(15)?,
                     })
                 })
                 .ok();
@@ -2256,7 +2260,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE stripe_customer_id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE stripe_customer_id = ?1")?
                 .query_row(params![stripe_customer_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -2264,16 +2268,17 @@ impl MetadataDb {
                         password_hash: row.get(2)?,
                         name: row.get(3)?,
                         is_admin: row.get(4)?,
-                        email_verified: row.get(5)?,
-                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
-                        trial_ends_at: row.get(7)?,
-                        subscription_status: row.get(8)?,
-                        stripe_customer_id: row.get(9)?,
-                        stripe_subscription_id: row.get(10)?,
-                        subscription_started_at: row.get(11)?,
-                        subscription_ends_at: row.get(12)?,
-                        created_at: row.get(13)?,
-                        preferred_fiat_currency: row.get(14)?,
+                        is_demo: row.get(5)?,
+                        email_verified: row.get(6)?,
+                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(7)?),
+                        trial_ends_at: row.get(8)?,
+                        subscription_status: row.get(9)?,
+                        stripe_customer_id: row.get(10)?,
+                        stripe_subscription_id: row.get(11)?,
+                        subscription_started_at: row.get(12)?,
+                        subscription_ends_at: row.get(13)?,
+                        created_at: row.get(14)?,
+                        preferred_fiat_currency: row.get(15)?,
                     })
                 })
                 .ok();
@@ -2303,7 +2308,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<UserRecord>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, email, password_hash, name, is_admin, email_verified, subscription_tier,
+                "SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier,
                         subscription_status, trial_ends_at, subscription_started_at,
                         stripe_customer_id, stripe_subscription_id, subscription_ends_at,
                         created_at, preferred_fiat_currency
@@ -2317,16 +2322,17 @@ impl MetadataDb {
                     password_hash: row.get(2)?,
                     name: row.get(3)?,
                     is_admin: row.get(4)?,
-                    email_verified: row.get(5)?,
-                    subscription_tier: SubscriptionTier::from(row.get::<_, String>(6)?),
-                    subscription_status: row.get(7)?,
-                    trial_ends_at: row.get(8)?,
-                    subscription_started_at: row.get(9)?,
-                    stripe_customer_id: row.get(10)?,
-                    stripe_subscription_id: row.get(11)?,
-                    subscription_ends_at: row.get(12)?,
-                    created_at: row.get(13)?,
-                    preferred_fiat_currency: row.get(14)?,
+                    is_demo: row.get(5)?,
+                    email_verified: row.get(6)?,
+                    subscription_tier: SubscriptionTier::from(row.get::<_, String>(7)?),
+                    subscription_status: row.get(8)?,
+                    trial_ends_at: row.get(9)?,
+                    subscription_started_at: row.get(10)?,
+                    stripe_customer_id: row.get(11)?,
+                    stripe_subscription_id: row.get(12)?,
+                    subscription_ends_at: row.get(13)?,
+                    created_at: row.get(14)?,
+                    preferred_fiat_currency: row.get(15)?,
                 })
             })?;
 
