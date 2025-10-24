@@ -23,6 +23,7 @@ import {
   getBtcPlaceholder
 } from "@/lib/utils"
 import { formatFiatAmount } from "@/lib/currencies"
+import { useAuth } from "@/contexts/auth-context"
 
 interface BalanceAlertsListProps {
   walletChecksum: string
@@ -54,6 +55,8 @@ export function BalanceAlertsList({
   walletChecksum,
   balanceAlerts
 }: BalanceAlertsListProps) {
+  const { user, isCloudMode } = useAuth()
+
   // Use local state for optimistic updates
   const [localAlerts, setLocalAlerts] = useState<BalanceAlert[]>(balanceAlerts)
   const [error, setError] = useState<string | null>(null)
@@ -226,7 +229,7 @@ export function BalanceAlertsList({
       <div>
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium text-muted-foreground">Balance Alerts</h4>
-          {!showCreateForm && (
+          {!showCreateForm && !(isCloudMode && (user?.is_admin || user?.is_demo)) && (
             <Button
               variant="ghost"
               size="sm"
@@ -266,17 +269,19 @@ export function BalanceAlertsList({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteAlert(alert.id)}
-                        className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
-                        title="Delete alert"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    {!(isCloudMode && (user?.is_admin || user?.is_demo)) && (
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteAlert(alert.id)}
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
+                          title="Delete alert"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )

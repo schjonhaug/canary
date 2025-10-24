@@ -353,7 +353,7 @@ export default function WalletDetailPage() {
               <div className="pt-2 border-t">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-medium text-muted-foreground">Contacts</div>
-                  {!(isCloudMode && user?.is_admin) && (
+                  {!(isCloudMode && user?.is_admin) && !user?.is_demo && (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -380,7 +380,7 @@ export default function WalletDetailPage() {
                 />
               </div>
 
-              {!(isCloudMode && user?.is_admin) && (
+              {!(isCloudMode && user?.is_admin) && !user?.is_demo && (
                 <div className="pt-2 border-t flex justify-end">
                   <Button
                     variant="ghost"

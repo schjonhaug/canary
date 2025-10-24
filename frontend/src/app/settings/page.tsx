@@ -15,7 +15,7 @@ import { SUPPORTED_CURRENCIES } from "@/lib/currencies"
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading: authLoading, isCloudMode, billingStatus } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, isCloudMode, billingStatus, user } = useAuth()
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD')
   const [isUpdating, setIsUpdating] = useState(false)
   const [userPreferences, setUserPreferences] = useState<{ preferred_fiat_currency: string } | null>(null)
@@ -113,7 +113,7 @@ export default function SettingsPage() {
                 <Select
                   value={selectedCurrency}
                   onValueChange={handleCurrencyChange}
-                  disabled={isUpdating}
+                  disabled={isUpdating || (isCloudMode && user?.is_demo)}
                 >
                   <SelectTrigger id="currency" className="w-full">
                     <SelectValue placeholder="Select a currency" />

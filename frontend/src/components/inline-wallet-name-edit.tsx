@@ -109,8 +109,8 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
     )
   }
 
-  // For admin users in SaaS mode, show only the name without edit button
-  if (isCloudMode && user?.is_admin) {
+  // For admin or demo users in SaaS mode, show only the name without edit button
+  if (isCloudMode && (user?.is_admin || user?.is_demo)) {
     return (
       <div className="flex items-center gap-2 min-w-0">
         <span className={`${textClasses} truncate`} title={currentName}>{currentName}</span>

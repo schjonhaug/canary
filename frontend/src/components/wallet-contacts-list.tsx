@@ -23,8 +23,8 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
 
 
   const handleEditContact = (contact: Contact) => {
-    // Don't allow admin users in SaaS mode to edit contacts
-    if (isCloudMode && user?.is_admin) {
+    // Don't allow admin or demo users in SaaS mode to edit contacts
+    if (isCloudMode && (user?.is_admin || user?.is_demo)) {
       return
     }
     setEditingContact(contact)
@@ -53,7 +53,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
           }).map((contact) => {
             const isInactive = contact.is_active === false
             const shouldShowInactiveState = isInactive && isWalletActive
-            const isAdminInSaas = isCloudMode && user?.is_admin
+            const isAdminInSaas = isCloudMode && (user?.is_admin || user?.is_demo)
             
             return (
               <button

@@ -4,6 +4,7 @@ import { useState, useEffect, lazy, Suspense } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
+import { DemoBanner } from "@/components/demo-banner"
 import { useWalletsList } from "@/hooks/useWalletsList"
 import { loadCanarySvg, getCachedCanarySvg, hasReachedWalletLimit } from "@/lib/utils"
 import { Wallet } from "@/types"
@@ -81,8 +82,9 @@ export default function WalletsLayout({
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <AppHeader 
-        showAddWallet={(wallets.length > 0 || isWalletDetailPage) && !(isCloudMode && user?.is_admin)}
+      <DemoBanner />
+      <AppHeader
+        showAddWallet={(wallets.length > 0 || isWalletDetailPage) && !(isCloudMode && user?.is_admin) && !user?.is_demo}
         onAddWallet={handleAddWallet}
         customLogo={isWalletDetailPage ? walletSvg : undefined}
       />

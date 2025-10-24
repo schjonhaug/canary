@@ -114,6 +114,11 @@ export default function LandingPage() {
                 Start 30-Day Free Trial <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
+            <Button size="lg" variant="secondary" asChild>
+              <Link href="/demo">
+                Try Demo
+              </Link>
+            </Button>
             <Button size="lg" variant="outline" asChild>
               <Link href="#pricing">
                 View Pricing
@@ -304,6 +309,11 @@ export default function LandingPage() {
               <Button size="lg" variant="secondary" asChild>
                 <Link href="/sign-up">
                   Start 30-Day Free Trial <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10" asChild>
+                <Link href="/demo">
+                  Try Demo
                 </Link>
               </Button>
               <Button size="lg" variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10" asChild>
