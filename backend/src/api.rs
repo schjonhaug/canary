@@ -840,6 +840,11 @@ pub async fn delete_wallet(
         }
     };
 
+    // Reject demo users from deleting wallets
+    if let Err(response) = reject_if_demo(&user) {
+        return response;
+    }
+
     // NON-BLOCKING: Use AppServices metadata_db directly (no wallet mutex)
     // Check if wallet exists and belongs to user (or user is admin)
     match app_services
@@ -949,6 +954,11 @@ pub async fn update_wallet(
             return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
+
+    // Reject demo users from updating wallets
+    if let Err(response) = reject_if_demo(&user) {
+        return response;
+    }
 
     if payload.name.trim().is_empty() {
         return (
@@ -1144,6 +1154,11 @@ pub async fn create_wallet_contact(
             return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
+
+    // Reject demo users from creating contacts
+    if let Err(response) = reject_if_demo(&user) {
+        return response;
+    }
 
     // Direct metadata access - no mutex blocking!
     let wallet = match app_services
@@ -1460,6 +1475,11 @@ pub async fn delete_wallet_contact(
         }
     };
 
+    // Reject demo users from deleting contacts
+    if let Err(response) = reject_if_demo(&user) {
+        return response;
+    }
+
     // Direct metadata access - no mutex blocking!
     match app_services
         .metadata_db
@@ -1574,6 +1594,11 @@ pub async fn update_wallet_contact(
             return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
+
+    // Reject demo users from updating contacts
+    if let Err(response) = reject_if_demo(&user) {
+        return response;
+    }
 
     // Check if wallet exists and user has access
     let wallet = match app_services
@@ -4632,6 +4657,11 @@ pub async fn update_user_preferences(
         }
     };
 
+    // Reject demo users from updating preferences
+    if let Err(response) = reject_if_demo(&user) {
+        return response;
+    }
+
     // Validate currency is supported
     if !exchange_rates::SUPPORTED_CURRENCIES.contains(&request.preferred_fiat_currency.as_str()) {
         return (
@@ -4785,6 +4815,11 @@ pub async fn create_wallet_balance_alert(
             return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
+
+    // Reject demo users from creating balance alerts
+    if let Err(response) = reject_if_demo(&user) {
+        return response;
+    }
 
     // Check if wallet exists and user has access
     let wallet = match app_services
@@ -5070,7 +5105,7 @@ pub async fn delete_balance_alert(
     headers: HeaderMap,
 ) -> Response {
     // Authenticate user (works in both SAAS and FOSS mode)
-    let _user = match authenticate_user_mode_aware(
+    let user = match authenticate_user_mode_aware(
         &config,
         headers.get("authorization").and_then(|h| h.to_str().ok()),
     ) {
@@ -5079,6 +5114,11 @@ pub async fn delete_balance_alert(
             return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
         }
     };
+
+    // Reject demo users from deleting balance alerts
+    if let Err(response) = reject_if_demo(&user) {
+        return response;
+    }
 
     // TODO: Add permission check - verify user owns the wallet that contains this alert
     // For now, allow all authenticated users to delete alerts
