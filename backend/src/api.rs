@@ -3382,6 +3382,128 @@ pub async fn login(
     .into_response()
 }
 
+/// Auto-login endpoint for demo account (no password required)
+pub async fn demo_login(
+    State((app_services, _stripe_billing, config)): State<(
+        AppServicesState,
+        StripeBillingState,
+        ConfigState,
+    )>,
+) -> Response {
+    let start_time = std::time::Instant::now();
+
+    // Only works in cloud mode
+    if !config.is_cloud_mode() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "Demo login is only available in cloud mode".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    let demo_email = "demo@canarybitcoin.com";
+
+    // Get demo user from database
+    let user_record = match app_services.metadata_db.get_user_by_email(demo_email).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Demo user not found. Please ensure backend is running in dev mode.".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get demo user: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Verify this is actually a demo user
+    if !user_record.is_demo {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "This user is not a demo account".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Generate JWT token for demo user
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let auth_service = AuthService::new(jwt_secret, None);
+
+    let token = match auth_service.generate_token(
+        &user_record.id,
+        &user_record.email,
+        user_record.is_admin,
+        user_record.is_demo,
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to generate token: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Create session
+    let token_hash = AuthService::hash_token(&token);
+    let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
+
+    if let Err(e) = app_services
+        .metadata_db
+        .create_session(&user_record.id, &token_hash, expires_at)
+        .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to create session: {}", e),
+            }),
+        )
+            .into_response();
+    }
+
+    // Build user response
+    let user_info = AuthUserResponse {
+        id: user_record.id,
+        email: user_record.email,
+        name: user_record.name,
+        is_admin: user_record.is_admin,
+        is_demo: user_record.is_demo,
+        email_verified: user_record.email_verified,
+        subscription_tier: user_record.subscription_tier,
+        created_at: user_record.created_at,
+        preferred_fiat_currency: user_record.preferred_fiat_currency,
+    };
+
+    let elapsed = start_time.elapsed();
+    info!("demo_login completed in {:?}", elapsed);
+
+    Json(AuthResponse {
+        token,
+        user: user_info,
+        requires_name: None,
+    })
+    .into_response()
+}
+
 pub async fn verify_email(
     State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Path(token): Path<String>,
@@ -4560,6 +4682,7 @@ pub fn create_router_with_services(
             axum::routing::delete(delete_balance_alert),
         )
         .route("/auth/login", post(login))
+        .route("/auth/demo-login", post(demo_login))
         .route("/block-headers/current", get(get_current_block_header))
         .route("/exchange-rates", get(get_exchange_rates))
         .with_state((
