@@ -35,7 +35,7 @@ export default function DemoPage() {
     <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
         <h1 className="text-2xl font-semibold mb-4">Loading Demo...</h1>
-        <p className="text-muted-foreground">You're being logged into the demo account</p>
+        <p className="text-muted-foreground">You&apos;re being logged into the demo account</p>
       </div>
     </div>
   )
