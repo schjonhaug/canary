@@ -243,6 +243,33 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
+    // For demo user in regtest mode, ensure bacon wallet is created through normal wallet creation flow (ONCE only)
+    if cfg!(debug_assertions) && config.network() == bdk_wallet::bitcoin::Network::Regtest {
+        // Bacon wallet descriptor for regtest
+        let bacon_descriptor = "wpkh([9a6a2580/84h/1h/0h]tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#4laqdwct";
+
+        // Check if bacon wallet already exists (this ensures we only create it ONCE)
+        if !app_services.metadata_db.descriptor_exists(bacon_descriptor).await.unwrap_or(false) {
+            // Get demo user from database using the metadata_db's get_user_by_email method
+            let demo_user_result = app_services.metadata_db.get_user_by_email("demo@canarybitcoin.com").await;
+
+            if let Ok(Some(demo_user)) = demo_user_result {
+                // Create bacon wallet through normal wallet creation flow
+                match app_services.wallet_creation_service.create_wallet_non_blocking(
+                    "Bacon Wallet",
+                    bacon_descriptor,
+                    &demo_user.id,
+                    false, // not a fresh wallet
+                    None,  // auto-detect script type
+                    None,  // default stop gap
+                ).await {
+                    Ok(_) => println!("[DEV MODE] Created Bacon wallet for demo user through normal wallet creation flow (regtest only - ONCE)"),
+                    Err(e) => println!("[DEV MODE] Failed to create Bacon wallet: {}", e),
+                }
+            }
+        }
+    }
+
     // Try to fetch initial block header in background with timeout
     {
         let initial_wallet_manager = Arc::clone(&wallet_manager);

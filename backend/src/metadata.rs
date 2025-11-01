@@ -588,46 +588,20 @@ impl MetadataDb {
                     println!("[DEV MODE] Created test user: {} (admin: {}, demo: {})", email, is_admin, is_demo);
                 }
 
-                // For demo user in regtest mode, ensure bacon wallet exists and subscription is active (run every time, not just on user creation)
+                // For demo user, ensure subscription is active (for wallet syncing)
                 if *email == "demo@canarybitcoin.com" {
-                    let network_env = std::env::var("CANARY_NETWORK").unwrap_or_else(|_| "regtest".to_string());
-                    if network_env == "regtest" {
-                        // Get demo user ID
-                        let demo_user_id: String = conn.query_row(
-                            "SELECT id FROM users WHERE email = ?1",
-                            [email],
-                            |row| row.get(0)
-                        )?;
+                    // Get demo user ID
+                    let demo_user_id: String = conn.query_row(
+                        "SELECT id FROM users WHERE email = ?1",
+                        [email],
+                        |row| row.get(0)
+                    )?;
 
-                        // Ensure demo user has active subscription (for wallet syncing)
-                        conn.execute(
-                            "UPDATE users SET subscription_status = 'active' WHERE id = ?1 AND subscription_status != 'active'",
-                            params![&demo_user_id],
-                        )?;
-
-                        // Bacon wallet multipath descriptor (derived from "bacon bacon bacon..." mnemonic)
-                        let bacon_descriptor = "wpkh(tpubD6NzVbkrYhZ4YABRLNYwXRuagHVyj1aeu5NbCgtL17jyjecGK8Rpw3oTCmx1zj9QM8B7ohNwXhH6FKpUFD1BBUosWhcaqB5nYJ8QwSkDi7X/84h/1h/0h/<0;1>/*)#q5nknf9v";
-                        let checksum = bacon_descriptor.split('#').last().unwrap_or("").to_string();
-
-                        // Check if bacon wallet already exists for this demo user
-                        let wallet_exists: bool = conn.query_row(
-                            "SELECT EXISTS(SELECT 1 FROM wallets WHERE user_id = ?1 AND checksum = ?2)",
-                            params![&demo_user_id, &checksum],
-                            |row| row.get(0)
-                        )?;
-
-                        if !wallet_exists {
-                            let hex_color = crate::metadata::calculate_wallet_color(bacon_descriptor);
-                            let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-                            conn.execute(
-                                "INSERT INTO wallets (checksum, name, descriptor, hex_color, balance_total, last_activity, status, user_id)
-                                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                                params![&checksum, "Bacon Wallet", bacon_descriptor, &hex_color, "0", &current_time, "pending", &demo_user_id],
-                            )?;
-                            println!("[DEV MODE] Created Bacon wallet for demo user (regtest only)");
-                        }
-                    }
+                    // Ensure demo user has active subscription
+                    conn.execute(
+                        "UPDATE users SET subscription_status = 'active' WHERE id = ?1 AND subscription_status != 'active'",
+                        params![&demo_user_id],
+                    )?;
                 }
             }
 
