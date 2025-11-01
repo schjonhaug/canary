@@ -39,6 +39,11 @@ btc_charlie() {
     docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=charlie "$@"
 }
 
+# Function to run bitcoin-cli with Bacon wallet against the Docker container
+btc_bacon() {
+    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=bacon "$@"
+}
+
 # Function to run bitcoin-cli with Miner wallet against the Docker container
 btc_miner() {
     docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=miner "$@"
@@ -1153,7 +1158,54 @@ case "$1" in
         CHARLIE_CHECKSUM_INFO=$(btc getdescriptorinfo "$CHARLIE_MULTIPATH_RAW")
         CHARLIE_CHECKSUM=$(echo "$CHARLIE_CHECKSUM_INFO" | jq -r '.checksum')
         CHARLIE_DESCRIPTOR="$CHARLIE_MULTIPATH_RAW#$CHARLIE_CHECKSUM"
-        
+
+        # Create Bacon wallet (deterministic - for demo account)
+        echo "📋 Creating Bacon wallet..."
+        btc unloadwallet "bacon" 2>/dev/null || true
+
+        set +e  # Temporarily disable exit on error
+        CREATE_RESULT=$(btc -named createwallet wallet_name="bacon" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1)
+        CREATE_EXIT_CODE=$?
+        set -e
+
+        if echo "$CREATE_RESULT" | grep -q "already exists"; then
+            echo "   ✅ Bacon wallet exists, loading..."
+            btc loadwallet "bacon" >/dev/null 2>&1 || true
+        elif [ $CREATE_EXIT_CODE -eq 0 ]; then
+            echo "   ✅ Bacon blank wallet created"
+
+            # Import deterministic descriptors for Bacon (bacon bacon bacon... mnemonic)
+            btc_wallet bacon importdescriptors '[
+              {
+                "desc": "wpkh(tprv8ZgxMBicQKsPeh9dSitM82FU7Fz3ZgPkKmmovAr2aqwauAMVgjcEkZBb2etBtRPZ8XYVm7shxcKwVaDus7T5kauJXVsqAfzM4Tty13rRjAG/84h/1h/0h/0/*)#ggkkr2kq",
+                "timestamp": "now",
+                "active": true,
+                "internal": false,
+                "range": [0, 999]
+              },
+              {
+                "desc": "wpkh(tprv8ZgxMBicQKsPeh9dSitM82FU7Fz3ZgPkKmmovAr2aqwauAMVgjcEkZBb2etBtRPZ8XYVm7shxcKwVaDus7T5kauJXVsqAfzM4Tty13rRjAG/84h/1h/0h/1/*)#eunh7lxc",
+                "timestamp": "now",
+                "active": true,
+                "internal": true,
+                "range": [0, 999]
+              }
+            ]' >/dev/null 2>&1
+            echo "   ✅ Bacon wallet seeded with deterministic descriptors"
+        else
+            echo "   ❌ Failed to create Bacon wallet: $CREATE_RESULT"
+            exit 1
+        fi
+
+        # Get Bacon descriptor
+        BACON_DESCRIPTORS=$(btc_wallet bacon listdescriptors)
+        BACON_RECEIVE_DESC=$(echo "$BACON_DESCRIPTORS" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
+        BACON_MULTIPATH_RAW=$(echo "$BACON_RECEIVE_DESC" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
+        # Get proper checksum for multipath descriptor from Bitcoin Core
+        BACON_CHECKSUM_INFO=$(btc getdescriptorinfo "$BACON_MULTIPATH_RAW")
+        BACON_CHECKSUM=$(echo "$BACON_CHECKSUM_INFO" | jq -r '.checksum')
+        BACON_DESCRIPTOR="$BACON_MULTIPATH_RAW#$BACON_CHECKSUM"
+
         # Create Miner wallet
         echo "📋 Creating Miner wallet..."
         btc unloadwallet "miner" 2>/dev/null || true
@@ -1260,20 +1312,60 @@ case "$1" in
         else
             echo "   ✅ Charlie already funded"
         fi
-        
+
+        # Fund Bacon wallet and create transaction history
+        echo "💰 Funding Bacon wallet (for demo account)..."
+        BACON_BALANCE=$(btc_wallet bacon getbalance 2>/dev/null || echo "0")
+
+        if [ "$(echo "$BACON_BALANCE == 0" | bc -l 2>/dev/null || echo "1")" -eq 1 ]; then
+            echo "   💸 Sending 0.1 BTC to Bacon wallet..."
+            BACON_ADDR=$(btc_wallet bacon getnewaddress)
+            BACON_TX1=$(btc_miner sendtoaddress "$BACON_ADDR" 0.1)
+            btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+            echo "   ✅ Bacon funded with 0.1 BTC"
+
+            # Create transaction history by exchanging with Alice
+            echo "   📜 Creating transaction history..."
+
+            # Bacon sends 0.02 BTC to Alice
+            ALICE_ADDR=$(btc_wallet alice getnewaddress)
+            BACON_TX2=$(btc_wallet bacon sendtoaddress "$ALICE_ADDR" 0.02)
+            btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+            echo "   ✅ Bacon → Alice: 0.02 BTC"
+
+            # Alice sends 0.015 BTC back to Bacon
+            BACON_ADDR2=$(btc_wallet bacon getnewaddress)
+            ALICE_TX1=$(btc_wallet alice sendtoaddress "$BACON_ADDR2" 0.015)
+            btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+            echo "   ✅ Alice → Bacon: 0.015 BTC"
+
+            # Bacon sends 0.01 BTC to Alice again
+            ALICE_ADDR2=$(btc_wallet alice getnewaddress)
+            BACON_TX3=$(btc_wallet bacon sendtoaddress "$ALICE_ADDR2" 0.01)
+            btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+            echo "   ✅ Bacon → Alice: 0.01 BTC"
+
+            echo "   ✅ Transaction history created (4 transactions)"
+        else
+            echo "   ✅ Bacon already funded"
+        fi
+
         # Show final balances
         ALICE_BALANCE=$(btc_wallet alice getbalance)
         CHARLIE_BALANCE=$(btc_wallet charlie getbalance)
+        BACON_BALANCE=$(btc_wallet bacon getbalance)
         echo "   💰 Alice balance: $ALICE_BALANCE BTC"
         echo "   💰 Charlie balance: $CHARLIE_BALANCE BTC"
-        
+        echo "   💰 Bacon balance: $BACON_BALANCE BTC"
+
         echo ""
-        echo "🎉 Alice, Bob, and Charlie wallets setup complete!"
+        echo "🎉 Alice, Bob, Charlie, and Bacon wallets setup complete!"
         echo ""
         echo "📱 Add these descriptors to your wallet app to follow along:"
         echo "   👩 Alice Wallet (funded - 1 BTC):    $ALICE_DESCRIPTOR"
         echo "   👨 Bob Wallet (unfunded):             $BOB_DESCRIPTOR"
         echo "   🎭 Charlie Wallet (funded - 0.5 BTC): $CHARLIE_DESCRIPTOR"
+        echo "   🥓 Bacon Wallet (demo - ~0.08 BTC):   $BACON_DESCRIPTOR"
         echo ""
         echo "💡 Wallets are ready - addresses will be derived automatically by your backend"
         echo ""
@@ -1312,6 +1404,7 @@ case "$1" in
                 btc unloadwallet "alice" 2>/dev/null || true
                 btc unloadwallet "bob" 2>/dev/null || true
                 btc unloadwallet "charlie" 2>/dev/null || true
+                btc unloadwallet "bacon" 2>/dev/null || true
                 btc unloadwallet "miner" 2>/dev/null || true
             fi
             
