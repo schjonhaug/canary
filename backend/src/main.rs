@@ -245,8 +245,8 @@ async fn main() -> anyhow::Result<()> {
 
     // For demo user in regtest mode, ensure bacon wallet is created through normal wallet creation flow (ONCE only)
     if cfg!(debug_assertions) && config.network() == bdk_wallet::bitcoin::Network::Regtest {
-        // Bacon wallet descriptor for regtest
-        let bacon_descriptor = "wpkh([9a6a2580/84h/1h/0h]tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#4laqdwct";
+        // Bacon wallet descriptor for regtest (normalized without key origin)
+        let bacon_descriptor = "wpkh(tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#wy8dpdw2";
 
         // Check if bacon wallet already exists (this ensures we only create it ONCE)
         if !app_services.metadata_db.descriptor_exists(bacon_descriptor).await.unwrap_or(false) {
@@ -263,7 +263,46 @@ async fn main() -> anyhow::Result<()> {
                     None,  // auto-detect script type
                     None,  // default stop gap
                 ).await {
-                    Ok(_) => println!("[DEV MODE] Created Bacon wallet for demo user through normal wallet creation flow (regtest only - ONCE)"),
+                    Ok(wallet_metadata) => {
+                        println!("[DEV MODE] Created Bacon wallet for demo user through normal wallet creation flow (regtest only - ONCE)");
+
+                        // Add "Canary" contact with email notification
+                        use metadata::{Language, ProviderType};
+                        match app_services.metadata_db.insert_contact_with_notification_methods(
+                            &wallet_metadata.checksum,
+                            "Canary",
+                            &Language::English,
+                            vec![(ProviderType::Email, "contact@canarybitcoin.com".to_string())],
+                        ).await {
+                            Ok(_) => println!("[DEV MODE] Added Canary contact to Bacon wallet"),
+                            Err(e) => println!("[DEV MODE] Failed to add Canary contact: {}", e),
+                        }
+
+                        // Create balance alert: when balance equals 0 BTC
+                        use metadata::BalanceAlertType;
+                        match app_services.metadata_db.create_balance_alert(
+                            &wallet_metadata.checksum,
+                            0, // 0 sats
+                            BalanceAlertType::Equals,
+                            None, // BTC threshold
+                            None,
+                        ).await {
+                            Ok(_) => println!("[DEV MODE] Added 0 BTC balance alert to Bacon wallet"),
+                            Err(e) => println!("[DEV MODE] Failed to add 0 BTC balance alert: {}", e),
+                        }
+
+                        // Create balance alert: when balance is above 0.21 BTC (21,000,000 sats)
+                        match app_services.metadata_db.create_balance_alert(
+                            &wallet_metadata.checksum,
+                            21_000_000, // 0.21 BTC in sats
+                            BalanceAlertType::Above,
+                            None, // BTC threshold
+                            None,
+                        ).await {
+                            Ok(_) => println!("[DEV MODE] Added >0.21 BTC balance alert to Bacon wallet"),
+                            Err(e) => println!("[DEV MODE] Failed to add >0.21 BTC balance alert: {}", e),
+                        }
+                    },
                     Err(e) => println!("[DEV MODE] Failed to create Bacon wallet: {}", e),
                 }
             }
