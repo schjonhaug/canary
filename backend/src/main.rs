@@ -243,67 +243,84 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
-    // For demo user in regtest mode, ensure bacon wallet is created through normal wallet creation flow (ONCE only)
-    if cfg!(debug_assertions) && config.network() == bdk_wallet::bitcoin::Network::Regtest {
-        // Bacon wallet descriptor for regtest (normalized without key origin)
-        let bacon_descriptor = "wpkh(tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#wy8dpdw2";
+    // For demo user, ensure bacon wallet is created through normal wallet creation flow (ONCE only)
+    // This works for regtest, testnet, and mainnet with network-specific descriptors
+    {
+        // Network-specific bacon wallet descriptors (watch-only XPUBs)
+        let bacon_descriptor = match config.network() {
+            bdk_wallet::bitcoin::Network::Regtest => {
+                // Regtest bacon wallet (funded in docker-utils.sh)
+                Some("wpkh([9a6a2580/84h/1h/0h]tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#4laqdwct")
+            }
+            bdk_wallet::bitcoin::Network::Bitcoin => {
+                // Mainnet bacon wallet (real wallet with transaction history)
+                Some("wpkh([00000000/84h/0h/0h]xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K/<0;1>/*)#4jhrljfg")
+            }
+            _ => None, // Skip for testnet and other networks
+        };
 
-        // Check if bacon wallet already exists (this ensures we only create it ONCE)
-        if !app_services.metadata_db.descriptor_exists(bacon_descriptor).await.unwrap_or(false) {
-            // Get demo user from database using the metadata_db's get_user_by_email method
+        if let Some(descriptor) = bacon_descriptor {
+            // Get demo user from database
             let demo_user_result = app_services.metadata_db.get_user_by_email("demo@canarybitcoin.com").await;
 
             if let Ok(Some(demo_user)) = demo_user_result {
-                // Create bacon wallet through normal wallet creation flow
-                match app_services.wallet_creation_service.create_wallet_non_blocking(
-                    "Bacon Wallet",
-                    bacon_descriptor,
-                    &demo_user.id,
-                    false, // not a fresh wallet
-                    None,  // auto-detect script type
-                    None,  // default stop gap
-                ).await {
-                    Ok(wallet_metadata) => {
-                        println!("[DEV MODE] Created Bacon wallet for demo user through normal wallet creation flow (regtest only - ONCE)");
+                // Check if demo user already has a "Bacon Wallet" by name
+                // (checking by name instead of descriptor to avoid BDK normalization issues)
+                let existing_wallets = app_services.metadata_db.get_wallets_for_user(Some(&demo_user.id)).await.unwrap_or_default();
+                let bacon_exists = existing_wallets.iter().any(|w| w.name == "Bacon Wallet");
 
-                        // Add "Canary" contact with email notification
-                        use metadata::{Language, ProviderType};
-                        match app_services.metadata_db.insert_contact_with_notification_methods(
-                            &wallet_metadata.checksum,
-                            "Canary",
-                            &Language::English,
-                            vec![(ProviderType::Email, "contact@canarybitcoin.com".to_string())],
-                        ).await {
-                            Ok(_) => println!("[DEV MODE] Added Canary contact to Bacon wallet"),
-                            Err(e) => println!("[DEV MODE] Failed to add Canary contact: {}", e),
-                        }
+                if !bacon_exists {
+                    // Create bacon wallet through normal wallet creation flow
+                    match app_services.wallet_creation_service.create_wallet_non_blocking(
+                        "Bacon Wallet",
+                        descriptor,
+                        &demo_user.id,
+                        false, // not a fresh wallet
+                        None,  // auto-detect script type
+                        None,  // default stop gap
+                    ).await {
+                        Ok(wallet_metadata) => {
+                            println!("✅ Created Bacon wallet for demo user (network: {:?})", config.network());
 
-                        // Create balance alert: when balance equals 0 BTC
-                        use metadata::BalanceAlertType;
-                        match app_services.metadata_db.create_balance_alert(
-                            &wallet_metadata.checksum,
-                            0, // 0 sats
-                            BalanceAlertType::Equals,
-                            None, // BTC threshold
-                            None,
-                        ).await {
-                            Ok(_) => println!("[DEV MODE] Added 0 BTC balance alert to Bacon wallet"),
-                            Err(e) => println!("[DEV MODE] Failed to add 0 BTC balance alert: {}", e),
-                        }
+                            // Add "Canary" contact with email notification
+                            use metadata::{Language, ProviderType};
+                            match app_services.metadata_db.insert_contact_with_notification_methods(
+                                &wallet_metadata.checksum,
+                                "Canary",
+                                &Language::English,
+                                vec![(ProviderType::Email, "contact@canarybitcoin.com".to_string())],
+                            ).await {
+                                Ok(_) => println!("✅ Added Canary contact to Bacon wallet"),
+                                Err(e) => println!("❌ Failed to add Canary contact: {}", e),
+                            }
 
-                        // Create balance alert: when balance is above 0.21 BTC (21,000,000 sats)
-                        match app_services.metadata_db.create_balance_alert(
-                            &wallet_metadata.checksum,
-                            21_000_000, // 0.21 BTC in sats
-                            BalanceAlertType::Above,
-                            None, // BTC threshold
-                            None,
-                        ).await {
-                            Ok(_) => println!("[DEV MODE] Added >0.21 BTC balance alert to Bacon wallet"),
-                            Err(e) => println!("[DEV MODE] Failed to add >0.21 BTC balance alert: {}", e),
-                        }
-                    },
-                    Err(e) => println!("[DEV MODE] Failed to create Bacon wallet: {}", e),
+                            // Create balance alert: when balance equals 0 BTC
+                            use metadata::BalanceAlertType;
+                            match app_services.metadata_db.create_balance_alert(
+                                &wallet_metadata.checksum,
+                                0, // 0 sats
+                                BalanceAlertType::Equals,
+                                None, // BTC threshold
+                                None,
+                            ).await {
+                                Ok(_) => println!("✅ Added 0 BTC balance alert to Bacon wallet"),
+                                Err(e) => println!("❌ Failed to add 0 BTC balance alert: {}", e),
+                            }
+
+                            // Create balance alert: when balance is above 0.21 BTC (21,000,000 sats)
+                            match app_services.metadata_db.create_balance_alert(
+                                &wallet_metadata.checksum,
+                                21_000_000, // 0.21 BTC in sats
+                                BalanceAlertType::Above,
+                                None, // BTC threshold
+                                None,
+                            ).await {
+                                Ok(_) => println!("✅ Added >0.21 BTC balance alert to Bacon wallet"),
+                                Err(e) => println!("❌ Failed to add >0.21 BTC balance alert: {}", e),
+                            }
+                        },
+                        Err(e) => println!("❌ Failed to create Bacon wallet: {}", e),
+                    }
                 }
             }
         }
