@@ -49,8 +49,10 @@ export function UserDropdown() {
             {user.name && (
               <p className="text-sm font-medium truncate">{user.name}</p>
             )}
-            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-            {!user.is_admin && (
+            {!isDemoUser && (
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            )}
+            {!user.is_admin && !isDemoUser && (
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className="text-xs">
                   {getTierDisplayName(currentTier)}
