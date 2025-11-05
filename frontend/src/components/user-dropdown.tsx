@@ -28,6 +28,7 @@ export function UserDropdown() {
 
   const displayName = user.name || user.email
   const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
+  const isDemoUser = user.email === 'demo@canarybitcoin.com'
   // const hasStripeCustomer = Boolean(billingStatus?.stripe_customer_id)
 
   return (
@@ -59,17 +60,17 @@ export function UserDropdown() {
           </div>
         </div>
         
-        {isCloudMode && (
+        {isCloudMode && !isDemoUser && (
           <>
             <DropdownMenuSeparator />
-            
+
             <Link href="/settings" className="block">
               <DropdownMenuItem className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
             </Link>
-            
+
             {!user.is_admin && (
               <Link href="/settings/subscription" className="block">
                 <DropdownMenuItem className="cursor-pointer">
@@ -78,7 +79,7 @@ export function UserDropdown() {
                 </DropdownMenuItem>
               </Link>
             )}
-            
+
             {billingStatus && !user.is_admin && (
               <div className="px-2 py-1">
                 <div className="text-xs text-muted-foreground space-y-1">
@@ -93,11 +94,15 @@ export function UserDropdown() {
                 </div>
               </div>
             )}
-            
+
             <DropdownMenuSeparator />
           </>
         )}
-        
+
+        {isCloudMode && isDemoUser && (
+          <DropdownMenuSeparator />
+        )}
+
         <DropdownMenuItem
           className="cursor-pointer"
           onClick={() => router.push('/sign-out')}
