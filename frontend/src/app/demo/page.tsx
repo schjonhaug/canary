@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
 
 export default function DemoPage() {
-  const { demoLogin, isAuthenticated, user } = useAuth()
+  const { demoLogin, logout, isAuthenticated, user } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -16,20 +16,28 @@ export default function DemoPage() {
         return
       }
 
-      // If logged in as different user, log them out first would be ideal
-      // For now, just attempt demo login
+      // If logged in as different user, log them out first
+      if (isAuthenticated && !user?.is_demo) {
+        try {
+          await logout()
+        } catch (error) {
+          console.error('Logout failed:', error)
+        }
+      }
+
+      // Attempt demo login
       try {
         await demoLogin()
         // demoLogin already handles navigation to /
       } catch (error) {
         console.error('Demo login failed:', error)
-        // Redirect to sign-in on failure
-        router.push('/sign-in')
+        // Show error message instead of silent redirect
+        router.push('/?error=demo_login_failed')
       }
     }
 
     performDemoLogin()
-  }, [demoLogin, isAuthenticated, user, router])
+  }, [demoLogin, logout, isAuthenticated, user, router])
 
   return (
     <div className="flex min-h-screen items-center justify-center">
