@@ -501,11 +501,16 @@ impl MetadataDb {
         if config.is_self_hosted_mode() {
             // Self-hosted mode: Create hardcoded "foss-user" admin
             self.ensure_foss_user().await?;
-        } else if cfg!(debug_assertions) {
-            // Cloud mode in dev: Create hardcoded dev test users
-            self.ensure_dev_test_users().await?;
+        } else {
+            // Cloud mode: Always create demo user (available on all networks)
+            self.ensure_demo_user().await?;
+
+            // Cloud mode in dev/regtest: Create test users for development
+            if cfg!(debug_assertions) {
+                self.ensure_dev_test_users().await?;
+            }
         }
-        // Cloud mode in production: Users created via registration
+        // Cloud mode in production: Regular users created via registration
 
         Ok(())
     }
@@ -545,6 +550,48 @@ impl MetadataDb {
         .await?
     }
 
+    async fn ensure_demo_user(&self) -> Result<()> {
+        use crate::auth::{AuthService, DEMO_USER_EMAIL, DEV_TEST_PASSWORD};
+
+        let pool = self.pool.clone();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+
+            // Create a temporary auth service to hash passwords
+            let auth_service = AuthService::new("temp".to_string(), None);
+            let password_hash = auth_service.hash_password(DEV_TEST_PASSWORD)?;
+
+            // Check if demo user already exists
+            let exists: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE email = ?1)",
+                [DEMO_USER_EMAIL],
+                |row| row.get(0)
+            )?;
+
+            if !exists {
+                let user_id = uuid::Uuid::new_v4().to_string();
+                conn.execute(
+                    "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10)",
+                    params![&user_id, DEMO_USER_EMAIL, &password_hash, "Demo User", false, true, true, "team", "active", "USD"],
+                )?;
+
+                println!("[CLOUD MODE] Created demo user: {}", DEMO_USER_EMAIL);
+            } else {
+                // If demo user exists, ensure subscription is active (for wallet syncing)
+                conn.execute(
+                    "UPDATE users SET subscription_status = 'active' WHERE email = ?1 AND subscription_status != 'active'",
+                    [DEMO_USER_EMAIL],
+                )?;
+            }
+
+            Ok(())
+        }).await?;
+
+        Ok(())
+    }
+
     async fn ensure_dev_test_users(&self) -> Result<()> {
         use crate::auth::{AuthService, DEV_TEST_EMAILS, DEV_TEST_PASSWORD};
 
@@ -566,42 +613,25 @@ impl MetadataDb {
                 )?;
 
                 if !exists {
-                    let (name, tier, is_demo) = match *email {
-                        "delivered+admin@resend.dev" => ("Admin", "team", false), // Admin flag will give unlimited access
-                        "delivered+alice@resend.dev" => ("Alice", "personal", false),
-                        "delivered+bob@resend.dev" => ("Bob", "team", false),
-                        "delivered+charlie@resend.dev" => ("Charlie", "team", false),
-                        "demo@canarybitcoin.com" => ("Demo User", "team", true), // Demo account with read-only access
-                        _ => ("Test User", "personal", false),
+                    let (name, tier) = match *email {
+                        "delivered+admin@resend.dev" => ("Admin", "team"),
+                        "delivered+alice@resend.dev" => ("Alice", "personal"),
+                        "delivered+bob@resend.dev" => ("Bob", "team"),
+                        "delivered+charlie@resend.dev" => ("Charlie", "team"),
+                        _ => ("Test User", "personal"),
                     };
 
-                    // First user becomes admin (unless demo user)
-                    let is_admin = index == 0 && !is_demo;
+                    // First user (admin) becomes admin
+                    let is_admin = index == 0;
 
                     let user_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
                         "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10)",
-                        params![&user_id, email, &password_hash, name, is_admin, is_demo, true, tier, "pending", "USD"], // Dev users follow same flow as real users
+                        params![&user_id, email, &password_hash, name, is_admin, false, true, tier, "pending", "USD"],
                     )?;
 
-                    println!("[DEV MODE] Created test user: {} (admin: {}, demo: {})", email, is_admin, is_demo);
-                }
-
-                // For demo user, ensure subscription is active (for wallet syncing)
-                if *email == "demo@canarybitcoin.com" {
-                    // Get demo user ID
-                    let demo_user_id: String = conn.query_row(
-                        "SELECT id FROM users WHERE email = ?1",
-                        [email],
-                        |row| row.get(0)
-                    )?;
-
-                    // Ensure demo user has active subscription
-                    conn.execute(
-                        "UPDATE users SET subscription_status = 'active' WHERE id = ?1 AND subscription_status != 'active'",
-                        params![&demo_user_id],
-                    )?;
+                    println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
                 }
             }
 

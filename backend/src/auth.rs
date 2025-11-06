@@ -124,13 +124,15 @@ pub struct UserPreferencesResponse {
 const DEV_MODE: bool = cfg!(debug_assertions);
 
 // Dev mode test email addresses (bypass email verification in dev mode)
-pub const DEV_TEST_EMAILS: [&str; 5] = [
+pub const DEV_TEST_EMAILS: [&str; 4] = [
     "delivered+admin@resend.dev",   // Team tier + Admin
     "delivered+alice@resend.dev",   // Personal tier
     "delivered+bob@resend.dev",     // Team tier
     "delivered+charlie@resend.dev", // Team tier
-    "demo@canarybitcoin.com",       // Demo account (read-only)
 ];
+
+// Demo user (available in all cloud mode deployments)
+pub const DEMO_USER_EMAIL: &str = "demo@canarybitcoin.com";
 
 // Dev mode password for all test accounts
 pub const DEV_TEST_PASSWORD: &str = "password123";
