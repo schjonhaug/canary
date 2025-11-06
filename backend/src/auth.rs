@@ -42,6 +42,7 @@ pub struct Claims {
     pub is_demo: bool,
     pub exp: usize,
     pub iat: usize,
+    pub jti: String, // JWT ID for uniqueness (prevents token collision)
 }
 
 #[derive(Debug, Clone)]
@@ -324,6 +325,12 @@ impl AuthService {
     pub fn generate_token(&self, user_id: &str, email: &str, is_admin: bool, is_demo: bool) -> Result<String> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
 
+        // Generate unique JWT ID using nanosecond timestamp to prevent token collision
+        let jti = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_nanos()
+            .to_string();
+
         let claims = Claims {
             sub: user_id.to_string(),
             email: email.to_string(),
@@ -331,6 +338,7 @@ impl AuthService {
             is_demo,
             exp: now + 7 * 24 * 60 * 60, // 7 days
             iat: now,
+            jti,
         };
 
         let token = encode(

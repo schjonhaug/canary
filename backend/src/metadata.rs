@@ -2532,6 +2532,21 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn delete_user_sessions(&self, user_id: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "DELETE FROM sessions WHERE user_id = ?1",
+                params![&user_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     pub async fn cleanup_expired_sessions(&self) -> Result<u64> {
         let pool = self.pool.clone();
 

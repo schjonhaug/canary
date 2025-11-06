@@ -3462,6 +3462,12 @@ pub async fn demo_login(
         }
     };
 
+    // Clean up any existing sessions for this user to prevent token collision
+    let _ = app_services
+        .metadata_db
+        .delete_user_sessions(&user_record.id)
+        .await;
+
     // Create session
     let token_hash = AuthService::hash_token(&token);
     let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
