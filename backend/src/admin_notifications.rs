@@ -54,6 +54,36 @@ impl AdminNotifications {
         }
     }
 
+    pub async fn notify_electrum_disconnect(
+        &self,
+        electrum_url: &str,
+        consecutive_failures: u32,
+        last_error: Option<&str>,
+    ) {
+        if let Some(topic) = &self.topic {
+            let error_info = last_error.unwrap_or("Unknown error");
+            let message = format!(
+                "🚨 Electrum connection failed!\n\n🔌 Server: {}\n❌ Consecutive failures: {}\n📝 Last error: {}\n\n⚠️ Wallet syncing is degraded until connection is restored.",
+                electrum_url, consecutive_failures, error_info
+            );
+
+            self.send_notification(topic, "Electrum Connection Failed", &message, "warning")
+                .await;
+        }
+    }
+
+    pub async fn notify_electrum_reconnected(&self, electrum_url: &str) {
+        if let Some(topic) = &self.topic {
+            let message = format!(
+                "✅ Electrum connection restored!\n\n🔌 Server: {}\n📡 Wallet syncing has resumed.",
+                electrum_url
+            );
+
+            self.send_notification(topic, "Electrum Reconnected", &message, "white_check_mark")
+                .await;
+        }
+    }
+
     async fn send_notification(&self, topic: &str, title: &str, message: &str, tag: &str) {
         let ntfy_url = format!("https://ntfy.sh/{}", topic);
 

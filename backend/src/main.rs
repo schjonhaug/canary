@@ -134,10 +134,12 @@ async fn main() -> anyhow::Result<()> {
     // Create new non-blocking architecture: Separate metadata access from heavy wallet operations
     let app_services = {
         let manager = wallet_manager.lock().await;
+        // Get current electrum client from the manager for wallet creation service
+        let electrum_client = manager.get_electrum_client().await;
         let wallet_creation_service = wallet::WalletCreationService::new(
             manager.wallet_dir.clone(),
             manager.metadata_db.clone(),
-            manager.electrum_client.clone(),
+            electrum_client,
             manager.get_network(),
             manager.wallets.clone(), // Pass reference to in-memory wallet storage
         );
@@ -334,14 +336,37 @@ async fn main() -> anyhow::Result<()> {
             // Use tokio timeout to prevent indefinite blocking
             let timeout_duration = Duration::from_secs(5);
 
-            let manager = initial_wallet_manager.lock().await;
-            if let Some(ref electrum_client) = manager.electrum_client {
-                println!("📦 Attempting to fetch initial block header (5s timeout)...");
+            let (electrum_manager, metadata_db) = {
+                let manager = initial_wallet_manager.lock().await;
+                (
+                    manager.get_electrum_manager(),
+                    manager.metadata_db.clone(),
+                )
+            };
 
-                // Clone what we need before the blocking operation
-                let client = electrum_client.clone();
-                let metadata_db = manager.metadata_db.clone();
-                drop(manager); // Release the lock before potential blocking
+            if let Some(ref electrum_mgr) = electrum_manager {
+                // Try to get the client, attempt reconnection if needed
+                let client = match electrum_mgr.get_client().await {
+                    Some(c) => c,
+                    None => {
+                        println!("📦 No Electrum connection, attempting reconnection...");
+                        match electrum_mgr.reconnect().await {
+                            Ok(true) => match electrum_mgr.get_client().await {
+                                Some(c) => c,
+                                None => {
+                                    eprintln!("⚠️  Still no Electrum client after reconnection");
+                                    return;
+                                }
+                            },
+                            _ => {
+                                eprintln!("⚠️  Failed to reconnect to Electrum server");
+                                return;
+                            }
+                        }
+                    }
+                };
+
+                println!("📦 Attempting to fetch initial block header (5s timeout)...");
 
                 // Run the async operation with timeout
                 let height_result =
@@ -350,29 +375,26 @@ async fn main() -> anyhow::Result<()> {
                 match height_result {
                     Ok(Ok(height)) => {
                         // Successfully got height, now get the header
-                        let manager = initial_wallet_manager.lock().await;
-                        if let Some(ref electrum_client) = manager.electrum_client {
-                            match electrum_client.get_block_header(height).await {
-                                Ok(block_header) => {
-                                    println!(
-                                        "📦 Initial block header fetched: height={}",
-                                        block_header.height
-                                    );
+                        match client.get_block_header(height).await {
+                            Ok(block_header) => {
+                                println!(
+                                    "📦 Initial block header fetched: height={}",
+                                    block_header.height
+                                );
 
-                                    // Store in database
-                                    if let Err(e) =
-                                        metadata_db.upsert_current_block_header(&block_header).await
-                                    {
-                                        eprintln!("Failed to store initial block header: {}", e);
-                                    }
+                                // Store in database
+                                if let Err(e) =
+                                    metadata_db.upsert_current_block_header(&block_header).await
+                                {
+                                    eprintln!("Failed to store initial block header: {}", e);
+                                }
 
-                                    // Update shared state
-                                    let mut current_header = initial_block_header.lock().await;
-                                    *current_header = Some(block_header.clone());
-                                }
-                                Err(e) => {
-                                    eprintln!("❌ Failed to get block header: {}", e);
-                                }
+                                // Update shared state
+                                let mut current_header = initial_block_header.lock().await;
+                                *current_header = Some(block_header.clone());
+                            }
+                            Err(e) => {
+                                eprintln!("❌ Failed to get block header: {}", e);
                             }
                         }
                     }
@@ -385,7 +407,7 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
             } else {
-                eprintln!("⚠️  No Electrum client available - cannot fetch block headers");
+                eprintln!("⚠️  No Electrum client manager available - cannot fetch block headers");
             }
         });
     }
@@ -582,10 +604,26 @@ async fn main() -> anyhow::Result<()> {
             }
 
             // Check for new block headers with timeout
-            if let Some(ref electrum_client) = manager.electrum_client {
-                let client = electrum_client.clone();
+            if let Some(ref electrum_mgr) = manager.electrum_client_manager {
                 let metadata_db = manager.metadata_db.clone();
                 let current_block_header_clone = block_sync_current_block_header.clone();
+                let electrum_mgr = electrum_mgr.clone();
+                drop(manager); // Release lock before async operations
+
+                // Try to get the client, attempt reconnection if needed
+                let client = match electrum_mgr.get_client().await {
+                    Some(c) => c,
+                    None => {
+                        // Attempt reconnection
+                        match electrum_mgr.reconnect().await {
+                            Ok(true) => match electrum_mgr.get_client().await {
+                                Some(c) => c,
+                                None => continue,
+                            },
+                            _ => continue,
+                        }
+                    }
+                };
 
                 // Get current stored height
                 let stored_header = block_sync_current_block_header.lock().await;
@@ -601,44 +639,55 @@ async fn main() -> anyhow::Result<()> {
                     Ok(Ok(current_height)) => {
                         if current_height > stored_height {
                             // Get the actual block header
-                            if let Some(ref electrum_client) = manager.electrum_client {
-                                match electrum_client.get_block_header(current_height).await {
-                                    Ok(block_header) => {
-                                        println!(
-                                            "📦 New block header: height={} (was {})",
-                                            block_header.height, stored_height
-                                        );
+                            match client.get_block_header(current_height).await {
+                                Ok(block_header) => {
+                                    println!(
+                                        "📦 New block header: height={} (was {})",
+                                        block_header.height, stored_height
+                                    );
 
-                                        // Store in database
-                                        if let Err(e) = metadata_db
-                                            .upsert_current_block_header(&block_header)
-                                            .await
-                                        {
-                                            eprintln!("Failed to store block header: {}", e);
-                                        }
-
-                                        // Update shared state
-                                        let mut current_header =
-                                            current_block_header_clone.lock().await;
-                                        *current_header = Some(block_header.clone());
+                                    // Store in database
+                                    if let Err(e) = metadata_db
+                                        .upsert_current_block_header(&block_header)
+                                        .await
+                                    {
+                                        eprintln!("Failed to store block header: {}", e);
                                     }
-                                    Err(e) => {
-                                        eprintln!(
-                                            "Failed to get block header for height {}: {}",
-                                            current_height, e
-                                        );
+
+                                    // Update shared state
+                                    let mut current_header =
+                                        current_block_header_clone.lock().await;
+                                    *current_header = Some(block_header.clone());
+                                }
+                                Err(e) => {
+                                    let error_msg = e.to_string();
+                                    eprintln!(
+                                        "Failed to get block header for height {}: {}",
+                                        current_height, error_msg
+                                    );
+                                    // Check if transport error and trigger reconnection
+                                    if electrum::ElectrumClientManager::is_transport_error(&error_msg) {
+                                        electrum_mgr.mark_disconnected(&error_msg).await;
+                                        let _ = electrum_mgr.reconnect().await;
                                     }
                                 }
                             }
                         }
                     }
                     Ok(Err(e)) => {
-                        eprintln!("Electrum error checking block height: {}", e);
+                        let error_msg = e.to_string();
+                        eprintln!("Electrum error checking block height: {}", error_msg);
+                        // Check if transport error and trigger reconnection
+                        if electrum::ElectrumClientManager::is_transport_error(&error_msg) {
+                            electrum_mgr.mark_disconnected(&error_msg).await;
+                            let _ = electrum_mgr.reconnect().await;
+                        }
                     }
                     Err(_) => {
                         eprintln!("⏱️  Timeout checking block height (sync task)");
                     }
                 }
+                continue; // Skip the drop(manager) since we already dropped it
             }
 
             // Drop mutex without excessive logging

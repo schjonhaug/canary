@@ -1,6 +1,6 @@
 use crate::config::AppConfig;
 use crate::config::NetworkConfig;
-use crate::electrum::ElectrumClient;
+use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
@@ -311,7 +311,8 @@ pub struct WalletManager {
     // Each wallet has its own mutex for parallel access
     pub wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
     pub wallet_dir: PathBuf,
-    pub electrum_client: Option<ElectrumClient>,
+    /// Electrum client manager with automatic reconnection support
+    pub electrum_client_manager: Option<Arc<ElectrumClientManager>>,
     pub metadata_db: MetadataDb,
     pub notification_sender: broadcast::Sender<TransactionNotification>,
     network: Network,
@@ -331,15 +332,24 @@ impl WalletManager {
             warn!("Failed to create wallet directory: {}", e);
         }
 
-        // Initialize electrum client
-        let electrum_client = match ElectrumClient::new(electrum_url) {
-            Ok(client) => {
-                info!("Connected to Electrum server: {}", electrum_url);
-                Some(client)
+        // Initialize electrum client manager with automatic reconnection support
+        let electrum_client_manager = match ElectrumClientManager::new(electrum_url) {
+            Ok(manager) => {
+                let manager = Arc::new(manager);
+                if manager.is_connected().await {
+                    info!("Connected to Electrum server: {}", electrum_url);
+                } else {
+                    warn!(
+                        "ElectrumClientManager created but initial connection to {} failed",
+                        electrum_url
+                    );
+                    info!("Will attempt reconnection on first sync");
+                }
+                Some(manager)
             }
             Err(e) => {
                 error!(
-                    "❌ Failed to connect to Electrum server {}: {}",
+                    "❌ Failed to create ElectrumClientManager for {}: {}",
                     electrum_url, e
                 );
                 info!("Wallet sync will not work without Electrum connection!");
@@ -362,7 +372,7 @@ impl WalletManager {
         let mut manager = WalletManager {
             wallets: wallets.clone(),
             wallet_dir: wallet_dir.clone(),
-            electrum_client,
+            electrum_client_manager,
             metadata_db,
             notification_sender,
             network,
@@ -394,6 +404,20 @@ impl WalletManager {
     /// Get the network configuration used by all wallets
     pub fn get_network(&self) -> Network {
         self.network
+    }
+
+    /// Get the Electrum client manager (for reconnection coordination)
+    pub fn get_electrum_manager(&self) -> Option<Arc<ElectrumClientManager>> {
+        self.electrum_client_manager.clone()
+    }
+
+    /// Get a clone of the current Electrum client (for backward compatibility)
+    /// This gets the client from the manager, or None if disconnected
+    pub async fn get_electrum_client(&self) -> Option<ElectrumClient> {
+        match &self.electrum_client_manager {
+            Some(manager) => manager.get_client().await,
+            None => None,
+        }
     }
 
     /// Strip key origin information from descriptor to prevent duplicates
@@ -924,7 +948,7 @@ impl WalletManager {
         // Prepare shared resources
         let metadata_db = self.metadata_db.clone();
         let notification_sender = self.notification_sender.clone();
-        let electrum_client = self.electrum_client.clone();
+        let electrum_manager = self.electrum_client_manager.clone();
         let config = self.config.clone();
 
         // Create parallel sync tasks using in-memory wallets
@@ -934,7 +958,7 @@ impl WalletManager {
                 let semaphore = semaphore.clone();
                 let metadata_db = metadata_db.clone();
                 let notification_sender = notification_sender.clone();
-                let electrum_client = electrum_client.clone();
+                let electrum_manager = electrum_manager.clone();
                 let config = config.clone();
 
                 tokio::spawn(async move {
@@ -959,7 +983,7 @@ impl WalletManager {
                         .sync_wallet_by_checksum(
                             wallet,
                             &wallet_metadata.checksum,
-                            electrum_client.as_ref(),
+                            electrum_manager.as_deref(),
                         )
                         .await
                     {
