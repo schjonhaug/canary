@@ -6,11 +6,13 @@ use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{KeychainKind, PersistedWallet};
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 use tokio::task::spawn_blocking;
 use tokio::time::timeout;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockHeader {
@@ -27,8 +29,6 @@ const BLOCK_OP_TIMEOUT_SECS: u64 = 10;
 #[derive(Clone)]
 pub struct ElectrumClient {
     pub client: Arc<BdkElectrumClient<electrum_client::Client>>,
-    #[allow(dead_code)]
-    pub raw_client: Arc<electrum_client::Client>,
 }
 
 impl ElectrumClient {
@@ -40,21 +40,11 @@ impl ElectrumClient {
             ));
         }
 
-        // Create two separate clients - one for BDK, one for raw API access
-        let bdk_electrum_client = electrum_client::Client::new(url)?;
-        let raw_electrum_client = electrum_client::Client::new(url)?;
-        let client = BdkElectrumClient::new(bdk_electrum_client);
+        let electrum_client = electrum_client::Client::new(url)?;
+        let client = BdkElectrumClient::new(electrum_client);
         Ok(ElectrumClient {
             client: Arc::new(client),
-            raw_client: Arc::new(raw_electrum_client),
         })
-    }
-
-    /// Get access to the raw Electrum client for direct API calls
-    /// This allows calling methods like script_get_history() and script_get_balance()
-    #[allow(dead_code)]
-    pub fn raw_client(&self) -> &electrum_client::Client {
-        &self.raw_client
     }
 
     /// Get the highest address index that has been used (has transactions)
@@ -387,5 +377,207 @@ impl ElectrumClient {
         .map_err(|e| anyhow!("Failed to get current block height: {}", e))?
         .height;
         Ok(height as u32)
+    }
+}
+
+/// Manages Electrum client lifecycle with automatic reconnection support.
+///
+/// This manager wraps the ElectrumClient and provides:
+/// - Automatic reconnection when the connection dies (broken pipe, etc.)
+/// - Coordination across parallel sync tasks to prevent reconnection storms
+/// - Tracking of consecutive failures for alerting
+pub struct ElectrumClientManager {
+    /// The current Electrum client (None if disconnected)
+    client: RwLock<Option<ElectrumClient>>,
+    /// URL for reconnection
+    url: String,
+    /// Flag to prevent concurrent reconnection attempts
+    reconnecting: AtomicBool,
+    /// Counter for consecutive reconnection failures (for alerting)
+    consecutive_failures: AtomicU32,
+    /// Flag to track if we've already sent an alert for current outage
+    alert_sent: AtomicBool,
+    /// Last error message for diagnostics
+    last_error: RwLock<Option<String>>,
+}
+
+impl ElectrumClientManager {
+    /// Create a new manager with initial connection attempt
+    pub fn new(url: &str) -> Result<Self> {
+        let client = ElectrumClient::new(url).ok();
+        let has_client = client.is_some();
+
+        let manager = Self {
+            client: RwLock::new(client),
+            url: url.to_string(),
+            reconnecting: AtomicBool::new(false),
+            consecutive_failures: AtomicU32::new(0),
+            alert_sent: AtomicBool::new(false),
+            last_error: RwLock::new(None),
+        };
+
+        if has_client {
+            info!("ElectrumClientManager: Initial connection successful to {}", url);
+        } else {
+            warn!("ElectrumClientManager: Initial connection failed to {}, will retry on first sync", url);
+        }
+
+        Ok(manager)
+    }
+
+    /// Get a clone of the current client for operations
+    pub async fn get_client(&self) -> Option<ElectrumClient> {
+        self.client.read().await.clone()
+    }
+
+    /// Check if we have an active client
+    pub async fn is_connected(&self) -> bool {
+        self.client.read().await.is_some()
+    }
+
+    /// Get the Electrum URL
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+
+    /// Get the number of consecutive reconnection failures
+    pub fn get_consecutive_failures(&self) -> u32 {
+        self.consecutive_failures.load(Ordering::SeqCst)
+    }
+
+    /// Check if an alert has been sent for the current outage
+    pub fn has_alert_been_sent(&self) -> bool {
+        self.alert_sent.load(Ordering::SeqCst)
+    }
+
+    /// Mark that an alert has been sent (called by notification system)
+    pub fn mark_alert_sent(&self) {
+        self.alert_sent.store(true, Ordering::SeqCst);
+    }
+
+    /// Atomically check if a reconnection notification should be sent.
+    /// Returns true if an alert was previously sent (and atomically resets it to false).
+    /// This prevents race conditions where multiple tasks could send duplicate notifications.
+    pub fn should_send_reconnected_notification(&self) -> bool {
+        self.alert_sent
+            .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+    }
+
+    /// Attempt to reconnect. Only one reconnection attempt runs at a time.
+    ///
+    /// Returns:
+    /// - Ok(true) if reconnection succeeded
+    /// - Ok(false) if another task is already reconnecting
+    /// - Err if reconnection failed
+    pub async fn reconnect(&self) -> Result<bool> {
+        // Try to acquire reconnection lock (only one task can reconnect)
+        if self
+            .reconnecting
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {
+            // Another task is already reconnecting
+            debug!("ElectrumClientManager: Reconnection already in progress by another task");
+            return Ok(false);
+        }
+
+        // We have the reconnection lock
+        info!("ElectrumClientManager: Attempting reconnection to {}", self.url);
+
+        let result = match ElectrumClient::new(&self.url) {
+            Ok(new_client) => {
+                // Update the client
+                let mut client_guard = self.client.write().await;
+                *client_guard = Some(new_client);
+                drop(client_guard);
+
+                // Reset failure tracking on success
+                // Note: alert_sent is reset by should_send_reconnected_notification() to avoid race conditions
+                self.consecutive_failures.store(0, Ordering::SeqCst);
+                *self.last_error.write().await = None;
+
+                info!(
+                    "ElectrumClientManager: Successfully reconnected to Electrum server: {}",
+                    self.url
+                );
+                Ok(true)
+            }
+            Err(e) => {
+                let error_msg = e.to_string();
+                *self.last_error.write().await = Some(error_msg.clone());
+
+                // Increment failure counter
+                let failures = self.consecutive_failures.fetch_add(1, Ordering::SeqCst) + 1;
+                error!(
+                    "ElectrumClientManager: Reconnection attempt {} failed for {}: {}",
+                    failures, self.url, error_msg
+                );
+
+                Err(anyhow!("Reconnection failed: {}", error_msg))
+            }
+        };
+
+        // Release reconnection lock
+        self.reconnecting.store(false, Ordering::SeqCst);
+        result
+    }
+
+    /// Mark connection as failed (clears the client to force reconnection on next use)
+    pub async fn mark_disconnected(&self, error: &str) {
+        warn!(
+            "ElectrumClientManager: Marking connection as disconnected: {}",
+            error
+        );
+        *self.client.write().await = None;
+        *self.last_error.write().await = Some(error.to_string());
+    }
+
+    /// Check if an error message indicates a transport-level failure requiring reconnection.
+    ///
+    /// These errors indicate the TCP/TLS connection is broken and cannot be recovered
+    /// without creating a new connection.
+    pub fn is_transport_error(error_msg: &str) -> bool {
+        let msg_lower = error_msg.to_lowercase();
+        msg_lower.contains("broken pipe")
+            || msg_lower.contains("connection reset")
+            || msg_lower.contains("eof")
+            || msg_lower.contains("unexpected end")
+            || msg_lower.contains("connection closed")
+            || msg_lower.contains("connection refused")
+            || msg_lower.contains("not connected")
+            || msg_lower.contains("write error")
+            || msg_lower.contains("read error")
+            || msg_lower.contains("stream closed")
+            || msg_lower.contains("socket")
+            || msg_lower.contains("i/o error")
+            || msg_lower.contains("os error 32") // Broken pipe on Linux
+            || msg_lower.contains("os error 104") // Connection reset by peer on Linux
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_transport_error() {
+        // Should be detected as transport errors
+        assert!(ElectrumClientManager::is_transport_error("Broken pipe"));
+        assert!(ElectrumClientManager::is_transport_error("broken pipe (os error 32)"));
+        assert!(ElectrumClientManager::is_transport_error("connection reset by peer"));
+        assert!(ElectrumClientManager::is_transport_error("unexpected eof"));
+        assert!(ElectrumClientManager::is_transport_error("Connection closed"));
+        assert!(ElectrumClientManager::is_transport_error("stream closed"));
+        assert!(ElectrumClientManager::is_transport_error("write error"));
+        assert!(ElectrumClientManager::is_transport_error("I/O error"));
+        assert!(ElectrumClientManager::is_transport_error("os error 32"));
+        assert!(ElectrumClientManager::is_transport_error("os error 104"));
+
+        // Should NOT be detected as transport errors
+        assert!(!ElectrumClientManager::is_transport_error("timeout"));
+        assert!(!ElectrumClientManager::is_transport_error("server error"));
+        assert!(!ElectrumClientManager::is_transport_error("invalid response"));
+        assert!(!ElectrumClientManager::is_transport_error("parse error"));
     }
 }

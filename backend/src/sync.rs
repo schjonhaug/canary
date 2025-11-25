@@ -1,5 +1,6 @@
+use crate::admin_notifications::AdminNotifications;
 use crate::config::AppConfig;
-use crate::electrum::ElectrumClient;
+use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{
     EventType, MetadataDb, Transaction, TransactionInsert, TransactionNotification,
 };
@@ -9,6 +10,9 @@ use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
+
+/// Number of consecutive reconnection failures before sending an alert
+const ALERT_FAILURE_THRESHOLD: u32 = 3;
 
 /// Transaction-based wallet sync service
 /// This replaces the old balance-based sync logic with proper transaction tracking
@@ -44,7 +48,7 @@ impl WalletSyncService {
         &self,
         wallet: &mut PersistedWallet<Connection>,
         wallet_checksum: &str,
-        electrum_client: Option<&ElectrumClient>,
+        electrum_manager: Option<&ElectrumClientManager>,
     ) -> Result<bool> {
         let sync_start = Instant::now();
         info!("[{}] Starting transaction-based sync", wallet_checksum);
@@ -52,13 +56,75 @@ impl WalletSyncService {
         let mut electrum_attempts: u32 = 0;
 
         // Perform the actual sync with Electrum with mode-based retry logic
-        if let Some(client) = electrum_client {
+        if let Some(manager) = electrum_manager {
             let max_retries: u32 = if self.config.is_cloud_mode() { 3 } else { 1 };
             let use_exponential_backoff = self.config.is_cloud_mode();
 
             let mut last_error = None;
 
             for attempt in 1..=max_retries {
+                // Get fresh client from manager each attempt (may have reconnected)
+                let client = match manager.get_client().await {
+                    Some(c) => c,
+                    None => {
+                        warn!(
+                            "[{}] No Electrum client available (attempt {}), triggering reconnection",
+                            wallet_checksum, attempt
+                        );
+                        match manager.reconnect().await {
+                            Ok(true) => {
+                                info!("[{}] Reconnection successful", wallet_checksum);
+                                // Send reconnected notification if we had previous failures (atomic check)
+                                if manager.should_send_reconnected_notification() {
+                                    let admin_notifications = AdminNotifications::new();
+                                    if admin_notifications.is_enabled() {
+                                        admin_notifications.notify_electrum_reconnected(manager.url()).await;
+                                    }
+                                }
+                                match manager.get_client().await {
+                                    Some(c) => c,
+                                    None => {
+                                        error!(
+                                            "[{}] Client still unavailable after reconnection",
+                                            wallet_checksum
+                                        );
+                                        continue;
+                                    }
+                                }
+                            }
+                            Ok(false) => {
+                                debug!(
+                                    "[{}] Reconnection in progress by another task, waiting...",
+                                    wallet_checksum
+                                );
+                                sleep(Duration::from_secs(2)).await;
+                                continue;
+                            }
+                            Err(e) => {
+                                error!("[{}] Reconnection failed: {}", wallet_checksum, e);
+                                // Check if we should send an alert
+                                let failures = manager.get_consecutive_failures();
+                                if failures >= ALERT_FAILURE_THRESHOLD && !manager.has_alert_been_sent() {
+                                    let admin_notifications = AdminNotifications::new();
+                                    if admin_notifications.is_enabled() {
+                                        admin_notifications.notify_electrum_disconnect(
+                                            manager.url(),
+                                            failures,
+                                            Some(&e.to_string()),
+                                        ).await;
+                                        manager.mark_alert_sent();
+                                        warn!(
+                                            "[{}] Sent admin alert for {} consecutive Electrum failures",
+                                            wallet_checksum, failures
+                                        );
+                                    }
+                                }
+                                continue;
+                            }
+                        }
+                    }
+                };
+
                 let attempt_start = Instant::now();
                 let result = client.sync_wallet(wallet).await;
                 let attempt_elapsed = attempt_start.elapsed();
@@ -82,16 +148,70 @@ impl WalletSyncService {
                     }
                     Err(e) => {
                         let error_message = e.to_string();
+                        let error_type = Self::categorize_error(&error_message);
+
                         warn!(
-                            "[{}] Electrum sync attempt {} failed in {:.2?}: {}",
-                            wallet_checksum, attempt, attempt_elapsed, error_message
+                            "[{}] Electrum sync attempt {} failed in {:.2?} ({}): {}",
+                            wallet_checksum, attempt, attempt_elapsed, error_type, error_message
                         );
                         last_error = Some(e);
 
-                        // Enhanced error categorization for SAAS mode
-                        if self.config.is_cloud_mode() && attempt < max_retries {
-                            let error_type = Self::categorize_error(&error_message);
+                        // If transport error, mark connection as dead and attempt reconnection
+                        if error_type == "TRANSPORT" {
+                            warn!(
+                                "[{}] Transport error detected, triggering reconnection",
+                                wallet_checksum
+                            );
+                            manager.mark_disconnected(&error_message).await;
 
+                            match manager.reconnect().await {
+                                Ok(true) => {
+                                    info!(
+                                        "[{}] Reconnection successful, will retry sync",
+                                        wallet_checksum
+                                    );
+                                    // Send reconnected notification if we had previous failures (atomic check)
+                                    if manager.should_send_reconnected_notification() {
+                                        let admin_notifications = AdminNotifications::new();
+                                        if admin_notifications.is_enabled() {
+                                            admin_notifications.notify_electrum_reconnected(manager.url()).await;
+                                        }
+                                    }
+                                }
+                                Ok(false) => {
+                                    debug!(
+                                        "[{}] Reconnection already in progress by another task",
+                                        wallet_checksum
+                                    );
+                                }
+                                Err(reconnect_err) => {
+                                    error!(
+                                        "[{}] Reconnection failed: {}",
+                                        wallet_checksum, reconnect_err
+                                    );
+                                    // Check if we should send an alert
+                                    let failures = manager.get_consecutive_failures();
+                                    if failures >= ALERT_FAILURE_THRESHOLD && !manager.has_alert_been_sent() {
+                                        let admin_notifications = AdminNotifications::new();
+                                        if admin_notifications.is_enabled() {
+                                            admin_notifications.notify_electrum_disconnect(
+                                                manager.url(),
+                                                failures,
+                                                Some(&reconnect_err.to_string()),
+                                            ).await;
+                                            manager.mark_alert_sent();
+                                            warn!(
+                                                "[{}] Sent admin alert for {} consecutive Electrum failures",
+                                                wallet_checksum, failures
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Apply backoff delay before retry (cloud mode only)
+                        if self.config.is_cloud_mode() && attempt < max_retries {
                             let delay_secs = if use_exponential_backoff {
                                 // Exponential backoff: 5s, 10s, 20s
                                 5 * (2u64.pow(attempt - 1))
@@ -113,7 +233,7 @@ impl WalletSyncService {
                                 sleep(Duration::from_secs(delay_secs)).await;
                             }
                         } else if attempt < max_retries {
-                            // FOSS mode - simple retry without categorization
+                            // Self-hosted mode - simple retry without categorization
                             warn!(
                                 "[{}] Sync attempt {}/{} failed: {}",
                                 wallet_checksum, attempt, max_retries, error_message
@@ -154,8 +274,13 @@ impl WalletSyncService {
 
         // Process all transactions and detect changes
         let tx_process_start = Instant::now();
+        // Get the current client for transaction processing (may be None if disconnected)
+        let electrum_client = match electrum_manager {
+            Some(manager) => manager.get_client().await,
+            None => None,
+        };
         let summary = self
-            .process_wallet_transactions(wallet, wallet_checksum, electrum_client)
+            .process_wallet_transactions(wallet, wallet_checksum, electrum_client.as_ref())
             .await?;
         debug!(
             "[{}] Transaction processing took {:.2?}",
@@ -1015,6 +1140,11 @@ impl WalletSyncService {
 
     /// Categorize error types for better diagnostics (SAAS mode)
     fn categorize_error(error_msg: &str) -> &'static str {
+        // Check for transport-level failures first (these need reconnection)
+        if ElectrumClientManager::is_transport_error(error_msg) {
+            return "TRANSPORT";
+        }
+
         let msg_lower = error_msg.to_lowercase();
 
         if msg_lower.contains("timeout") || msg_lower.contains("timed out") {

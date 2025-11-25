@@ -48,10 +48,11 @@ async fn create_test_app() -> axum::Router {
     // Create AppServices for non-blocking architecture
     let app_services = {
         let manager = wallet_manager.lock().await;
+        let electrum_client = manager.get_electrum_client().await;
         let wallet_creation_service = WalletCreationService::new(
             manager.wallet_dir.clone(),
             manager.metadata_db.clone(),
-            manager.electrum_client.clone(),
+            electrum_client,
             manager.get_network(),
             manager.wallets.clone(),
         );
