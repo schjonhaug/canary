@@ -29,8 +29,6 @@ const BLOCK_OP_TIMEOUT_SECS: u64 = 10;
 #[derive(Clone)]
 pub struct ElectrumClient {
     pub client: Arc<BdkElectrumClient<electrum_client::Client>>,
-    #[allow(dead_code)]
-    pub raw_client: Arc<electrum_client::Client>,
 }
 
 impl ElectrumClient {
@@ -42,21 +40,11 @@ impl ElectrumClient {
             ));
         }
 
-        // Create two separate clients - one for BDK, one for raw API access
-        let bdk_electrum_client = electrum_client::Client::new(url)?;
-        let raw_electrum_client = electrum_client::Client::new(url)?;
-        let client = BdkElectrumClient::new(bdk_electrum_client);
+        let electrum_client = electrum_client::Client::new(url)?;
+        let client = BdkElectrumClient::new(electrum_client);
         Ok(ElectrumClient {
             client: Arc::new(client),
-            raw_client: Arc::new(raw_electrum_client),
         })
-    }
-
-    /// Get access to the raw Electrum client for direct API calls
-    /// This allows calling methods like script_get_history() and script_get_balance()
-    #[allow(dead_code)]
-    pub fn raw_client(&self) -> &electrum_client::Client {
-        &self.raw_client
     }
 
     /// Get the highest address index that has been used (has transactions)
@@ -467,6 +455,15 @@ impl ElectrumClientManager {
         self.alert_sent.store(true, Ordering::SeqCst);
     }
 
+    /// Atomically check if a reconnection notification should be sent.
+    /// Returns true if an alert was previously sent (and atomically resets it to false).
+    /// This prevents race conditions where multiple tasks could send duplicate notifications.
+    pub fn should_send_reconnected_notification(&self) -> bool {
+        self.alert_sent
+            .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+    }
+
     /// Attempt to reconnect. Only one reconnection attempt runs at a time.
     ///
     /// Returns:
@@ -496,8 +493,8 @@ impl ElectrumClientManager {
                 drop(client_guard);
 
                 // Reset failure tracking on success
+                // Note: alert_sent is reset by should_send_reconnected_notification() to avoid race conditions
                 self.consecutive_failures.store(0, Ordering::SeqCst);
-                self.alert_sent.store(false, Ordering::SeqCst);
                 *self.last_error.write().await = None;
 
                 info!(

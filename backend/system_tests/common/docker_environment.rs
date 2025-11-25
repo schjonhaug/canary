@@ -154,7 +154,7 @@ impl IsolatedTestEnvironment {
         let wallet_creation_service = canary::wallet::WalletCreationService::new(
             wallet_manager.wallet_dir.clone(),
             metadata_db.clone(),
-            wallet_manager.electrum_client.clone(),
+            wallet_manager.get_electrum_client().await,
             wallet_manager.get_network(),
             wallet_manager.wallets.clone(),
         );
@@ -312,7 +312,7 @@ impl IsolatedTestEnvironment {
         let wallet_creation_service = canary::wallet::WalletCreationService::new(
             wallet_manager.wallet_dir.clone(),
             metadata_db.clone(),
-            wallet_manager.electrum_client.clone(),
+            wallet_manager.get_electrum_client().await,
             wallet_manager.get_network(),
             wallet_manager.wallets.clone(),
         );

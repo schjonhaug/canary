@@ -74,8 +74,8 @@ impl WalletSyncService {
                         match manager.reconnect().await {
                             Ok(true) => {
                                 info!("[{}] Reconnection successful", wallet_checksum);
-                                // Send reconnected notification if we had previous failures
-                                if manager.get_consecutive_failures() == 0 && manager.has_alert_been_sent() {
+                                // Send reconnected notification if we had previous failures (atomic check)
+                                if manager.should_send_reconnected_notification() {
                                     let admin_notifications = AdminNotifications::new();
                                     if admin_notifications.is_enabled() {
                                         admin_notifications.notify_electrum_reconnected(manager.url()).await;
@@ -170,8 +170,8 @@ impl WalletSyncService {
                                         "[{}] Reconnection successful, will retry sync",
                                         wallet_checksum
                                     );
-                                    // Send reconnected notification if we had previous failures
-                                    if manager.get_consecutive_failures() == 0 && manager.has_alert_been_sent() {
+                                    // Send reconnected notification if we had previous failures (atomic check)
+                                    if manager.should_send_reconnected_notification() {
                                         let admin_notifications = AdminNotifications::new();
                                         if admin_notifications.is_enabled() {
                                             admin_notifications.notify_electrum_reconnected(manager.url()).await;
