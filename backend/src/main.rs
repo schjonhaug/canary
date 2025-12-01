@@ -119,7 +119,7 @@ async fn main() -> anyhow::Result<()> {
 
     let (notification_tx, _notification_rx) = broadcast::channel::<TransactionNotification>(100);
 
-    let wallet_manager = Arc::new(Mutex::new(
+    let wallet_manager = Arc::new(
         WalletManager::new(
             notification_tx.clone(),
             config.effective_wallet_dir().into(),
@@ -129,42 +129,37 @@ async fn main() -> anyhow::Result<()> {
             &config,
         )
         .await,
-    ));
+    );
 
-    // Create new non-blocking architecture: Separate metadata access from heavy wallet operations
+    // Create non-blocking architecture: Separate metadata access from heavy wallet operations
     let app_services = {
-        let manager = wallet_manager.lock().await;
         // Get current electrum client from the manager for wallet creation service
-        let electrum_client = manager.get_electrum_client().await;
+        let electrum_client = wallet_manager.get_electrum_client().await;
         let wallet_creation_service = wallet::WalletCreationService::new(
-            manager.wallet_dir.clone(),
-            manager.metadata_db.clone(),
+            wallet_manager.wallet_dir.clone(),
+            wallet_manager.metadata_db.clone(),
             electrum_client,
-            manager.get_network(),
-            manager.wallets.clone(), // Pass reference to in-memory wallet storage
+            wallet_manager.get_network(),
+            wallet_manager.wallets.clone(), // Pass reference to in-memory wallet storage
         );
         Arc::new(api::AppServices {
-            metadata_db: manager.metadata_db.clone(),
+            metadata_db: wallet_manager.metadata_db.clone(),
             wallet_creation_service,
         })
     };
 
     // Create shared state for current block header and load existing header from database
-    let existing_header = {
-        let manager = wallet_manager.lock().await;
-        manager
-            .metadata_db
-            .get_current_block_header()
-            .await
-            .unwrap_or(None)
-    };
+    let existing_header = wallet_manager
+        .metadata_db
+        .get_current_block_header()
+        .await
+        .unwrap_or(None);
     let current_block_header = Arc::new(Mutex::new(existing_header));
 
     // Initialize exchange rate service and start background refresh task
     {
-        let manager = wallet_manager.lock().await;
         let exchange_rate_service = Arc::new(exchange_rates::ExchangeRateService::new(Arc::new(
-            manager.metadata_db.clone(),
+            wallet_manager.metadata_db.clone(),
         )));
 
         // Start background task to refresh exchange rates every 10 minutes
@@ -336,13 +331,8 @@ async fn main() -> anyhow::Result<()> {
             // Use tokio timeout to prevent indefinite blocking
             let timeout_duration = Duration::from_secs(5);
 
-            let (electrum_manager, metadata_db) = {
-                let manager = initial_wallet_manager.lock().await;
-                (
-                    manager.get_electrum_manager(),
-                    manager.metadata_db.clone(),
-                )
-            };
+            let electrum_manager = initial_wallet_manager.get_electrum_manager();
+            let metadata_db = initial_wallet_manager.metadata_db.clone();
 
             if let Some(ref electrum_mgr) = electrum_manager {
                 // Try to get the client, attempt reconnection if needed
@@ -429,40 +419,18 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 interval.tick().await;
 
-                let mutex_wait_start = Instant::now();
-                let mut manager = foss_wallet_manager.lock().await;
-                let mutex_wait_time = mutex_wait_start.elapsed();
-
-                if mutex_wait_time.as_millis() > 10 {
-                    println!(
-                        "🔒 FOSS sync task waited {:?} for wallet manager mutex",
-                        mutex_wait_time
-                    );
-                }
-
                 // In FOSS mode, sync all wallets together (no tier separation)
                 let sync_start = Instant::now();
 
                 // In FOSS mode, all wallets belong to the hardcoded "team" tier user
                 // No need to sync Personal tier since no FOSS wallets use that tier
-                if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Team).await {
+                if let Err(e) = foss_wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await {
                     eprintln!("❌ Failed to sync FOSS wallets: {}", e);
                 }
 
                 let sync_duration = sync_start.elapsed();
                 if sync_duration.as_millis() > 100 {
                     println!("⚡ FOSS sync completed in {:?}", sync_duration);
-                }
-
-                // Explicitly release the mutex and log timing
-                let mutex_hold_duration = mutex_wait_start.elapsed();
-                drop(manager);
-
-                if mutex_hold_duration.as_millis() > 1000 {
-                    println!(
-                        "🔓 FOSS sync task held wallet manager mutex for {:?}",
-                        mutex_hold_duration
-                    );
                 }
             }
         });
@@ -483,24 +451,10 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 interval.tick().await;
 
-                let mutex_wait_start = Instant::now();
-                let mut manager = team_wallet_manager.lock().await;
-                let mutex_wait_time = mutex_wait_start.elapsed();
-
-                if mutex_wait_time.as_millis() > 1000 {
-                    println!(
-                        "🔒 Team sync task waited {:?} for wallet manager mutex",
-                        mutex_wait_time
-                    );
-                }
-
                 // Sync Team tier wallets
-                if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Team).await {
+                if let Err(e) = team_wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await {
                     eprintln!("Team tier sync failed: {}", e);
                 }
-
-                // Drop mutex without excessive logging
-                drop(manager);
             }
         });
 
@@ -516,24 +470,10 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 interval.tick().await;
 
-                let mutex_wait_start = Instant::now();
-                let mut manager = personal_wallet_manager.lock().await;
-                let mutex_wait_time = mutex_wait_start.elapsed();
-
-                if mutex_wait_time.as_millis() > 1000 {
-                    println!(
-                        "🔒 Personal sync task waited {:?} for wallet manager mutex",
-                        mutex_wait_time
-                    );
-                }
-
                 // Sync Personal tier wallets
-                if let Err(e) = manager.sync_tier_parallel(SubscriptionTier::Personal).await {
+                if let Err(e) = personal_wallet_manager.sync_tier_parallel(SubscriptionTier::Personal).await {
                     eprintln!("Personal tier sync failed: {}", e);
                 }
-
-                // Drop mutex without excessive logging
-                drop(manager);
             }
         });
 
@@ -543,8 +483,7 @@ async fn main() -> anyhow::Result<()> {
             // Wait a moment for sync tasks to start
             tokio::time::sleep(Duration::from_secs(2)).await;
 
-            let manager = startup_wallet_manager.lock().await;
-            if let Ok(non_syncing_summary) = manager.metadata_db.get_non_syncing_wallets_summary().await {
+            if let Ok(non_syncing_summary) = startup_wallet_manager.metadata_db.get_non_syncing_wallets_summary().await {
                 if non_syncing_summary.total_non_syncing > 0 {
                     let mut reasons = Vec::new();
                     if non_syncing_summary.expired_trials > 0 {
@@ -592,23 +531,11 @@ async fn main() -> anyhow::Result<()> {
         loop {
             interval.tick().await;
 
-            let mutex_wait_start = Instant::now();
-            let manager = block_sync_wallet_manager.lock().await;
-            let mutex_wait_time = mutex_wait_start.elapsed();
-
-            if mutex_wait_time.as_millis() > 1000 {
-                println!(
-                    "🔒 Block sync task waited {:?} for wallet manager mutex",
-                    mutex_wait_time
-                );
-            }
-
             // Check for new block headers with timeout
-            if let Some(ref electrum_mgr) = manager.electrum_client_manager {
-                let metadata_db = manager.metadata_db.clone();
+            if let Some(ref electrum_mgr) = &block_sync_wallet_manager.electrum_client_manager {
+                let metadata_db = block_sync_wallet_manager.metadata_db.clone();
                 let current_block_header_clone = block_sync_current_block_header.clone();
                 let electrum_mgr = electrum_mgr.clone();
-                drop(manager); // Release lock before async operations
 
                 // Try to get the client, attempt reconnection if needed
                 let client = match electrum_mgr.get_client().await {
@@ -687,11 +614,7 @@ async fn main() -> anyhow::Result<()> {
                         eprintln!("⏱️  Timeout checking block height (sync task)");
                     }
                 }
-                continue; // Skip the drop(manager) since we already dropped it
             }
-
-            // Drop mutex without excessive logging
-            drop(manager);
         }
     });
 
@@ -703,8 +626,7 @@ async fn main() -> anyhow::Result<()> {
         loop {
             interval.tick().await;
 
-            let manager = session_cleanup_manager.lock().await;
-            match manager.metadata_db.cleanup_expired_sessions().await {
+            match session_cleanup_manager.metadata_db.cleanup_expired_sessions().await {
                 Ok(deleted) => {
                     if deleted > 0 {
                         println!("Cleaned up {} expired sessions", deleted);
@@ -737,13 +659,12 @@ async fn main() -> anyhow::Result<()> {
             };
 
             // Get wallet information for the notification
-            let wallet_manager_lock = notification_wallet_manager.lock().await;
-            if let Ok(Some(wallet_info)) = wallet_manager_lock
+            if let Ok(Some(wallet_info)) = notification_wallet_manager
                 .get_wallet_by_checksum(wallet_checksum)
                 .await
             {
                 // Get contacts for this wallet
-                if let Ok(contacts) = wallet_manager_lock
+                if let Ok(contacts) = notification_wallet_manager
                     .metadata_db
                     .get_contacts_with_notification_methods(wallet_checksum)
                     .await
@@ -785,7 +706,7 @@ async fn main() -> anyhow::Result<()> {
                                             TransactionNotification::Pending(tx)
                                             | TransactionNotification::Confirmed(tx) => {
                                                 // Log transaction notifications
-                                                wallet_manager_lock
+                                                notification_wallet_manager
                                                     .metadata_db
                                                     .insert_notification_log_for_transaction(
                                                         &tx.txid,
@@ -802,7 +723,7 @@ async fn main() -> anyhow::Result<()> {
                                             }
                                             TransactionNotification::BalanceAlert(alert) => {
                                                 // Use separate logging method for balance alerts
-                                                wallet_manager_lock
+                                                notification_wallet_manager
                                                     .metadata_db
                                                     .insert_notification_log_for_balance_alert(
                                                         &alert.balance_alert_id,
@@ -987,19 +908,17 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn apply_startup_subscription_limits(
-    wallet_manager: std::sync::Arc<tokio::sync::Mutex<WalletManager>>,
+    wallet_manager: std::sync::Arc<WalletManager>,
 ) -> anyhow::Result<()> {
     tracing::info!("🎯 Applying subscription limits for active users at startup");
 
-    let manager = wallet_manager.lock().await;
-
     // Get all users from the database
-    let users = manager.metadata_db.get_all_users().await?;
+    let users = wallet_manager.metadata_db.get_all_users().await?;
 
     for user in users {
         // Apply subscription limits for ALL users
         // The function will deactivate wallets for expired/past_due/canceled users
-        if let Err(e) = manager
+        if let Err(e) = wallet_manager
             .apply_subscription_limits(
                 &user.id,
                 &user.subscription_tier.as_str(),

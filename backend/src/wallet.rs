@@ -729,7 +729,7 @@ impl WalletManager {
     }
 
     /// Clean up deleted wallets - remove from memory, disk, and database
-    async fn cleanup_deleted_wallets(&mut self) -> Result<()> {
+    async fn cleanup_deleted_wallets(&self) -> Result<()> {
         use std::collections::HashSet;
 
         // Get ready wallets from database (source of truth)
@@ -815,7 +815,7 @@ impl WalletManager {
 
     /// Sync all wallets for a specific subscription tier in parallel
     pub async fn sync_tier_parallel(
-        &mut self,
+        &self,
         tier: crate::subscription::SubscriptionTier,
     ) -> Result<()> {
         use crate::sync::WalletSyncService;
