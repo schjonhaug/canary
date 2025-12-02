@@ -101,12 +101,12 @@ impl MessageFormatter {
             TransactionNotification::Pending(tx) => {
                 let (subject_text, emoji) = match tx.transaction_type {
                     EventType::Receive => match language {
-                        Language::Norwegian => ("Bitcoin Mottar", "💸"),
-                        Language::English => ("Bitcoin Receiving", "💸"),
+                        Language::Norwegian => ("Mottar Bitcoin", "💸"),
+                        Language::English => ("Receiving Bitcoin ", "💸"),
                     },
                     EventType::Send => match language {
                         Language::Norwegian => ("Sender Bitcoin", "📤"),
-                        Language::English => ("Bitcoin Sending", "📤"),
+                        Language::English => ("Sending Bitcoin", "📤"),
                     },
                 };
                 format!("{} {} - {}", emoji, subject_text, wallet_name)
@@ -114,7 +114,7 @@ impl MessageFormatter {
             TransactionNotification::Confirmed(tx) => {
                 let (subject_text, emoji) = match tx.transaction_type {
                     EventType::Receive => match language {
-                        Language::Norwegian => ("Bitcoin Mottatt", "✅"),
+                        Language::Norwegian => ("Bitcoin mottatt", "✅"),
                         Language::English => ("Bitcoin Received", "✅"),
                     },
                     EventType::Send => match language {
@@ -178,7 +178,7 @@ impl MessageFormatter {
                 } else {
                     match language {
                         Language::Norwegian => format!(
-                            "📊 Saldo varsel: {} saldo er nå {}",
+                            "📊 Saldovarsel: {} saldo er nå {}",
                             wallet_name, current_display
                         ),
                         Language::English => format!(
@@ -190,7 +190,7 @@ impl MessageFormatter {
             }
             crate::metadata::BalanceAlertType::Above => match language {
                 Language::Norwegian => format!(
-                    "📊 Saldo varsel: {} saldo er nå over {} (nåværende: {})",
+                    "📊 Saldovarsel: {} saldo er nå over {} (nåværende: {})",
                     wallet_name, threshold_display, current_display
                 ),
                 Language::English => format!(
@@ -200,7 +200,7 @@ impl MessageFormatter {
             },
             crate::metadata::BalanceAlertType::Below => match language {
                 Language::Norwegian => format!(
-                    "📊 Saldo varsel: {} saldo er nå under {} (nåværende: {})",
+                    "📊 Saldovarsel: {} saldo er nå under {} (nåværende: {})",
                     wallet_name, threshold_display, current_display
                 ),
                 Language::English => format!(
@@ -244,7 +244,7 @@ impl MessageFormatter {
                     let replaced_by = transaction.replaced_by_txid.as_deref().unwrap_or("unknown");
                     match language {
                         Language::Norwegian => format!(
-                            "🔄 Erstatttet: {} BTC fra {} (erstattet av {})",
+                            "🔄 Erstattet: {} BTC fra {} (erstattet av {})",
                             amount_btc,
                             wallet_name,
                             &replaced_by[..8.min(replaced_by.len())]
@@ -275,7 +275,7 @@ impl MessageFormatter {
                     let replaced_by = transaction.replaced_by_txid.as_deref().unwrap_or("unknown");
                     match language {
                         Language::Norwegian => format!(
-                            "🔄 Erstatttet: {} BTC til {} (erstattet av {})",
+                            "🔄 Erstattet: {} BTC til {} (erstattet av {})",
                             amount_btc,
                             wallet_name,
                             &replaced_by[..8.min(replaced_by.len())]
