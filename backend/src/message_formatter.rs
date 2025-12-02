@@ -91,6 +91,49 @@ impl MessageFormatter {
         }
     }
 
+    /// Generate localized email subject for transaction notification
+    pub fn create_localized_email_subject(
+        notification: &TransactionNotification,
+        wallet_name: &str,
+        language: &Language,
+    ) -> String {
+        match notification {
+            TransactionNotification::Pending(tx) => {
+                let (subject_text, emoji) = match tx.transaction_type {
+                    EventType::Receive => match language {
+                        Language::Norwegian => ("Bitcoin Mottar", "💸"),
+                        Language::English => ("Bitcoin Receiving", "💸"),
+                    },
+                    EventType::Send => match language {
+                        Language::Norwegian => ("Sender Bitcoin", "📤"),
+                        Language::English => ("Bitcoin Sending", "📤"),
+                    },
+                };
+                format!("{} {} - {}", emoji, subject_text, wallet_name)
+            }
+            TransactionNotification::Confirmed(tx) => {
+                let (subject_text, emoji) = match tx.transaction_type {
+                    EventType::Receive => match language {
+                        Language::Norwegian => ("Bitcoin Mottatt", "✅"),
+                        Language::English => ("Bitcoin Received", "✅"),
+                    },
+                    EventType::Send => match language {
+                        Language::Norwegian => ("Bitcoin sendt", "✅"),
+                        Language::English => ("Bitcoin Sent", "✅"),
+                    },
+                };
+                format!("{} {} - {}", emoji, subject_text, wallet_name)
+            }
+            TransactionNotification::BalanceAlert(_) => {
+                let subject_text = match language {
+                    Language::Norwegian => "Saldovarsel",
+                    Language::English => "Balance Alert",
+                };
+                format!("📊 {} - {}", subject_text, wallet_name)
+            }
+        }
+    }
+
     /// Generate localized message for balance alert notification
     fn create_balance_alert_message(
         alert: &crate::metadata::BalanceAlertNotification,

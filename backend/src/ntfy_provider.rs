@@ -53,11 +53,45 @@ impl NotificationProvider for NtfyProvider {
                 let topic = &method.notification_target;
                 let ntfy_url = format!("https://ntfy.sh/{}", topic);
 
+                // Create localized title for push notification
+                let localized_title = match notification {
+                    TransactionNotification::Pending(tx) => {
+                        match tx.transaction_type {
+                            EventType::Receive => match contact.language {
+                                crate::metadata::Language::Norwegian => format!("Mottar Bitcoin - {}", wallet_name),
+                                crate::metadata::Language::English => format!("Receiving Bitcoin - {}", wallet_name),
+                            },
+                            EventType::Send => match contact.language {
+                                crate::metadata::Language::Norwegian => format!("Sender Bitcoin - {}", wallet_name),
+                                crate::metadata::Language::English => format!("Sending Bitcoin - {}", wallet_name),
+                            },
+                        }
+                    }
+                    TransactionNotification::Confirmed(tx) => {
+                        match tx.transaction_type {
+                            EventType::Receive => match contact.language {
+                                crate::metadata::Language::Norwegian => format!("Bitcoin Mottatt - {}", wallet_name),
+                                crate::metadata::Language::English => format!("Bitcoin Received - {}", wallet_name),
+                            },
+                            EventType::Send => match contact.language {
+                                crate::metadata::Language::Norwegian => format!("Bitcoin Sendt - {}", wallet_name),
+                                crate::metadata::Language::English => format!("Bitcoin Sent - {}", wallet_name),
+                            },
+                        }
+                    }
+                    TransactionNotification::BalanceAlert(_) => {
+                        match contact.language {
+                            crate::metadata::Language::Norwegian => format!("Saldovarsel - {}", wallet_name),
+                            crate::metadata::Language::English => format!("Balance Alert - {}", wallet_name),
+                        }
+                    }
+                };
+
                 let result = match self
                     .client
                     .post(&ntfy_url)
                     .header("Content-Type", "text/plain; charset=utf-8")
-                    .header("Title", format!("Canary - {}", wallet_name))
+                    .header("Title", localized_title)
                     .header("Priority", priority)
                     .header(
                         "Tags",
