@@ -4,6 +4,44 @@ use num_format::{Locale, ToFormattedString};
 pub struct MessageFormatter;
 
 impl MessageFormatter {
+    /// Create localized email subject for transaction notification
+    pub fn create_localized_email_subject(
+        notification: &TransactionNotification,
+        wallet_name: &str,
+        language: &Language,
+    ) -> String {
+        match notification {
+            TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
+                let is_confirmed = matches!(notification, TransactionNotification::Confirmed(_));
+                
+                let (subject_prefix, emoji) = match (tx.transaction_type, is_confirmed) {
+                    (EventType::Receive, true) => match language {
+                        Language::Norwegian => ("Bitcoin Mottatt", "✅"),
+                        Language::English => ("Bitcoin Received", "✅"),
+                    },
+                    (EventType::Receive, false) => match language {
+                        Language::Norwegian => ("Bitcoin Mottar", "💸"),
+                        Language::English => ("Bitcoin Receiving", "💸"),
+                    },
+                    (EventType::Send, true) => match language {
+                        Language::Norwegian => ("Bitcoin Sendt", "✅"),
+                        Language::English => ("Bitcoin Sent", "✅"),
+                    },
+                    (EventType::Send, false) => match language {
+                        Language::Norwegian => ("Bitcoin Sender", "📤"),
+                        Language::English => ("Bitcoin Sending", "📤"),
+                    },
+                };
+                
+                format!("{} {} - {}", emoji, subject_prefix, wallet_name)
+            }
+            TransactionNotification::BalanceAlert(_) => match language {
+                Language::Norwegian => format!("📊 Saldo Varsel - {}", wallet_name),
+                Language::English => format!("📊 Balance Alert - {}", wallet_name),
+            },
+        }
+    }
+
     /// Format Bitcoin amount based on language preference
     pub fn format_btc_amount(amount_sats: i64, language: &Language) -> String {
         let btc_amount = amount_sats as f64 / 100_000_000.0;

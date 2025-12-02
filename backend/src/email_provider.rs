@@ -78,14 +78,23 @@ impl NotificationProvider for EmailProvider {
                 );
 
                 // Build email subject and body based on notification type
-                let (subject, html_body, text_body) = match notification {
+                let subject = MessageFormatter::create_localized_email_subject(
+                    notification,
+                    wallet_name,
+                    &contact.language,
+                );
+
+                let (html_body, text_body) = match notification {
                     TransactionNotification::Pending(tx)
                     | TransactionNotification::Confirmed(tx) => {
-                        let (subject_prefix, emoji) = match tx.transaction_type {
-                            crate::metadata::EventType::Receive => ("Bitcoin Received", "💰"),
-                            crate::metadata::EventType::Send => ("Bitcoin Sent", "📤"),
+                        let emoji = if matches!(notification, TransactionNotification::Confirmed(_)) {
+                            "✅"
+                        } else {
+                            match tx.transaction_type {
+                                crate::metadata::EventType::Receive => "💸",
+                                crate::metadata::EventType::Send => "📤",
+                            }
                         };
-                        let subject = format!("{} {} - {}", emoji, subject_prefix, wallet_name);
 
                         let html_body = Self::build_transaction_html(
                             &subject,
@@ -102,13 +111,12 @@ impl NotificationProvider for EmailProvider {
                             &tx.wallet_checksum,
                         );
 
-                        (subject, html_body, text_body)
+                        (html_body, text_body)
                     }
                     TransactionNotification::BalanceAlert(_) => {
-                        let subject = format!("📊 Balance Alert - {}", wallet_name);
                         let html_body = Self::build_balance_alert_html(wallet_name, &contact.name, &message);
                         let text_body = Self::build_balance_alert_text(wallet_name, &contact.name, &message);
-                        (subject, html_body, text_body)
+                        (html_body, text_body)
                     }
                 };
 
