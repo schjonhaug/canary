@@ -156,11 +156,12 @@ impl WalletSyncService {
                         );
                         last_error = Some(e);
 
-                        // If transport error, mark connection as dead and attempt reconnection
-                        if error_type == "TRANSPORT" {
+                        // If transport error or timeout, mark connection as dead and attempt reconnection
+                        // Timeouts indicate a stale/unresponsive connection that needs to be recreated
+                        if error_type == "TRANSPORT" || error_type == "TIMEOUT" {
                             warn!(
-                                "[{}] Transport error detected, triggering reconnection",
-                                wallet_checksum
+                                "[{}] {} error detected, triggering reconnection",
+                                wallet_checksum, error_type
                             );
                             manager.mark_disconnected(&error_message).await;
 

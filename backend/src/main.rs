@@ -611,7 +611,9 @@ async fn main() -> anyhow::Result<()> {
                         }
                     }
                     Err(_) => {
-                        eprintln!("⏱️  Timeout checking block height (sync task)");
+                        eprintln!("⏱️  Timeout checking block height, triggering reconnection");
+                        electrum_mgr.mark_disconnected("Block height check timed out").await;
+                        let _ = electrum_mgr.reconnect().await;
                     }
                 }
             }
