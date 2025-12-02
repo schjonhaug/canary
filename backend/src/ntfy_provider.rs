@@ -70,11 +70,11 @@ impl NotificationProvider for NtfyProvider {
                     TransactionNotification::Confirmed(tx) => {
                         match tx.transaction_type {
                             EventType::Receive => match contact.language {
-                                crate::metadata::Language::Norwegian => format!("Bitcoin Mottatt - {}", wallet_name),
+                                crate::metadata::Language::Norwegian => format!("Bitcoin mottatt - {}", wallet_name),
                                 crate::metadata::Language::English => format!("Bitcoin Received - {}", wallet_name),
                             },
                             EventType::Send => match contact.language {
-                                crate::metadata::Language::Norwegian => format!("Bitcoin Sendt - {}", wallet_name),
+                                crate::metadata::Language::Norwegian => format!("Bitcoin sendt - {}", wallet_name),
                                 crate::metadata::Language::English => format!("Bitcoin Sent - {}", wallet_name),
                             },
                         }
