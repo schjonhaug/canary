@@ -52,10 +52,7 @@ async fn create_test_user_and_wallet(metadata_db: &MetadataDb) -> (String, Strin
 }
 
 /// Test helper to create a sync service for balance alert checking
-fn create_sync_service(
-    metadata_db: &MetadataDb,
-    config: &AppConfig,
-) -> WalletSyncService {
+fn create_sync_service(metadata_db: &MetadataDb, config: &AppConfig) -> WalletSyncService {
     let (notification_sender, _) = broadcast::channel::<TransactionNotification>(100);
     WalletSyncService::new(metadata_db.clone(), notification_sender, config.clone())
 }
@@ -67,7 +64,13 @@ async fn test_balance_alert_database_operations() {
 
     // Test 1: Create balance alert
     let alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below, None, None) // 1 BTC
+        .create_balance_alert(
+            &wallet_checksum,
+            100_000_000,
+            BalanceAlertType::Below,
+            None,
+            None,
+        ) // 1 BTC
         .await
         .unwrap();
 
@@ -102,7 +105,10 @@ async fn test_balance_alert_database_operations() {
         .get_all_balance_alerts_for_wallet(&wallet_checksum)
         .await
         .unwrap();
-    assert_eq!(updated_alert[0].last_checked_balance_sats, Some(150_000_000));
+    assert_eq!(
+        updated_alert[0].last_checked_balance_sats,
+        Some(150_000_000)
+    );
 
     // Test 5: Delete balance alert
     metadata_db.delete_balance_alert(&alert.id).await.unwrap();
@@ -121,12 +127,24 @@ async fn test_balance_alert_types() {
 
     // Test all alert types
     let _below_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 50_000_000, BalanceAlertType::Below, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            50_000_000,
+            BalanceAlertType::Below,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
     let _above_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 200_000_000, BalanceAlertType::Above, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            200_000_000,
+            BalanceAlertType::Above,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -159,12 +177,24 @@ async fn test_balance_alert_edge_cases() {
 
     // Test 1: Multiple alerts of same type
     let alert1 = metadata_db
-        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            100_000_000,
+            BalanceAlertType::Below,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
     let alert2 = metadata_db
-        .create_balance_alert(&wallet_checksum, 50_000_000, BalanceAlertType::Below, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            50_000_000,
+            BalanceAlertType::Below,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -186,7 +216,13 @@ async fn test_balance_alert_edge_cases() {
 
     // Test 3: Very large threshold values
     let large_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, i64::MAX, BalanceAlertType::Above, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            i64::MAX,
+            BalanceAlertType::Above,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -218,12 +254,24 @@ async fn test_balance_alert_wallet_isolation() {
 
     // Create alerts for each wallet
     let alert1 = metadata_db
-        .create_balance_alert(&wallet1_checksum, 100_000_000, BalanceAlertType::Below, None, None)
+        .create_balance_alert(
+            &wallet1_checksum,
+            100_000_000,
+            BalanceAlertType::Below,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
     let alert2 = metadata_db
-        .create_balance_alert(&wallet2_checksum, 200_000_000, BalanceAlertType::Above, None, None)
+        .create_balance_alert(
+            &wallet2_checksum,
+            200_000_000,
+            BalanceAlertType::Above,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -314,7 +362,13 @@ async fn test_duplicate_balance_alert_checking() {
 
     // Test 1: Create initial alert
     let alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            100_000_000,
+            BalanceAlertType::Below,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -371,17 +425,35 @@ async fn test_duplicate_alert_all_types() {
     let threshold = 50_000_000;
 
     let below_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Below, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            threshold,
+            BalanceAlertType::Below,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
     let above_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Above, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            threshold,
+            BalanceAlertType::Above,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
     let equals_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, threshold, BalanceAlertType::Equals, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            threshold,
+            BalanceAlertType::Equals,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -628,7 +700,13 @@ async fn test_balance_alert_threshold_crossing_detection() {
 
     // Test 1: "Below" alert crossing detection
     let below_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Below, None, None) // 1 BTC threshold
+        .create_balance_alert(
+            &wallet_checksum,
+            100_000_000,
+            BalanceAlertType::Below,
+            None,
+            None,
+        ) // 1 BTC threshold
         .await
         .unwrap();
 
@@ -637,42 +715,71 @@ async fn test_balance_alert_threshold_crossing_detection() {
         .check_balance_alerts(&wallet_checksum, 150_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 0, "First check should initialize without firing");
+    assert_eq!(
+        triggered.len(),
+        0,
+        "First check should initialize without firing"
+    );
 
     // Second check at 90 sats (below threshold) - should fire (crossed from above to below)
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 90_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 1, "Alert should fire when crossing from above to below");
+    assert_eq!(
+        triggered.len(),
+        1,
+        "Alert should fire when crossing from above to below"
+    );
 
     // Third check at 80 sats (still below threshold) - should NOT fire (already below)
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 80_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 0, "Alert should not fire when staying below threshold");
+    assert_eq!(
+        triggered.len(),
+        0,
+        "Alert should not fire when staying below threshold"
+    );
 
     // Fourth check at 110 sats (back above threshold) - should NOT fire (crossing wrong direction)
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 110_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 0, "Below alert should not fire when crossing from below to above");
+    assert_eq!(
+        triggered.len(),
+        0,
+        "Below alert should not fire when crossing from below to above"
+    );
 
     // Fifth check at 95 sats (below again) - should fire again (crossed from above to below)
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 95_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 1, "Alert should fire again when crossing from above to below");
+    assert_eq!(
+        triggered.len(),
+        1,
+        "Alert should fire again when crossing from above to below"
+    );
 
     // Clean up
-    metadata_db.delete_balance_alert(&below_alert.id).await.unwrap();
+    metadata_db
+        .delete_balance_alert(&below_alert.id)
+        .await
+        .unwrap();
 
     // Test 2: "Above" alert crossing detection
     let above_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Above, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            100_000_000,
+            BalanceAlertType::Above,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -681,28 +788,49 @@ async fn test_balance_alert_threshold_crossing_detection() {
         .check_balance_alerts(&wallet_checksum, 90_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 0, "First check should initialize without firing");
+    assert_eq!(
+        triggered.len(),
+        0,
+        "First check should initialize without firing"
+    );
 
     // Cross to 110 sats (above threshold) - should fire
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 110_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 1, "Above alert should fire when crossing from below to above");
+    assert_eq!(
+        triggered.len(),
+        1,
+        "Above alert should fire when crossing from below to above"
+    );
 
     // Stay at 120 sats (still above) - should NOT fire
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 120_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 0, "Above alert should not fire when staying above threshold");
+    assert_eq!(
+        triggered.len(),
+        0,
+        "Above alert should not fire when staying above threshold"
+    );
 
     // Clean up
-    metadata_db.delete_balance_alert(&above_alert.id).await.unwrap();
+    metadata_db
+        .delete_balance_alert(&above_alert.id)
+        .await
+        .unwrap();
 
     // Test 3: "Equals" alert crossing detection
     let equals_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 100_000_000, BalanceAlertType::Equals, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            100_000_000,
+            BalanceAlertType::Equals,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -711,36 +839,59 @@ async fn test_balance_alert_threshold_crossing_detection() {
         .check_balance_alerts(&wallet_checksum, 90_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 0, "First check should initialize without firing");
+    assert_eq!(
+        triggered.len(),
+        0,
+        "First check should initialize without firing"
+    );
 
     // Cross to exactly 100 sats - should fire
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 100_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 1, "Equals alert should fire when crossing to exact value");
+    assert_eq!(
+        triggered.len(),
+        1,
+        "Equals alert should fire when crossing to exact value"
+    );
 
     // Stay at 100 sats - should NOT fire
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 100_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 0, "Equals alert should not fire when staying at exact value");
+    assert_eq!(
+        triggered.len(),
+        0,
+        "Equals alert should not fire when staying at exact value"
+    );
 
     // Move away to 110 sats - should NOT fire
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 110_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 0, "Equals alert should not fire when moving away from value");
+    assert_eq!(
+        triggered.len(),
+        0,
+        "Equals alert should not fire when moving away from value"
+    );
 
     // Come back to 100 sats - should fire again (crossed back to equals)
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, 100_000_000)
         .await
         .unwrap();
-    assert_eq!(triggered.len(), 1, "Equals alert should fire again when crossing back to exact value");
+    assert_eq!(
+        triggered.len(),
+        1,
+        "Equals alert should fire again when crossing back to exact value"
+    );
 
     // Clean up
-    metadata_db.delete_balance_alert(&equals_alert.id).await.unwrap();
+    metadata_db
+        .delete_balance_alert(&equals_alert.id)
+        .await
+        .unwrap();
 }

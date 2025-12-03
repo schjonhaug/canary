@@ -417,9 +417,15 @@ impl ElectrumClientManager {
         };
 
         if has_client {
-            info!("ElectrumClientManager: Initial connection successful to {}", url);
+            info!(
+                "ElectrumClientManager: Initial connection successful to {}",
+                url
+            );
         } else {
-            warn!("ElectrumClientManager: Initial connection failed to {}, will retry on first sync", url);
+            warn!(
+                "ElectrumClientManager: Initial connection failed to {}, will retry on first sync",
+                url
+            );
         }
 
         Ok(manager)
@@ -483,7 +489,10 @@ impl ElectrumClientManager {
         }
 
         // We have the reconnection lock
-        info!("ElectrumClientManager: Attempting reconnection to {}", self.url);
+        info!(
+            "ElectrumClientManager: Attempting reconnection to {}",
+            self.url
+        );
 
         let result = match ElectrumClient::new(&self.url) {
             Ok(new_client) => {
@@ -564,10 +573,16 @@ mod tests {
     fn test_is_transport_error() {
         // Should be detected as transport errors
         assert!(ElectrumClientManager::is_transport_error("Broken pipe"));
-        assert!(ElectrumClientManager::is_transport_error("broken pipe (os error 32)"));
-        assert!(ElectrumClientManager::is_transport_error("connection reset by peer"));
+        assert!(ElectrumClientManager::is_transport_error(
+            "broken pipe (os error 32)"
+        ));
+        assert!(ElectrumClientManager::is_transport_error(
+            "connection reset by peer"
+        ));
         assert!(ElectrumClientManager::is_transport_error("unexpected eof"));
-        assert!(ElectrumClientManager::is_transport_error("Connection closed"));
+        assert!(ElectrumClientManager::is_transport_error(
+            "Connection closed"
+        ));
         assert!(ElectrumClientManager::is_transport_error("stream closed"));
         assert!(ElectrumClientManager::is_transport_error("write error"));
         assert!(ElectrumClientManager::is_transport_error("I/O error"));
@@ -577,7 +592,9 @@ mod tests {
         // Should NOT be detected as transport errors
         assert!(!ElectrumClientManager::is_transport_error("timeout"));
         assert!(!ElectrumClientManager::is_transport_error("server error"));
-        assert!(!ElectrumClientManager::is_transport_error("invalid response"));
+        assert!(!ElectrumClientManager::is_transport_error(
+            "invalid response"
+        ));
         assert!(!ElectrumClientManager::is_transport_error("parse error"));
     }
 }

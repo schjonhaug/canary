@@ -163,7 +163,9 @@ pub fn is_subscription_active(subscription_status: &str, trial_ends_at: Option<&
     if subscription_status == "trialing" {
         if let Some(trial_ends_at_str) = trial_ends_at {
             // Parse trial_ends_at and check if it's in the future
-            if let Ok(trial_ends_at) = chrono::NaiveDateTime::parse_from_str(trial_ends_at_str, "%Y-%m-%d %H:%M:%S") {
+            if let Ok(trial_ends_at) =
+                chrono::NaiveDateTime::parse_from_str(trial_ends_at_str, "%Y-%m-%d %H:%M:%S")
+            {
                 let now = chrono::Utc::now().naive_utc();
                 trial_ends_at > now // Active if trial hasn't ended yet
             } else {
@@ -180,10 +182,15 @@ pub fn is_subscription_active(subscription_status: &str, trial_ends_at: Option<&
 /// Get the effective subscription status for display
 ///
 /// Returns "expired" if trial has ended, otherwise returns the original status
-pub fn get_effective_subscription_status(subscription_status: &str, trial_ends_at: Option<&str>) -> String {
+pub fn get_effective_subscription_status(
+    subscription_status: &str,
+    trial_ends_at: Option<&str>,
+) -> String {
     if subscription_status == "trialing" {
         if let Some(trial_ends_at_str) = trial_ends_at {
-            if let Ok(trial_ends_at) = chrono::NaiveDateTime::parse_from_str(trial_ends_at_str, "%Y-%m-%d %H:%M:%S") {
+            if let Ok(trial_ends_at) =
+                chrono::NaiveDateTime::parse_from_str(trial_ends_at_str, "%Y-%m-%d %H:%M:%S")
+            {
                 let now = chrono::Utc::now().naive_utc();
                 if trial_ends_at < now {
                     return "expired".to_string();
@@ -230,7 +237,10 @@ mod tests {
     #[test]
     fn test_is_subscription_active_with_active_status() {
         assert!(is_subscription_active("active", None));
-        assert!(is_subscription_active("active", Some("2025-01-01 00:00:00")));
+        assert!(is_subscription_active(
+            "active",
+            Some("2025-01-01 00:00:00")
+        ));
     }
 
     #[test]
@@ -284,8 +294,14 @@ mod tests {
 
     #[test]
     fn test_get_effective_subscription_status_other_statuses() {
-        assert_eq!(get_effective_subscription_status("expired", None), "expired");
-        assert_eq!(get_effective_subscription_status("canceled", None), "canceled");
+        assert_eq!(
+            get_effective_subscription_status("expired", None),
+            "expired"
+        );
+        assert_eq!(
+            get_effective_subscription_status("canceled", None),
+            "canceled"
+        );
     }
 }
 

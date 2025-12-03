@@ -38,13 +38,17 @@ pub struct CreateWalletRequest {
     /// The multipath output descriptor for the wallet or extended public key (XPUB)
     pub descriptor: String,
     /// The user's preferred language for notifications (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]    pub preferred_language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preferred_language: Option<String>,
     /// Whether this is a fresh wallet with no transaction history (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]    pub is_fresh_wallet: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_fresh_wallet: Option<bool>,
     /// Script type for XPUB wallets (required when is_fresh_wallet=true and descriptor is XPUB, optional for advanced settings)
-    #[serde(skip_serializing_if = "Option::is_none")]    pub script_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub script_type: Option<String>,
     /// Stop gap for advanced users (auto, 250, 500, 750, 1000)
-    #[serde(skip_serializing_if = "Option::is_none")]    pub stop_gap: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_gap: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -177,9 +181,18 @@ impl AppServices {
         if is_admin {
             tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
         } else if !is_subscription_active {
-            tracing::info!("🎯 Deactivating all wallets for user {} (status: {})", user_id, subscription_status);
+            tracing::info!(
+                "🎯 Deactivating all wallets for user {} (status: {})",
+                user_id,
+                subscription_status
+            );
         } else {
-            tracing::info!("🎯 Applying {} tier limits for user {} (status: {})", tier, user_id, subscription_status);
+            tracing::info!(
+                "🎯 Applying {} tier limits for user {} (status: {})",
+                tier,
+                user_id,
+                subscription_status
+            );
         }
 
         // Get all wallets for this user ordered by creation time (oldest first)
@@ -3412,7 +3425,8 @@ pub async fn demo_login(
             return (
                 StatusCode::NOT_FOUND,
                 Json(ErrorResponse {
-                    error: "Demo user not found. Please ensure backend is running in dev mode.".to_string(),
+                    error: "Demo user not found. Please ensure backend is running in dev mode."
+                        .to_string(),
                 }),
             )
                 .into_response();
@@ -4990,7 +5004,8 @@ pub async fn create_wallet_balance_alert(
 
     // Validate threshold type: exactly one must be provided (BTC OR fiat, not both or neither)
     let is_btc_threshold = request.threshold_sats.is_some();
-    let is_fiat_threshold = request.threshold_currency.is_some() && request.threshold_fiat_amount.is_some();
+    let is_fiat_threshold =
+        request.threshold_currency.is_some() && request.threshold_fiat_amount.is_some();
 
     if is_btc_threshold == is_fiat_threshold {
         return (
@@ -5023,7 +5038,8 @@ pub async fn create_wallet_balance_alert(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
-                    error: "Cannot create alert for 'below 0' - balance cannot go below zero".to_string(),
+                    error: "Cannot create alert for 'below 0' - balance cannot go below zero"
+                        .to_string(),
                 }),
             )
                 .into_response();
@@ -5051,7 +5067,11 @@ pub async fn create_wallet_balance_alert(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
-                    error: format!("Unsupported currency: {}. Supported currencies: {}", currency, crate::exchange_rates::SUPPORTED_CURRENCIES.join(", ")),
+                    error: format!(
+                        "Unsupported currency: {}. Supported currencies: {}",
+                        currency,
+                        crate::exchange_rates::SUPPORTED_CURRENCIES.join(", ")
+                    ),
                 }),
             )
                 .into_response();
@@ -5092,7 +5112,10 @@ pub async fn create_wallet_balance_alert(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
-                    error: format!("Fiat amount {} {} is too small to convert to satoshis", fiat_amount, currency),
+                    error: format!(
+                        "Fiat amount {} {} is too small to convert to satoshis",
+                        fiat_amount, currency
+                    ),
                 }),
             )
                 .into_response();
@@ -5198,9 +5221,7 @@ pub async fn create_wallet_balance_alert(
 
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: error_msg,
-                }),
+                Json(ErrorResponse { error: error_msg }),
             )
                 .into_response();
         }
@@ -5209,7 +5230,13 @@ pub async fn create_wallet_balance_alert(
     // Create the balance alert
     match app_services
         .metadata_db
-        .create_balance_alert(&checksum, threshold_sats, request.alert_type, threshold_currency, threshold_fiat_amount)
+        .create_balance_alert(
+            &checksum,
+            threshold_sats,
+            request.alert_type,
+            threshold_currency,
+            threshold_fiat_amount,
+        )
         .await
     {
         Ok(alert) => Json(alert).into_response(),

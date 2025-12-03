@@ -10,6 +10,7 @@ mod exchange_rates;
 mod message_formatter;
 mod metadata;
 mod migrations;
+mod notification_failure_tracker;
 mod notifications;
 mod ntfy_provider;
 mod stripe_billing;
@@ -204,7 +205,8 @@ async fn main() -> anyhow::Result<()> {
             // Start the email queue worker before registering the provider
             match email_queue::EmailQueueConfig::from_env() {
                 Ok(email_queue_config) => {
-                    if let Err(e) = email_queue::start_email_queue_worker(email_queue_config).await {
+                    if let Err(e) = email_queue::start_email_queue_worker(email_queue_config).await
+                    {
                         println!("⚠️  Failed to start email queue worker: {}", e);
                         println!("   Email notifications will not work");
                     } else {
@@ -213,7 +215,10 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
                 Err(e) => {
-                    println!("⚠️  Email provider enabled but missing configuration: {}", e);
+                    println!(
+                        "⚠️  Email provider enabled but missing configuration: {}",
+                        e
+                    );
                 }
             }
         }
@@ -258,64 +263,97 @@ async fn main() -> anyhow::Result<()> {
 
         if let Some(descriptor) = bacon_descriptor {
             // Get demo user from database
-            let demo_user_result = app_services.metadata_db.get_user_by_email("demo@canarybitcoin.com").await;
+            let demo_user_result = app_services
+                .metadata_db
+                .get_user_by_email("demo@canarybitcoin.com")
+                .await;
 
             if let Ok(Some(demo_user)) = demo_user_result {
                 // Check if demo user already has a "Bacon Wallet" by name
                 // (checking by name instead of descriptor to avoid BDK normalization issues)
-                let existing_wallets = app_services.metadata_db.get_wallets_for_user(Some(&demo_user.id)).await.unwrap_or_default();
+                let existing_wallets = app_services
+                    .metadata_db
+                    .get_wallets_for_user(Some(&demo_user.id))
+                    .await
+                    .unwrap_or_default();
                 let bacon_exists = existing_wallets.iter().any(|w| w.name == "Bacon Wallet");
 
                 if !bacon_exists {
                     // Create bacon wallet through normal wallet creation flow
-                    match app_services.wallet_creation_service.create_wallet_non_blocking(
-                        "Bacon Wallet",
-                        descriptor,
-                        &demo_user.id,
-                        false, // not a fresh wallet
-                        None,  // auto-detect script type
-                        None,  // default stop gap
-                    ).await {
+                    match app_services
+                        .wallet_creation_service
+                        .create_wallet_non_blocking(
+                            "Bacon Wallet",
+                            descriptor,
+                            &demo_user.id,
+                            false, // not a fresh wallet
+                            None,  // auto-detect script type
+                            None,  // default stop gap
+                        )
+                        .await
+                    {
                         Ok(wallet_metadata) => {
-                            println!("✅ Created Bacon wallet for demo user (network: {:?})", config.network());
+                            println!(
+                                "✅ Created Bacon wallet for demo user (network: {:?})",
+                                config.network()
+                            );
 
                             // Add "Canary" contact with email notification
                             use metadata::{Language, ProviderType};
-                            match app_services.metadata_db.insert_contact_with_notification_methods(
-                                &wallet_metadata.checksum,
-                                "Canary",
-                                &Language::English,
-                                vec![(ProviderType::Email, "contact@canarybitcoin.com".to_string())],
-                            ).await {
+                            match app_services
+                                .metadata_db
+                                .insert_contact_with_notification_methods(
+                                    &wallet_metadata.checksum,
+                                    "Canary",
+                                    &Language::English,
+                                    vec![(
+                                        ProviderType::Email,
+                                        "contact@canarybitcoin.com".to_string(),
+                                    )],
+                                )
+                                .await
+                            {
                                 Ok(_) => println!("✅ Added Canary contact to Bacon wallet"),
                                 Err(e) => println!("❌ Failed to add Canary contact: {}", e),
                             }
 
                             // Create balance alert: when balance equals 0 BTC
                             use metadata::BalanceAlertType;
-                            match app_services.metadata_db.create_balance_alert(
-                                &wallet_metadata.checksum,
-                                0, // 0 sats
-                                BalanceAlertType::Equals,
-                                None, // BTC threshold
-                                None,
-                            ).await {
+                            match app_services
+                                .metadata_db
+                                .create_balance_alert(
+                                    &wallet_metadata.checksum,
+                                    0, // 0 sats
+                                    BalanceAlertType::Equals,
+                                    None, // BTC threshold
+                                    None,
+                                )
+                                .await
+                            {
                                 Ok(_) => println!("✅ Added 0 BTC balance alert to Bacon wallet"),
                                 Err(e) => println!("❌ Failed to add 0 BTC balance alert: {}", e),
                             }
 
                             // Create balance alert: when balance is above 0.21 BTC (21,000,000 sats)
-                            match app_services.metadata_db.create_balance_alert(
-                                &wallet_metadata.checksum,
-                                21_000_000, // 0.21 BTC in sats
-                                BalanceAlertType::Above,
-                                None, // BTC threshold
-                                None,
-                            ).await {
-                                Ok(_) => println!("✅ Added >0.21 BTC balance alert to Bacon wallet"),
-                                Err(e) => println!("❌ Failed to add >0.21 BTC balance alert: {}", e),
+                            match app_services
+                                .metadata_db
+                                .create_balance_alert(
+                                    &wallet_metadata.checksum,
+                                    21_000_000, // 0.21 BTC in sats
+                                    BalanceAlertType::Above,
+                                    None, // BTC threshold
+                                    None,
+                                )
+                                .await
+                            {
+                                Ok(_) => {
+                                    println!("✅ Added >0.21 BTC balance alert to Bacon wallet")
+                                }
+                                Err(e) => {
+                                    println!("❌ Failed to add >0.21 BTC balance alert: {}", e)
+                                }
                             }
-                        },
+                        }
                         Err(e) => println!("❌ Failed to create Bacon wallet: {}", e),
                     }
                 }
@@ -424,7 +462,10 @@ async fn main() -> anyhow::Result<()> {
 
                 // In FOSS mode, all wallets belong to the hardcoded "team" tier user
                 // No need to sync Personal tier since no FOSS wallets use that tier
-                if let Err(e) = foss_wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await {
+                if let Err(e) = foss_wallet_manager
+                    .sync_tier_parallel(SubscriptionTier::Team)
+                    .await
+                {
                     eprintln!("❌ Failed to sync FOSS wallets: {}", e);
                 }
 
@@ -452,7 +493,10 @@ async fn main() -> anyhow::Result<()> {
                 interval.tick().await;
 
                 // Sync Team tier wallets
-                if let Err(e) = team_wallet_manager.sync_tier_parallel(SubscriptionTier::Team).await {
+                if let Err(e) = team_wallet_manager
+                    .sync_tier_parallel(SubscriptionTier::Team)
+                    .await
+                {
                     eprintln!("Team tier sync failed: {}", e);
                 }
             }
@@ -471,7 +515,10 @@ async fn main() -> anyhow::Result<()> {
                 interval.tick().await;
 
                 // Sync Personal tier wallets
-                if let Err(e) = personal_wallet_manager.sync_tier_parallel(SubscriptionTier::Personal).await {
+                if let Err(e) = personal_wallet_manager
+                    .sync_tier_parallel(SubscriptionTier::Personal)
+                    .await
+                {
                     eprintln!("Personal tier sync failed: {}", e);
                 }
             }
@@ -483,23 +530,42 @@ async fn main() -> anyhow::Result<()> {
             // Wait a moment for sync tasks to start
             tokio::time::sleep(Duration::from_secs(2)).await;
 
-            if let Ok(non_syncing_summary) = startup_wallet_manager.metadata_db.get_non_syncing_wallets_summary().await {
+            if let Ok(non_syncing_summary) = startup_wallet_manager
+                .metadata_db
+                .get_non_syncing_wallets_summary()
+                .await
+            {
                 if non_syncing_summary.total_non_syncing > 0 {
                     let mut reasons = Vec::new();
                     if non_syncing_summary.expired_trials > 0 {
-                        reasons.push(format!("{} expired trials", non_syncing_summary.expired_trials));
+                        reasons.push(format!(
+                            "{} expired trials",
+                            non_syncing_summary.expired_trials
+                        ));
                     }
                     if non_syncing_summary.cancelled_subscriptions > 0 {
-                        reasons.push(format!("{} cancelled", non_syncing_summary.cancelled_subscriptions));
+                        reasons.push(format!(
+                            "{} cancelled",
+                            non_syncing_summary.cancelled_subscriptions
+                        ));
                     }
                     if non_syncing_summary.expired_subscriptions > 0 {
-                        reasons.push(format!("{} expired", non_syncing_summary.expired_subscriptions));
+                        reasons.push(format!(
+                            "{} expired",
+                            non_syncing_summary.expired_subscriptions
+                        ));
                     }
                     if non_syncing_summary.past_due_subscriptions > 0 {
-                        reasons.push(format!("{} past_due", non_syncing_summary.past_due_subscriptions));
+                        reasons.push(format!(
+                            "{} past_due",
+                            non_syncing_summary.past_due_subscriptions
+                        ));
                     }
                     if non_syncing_summary.inactive_wallets > 0 {
-                        reasons.push(format!("{} inactive (tier limits)", non_syncing_summary.inactive_wallets));
+                        reasons.push(format!(
+                            "{} inactive (tier limits)",
+                            non_syncing_summary.inactive_wallets
+                        ));
                     }
 
                     println!(
@@ -574,9 +640,8 @@ async fn main() -> anyhow::Result<()> {
                                     );
 
                                     // Store in database
-                                    if let Err(e) = metadata_db
-                                        .upsert_current_block_header(&block_header)
-                                        .await
+                                    if let Err(e) =
+                                        metadata_db.upsert_current_block_header(&block_header).await
                                     {
                                         eprintln!("Failed to store block header: {}", e);
                                     }
@@ -593,7 +658,9 @@ async fn main() -> anyhow::Result<()> {
                                         current_height, error_msg
                                     );
                                     // Check if transport error and trigger reconnection
-                                    if electrum::ElectrumClientManager::is_transport_error(&error_msg) {
+                                    if electrum::ElectrumClientManager::is_transport_error(
+                                        &error_msg,
+                                    ) {
                                         electrum_mgr.mark_disconnected(&error_msg).await;
                                         let _ = electrum_mgr.reconnect().await;
                                     }
@@ -628,7 +695,11 @@ async fn main() -> anyhow::Result<()> {
         loop {
             interval.tick().await;
 
-            match session_cleanup_manager.metadata_db.cleanup_expired_sessions().await {
+            match session_cleanup_manager
+                .metadata_db
+                .cleanup_expired_sessions()
+                .await
+            {
                 Ok(deleted) => {
                     if deleted > 0 {
                         println!("Cleaned up {} expired sessions", deleted);
@@ -647,6 +718,12 @@ async fn main() -> anyhow::Result<()> {
     let notification_event_rx = notification_tx.subscribe();
     tokio::spawn(async move {
         let mut rx = notification_event_rx;
+
+        // Initialize failure trackers for SMS and Email providers
+        let sms_failure_tracker =
+            notification_failure_tracker::NotificationFailureTracker::new("twilio");
+        let email_failure_tracker =
+            notification_failure_tracker::NotificationFailureTracker::new("email");
 
         while let Ok(notification) = rx.recv().await {
             let manager = notification_worker_manager.lock().await;
@@ -757,6 +834,55 @@ async fn main() -> anyhow::Result<()> {
                                         total_sent += 1;
                                     } else {
                                         failed_count += 1;
+                                    }
+
+                                    // Track failures for SMS and Email providers and send admin alerts
+                                    if provider_name == "twilio" || provider_name == "email" {
+                                        let tracker = if provider_name == "twilio" {
+                                            &sms_failure_tracker
+                                        } else {
+                                            &email_failure_tracker
+                                        };
+
+                                        let display_name = if provider_name == "twilio" {
+                                            "SMS (Twilio)"
+                                        } else {
+                                            "Email (Resend)"
+                                        };
+
+                                        if result.success {
+                                            // Check if we should send recovery notification
+                                            if tracker.record_success() {
+                                                let admin =
+                                                    admin_notifications::AdminNotifications::new();
+                                                if admin.is_enabled() {
+                                                    admin
+                                                        .notify_provider_recovery(display_name)
+                                                        .await;
+                                                }
+                                            }
+                                        } else {
+                                            // Record failure and check if we should alert
+                                            let (should_alert, failures, category) = tracker
+                                                .record_failure(result.error_message.as_deref())
+                                                .await;
+                                            if should_alert {
+                                                let admin =
+                                                    admin_notifications::AdminNotifications::new();
+                                                if admin.is_enabled() {
+                                                    admin
+                                                        .notify_provider_failure(
+                                                            display_name,
+                                                            failures,
+                                                            &category.to_string(),
+                                                            result.error_message.as_deref(),
+                                                            category.suggested_action(),
+                                                        )
+                                                        .await;
+                                                }
+                                                tracker.mark_alert_sent();
+                                            }
+                                        }
                                     }
                                 }
                             }

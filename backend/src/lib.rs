@@ -13,6 +13,7 @@ pub mod exchange_rates;
 pub mod message_formatter;
 pub mod metadata;
 pub mod migrations;
+pub mod notification_failure_tracker;
 pub mod notifications;
 pub mod ntfy_provider;
 pub mod stripe_billing;
@@ -34,6 +35,7 @@ pub use metadata::{
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 pub use migrations::MigrationRunner;
+pub use notification_failure_tracker::{NotificationFailureTracker, ProviderErrorCategory};
 pub use notifications::{
     NotificationManager, NotificationProvider, NotificationResult, ProviderInfo,
 };

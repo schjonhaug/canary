@@ -913,10 +913,16 @@ impl StripeBilling {
                                     if current_status == Some("trialing") {
                                         should_update = true;
                                         if reason.is_empty() {
-                                            if let Some(current_trial_end) = subscription.get("trial_end").and_then(|t| t.as_i64()) {
-                                                let new_date = chrono::DateTime::from_timestamp(current_trial_end, 0)
-                                                    .map(|dt| dt.format("%B %d, %Y").to_string())
-                                                    .unwrap_or_else(|| "unknown".to_string());
+                                            if let Some(current_trial_end) = subscription
+                                                .get("trial_end")
+                                                .and_then(|t| t.as_i64())
+                                            {
+                                                let new_date = chrono::DateTime::from_timestamp(
+                                                    current_trial_end,
+                                                    0,
+                                                )
+                                                .map(|dt| dt.format("%B %d, %Y").to_string())
+                                                .unwrap_or_else(|| "unknown".to_string());
                                                 reason = format!("Trial active until {}", new_date);
                                             }
                                         }
@@ -946,11 +952,14 @@ impl StripeBilling {
 
                                         // Extract trial_end for trialing subscriptions
                                         let trial_ends_at = if current_status == Some("trialing") {
-                                            subscription.get("trial_end").and_then(|t| t.as_i64()).map(|ts| {
-                                                chrono::DateTime::from_timestamp(ts, 0)
-                                                    .map(|dt| dt.to_rfc3339())
-                                                    .unwrap_or_default()
-                                            })
+                                            subscription
+                                                .get("trial_end")
+                                                .and_then(|t| t.as_i64())
+                                                .map(|ts| {
+                                                    chrono::DateTime::from_timestamp(ts, 0)
+                                                        .map(|dt| dt.to_rfc3339())
+                                                        .unwrap_or_default()
+                                                })
                                         } else {
                                             None
                                         };

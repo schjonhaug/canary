@@ -2568,10 +2568,7 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
-            conn.execute(
-                "DELETE FROM sessions WHERE user_id = ?1",
-                params![&user_id],
-            )?;
+            conn.execute("DELETE FROM sessions WHERE user_id = ?1", params![&user_id])?;
             Ok(())
         })
         .await?
@@ -3306,7 +3303,6 @@ impl MetadataDb {
         })
         .await?
     }
-
 
     #[allow(dead_code)] // Used in system tests
     pub async fn deactivate_balance_alert(&self, alert_id: &str) -> Result<()> {

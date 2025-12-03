@@ -1,8 +1,8 @@
+use crate::email_queue;
 use anyhow::{anyhow, Result};
 use rand::Rng;
 use resend_rs::types::{ContactData, CreateEmailBaseOptions};
 use resend_rs::Resend;
-use crate::email_queue;
 
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
@@ -465,10 +465,7 @@ View subscription plans: {billing_url}
     /// Queue multiple emails for background sending via the global email queue
     /// Returns Vec of Results - all success since emails are queued, not sent immediately
     /// Actual sending happens asynchronously with rate limiting and retries
-    pub async fn send_batch_emails(
-        &self,
-        emails: Vec<BatchEmailRequest>,
-    ) -> Vec<Result<String>> {
+    pub async fn send_batch_emails(&self, emails: Vec<BatchEmailRequest>) -> Vec<Result<String>> {
         if emails.is_empty() {
             return Vec::new();
         }

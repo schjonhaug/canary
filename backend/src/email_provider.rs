@@ -110,8 +110,10 @@ impl NotificationProvider for EmailProvider {
                         (html_body, text_body)
                     }
                     TransactionNotification::BalanceAlert(_) => {
-                        let html_body = Self::build_balance_alert_html(wallet_name, &contact.name, &message);
-                        let text_body = Self::build_balance_alert_text(wallet_name, &contact.name, &message);
+                        let html_body =
+                            Self::build_balance_alert_html(wallet_name, &contact.name, &message);
+                        let text_body =
+                            Self::build_balance_alert_text(wallet_name, &contact.name, &message);
                         (html_body, text_body)
                     }
                 };
@@ -136,13 +138,15 @@ impl NotificationProvider for EmailProvider {
         }
 
         // Extract batch requests for queuing
-        let batch_requests: Vec<BatchEmailRequest> = batch_data.iter().map(|(_, _, req)| req.clone()).collect();
+        let batch_requests: Vec<BatchEmailRequest> =
+            batch_data.iter().map(|(_, _, req)| req.clone()).collect();
 
         // Queue emails for background sending (with rate limiting and retries)
         let batch_results = email_service.send_batch_emails(batch_requests).await;
 
         // Process results and return
-        for ((method, message, _), result) in batch_data.into_iter().zip(batch_results.into_iter()) {
+        for ((method, message, _), result) in batch_data.into_iter().zip(batch_results.into_iter())
+        {
             match result {
                 Ok(_) => {
                     // Email queued successfully

@@ -84,6 +84,50 @@ impl AdminNotifications {
         }
     }
 
+    /// Notify admin when a notification provider (SMS/Email) has consecutive delivery failures.
+    pub async fn notify_provider_failure(
+        &self,
+        provider_name: &str,
+        consecutive_failures: u32,
+        error_category: &str,
+        last_error: Option<&str>,
+        suggested_action: &str,
+    ) {
+        if let Some(topic) = &self.topic {
+            let error_info = last_error.unwrap_or("Unknown error");
+            let message = format!(
+                "🚨 Provider: {}\n📊 Consecutive failures: {}\n🏷️ Error type: {}\n📝 Last error: {}\n\n💡 Suggested action: {}\n\n⚠️ {} notifications are not being delivered until this is resolved.",
+                provider_name, consecutive_failures, error_category, error_info, suggested_action, provider_name
+            );
+
+            self.send_notification(
+                topic,
+                &format!("{} Delivery Failed", provider_name),
+                &message,
+                "warning",
+            )
+            .await;
+        }
+    }
+
+    /// Notify admin when a notification provider recovers after failures.
+    pub async fn notify_provider_recovery(&self, provider_name: &str) {
+        if let Some(topic) = &self.topic {
+            let message = format!(
+                "✅ {} is working again.\n📡 Notifications will be delivered normally.",
+                provider_name
+            );
+
+            self.send_notification(
+                topic,
+                &format!("{} Delivery Restored", provider_name),
+                &message,
+                "white_check_mark",
+            )
+            .await;
+        }
+    }
+
     async fn send_notification(&self, topic: &str, title: &str, message: &str, tag: &str) {
         let ntfy_url = format!("https://ntfy.sh/{}", topic);
 

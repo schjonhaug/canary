@@ -78,7 +78,9 @@ impl WalletSyncService {
                                 if manager.should_send_reconnected_notification() {
                                     let admin_notifications = AdminNotifications::new();
                                     if admin_notifications.is_enabled() {
-                                        admin_notifications.notify_electrum_reconnected(manager.url()).await;
+                                        admin_notifications
+                                            .notify_electrum_reconnected(manager.url())
+                                            .await;
                                     }
                                 }
                                 match manager.get_client().await {
@@ -104,14 +106,18 @@ impl WalletSyncService {
                                 error!("[{}] Reconnection failed: {}", wallet_checksum, e);
                                 // Check if we should send an alert
                                 let failures = manager.get_consecutive_failures();
-                                if failures >= ALERT_FAILURE_THRESHOLD && !manager.has_alert_been_sent() {
+                                if failures >= ALERT_FAILURE_THRESHOLD
+                                    && !manager.has_alert_been_sent()
+                                {
                                     let admin_notifications = AdminNotifications::new();
                                     if admin_notifications.is_enabled() {
-                                        admin_notifications.notify_electrum_disconnect(
-                                            manager.url(),
-                                            failures,
-                                            Some(&e.to_string()),
-                                        ).await;
+                                        admin_notifications
+                                            .notify_electrum_disconnect(
+                                                manager.url(),
+                                                failures,
+                                                Some(&e.to_string()),
+                                            )
+                                            .await;
                                         manager.mark_alert_sent();
                                         warn!(
                                             "[{}] Sent admin alert for {} consecutive Electrum failures",
@@ -175,7 +181,9 @@ impl WalletSyncService {
                                     if manager.should_send_reconnected_notification() {
                                         let admin_notifications = AdminNotifications::new();
                                         if admin_notifications.is_enabled() {
-                                            admin_notifications.notify_electrum_reconnected(manager.url()).await;
+                                            admin_notifications
+                                                .notify_electrum_reconnected(manager.url())
+                                                .await;
                                         }
                                     }
                                 }
@@ -192,14 +200,18 @@ impl WalletSyncService {
                                     );
                                     // Check if we should send an alert
                                     let failures = manager.get_consecutive_failures();
-                                    if failures >= ALERT_FAILURE_THRESHOLD && !manager.has_alert_been_sent() {
+                                    if failures >= ALERT_FAILURE_THRESHOLD
+                                        && !manager.has_alert_been_sent()
+                                    {
                                         let admin_notifications = AdminNotifications::new();
                                         if admin_notifications.is_enabled() {
-                                            admin_notifications.notify_electrum_disconnect(
-                                                manager.url(),
-                                                failures,
-                                                Some(&reconnect_err.to_string()),
-                                            ).await;
+                                            admin_notifications
+                                                .notify_electrum_disconnect(
+                                                    manager.url(),
+                                                    failures,
+                                                    Some(&reconnect_err.to_string()),
+                                                )
+                                                .await;
                                             manager.mark_alert_sent();
                                             warn!(
                                                 "[{}] Sent admin alert for {} consecutive Electrum failures",
@@ -1195,7 +1207,12 @@ impl WalletSyncService {
         for alert in active_alerts {
             // Determine threshold to compare against
             // For fiat thresholds, convert current balance to fiat using current exchange rate
-            let (comparison_threshold, exchange_rate_snapshot) = if let (Some(ref currency), Some(fiat_amount)) = (&alert.threshold_currency, alert.threshold_fiat_amount) {
+            let (comparison_threshold, exchange_rate_snapshot) = if let (
+                Some(ref currency),
+                Some(fiat_amount),
+            ) =
+                (&alert.threshold_currency, alert.threshold_fiat_amount)
+            {
                 // Fiat threshold - need to convert current balance to fiat
                 match self.metadata_db.get_exchange_rates().await {
                     Ok(rates) => {
@@ -1266,15 +1283,18 @@ impl WalletSyncService {
                 match alert.alert_type {
                     crate::metadata::BalanceAlertType::Above => {
                         // Fire when crossing from at-or-below to above
-                        previous_value <= comparison_threshold && current_value > comparison_threshold
+                        previous_value <= comparison_threshold
+                            && current_value > comparison_threshold
                     }
                     crate::metadata::BalanceAlertType::Below => {
                         // Fire when crossing from at-or-above to below
-                        previous_value >= comparison_threshold && current_value < comparison_threshold
+                        previous_value >= comparison_threshold
+                            && current_value < comparison_threshold
                     }
                     crate::metadata::BalanceAlertType::Equals => {
                         // Fire when crossing to equals (from any non-equals value)
-                        previous_value != comparison_threshold && current_value == comparison_threshold
+                        previous_value != comparison_threshold
+                            && current_value == comparison_threshold
                     }
                 }
             } else {
@@ -1309,8 +1329,13 @@ impl WalletSyncService {
             }
 
             if should_trigger {
-                let threshold_desc = if let (Some(ref currency), Some(fiat_amount)) = (&alert.threshold_currency, alert.threshold_fiat_amount) {
-                    format!("{} {} (≈ {} sats)", fiat_amount, currency, alert.threshold_sats)
+                let threshold_desc = if let (Some(ref currency), Some(fiat_amount)) =
+                    (&alert.threshold_currency, alert.threshold_fiat_amount)
+                {
+                    format!(
+                        "{} {} (≈ {} sats)",
+                        fiat_amount, currency, alert.threshold_sats
+                    )
                 } else {
                     format!("{} sats", alert.threshold_sats)
                 };
@@ -1361,7 +1386,12 @@ impl WalletSyncService {
 
                 // Send balance alert notification via existing notification system
                 if let Err(e) = self
-                    .send_balance_alert_notification(&alert, wallet_checksum, current_balance_sats, exchange_rate_snapshot)
+                    .send_balance_alert_notification(
+                        &alert,
+                        wallet_checksum,
+                        current_balance_sats,
+                        exchange_rate_snapshot,
+                    )
                     .await
                 {
                     warn!(

@@ -324,7 +324,13 @@ impl AuthService {
         contact_email.to_lowercase() == user_email.to_lowercase()
     }
 
-    pub fn generate_token(&self, user_id: &str, email: &str, is_admin: bool, is_demo: bool) -> Result<String> {
+    pub fn generate_token(
+        &self,
+        user_id: &str,
+        email: &str,
+        is_admin: bool,
+        is_demo: bool,
+    ) -> Result<String> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
 
         // Generate unique JWT ID using nanosecond timestamp to prevent token collision
