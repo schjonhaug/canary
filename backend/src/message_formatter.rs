@@ -141,17 +141,29 @@ impl MessageFormatter {
         language: &Language,
     ) -> String {
         // Check if this is a fiat threshold alert
-        let threshold_display = if let (Some(ref currency), Some(fiat_amount), Some(rate)) = (&alert.threshold_currency, alert.threshold_fiat_amount, alert.exchange_rate_snapshot) {
+        let threshold_display = if let (Some(ref currency), Some(fiat_amount), Some(rate)) = (
+            &alert.threshold_currency,
+            alert.threshold_fiat_amount,
+            alert.exchange_rate_snapshot,
+        ) {
             // Fiat threshold: show fiat amount with BTC equivalent
             let fiat_str = Self::format_fiat_amount(fiat_amount, currency, language);
             let btc_str = Self::format_btc_amount(alert.threshold_sats, language);
-            format!("{} (≈ {} BTC at {:.0} {}/BTC)", fiat_str, btc_str, rate, currency)
+            format!(
+                "{} (≈ {} BTC at {:.0} {}/BTC)",
+                fiat_str, btc_str, rate, currency
+            )
         } else {
             // BTC threshold: show only BTC
-            format!("{} BTC", Self::format_btc_amount(alert.threshold_sats, language))
+            format!(
+                "{} BTC",
+                Self::format_btc_amount(alert.threshold_sats, language)
+            )
         };
 
-        let current_display = if let (Some(ref currency), Some(rate)) = (&alert.threshold_currency, alert.exchange_rate_snapshot) {
+        let current_display = if let (Some(ref currency), Some(rate)) =
+            (&alert.threshold_currency, alert.exchange_rate_snapshot)
+        {
             // Calculate current balance in fiat
             let current_btc = alert.current_balance_sats as f64 / 100_000_000.0;
             let current_fiat = current_btc * rate;
@@ -159,7 +171,10 @@ impl MessageFormatter {
             let btc_str = Self::format_btc_amount(alert.current_balance_sats, language);
             format!("{} (≈ {} BTC)", fiat_str, btc_str)
         } else {
-            format!("{} BTC", Self::format_btc_amount(alert.current_balance_sats, language))
+            format!(
+                "{} BTC",
+                Self::format_btc_amount(alert.current_balance_sats, language)
+            )
         };
 
         match alert.alert_type {

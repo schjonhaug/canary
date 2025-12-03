@@ -156,7 +156,10 @@ async fn send_batch_with_rate_limit(
             let failure_count = results.len() - success_count;
 
             if failure_count > 0 {
-                println!("📧 Sent batch: {} succeeded, {} failed", success_count, failure_count);
+                println!(
+                    "📧 Sent batch: {} succeeded, {} failed",
+                    success_count, failure_count
+                );
             }
 
             // Handle individual failures - retry if possible
@@ -280,8 +283,15 @@ async fn send_batch_to_resend(
             }
         }
     } else {
-        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-        Err(anyhow!("Batch send failed with status {}: {}", status, error_text))
+        let error_text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        Err(anyhow!(
+            "Batch send failed with status {}: {}",
+            status,
+            error_text
+        ))
     }
 }
 

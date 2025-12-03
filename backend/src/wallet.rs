@@ -839,16 +839,28 @@ impl WalletManager {
             if non_syncing_summary.total_non_syncing > 0 {
                 let mut reasons = Vec::new();
                 if non_syncing_summary.expired_trials > 0 {
-                    reasons.push(format!("{} expired trials", non_syncing_summary.expired_trials));
+                    reasons.push(format!(
+                        "{} expired trials",
+                        non_syncing_summary.expired_trials
+                    ));
                 }
                 if non_syncing_summary.cancelled_subscriptions > 0 {
-                    reasons.push(format!("{} cancelled", non_syncing_summary.cancelled_subscriptions));
+                    reasons.push(format!(
+                        "{} cancelled",
+                        non_syncing_summary.cancelled_subscriptions
+                    ));
                 }
                 if non_syncing_summary.expired_subscriptions > 0 {
-                    reasons.push(format!("{} expired", non_syncing_summary.expired_subscriptions));
+                    reasons.push(format!(
+                        "{} expired",
+                        non_syncing_summary.expired_subscriptions
+                    ));
                 }
                 if non_syncing_summary.past_due_subscriptions > 0 {
-                    reasons.push(format!("{} past_due", non_syncing_summary.past_due_subscriptions));
+                    reasons.push(format!(
+                        "{} past_due",
+                        non_syncing_summary.past_due_subscriptions
+                    ));
                 }
                 if non_syncing_summary.inactive_wallets > 0 {
                     reasons.push(format!("{} inactive", non_syncing_summary.inactive_wallets));
@@ -1056,9 +1068,18 @@ impl WalletManager {
         if is_admin {
             tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
         } else if !is_subscription_active {
-            tracing::info!("🎯 Deactivating all wallets for user {} (status: {})", user_id, subscription_status);
+            tracing::info!(
+                "🎯 Deactivating all wallets for user {} (status: {})",
+                user_id,
+                subscription_status
+            );
         } else {
-            tracing::info!("🎯 Applying {} tier limits for user {} (status: {})", tier, user_id, subscription_status);
+            tracing::info!(
+                "🎯 Applying {} tier limits for user {} (status: {})",
+                tier,
+                user_id,
+                subscription_status
+            );
         }
 
         // Get all wallets for this user ordered by creation time (oldest first)
@@ -1171,7 +1192,6 @@ impl WalletManager {
     ) -> Result<Option<crate::metadata::WalletMetadata>, anyhow::Error> {
         self.metadata_db.get_wallet_by_checksum(checksum).await
     }
-
 
     /// Load all active wallets from disk into memory
     /// This is called on startup to pre-load wallets with active subscriptions

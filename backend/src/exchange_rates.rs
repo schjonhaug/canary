@@ -34,9 +34,7 @@ pub struct ExchangeRateService {
 
 impl ExchangeRateService {
     pub fn new(metadata_db: Arc<MetadataDb>) -> Self {
-        Self {
-            metadata_db,
-        }
+        Self { metadata_db }
     }
 
     /// Map browser locale to appropriate fiat currency
