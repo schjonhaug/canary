@@ -271,11 +271,13 @@ Database consists of 12 migrations providing comprehensive schema:
    CANARY_ENABLE_TWILIO=true
    TWILIO_ACCOUNT_SID=your_account_sid
    TWILIO_AUTH_TOKEN=your_auth_token
-   TWILIO_MESSAGING_SERVICE_SID=your_service_sid_or_phone
+   # Sender ID: alphanumeric name (e.g., "Canary"), phone number, or Messaging Service SID
+   TWILIO_SENDER_ID=Canary
    ```
 2. Add contacts with phone numbers: `POST /api/wallets/{checksum}/contacts` (name + language + phone)
 3. Phone numbers must include country code (e.g., `+4712345678`) and are validated/normalized to E.164 format
 4. Automatic SMS notifications for all transactions
+5. **Alphanumeric Sender IDs**: Display brand name instead of phone number (one-way only, not supported in all countries)
 
 ### Resend Email (Optional)
 1. Set environment variables in `.env`:

@@ -20,19 +20,19 @@ struct TwilioSmsRequest {
 pub struct TwilioConfig {
     pub account_sid: String,
     pub auth_token: String,
-    pub messaging_service_sid: String,
+    pub sender_id: String,
 }
 
 impl TwilioConfig {
     pub fn from_env() -> Option<Self> {
         let account_sid = std::env::var("TWILIO_ACCOUNT_SID").ok()?;
         let auth_token = std::env::var("TWILIO_AUTH_TOKEN").ok()?;
-        let messaging_service_sid = std::env::var("TWILIO_MESSAGING_SERVICE_SID").ok()?;
+        let sender_id = std::env::var("TWILIO_SENDER_ID").ok()?;
 
         Some(Self {
             account_sid,
             auth_token,
-            messaging_service_sid,
+            sender_id,
         })
     }
 }
@@ -61,7 +61,7 @@ impl TwilioProvider {
             self.config.account_sid
         );
 
-        let from_number = &self.config.messaging_service_sid;
+        let from_number = &self.config.sender_id;
 
         let sms_request = TwilioSmsRequest {
             to: phone_number.to_string(),
@@ -184,12 +184,12 @@ impl NotificationProvider for TwilioProvider {
                         "type": "string",
                         "description": "Twilio Auth Token"
                     },
-                    "messaging_service_sid": {
+                    "sender_id": {
                         "type": "string",
-                        "description": "Twilio Messaging Service SID or phone number"
+                        "description": "SMS sender ID (alphanumeric name, phone number, or Messaging Service SID)"
                     }
                 },
-                "required": ["account_sid", "auth_token", "messaging_service_sid"]
+                "required": ["account_sid", "auth_token", "sender_id"]
             }),
         }
     }

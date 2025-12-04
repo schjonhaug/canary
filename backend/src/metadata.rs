@@ -62,7 +62,7 @@ pub struct TwilioConfig {
     pub id: Option<i64>,
     pub account_sid: String,
     pub auth_token: String,
-    pub messaging_service_sid: String,
+    pub sender_id: String,
     pub verify_service_sid: Option<String>,
     pub created_at: String,
 }

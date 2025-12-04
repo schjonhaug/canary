@@ -140,7 +140,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Twilio will be auto-enabled in cloud mode if configured
 TWILIO_ACCOUNT_SID=your_account_sid
 TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_MESSAGING_SERVICE_SID=your_service_sid
+# Sender ID: alphanumeric name (e.g., "Canary"), phone number, or Messaging Service SID
+TWILIO_SENDER_ID=Canary
 
 # Email provider (Resend)
 RESEND_API_KEY=re_...

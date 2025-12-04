@@ -195,7 +195,7 @@ async fn main() -> anyhow::Result<()> {
                     println!("⚠️  Twilio provider enabled but missing environment variables:");
                     println!("    - TWILIO_ACCOUNT_SID");
                     println!("    - TWILIO_AUTH_TOKEN");
-                    println!("    - TWILIO_MESSAGING_SERVICE_SID");
+                    println!("    - TWILIO_SENDER_ID");
                 }
             }
         }

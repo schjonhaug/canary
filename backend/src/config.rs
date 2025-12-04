@@ -177,7 +177,7 @@ impl AppConfig {
         // Check if Twilio environment variables are configured
         std::env::var("TWILIO_ACCOUNT_SID").is_ok()
             && std::env::var("TWILIO_AUTH_TOKEN").is_ok()
-            && std::env::var("TWILIO_MESSAGING_SERVICE_SID").is_ok()
+            && std::env::var("TWILIO_SENDER_ID").is_ok()
     }
 
     /// Check if email provider should be enabled
@@ -220,8 +220,8 @@ impl AppConfig {
         if std::env::var("TWILIO_AUTH_TOKEN").is_err() {
             missing.push("TWILIO_AUTH_TOKEN - Required for SMS notifications");
         }
-        if std::env::var("TWILIO_MESSAGING_SERVICE_SID").is_err() {
-            missing.push("TWILIO_MESSAGING_SERVICE_SID - Required for SMS notifications");
+        if std::env::var("TWILIO_SENDER_ID").is_err() {
+            missing.push("TWILIO_SENDER_ID - Required for SMS notifications");
         }
         if std::env::var("TWILIO_VERIFY_SERVICE_SID").is_err() {
             missing.push("TWILIO_VERIFY_SERVICE_SID - Required for SMS contact verification");
