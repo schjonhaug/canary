@@ -137,7 +137,6 @@ export function BalanceAlertsList({
         setShowCreateForm(false)
         setThresholdInput('')
       } catch (err) {
-        console.error('Failed to create balance alert:', err)
         setError(err instanceof Error ? err.message : 'Failed to create balance alert')
       } finally {
         setIsSubmitting(false)
@@ -183,7 +182,6 @@ export function BalanceAlertsList({
         setShowCreateForm(false)
         setThresholdInput('')
       } catch (err) {
-        console.error('Failed to create balance alert:', err)
         setError(err instanceof Error ? err.message : 'Failed to create balance alert')
       } finally {
         setIsSubmitting(false)
@@ -197,7 +195,6 @@ export function BalanceAlertsList({
       setLocalAlerts(prev => prev.filter(alert => alert.id !== alertId))
       setError(null)
     } catch (err) {
-      console.error('Failed to delete alert:', err)
       setError(err instanceof Error ? err.message : 'Failed to delete alert')
     }
   }
