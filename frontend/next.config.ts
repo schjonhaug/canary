@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Enable standalone output for Docker deployment
+  output: 'standalone',
+  // Disable powered by header
+  poweredByHeader: false,
   // Suppress specific server errors
   onDemandEntries: {
     // Period (in ms) where the server will keep pages in the buffer
@@ -10,7 +14,20 @@ const nextConfig: NextConfig = {
   },
   // Disable strict mode to avoid double renders in development
   reactStrictMode: false,
-  
+  // Configure API routes with appropriate caching headers
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-transform',
+          },
+        ],
+      },
+    ];
+  },
   webpack: (config, { isServer }) => {
     // Generate build info on server side during build
     if (isServer) {

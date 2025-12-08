@@ -5,9 +5,11 @@ WORKDIR /app
 
 # Accept build arguments
 ARG NEXT_PUBLIC_CANARY_MODE
+ARG NEXT_PUBLIC_API_URL
 
 # Set environment variables for build
 ENV NEXT_PUBLIC_CANARY_MODE=$NEXT_PUBLIC_CANARY_MODE
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # Copy package files
 COPY package*.json ./
@@ -18,32 +20,35 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build the application with webpack (needed for standalone output and custom webpack config)
+RUN npx next build --webpack
 
 # Runtime stage
 FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy built application from builder stage
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
+ENV NODE_ENV=production
 
 # Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy public assets
+COPY --from=builder /app/public ./public
+
+# Copy standalone build (includes bundled node_modules)
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+
+# Copy static files
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
-# Expose port
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "start"]
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Run with node directly (not npm start)
+CMD ["node", "server.js"]
