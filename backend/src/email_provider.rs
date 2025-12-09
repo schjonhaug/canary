@@ -1,6 +1,6 @@
 use crate::email_service::{BatchEmailRequest, EmailService};
 use crate::message_formatter::MessageFormatter;
-use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionNotification};
+use crate::metadata::{Contact, Language, NotificationMethod, ProviderType, TransactionNotification};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
 use serde_json;
@@ -97,23 +97,31 @@ impl NotificationProvider for EmailProvider {
                             emoji,
                             &contact.name,
                             &message,
-                            &tx.wallet_checksum,
+                            &contact.language,
                         );
 
                         let text_body = Self::build_transaction_text(
                             &subject,
                             &contact.name,
                             &message,
-                            &tx.wallet_checksum,
+                            &contact.language,
                         );
 
                         (html_body, text_body)
                     }
                     TransactionNotification::BalanceAlert(_) => {
-                        let html_body =
-                            Self::build_balance_alert_html(wallet_name, &contact.name, &message);
-                        let text_body =
-                            Self::build_balance_alert_text(wallet_name, &contact.name, &message);
+                        let html_body = Self::build_balance_alert_html(
+                            wallet_name,
+                            &contact.name,
+                            &message,
+                            &contact.language,
+                        );
+                        let text_body = Self::build_balance_alert_text(
+                            wallet_name,
+                            &contact.name,
+                            &message,
+                            &contact.language,
+                        );
                         (html_body, text_body)
                     }
                 };
@@ -206,8 +214,21 @@ impl EmailProvider {
         emoji: &str,
         to_name: &str,
         message: &str,
-        wallet_checksum: &str,
+        language: &Language,
     ) -> String {
+        let (header, greeting, footer) = match language {
+            Language::Norwegian => (
+                "Bitcoin-transaksjon",
+                format!("Hei {},", to_name),
+                "Dette varselet ble sendt av Canary",
+            ),
+            Language::English => (
+                "Bitcoin Transaction",
+                format!("Hi {},", to_name),
+                "This notification was sent by Canary",
+            ),
+        };
+
         format!(
             r#"
             <!DOCTYPE html>
@@ -218,29 +239,22 @@ impl EmailProvider {
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h2 style="color: #1f2937; margin-top: 0;">{} Bitcoin Transaction</h2>
+                    <h2 style="color: #1f2937; margin-top: 0;">{} {}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        Hi {},
+                        {}
                     </p>
                     <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 20px 0;">
                         <pre style="white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace; color: #374151; margin: 0;">{}</pre>
                     </div>
-                    <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-                        Wallet: {}
-                    </p>
                 </div>
 
                 <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
-                    <p>This notification was sent by Canary Wallet</p>
+                    <p>{}</p>
                 </div>
             </body>
             </html>
             "#,
-            subject,
-            emoji,
-            to_name,
-            message,
-            &wallet_checksum[..8] // Show first 8 chars of wallet checksum
+            subject, emoji, header, greeting, message, footer
         )
     }
 
@@ -249,20 +263,45 @@ impl EmailProvider {
         subject: &str,
         to_name: &str,
         message: &str,
-        wallet_checksum: &str,
+        language: &Language,
     ) -> String {
-        format!(
-            "{}\n\nHi {},\n\n{}\n\nWallet: {}\n\nThis notification was sent by Canary Wallet",
-            subject,
-            to_name,
-            message,
-            &wallet_checksum[..8]
-        )
+        let (greeting, footer) = match language {
+            Language::Norwegian => (
+                format!("Hei {},", to_name),
+                "Dette varselet ble sendt av Canary",
+            ),
+            Language::English => (
+                format!("Hi {},", to_name),
+                "This notification was sent by Canary",
+            ),
+        };
+
+        format!("{}\n\n{}\n\n{}\n\n{}", subject, greeting, message, footer)
     }
 
     // Helper method to build balance alert email HTML
-    fn build_balance_alert_html(wallet_name: &str, to_name: &str, message: &str) -> String {
-        let subject = format!("📊 Balance Alert - {}", wallet_name);
+    fn build_balance_alert_html(
+        wallet_name: &str,
+        to_name: &str,
+        message: &str,
+        language: &Language,
+    ) -> String {
+        let (header, wallet_label, greeting, footer) = match language {
+            Language::Norwegian => (
+                "Saldovarsel",
+                "Lommebok",
+                format!("Hei {},", to_name),
+                "Dette varselet ble sendt av Canary",
+            ),
+            Language::English => (
+                "Balance Alert",
+                "Wallet",
+                format!("Hi {},", to_name),
+                "This notification was sent by Canary",
+            ),
+        };
+
+        let subject = format!("📊 {} - {}", header, wallet_name);
         format!(
             r#"
             <!DOCTYPE html>
@@ -273,31 +312,51 @@ impl EmailProvider {
             </head>
             <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h1 style="margin: 0; font-size: 24px;">📊 Balance Alert</h1>
-                    <p style="margin: 5px 0 0 0; opacity: 0.9;">Wallet: {}</p>
+                    <h1 style="margin: 0; font-size: 24px;">📊 {}</h1>
+                    <p style="margin: 5px 0 0 0; opacity: 0.9;">{}: {}</p>
                 </div>
 
                 <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <p style="margin: 0; font-size: 16px; color: #333;">Hi {},</p>
+                    <p style="margin: 0; font-size: 16px; color: #333;">{}</p>
                     <p style="margin: 15px 0; font-size: 16px; color: #333;">{}</p>
                 </div>
 
                 <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
-                    <p>This notification was sent by Canary Wallet</p>
+                    <p>{}</p>
                 </div>
             </body>
             </html>
             "#,
-            subject, wallet_name, to_name, message
+            subject, header, wallet_label, wallet_name, greeting, message, footer
         )
     }
 
     // Helper method to build balance alert email text
-    fn build_balance_alert_text(wallet_name: &str, to_name: &str, message: &str) -> String {
-        let subject = format!("📊 Balance Alert - {}", wallet_name);
+    fn build_balance_alert_text(
+        wallet_name: &str,
+        to_name: &str,
+        message: &str,
+        language: &Language,
+    ) -> String {
+        let (header, wallet_label, greeting, footer) = match language {
+            Language::Norwegian => (
+                "Saldovarsel",
+                "Lommebok",
+                format!("Hei {},", to_name),
+                "Dette varselet ble sendt av Canary",
+            ),
+            Language::English => (
+                "Balance Alert",
+                "Wallet",
+                format!("Hi {},", to_name),
+                "This notification was sent by Canary",
+            ),
+        };
+
+        let subject = format!("📊 {} - {}", header, wallet_name);
         format!(
-            "{}\n\nHi {},\n\n{}\n\nWallet: {}\n\nThis notification was sent by Canary Wallet",
-            subject, to_name, message, wallet_name
+            "{}\n\n{}\n\n{}\n\n{}: {}\n\n{}",
+            subject, greeting, message, wallet_label, wallet_name, footer
         )
     }
 }
