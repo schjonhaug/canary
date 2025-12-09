@@ -1,0 +1,167 @@
+id: canary
+title: "Canary"
+version: 0.1.0
+release-notes: |
+  * Initial release for StartOS
+  * Bitcoin wallet monitoring with transaction notifications
+  * Support for multipath descriptors via BDK
+  * ntfy.sh push notifications
+  * Web-based wallet management interface
+license: Elastic-2.0
+wrapper-repo: "https://github.com/schjonhaug/canary"
+upstream-repo: "https://github.com/schjonhaug/canary"
+support-site: "https://github.com/schjonhaug/canary/issues"
+marketing-site: "https://github.com/schjonhaug/canary"
+build: ["make"]
+description:
+  short: "Bitcoin wallet monitoring service with transaction notifications"
+  long: |
+    Canary is a self-hosted Bitcoin wallet monitoring service that provides:
+
+    - Watch-only wallet management using BDK (Bitcoin Development Kit)
+    - Real-time transaction notifications via ntfy.sh push notifications
+    - Support for multipath descriptors (P2WPKH, P2SH, P2TR, P2PKH)
+    - Deep scanning to detect funds at high address indexes
+    - Transaction analysis including RBF/CPFP detection
+    - Multi-language support (English and Norwegian)
+    - Balance alerts with configurable thresholds
+
+    Perfect for monitoring your cold storage wallets or watching family members' wallets.
+assets:
+  license: LICENSE
+  icon: icon.png
+  instructions: instructions.md
+main:
+  type: docker
+  image: main
+  entrypoint: docker_entrypoint.sh
+  args: []
+  mounts:
+    main: /app/data
+    electrs: /mnt/electrs
+  gpu-acceleration: false
+health-checks:
+  api:
+    name: Backend API
+    success-message: "The Canary API is responding"
+    type: docker
+    image: main
+    entrypoint: "check-api.sh"
+    args: []
+    inject: true
+    system: false
+    io-format: json
+  web:
+    name: Web Interface
+    success-message: "The Canary web interface is ready"
+    type: docker
+    image: main
+    entrypoint: "check-web.sh"
+    args: []
+    inject: true
+    system: false
+    io-format: json
+config:
+  get:
+    type: script
+  set:
+    type: script
+properties:
+  type: script
+volumes:
+  main:
+    type: data
+  electrs:
+    type: pointer
+    package-id: electrs
+    volume-id: main
+    path: "/"
+    readonly: true
+interfaces:
+  main:
+    name: Canary Web Interface
+    description: "The main web interface for managing your Bitcoin wallets"
+    tor-config:
+      port-mapping:
+        80: "3001"
+    lan-config:
+      443:
+        ssl: true
+        internal: 3001
+    ui: true
+    protocols:
+      - tcp
+      - http
+  api:
+    name: Canary API
+    description: "REST API for wallet management (used internally by the web interface)"
+    tor-config:
+      port-mapping:
+        3000: "3000"
+    lan-config:
+      3000:
+        ssl: true
+        internal: 3000
+    ui: false
+    protocols:
+      - tcp
+      - http
+dependencies:
+  electrs:
+    version: ">=0.9.0"
+    description: "Electrum server for blockchain data. Canary connects to Electrs to sync wallet data."
+    requirement:
+      type: "opt-in"
+      how: "Use the local Electrs instance for secure, private blockchain data"
+    config: ~
+backup:
+  create:
+    type: docker
+    image: compat
+    system: true
+    entrypoint: compat
+    args:
+      - duplicity
+      - create
+      - /mnt/backup
+      - /app/data
+    mounts:
+      BACKUP: "/mnt/backup"
+      main: "/app/data"
+  restore:
+    type: docker
+    image: compat
+    system: true
+    entrypoint: compat
+    args:
+      - duplicity
+      - restore
+      - /mnt/backup
+      - /app/data
+    mounts:
+      BACKUP: "/mnt/backup"
+      main: "/app/data"
+migrations:
+  from:
+    "*":
+      type: script
+      args: ["from"]
+  to:
+    "*":
+      type: script
+      args: ["to"]
+alerts:
+  install: |
+    Canary requires an Electrum server connection to sync wallet data.
+    You can either:
+    1. Use the local Electrs service (recommended for privacy)
+    2. Configure an external Electrum server in the settings
+  update: null
+  uninstall: |
+    Your wallet data and notification history will be preserved in backups.
+    No Bitcoin funds are stored - this is a watch-only monitoring service.
+  restore: |
+    Your wallet configurations and notification settings have been restored.
+    Wallet data will re-sync from the Electrum server.
+  start: null
+  stop: null
