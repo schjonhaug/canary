@@ -668,6 +668,8 @@ impl StripeBilling {
 
                                             // Attempt to send email notification
                                             use crate::email_service::EmailService;
+                                            let user_language =
+                                                user.preferred_language.as_deref().unwrap_or("en");
                                             match EmailService::from_env() {
                                                 Ok(email_service) => {
                                                     match email_service
@@ -675,6 +677,7 @@ impl StripeBilling {
                                                             &user.email,
                                                             user_name,
                                                             &trial_ends_at,
+                                                            user_language,
                                                         )
                                                         .await
                                                     {

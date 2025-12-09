@@ -181,10 +181,11 @@ impl AuthService {
         email: &str,
         name: &str,
         token: &str,
+        language: &str,
     ) -> Result<()> {
         if let Some(email_service) = &self.email_service {
             email_service
-                .send_email_verification(email, name, token)
+                .send_email_verification(email, name, token, language)
                 .await
         } else {
             // In development mode without email service, just log the token
@@ -200,9 +201,17 @@ impl AuthService {
         }
     }
 
-    pub async fn send_password_reset(&self, email: &str, name: &str, token: &str) -> Result<()> {
+    pub async fn send_password_reset(
+        &self,
+        email: &str,
+        name: &str,
+        token: &str,
+        language: &str,
+    ) -> Result<()> {
         if let Some(email_service) = &self.email_service {
-            email_service.send_password_reset(email, name, token).await
+            email_service
+                .send_password_reset(email, name, token, language)
+                .await
         } else {
             // In development mode without email service, just log the token
             if DEV_MODE {

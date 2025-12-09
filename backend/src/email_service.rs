@@ -50,6 +50,7 @@ impl EmailService {
         to_email: &str,
         to_name: &str,
         verification_token: &str,
+        language: &str,
     ) -> Result<()> {
         let verification_url = format!(
             "{}/verify-email/{}",
@@ -57,74 +58,112 @@ impl EmailService {
             verification_token
         );
 
-        let subject = "Verify Your Email - Canary Wallet";
+        // Detect Norwegian language
+        let is_norwegian = language.to_lowercase().starts_with("no")
+            || language.to_lowercase().starts_with("nb")
+            || language.to_lowercase().starts_with("nn");
+
+        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) = if is_norwegian {
+            (
+                "Bekreft e-postadressen din - Canary",
+                "Velkommen til Canary!",
+                format!("Hei {},", to_name),
+                "Takk for at du opprettet en Canary-konto! For å komme i gang, bekreft e-postadressen din ved å klikke på knappen nedenfor.",
+                "Bekreft e-postadresse",
+                "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren:",
+                "Denne bekreftelseslenken utløper om 24 timer. Hvis du ikke opprettet en konto, kan du trygt ignorere denne e-posten.",
+                "Dette varselet ble sendt av Canary",
+            )
+        } else {
+            (
+                "Verify Your Email - Canary",
+                "Welcome to Canary!",
+                format!("Hi {},", to_name),
+                "Thank you for creating your Canary account! To get started, please verify your email address by clicking the button below.",
+                "Verify Email Address",
+                "If the button doesn't work, you can copy and paste this link into your browser:",
+                "This verification link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.",
+                "This notification was sent by Canary",
+            )
+        };
+
         let html_body = format!(
             r#"
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>{}</title>
+                <title>{subject}</title>
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary Wallet</h1>
+                    <h1 style="color: #1f2937;">Canary</h1>
                 </div>
-                
+
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h2 style="color: #1f2937; margin-top: 0;">Welcome to Canary Wallet!</h2>
+                    <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        Hi {name},
+                        {greeting}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        Thank you for creating your Canary Wallet account! To get started, please verify your email address by clicking the button below.
+                        {body_text}
                     </p>
-                    
+
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="{verification_url}" 
+                        <a href="{verification_url}"
                            style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
-                            Verify Email Address
+                            {button_text}
                         </a>
                     </div>
-                    
+
                     <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-                        If the button doesn't work, you can copy and paste this link into your browser:
+                        {link_fallback}
                         <br>
                         <a href="{verification_url}" style="color: #3b82f6; word-break: break-all;">{verification_url}</a>
                     </p>
-                    
+
                     <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-                        This verification link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
+                        {expiry_text}
                     </p>
                 </div>
-                
+
                 <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
-                    <p>© 2024 Canary Wallet. All rights reserved.</p>
+                    <p>{footer}</p>
                 </div>
             </body>
             </html>
             "#,
-            subject,
-            name = to_name,
-            verification_url = verification_url
+            subject = subject,
+            header = header,
+            greeting = greeting,
+            body_text = body_text,
+            verification_url = verification_url,
+            button_text = button_text,
+            link_fallback = link_fallback,
+            expiry_text = expiry_text,
+            footer = footer
         );
 
         let text_body = format!(
             r#"
-Welcome to Canary Wallet
+{header}
 
-Hi {name},
+{greeting}
 
-Thank you for creating your Canary Wallet account! To get started, please verify your email address by visiting the link below:
+{body_text}
 
 {verification_url}
 
-This verification link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
+{expiry_text}
 
-© 2024 Canary Wallet. All rights reserved.
+{footer}
             "#,
-            name = to_name,
-            verification_url = verification_url
+            header = header,
+            greeting = greeting,
+            body_text = body_text,
+            verification_url = verification_url,
+            expiry_text = expiry_text,
+            footer = footer
         );
 
         self.send_email(to_email, to_name, subject, &html_body, &text_body)
@@ -136,6 +175,7 @@ This verification link will expire in 24 hours. If you didn't create an account,
         to_email: &str,
         to_name: &str,
         reset_token: &str,
+        language: &str,
     ) -> Result<()> {
         let reset_url = format!(
             "{}/reset-password/{}",
@@ -143,74 +183,112 @@ This verification link will expire in 24 hours. If you didn't create an account,
             reset_token
         );
 
-        let subject = "Reset Your Password - Canary Wallet";
+        // Detect Norwegian language
+        let is_norwegian = language.to_lowercase().starts_with("no")
+            || language.to_lowercase().starts_with("nb")
+            || language.to_lowercase().starts_with("nn");
+
+        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) = if is_norwegian {
+            (
+                "Tilbakestill passordet ditt - Canary",
+                "Tilbakestill passordet ditt",
+                format!("Hei {},", to_name),
+                "Vi mottok en forespørsel om å tilbakestille passordet for Canary-kontoen din. Klikk på knappen nedenfor for å opprette et nytt passord.",
+                "Tilbakestill passord",
+                "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren:",
+                "Denne tilbakestillingslenken utløper om 1 time. Hvis du ikke ba om å tilbakestille passordet, kan du trygt ignorere denne e-posten.",
+                "Dette varselet ble sendt av Canary",
+            )
+        } else {
+            (
+                "Reset Your Password - Canary",
+                "Reset Your Password",
+                format!("Hi {},", to_name),
+                "We received a request to reset your password for your Canary account. Click the button below to create a new password.",
+                "Reset Password",
+                "If the button doesn't work, you can copy and paste this link into your browser:",
+                "This reset link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.",
+                "This notification was sent by Canary",
+            )
+        };
+
         let html_body = format!(
             r#"
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>{}</title>
+                <title>{subject}</title>
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary Wallet</h1>
+                    <h1 style="color: #1f2937;">Canary</h1>
                 </div>
-                
+
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h2 style="color: #1f2937; margin-top: 0;">Reset Your Password</h2>
+                    <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        Hi {name},
+                        {greeting}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        We received a request to reset your password for your Canary Wallet account. Click the button below to create a new password.
+                        {body_text}
                     </p>
-                    
+
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="{reset_url}" 
+                        <a href="{reset_url}"
                            style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
-                            Reset Password
+                            {button_text}
                         </a>
                     </div>
-                    
+
                     <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-                        If the button doesn't work, you can copy and paste this link into your browser:
+                        {link_fallback}
                         <br>
                         <a href="{reset_url}" style="color: #3b82f6; word-break: break-all;">{reset_url}</a>
                     </p>
-                    
+
                     <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-                        This reset link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+                        {expiry_text}
                     </p>
                 </div>
-                
+
                 <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
-                    <p>© 2024 Canary Wallet. All rights reserved.</p>
+                    <p>{footer}</p>
                 </div>
             </body>
             </html>
             "#,
-            subject,
-            name = to_name,
-            reset_url = reset_url
+            subject = subject,
+            header = header,
+            greeting = greeting,
+            body_text = body_text,
+            reset_url = reset_url,
+            button_text = button_text,
+            link_fallback = link_fallback,
+            expiry_text = expiry_text,
+            footer = footer
         );
 
         let text_body = format!(
             r#"
-Reset Your Password - Canary Wallet
+{header}
 
-Hi {name},
+{greeting}
 
-We received a request to reset your password for your Canary Wallet account. Visit the link below to create a new password:
+{body_text}
 
 {reset_url}
 
-This reset link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+{expiry_text}
 
-© 2024 Canary Wallet. All rights reserved.
+{footer}
             "#,
-            name = to_name,
-            reset_url = reset_url
+            header = header,
+            greeting = greeting,
+            body_text = body_text,
+            reset_url = reset_url,
+            expiry_text = expiry_text,
+            footer = footer
         );
 
         self.send_email(to_email, to_name, subject, &html_body, &text_body)
@@ -337,101 +415,187 @@ Your verification code is: {otp_code}
         to_email: &str,
         to_name: &str,
         trial_ends_at: &str,
+        language: &str,
     ) -> Result<()> {
         let billing_url = format!(
             "{}/billing",
             std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set")
         );
 
-        let subject = "Your Canary trial ends in 3 days";
+        // Detect Norwegian language
+        let is_norwegian = language.to_lowercase().starts_with("no")
+            || language.to_lowercase().starts_with("nb")
+            || language.to_lowercase().starts_with("nn");
+
+        let (
+            subject,
+            header,
+            greeting,
+            body_text,
+            what_happens_header,
+            sync_stops,
+            notifications_stop,
+            data_safe,
+            button_text,
+            choose_plan,
+            personal_plan,
+            team_plan,
+            footer,
+        ) = if is_norwegian {
+            (
+                "Canary-prøveperioden din utløper om 3 dager",
+                "Prøveperioden din utløper snart",
+                format!("Hei {},", to_name),
+                format!("Din 30-dagers Canary Team-prøveperiode utløper om 3 dager, den <strong>{}</strong>.", trial_ends_at),
+                "Hva skjer når prøveperioden utløper?",
+                "Lommeboksynkronisering stopper",
+                "Varsler stopper",
+                "Lommebokdataene dine forblir trygge og tilgjengelige",
+                "Se abonnementsplaner",
+                "Velg planen som passer for deg:",
+                "Personal: 1 lommebok, 1 kontakt, 10 minutters synkronisering",
+                "Team: 5 lommebøker, 5 kontakter per lommebok, 2 minutters synkronisering",
+                "Dette varselet ble sendt av Canary",
+            )
+        } else {
+            (
+                "Your Canary trial ends in 3 days",
+                "Your Trial is Ending Soon",
+                format!("Hi {},", to_name),
+                format!("Your 30-day Canary Team trial will end in 3 days on <strong>{}</strong>.", trial_ends_at),
+                "What happens when your trial ends?",
+                "Wallet syncing will stop",
+                "Notifications will stop",
+                "Your wallet data remains safe and accessible",
+                "View Subscription Plans",
+                "Choose the plan that's right for you:",
+                "Personal: 1 wallet, 1 contact, 10-minute sync",
+                "Team: 5 wallets, 5 contacts per wallet, 2-minute sync",
+                "This notification was sent by Canary",
+            )
+        };
+
+        let body_text_plain = if is_norwegian {
+            format!("Din 30-dagers Canary Team-prøveperiode utløper om 3 dager, den {}.", trial_ends_at)
+        } else {
+            format!("Your 30-day Canary Team trial will end in 3 days on {}.", trial_ends_at)
+        };
+
+        let continue_text = if is_norwegian {
+            "For å fortsette å nyte uavbrutt overvåking av Bitcoin-lommeboken med automatiske varsler, vennligst abonner på en av planene våre."
+        } else {
+            "To continue enjoying uninterrupted Bitcoin wallet monitoring with automatic notifications, please subscribe to one of our plans."
+        };
+
         let html_body = format!(
             r#"
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>{}</title>
+                <title>{subject}</title>
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary Wallet</h1>
+                    <h1 style="color: #1f2937;">Canary</h1>
                 </div>
 
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h2 style="color: #1f2937; margin-top: 0;">Your Trial is Ending Soon</h2>
+                    <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        Hi {name},
+                        {greeting}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        Your 30-day Canary Wallet Team trial will end in 3 days on <strong>{trial_end_date}</strong>.
+                        {body_text}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        To continue enjoying uninterrupted Bitcoin wallet monitoring with automatic transaction notifications, please subscribe to one of our plans.
+                        {continue_text}
                     </p>
 
                     <div style="background-color: #fff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
-                        <p style="color: #1f2937; margin: 0; font-weight: 500;">What happens when your trial ends?</p>
+                        <p style="color: #1f2937; margin: 0; font-weight: 500;">{what_happens_header}</p>
                         <ul style="color: #4b5563; margin: 10px 0; padding-left: 20px;">
-                            <li>Wallet syncing will stop</li>
-                            <li>Transaction notifications will pause</li>
-                            <li>Your wallet data remains safe and accessible</li>
+                            <li>{sync_stops}</li>
+                            <li>{notifications_stop}</li>
+                            <li>{data_safe}</li>
                         </ul>
                     </div>
 
                     <div style="text-align: center; margin: 30px 0;">
                         <a href="{billing_url}"
                            style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
-                            View Subscription Plans
+                            {button_text}
                         </a>
                     </div>
 
                     <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-                        Choose the plan that's right for you:
+                        {choose_plan}
                     </p>
                     <ul style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-                        <li><strong>Personal ($9/month):</strong> 1 wallet, 1 contact, 10-minute sync</li>
-                        <li><strong>Team ($29/month):</strong> 5 wallets, 5 contacts per wallet, 2-minute sync</li>
+                        <li><strong>{personal_plan}</strong></li>
+                        <li><strong>{team_plan}</strong></li>
                     </ul>
                 </div>
 
                 <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
-                    <p>© 2024 Canary Wallet. All rights reserved.</p>
+                    <p>{footer}</p>
                 </div>
             </body>
             </html>
             "#,
-            subject,
-            name = to_name,
-            trial_end_date = trial_ends_at,
-            billing_url = billing_url
+            subject = subject,
+            header = header,
+            greeting = greeting,
+            body_text = body_text,
+            continue_text = continue_text,
+            what_happens_header = what_happens_header,
+            sync_stops = sync_stops,
+            notifications_stop = notifications_stop,
+            data_safe = data_safe,
+            billing_url = billing_url,
+            button_text = button_text,
+            choose_plan = choose_plan,
+            personal_plan = personal_plan,
+            team_plan = team_plan,
+            footer = footer
         );
 
         let text_body = format!(
             r#"
-Your Trial is Ending Soon - Canary Wallet
+{header}
 
-Hi {name},
+{greeting}
 
-Your 30-day Canary Wallet Team trial will end in 3 days on {trial_end_date}.
+{body_text_plain}
 
-To continue enjoying uninterrupted Bitcoin wallet monitoring with automatic transaction notifications, please subscribe to one of our plans.
+{continue_text}
 
-What happens when your trial ends?
-- Wallet syncing will stop
-- Transaction notifications will pause
-- Your wallet data remains safe and accessible
+{what_happens_header}
+- {sync_stops}
+- {notifications_stop}
+- {data_safe}
 
-Choose the plan that's right for you:
-- Personal ($9/month): 1 wallet, 1 contact, 10-minute sync
-- Team ($29/month): 5 wallets, 5 contacts per wallet, 2-minute sync
+{choose_plan}
+- {personal_plan}
+- {team_plan}
 
-View subscription plans: {billing_url}
+{billing_url}
 
-© 2024 Canary Wallet. All rights reserved.
+{footer}
             "#,
-            name = to_name,
-            trial_end_date = trial_ends_at,
-            billing_url = billing_url
+            header = header,
+            greeting = greeting,
+            body_text_plain = body_text_plain,
+            continue_text = continue_text,
+            what_happens_header = what_happens_header,
+            sync_stops = sync_stops,
+            notifications_stop = notifications_stop,
+            data_safe = data_safe,
+            choose_plan = choose_plan,
+            personal_plan = personal_plan,
+            team_plan = team_plan,
+            billing_url = billing_url,
+            footer = footer
         );
 
         self.send_email(to_email, to_name, subject, &html_body, &text_body)

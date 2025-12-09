@@ -32,6 +32,7 @@ async fn test_delete_wallet_contact_authorization() {
             Some("Test User"),
             true,
             None, // preferred_currency
+            None, // preferred_language
         )
         .await
         .unwrap();
@@ -42,6 +43,7 @@ async fn test_delete_wallet_contact_authorization() {
             Some("Other User"),
             true,
             None, // preferred_currency
+            None, // preferred_language
         )
         .await
         .unwrap();
@@ -118,6 +120,7 @@ async fn test_delete_wallet_contact_nonexistent() {
             Some("Test User"),
             true,
             None, // preferred_currency
+            None, // preferred_language
         )
         .await
         .unwrap();
@@ -145,7 +148,8 @@ async fn test_delete_wallet_contact_wrong_wallet() {
             "hashedpassword",
             Some("User 1"),
             true,
-            None,
+            None, // preferred_currency
+            None, // preferred_language
         )
         .await
         .unwrap();
@@ -155,7 +159,8 @@ async fn test_delete_wallet_contact_wrong_wallet() {
             "hashedpassword",
             Some("User 2"),
             true,
-            None,
+            None, // preferred_currency
+            None, // preferred_language
         )
         .await
         .unwrap();

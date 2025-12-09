@@ -53,9 +53,24 @@ pub struct UserRecord {
     pub created_at: String,
     // User preferences
     pub preferred_fiat_currency: Option<String>,
+    pub preferred_language: Option<String>,
 }
 
 impl UserRecord {}
+
+/// Convert browser locale to language code for emails
+/// Returns "no" for Norwegian locales, "en" for all others
+pub fn locale_to_language(locale: &str) -> &'static str {
+    let locale_lower = locale.to_lowercase().replace('_', "-");
+    if locale_lower.starts_with("nb")
+        || locale_lower.starts_with("nn")
+        || locale_lower.starts_with("no")
+    {
+        "no"
+    } else {
+        "en"
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TwilioConfig {
@@ -535,11 +550,15 @@ impl MetadataDb {
                     .map(|locale| crate::exchange_rates::ExchangeRateService::locale_to_currency(&locale))
                     .unwrap_or("USD");
 
-                // Create the hardcoded FOSS user with locale-based currency
+                // Create the hardcoded FOSS user with locale-based currency and language
+                let default_language = std::env::var("LANG")
+                    .ok()
+                    .map(|locale| locale_to_language(&locale))
+                    .unwrap_or("en");
                 conn.execute(
-                    "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
-                     VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 0, 1, 'team', 'active', datetime('now'), ?1)",
-                    [default_currency],
+                    "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
+                     VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 0, 1, 'team', 'active', datetime('now'), ?1, ?2)",
+                    params![default_currency, default_language],
                 )?;
 
                 println!("✅ Created FOSS user: admin@local (foss-user) with currency: {}", default_currency);
@@ -572,9 +591,9 @@ impl MetadataDb {
             if !exists {
                 let user_id = uuid::Uuid::new_v4().to_string();
                 conn.execute(
-                    "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10)",
-                    params![&user_id, DEMO_USER_EMAIL, &password_hash, "Demo User", false, true, true, "team", "active", "USD"],
+                    "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10, ?11)",
+                    params![&user_id, DEMO_USER_EMAIL, &password_hash, "Demo User", false, true, true, "team", "active", "USD", "en"],
                 )?;
 
                 println!("[CLOUD MODE] Created demo user: {}", DEMO_USER_EMAIL);
@@ -626,9 +645,9 @@ impl MetadataDb {
 
                     let user_id = uuid::Uuid::new_v4().to_string();
                     conn.execute(
-                        "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10)",
-                        params![&user_id, email, &password_hash, name, is_admin, false, true, tier, "pending", "USD"],
+                        "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10, ?11)",
+                        params![&user_id, email, &password_hash, name, is_admin, false, true, tier, "pending", "USD", "en"],
                     )?;
 
                     println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
@@ -2171,12 +2190,14 @@ impl MetadataDb {
         name: Option<&str>,
         email_verified: bool,
         preferred_currency: Option<&str>,
+        preferred_language: Option<&str>,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let email = email.to_string();
         let password_hash = password_hash.to_string();
         let name = name.map(|n| n.to_string());
         let preferred_currency = preferred_currency.map(|c| c.to_string());
+        let preferred_language = preferred_language.map(|l| l.to_string());
 
         let result = spawn_blocking(move || -> Result<(String, bool)> {
             let conn = pool.get()?;
@@ -2217,8 +2238,8 @@ impl MetadataDb {
 
             // Create new user
             tx.execute(
-                "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, preferred_fiat_currency) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, false, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD")],
+                "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, preferred_fiat_currency, preferred_language) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, false, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD"), preferred_language.as_deref().unwrap_or("en")],
             )?;
 
             tx.commit()?;
@@ -2237,7 +2258,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE email = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language FROM users WHERE email = ?1")?
                 .query_row(params![&email], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -2256,6 +2277,7 @@ impl MetadataDb {
                         subscription_ends_at: row.get(13)?,
                         created_at: row.get(14)?,
                         preferred_fiat_currency: row.get(15)?,
+                        preferred_language: row.get(16)?,
                     })
                 })
                 .ok();
@@ -2270,7 +2292,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -2289,6 +2311,7 @@ impl MetadataDb {
                         subscription_ends_at: row.get(13)?,
                         created_at: row.get(14)?,
                         preferred_fiat_currency: row.get(15)?,
+                        preferred_language: row.get(16)?,
                     })
                 })
                 .ok();
@@ -2306,7 +2329,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<UserRecord>> {
             let conn = pool.get()?;
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency FROM users WHERE stripe_customer_id = ?1")?
+                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language FROM users WHERE stripe_customer_id = ?1")?
                 .query_row(params![stripe_customer_id], |row| {
                     Ok(UserRecord {
                         id: row.get(0)?,
@@ -2325,6 +2348,7 @@ impl MetadataDb {
                         subscription_ends_at: row.get(13)?,
                         created_at: row.get(14)?,
                         preferred_fiat_currency: row.get(15)?,
+                        preferred_language: row.get(16)?,
                     })
                 })
                 .ok();
@@ -2357,7 +2381,7 @@ impl MetadataDb {
                 "SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier,
                         subscription_status, trial_ends_at, subscription_started_at,
                         stripe_customer_id, stripe_subscription_id, subscription_ends_at,
-                        created_at, preferred_fiat_currency
+                        created_at, preferred_fiat_currency, preferred_language
                  FROM users"
             )?;
 
@@ -2379,6 +2403,7 @@ impl MetadataDb {
                     subscription_ends_at: row.get(13)?,
                     created_at: row.get(14)?,
                     preferred_fiat_currency: row.get(15)?,
+                    preferred_language: row.get(16)?,
                 })
             })?;
 

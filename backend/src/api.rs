@@ -3069,11 +3069,15 @@ pub async fn register(
     // For dev mode, auto-verify emails. For production, require verification.
     let email_verified = is_dev_email;
 
-    // Determine preferred currency from browser locale
+    // Determine preferred currency and language from browser locale
     let preferred_currency = request
         .browser_locale
         .as_ref()
         .map(|locale| exchange_rates::ExchangeRateService::locale_to_currency(locale));
+    let preferred_language = request
+        .browser_locale
+        .as_ref()
+        .map(|locale| crate::metadata::locale_to_language(locale));
 
     // Create user - no mutex blocking!
     let user_id = match app_services
@@ -3084,6 +3088,7 @@ pub async fn register(
             Some(&request.name),
             email_verified,
             preferred_currency,
+            preferred_language,
         )
         .await
     {
@@ -3196,8 +3201,9 @@ pub async fn register(
         }
 
         // Send verification email
+        let user_language = preferred_language.unwrap_or("en");
         if let Err(e) = auth_service
-            .send_email_verification(&request.email, &request.name, &token)
+            .send_email_verification(&request.email, &request.name, &token, user_language)
             .await
         {
             return (
@@ -3615,11 +3621,13 @@ pub async fn forgot_password(
     }
 
     // Send password reset email
+    let user_language = user_record.preferred_language.as_deref().unwrap_or("en");
     if let Err(e) = auth_service
         .send_password_reset(
             &user_record.email,
             &user_record.name.unwrap_or_else(|| "User".to_string()),
             &token,
+            user_language,
         )
         .await
     {
