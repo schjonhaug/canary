@@ -305,10 +305,11 @@ impl AuthService {
         to_email: &str,
         to_name: &str,
         otp_code: &str,
+        language: &str,
     ) -> Result<()> {
         if let Some(email_service) = &self.email_service {
             email_service
-                .send_contact_otp_verification(to_email, to_name, otp_code)
+                .send_contact_otp_verification(to_email, to_name, otp_code, language)
                 .await
         } else {
             Err(anyhow!("Email service not configured"))

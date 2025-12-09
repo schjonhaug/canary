@@ -229,30 +229,55 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
         to_email: &str,
         to_name: &str,
         otp_code: &str,
+        language: &str,
     ) -> Result<()> {
-        let subject = "Verify Your Email - Canary Wallet Contact";
+        // Detect Norwegian language
+        let is_norwegian = language.to_lowercase().starts_with("no")
+            || language.to_lowercase().starts_with("nb")
+            || language.to_lowercase() == "norwegian";
+
+        let (subject, header, greeting, body_text, expiry_text, footer) = if is_norwegian {
+            (
+                "Bekreft e-postadressen din - Canary",
+                "E-postbekreftelse kreves",
+                format!("Hei {},", to_name),
+                "Bekreft e-postadressen din for å motta varsler fra Bitcoin-lommeboken. Skriv inn bekreftelseskoden nedenfor:",
+                "Denne bekreftelseskoden utløper om 10 minutter. Hvis du ikke ba om denne bekreftelsen, kan du trygt ignorere denne e-posten.",
+                "Dette varselet ble sendt av Canary",
+            )
+        } else {
+            (
+                "Verify Your Email - Canary",
+                "Email Verification Required",
+                format!("Hi {},", to_name),
+                "Please verify your email address to receive Bitcoin wallet notifications. Enter the verification code below:",
+                "This verification code will expire in 10 minutes. If you didn't request this verification, you can safely ignore this email.",
+                "This notification was sent by Canary",
+            )
+        };
+
         let html_body = format!(
             r#"
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>{}</title>
+                <title>{subject}</title>
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary Wallet</h1>
+                    <h1 style="color: #1f2937;">Canary</h1>
                 </div>
-                
+
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h2 style="color: #1f2937; margin-top: 0;">Email Verification Required</h2>
+                    <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        Hi {name},
+                        {greeting}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        Please verify your email address to receive Bitcoin transaction notifications. Enter the verification code below:
+                        {body_text}
                     </p>
-                    
+
                     <div style="text-align: center; margin: 30px 0;">
                         <div style="background-color: #e5e7eb; border: 2px dashed #9ca3af; padding: 20px; border-radius: 8px; display: inline-block;">
                             <span style="font-size: 32px; font-weight: bold; font-family: 'Courier New', monospace; color: #1f2937; letter-spacing: 8px;">
@@ -260,39 +285,47 @@ This reset link will expire in 1 hour. If you didn't request a password reset, y
                             </span>
                         </div>
                     </div>
-                    
+
                     <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-                        This verification code will expire in 10 minutes. If you didn't request this verification, you can safely ignore this email.
+                        {expiry_text}
                     </p>
                 </div>
-                
+
                 <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
-                    <p>© 2024 Canary Wallet. All rights reserved.</p>
+                    <p>{footer}</p>
                 </div>
             </body>
             </html>
             "#,
-            subject,
-            name = to_name,
-            otp_code = otp_code
+            subject = subject,
+            header = header,
+            greeting = greeting,
+            body_text = body_text,
+            otp_code = otp_code,
+            expiry_text = expiry_text,
+            footer = footer
         );
 
         let text_body = format!(
             r#"
-Canary Wallet - Email Verification
+Canary - {header}
 
-Hi {name},
+{greeting}
 
-Please verify your email address to receive Bitcoin transaction notifications. 
+{body_text}
 
 Your verification code is: {otp_code}
 
-This verification code will expire in 10 minutes. If you didn't request this verification, you can safely ignore this email.
+{expiry_text}
 
-© 2024 Canary Wallet. All rights reserved.
+{footer}
             "#,
-            name = to_name,
-            otp_code = otp_code
+            header = header,
+            greeting = greeting,
+            body_text = body_text,
+            otp_code = otp_code,
+            expiry_text = expiry_text,
+            footer = footer
         );
 
         self.send_email(to_email, to_name, subject, &html_body, &text_body)

@@ -2409,7 +2409,7 @@ pub async fn send_contact_verification(
 
         let auth_service = AuthService::new(jwt_secret, Some(email_service));
         auth_service
-            .send_email_contact_otp(&notification_target, &request.name, &verification_code)
+            .send_email_contact_otp(&notification_target, &request.name, &verification_code, &request.language)
             .await
     };
 
