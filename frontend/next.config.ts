@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Enable Turbopack (Next.js 16 default)
+  turbopack: {},
   // Enable standalone output for Docker deployment
   output: 'standalone',
   // Disable powered by header
