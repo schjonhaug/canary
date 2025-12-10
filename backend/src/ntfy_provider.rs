@@ -8,12 +8,16 @@ use serde_json::json;
 
 pub struct NtfyProvider {
     client: reqwest::Client,
+    server_url: String,
 }
 
 impl NtfyProvider {
-    pub fn new() -> Self {
+    pub fn new(server_url: String) -> Self {
+        // Ensure the server URL doesn't have a trailing slash
+        let server_url = server_url.trim_end_matches('/').to_string();
         Self {
             client: reqwest::Client::new(),
+            server_url,
         }
     }
 }
@@ -51,7 +55,7 @@ impl NotificationProvider for NtfyProvider {
                 };
 
                 let topic = &method.notification_target;
-                let ntfy_url = format!("https://ntfy.sh/{}", topic);
+                let ntfy_url = format!("{}/{}", self.server_url, topic);
 
                 // Create localized title for push notification
                 let localized_title = match notification {
@@ -152,16 +156,22 @@ impl NotificationProvider for NtfyProvider {
     }
 
     fn provider_info(&self) -> ProviderInfo {
+        // Extract the server name for display (e.g., "ntfy.sh" from "https://ntfy.sh")
+        let server_display = self
+            .server_url
+            .trim_start_matches("https://")
+            .trim_start_matches("http://");
+
         ProviderInfo {
             name: "ntfy".to_string(),
-            display_name: "ntfy.sh Notifications".to_string(),
+            display_name: format!("{} Notifications", server_display),
             config_schema: json!({
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
                         "title": "ntfy Topic",
-                        "description": "The ntfy.sh topic name to send notifications to (e.g., 'my-bitcoin-wallet')"
+                        "description": format!("The {} topic name to send notifications to (e.g., 'my-bitcoin-wallet')", server_display)
                     }
                 },
                 "required": ["topic"]
@@ -176,6 +186,6 @@ impl NotificationProvider for NtfyProvider {
 
 impl Default for NtfyProvider {
     fn default() -> Self {
-        Self::new()
+        Self::new("https://ntfy.sh".to_string())
     }
 }

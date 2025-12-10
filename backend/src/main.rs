@@ -172,16 +172,21 @@ async fn main() -> anyhow::Result<()> {
 
     if config.is_self_hosted_mode() {
         // FOSS mode: Only ntfy provider
-        println!("🔔 FOSS mode: Registering ntfy-only notifications");
-        notification_manager.register_provider(Arc::new(NtfyProvider::new()));
+        let ntfy_server = config.ntfy_server_url();
+        println!(
+            "🔔 FOSS mode: Registering ntfy notifications (server: {})",
+            ntfy_server
+        );
+        notification_manager.register_provider(Arc::new(NtfyProvider::new(ntfy_server)));
     } else {
         // SAAS mode: Register all configured providers
         println!("🔔 SAAS mode: Registering all notification providers");
 
         // Register ntfy provider (always available)
         if config.is_ntfy_enabled() {
-            println!("  - ntfy notification provider");
-            notification_manager.register_provider(Arc::new(NtfyProvider::new()));
+            let ntfy_server = config.ntfy_server_url();
+            println!("  - ntfy notification provider (server: {})", ntfy_server);
+            notification_manager.register_provider(Arc::new(NtfyProvider::new(ntfy_server)));
         }
 
         // Register Twilio SMS provider if enabled and configured
