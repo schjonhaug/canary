@@ -754,6 +754,14 @@ async fn main() -> anyhow::Result<()> {
                     .await
                 {
                     if !contacts.is_empty() {
+                        // Look up user's ntfy server URL preference
+                        let user_ntfy_server_url = notification_wallet_manager
+                            .metadata_db
+                            .get_user_ntfy_server_url(&wallet_info.user_id)
+                            .await
+                            .ok()
+                            .flatten();
+
                         // Generate message content once (same for all providers)
                         let mut message_content = String::new();
                         let mut provider_counts = std::collections::HashMap::new();
@@ -765,16 +773,31 @@ async fn main() -> anyhow::Result<()> {
                         for provider_info in available_providers {
                             let provider_name = &provider_info.name;
 
+                            // For ntfy, use user's preferred server URL if set
+                            let results = if provider_name == "ntfy" {
+                                // Determine the ntfy server URL: user preference > env var > default
+                                let ntfy_server = user_ntfy_server_url.clone().unwrap_or_else(|| {
+                                    std::env::var("NTFY_SERVER_URL")
+                                        .unwrap_or_else(|_| "https://ntfy.sh".to_string())
+                                });
+                                let ntfy_provider = NtfyProvider::new(ntfy_server);
+                                use crate::notifications::NotificationProvider;
+                                Ok(ntfy_provider
+                                    .send_notification(&notification, &wallet_info.name, &contacts)
+                                    .await)
+                            } else {
+                                manager
+                                    .send_notifications(
+                                        provider_name,
+                                        &notification,
+                                        &wallet_info.name,
+                                        &contacts,
+                                    )
+                                    .await
+                            };
+
                             // All notification types are now allowed for all tiers
-                            if let Ok(results) = manager
-                                .send_notifications(
-                                    provider_name,
-                                    &notification,
-                                    &wallet_info.name,
-                                    &contacts,
-                                )
-                                .await
-                            {
+                            if let Ok(results) = results {
                                 for (notification_method, result, message) in results {
                                     // Store message content for summary (same for all providers)
                                     if message_content.is_empty() {

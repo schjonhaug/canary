@@ -3205,6 +3205,42 @@ impl MetadataDb {
         .await?
     }
 
+    /// Get user's preferred ntfy server URL (None means use env var or default)
+    pub async fn get_user_ntfy_server_url(&self, user_id: &str) -> Result<Option<String>> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        spawn_blocking(move || -> Result<Option<String>> {
+            let conn = pool.get()?;
+            let url: Option<String> = conn
+                .prepare("SELECT ntfy_server_url FROM users WHERE id = ?1")?
+                .query_row(params![user_id], |row| row.get(0))
+                .optional()?
+                .flatten();
+            Ok(url)
+        })
+        .await?
+    }
+
+    /// Update user's preferred ntfy server URL (None to use default)
+    pub async fn update_user_ntfy_server_url(
+        &self,
+        user_id: &str,
+        ntfy_server_url: Option<&str>,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let ntfy_server_url = ntfy_server_url.map(|u| u.to_string());
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET ntfy_server_url = ?1 WHERE id = ?2",
+                params![ntfy_server_url, user_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     // ============================
     // BALANCE ALERTS CRUD METHODS
     // ============================

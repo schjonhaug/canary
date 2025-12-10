@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, CreditCard, Globe } from "lucide-react"
+import { ArrowLeft, CreditCard, Globe, Bell } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
@@ -17,8 +18,13 @@ export default function SettingsPage() {
   const router = useRouter()
   const { isAuthenticated, isLoading: authLoading, isCloudMode, billingStatus, user } = useAuth()
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD')
+  const [ntfyServerUrl, setNtfyServerUrl] = useState<string>('')
+  const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>('')
   const [isUpdating, setIsUpdating] = useState(false)
-  const [userPreferences, setUserPreferences] = useState<{ preferred_fiat_currency: string } | null>(null)
+  const [isUpdatingNtfy, setIsUpdatingNtfy] = useState(false)
+  const [ntfyError, setNtfyError] = useState<string | null>(null)
+  const [ntfySuccess, setNtfySuccess] = useState(false)
+  const [userPreferences, setUserPreferences] = useState<{ preferred_fiat_currency: string; ntfy_server_url: string | null } | null>(null)
 
   // Redirect unauthenticated users to sign-in when in SAAS mode
   useEffect(() => {
@@ -34,6 +40,8 @@ export default function SettingsPage() {
         const prefs = await api.getUserPreferences()
         setUserPreferences(prefs)
         setSelectedCurrency(prefs.preferred_fiat_currency)
+        setNtfyServerUrl(prefs.ntfy_server_url || '')
+        setSavedNtfyUrl(prefs.ntfy_server_url || '')
       } catch (error) {
         console.error('Failed to fetch user preferences:', error)
         // Default to USD if fetching fails
@@ -51,8 +59,8 @@ export default function SettingsPage() {
     setIsUpdating(true)
 
     try {
-      await api.updateUserPreferences(currency)
-      setUserPreferences({ preferred_fiat_currency: currency })
+      const result = await api.updateUserPreferences({ preferred_fiat_currency: currency })
+      setUserPreferences(result)
     } catch (error) {
       console.error('Failed to update currency preference:', error)
       // Revert on error
@@ -63,6 +71,30 @@ export default function SettingsPage() {
       setIsUpdating(false)
     }
   }
+
+  const handleNtfyServerSave = async () => {
+    setIsUpdatingNtfy(true)
+    setNtfyError(null)
+    setNtfySuccess(false)
+
+    try {
+      const result = await api.updateUserPreferences({ ntfy_server_url: ntfyServerUrl || '' })
+      setUserPreferences(result)
+      setSavedNtfyUrl(result.ntfy_server_url || '')
+      setNtfySuccess(true)
+      // Clear success message after 3 seconds
+      setTimeout(() => setNtfySuccess(false), 3000)
+    } catch (error) {
+      console.error('Failed to update ntfy server URL:', error)
+      setNtfyError(error instanceof Error ? error.message : 'Failed to save')
+      // Revert on error
+      setNtfyServerUrl(savedNtfyUrl)
+    } finally {
+      setIsUpdatingNtfy(false)
+    }
+  }
+
+  const hasNtfyChanges = ntfyServerUrl !== savedNtfyUrl
 
   // Show loading state while auth is loading
   if (authLoading) {
@@ -137,6 +169,67 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* ntfy Server Settings - Only show in self-hosted mode */}
+        {!isCloudMode && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Push Notifications
+              </CardTitle>
+              <CardDescription>
+                Configure your ntfy server for push notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="ntfy-server">ntfy Server URL</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      id="ntfy-server"
+                      type="url"
+                      placeholder="https://ntfy.sh"
+                      value={ntfyServerUrl}
+                      onChange={(e) => {
+                        setNtfyServerUrl(e.target.value)
+                        setNtfyError(null)
+                        setNtfySuccess(false)
+                      }}
+                      disabled={isUpdatingNtfy}
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={handleNtfyServerSave}
+                      disabled={isUpdatingNtfy || !hasNtfyChanges}
+                    >
+                      {isUpdatingNtfy ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                  {ntfyError && (
+                    <p className="text-sm text-red-500 mt-1">{ntfyError}</p>
+                  )}
+                  {ntfySuccess && (
+                    <p className="text-sm text-green-500 mt-1">Saved successfully!</p>
+                  )}
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Leave empty to use the public ntfy.sh server. You can{' '}
+                    <a
+                      href="https://ntfy.sh/docs/install/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      self-host ntfy
+                    </a>{' '}
+                    for complete privacy.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Subscription Management */}
         {isCloudMode && (

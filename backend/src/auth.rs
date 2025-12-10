@@ -112,12 +112,14 @@ pub struct UpdateUserResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateUserPreferencesRequest {
-    pub preferred_fiat_currency: String,
+    pub preferred_fiat_currency: Option<String>,
+    pub ntfy_server_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct UserPreferencesResponse {
     pub preferred_fiat_currency: String,
+    pub ntfy_server_url: Option<String>,
 }
 
 // Development mode configuration

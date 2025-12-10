@@ -4879,8 +4879,27 @@ pub async fn get_user_preferences(
         }
     };
 
+    // Get user's ntfy server URL preference
+    let ntfy_server_url = match app_services
+        .metadata_db
+        .get_user_ntfy_server_url(&user.user_id)
+        .await
+    {
+        Ok(url) => url,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to get user preferences: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
     Json(UserPreferencesResponse {
         preferred_fiat_currency: currency,
+        ntfy_server_url,
     })
     .into_response()
 }
@@ -4910,34 +4929,94 @@ pub async fn update_user_preferences(
         return response;
     }
 
-    // Validate currency is supported
-    if !exchange_rates::SUPPORTED_CURRENCIES.contains(&request.preferred_fiat_currency.as_str()) {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: format!("Unsupported currency: {}", request.preferred_fiat_currency),
-            }),
-        )
-            .into_response();
+    // Track current values for response
+    let mut current_currency = String::new();
+    let mut current_ntfy_url: Option<String> = None;
+
+    // Update preferred_fiat_currency if provided
+    if let Some(ref currency) = request.preferred_fiat_currency {
+        // Validate currency is supported
+        if !exchange_rates::SUPPORTED_CURRENCIES.contains(&currency.as_str()) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: format!("Unsupported currency: {}", currency),
+                }),
+            )
+                .into_response();
+        }
+
+        // Update user's preferred currency
+        if let Err(e) = app_services
+            .metadata_db
+            .update_user_preferred_currency(&user.user_id, currency)
+            .await
+        {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to update preferences: {}", e),
+                }),
+            )
+                .into_response();
+        }
+        current_currency = currency.clone();
+    } else {
+        // Get current currency
+        current_currency = app_services
+            .metadata_db
+            .get_user_preferred_currency(&user.user_id)
+            .await
+            .unwrap_or_else(|_| "USD".to_string());
     }
 
-    // Update user's preferred currency
-    if let Err(e) = app_services
-        .metadata_db
-        .update_user_preferred_currency(&user.user_id, &request.preferred_fiat_currency)
-        .await
-    {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to update preferences: {}", e),
-            }),
-        )
-            .into_response();
+    // Update ntfy_server_url if the field was provided in the request
+    // Note: We check if the outer Option is Some (field was in JSON)
+    // The inner value can be Some(url) to set, or could be empty string to clear
+    if let Some(ref ntfy_url) = request.ntfy_server_url {
+        // Validate URL format if not empty
+        let url_to_store = if ntfy_url.is_empty() {
+            None
+        } else {
+            // Basic URL validation
+            if !ntfy_url.starts_with("http://") && !ntfy_url.starts_with("https://") {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse {
+                        error: "ntfy server URL must start with http:// or https://".to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+            Some(ntfy_url.as_str())
+        };
+
+        if let Err(e) = app_services
+            .metadata_db
+            .update_user_ntfy_server_url(&user.user_id, url_to_store)
+            .await
+        {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to update ntfy server URL: {}", e),
+                }),
+            )
+                .into_response();
+        }
+        current_ntfy_url = url_to_store.map(|s| s.to_string());
+    } else {
+        // Get current ntfy URL
+        current_ntfy_url = app_services
+            .metadata_db
+            .get_user_ntfy_server_url(&user.user_id)
+            .await
+            .unwrap_or(None);
     }
 
     Json(UserPreferencesResponse {
-        preferred_fiat_currency: request.preferred_fiat_currency,
+        preferred_fiat_currency: current_currency,
+        ntfy_server_url: current_ntfy_url,
     })
     .into_response()
 }
