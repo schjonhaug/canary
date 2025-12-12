@@ -4897,9 +4897,26 @@ pub async fn get_user_preferences(
         }
     };
 
+    // Get ntfy authentication status (don't expose actual credentials)
+    let (ntfy_has_access_token, ntfy_has_credentials, ntfy_username) = match app_services
+        .metadata_db
+        .get_user_ntfy_auth(&user.user_id)
+        .await
+    {
+        Ok((access_token, username, password)) => (
+            access_token.is_some(),
+            username.is_some() && password.is_some(),
+            username,
+        ),
+        Err(_) => (false, false, None),
+    };
+
     Json(UserPreferencesResponse {
         preferred_fiat_currency: currency,
         ntfy_server_url,
+        ntfy_has_access_token,
+        ntfy_has_credentials,
+        ntfy_username,
     })
     .into_response()
 }
@@ -5014,9 +5031,81 @@ pub async fn update_user_preferences(
             .unwrap_or(None);
     }
 
+    // Update ntfy authentication if any auth fields were provided
+    // Access token takes precedence - if set, it clears username/password
+    // Username/password are set together - both required
+    let should_update_auth = request.ntfy_access_token.is_some()
+        || request.ntfy_username.is_some()
+        || request.ntfy_password.is_some();
+
+    if should_update_auth {
+        let (access_token, username, password) = if let Some(ref token) = request.ntfy_access_token
+        {
+            // Access token auth - clear username/password
+            let token = if token.is_empty() { None } else { Some(token.as_str()) };
+            (token, None, None)
+        } else if request.ntfy_username.is_some() || request.ntfy_password.is_some() {
+            // Basic auth - both username and password required
+            let username = request.ntfy_username.as_deref();
+            let password = request.ntfy_password.as_deref();
+
+            // Allow clearing by setting both to empty
+            let is_clearing = username.map_or(true, |u| u.is_empty())
+                && password.map_or(true, |p| p.is_empty());
+
+            if is_clearing {
+                (None, None, None)
+            } else if username.is_none() || password.is_none() {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse {
+                        error: "Both ntfy_username and ntfy_password are required for Basic auth"
+                            .to_string(),
+                    }),
+                )
+                    .into_response();
+            } else {
+                (None, username, password)
+            }
+        } else {
+            (None, None, None)
+        };
+
+        if let Err(e) = app_services
+            .metadata_db
+            .update_user_ntfy_auth(&user.user_id, access_token, username, password)
+            .await
+        {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to update ntfy authentication: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    // Get current ntfy auth status for response
+    let (ntfy_has_access_token, ntfy_has_credentials, ntfy_username) = match app_services
+        .metadata_db
+        .get_user_ntfy_auth(&user.user_id)
+        .await
+    {
+        Ok((access_token, username, password)) => (
+            access_token.is_some(),
+            username.is_some() && password.is_some(),
+            username,
+        ),
+        Err(_) => (false, false, None),
+    };
+
     Json(UserPreferencesResponse {
         preferred_fiat_currency: current_currency,
         ntfy_server_url: current_ntfy_url,
+        ntfy_has_access_token,
+        ntfy_has_credentials,
+        ntfy_username,
     })
     .into_response()
 }

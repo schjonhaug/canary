@@ -25,7 +25,7 @@ use config::AppConfig;
 use email_provider::EmailProvider;
 use metadata::TransactionNotification;
 use notifications::NotificationManager;
-use ntfy_provider::NtfyProvider;
+use ntfy_provider::{NtfyAuth, NtfyProvider};
 use std::sync::Arc;
 use std::time::Instant;
 use stripe_billing::StripeBilling;
@@ -773,14 +773,30 @@ async fn main() -> anyhow::Result<()> {
                         for provider_info in available_providers {
                             let provider_name = &provider_info.name;
 
-                            // For ntfy, use user's preferred server URL if set
+                            // For ntfy, use user's preferred server URL and auth if set
                             let results = if provider_name == "ntfy" {
                                 // Determine the ntfy server URL: user preference > env var > default
                                 let ntfy_server = user_ntfy_server_url.clone().unwrap_or_else(|| {
                                     std::env::var("NTFY_SERVER_URL")
                                         .unwrap_or_else(|_| "https://ntfy.sh".to_string())
                                 });
-                                let ntfy_provider = NtfyProvider::new(ntfy_server);
+
+                                // Get ntfy authentication credentials
+                                let ntfy_auth = match notification_wallet_manager
+                                    .metadata_db
+                                    .get_user_ntfy_auth(&wallet_info.user_id)
+                                    .await
+                                {
+                                    Ok((Some(token), _, _)) => {
+                                        NtfyAuth::AccessToken(token)
+                                    }
+                                    Ok((None, Some(username), Some(password))) => {
+                                        NtfyAuth::BasicAuth { username, password }
+                                    }
+                                    _ => NtfyAuth::None,
+                                };
+
+                                let ntfy_provider = NtfyProvider::with_auth(ntfy_server, ntfy_auth);
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
                                     .send_notification(&notification, &wallet_info.name, &contacts)
@@ -862,6 +878,13 @@ async fn main() -> anyhow::Result<()> {
                                         total_sent += 1;
                                     } else {
                                         failed_count += 1;
+                                        // Log the actual error for debugging
+                                        eprintln!(
+                                            "❌ {} notification failed for {}: {}",
+                                            provider_name,
+                                            notification_method.notification_target,
+                                            result.error_message.as_deref().unwrap_or("Unknown error")
+                                        );
                                     }
 
                                     // Track failures for SMS and Email providers and send admin alerts

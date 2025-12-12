@@ -4,20 +4,51 @@ use crate::metadata::{
 };
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde_json::json;
+
+/// Authentication method for ntfy server
+#[derive(Clone, Debug)]
+pub enum NtfyAuth {
+    /// No authentication (public ntfy.sh or open server)
+    None,
+    /// Bearer token authentication: Authorization: Bearer <token>
+    AccessToken(String),
+    /// Basic authentication: Authorization: Basic base64(username:password)
+    BasicAuth { username: String, password: String },
+}
 
 pub struct NtfyProvider {
     client: reqwest::Client,
     server_url: String,
+    auth: NtfyAuth,
 }
 
 impl NtfyProvider {
     pub fn new(server_url: String) -> Self {
+        Self::with_auth(server_url, NtfyAuth::None)
+    }
+
+    pub fn with_auth(server_url: String, auth: NtfyAuth) -> Self {
         // Ensure the server URL doesn't have a trailing slash
         let server_url = server_url.trim_end_matches('/').to_string();
         Self {
             client: reqwest::Client::new(),
             server_url,
+            auth,
+        }
+    }
+
+    /// Build the Authorization header value based on auth method
+    fn auth_header(&self) -> Option<String> {
+        match &self.auth {
+            NtfyAuth::None => None,
+            NtfyAuth::AccessToken(token) => Some(format!("Bearer {}", token)),
+            NtfyAuth::BasicAuth { username, password } => {
+                let credentials = format!("{}:{}", username, password);
+                let encoded = BASE64.encode(credentials.as_bytes());
+                Some(format!("Basic {}", encoded))
+            }
         }
     }
 }
@@ -91,7 +122,8 @@ impl NotificationProvider for NtfyProvider {
                     }
                 };
 
-                let result = match self
+                // Build the request with optional authentication
+                let mut request = self
                     .client
                     .post(&ntfy_url)
                     .header("Content-Type", "text/plain; charset=utf-8")
@@ -110,10 +142,14 @@ impl NotificationProvider for NtfyProvider {
                             }
                             TransactionNotification::BalanceAlert(_) => "chart_with_upwards_trend",
                         },
-                    )
-                    .body(message.clone())
-                    .send()
-                    .await
+                    );
+
+                // Add authentication header if configured
+                if let Some(auth_value) = self.auth_header() {
+                    request = request.header("Authorization", auth_value);
+                }
+
+                let result = match request.body(message.clone()).send().await
                 {
                     Ok(response) => {
                         if response.status().is_success() {

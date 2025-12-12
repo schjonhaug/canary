@@ -3241,6 +3241,55 @@ impl MetadataDb {
         .await?
     }
 
+    /// Get user's ntfy authentication credentials
+    /// Returns (access_token, username, password)
+    pub async fn get_user_ntfy_auth(
+        &self,
+        user_id: &str,
+    ) -> Result<(Option<String>, Option<String>, Option<String>)> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        spawn_blocking(move || -> Result<(Option<String>, Option<String>, Option<String>)> {
+            let conn = pool.get()?;
+            let result: Option<(Option<String>, Option<String>, Option<String>)> = conn
+                .prepare(
+                    "SELECT ntfy_access_token, ntfy_username, ntfy_password FROM users WHERE id = ?1",
+                )?
+                .query_row(params![user_id], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                })
+                .optional()?;
+            Ok(result.unwrap_or((None, None, None)))
+        })
+        .await?
+    }
+
+    /// Update user's ntfy authentication credentials
+    /// Set access_token for Bearer token auth, or username+password for Basic auth
+    /// Setting access_token will clear username/password and vice versa
+    pub async fn update_user_ntfy_auth(
+        &self,
+        user_id: &str,
+        access_token: Option<&str>,
+        username: Option<&str>,
+        password: Option<&str>,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let access_token = access_token.map(|s| s.to_string());
+        let username = username.map(|s| s.to_string());
+        let password = password.map(|s| s.to_string());
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET ntfy_access_token = ?1, ntfy_username = ?2, ntfy_password = ?3 WHERE id = ?4",
+                params![access_token, username, password, user_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     // ============================
     // BALANCE ALERTS CRUD METHODS
     // ============================
