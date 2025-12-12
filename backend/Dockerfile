@@ -52,8 +52,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Copy the Rust binary from builder stage
 COPY --from=rust-builder /app/target/release/canary /app/canary
 
-# Copy migrations
-COPY --from=rust-builder /app/migrations /app/migrations
+# Copy migrations with correct ownership for non-root user
+COPY --from=rust-builder --chown=1000:1000 /app/migrations /app/migrations
 
 # Copy Node.js tools and dependencies
 COPY --from=node-builder /app/xpub-tools /app/xpub-tools
