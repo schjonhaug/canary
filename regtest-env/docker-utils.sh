@@ -1392,7 +1392,7 @@ case "$1" in
             
             # Remove wallets from backend if it's running
             echo "Removing wallets from backend..."
-            if curl -s --connect-timeout 2 http://localhost:3001/wallets > /dev/null 2>&1; then
+            if curl -s --connect-timeout 2 http://localhost:3000/api/wallets > /dev/null 2>&1; then
                 ./docker-utils.sh remove-wallets-from-backend
             else
                 echo "⚠️  Backend not running, skipping wallet removal"
@@ -1566,12 +1566,12 @@ case "$1" in
         ;;
     
     "add-wallets-to-backend")
-        BACKEND_URL=${2:-"http://localhost:3001"}
+        BACKEND_URL=${2:-"http://localhost:3000"}
         echo "Adding Alice, Bob, and Charlie wallets to backend at $BACKEND_URL..."
-        
+
         # Check if backend is running
         echo "🔍 Checking if backend is running..."
-        if ! curl -s --connect-timeout 5 --max-time 10 "$BACKEND_URL/wallets" > /dev/null 2>&1; then
+        if ! curl -s --connect-timeout 5 --max-time 10 "$BACKEND_URL/api/wallets" > /dev/null 2>&1; then
             echo "❌ Backend is not running at $BACKEND_URL"
             echo ""
             echo "💡 To start the backend:"
@@ -1627,13 +1627,13 @@ case "$1" in
         
         # Add Alice wallet to backend
         echo "📤 Adding Alice wallet to backend..."
-        ALICE_RESPONSE=$(curl -s -X POST "$BACKEND_URL/wallets" \
+        ALICE_RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/wallets" \
             -H "Content-Type: application/json" \
-            -d "{\"name\":\"Alice (Regtest)\",\"output_descriptor\":\"$ALICE_DESCRIPTOR\",\"gap_limit\":5}")
+            -d "{\"name\":\"Alice (Regtest)\",\"descriptor\":\"$ALICE_DESCRIPTOR\"}")
         
-        if echo "$ALICE_RESPONSE" | jq -e '.id' > /dev/null 2>&1; then
-            ALICE_ID=$(echo "$ALICE_RESPONSE" | jq -r '.id')
-            echo "✅ Alice wallet added with ID: $ALICE_ID"
+        if echo "$ALICE_RESPONSE" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
+            ALICE_ID=$(echo "$ALICE_RESPONSE" | jq -r '.wallet.checksum')
+            echo "✅ Alice wallet added with checksum: $ALICE_ID"
             ALICE_SUCCESS=true
         else
             echo "❌ Failed to add Alice wallet"
@@ -1648,13 +1648,13 @@ case "$1" in
         
         # Add Bob wallet to backend
         echo "📤 Adding Bob wallet to backend..."
-        BOB_RESPONSE=$(curl -s -X POST "$BACKEND_URL/wallets" \
+        BOB_RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/wallets" \
             -H "Content-Type: application/json" \
-            -d "{\"name\":\"Bob (Regtest)\",\"output_descriptor\":\"$BOB_DESCRIPTOR\",\"gap_limit\":5}")
+            -d "{\"name\":\"Bob (Regtest)\",\"descriptor\":\"$BOB_DESCRIPTOR\"}")
         
-        if echo "$BOB_RESPONSE" | jq -e '.id' > /dev/null 2>&1; then
-            BOB_ID=$(echo "$BOB_RESPONSE" | jq -r '.id')
-            echo "✅ Bob wallet added with ID: $BOB_ID"
+        if echo "$BOB_RESPONSE" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
+            BOB_ID=$(echo "$BOB_RESPONSE" | jq -r '.wallet.checksum')
+            echo "✅ Bob wallet added with checksum: $BOB_ID"
             BOB_SUCCESS=true
         else
             echo "❌ Failed to add Bob wallet"
@@ -1669,13 +1669,13 @@ case "$1" in
         
         # Add Charlie wallet to backend
         echo "📤 Adding Charlie wallet to backend..."
-        CHARLIE_RESPONSE=$(curl -s -X POST "$BACKEND_URL/wallets" \
+        CHARLIE_RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/wallets" \
             -H "Content-Type: application/json" \
-            -d "{\"name\":\"Charlie (Regtest)\",\"output_descriptor\":\"$CHARLIE_DESCRIPTOR\",\"gap_limit\":5}")
+            -d "{\"name\":\"Charlie (Regtest)\",\"descriptor\":\"$CHARLIE_DESCRIPTOR\"}")
         
-        if echo "$CHARLIE_RESPONSE" | jq -e '.id' > /dev/null 2>&1; then
-            CHARLIE_ID=$(echo "$CHARLIE_RESPONSE" | jq -r '.id')
-            echo "✅ Charlie wallet added with ID: $CHARLIE_ID"
+        if echo "$CHARLIE_RESPONSE" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
+            CHARLIE_ID=$(echo "$CHARLIE_RESPONSE" | jq -r '.wallet.checksum')
+            echo "✅ Charlie wallet added with checksum: $CHARLIE_ID"
             CHARLIE_SUCCESS=true
         else
             echo "❌ Failed to add Charlie wallet"
@@ -1707,18 +1707,18 @@ case "$1" in
         ;;
     
     "remove-wallets-from-backend")
-        BACKEND_URL=${2:-"http://localhost:3001"}
+        BACKEND_URL=${2:-"http://localhost:3000"}
         echo "Removing regtest wallets from backend at $BACKEND_URL..."
-        
+
         # Get all wallets from backend
-        WALLETS_RESPONSE=$(curl -s "$BACKEND_URL/wallets")
+        WALLETS_RESPONSE=$(curl -s "$BACKEND_URL/api/wallets")
         
         if echo "$WALLETS_RESPONSE" | jq -e '.wallets' > /dev/null 2>&1; then
             # Find and delete Alice, Bob, Charlie and Miner wallets
-            echo "$WALLETS_RESPONSE" | jq -r '.wallets[] | select(.name | test("Alice.*Regtest|Bob.*Regtest|Charlie.*Regtest|Miner.*Regtest")) | .id' | while read -r wallet_id; do
+            echo "$WALLETS_RESPONSE" | jq -r '.wallets[] | select(.name | test("Alice.*Regtest|Bob.*Regtest|Charlie.*Regtest|Miner.*Regtest")) | .checksum' | while read -r wallet_id; do
                 if [ -n "$wallet_id" ]; then
                     echo "🗑️  Deleting wallet $wallet_id..."
-                    DELETE_RESPONSE=$(curl -s -X DELETE "$BACKEND_URL/wallets/$wallet_id")
+                    DELETE_RESPONSE=$(curl -s -X DELETE "$BACKEND_URL/api/wallets/$wallet_id")
                     if echo "$DELETE_RESPONSE" | jq -e '.message' > /dev/null 2>&1; then
                         echo "✅ Wallet $wallet_id deleted successfully"
                     else
@@ -1833,7 +1833,7 @@ case "$1" in
         echo "  run-tests <address>          Run comprehensive test suite with wallet address"
         echo ""
         echo "Backend Integration:"
-        echo "  add-wallets-to-backend [url]    Add Alice/Bob/Charlie wallets to backend (default: http://localhost:3001)"
+        echo "  add-wallets-to-backend [url]    Add Alice/Bob/Charlie wallets to backend (default: http://localhost:3000)"
         echo "  remove-wallets-from-backend [url] Remove regtest wallets from backend"
         echo ""
         echo "Examples:"
