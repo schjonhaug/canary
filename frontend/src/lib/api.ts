@@ -339,14 +339,44 @@ class ApiClient {
   }
 
   // User preferences API methods
-  async getUserPreferences(): Promise<{ preferred_fiat_currency: string }> {
-    return this.request<{ preferred_fiat_currency: string }>('/api/user/preferences')
+  async getUserPreferences(): Promise<{
+    preferred_fiat_currency: string;
+    ntfy_server_url: string | null;
+    ntfy_has_access_token: boolean;
+    ntfy_has_credentials: boolean;
+    ntfy_username: string | null;
+  }> {
+    return this.request<{
+      preferred_fiat_currency: string;
+      ntfy_server_url: string | null;
+      ntfy_has_access_token: boolean;
+      ntfy_has_credentials: boolean;
+      ntfy_username: string | null;
+    }>('/api/user/preferences')
   }
 
-  async updateUserPreferences(currency: string): Promise<{ preferred_fiat_currency: string }> {
-    return this.request<{ preferred_fiat_currency: string }>('/api/user/preferences', {
+  async updateUserPreferences(preferences: {
+    preferred_fiat_currency?: string;
+    ntfy_server_url?: string;
+    ntfy_access_token?: string;
+    ntfy_username?: string;
+    ntfy_password?: string;
+  }): Promise<{
+    preferred_fiat_currency: string;
+    ntfy_server_url: string | null;
+    ntfy_has_access_token: boolean;
+    ntfy_has_credentials: boolean;
+    ntfy_username: string | null;
+  }> {
+    return this.request<{
+      preferred_fiat_currency: string;
+      ntfy_server_url: string | null;
+      ntfy_has_access_token: boolean;
+      ntfy_has_credentials: boolean;
+      ntfy_username: string | null;
+    }>('/api/user/preferences', {
       method: 'PUT',
-      body: JSON.stringify({ preferred_fiat_currency: currency }),
+      body: JSON.stringify(preferences),
     })
   }
 

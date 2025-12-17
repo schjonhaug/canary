@@ -167,6 +167,12 @@ impl AppConfig {
         true
     }
 
+    /// Get the ntfy server URL (defaults to https://ntfy.sh)
+    /// Self-hosted users can configure their own ntfy server via NTFY_SERVER_URL
+    pub fn ntfy_server_url(&self) -> String {
+        std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string())
+    }
+
     /// Check if Twilio SMS provider should be enabled
     pub fn is_twilio_enabled(&self) -> bool {
         // Only allow Twilio in cloud mode, and only if configured

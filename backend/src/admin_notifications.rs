@@ -3,15 +3,21 @@ use reqwest::Client;
 pub struct AdminNotifications {
     client: Client,
     topic: Option<String>,
+    server_url: String,
 }
 
 impl AdminNotifications {
     pub fn new() -> Self {
         let topic = std::env::var("ADMIN_NOTIFICATION_TOPIC").ok();
+        let server_url = std::env::var("NTFY_SERVER_URL")
+            .unwrap_or_else(|_| "https://ntfy.sh".to_string())
+            .trim_end_matches('/')
+            .to_string();
 
         Self {
             client: Client::new(),
             topic,
+            server_url,
         }
     }
 
@@ -129,7 +135,7 @@ impl AdminNotifications {
     }
 
     async fn send_notification(&self, topic: &str, title: &str, message: &str, tag: &str) {
-        let ntfy_url = format!("https://ntfy.sh/{}", topic);
+        let ntfy_url = format!("{}/{}", self.server_url, topic);
 
         let result = self
             .client

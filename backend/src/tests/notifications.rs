@@ -55,7 +55,7 @@ fn create_notification_method(provider_type: ProviderType, target: &str) -> Noti
 
 #[tokio::test]
 async fn test_ntfy_provider_info() {
-    let provider = NtfyProvider::new();
+    let provider = NtfyProvider::new("https://ntfy.sh".to_string());
     let info = provider.provider_info();
 
     assert_eq!(info.name, "ntfy");
@@ -64,8 +64,18 @@ async fn test_ntfy_provider_info() {
 }
 
 #[tokio::test]
+async fn test_ntfy_provider_custom_server() {
+    let provider = NtfyProvider::new("https://ntfy.example.com".to_string());
+    let info = provider.provider_info();
+
+    assert_eq!(info.name, "ntfy");
+    assert_eq!(info.display_name, "ntfy.example.com Notifications");
+    assert!(info.config_schema.is_object());
+}
+
+#[tokio::test]
 async fn test_ntfy_send_notification() {
-    let provider = NtfyProvider::new();
+    let provider = NtfyProvider::new("https://ntfy.sh".to_string());
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 
@@ -86,7 +96,7 @@ async fn test_ntfy_send_notification() {
 
 #[tokio::test]
 async fn test_ntfy_filters_only_ntfy_methods() {
-    let provider = NtfyProvider::new();
+    let provider = NtfyProvider::new("https://ntfy.sh".to_string());
     let event = create_test_transaction(EventType::Send, 50_000_000, false);
     let notification = TransactionNotification::Pending(event);
 

@@ -112,12 +112,26 @@ pub struct UpdateUserResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateUserPreferencesRequest {
-    pub preferred_fiat_currency: String,
+    pub preferred_fiat_currency: Option<String>,
+    pub ntfy_server_url: Option<String>,
+    /// Access token for ntfy Bearer authentication (mutually exclusive with username/password)
+    pub ntfy_access_token: Option<String>,
+    /// Username for ntfy Basic authentication (requires ntfy_password)
+    pub ntfy_username: Option<String>,
+    /// Password for ntfy Basic authentication (requires ntfy_username)
+    pub ntfy_password: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct UserPreferencesResponse {
     pub preferred_fiat_currency: String,
+    pub ntfy_server_url: Option<String>,
+    /// Whether ntfy access token is configured (token value is not exposed)
+    pub ntfy_has_access_token: bool,
+    /// Whether ntfy username/password is configured (credentials are not exposed)
+    pub ntfy_has_credentials: bool,
+    /// The configured ntfy username (password is not exposed)
+    pub ntfy_username: Option<String>,
 }
 
 // Development mode configuration
