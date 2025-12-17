@@ -127,6 +127,20 @@ pub struct CreateBalanceAlertRequest {
     pub threshold_fiat_amount: Option<f64>,
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct ContactFormRequest {
+    /// The sender's email address
+    pub email: String,
+    /// The message content
+    pub message: String,
+}
+
+#[derive(Serialize)]
+pub struct ContactFormResponse {
+    /// Success message
+    pub message: String,
+}
+
 #[derive(Serialize)]
 pub struct BalanceAlertsResponse {
     /// List of balance alerts for the wallet
@@ -3649,6 +3663,88 @@ pub async fn forgot_password(
     .into_response()
 }
 
+pub async fn submit_contact_form(
+    State((_app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
+    Json(payload): Json<ContactFormRequest>,
+) -> Response {
+    let email = payload.email.trim();
+    let message = payload.message.trim();
+
+    // Validate email format
+    if email.is_empty() || !email.contains('@') || email.len() > 255 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Please provide a valid email address".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Validate message length
+    if message.len() < 10 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Message must be at least 10 characters".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    if message.len() > 5000 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Message must be less than 5000 characters".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    // Send email using EmailService
+    match EmailService::from_env() {
+        Ok(email_service) => {
+            match email_service
+                .send_contact_form_submission(email, message)
+                .await
+            {
+                Ok(_) => {
+                    info!("Contact form submitted from {}", email);
+                    (
+                        StatusCode::OK,
+                        Json(ContactFormResponse {
+                            message: "Thank you for your message. We'll get back to you soon."
+                                .to_string(),
+                        }),
+                    )
+                        .into_response()
+                }
+                Err(e) => {
+                    tracing::error!("Failed to send contact form email: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: "Failed to send message. Please try again later.".to_string(),
+                        }),
+                    )
+                        .into_response()
+                }
+            }
+        }
+        Err(e) => {
+            tracing::error!("Email service not configured: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "Contact form is temporarily unavailable.".to_string(),
+                }),
+            )
+                .into_response()
+        }
+    }
+}
+
 pub async fn reset_password(
     State((app_services, _stripe_billing)): State<(AppServicesState, StripeBillingState)>,
     Path(token): Path<String>,
@@ -4643,6 +4739,7 @@ pub fn create_router_with_services(
         .route("/auth/forgot-password", post(forgot_password))
         .route("/auth/reset-password/{token}", post(reset_password))
         .route("/auth/user", put(update_user))
+        .route("/contact", post(submit_contact_form))
         .with_state((app_services.clone(), stripe_billing.clone()));
 
     // Contact verification routes (non-blocking)

@@ -373,6 +373,14 @@ class ApiClient {
       method: 'DELETE',
     })
   }
+
+  // Contact form API method
+  async submitContactForm(email: string, message: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/api/contact', {
+      method: 'POST',
+      body: JSON.stringify({ email, message }),
+    })
+  }
 }
 
 // Export a singleton instance

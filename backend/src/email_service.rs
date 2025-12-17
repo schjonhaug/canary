@@ -602,6 +602,73 @@ Your verification code is: {otp_code}
             .await
     }
 
+    /// Send contact form submission to admin
+    pub async fn send_contact_form_submission(
+        &self,
+        from_email: &str,
+        message: &str,
+    ) -> Result<()> {
+        // Get the contact form recipient email from env or use default
+        let to_email = std::env::var("CONTACT_FORM_EMAIL")
+            .unwrap_or_else(|_| self.config.resend_from_email.clone());
+
+        let subject = format!("Contact Form Submission from {}", from_email);
+
+        let html_body = format!(
+            r#"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Contact Form Submission</title>
+            </head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #1f2937;">Canary Contact Form</h1>
+                </div>
+
+                <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h2 style="color: #1f2937; margin-top: 0;">New Message Received</h2>
+
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        <strong>From:</strong> {from_email}
+                    </p>
+
+                    <div style="background-color: #fff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+                        <p style="color: #1f2937; margin: 0; white-space: pre-wrap;">{message}</p>
+                    </div>
+                </div>
+
+                <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
+                    <p>This message was sent via the Canary contact form</p>
+                </div>
+            </body>
+            </html>
+            "#,
+            from_email = from_email,
+            message = message
+        );
+
+        let text_body = format!(
+            r#"
+Canary Contact Form - New Message
+
+From: {from_email}
+
+Message:
+{message}
+
+---
+This message was sent via the Canary contact form
+            "#,
+            from_email = from_email,
+            message = message
+        );
+
+        self.send_email(&to_email, "Canary Admin", &subject, &html_body, &text_body)
+            .await
+    }
+
     pub async fn add_to_marketing_audience(&self, email: &str, name: &str) -> Result<()> {
         let audience_id = std::env::var("RESEND_AUDIENCE_ID")
             .map_err(|_| anyhow!("RESEND_AUDIENCE_ID environment variable not set"))?;

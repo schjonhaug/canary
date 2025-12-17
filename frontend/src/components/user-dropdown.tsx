@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { User, LogOut, ChevronDown, CreditCard, Settings } from 'lucide-react'
+import { User, LogOut, ChevronDown, CreditCard, Settings, MessageSquare } from 'lucide-react'
 import { getTierDisplayName } from '@/lib/pricing-data'
 import Link from 'next/link'
 
@@ -70,6 +70,13 @@ export function UserDropdown() {
               <DropdownMenuItem className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
+              </DropdownMenuItem>
+            </Link>
+
+            <Link href="/contact" className="block">
+              <DropdownMenuItem className="cursor-pointer">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                <span>Contact</span>
               </DropdownMenuItem>
             </Link>
 

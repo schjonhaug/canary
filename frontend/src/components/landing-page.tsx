@@ -75,6 +75,10 @@ const faqs = [
   {
     question: "Can I monitor multiple Bitcoin wallets with different balance thresholds?",
     answer: "Yes! Each Bitcoin wallet can have its own set of custom balance alerts. With our Team plan, you can monitor up to 5 wallets, each with unique balance thresholds. Perfect for Uncle Jims monitoring family Bitcoin holdings or businesses tracking multiple treasury wallets with different alert requirements."
+  },
+  {
+    question: "How can I contact you?",
+    answer: "We'd love to hear from you! You can reach us through our contact form for any questions, feedback, or support requests. We typically respond within 24 hours."
   }
 ]
 
@@ -284,10 +288,29 @@ export default function LandingPage() {
             {faqs.map((faq, index) => (
               <Card key={index}>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{faq.question}</CardTitle>
+                  <CardTitle className="text-base">
+                    {faq.question === "How can I contact you?" ? (
+                      <Link href="/contact" className="hover:text-primary transition-colors">
+                        {faq.question}
+                      </Link>
+                    ) : (
+                      faq.question
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">{faq.answer}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {faq.answer}
+                    {faq.question === "How can I contact you?" && (
+                      <>
+                        {" "}
+                        <Link href="/contact" className="text-primary hover:underline">
+                          Contact us here
+                        </Link>
+                        .
+                      </>
+                    )}
+                  </p>
                 </CardContent>
               </Card>
             ))}
