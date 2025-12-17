@@ -608,9 +608,10 @@ Your verification code is: {otp_code}
         from_email: &str,
         message: &str,
     ) -> Result<()> {
-        // Get the contact form recipient email from env or use default
+        // Get the contact form recipient email from env
+        // In cloud mode, this must be explicitly configured (no fallback)
         let to_email = std::env::var("CONTACT_FORM_EMAIL")
-            .unwrap_or_else(|_| self.config.resend_from_email.clone());
+            .map_err(|_| anyhow!("CONTACT_FORM_EMAIL environment variable not set - required for contact form submissions"))?;
 
         let subject = format!("Contact Form Submission from {}", from_email);
 
