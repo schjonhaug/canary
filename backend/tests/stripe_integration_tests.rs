@@ -4,7 +4,7 @@ use axum::{
 };
 use canary::{
     api::{create_router_with_services, AppServices},
-    config::{AppConfig, NetworkConfig},
+    config::{AppConfig, NetworkConfig, OperatingMode},
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
 };
@@ -27,6 +27,7 @@ async fn create_test_app() -> axum::Router {
         electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_path.to_string(),
+        operating_mode: OperatingMode::Cloud, // Stripe tests need cloud mode
     };
 
     let (event_tx, _event_rx) =

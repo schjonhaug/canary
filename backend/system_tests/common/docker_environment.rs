@@ -1,5 +1,5 @@
 use canary::api::AppServices;
-use canary::config::{AppConfig, NetworkConfig};
+use canary::config::{AppConfig, NetworkConfig, OperatingMode};
 use canary::metadata::{MetadataDb, TransactionNotification, TransactionWithWallet};
 use canary::subscription::SubscriptionTier;
 use canary::wallet::WalletManager;
@@ -105,14 +105,13 @@ impl IsolatedTestEnvironment {
 
         // Create test database
         let db_path = temp_dir.path().join("test.db");
-        // Set self-hosted mode for simpler testing without Stripe dependencies
-        std::env::set_var("CANARY_MODE", "self-hosted");
 
         let test_config = AppConfig {
             network: NetworkConfig::Regtest,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: temp_path.clone(),
+            operating_mode: OperatingMode::SelfHosted, // Self-hosted mode for simpler testing without Stripe
         };
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
@@ -263,14 +262,13 @@ impl IsolatedTestEnvironment {
 
         // Create test database
         let db_path = temp_dir.path().join("test.db");
-        // Set self-hosted mode for simpler testing without Stripe dependencies
-        std::env::set_var("CANARY_MODE", "self-hosted");
 
         let test_config = AppConfig {
             network: NetworkConfig::Regtest,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: temp_path.clone(),
+            operating_mode: OperatingMode::SelfHosted, // Self-hosted mode for simpler testing without Stripe
         };
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;

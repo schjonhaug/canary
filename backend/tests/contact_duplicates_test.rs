@@ -1,5 +1,5 @@
 use canary::{
-    config::{AppConfig, NetworkConfig},
+    config::{AppConfig, NetworkConfig, OperatingMode},
     metadata::{Language, MetadataDb, ProviderType},
 };
 use std::sync::Arc;
@@ -16,6 +16,7 @@ async fn test_duplicate_email_prevention() {
         electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
+        operating_mode: OperatingMode::SelfHosted,
     };
 
     let metadata_db = Arc::new(
@@ -26,7 +27,7 @@ async fn test_duplicate_email_prevention() {
 
     // Create a test user
     let user_id = metadata_db
-        .create_user("test@example.com", "hash", Some("Test User"), false, None)
+        .create_user("test@example.com", "hash", Some("Test User"), false, None, None)
         .await
         .unwrap();
 
@@ -130,6 +131,7 @@ async fn test_duplicate_phone_prevention() {
         electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
+        operating_mode: OperatingMode::SelfHosted,
     };
 
     let metadata_db = Arc::new(
@@ -140,7 +142,7 @@ async fn test_duplicate_phone_prevention() {
 
     // Create a test user
     let user_id = metadata_db
-        .create_user("test@example.com", "hash", Some("Test User"), false, None)
+        .create_user("test@example.com", "hash", Some("Test User"), false, None, None)
         .await
         .unwrap();
 
@@ -232,6 +234,7 @@ async fn test_ntfy_topics_excluded_from_duplicate_check() {
         electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
+        operating_mode: OperatingMode::SelfHosted,
     };
 
     let metadata_db = Arc::new(
@@ -242,7 +245,7 @@ async fn test_ntfy_topics_excluded_from_duplicate_check() {
 
     // Create a test user
     let user_id = metadata_db
-        .create_user("test@example.com", "hash", Some("Test User"), false, None)
+        .create_user("test@example.com", "hash", Some("Test User"), false, None, None)
         .await
         .unwrap();
 
@@ -291,6 +294,7 @@ async fn test_mixed_provider_types_allowed() {
         electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
+        operating_mode: OperatingMode::SelfHosted,
     };
 
     let metadata_db = Arc::new(
@@ -301,7 +305,7 @@ async fn test_mixed_provider_types_allowed() {
 
     // Create a test user
     let user_id = metadata_db
-        .create_user("test@example.com", "hash", Some("Test User"), false, None)
+        .create_user("test@example.com", "hash", Some("Test User"), false, None, None)
         .await
         .unwrap();
 
@@ -350,6 +354,7 @@ async fn test_verification_endpoint_rejects_duplicates() {
         electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
+        operating_mode: OperatingMode::SelfHosted,
     };
 
     let metadata_db = Arc::new(
@@ -360,7 +365,7 @@ async fn test_verification_endpoint_rejects_duplicates() {
 
     // Create a test user
     let user_id = metadata_db
-        .create_user("test@example.com", "hash", Some("Test User"), false, None)
+        .create_user("test@example.com", "hash", Some("Test User"), false, None, None)
         .await
         .unwrap();
 

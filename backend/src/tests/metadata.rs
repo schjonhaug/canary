@@ -1,4 +1,4 @@
-use crate::config::{AppConfig, NetworkConfig};
+use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::{Language, MetadataDb};
 use tempfile::tempdir;
 
@@ -12,6 +12,7 @@ async fn create_test_db() -> (MetadataDb, tempfile::TempDir) {
         electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
+        operating_mode: OperatingMode::SelfHosted,
     };
 
     let db = MetadataDb::new(db_path.to_str().unwrap(), &test_config)

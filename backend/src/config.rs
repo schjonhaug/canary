@@ -73,12 +73,43 @@ struct AppConfigArgs {
     pub data_dir: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OperatingMode {
+    Cloud,
+    SelfHosted,
+}
+
+impl std::str::FromStr for OperatingMode {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "cloud" => Ok(OperatingMode::Cloud),
+            "self-hosted" => Ok(OperatingMode::SelfHosted),
+            _ => Err(anyhow!(
+                "Invalid CANARY_MODE: '{}'. Valid options: cloud, self-hosted",
+                s
+            )),
+        }
+    }
+}
+
+impl std::fmt::Display for OperatingMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OperatingMode::Cloud => write!(f, "cloud"),
+            OperatingMode::SelfHosted => write!(f, "self-hosted"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub network: NetworkConfig,
     pub electrum_url: Option<String>,
     pub bind_address: String,
     pub data_dir: String,
+    pub operating_mode: OperatingMode,
 }
 
 impl AppConfig {
@@ -136,29 +167,38 @@ impl AppConfig {
             }
         };
 
+        // Resolve operating mode (required, no default)
+        let operating_mode = match std::env::var("CANARY_MODE") {
+            Ok(mode_str) => mode_str.parse::<OperatingMode>()?,
+            Err(_) => {
+                return Err(anyhow!(
+                    "CANARY_MODE is required. Set it via CANARY_MODE environment variable.\nValid values: cloud, self-hosted\n\nTo get started:\n  - For self-hosted mode: cp .env.example.self-hosted .env\n  - For cloud mode: cp .env.example.cloud .env"
+                ));
+            }
+        };
+
         Ok(AppConfig {
             network,
             electrum_url,
             bind_address,
             data_dir,
+            operating_mode,
         })
     }
 
-    /// Get the operating mode (cloud or self-hosted)
+    /// Get the operating mode as a string (cloud or self-hosted)
     pub fn operating_mode(&self) -> String {
-        std::env::var("CANARY_MODE")
-            .unwrap_or_else(|_| "cloud".to_string()) // Default to cloud if not specified
-            .to_lowercase()
+        self.operating_mode.to_string()
     }
 
     /// Check if running in cloud mode (hosted service with authentication and billing)
     pub fn is_cloud_mode(&self) -> bool {
-        self.operating_mode() == "cloud"
+        self.operating_mode == OperatingMode::Cloud
     }
 
     /// Check if running in self-hosted mode (single-user, no authentication or billing)
     pub fn is_self_hosted_mode(&self) -> bool {
-        self.operating_mode() == "self-hosted"
+        self.operating_mode == OperatingMode::SelfHosted
     }
 
     /// Check if ntfy provider should be enabled
@@ -377,15 +417,41 @@ mod tests {
         assert_eq!(NetworkConfig::Mainnet.to_bdk_network(), Network::Bitcoin);
     }
 
-    #[test]
-    fn test_network_specific_paths() {
-        // Test regtest paths
-        let config = AppConfig {
-            network: NetworkConfig::Regtest,
+    // Helper function to create test configs with default mode
+    fn test_config(network: NetworkConfig) -> AppConfig {
+        AppConfig {
+            network,
             electrum_url: None,
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: "./database".to_string(),
-        };
+            operating_mode: OperatingMode::Cloud, // Default for tests
+        }
+    }
+
+    fn test_config_with_data_dir(network: NetworkConfig, data_dir: &str) -> AppConfig {
+        AppConfig {
+            network,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: data_dir.to_string(),
+            operating_mode: OperatingMode::Cloud,
+        }
+    }
+
+    fn test_config_self_hosted(network: NetworkConfig) -> AppConfig {
+        AppConfig {
+            network,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: "./database".to_string(),
+            operating_mode: OperatingMode::SelfHosted,
+        }
+    }
+
+    #[test]
+    fn test_network_specific_paths() {
+        // Test regtest paths
+        let config = test_config(NetworkConfig::Regtest);
         assert_eq!(config.wallet_dir_path(), "database/regtest/wallets");
         assert_eq!(
             config.metadata_db_path(),
@@ -393,12 +459,7 @@ mod tests {
         );
 
         // Test testnet paths
-        let config = AppConfig {
-            network: NetworkConfig::Testnet,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
+        let config = test_config(NetworkConfig::Testnet);
         assert_eq!(config.wallet_dir_path(), "database/testnet/wallets");
         assert_eq!(
             config.metadata_db_path(),
@@ -406,12 +467,7 @@ mod tests {
         );
 
         // Test mainnet paths
-        let config = AppConfig {
-            network: NetworkConfig::Mainnet,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
+        let config = test_config(NetworkConfig::Mainnet);
         assert_eq!(config.wallet_dir_path(), "database/mainnet/wallets");
         assert_eq!(
             config.metadata_db_path(),
@@ -422,12 +478,7 @@ mod tests {
     #[test]
     fn test_effective_paths() {
         // Test with relative paths (local development)
-        let config = AppConfig {
-            network: NetworkConfig::Regtest,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
+        let config = test_config(NetworkConfig::Regtest);
         assert_eq!(config.effective_wallet_dir(), "./database/regtest/wallets");
         assert_eq!(
             config.effective_metadata_db(),
@@ -435,12 +486,7 @@ mod tests {
         );
 
         // Test with absolute paths (Docker/Umbrel)
-        let config = AppConfig {
-            network: NetworkConfig::Mainnet,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "/app/data".to_string(),
-        };
+        let config = test_config_with_data_dir(NetworkConfig::Mainnet, "/app/data");
         assert_eq!(config.effective_wallet_dir(), "/app/data/mainnet/wallets");
         assert_eq!(
             config.effective_metadata_db(),
@@ -460,12 +506,7 @@ mod tests {
         let mut metadata_paths = Vec::new();
 
         for network in networks {
-            let config = AppConfig {
-                network,
-                electrum_url: None,
-                bind_address: "127.0.0.1:3000".to_string(),
-                data_dir: "./database".to_string(),
-            };
+            let config = test_config(network);
 
             let wallet_path = config.wallet_dir_path();
             let metadata_path = config.metadata_db_path();
@@ -502,31 +543,16 @@ mod tests {
 
     #[test]
     fn test_network_electrum_url_defaults() {
-        let regtest_config = AppConfig {
-            network: NetworkConfig::Regtest,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
+        let regtest_config = test_config(NetworkConfig::Regtest);
         assert_eq!(regtest_config.electrum_url(), "tcp://127.0.0.1:50001");
 
-        let testnet_config = AppConfig {
-            network: NetworkConfig::Testnet,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
+        let testnet_config = test_config(NetworkConfig::Testnet);
         assert_eq!(
             testnet_config.electrum_url(),
             "ssl://electrum.blockstream.info:60002"
         );
 
-        let mainnet_config = AppConfig {
-            network: NetworkConfig::Mainnet,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
+        let mainnet_config = test_config(NetworkConfig::Mainnet);
         assert_eq!(
             mainnet_config.electrum_url(),
             "ssl://electrum.blockstream.info:50002"
@@ -535,67 +561,34 @@ mod tests {
 
     #[test]
     fn test_self_hosted_mode_sync_interval_legacy_fallback() {
-        // Set CANARY_MODE to self-hosted and CANARY_SYNC_INTERVAL
-        std::env::set_var("CANARY_MODE", "self-hosted");
+        // Set CANARY_SYNC_INTERVAL for self-hosted mode
         std::env::set_var("CANARY_SYNC_INTERVAL", "42");
 
-        let config = AppConfig {
-            network: NetworkConfig::Mainnet,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
-
+        let config = test_config_self_hosted(NetworkConfig::Mainnet);
         assert_eq!(config.get_sync_interval(), 42);
 
         // Clean up
-        std::env::remove_var("CANARY_MODE");
         std::env::remove_var("CANARY_SYNC_INTERVAL");
     }
 
     #[test]
     fn test_self_hosted_mode_sync_interval_network_defaults() {
-        // Set CANARY_MODE to self-hosted but no CANARY_SYNC_INTERVAL
-        std::env::set_var("CANARY_MODE", "self-hosted");
+        // No CANARY_SYNC_INTERVAL, should use network defaults
         std::env::remove_var("CANARY_SYNC_INTERVAL");
 
-        let regtest_config = AppConfig {
-            network: NetworkConfig::Regtest,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
+        let regtest_config = test_config_self_hosted(NetworkConfig::Regtest);
         assert_eq!(regtest_config.get_sync_interval(), 30);
 
-        let mainnet_config = AppConfig {
-            network: NetworkConfig::Mainnet,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
+        let mainnet_config = test_config_self_hosted(NetworkConfig::Mainnet);
         assert_eq!(mainnet_config.get_sync_interval(), 300);
-
-        // Clean up
-        std::env::remove_var("CANARY_MODE");
     }
 
     #[test]
     fn test_cloud_mode_sync_interval_fallback() {
-        // Set CANARY_MODE to cloud
-        std::env::set_var("CANARY_MODE", "cloud");
-
-        let config = AppConfig {
-            network: NetworkConfig::Mainnet,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: "./database".to_string(),
-        };
+        let config = test_config(NetworkConfig::Mainnet);
 
         // In cloud mode, should use network defaults as fallback
         assert_eq!(config.get_sync_interval(), 300);
-
-        // Clean up
-        std::env::remove_var("CANARY_MODE");
     }
 
     #[test]
@@ -605,7 +598,40 @@ mod tests {
             electrum_url: Some("ssl://custom.electrum.server:50002".to_string()),
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: "./database".to_string(),
+            operating_mode: OperatingMode::Cloud,
         };
         assert_eq!(config.electrum_url(), "ssl://custom.electrum.server:50002");
+    }
+
+    #[test]
+    fn test_operating_mode_parsing() {
+        assert!(matches!(
+            "cloud".parse::<OperatingMode>().unwrap(),
+            OperatingMode::Cloud
+        ));
+        assert!(matches!(
+            "self-hosted".parse::<OperatingMode>().unwrap(),
+            OperatingMode::SelfHosted
+        ));
+        assert!(matches!(
+            "CLOUD".parse::<OperatingMode>().unwrap(),
+            OperatingMode::Cloud
+        ));
+        assert!(matches!(
+            "Self-Hosted".parse::<OperatingMode>().unwrap(),
+            OperatingMode::SelfHosted
+        ));
+        assert!("invalid".parse::<OperatingMode>().is_err());
+    }
+
+    #[test]
+    fn test_is_cloud_mode() {
+        let cloud_config = test_config(NetworkConfig::Regtest);
+        assert!(cloud_config.is_cloud_mode());
+        assert!(!cloud_config.is_self_hosted_mode());
+
+        let self_hosted_config = test_config_self_hosted(NetworkConfig::Regtest);
+        assert!(!self_hosted_config.is_cloud_mode());
+        assert!(self_hosted_config.is_self_hosted_mode());
     }
 }

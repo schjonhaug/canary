@@ -1,4 +1,4 @@
-use canary::config::{AppConfig, NetworkConfig};
+use canary::config::{AppConfig, NetworkConfig, OperatingMode};
 use canary::metadata::{EventType, MetadataDb, TransactionNotification};
 use canary::subscription::SubscriptionTier;
 use canary::wallet::WalletManager;
@@ -25,6 +25,7 @@ async fn debug_wallet_drain_detection() {
         electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_path.clone(),
+        operating_mode: OperatingMode::SelfHosted,
     };
 
     let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config)
@@ -39,6 +40,7 @@ async fn debug_wallet_drain_detection() {
             Some("Debug User"),
             true,
             None, // preferred_currency
+            None, // preferred_language
         )
         .await
         .expect("Failed to create user");

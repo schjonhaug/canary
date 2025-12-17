@@ -59,8 +59,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  // Check operating mode
-  const mode = process.env.NEXT_PUBLIC_CANARY_MODE || 'cloud'
+  // Check operating mode - REQUIRED configuration
+  const mode = process.env.NEXT_PUBLIC_CANARY_MODE
+  if (!mode) {
+    throw new Error(
+      'NEXT_PUBLIC_CANARY_MODE is required. Set it in your .env.local file.\n' +
+      'Valid values: cloud, self-hosted\n\n' +
+      'To get started:\n' +
+      '  - For self-hosted mode: cp .env.example.self-hosted .env.local\n' +
+      '  - For cloud mode: cp .env.example.cloud .env.local'
+    )
+  }
+  if (mode !== 'cloud' && mode !== 'self-hosted') {
+    throw new Error(
+      `Invalid NEXT_PUBLIC_CANARY_MODE: '${mode}'. Valid values: cloud, self-hosted`
+    )
+  }
   const isCloudMode = mode === 'cloud'
   const isSelfHostedMode = mode === 'self-hosted'
   
