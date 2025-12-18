@@ -412,8 +412,8 @@ fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> Str
 }
 
 /// Authenticate user based on operating mode
-/// In SAAS mode: authenticate using JWT token
-/// In FOSS mode: return hardcoded foss-user
+/// In cloud mode: authenticate using JWT token
+/// In self-hosted mode: return hardcoded self-hosted user
 fn authenticate_user_mode_aware(
     config: &AppConfig,
     auth_header: Option<&str>,
@@ -426,7 +426,7 @@ fn authenticate_user_mode_aware(
             is_demo: false,
         })
     } else {
-        // SAAS mode: authenticate using JWT
+        // Cloud mode: authenticate using JWT
         authenticate_user(auth_header).map_err(|_| "Authentication required".to_string())
     }
 }
@@ -644,7 +644,7 @@ pub async fn create_wallet_non_blocking(
         .await
     {
         Ok(wallet_metadata) => {
-            // Check if SAAS mode - if so, auto-add user as contact
+            // Check if cloud mode - if so, auto-add user as contact
             if config.is_cloud_mode() {
                 // Log the received language from frontend
                 eprintln!(
@@ -4839,7 +4839,7 @@ pub async fn get_user_preferences(
     )>,
     headers: HeaderMap,
 ) -> Response {
-    // Authenticate user (works in both SAAS and FOSS mode)
+    // Authenticate user (works in both cloud and self-hosted mode)
     let user = match authenticate_user_mode_aware(
         &config,
         headers.get("authorization").and_then(|h| h.to_str().ok()),
@@ -4919,7 +4919,7 @@ pub async fn update_user_preferences(
     headers: HeaderMap,
     Json(request): Json<UpdateUserPreferencesRequest>,
 ) -> Response {
-    // Authenticate user (works in both SAAS and FOSS mode)
+    // Authenticate user (works in both cloud and self-hosted mode)
     let user = match authenticate_user_mode_aware(
         &config,
         headers.get("authorization").and_then(|h| h.to_str().ok()),
@@ -5129,7 +5129,7 @@ pub async fn get_wallet_balance_alerts(
     )>,
     headers: HeaderMap,
 ) -> Response {
-    // Authenticate user (works in both SAAS and FOSS mode)
+    // Authenticate user (works in both cloud and self-hosted mode)
     let user = match authenticate_user_mode_aware(
         &config,
         headers.get("authorization").and_then(|h| h.to_str().ok()),
@@ -5206,7 +5206,7 @@ pub async fn create_wallet_balance_alert(
     headers: HeaderMap,
     Json(request): Json<CreateBalanceAlertRequest>,
 ) -> Response {
-    // Authenticate user (works in both SAAS and FOSS mode)
+    // Authenticate user (works in both cloud and self-hosted mode)
     let user = match authenticate_user_mode_aware(
         &config,
         headers.get("authorization").and_then(|h| h.to_str().ok()),
@@ -5519,7 +5519,7 @@ pub async fn delete_balance_alert(
     )>,
     headers: HeaderMap,
 ) -> Response {
-    // Authenticate user (works in both SAAS and FOSS mode)
+    // Authenticate user (works in both cloud and self-hosted mode)
     let user = match authenticate_user_mode_aware(
         &config,
         headers.get("authorization").and_then(|h| h.to_str().ok()),

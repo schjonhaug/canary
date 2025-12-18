@@ -37,8 +37,8 @@ impl SubscriptionTier {
         }
     }
 
-    /// Get network-appropriate sync intervals for this tier (SAAS mode only)
-    /// This should only be called in SAAS mode with subscription tiers
+    /// Get network-appropriate sync intervals for this tier (cloud mode only)
+    /// This should only be called in cloud mode with subscription tiers
     pub fn get_sync_intervals(&self, network: &NetworkConfig) -> (u64, u64) {
         // Check for tier-specific environment variable overrides first
         let env_personal = match network {
@@ -65,7 +65,7 @@ impl SubscriptionTier {
                 .and_then(|s| s.parse().ok()),
         };
 
-        // SAAS tier-specific defaults
+        // Cloud tier-specific defaults
         let (default_personal, default_team) = match network {
             NetworkConfig::Regtest => {
                 // Moderate intervals for regtest to prevent startup conflicts

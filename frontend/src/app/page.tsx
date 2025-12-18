@@ -11,7 +11,7 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    // If user is authenticated or in FOSS mode, redirect to wallets
+    // If user is authenticated or in self-hosted mode, redirect to wallets
     if (!isLoading && (isAuthenticated || isSelfHostedMode)) {
       router.push('/wallets')
     }
@@ -29,7 +29,7 @@ export default function HomePage() {
     )
   }
 
-  // FOSS mode: show loading while useEffect handles the redirect
+  // Self-hosted mode: show loading while useEffect handles the redirect
   if (isSelfHostedMode) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -41,7 +41,7 @@ export default function HomePage() {
     )
   }
 
-  // SAAS mode: Show landing page for unauthenticated users
+  // Cloud mode: Show landing page for unauthenticated users
   // Note: This handles both explicit navigation to / and post-logout redirects
   if (isCloudMode && !isAuthenticated) {
     return <LandingPage />

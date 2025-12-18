@@ -41,7 +41,7 @@ export default function BillingPage() {
   }
 
 
-  // Hide billing page in FOSS mode
+  // Hide billing page in self-hosted mode
   if (isSelfHostedMode) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8">
@@ -49,7 +49,7 @@ export default function BillingPage() {
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold mb-4">Billing Not Available</h1>
           <p className="text-muted-foreground mb-6">
-            This is a FOSS (self-hosted) installation with no subscription billing.
+            This is a self-hosted installation with no subscription billing.
           </p>
           <Button asChild>
             <Link href="/wallets">Go to Wallets</Link>

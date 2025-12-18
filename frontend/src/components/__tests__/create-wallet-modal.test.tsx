@@ -88,22 +88,22 @@ describe('CreateWalletModal', () => {
     })
   })
 
-  describe('Wallet Name Prefilling - SAAS Mode', () => {
+  describe('Wallet Name Prefilling - Cloud Mode', () => {
     beforeEach(() => {
       process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
       mockUseAuth.mockReturnValue({ user: mockUser })
     })
 
-    it('prefills wallet name with user name when first wallet and in SAAS mode', () => {
+    it('prefills wallet name with user name when first wallet and in cloud mode', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
-      
+
       const nameInput = screen.getByLabelText('Wallet Name') as HTMLInputElement
       expect(nameInput.value).toBe('Alice Johnson')
     })
 
-    it('does not prefill name for subsequent wallets even in SAAS mode', () => {
+    it('does not prefill name for subsequent wallets even in cloud mode', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={false} />)
-      
+
       const nameInput = screen.getByLabelText('Wallet Name') as HTMLInputElement
       expect(nameInput.value).toBe('')
     })
@@ -120,15 +120,15 @@ describe('CreateWalletModal', () => {
     })
   })
 
-  describe('Wallet Name Prefilling - FOSS Mode', () => {
+  describe('Wallet Name Prefilling - Self-Hosted Mode', () => {
     beforeEach(() => {
       process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
       mockUseAuth.mockReturnValue({ user: mockUser })
     })
 
-    it('does not prefill name in FOSS mode even for first wallet', () => {
+    it('does not prefill name in self-hosted mode even for first wallet', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
-      
+
       const nameInput = screen.getByLabelText('Wallet Name') as HTMLInputElement
       expect(nameInput.value).toBe('')
     })
@@ -140,25 +140,25 @@ describe('CreateWalletModal', () => {
       mockUseAuth.mockReturnValue({ user: mockUser })
     })
 
-    it('focuses descriptor field when name is prefilled (first wallet in SAAS mode)', () => {
+    it('focuses descriptor field when name is prefilled (first wallet in cloud mode)', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
-      
+
       const descriptorTextarea = screen.getByLabelText('Output Descriptor or Extended Public Key')
       expect(document.activeElement).toBe(descriptorTextarea)
     })
 
     it('focuses name field when name is not prefilled (subsequent wallets)', () => {
       render(<CreateWalletModal {...defaultProps} isFirstWallet={false} />)
-      
+
       const nameInput = screen.getByLabelText('Wallet Name')
       expect(document.activeElement).toBe(nameInput)
     })
 
-    it('focuses name field in FOSS mode', () => {
+    it('focuses name field in self-hosted mode', () => {
       process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
-      
+
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)
-      
+
       const nameInput = screen.getByLabelText('Wallet Name')
       expect(document.activeElement).toBe(nameInput)
     })
@@ -276,10 +276,10 @@ describe('CreateWalletModal', () => {
   })
 
   describe('Different Canary Modes', () => {
-    it('handles FOSS mode', () => {
+    it('handles self-hosted mode', () => {
       process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
-      mockUseAuth.mockReturnValue({ 
-        user: { id: 1, phone_number: 'FOSS', name: 'Admin', is_admin: true } 
+      mockUseAuth.mockReturnValue({
+        user: { id: 1, phone_number: 'self-hosted', name: 'Admin', is_admin: true }
       })
       
       render(<CreateWalletModal {...defaultProps} isFirstWallet={true} />)

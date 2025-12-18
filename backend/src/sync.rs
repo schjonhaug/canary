@@ -341,7 +341,7 @@ impl WalletSyncService {
             summary.conflicts_marked
         );
 
-        // Log warning for unusually long syncs (SAAS mode only)
+        // Log warning for unusually long syncs (cloud mode only)
         if self.config.is_cloud_mode() && sync_duration.as_secs() > 120 {
             warn!(
                 "[{}] WARNING: Sync took {:.1}s (>120s), potential performance issue",
@@ -1151,7 +1151,7 @@ impl WalletSyncService {
         Ok(cpfp_relationships)
     }
 
-    /// Categorize error types for better diagnostics (SAAS mode)
+    /// Categorize error types for better diagnostics (cloud mode)
     fn categorize_error(error_msg: &str) -> &'static str {
         // Check for transport-level failures first (these need reconnection)
         if ElectrumClientManager::is_transport_error(error_msg) {

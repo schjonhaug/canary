@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email_verified: true,
         subscription_tier: 'team' as const
       })
-      setToken('foss-mode')
+      setToken('self-hosted-mode')
       setIsLoading(false)
       return
     }

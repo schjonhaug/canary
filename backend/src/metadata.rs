@@ -509,8 +509,8 @@ impl MetadataDb {
 
     async fn initialize_user_for_mode(&self, config: &AppConfig) -> Result<()> {
         if config.is_self_hosted_mode() {
-            // Self-hosted mode: Create hardcoded "foss-user" admin
-            self.ensure_foss_user().await?;
+            // Self-hosted mode: Create hardcoded self-hosted user admin
+            self.ensure_self_hosted_user().await?;
         } else {
             // Cloud mode: Always create demo user (available on all networks)
             self.ensure_demo_user().await?;
@@ -525,27 +525,27 @@ impl MetadataDb {
         Ok(())
     }
 
-    async fn ensure_foss_user(&self) -> Result<()> {
+    async fn ensure_self_hosted_user(&self) -> Result<()> {
         let pool = self.pool.clone();
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
 
-            // Check if foss-user already exists
-            let foss_user_exists: bool = conn.query_row(
+            // Check if self-hosted user already exists (keeping 'foss-user' ID for backwards compatibility)
+            let self_hosted_user_exists: bool = conn.query_row(
                 "SELECT EXISTS(SELECT 1 FROM users WHERE id = 'foss-user')",
                 [],
                 |row| row.get(0),
             )?;
 
-            if !foss_user_exists {
+            if !self_hosted_user_exists {
                 // Detect system locale for currency, fallback to USD
                 let default_currency = std::env::var("LANG")
                     .or_else(|_| std::env::var("LC_ALL"))
                     .map(|locale| crate::exchange_rates::ExchangeRateService::locale_to_currency(&locale))
                     .unwrap_or("USD");
 
-                // Create the hardcoded FOSS user with locale-based currency and language
+                // Create the hardcoded self-hosted user with locale-based currency and language
                 let default_language = std::env::var("LANG")
                     .ok()
                     .map(|locale| locale_to_language(&locale))
@@ -556,7 +556,7 @@ impl MetadataDb {
                     params![default_currency, default_language],
                 )?;
 
-                println!("✅ Created FOSS user: admin@local (foss-user) with currency: {}", default_currency);
+                println!("✅ Created self-hosted user: admin@local with currency: {}", default_currency);
             }
 
             Ok(())

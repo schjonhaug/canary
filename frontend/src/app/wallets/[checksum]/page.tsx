@@ -36,7 +36,7 @@ export default function WalletDetailPage() {
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
 
-  // Redirect unauthenticated users to sign-in when in SAAS mode
+  // Redirect unauthenticated users to sign-in when in cloud mode
   useEffect(() => {
     if (isCloudMode && !authLoading && !isAuthenticated) {
       router.push('/sign-in')
@@ -82,7 +82,7 @@ export default function WalletDetailPage() {
   }
 
   const handleAddContact = () => {
-    // In FOSS mode, no limits - always allow adding contacts
+    // In self-hosted mode, no limits - always allow adding contacts
     if (isSelfHostedMode) {
       setIsAddContactModalOpen(true)
       return
@@ -110,7 +110,7 @@ export default function WalletDetailPage() {
     )
   }
 
-  // Return null while redirecting unauthenticated users in SAAS mode
+  // Return null while redirecting unauthenticated users in cloud mode
   if (isCloudMode && !isAuthenticated) {
     return null
   }
@@ -281,7 +281,7 @@ export default function WalletDetailPage() {
         </Alert>
       )}
 
-      {/* Inactive Wallet Warning Banner - only in SAAS mode */}
+      {/* Inactive Wallet Warning Banner - only in cloud mode */}
       {isCloudMode && wallet && wallet.is_active === false && (
         <Alert className="mb-6 border-orange-200 bg-orange-50">
           <AlertTriangle className="h-4 w-4 text-orange-600" />

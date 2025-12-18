@@ -21,7 +21,7 @@ export function UserDropdown() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
 
-  // In FOSS mode or if no user, don't show anything
+  // In self-hosted mode or if no user, don't show anything
   if (isSelfHostedMode || !user) {
     return null
   }

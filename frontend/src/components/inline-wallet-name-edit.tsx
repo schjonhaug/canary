@@ -109,7 +109,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
     )
   }
 
-  // For admin or demo users in SaaS mode, show only the name without edit button
+  // For admin or demo users in cloud mode, show only the name without edit button
   if (isCloudMode && (user?.is_admin || user?.is_demo)) {
     return (
       <div className="flex items-center gap-2 min-w-0">

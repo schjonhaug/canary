@@ -55,7 +55,7 @@ const ContactLimitTestComponent = ({
   const user = { subscription_tier: userTier }
   
   const handleAddContact = () => {
-    // In FOSS mode, no limits - always allow adding contacts
+    // In self-hosted mode, no limits - always allow adding contacts
     if (isSelfHostedMode) {
       setIsAddContactModalOpen(true)
       return
@@ -420,49 +420,49 @@ describe('Contact Limit Enforcement', () => {
 
   })
 
-  describe('FOSS Mode Behavior', () => {
-    it('ignores contact limits in FOSS mode - personal tier with many contacts', async () => {
+  describe('Self-Hosted Mode Behavior', () => {
+    it('ignores contact limits in self-hosted mode - personal tier with many contacts', async () => {
       const user = userEvent.setup()
       render(
-        <ContactLimitTestComponent 
-          userTier="personal" 
+        <ContactLimitTestComponent
+          userTier="personal"
           currentContactCount={10} // Way over personal limit of 1
           isSelfHostedMode={true}
         />
       )
 
       await user.click(screen.getByTestId('add-contact-btn'))
-      
+
       // Should always show contact modal, never upgrade modal
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
       expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
-    it('ignores contact limits in FOSS mode - team tier with many contacts', async () => {
+    it('ignores contact limits in self-hosted mode - team tier with many contacts', async () => {
       const user = userEvent.setup()
       render(
-        <ContactLimitTestComponent 
-          userTier="team" 
+        <ContactLimitTestComponent
+          userTier="team"
           currentContactCount={20} // Way over team limit of 5
           isSelfHostedMode={true}
         />
       )
 
       await user.click(screen.getByTestId('add-contact-btn'))
-      
+
       // Should always show contact modal, never upgrade modal
       expect(screen.getByTestId('contact-modal')).toBeInTheDocument()
       expect(screen.queryByTestId('plans-modal')).not.toBeInTheDocument()
     })
 
-    it('compares FOSS vs SAAS behavior for same user data', async () => {
+    it('compares self-hosted vs cloud behavior for same user data', async () => {
       const user = userEvent.setup()
       const props = {
         userTier: "personal" as const,
         currentContactCount: 2 // Over personal limit
       }
 
-      // Test SAAS mode (default) - should show upgrade modal
+      // Test cloud mode (default) - should show upgrade modal
       const { unmount } = render(
         <ContactLimitTestComponent {...props} />
       )
@@ -471,7 +471,7 @@ describe('Contact Limit Enforcement', () => {
       expect(screen.getByTestId('plans-modal')).toBeInTheDocument()
       expect(screen.queryByTestId('contact-modal')).not.toBeInTheDocument()
 
-      // Unmount and re-mount with FOSS mode to reset state
+      // Unmount and re-mount with self-hosted mode to reset state
       unmount()
       render(
         <ContactLimitTestComponent {...props} isSelfHostedMode={true} />

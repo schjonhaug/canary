@@ -94,7 +94,7 @@ async fn main() -> anyhow::Result<()> {
             SubscriptionTier::Personal.get_sync_intervals(&config.network);
         let (_, team_sync_team) = SubscriptionTier::Team.get_sync_intervals(&config.network);
         println!(
-            "  Sync intervals: Personal={}s, Team={}s (SAAS mode, network: {:?})",
+            "  Sync intervals: Personal={}s, Team={}s (cloud mode, network: {:?})",
             personal_sync, team_sync_team, config.network
         );
     }
@@ -181,16 +181,16 @@ async fn main() -> anyhow::Result<()> {
     let mut notification_manager = NotificationManager::new();
 
     if config.is_self_hosted_mode() {
-        // FOSS mode: Only ntfy provider
+        // Self-hosted mode: Only ntfy provider
         let ntfy_server = config.ntfy_server_url();
         println!(
-            "🔔 FOSS mode: Registering ntfy notifications (server: {})",
+            "🔔 Self-hosted mode: Registering ntfy notifications (server: {})",
             ntfy_server
         );
         notification_manager.register_provider(Arc::new(NtfyProvider::new(ntfy_server)));
     } else {
-        // SAAS mode: Register all configured providers
-        println!("🔔 SAAS mode: Registering all notification providers");
+        // Cloud mode: Register all configured providers
+        println!("🔔 Cloud mode: Registering all notification providers");
 
         // Register ntfy provider (always available)
         if config.is_ntfy_enabled() {
@@ -215,7 +215,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        // Register email provider if in SAAS mode
+        // Register email provider if in cloud mode
         if config.is_email_enabled() {
             // Start the email queue worker before registering the provider
             match email_queue::EmailQueueConfig::from_env() {
@@ -256,7 +256,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     } else {
-        println!("💵 FOSS mode: Stripe billing disabled");
+        println!("💵 Self-hosted mode: Stripe billing disabled");
         None
     };
 
@@ -459,12 +459,12 @@ async fn main() -> anyhow::Result<()> {
 
     // Mode-based sync task configuration
     if config.is_self_hosted_mode() {
-        // FOSS mode: Single sync task using CANARY_SYNC_INTERVAL
+        // Self-hosted mode: Single sync task using CANARY_SYNC_INTERVAL
         let sync_interval = config.get_sync_interval();
-        let foss_wallet_manager = Arc::clone(&wallet_manager);
+        let self_hosted_wallet_manager = Arc::clone(&wallet_manager);
 
         println!(
-            "🕐 FOSS sync interval: {}s (network: {:?})",
+            "🕐 Self-hosted sync interval: {}s (network: {:?})",
             sync_interval, config.network
         );
 
@@ -474,26 +474,26 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 interval.tick().await;
 
-                // In FOSS mode, sync all wallets together (no tier separation)
+                // In self-hosted mode, sync all wallets together (no tier separation)
                 let sync_start = Instant::now();
 
-                // In FOSS mode, all wallets belong to the hardcoded "team" tier user
-                // No need to sync Personal tier since no FOSS wallets use that tier
-                if let Err(e) = foss_wallet_manager
+                // In self-hosted mode, all wallets belong to the hardcoded "team" tier user
+                // No need to sync Personal tier since no self-hosted wallets use that tier
+                if let Err(e) = self_hosted_wallet_manager
                     .sync_tier_parallel(SubscriptionTier::Team)
                     .await
                 {
-                    eprintln!("❌ Failed to sync FOSS wallets: {}", e);
+                    eprintln!("❌ Failed to sync self-hosted wallets: {}", e);
                 }
 
                 let sync_duration = sync_start.elapsed();
                 if sync_duration.as_millis() > 100 {
-                    println!("⚡ FOSS sync completed in {:?}", sync_duration);
+                    println!("⚡ Self-hosted sync completed in {:?}", sync_duration);
                 }
             }
         });
     } else {
-        // SAAS mode: Separate tier-based sync tasks
+        // Cloud mode: Separate tier-based sync tasks
         let (personal_sync_interval, team_sync_interval) =
             SubscriptionTier::Personal.get_sync_intervals(&config.network);
 
@@ -541,7 +541,7 @@ async fn main() -> anyhow::Result<()> {
             }
         });
 
-        // Log non-syncing wallets summary at startup (SAAS mode only)
+        // Log non-syncing wallets summary at startup (cloud mode only)
         let startup_wallet_manager = Arc::clone(&wallet_manager);
         tokio::spawn(async move {
             // Wait a moment for sync tasks to start
@@ -1068,7 +1068,7 @@ async fn main() -> anyhow::Result<()> {
         config.clone(),
     );
 
-    // Apply subscription limits for all existing users at startup (SAAS mode only)
+    // Apply subscription limits for all existing users at startup (cloud mode only)
     if config.is_cloud_mode() {
         tokio::spawn({
             let wallet_manager = wallet_manager.clone();
@@ -1079,7 +1079,7 @@ async fn main() -> anyhow::Result<()> {
             }
         });
     } else {
-        println!("🔓 FOSS mode: Skipping subscription limit enforcement");
+        println!("🔓 Self-hosted mode: Skipping subscription limit enforcement");
     }
 
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;

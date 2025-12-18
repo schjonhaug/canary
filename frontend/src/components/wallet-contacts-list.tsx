@@ -23,7 +23,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
 
 
   const handleEditContact = (contact: Contact) => {
-    // Don't allow admin or demo users in SaaS mode to edit contacts
+    // Don't allow admin or demo users in cloud mode to edit contacts
     if (isCloudMode && (user?.is_admin || user?.is_demo)) {
       return
     }

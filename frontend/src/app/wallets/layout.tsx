@@ -50,7 +50,7 @@ export default function WalletsLayout({
   }, [isWalletDetailPage, currentWallet?.hex_color])
 
   const handleAddWallet = () => {
-    // In FOSS mode, no limits - always allow adding wallets
+    // In self-hosted mode, no limits - always allow adding wallets
     if (isSelfHostedMode) {
       setIsAddWalletOpen(true)
       return

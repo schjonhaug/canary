@@ -49,7 +49,7 @@ export function AppHeader({ showAddWallet = false, onAddWallet, customLogo }: Ap
           </Button>
         )}
 
-        {/* Settings button for FOSS mode */}
+        {/* Settings button for self-hosted mode */}
         {!isCloudMode && (
           <Link href="/settings">
             <Button

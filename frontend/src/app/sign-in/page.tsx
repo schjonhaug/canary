@@ -20,7 +20,7 @@ export default function SignInPage() {
   const { login, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
-  // Redirect to wallets in FOSS mode
+  // Redirect to wallets in self-hosted mode
   useEffect(() => {
     if (isSelfHostedMode) {
       router.push('/wallets')
@@ -56,7 +56,7 @@ export default function SignInPage() {
     }
   }
 
-  // Don't render anything while redirecting in FOSS mode
+  // Don't render anything while redirecting in self-hosted mode
   if (isSelfHostedMode) {
     return null
   }

@@ -42,7 +42,7 @@ export default function WalletsPage() {
     return { amount: total, currency: firstCurrency }
   }
 
-  // Redirect unauthenticated users to sign-in when in SAAS mode
+  // Redirect unauthenticated users to sign-in when in cloud mode
   useEffect(() => {
     if (isCloudMode && !authLoading && !isAuthenticated) {
       router.push('/sign-in')
@@ -61,12 +61,12 @@ export default function WalletsPage() {
     )
   }
 
-  // Return null while redirecting unauthenticated users in SAAS mode
+  // Return null while redirecting unauthenticated users in cloud mode
   if (isCloudMode && !isAuthenticated) {
     return null
   }
 
-  // Show dashboard for authenticated users or in FOSS mode
+  // Show dashboard for authenticated users or in self-hosted mode
   return (
     <>
       {/* Connection Warning Banner */}

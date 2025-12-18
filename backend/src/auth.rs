@@ -400,7 +400,7 @@ impl AuthService {
 }
 
 pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
-    // SAAS mode: validate JWT token
+    // Cloud mode: validate JWT token
     let auth_header = auth_header.ok_or_else(|| anyhow!("Authorization header required"))?;
 
     if !auth_header.starts_with("Bearer ") {

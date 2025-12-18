@@ -20,7 +20,7 @@ export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
   const { billingStatus, isCloudMode } = useAuth()
   const isPending = isCloudMode && billingStatus?.subscription_status === 'pending'
   
-  // If user is in pending status (SAAS mode only), show trial activation message + wallet descriptor info
+  // If user is in pending status (cloud mode only), show trial activation message + wallet descriptor info
   if (isPending) {
     return (
       <div className="max-w-3xl mx-auto mt-16">

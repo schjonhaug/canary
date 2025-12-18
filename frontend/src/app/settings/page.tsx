@@ -41,7 +41,7 @@ export default function SettingsPage() {
   const [ntfyAuthError, setNtfyAuthError] = useState<string | null>(null)
   const [ntfyAuthSuccess, setNtfyAuthSuccess] = useState(false)
 
-  // Redirect unauthenticated users to sign-in when in SAAS mode
+  // Redirect unauthenticated users to sign-in when in cloud mode
   useEffect(() => {
     if (isCloudMode && !authLoading && !isAuthenticated) {
       router.push('/sign-in')
@@ -188,7 +188,7 @@ export default function SettingsPage() {
     )
   }
 
-  // Return null while redirecting unauthenticated users in SAAS mode
+  // Return null while redirecting unauthenticated users in cloud mode
   if (isCloudMode && !isAuthenticated) {
     return null
   }

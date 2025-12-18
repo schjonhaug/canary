@@ -117,7 +117,8 @@ impl IsolatedTestEnvironment {
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
 
-        // In self-hosted mode, the hardcoded foss-user is created automatically as admin
+        // In self-hosted mode, the hardcoded self-hosted user is created automatically as admin
+        // (keeping 'foss-user' ID for backwards compatibility)
         let test_user_id = "foss-user".to_string();
 
         // Start Docker Compose environment
@@ -274,7 +275,8 @@ impl IsolatedTestEnvironment {
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
 
-        // In self-hosted mode, the hardcoded foss-user is created automatically as admin
+        // In self-hosted mode, the hardcoded self-hosted user is created automatically as admin
+        // (keeping 'foss-user' ID for backwards compatibility)
         let test_user_id = "foss-user".to_string();
 
         // Start Docker Compose environment
