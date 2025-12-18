@@ -3296,6 +3296,7 @@ impl MetadataDb {
         alert_type: BalanceAlertType,
         threshold_currency: Option<String>,
         threshold_fiat_amount: Option<f64>,
+        current_balance_sats: Option<i64>,
     ) -> Result<BalanceAlert> {
         let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
@@ -3307,9 +3308,9 @@ impl MetadataDb {
             let current_time = chrono::Utc::now().to_rfc3339();
 
             conn.execute(
-                "INSERT INTO balance_alerts (id, wallet_checksum, threshold_sats, alert_type, is_active, created_at, threshold_currency, threshold_fiat_amount)
-                 VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7)",
-                params![alert_id, wallet_checksum, threshold_sats, alert_type_str, current_time, threshold_currency, threshold_fiat_amount],
+                "INSERT INTO balance_alerts (id, wallet_checksum, threshold_sats, alert_type, is_active, created_at, threshold_currency, threshold_fiat_amount, last_checked_balance_sats)
+                 VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, ?8)",
+                params![alert_id, wallet_checksum, threshold_sats, alert_type_str, current_time, threshold_currency, threshold_fiat_amount, current_balance_sats],
             )?;
 
             Ok(BalanceAlert {
@@ -3322,7 +3323,7 @@ impl MetadataDb {
                 created_at: current_time,
                 threshold_currency,
                 threshold_fiat_amount,
-                last_checked_balance_sats: None, // Will be initialized on first check
+                last_checked_balance_sats: current_balance_sats,
             })
         })
         .await?

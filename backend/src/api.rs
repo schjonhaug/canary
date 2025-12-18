@@ -5485,7 +5485,7 @@ pub async fn create_wallet_balance_alert(
         }
     }
 
-    // Create the balance alert
+    // Create the balance alert with current balance for threshold crossing detection
     match app_services
         .metadata_db
         .create_balance_alert(
@@ -5494,6 +5494,7 @@ pub async fn create_wallet_balance_alert(
             request.alert_type,
             threshold_currency,
             threshold_fiat_amount,
+            wallet.balance_total,
         )
         .await
     {

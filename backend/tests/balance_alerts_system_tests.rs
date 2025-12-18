@@ -71,6 +71,7 @@ async fn test_balance_alert_database_operations() {
             BalanceAlertType::Below,
             None,
             None,
+            None, // current balance
         ) // 1 BTC
         .await
         .unwrap();
@@ -134,6 +135,7 @@ async fn test_balance_alert_types() {
             BalanceAlertType::Below,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -145,12 +147,13 @@ async fn test_balance_alert_types() {
             BalanceAlertType::Above,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
 
     let _equals_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None)
+        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None, None)
         .await
         .unwrap();
 
@@ -184,6 +187,7 @@ async fn test_balance_alert_edge_cases() {
             BalanceAlertType::Below,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -193,6 +197,7 @@ async fn test_balance_alert_edge_cases() {
             &wallet_checksum,
             50_000_000,
             BalanceAlertType::Below,
+            None,
             None,
             None,
         )
@@ -209,7 +214,7 @@ async fn test_balance_alert_edge_cases() {
 
     // Test 2: Zero threshold handling
     let zero_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None)
+        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None, None)
         .await
         .unwrap();
 
@@ -221,6 +226,7 @@ async fn test_balance_alert_edge_cases() {
             &wallet_checksum,
             i64::MAX,
             BalanceAlertType::Above,
+            None,
             None,
             None,
         )
@@ -261,6 +267,7 @@ async fn test_balance_alert_wallet_isolation() {
             BalanceAlertType::Below,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -270,6 +277,7 @@ async fn test_balance_alert_wallet_isolation() {
             &wallet2_checksum,
             200_000_000,
             BalanceAlertType::Above,
+            None,
             None,
             None,
         )
@@ -316,6 +324,7 @@ async fn test_balance_alert_performance() {
                 },
                 None, // threshold_currency
                 None, // threshold_fiat_amount
+                None, // current_balance_sats
             )
             .await
             .unwrap();
@@ -367,6 +376,7 @@ async fn test_duplicate_balance_alert_checking() {
             &wallet_checksum,
             100_000_000,
             BalanceAlertType::Below,
+            None,
             None,
             None,
         )
@@ -432,6 +442,7 @@ async fn test_duplicate_alert_all_types() {
             BalanceAlertType::Below,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -443,6 +454,7 @@ async fn test_duplicate_alert_all_types() {
             BalanceAlertType::Above,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -452,6 +464,7 @@ async fn test_duplicate_alert_all_types() {
             &wallet_checksum,
             threshold,
             BalanceAlertType::Equals,
+            None,
             None,
             None,
         )
@@ -508,7 +521,7 @@ async fn test_wallet_drain_alert_special_case() {
 
     // Create wallet drain alert (balance = 0)
     let drain_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None)
+        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None, None)
         .await
         .unwrap();
 
@@ -568,6 +581,7 @@ async fn test_fiat_alert_fires_on_exchange_rate_change() {
             BalanceAlertType::Above,
             Some("NOK".to_string()),
             Some(60_000.0),
+            None, // current_balance_sats
         )
         .await
         .unwrap();
@@ -709,6 +723,7 @@ async fn test_balance_alert_threshold_crossing_detection() {
             BalanceAlertType::Below,
             None,
             None,
+            None,
         ) // 1 BTC threshold
         .await
         .unwrap();
@@ -782,6 +797,7 @@ async fn test_balance_alert_threshold_crossing_detection() {
             BalanceAlertType::Above,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -831,6 +847,7 @@ async fn test_balance_alert_threshold_crossing_detection() {
             &wallet_checksum,
             100_000_000,
             BalanceAlertType::Equals,
+            None,
             None,
             None,
         )

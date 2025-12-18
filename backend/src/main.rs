@@ -331,6 +331,7 @@ async fn main() -> anyhow::Result<()> {
                                     BalanceAlertType::Equals,
                                     None, // BTC threshold
                                     None,
+                                    None, // current balance (demo setup)
                                 )
                                 .await
                             {
@@ -347,6 +348,7 @@ async fn main() -> anyhow::Result<()> {
                                     BalanceAlertType::Above,
                                     None, // BTC threshold
                                     None,
+                                    None, // current balance (demo setup)
                                 )
                                 .await
                             {
