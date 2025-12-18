@@ -50,11 +50,11 @@ cd frontend && npm test        # Run all tests
 cd frontend && npm run test:watch  # Run tests in watch mode
 ```
 
-### Docker (Regtest Environment)
+### Local Development Scripts
 ```bash
-cd regtest-env && docker-compose up -d
-cd regtest-env && ./docker-utils.sh reset
-cd regtest-env && ./docker-utils.sh run-tests <wallet_address>
+cd scripts && docker-compose up -d
+cd scripts && ./dev.sh reset
+cd scripts && ./dev.sh run-tests <wallet_address>
 ```
 
 ## Project Structure
@@ -76,7 +76,7 @@ canary/
 │   │   ├── contexts/   # React contexts (auth-context.tsx, wallets-context.tsx)
 │   │   ├── hooks/      # Custom React hooks (useWalletDetail.ts, usePricing.ts)
 │   │   └── types/      # TypeScript type definitions
-├── regtest-env/    # Docker Bitcoin + Fulcrum setup
+├── scripts/        # Development scripts and Docker setup
 ├── tasks/          # Project tasks and documentation
 └── CLAUDE.md       # This file
 ```
@@ -493,7 +493,7 @@ This is separate from the main authentication system and only used when users ad
 - **Wallets**: `database-{mode}/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
 - **Metadata**: `database-{mode}/{network}/metadata.sqlite` (normalized schema with 12 migrations)
 - **Schema**: 12 migration files providing comprehensive schema for all features
-- **Reset**: `./regtest-env/docker-utils.sh reset` removes all databases
+- **Reset**: `./scripts/dev.sh reset` removes all databases
 
 ## Address Management & Deep Scanning
 The service uses BDK's address revelation mechanism with advanced deep scanning capabilities:
@@ -512,7 +512,7 @@ The service uses BDK's address revelation mechanism with advanced deep scanning 
 - **Stop Gap**: Always maintains 20 consecutive unused addresses to prevent missing transactions
 
 ## Development Workflow
-- **Testing**: `./regtest-env/docker-utils.sh` provides complete Bitcoin regtest environment
+- **Testing**: `./scripts/dev.sh` provides complete Bitcoin regtest environment
 - **Database Management**: 12 migration files for schema evolution covering all features
 - **Docker Environment**: Complete Bitcoin Core + Fulcrum Electrum server for local development
 

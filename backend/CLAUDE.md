@@ -42,12 +42,12 @@ npm run lint
 npm test
 ```
 
-### Docker Development Environment
+### Local Development Scripts
 ```bash
-cd regtest-env && docker-compose up -d
-./docker-utils.sh reset        # Reset all databases
-./docker-utils.sh mine 6       # Mine blocks
-./docker-utils.sh fund <addr> 1.0  # Fund address
+cd scripts && docker-compose up -d
+./dev.sh reset        # Reset all databases
+./dev.sh mine 6       # Mine blocks
+./dev.sh fund <addr> 1.0  # Fund address
 ```
 
 ## Configuration
@@ -208,7 +208,7 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 ### Database Management
 - **Eight Migration Files**: Complete schema through migration 008 with transaction-based architecture
 - **Network Isolation**: Each network has separate database directory
-- **Reset Command**: `./regtest-env/docker-utils.sh reset` clears all databases
+- **Reset Command**: `./scripts/dev.sh reset` clears all databases
 - **Connection Pooling**: r2d2 SQLite pool with 10 max connections
 
 ### Subscription Limits

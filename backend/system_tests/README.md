@@ -130,7 +130,7 @@ The `--nocapture` flag reveals:
 Each system test:
 
 1. **Creates isolated Docker Bitcoin container** with unique name
-2. **Sets up deterministic wallets** (same as `regtest-env/docker-utils.sh`)
+2. **Sets up deterministic wallets** (same as `scripts/dev.sh`)
 3. **Runs real Bitcoin transactions** via `docker exec`
 4. **Tests full pipeline**: Bitcoin → Electrum → BDK → Database → Events
 5. **Automatically cleans up** containers and temporary data
