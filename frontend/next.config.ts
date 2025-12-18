@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 
+// Get build commit at config load time (works with both webpack and Turbopack)
+const { getBuildCommit } = require('./scripts/generate-build-info');
+const buildCommit = getBuildCommit();
+
 const nextConfig: NextConfig = {
   // Enable Turbopack (Next.js 16 default)
   turbopack: {},
@@ -16,6 +20,10 @@ const nextConfig: NextConfig = {
   },
   // Disable strict mode to avoid double renders in development
   reactStrictMode: false,
+  // Set build commit as environment variable
+  env: {
+    NEXT_PUBLIC_BUILD_COMMIT: buildCommit || '',
+  },
   // Configure API routes with appropriate caching headers
   async headers() {
     return [
@@ -29,14 +37,6 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
-  },
-  webpack: (config, { isServer }) => {
-    // Generate build info on server side during build
-    if (isServer) {
-      const generateBuildInfo = require('./scripts/generate-build-info');
-      generateBuildInfo();
-    }
-    return config;
   },
 };
 

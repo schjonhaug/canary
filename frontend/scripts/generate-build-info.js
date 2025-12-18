@@ -3,38 +3,29 @@ const fs = require('fs');
 const path = require('path');
 
 function generateBuildInfo() {
-  const outputPath = path.join(__dirname, '..', 'src', 'lib', 'build-info.json');
-  
   try {
     // Check if we're in a git repository
     execSync('git rev-parse --git-dir', { encoding: 'utf-8' });
-    
+
     // Get commit hash
     const commit = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
-    
-    const buildInfo = {
-      commit
-    };
-    
-    // Ensure the directory exists
-    const libDir = path.join(__dirname, '..', 'src', 'lib');
-    if (!fs.existsSync(libDir)) {
-      fs.mkdirSync(libDir, { recursive: true });
-    }
-    
-    // Write to src/lib/build-info.json
-    fs.writeFileSync(outputPath, JSON.stringify(buildInfo, null, 2));
-    
-    console.log('Build info generated:', buildInfo);
+
+    console.log('Build commit:', commit);
+    return commit;
   } catch (error) {
-    // Not in a git repository - don't generate file
+    // Not in a git repository
     console.log('Not in a git repository, skipping build info generation');
-    
-    // Remove file if it exists (clean state for Umbrel)
-    if (fs.existsSync(outputPath)) {
-      fs.unlinkSync(outputPath);
-      console.log('Removed existing build-info.json');
-    }
+    return null;
+  }
+}
+
+// Get the commit hash for use in next.config.ts
+function getBuildCommit() {
+  try {
+    execSync('git rev-parse --git-dir', { encoding: 'utf-8' });
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+  } catch {
+    return null;
   }
 }
 
@@ -43,4 +34,4 @@ if (require.main === module) {
   generateBuildInfo();
 }
 
-module.exports = generateBuildInfo;
+module.exports = { generateBuildInfo, getBuildCommit };
