@@ -32,7 +32,6 @@ use stripe_billing::StripeBilling;
 use subscription::SubscriptionTier;
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::{interval, Duration};
-use tracing_subscriber;
 use twilio_provider::TwilioProvider;
 use wallet::WalletManager;
 
@@ -108,7 +107,7 @@ async fn main() -> anyhow::Result<()> {
     if let Err(error) = config.validate_required_config() {
         eprintln!("❌ Configuration validation failed:");
         eprintln!("{}", error);
-        eprintln!("");
+        eprintln!();
         eprintln!("Please check your .env file and ensure all required variables are set.");
         eprintln!("See backend/.env.example for configuration examples.");
         std::process::exit(1);
@@ -967,18 +966,7 @@ async fn main() -> anyhow::Result<()> {
                                         } else {
                                             format!("📤 Sending {} BTC", amount)
                                         }
-                                    } else {
-                                        if message_content.contains("✅")
-                                            || message_content.contains("Sent")
-                                            || message_content.contains("Sendt")
-                                        {
-                                            "✅ Sent transaction".to_string()
-                                        } else {
-                                            "📤 Sending transaction".to_string()
-                                        }
-                                    }
-                                } else {
-                                    if message_content.contains("✅")
+                                    } else if message_content.contains("✅")
                                         || message_content.contains("Sent")
                                         || message_content.contains("Sendt")
                                     {
@@ -986,6 +974,13 @@ async fn main() -> anyhow::Result<()> {
                                     } else {
                                         "📤 Sending transaction".to_string()
                                     }
+                                } else if message_content.contains("✅")
+                                    || message_content.contains("Sent")
+                                    || message_content.contains("Sendt")
+                                {
+                                    "✅ Sent transaction".to_string()
+                                } else {
+                                    "📤 Sending transaction".to_string()
                                 }
                             } else if message_content.contains("📥")
                                 || message_content.contains("💸")
@@ -1007,18 +1002,7 @@ async fn main() -> anyhow::Result<()> {
                                         } else {
                                             format!("💸 Receiving {} BTC", amount)
                                         }
-                                    } else {
-                                        if message_content.contains("✅")
-                                            || message_content.contains("Received")
-                                            || message_content.contains("Mottatt")
-                                        {
-                                            "✅ Received transaction".to_string()
-                                        } else {
-                                            "💸 Receiving transaction".to_string()
-                                        }
-                                    }
-                                } else {
-                                    if message_content.contains("✅")
+                                    } else if message_content.contains("✅")
                                         || message_content.contains("Received")
                                         || message_content.contains("Mottatt")
                                     {
@@ -1026,6 +1010,13 @@ async fn main() -> anyhow::Result<()> {
                                     } else {
                                         "💸 Receiving transaction".to_string()
                                     }
+                                } else if message_content.contains("✅")
+                                    || message_content.contains("Received")
+                                    || message_content.contains("Mottatt")
+                                {
+                                    "✅ Received transaction".to_string()
+                                } else {
+                                    "💸 Receiving transaction".to_string()
                                 }
                             } else {
                                 "Transaction".to_string()
@@ -1100,7 +1091,7 @@ async fn apply_startup_subscription_limits(
         if let Err(e) = wallet_manager
             .apply_subscription_limits(
                 &user.id,
-                &user.subscription_tier.as_str(),
+                user.subscription_tier.as_str(),
                 &user.subscription_status,
                 user.is_admin,
                 user.trial_ends_at.clone(),
@@ -1112,16 +1103,14 @@ async fn apply_startup_subscription_limits(
                 user.id,
                 e
             );
+        } else if user.is_admin {
+            tracing::info!("✅ Applied unlimited limits for admin user {}", user.id);
         } else {
-            if user.is_admin {
-                tracing::info!("✅ Applied unlimited limits for admin user {}", user.id);
-            } else {
-                tracing::info!(
-                    "✅ Applied {} tier limits for user {}",
-                    user.subscription_tier.as_str(),
-                    user.id
-                );
-            }
+            tracing::info!(
+                "✅ Applied {} tier limits for user {}",
+                user.subscription_tier.as_str(),
+                user.id
+            );
         }
     }
 

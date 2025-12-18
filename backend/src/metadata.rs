@@ -6,7 +6,6 @@ use crate::subscription::SubscriptionTier;
 use anyhow::{anyhow, Context, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
-use chrono;
 use phonenumber::PhoneNumber;
 use r2d2::{CustomizeConnection, Pool};
 use r2d2_sqlite::SqliteConnectionManager;
@@ -17,9 +16,10 @@ use std::sync::Arc;
 use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum EventType {
     #[serde(rename = "send")]
+    #[default]
     Send,
     #[serde(rename = "receive")]
     Receive,
@@ -377,11 +377,6 @@ impl Default for TransactionInsert {
     }
 }
 
-impl Default for EventType {
-    fn default() -> Self {
-        EventType::Send
-    }
-}
 
 /// Extract checksum from a Bitcoin descriptor
 fn extract_checksum(descriptor: &str) -> String {
@@ -606,7 +601,7 @@ impl MetadataDb {
             }
 
             Ok(())
-        }).await?;
+        }).await??;
 
         Ok(())
     }
@@ -696,7 +691,7 @@ impl MetadataDb {
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
             // Extract checksum from descriptor (part after #)
-            let checksum = descriptor.split('#').last()
+            let checksum = descriptor.split('#').next_back()
                 .ok_or_else(|| anyhow::anyhow!("Invalid descriptor format: missing checksum"))?
                 .to_string();
 
@@ -881,7 +876,7 @@ impl MetadataDb {
 
             let mut stmt = conn.prepare(query)?;
 
-            let wallet_iter = stmt.query_map(&[&user_id], |row| {
+            let wallet_iter = stmt.query_map([&user_id], |row| {
                 Ok(WalletMetadata {
                     checksum: row.get(0)?,
                     name: row.get(1)?,
@@ -3019,7 +3014,7 @@ impl MetadataDb {
         let contact_id = contact_id.to_string();
         let checksum = wallet_checksum.to_string();
         let contact_name = name.to_string();
-        let lang = language.clone();
+        let lang = *language;
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;

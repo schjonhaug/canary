@@ -42,7 +42,7 @@ impl MigrationRunner {
         for entry in fs::read_dir(migrations_path)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "sql") {
+            if path.extension().is_some_and(|ext| ext == "sql") {
                 if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
                     migration_files.push((filename.to_string(), path));
                 }

@@ -142,11 +142,10 @@ impl std::fmt::Display for LimitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} limit reached ({}/{}). Upgrade to {} for more {}.",
+            "{} limit reached ({}/{}). Upgrade to Team for more {}.",
             self.resource,
             self.current,
             self.limit,
-            "Team",
             self.resource.to_lowercase()
         )
     }

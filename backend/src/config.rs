@@ -115,7 +115,7 @@ pub struct AppConfig {
 impl AppConfig {
     pub fn load() -> Result<Self> {
         // Load environment variables from .env file if present
-        if let Err(_) = dotenvy::dotenv() {
+        if dotenvy::dotenv().is_err() {
             // Ignore error if .env file doesn't exist
         }
 

@@ -588,7 +588,7 @@ impl WalletSyncService {
                     let (transaction_type, amount_sats, fee_sats) = if *net_amount < 0 {
                         // Outgoing transaction (send)
                         // For now, don't calculate fees - we can add this later
-                        (EventType::Send, (-*net_amount) as i64, None)
+                        (EventType::Send, -(*net_amount), None)
                     } else {
                         // Incoming transaction (receive)
                         (EventType::Receive, *net_amount, None)
@@ -645,7 +645,7 @@ impl WalletSyncService {
                         self.metadata_db
                             .update_transaction_confirmation(
                                 wallet_checksum,
-                                &txid,
+                                txid,
                                 block_height_value,
                                 confirmed_at_value,
                             )
@@ -655,7 +655,7 @@ impl WalletSyncService {
                         // Need to get the updated transaction record
                         if let Some(updated_tx) = self
                             .metadata_db
-                            .get_transaction_by_txid(wallet_checksum, &txid)
+                            .get_transaction_by_txid(wallet_checksum, txid)
                             .await?
                         {
                             self.send_confirmed_transaction_notification(&updated_tx)
@@ -858,7 +858,7 @@ impl WalletSyncService {
         };
 
         // Send through broadcast channel
-        if let Err(_) = self.notification_sender.send(notification) {
+        if self.notification_sender.send(notification).is_err() {
             // Log but don't fail sync if no one is listening
             debug!(
                 "[{}] No notification listeners active",
@@ -877,7 +877,7 @@ impl WalletSyncService {
         let notification = TransactionNotification::Confirmed(transaction.clone());
 
         // Send through broadcast channel
-        if let Err(_) = self.notification_sender.send(notification) {
+        if self.notification_sender.send(notification).is_err() {
             // Log but don't fail sync if no one is listening
             debug!(
                 "[{}] No notification listeners active",

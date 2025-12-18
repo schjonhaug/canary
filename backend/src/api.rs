@@ -940,24 +940,20 @@ pub async fn delete_wallet(
             println!("[{}] Wallet marked as deleted (soft delete)", checksum);
             StatusCode::NO_CONTENT.into_response()
         }
-        Ok(false) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
-            )
-                .into_response();
-        }
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "Wallet not found".to_string(),
+            }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Database error: {}", e),
+            }),
+        )
+            .into_response(),
     }
 }
 
@@ -3056,10 +3052,8 @@ pub async fn register(
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
 
-    let email_service = match EmailService::from_env() {
-        Ok(service) => Some(service),
-        Err(_) => None, // Email service not configured, will work in dev mode
-    };
+    // Email service not configured, will work in dev mode
+    let email_service = EmailService::from_env().ok();
 
     let auth_service = AuthService::new(jwt_secret, email_service);
 
@@ -3611,10 +3605,7 @@ pub async fn forgot_password(
     let jwt_secret = std::env::var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
 
-    let email_service = match EmailService::from_env() {
-        Ok(service) => Some(service),
-        Err(_) => None,
-    };
+    let email_service = EmailService::from_env().ok();
 
     let auth_service = AuthService::new(jwt_secret, email_service);
     let token = auth_service.generate_verification_token();
@@ -4639,19 +4630,17 @@ pub async fn handle_stripe_webhook(
                                         actual_user_id,
                                         e
                                     );
+                                } else if user_record.is_admin {
+                                    tracing::info!(
+                                        "✅ Applied unlimited limits for admin user {}",
+                                        actual_user_id
+                                    );
                                 } else {
-                                    if user_record.is_admin {
-                                        tracing::info!(
-                                            "✅ Applied unlimited limits for admin user {}",
-                                            actual_user_id
-                                        );
-                                    } else {
-                                        tracing::info!(
-                                            "✅ Applied {} tier limits for user {}",
-                                            update.subscription_tier,
-                                            actual_user_id
-                                        );
-                                    }
+                                    tracing::info!(
+                                        "✅ Applied {} tier limits for user {}",
+                                        update.subscription_tier,
+                                        actual_user_id
+                                    );
                                 }
                             }
                             Ok(None) => {
@@ -4946,12 +4935,8 @@ pub async fn update_user_preferences(
         return response;
     }
 
-    // Track current values for response
-    let mut current_currency = String::new();
-    let mut current_ntfy_url: Option<String> = None;
-
     // Update preferred_fiat_currency if provided
-    if let Some(ref currency) = request.preferred_fiat_currency {
+    let current_currency = if let Some(ref currency) = request.preferred_fiat_currency {
         // Validate currency is supported
         if !exchange_rates::SUPPORTED_CURRENCIES.contains(&currency.as_str()) {
             return (
@@ -4977,20 +4962,20 @@ pub async fn update_user_preferences(
             )
                 .into_response();
         }
-        current_currency = currency.clone();
+        currency.clone()
     } else {
         // Get current currency
-        current_currency = app_services
+        app_services
             .metadata_db
             .get_user_preferred_currency(&user.user_id)
             .await
-            .unwrap_or_else(|_| "USD".to_string());
-    }
+            .unwrap_or_else(|_| "USD".to_string())
+    };
 
     // Update ntfy_server_url if the field was provided in the request
     // Note: We check if the outer Option is Some (field was in JSON)
     // The inner value can be Some(url) to set, or could be empty string to clear
-    if let Some(ref ntfy_url) = request.ntfy_server_url {
+    let current_ntfy_url = if let Some(ref ntfy_url) = request.ntfy_server_url {
         // Validate URL format if not empty
         let url_to_store = if ntfy_url.is_empty() {
             None
@@ -5021,15 +5006,15 @@ pub async fn update_user_preferences(
             )
                 .into_response();
         }
-        current_ntfy_url = url_to_store.map(|s| s.to_string());
+        url_to_store.map(|s| s.to_string())
     } else {
         // Get current ntfy URL
-        current_ntfy_url = app_services
+        app_services
             .metadata_db
             .get_user_ntfy_server_url(&user.user_id)
             .await
-            .unwrap_or(None);
-    }
+            .unwrap_or(None)
+    };
 
     // Update ntfy authentication if any auth fields were provided
     // Access token takes precedence - if set, it clears username/password
@@ -5050,8 +5035,8 @@ pub async fn update_user_preferences(
             let password = request.ntfy_password.as_deref();
 
             // Allow clearing by setting both to empty
-            let is_clearing = username.map_or(true, |u| u.is_empty())
-                && password.map_or(true, |p| p.is_empty());
+            let is_clearing = username.is_none_or(|u| u.is_empty())
+                && password.is_none_or(|p| p.is_empty());
 
             if is_clearing {
                 (None, None, None)
@@ -5477,10 +5462,10 @@ pub async fn create_wallet_balance_alert(
                             balance_fiat, currency, fiat_threshold, currency, request.alert_type.as_str()
                         )
                     } else {
-                        format!("Alert would trigger immediately based on current balance. Try a different threshold or alert type.")
+                        "Alert would trigger immediately based on current balance. Try a different threshold or alert type.".to_string()
                     }
                 } else {
-                    format!("Alert would trigger immediately based on current balance. Try a different threshold or alert type.")
+                    "Alert would trigger immediately based on current balance. Try a different threshold or alert type.".to_string()
                 }
             } else {
                 let balance_btc = current_balance_sats as f64 / 100_000_000.0;

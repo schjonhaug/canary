@@ -3,10 +3,15 @@ use crate::message_formatter::MessageFormatter;
 use crate::metadata::{Contact, Language, NotificationMethod, ProviderType, TransactionNotification};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
-use serde_json;
 
 pub struct EmailProvider {
     email_service: Option<EmailService>,
+}
+
+impl Default for EmailProvider {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EmailProvider {

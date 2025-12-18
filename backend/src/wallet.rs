@@ -420,9 +420,8 @@ impl WalletManager {
         }
     }
 
-    /// Strip key origin information from descriptor to prevent duplicates
-
-    /// Static version of strip_key_origin for use without WalletManager instance
+    /// Strip key origin information from descriptor to prevent duplicates.
+    /// Static version of strip_key_origin for use without WalletManager instance.
     pub fn strip_key_origin_static(descriptor_str: &str) -> Result<String> {
         use regex::Regex;
 
