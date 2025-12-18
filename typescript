@@ -1,173 +1,0 @@
-Script started on Thu Dec 18 10:33:15 2025
-]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary]1337;ShellIntegrationVersion=14;shell=zsh[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary[39m [35m(main)[39m ❯ ]133;B[K[?2004hscript[32ms[32mc[32mr[32mi[32mp[32mt[39m[32mt[32ms[39m[4m[32ms[4m[32mc[4m[32mr[4m[32mi[4m[32mp[4m[32mt[4m[32ms[24m[39m[?2004l
-]133;C;[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004hl[32ml[39m[?2004l
-]133;C;total 208
--rw-r--r--@ 1 schjonhaug  staff   202B 16 des. 19:38 bitcoin.conf
--rwxr-xr-x@ 1 schjonhaug  staff    85K 18 des. 09:14 dev.sh
--rw-r--r--  1 schjonhaug  staff   718B 16 des. 19:38 docker-compose.yml
--rw-r--r--@ 1 schjonhaug  staff   282B 17 des. 15:10 fulcrum.conf
--rw-r--r--@ 1 schjonhaug  staff   3,1K 18 des. 09:34 README.md
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h.[32m.[39m[32m.[39m[90m/docker-utils.sh mode cloud[39m[27D[32m.[32m/[39m[4m[32m.[4m[32m/[24m[39m[4m[32m.[4m[32m/[4m[32md[24m[39m[39m[4m.[39m[4m/[39m[4md[24m[4md[39m[4me[24m[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [24D[4me[4mv[24m[4mv[4m.[24m[4m.[4ms[24m[4ms[4mh[24m[8D[24m[32m.[24m[32m/[24m[32md[24m[32me[24m[32mv[24m[32m.[24m[32ms[24m[32mh[39m[32mh[32m [39m[32mh[39m[39m mine[?2004l
-]133;C;Mining 1 block(s) to Miner wallet...
-[
-  "1f344710155dbf5900e8d0ff2d69203ab6659685edfd35a5c9fed11eef9028d3"
-]
-✅ Mined 1 block(s) to Miner wallet
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h./dev.sh mine[13D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[5C    [90mmine[39m[39ma[39m [39m [39m lice sends b[4mb[24m[4mb[4mo[24m[24mb[24mob 0.022[?2004l
-]133;C;Unknown subcommand for alice: sends
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;1]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h./dev.sh alice sends bob 0.022[30D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[22C[1C[P[10C [11Dn bob 0.022[10Dg bob 0.022[10D[P[10C [11D[P[10C [11Di bob 0.022[10Dn bob 0.022[10Dg bob 0.022[10D[?2004l
-]133;C;🎯 Sending 1 separate transactions from alice to bob
-  📤 Transaction 1/1: Sending 0.022 BTC to address bcrt1q2hasfl6n4k2xvejqrmfyz7403hvnc6xr39gjkj
-     ✅ Transaction 1 sent: a3a384b8eb6ce8651a38086824ff2f741025dc2a5bdfcd17d2056938bdbed33f
-
-🎉 All 1 transactions sent successfully:
-  1. 0.022 BTC → a3a384b8eb6ce8651a38086824ff2f741025dc2a5bdfcd17d2056938bdbed33f
-💡 Use './dev.sh mine' to confirm all transactions
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h./dev.sh alice sending bob 0.022[32D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[24C[13Ds[P[P[10C  [21Dmine                 [17D[?2004l
-]133;C;Mining 1 block(s) to Miner wallet...
-[
-  "0c709780e781d65593659e2496046cd52b40b6ddbc96c19cec984fc1efa468b5"
-]
-✅ Mined 1 block(s) to Miner wallet
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h./dev.sh mine[13D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[5Calice sending bob 0.022[1C [90m2[39m [39m [90m22[39m [39m [39m [90m022[39m[39m1[39m [39m [?2004l
-]133;C;🎯 Sending 1 separate transactions from alice to bob
-  📤 Transaction 1/1: Sending 0.1 BTC to address bcrt1qlk92d9fx8pk2mrgrevcwsnwkr36e4pu4x72qav
-     ✅ Transaction 1 sent: b0a0f9ba45b2dfe74b123e4c469fb4fada3f63cfa5bc3242c9a04d3fbeb4ae98
-
-🎉 All 1 transactions sent successfully:
-  1. 0.1 BTC → b0a0f9ba45b2dfe74b123e4c469fb4fada3f63cfa5bc3242c9a04d3fbeb4ae98
-💡 Use './dev.sh mine' to confirm all transactions
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h./dev.sh alice sending bob 0.1[30D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[22C[21Dmine                 [17D[?2004l
-]133;C;Mining 1 block(s) to Miner wallet...
-[
-  "08b20871d5c6a8e197f285da6fab5f3989673e4820ebd5839e1a75aadd3f2383"
-]
-✅ Mined 1 block(s) to Miner wallet
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h./dev.sh mine[13D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[5C [90me[39m [39m [90mne[39m [39m [39m [90mine[39m [39m [39m [39m [90mmine[39m[39mm[39mo[39m [39m de cloud[?2004l
-]133;C;Killing processes on ports 3000 and 3001...
-Updated ../backend/.env:
-  CANARY_MODE=cloud
-  CANARY_DATA_DIR=./database-cloud
-Updated ../frontend/.env.local:
-  NEXT_PUBLIC_CANARY_MODE=cloud
-
-Mode switched to: cloud
-Start backend and frontend to apply changes.
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h./dev.sh mode cloud[19D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[11C [90md[39m [39m [90mud[39m [39m [39m [90moud[39m [39m [39m [39m [90mloud[39m [39m [39m [39m [39m [90mcloud[39m[39ms[39m [39m [39m [39m efl  lf-hosted[?2004l
-]133;C;Killing processes on ports 3000 and 3001...
-Updated ../backend/.env:
-  CANARY_MODE=self-hosted
-  CANARY_DATA_DIR=./database-self-hosted
-Updated ../frontend/.env.local:
-  NEXT_PUBLIC_CANARY_MODE=self-hosted
-
-Mode switched to: self-hosted
-Start backend and frontend to apply changes.
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h./dev.sh mode self-hosted[25D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[17C[25D[32m2[32m0[32m2[32m5[32m-[32m1[32m2[32m-[39m18T09:34:31.144367Z INFO canary::sync: [wy8dpdw2] Sync complete in 0.01s (electrum 0.01s across 1 attempt(s)); changes=false, new_transactions=0, confirmations=0, conflicts_marked=0[K[A[A[29C[1m[31m2[1m[31m0[1m[31m2[1m[31m5[1m[31m-[1m[31m1[1m[31m2[1m[31m-[1m[31m1[1m[31m8[1m[31mT[1m[31m0[1m[31m9[1m[31m:[1m[31m3[1m[31m4[1m[31m:[1m[31m3[1m[31m1[1m[31m.[1m[31m1[1m[31m4[1m[31m4[1m[31m3[1m[31m6[1m[31m7[1m[31mZ[0m[39m[2B[56D[A[A[29C[1m[31m.[1m[31m/[1m[31md[1m[31me[1m[31mv[1m[31m.[1m[31ms[1m[31mh[1m[31m [1m[31mm[1m[31mo[1m[31md[1m[31me[1m[31m [1m[31ms[1m[31me[1m[31ml[1m[31mf[1m[31m-[1m[31mh[1m[31mo[1m[31ms[1m[31mt[1m[31me[1m[31md[0m[39m[K[1B[K[1B[K[A[A[76C[25D[0m[32m.[0m[32m/[0m[32md[0m[32me[0m[32mv[0m[32m.[0m[32ms[0m[32mh[39m[0m[39m [0m[39mm[0m[39mo[0m[39md[0m[39me[0m[39m [0m[39ms[0m[39me[0m[39ml[0m[39mf[0m[39m-[0m[39mh[0m[39mo[0m[39ms[0m[39mt[0m[39me[0m[39md[25D[39m [39m [39m [39m [39m [39m [39m [39m                  [25D./dev.sh mode self-hosted[25D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[17C[25D[32m2[32m0[32m2[32m5[32m-[32m1[32m2[32m-[39m18T09:34:31.144367Z INFO canary::sync: [wy8dpdw2] Sync complete in 0.01s (electrum 0.01s across 1 attempt(s)); changes=false, new_transactions=0, confirmations=0, conflicts_marked=0[K[A[A[29C[1m[31m2[1m[31m0[1m[31m2[1m[31m5[1m[31m-[1m[31m1[1m[31m2[1m[31m-[1m[31m1[1m[31m8[1m[31mT[1m[31m0[1m[31m9[1m[31m:[1m[31m3[1m[31m4[1m[31m:[1m[31m3[1m[31m1[1m[31m.[1m[31m1[1m[31m4[1m[31m4[1m[31m3[1m[31m6[1m[31m7[1m[31mZ[0m[39m[2B[56D[A[A[50C[1m[31m3[1m[31m3[1m[31m1[1m[31m1[1m[31m0[1B[0m[39mStarting [71P[11C-based sync[K[1B[K[A[31C[A[43C[1m[31m0[1m[31m7[1m[31m5[22C[0m[39m07y2fln3[1B[76D[A[37C[1m[31m1[1m[31m6[2C[1m[31m4[1m[31m7[1m[31m7[1m[31m2[23C[0m[39mwy8dpdw2[1BSync complete in 0.01s (electrum 0.01s across 1 attempt(s)); changes=false, new_transactions=0, confirmations=0, conflicts_marked=0[K[A[A[29C[5P[16C[1m[31m3[1m[31m3[1m[31m6[1m[31m7[1m[31m7[1m[31mZ[1m[31m [1m[31mI[1m[31mN[1m[31mF[1m[31mO[0m[39m[26CStarting [76P[11C-based sync[K[1B[K[A[26C[A[46C[1m[31mZ[0m[39m[0m[39m [0m[39mI[0m[39mN[0m[39mF[0m[39mO[1B[52D[A[25C[1m[31m.[1m[31m/[1m[31md[1m[31me[1m[31mv[1m[31m.[1m[31ms[1m[31mh[1m[31m [1m[31mm[1m[31mo[1m[31md[1m[31me[1m[31m [1m[31mc[1m[31ml[1m[31mo[1m[31mu[1m[31md[0m[39m[K[1B[K[A[70C[19D[0m[32m.[0m[32m/[0m[32md[0m[32me[0m[32mv[0m[32m.[0m[32ms[0m[32mh[39m[0m[39m [0m[39mm[0m[39mo[0m[39md[0m[39me[0m[39m [0m[39mc[0m[39ml[0m[39mo[0m[39mu[0m[39md[?2004l[1B[1m[7m%[27m[1m[0m                                                                                                             ]133;C;]133;D;130]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                                             ]133;C;]133;D;130]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                                             ]133;C;]133;D;130]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h.[32m.[39m[32m.[39m[90m/dev.sh mode self-hosted[39m[24D[32m.[32m/[39m[4m[32m.[4m[32m/[24m[39m[4m[32m.[4m[32m/[4m[32md[24m[39m[39m[4m.[39m[4m/[39m[4md[24m[4md[39m[4me[24m[39mv[39m.[39ms[39mh[39m [39mm[39mo[39md[39me[39m [39ms[39me[39ml[39mf[39m-[39mh[39mo[39ms[39mt[39me[39md[25D[24m[32m.[24m[32m/[24m[32md[24m[32me[32mv[32m.[32ms[32mh[39m[17C[11D           [11D[90mself-hosted[39m[11D     [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [16D[90mmode self-hosted[39m[16D[39ms[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [15D [90mmode self-hosted[39m[16D[39ma[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [15D[90mlice sending bob 0.1[39m[20D[39ml[39mi[39mc[39me[39m [39ms[39me[39mn[39md[39mi[39mn[39mg[39m [39mb[39mo[39mb[39m [39m0[39m.[39m1[?2004l
-]133;C;🎯 Sending 1 separate transactions from alice to bob
-  📤 Transaction 1/1: Sending 0.1 BTC to address bcrt1q8sheu87vss9wxxq738nh7flyad52c2p6a97dhz
-     ✅ Transaction 1 sent: 766729a9ca47d4b05c84f185a602e79010cd59562fc02e06852cadb1db95be76
-
-🎉 All 1 transactions sent successfully:
-  1. 0.1 BTC → 766729a9ca47d4b05c84f185a602e79010cd59562fc02e06852cadb1db95be76
-💡 Use './dev.sh mine' to confirm all transactions
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004hf[1m[31mf[0m[39m[1m[31mf[0m[39m[90mrontend[39m[1m[31mf[1m[31mi[0m[39m[39m [39m [39m [39m [39m [39m [1m[31mf[1m[31mi[1m[31mt[0m[39m[1m[31mt[1m[31m [0m[39m[1m[31mt[0m[39m[0m[39m [1m[31mf[1m[31mi[0m[39m[0m[39m [1m[31mf[0m[39m[0m[39m [1m[31mf[0m[39m[90mrontend[39m[0m[39m [39m [39m [39m [39m [39m [39m [39m [8Dg[1m[31mg[0m[39m[1m[31mg[0m[39m[90mit log --oneline -10[39m[20D[1m[31mg[1m[31mi[0m[39m[1m[31mg[1m[31mi[1m[31mt[0m[39m[0m[32mg[0m[32mi[0m[32mt[39m[32mt[32m [39m[32mt[39m[39m [39ms[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [16D[90mtatus[39m[39mt[39ma[39mt[39mu[39ms[?2004l
-]133;C;On branch main
-Your branch is up to date with 'origin/main'.
-
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git restore <file>..." to discard changes in working directory)
-	[31mmodified:   ../backend/.gitignore[m
-	[31mmodified:   ../backend/Cargo.lock[m
-	[31mmodified:   ../backend/Cargo.toml[m
-	[31mmodified:   ../backend/src/main.rs[m
-	[31mmodified:   ../frontend/.gitignore[m
-	[31mmodified:   ../frontend/package.json[m
-
-Untracked files:
-  (use "git add <file>..." to include in what will be committed)
-	[31m../typescript[m
-
-no changes added to commit (use "git add" and/or "git commit -a")
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h;;4D[1m[31m;[0m[39m[1m[31m4[1m[31mD[0m[39m[1m[31m;[0m[39m[1m[31m4[0m[39m[0m[39m [1m[31m;[0m[39m[0m[39m [0m[39m g[1m[31mg[0m[39m[1m[31mg[0m[39m[90mit status[39m[9D[1m[31mg[1m[31mi[0m[39m[1m[31mg[1m[31mi[1m[31mt[0m[39m[0m[32mg[0m[32mi[0m[32mt[39m[32mt[32m [39m[32mt[39m[39m [39ml[39m [39m [39m [39m [39m [90mog --oneline -10[39m[16D[39mo[39mg[39m [39m-[39m-[39mo[39mn[39me[39ml[39mi[39mn[39me[39m [39m-[39m1[39m0[?2004l
-]133;C;[?1h=[33m41ad0c4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m feat: Add file logging for development[m
-[33me24d635[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: Initialize balance alert with current balance for threshold crossing [m [33m[m[33m[m[1;31m[m[33m[m[1;31m[m[33m[mdetection[m
-[33m07115e3[m chore: Update Rust dependencies[m
-[33mb715d52[m fix: Remove clippy warnings from tests [skip ci][m
-[33md3c79ee[m docs: Update README.md with missing features [skip ci][m
-[33m457c10a[m docs: Update CLAUDE.md files for accuracy [skip ci][m
-[33m8766142[m refactor: Rename regtest-env to scripts and docker-utils.sh to dev.sh [skip ci][m
-[33m97ef095[m feat: Add mode command to docker-utils.sh for switching between self-hosted and cloud[m
-[33me525e04[m fix: Use env variable for build commit to avoid Turbopack warning[m
-[33mb0e7c18[m fix: Avoid router.push() during render in self-hosted mode[m
-[K[?1l>[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004hgit log --oneline -10[21D[32mg[32mi[32mt[39m[18C[?2004l
-]133;C;[?1h=[33m41ad0c4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m feat: Add file logging for development[m
-[33me24d635[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: Initialize balance alert with current balance for threshold crossing [m [33m[m[33m[m[1;31m[m[33m[m[1;31m[m[33m[mdetection[m
-[33m07115e3[m chore: Update Rust dependencies[m
-[33mb715d52[m fix: Remove clippy warnings from tests [skip ci][m
-[33md3c79ee[m docs: Update README.md with missing features [skip ci][m
-[33m457c10a[m docs: Update CLAUDE.md files for accuracy [skip ci][m
-[33m8766142[m refactor: Rename regtest-env to scripts and docker-utils.sh to dev.sh [skip ci][m
-[33m97ef095[m feat: Add mode command to docker-utils.sh for switching between self-hosted and cloud[m
-[33me525e04[m fix: Use env variable for build commit to avoid Turbopack warning[m
-[33mb0e7c18[m fix: Avoid router.push() during render in self-hosted mode[m
-[K[?1l>[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004hgit log --oneline -10[21D[32mg[32mi[32mt[39m[18C   [90m-10[39m[10D          [39m [39m [39m [13D[90m--oneline -10[39m[13D    [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [17D[90mlog --oneline -10[39m[17D[39ml[39mo[39mg[39m [39m-[39m1[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [11D0[?2004l
-]133;C;[?1h=[33mcommit 41ad0c40fe27a0b2465567c3f4b6ad7a68239f71[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m[m
-Author: Andreas Schjønhaug <andreas@schjonhaug.com>[m
-Date:   Thu Dec 18 11:50:11 2025 +0100[m
-[m
-    feat: Add file logging for development[m
-    [m
-    - Backend: Add tracing-appender for daily-rotated logs to logs/backend.log[m
-    - Frontend: Pipe dev server output to logs/frontend.log via tee[m
-    - Add logs/ directories to .gitignore[m
-    [m
-    [skip ci][m
-[m
-[33mcommit e24d635899509841297b8b7d3f73a59d86e13f51[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m[m
-Author: Andreas Schjønhaug <andreas@schjonhaug.com>[m
-Date:   Thu Dec 18 11:40:58 2025 +0100[m
-[m
-    fix: Initialize balance alert with current balance for threshold crossing detection[m
-    [m
-    Previously, balance alerts were created with last_checked_balance_sats = NULL,[m
-    which was only initialized on the first sync. If a transaction occurred between[m
-    alert creation and the first sync, the threshold crossing was missed.[m
-    [m
-    Now the current wallet balance is stored when the alert is created, ensuring[m
-    that threshold crossings are properly detected on the next sync.[m
-[m
-:[K[K [KESCESC[KOO[KAA[K[K:[K[K [KESCESC[KOO[KAA[K[K:[K[K[?1l>[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004hq[1m[31mq[0m[39m[0m[39m git log -10[11D[32mg[32mi[32mt[39m[8Cq  [90m0[39m [39m [90m10[39m [39m [39m [90m-10[39m[39m [39m [39m [90m -10[39m [39m [39m [39m [39m [90mg -10[39m [39m [39m [39m [39m [39m [90mog -10[39m [39m [39m [39m [39m [39m [39m [90mlog -10[39m[39m [39m [39m [39m [39m [39m [39m [8D[90m log -10[39m[8D[32mg[32mi[39m[39m [39m [39m [39m [39m [39m [39m [39m [39m [9D[1m[31mg[1m[31mi[0m[39m[90mt log -10[39m[9D[1m[31mg[0m[39m[0m[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [10D[1m[31mg[0m[39m[90mit log -10[39m[10D[0m[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [11Dgit log --oneline -10[21D[32mg[32mi[32mt[39m[18C[17Dstatus           [11D[10D[32m.[32m/[32md[39mev.sh alice sending bob 0.1[28D[32md[32me[32mv[32m.[32ms[32mh[39m[22C[?2004l
-[1m[7m%[27m[1m[0m                                                                                                             ]133;C;]133;D;130]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                                             ]133;C;]133;D;130]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004hg[1m[31mg[0m[39m[1m[31mg[0m[39m[90mit log -10[39m[10D[1m[31mg[1m[31mi[0m[39m[1m[31mg[1m[31mi[1m[31mt[0m[39m[0m[32mg[0m[32mi[0m[32mt[39m[32mt[32m [39m[32mt[39m[39m [39ml[39mo[39mg[39m [39m-[39m1[39m0 [90m0[39m [39m [90m10[39m [39m [39m [90m-10[39m[39m-[39m1[39m0-oneline -10[?2004l
-]133;C;[?1h=[33m5bcdc09[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m feat: Add file logging for development [skip ci][m
-[33me24d635[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: Initialize balance alert with current balance for threshold crossing [m [33m[m[33m[m[1;31m[m[33m[m[1;31m[m[33m[mdetection[m
-[33m07115e3[m chore: Update Rust dependencies[m
-[33mb715d52[m fix: Remove clippy warnings from tests [skip ci][m
-[33md3c79ee[m docs: Update README.md with missing features [skip ci][m
-[33m457c10a[m docs: Update CLAUDE.md files for accuracy [skip ci][m
-[33m8766142[m refactor: Rename regtest-env to scripts and docker-utils.sh to dev.sh [skip ci][m
-[33m97ef095[m feat: Add mode command to docker-utils.sh for switching between self-hosted and cloud[m
-[33me525e04[m fix: Use env variable for build commit to avoid Turbopack warning[m
-[33mb0e7c18[m fix: Avoid router.push() during render in self-hosted mode[m
-[K[?1l>[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004hg[1m[31mg[0m[39m[1m[31mg[0m[39m[90mit log --oneline -10[39m[20D[1m[31mg[1m[31mi[0m[39m[1m[31mg[1m[31mi[1m[31mt[0m[39m[0m[32mg[0m[32mi[0m[32mt[39m[32mt[32m [39m[32mt[39m[39m [39mp[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [16D[90mull[39m[39mu[39ms[39m [90mh[39m[39mh[?2004l
-]133;C;Enumerating objects: 21, done.
-Counting objects:   4% (1/21)Counting objects:   9% (2/21)Counting objects:  14% (3/21)Counting objects:  19% (4/21)Counting objects:  23% (5/21)Counting objects:  28% (6/21)Counting objects:  33% (7/21)Counting objects:  38% (8/21)Counting objects:  42% (9/21)Counting objects:  47% (10/21)Counting objects:  52% (11/21)Counting objects:  57% (12/21)Counting objects:  61% (13/21)Counting objects:  66% (14/21)Counting objects:  71% (15/21)Counting objects:  76% (16/21)Counting objects:  80% (17/21)Counting objects:  85% (18/21)Counting objects:  90% (19/21)Counting objects:  95% (20/21)Counting objects: 100% (21/21)Counting objects: 100% (21/21), done.
-Delta compression using up to 14 threads
-Compressing objects:   9% (1/11)Compressing objects:  18% (2/11)Compressing objects:  27% (3/11)Compressing objects:  36% (4/11)Compressing objects:  45% (5/11)Compressing objects:  54% (6/11)Compressing objects:  63% (7/11)Compressing objects:  72% (8/11)Compressing objects:  81% (9/11)Compressing objects:  90% (10/11)Compressing objects: 100% (11/11)Compressing objects: 100% (11/11), done.
-Writing objects:   9% (1/11)Writing objects:  18% (2/11)Writing objects:  27% (3/11)Writing objects:  36% (4/11)Writing objects:  45% (5/11)Writing objects:  54% (6/11)Writing objects:  63% (7/11)Writing objects:  72% (8/11)Writing objects:  81% (9/11)Writing objects:  90% (10/11)Writing objects: 100% (11/11)Writing objects: 100% (11/11), 2.89 KiB | 2.89 MiB/s, done.
-Total 11 (delta 10), reused 0 (delta 0), pack-reused 0 (from 0)
-remote: Resolving deltas:   0% (0/10)[Kremote: Resolving deltas:  10% (1/10)[Kremote: Resolving deltas:  20% (2/10)[Kremote: Resolving deltas:  30% (3/10)[Kremote: Resolving deltas:  40% (4/10)[Kremote: Resolving deltas:  50% (5/10)[Kremote: Resolving deltas:  60% (6/10)[Kremote: Resolving deltas:  70% (7/10)[Kremote: Resolving deltas:  80% (8/10)[Kremote: Resolving deltas:  90% (9/10)[Kremote: Resolving deltas: 100% (10/10)[Kremote: Resolving deltas: 100% (10/10), completed with 10 local objects.[K
-To github.com:schjonhaug/canary.git
-   e24d635..5bcdc09  main -> main
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004hgit push[8D[32mg[32mi[32mt[39m[5Clog --oneline -10[21D[32ml[39m[39m [39m                   [20D[32mc[39md ..[32mc[32md[39m [4m.[4m.[24m[32mz[32m [39mc[4ma[4mn[24mary[8D[32mz[39m[39m c[24ma[24mn[3C[8D[32mg[39mit log -10[11D[32mg[32mi[32mt[39m[8Cstatus [?2004l
-[1m[7m%[27m[1m[0m                                                                                                             ]133;C;]133;D;130]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h.[32m.[39m[32m.[39m[90m/dev.sh alice sending bob 0.1[39m[29D[32m.[32m([39m[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [28D[1m[31m.[1m[31m([0m[39m[1m[31m.[0m[39m[0m[39m [0m[32m.[39m[32m.[39m[90m/dev.sh alice sending bob 0.1[39m[29D[32m.[39m[39m/[39md[39me[39mv[39m.[39ms[39mh[39m [39ma[39ml[39mi[39mc[39me[39m [39ms[39me[39mn[39md[39mi[39mn[39mg[39m [39mb[39mo[39mb[39m [39m0[39m.[39m1[30D[32m.[32m/[32md[32me[32mv[32m.[32ms[32mh[39m[22C   [90m0.1[39m    [39m [39m [39m [90mbob 0.1[39m[8D        [39m [39m [39m [39m [39m [39m [39m [15D[90msending bob 0.1[39m[15D      [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [21D[90malice sending bob 0.1[39m[21D[39mm[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [20D[90mode self-hosted[39m[15D[39mi[39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [14D[90mne[39m[39mn[39me[?2004l
-]133;C;Mining 1 block(s) to Miner wallet...
-[
-  "791d2c08a1a7032f0633b9095472a6f31b0009198ac88f31147325f4d653eb5f"
-]
-✅ Mined 1 block(s) to Miner wallet
-[1m[7m%[27m[1m[0m                                                                                                             ]133;D;0]1337;RemoteHost=schjonhaug@AndreasMBP.local]1337;CurrentDir=/Users/schjonhaug/Developer/canary-project/canary/scripts[0m[27m[24m[J]133;A[34m~/Developer/canary-project/canary/scripts[39m [35m(main)[39m ❯ ]133;B[K[?2004h
