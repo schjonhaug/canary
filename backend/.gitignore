@@ -27,3 +27,6 @@ wallets/
 
 # Node.js dependencies
 node_modules/
+
+# Log files
+logs/

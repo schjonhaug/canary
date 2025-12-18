@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
+    "dev": "mkdir -p logs && next dev --port 3001 2>&1 | tee logs/frontend.log",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
