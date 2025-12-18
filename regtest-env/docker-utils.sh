@@ -974,6 +974,52 @@ fi
 # --- End new multi-word command parsing ---
 
 case "$1" in
+    "mode")
+        MODE="$2"
+        if [[ "$MODE" != "self-hosted" && "$MODE" != "cloud" ]]; then
+            echo "Usage: $0 mode [self-hosted|cloud]"
+            echo "  self-hosted - Single-user mode without authentication"
+            echo "  cloud       - Multi-user mode with authentication and Stripe billing"
+            exit 1
+        fi
+
+        # Kill running backend and frontend
+        echo "Killing processes on ports 3000 and 3001..."
+        lsof -ti:3000,3001 | xargs kill -9 2>/dev/null || true
+
+        # Set values based on mode
+        if [[ "$MODE" == "self-hosted" ]]; then
+            DATA_DIR="./database-self-hosted"
+        else
+            DATA_DIR="./database-cloud"
+        fi
+
+        # Update backend .env
+        BACKEND_ENV="../backend/.env"
+        if [[ -f "$BACKEND_ENV" ]]; then
+            sed -i '' "s/^CANARY_MODE=.*/CANARY_MODE=$MODE/" "$BACKEND_ENV"
+            sed -i '' "s|^CANARY_DATA_DIR=.*|CANARY_DATA_DIR=$DATA_DIR|" "$BACKEND_ENV"
+            echo "Updated $BACKEND_ENV:"
+            echo "  CANARY_MODE=$MODE"
+            echo "  CANARY_DATA_DIR=$DATA_DIR"
+        else
+            echo "Warning: $BACKEND_ENV not found"
+        fi
+
+        # Update frontend .env.local
+        FRONTEND_ENV="../frontend/.env.local"
+        if [[ -f "$FRONTEND_ENV" ]]; then
+            sed -i '' "s/^NEXT_PUBLIC_CANARY_MODE=.*/NEXT_PUBLIC_CANARY_MODE=$MODE/" "$FRONTEND_ENV"
+            echo "Updated $FRONTEND_ENV:"
+            echo "  NEXT_PUBLIC_CANARY_MODE=$MODE"
+        else
+            echo "Warning: $FRONTEND_ENV not found"
+        fi
+
+        echo ""
+        echo "Mode switched to: $MODE"
+        echo "Start backend and frontend to apply changes."
+        ;;
     "start")
         echo "Starting Bitcoin regtest environment with Docker..."
         docker-compose up -d
@@ -1774,6 +1820,7 @@ case "$1" in
         echo "  kill                Kill processes on localhost ports 3000 and 3001"
         echo "  logs [service]      Show logs (bitcoin/electrum or all)"
         echo "  status              Show environment status"
+        echo "  mode <mode>         Switch between self-hosted and cloud modes"
         echo ""
         echo "Alice Commands (funded wallet - 1 BTC distributed):"
         echo "  alice balance                         Show Alice wallet balance"
