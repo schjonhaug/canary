@@ -29,10 +29,16 @@ export default function HomePage() {
     )
   }
 
-  // FOSS mode: redirect directly to wallets (no landing page)
+  // FOSS mode: show loading while useEffect handles the redirect
   if (isSelfHostedMode) {
-    router.push('/wallets')
-    return null
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="lg" className="mx-auto" />
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   // SAAS mode: Show landing page for unauthenticated users
