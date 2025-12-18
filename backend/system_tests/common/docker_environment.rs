@@ -32,6 +32,7 @@ pub struct IsolatedTestEnvironment {
     fulcrum_port: u16,
 }
 
+#[allow(dead_code)] // Functions used across different test binaries
 impl IsolatedTestEnvironment {
     /// Wait for all wallets to be marked as ready in the database
     async fn wait_for_wallets_ready(
@@ -139,7 +140,7 @@ impl IsolatedTestEnvironment {
         let (notification_sender, _notification_receiver) =
             broadcast::channel::<TransactionNotification>(100);
 
-        let mut wallet_manager = WalletManager::new(
+        let wallet_manager = WalletManager::new(
             notification_sender,
             wallet_dir,
             &db_path.to_string_lossy(),
@@ -296,7 +297,7 @@ impl IsolatedTestEnvironment {
         let (notification_sender, _notification_receiver) =
             broadcast::channel::<TransactionNotification>(100);
 
-        let mut wallet_manager = WalletManager::new(
+        let wallet_manager = WalletManager::new(
             notification_sender,
             wallet_dir,
             &db_path.to_string_lossy(),

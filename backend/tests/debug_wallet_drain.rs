@@ -51,7 +51,7 @@ async fn debug_wallet_drain_detection() {
 
     let (event_sender, _event_receiver) = broadcast::channel::<TransactionNotification>(100);
 
-    let mut wallet_manager = WalletManager::new(
+    let wallet_manager = WalletManager::new(
         event_sender,
         wallet_dir,
         &db_path.to_string_lossy(),

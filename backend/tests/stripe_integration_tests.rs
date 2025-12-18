@@ -8,8 +8,7 @@ use canary::{
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
 };
-use http_body_util::BodyExt;
-use serde_json::{json, Value};
+use serde_json::json;
 use std::sync::Arc;
 use tempfile::tempdir;
 use tokio::sync::{broadcast, Mutex};
