@@ -46,9 +46,9 @@ npm run test:watch    # Run tests in watch mode
 - **Type-safe requests**: Full TypeScript interfaces for all API responses
 - **Automatic token handling**: JWT tokens automatically included in requests when authenticated
 
-#### Operating Modes  
-- **FOSS Mode**: When `NEXT_PUBLIC_CANARY_MODE=self-hosted`, single hardcoded admin user with no authentication, billing, or subscription limits
-- **SAAS Mode**: When `NEXT_PUBLIC_CANARY_MODE=cloud` (default), complete email/password authentication with JWT, billing integration, and subscription management
+#### Operating Modes
+- **Self-hosted Mode**: When `NEXT_PUBLIC_CANARY_MODE=self-hosted`, single hardcoded admin user with no authentication, billing, or subscription limits
+- **Cloud Mode**: When `NEXT_PUBLIC_CANARY_MODE=cloud` (default), complete email/password authentication with JWT, billing integration, and subscription management
 
 #### Subscription Management
 - **Tiered billing system**: Personal ($9/month) vs Team ($29/month) tiers with different limits
@@ -138,21 +138,21 @@ Choose your deployment mode and copy the appropriate configuration:
 ### Environment Variables
 ```bash
 # Operating mode (required)
-NEXT_PUBLIC_CANARY_MODE=cloud   # or 'foss' for self-hosted mode
+NEXT_PUBLIC_CANARY_MODE=cloud   # or 'self-hosted' for self-hosted mode
 
 # Backend API URL (required)
 NEXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
 ### Operating Mode Details
-- **SAAS Mode** (`NEXT_PUBLIC_CANARY_MODE=cloud`):
+- **Cloud Mode** (`NEXT_PUBLIC_CANARY_MODE=cloud`):
   - Full multi-user authentication with email/password
   - Stripe subscription billing and tier-based limits
   - Multiple notification providers (SMS, email, ntfy)
   - Development: Pre-configured test users (delivered+admin@resend.dev, delivered+alice@resend.dev, delivered+bob@resend.dev) with password `password123`
   - Production: Email verification required for new accounts
-- **FOSS Mode** (`NEXT_PUBLIC_CANARY_MODE=self-hosted`):
-  - Single hardcoded admin user (no authentication)  
+- **Self-hosted Mode** (`NEXT_PUBLIC_CANARY_MODE=self-hosted`):
+  - Single hardcoded admin user (no authentication)
   - No subscription billing or limits
   - Only ntfy notifications (self-hostable)
   - Users provide their own Bitcoin/Electrum nodes

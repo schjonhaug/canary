@@ -84,7 +84,7 @@ The backend will fail fast with clear error messages if required variables are m
 - Plugin-based notification architecture with trait objects
 - Tier-based wallet sync intervals (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
 - Automatic wallet cleanup during sync cycles (soft delete → hard delete)
-- Network-specific SQLite databases in `database/{network}/`
+- Network-specific SQLite databases in `database-{mode}/{network}/` (e.g., `database-cloud/regtest/`, `database-self-hosted/mainnet/`)
 
 ### Frontend Structure
 - **App Router**: Next.js 15 app directory structure with TypeScript
@@ -101,7 +101,7 @@ The backend will fail fast with clear error messages if required variables are m
 - Shared pricing data for consistent billing UI
 
 ### Database Schema
-- **Eight Migration Files**: migrations/001_initial_schema.sql through migrations/008_transaction_based_refactor.sql with complete normalized schema and transaction-based architecture
+- **16 Migration Files**: migrations/001_initial_schema.sql through migrations/016_add_ntfy_access_token.sql with complete normalized schema and transaction-based architecture
 - **UUID Primary Keys**: Used for security-critical tables (users, transaction_events)
 - **Subscription Management**: Built-in user tiers, Stripe integration fields
 - **Network Isolation**: Separate databases per Bitcoin network (regtest/testnet/mainnet)
@@ -206,7 +206,7 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - Without webhook forwarding, users remain in "pending" status
 
 ### Database Management
-- **Eight Migration Files**: Complete schema through migration 008 with transaction-based architecture
+- **16 Migration Files**: Complete schema through migration 016 with transaction-based architecture, balance alerts, demo accounts, and ntfy authentication
 - **Network Isolation**: Each network has separate database directory
 - **Reset Command**: `./scripts/dev.sh reset` clears all databases
 - **Connection Pooling**: r2d2 SQLite pool with 10 max connections
@@ -230,5 +230,5 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 ### File Structure Conventions
 - **Backend**: All source in `src/` with single-file modules  
 - **Frontend**: App router structure with co-located component tests
-- **Migrations**: Eight migration files for schema evolution
-- **Database**: Network-specific directories under `database/{network}/`
+- **Migrations**: 16 migration files for schema evolution
+- **Database**: Mode and network-specific directories under `database-{mode}/{network}/` (e.g., `database-cloud/regtest/`)

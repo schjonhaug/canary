@@ -64,7 +64,7 @@ canary/
 │   ├── src/         # All source code (api.rs, main.rs, wallet.rs, metadata.rs, sync.rs, auth.rs, stripe_billing.rs, notification providers, etc.)
 │   ├── database-self-hosted/    # self-hosted mode SQLite databases (database-self-hosted/{network}/)
 │   ├── database-cloud/    # cloud mode SQLite databases (database-cloud/{network}/)
-│   ├── migrations/  # 12 database schema migrations (001-012)
+│   ├── migrations/  # 16 database schema migrations (001-016)
 │   ├── tests/       # Integration tests (stripe_integration_tests.rs, balance_alerts_system_tests.rs, contact_duplicates_test.rs)
 │   ├── system_tests/     # End-to-end Docker-based tests (balance_alert_scenarios.rs, mined_directly_scenarios.rs, two_stage_send_scenarios.rs, etc.)
 │   └── tasks/       # Development tasks and documentation
@@ -77,7 +77,6 @@ canary/
 │   │   ├── hooks/      # Custom React hooks (useWalletDetail.ts, usePricing.ts)
 │   │   └── types/      # TypeScript type definitions
 ├── scripts/        # Development scripts and Docker setup
-├── tasks/          # Project tasks and documentation
 └── CLAUDE.md       # This file
 ```
 
@@ -203,7 +202,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Non-blocking Web Architecture**: Fast API responses (<1ms) avoiding wallet mutex locks
 - **Dual State Design**: `AppServices` for immediate metadata access, `WalletManager` for sync operations
 - **Performance**: Async SQLite with r2d2 connection pooling
-- **Normalized Database**: 12 migration files with clean schema design supporting extensibility
+- **Normalized Database**: 16 migration files with clean schema design supporting extensibility
 - **Environment Configuration**: Provider selection and network config via .env variables
 - **Atomic Updates**: Database transactions prevent data loss during modifications
 
@@ -229,7 +228,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Current Plan Highlighting**: Blue highlighting with "CURRENT PLAN" badge
 
 ### Database Schema
-Database consists of 12 migrations providing comprehensive schema:
+Database consists of 16 migrations providing comprehensive schema:
 
 **Key Tables:**
 - `users` - Authentication, subscription tier, Stripe integration, admin flags
@@ -256,6 +255,10 @@ Database consists of 12 migrations providing comprehensive schema:
 10. `010_add_balance_alerts.sql` - Balance alert system
 11. `011_add_balance_alert_notification_type.sql` - Balance alert notification types
 12. `012_balance_alert_notification_logs.sql` - Balance alert notification logging
+13. `013_balance_alerts_and_demo_enhancements.sql` - Fiat currency thresholds, crossing detection, demo accounts
+14. `014_add_preferred_language.sql` - User language preferences
+15. `015_add_ntfy_server_url.sql` - Self-hosted ntfy server support
+16. `016_add_ntfy_access_token.sql` - ntfy authentication (access token, username/password)
 
 ## Notification Setup
 
@@ -491,8 +494,8 @@ This is separate from the main authentication system and only used when users ad
 ## Storage
 - **Mode-specific Databases**: `database-self-hosted/{network}/` for self-hosted mode, `database-cloud/{network}/` for cloud mode
 - **Wallets**: `database-{mode}/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
-- **Metadata**: `database-{mode}/{network}/metadata.sqlite` (normalized schema with 12 migrations)
-- **Schema**: 12 migration files providing comprehensive schema for all features
+- **Metadata**: `database-{mode}/{network}/metadata.sqlite` (normalized schema with 16 migrations)
+- **Schema**: 16 migration files providing comprehensive schema for all features
 - **Reset**: `./scripts/dev.sh reset` removes all databases
 
 ## Address Management & Deep Scanning
@@ -513,7 +516,7 @@ The service uses BDK's address revelation mechanism with advanced deep scanning 
 
 ## Development Workflow
 - **Testing**: `./scripts/dev.sh` provides complete Bitcoin regtest environment
-- **Database Management**: 12 migration files for schema evolution covering all features
+- **Database Management**: 16 migration files for schema evolution covering all features
 - **Docker Environment**: Complete Bitcoin Core + Fulcrum Electrum server for local development
 
 ## Testing & Quality Assurance
@@ -528,7 +531,7 @@ Comprehensive test coverage for subscription limits and user interactions:
   - Edge cases: Zero contacts, null arrays, case-insensitive tiers
   - Integration scenarios: Alice (Personal), Bob (Team) user workflows
 
-- **Upgrade Modal Tests** (`upgrade-modal-basic.test.tsx`):
+- **Plans Modal Tests** (`plans-modal-basic.test.tsx`):
   - Modal visibility and state management
   - Dynamic content for wallet vs contact limits
   - Tier badge display (Personal, Team)
@@ -620,4 +623,4 @@ End-to-end Docker-based tests with real Bitcoin transactions:
 Always build both the frontend and backend and run and verify all tests before committing. In case of errors, they need to be fixed.
 
 ---
-*Last updated: October 2025*
+*Last updated: December 2025*
