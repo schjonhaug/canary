@@ -89,9 +89,9 @@ export function CreateWalletModal({
     }
   }, [isOpen, isFirstWallet, authEnabled, user?.name])
   
-  // Set default script type for fresh XPUB wallets
+  // Set default script type for fresh XPUB wallets (auto not allowed)
   useEffect(() => {
-    if (isXpubFormat(descriptor) && isFreshWallet && !scriptType) {
+    if (isXpubFormat(descriptor) && isFreshWallet && (!scriptType || scriptType === "auto")) {
       setScriptType("p2wpkh") // Default to Native SegWit (most common)
     }
   }, [descriptor, isFreshWallet, scriptType])
@@ -261,40 +261,6 @@ export function CreateWalletModal({
             />
           </div>
 
-          {/* Fresh wallet checkbox - always show */}
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="fresh-wallet"
-              checked={isFreshWallet}
-              onCheckedChange={(checked) => setIsFreshWallet(checked === true)}
-              disabled={modal.isLoading}
-            />
-            <Label
-              htmlFor="fresh-wallet"
-              className="text-sm font-normal cursor-pointer"
-            >
-              This is a fresh wallet (no transaction history)
-            </Label>
-          </div>
-
-          {/* Script type dropdown - only show for fresh XPUB wallets */}
-          {isFreshWallet && isXpubFormat(descriptor) && (
-            <div className="space-y-2">
-              <Label htmlFor="script-type">Address Type</Label>
-              <Select value={scriptType} onValueChange={setScriptType} disabled={modal.isLoading}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select address type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="p2wpkh">Native SegWit (bc1...) - Most common</SelectItem>
-                  <SelectItem value="p2sh">Nested SegWit (3...) - Legacy compatibility</SelectItem>
-                  <SelectItem value="p2tr">Taproot (bc1p...) - Modern</SelectItem>
-                  <SelectItem value="p2pkh">Legacy (1...) - Oldest</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           {/* Advanced Settings */}
           <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
             <CollapsibleTrigger asChild>
@@ -309,28 +275,51 @@ export function CreateWalletModal({
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4 pt-4">
-              {/* Script Type for advanced mode */}
+              {/* Fresh wallet checkbox */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="fresh-wallet"
+                  checked={isFreshWallet}
+                  onCheckedChange={(checked) => setIsFreshWallet(checked === true)}
+                  disabled={modal.isLoading}
+                />
+                <Label
+                  htmlFor="fresh-wallet"
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  This is a fresh wallet (no transaction history)
+                </Label>
+              </div>
+
+              {/* Script Type */}
               <div className="space-y-2">
-                <Label htmlFor="advanced-script-type">Script Type</Label>
-                <Select 
-                  value={isDescriptorFormat(descriptor) ? getDescriptorScriptType(descriptor) : (scriptType || "auto")} 
+                <Label htmlFor="script-type">Script Type</Label>
+                <Select
+                  value={isDescriptorFormat(descriptor) ? getDescriptorScriptType(descriptor) : (scriptType || (isFreshWallet && isXpubFormat(descriptor) ? "" : "auto"))}
                   onValueChange={(value) => setScriptType(value)}
                   disabled={modal.isLoading || isDescriptorFormat(descriptor)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Auto-detect" />
+                    <SelectValue placeholder={isFreshWallet && isXpubFormat(descriptor) ? "Select script type" : "Auto-detect"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="auto">Auto-detect (recommended)</SelectItem>
-                    <SelectItem value="p2wpkh">Native SegWit (bc1...)</SelectItem>
-                    <SelectItem value="p2sh">Nested SegWit (3...)</SelectItem>
-                    <SelectItem value="p2pkh">Legacy (1...)</SelectItem>
-                    <SelectItem value="p2tr">Taproot (bc1p...)</SelectItem>
+                    {!(isFreshWallet && isXpubFormat(descriptor)) && (
+                      <SelectItem value="auto">Auto-detect (recommended)</SelectItem>
+                    )}
+                    <SelectItem value="p2wpkh">Native SegWit (bc1...){isFreshWallet && isXpubFormat(descriptor) ? " - Most common" : ""}</SelectItem>
+                    <SelectItem value="p2sh">Nested SegWit (3...){isFreshWallet && isXpubFormat(descriptor) ? " - Legacy compatibility" : ""}</SelectItem>
+                    <SelectItem value="p2pkh">Legacy (1...){isFreshWallet && isXpubFormat(descriptor) ? " - Oldest" : ""}</SelectItem>
+                    <SelectItem value="p2tr">Taproot (bc1p...){isFreshWallet && isXpubFormat(descriptor) ? " - Modern" : ""}</SelectItem>
                   </SelectContent>
                 </Select>
                 {isDescriptorFormat(descriptor) && (
                   <p className="text-xs text-muted-foreground">
                     Script type detected from descriptor and cannot be changed
+                  </p>
+                )}
+                {isFreshWallet && isXpubFormat(descriptor) && (
+                  <p className="text-xs text-muted-foreground">
+                    Script type is required for fresh XPUB wallets
                   </p>
                 )}
               </div>
