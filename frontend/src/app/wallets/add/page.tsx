@@ -261,14 +261,14 @@ export default function AddWalletPage() {
               <button
                 key={wallet.id}
                 onClick={() => handleSelectWallet(wallet)}
-                className="flex flex-col items-center gap-3 p-6 rounded-xl border bg-card hover:bg-accent/5 hover:border-accent transition-all text-center group"
+                className="flex flex-col items-center gap-3 p-6 rounded-xl border hover:bg-accent/5 hover:border-accent transition-all text-center group"
               >
-                <div className="w-16 h-16 rounded-xl bg-muted/50 flex items-center justify-center group-hover:bg-accent/10 transition-colors">
+                <div className="w-16 h-16 flex items-center justify-center">
                   <Image
                     src={wallet.logo}
                     alt={wallet.name}
-                    width={40}
-                    height={40}
+                    width={48}
+                    height={48}
                     className="object-contain"
                   />
                 </div>
@@ -317,12 +317,12 @@ export default function AddWalletPage() {
 
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl bg-muted/50 flex items-center justify-center shrink-0">
+            <div className="w-16 h-16 flex items-center justify-center shrink-0">
               <Image
                 src={selectedWallet.logo}
                 alt={selectedWallet.name}
-                width={40}
-                height={40}
+                width={48}
+                height={48}
                 className="object-contain"
               />
             </div>
