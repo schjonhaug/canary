@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::Network;
 use miniscript::descriptor::checksum::desc_checksum;
+use xyzpub::{convert_version, Version};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScriptType {
@@ -62,63 +63,36 @@ impl XpubConverter {
 
     /// Normalize different extended key formats to standard xpub format
     /// Converts ypub/zpub/tpub/upub/vpub to xpub/tpub format for consistency
+    /// Uses proper base58check decoding/encoding via the xyzpub crate
     pub fn normalize_xpub(&self, extended_key: &str) -> Result<String> {
         if extended_key.len() < 4 {
             return Ok(extended_key.to_string());
         }
 
         let prefix = &extended_key[..4];
-        let rest = &extended_key[4..];
 
-        match self.network {
-            Network::Bitcoin => {
-                match prefix {
-                    "xpub" => Ok(extended_key.to_string()), // Already normalized
-                    "ypub" => Ok(format!("xpub{}", rest)),  // Convert ypub to xpub
-                    "zpub" => Ok(format!("xpub{}", rest)),  // Convert zpub to xpub
-                    _ => Ok(extended_key.to_string()),      // Return as-is for unknown formats
-                }
-            }
-            Network::Testnet => {
-                match prefix {
-                    "tpub" => Ok(extended_key.to_string()), // Already normalized
-                    "upub" => Ok(format!("tpub{}", rest)),  // Convert upub to tpub
-                    "vpub" => Ok(format!("tpub{}", rest)),  // Convert vpub to tpub
-                    "xpub" => Ok(format!("tpub{}", rest)),  // Convert mainnet xpub to testnet
-                    "ypub" => Ok(format!("tpub{}", rest)),  // Convert mainnet ypub to testnet
-                    "zpub" => Ok(format!("tpub{}", rest)),  // Convert mainnet zpub to testnet
-                    _ => Ok(extended_key.to_string()),      // Return as-is for unknown formats
-                }
-            }
-            Network::Regtest => {
-                // For regtest, use testnet format
-                match prefix {
-                    "tpub" => Ok(extended_key.to_string()), // Already correct format
-                    "upub" => Ok(format!("tpub{}", rest)),
-                    "vpub" => Ok(format!("tpub{}", rest)),
-                    "xpub" => Ok(format!("tpub{}", rest)),
-                    "ypub" => Ok(format!("tpub{}", rest)),
-                    "zpub" => Ok(format!("tpub{}", rest)),
-                    _ => Ok(extended_key.to_string()),
-                }
-            }
-            Network::Signet => {
-                // For signet, use testnet format
-                match prefix {
-                    "tpub" => Ok(extended_key.to_string()),
-                    "upub" => Ok(format!("tpub{}", rest)),
-                    "vpub" => Ok(format!("tpub{}", rest)),
-                    "xpub" => Ok(format!("tpub{}", rest)),
-                    "ypub" => Ok(format!("tpub{}", rest)),
-                    "zpub" => Ok(format!("tpub{}", rest)),
-                    _ => Ok(extended_key.to_string()),
-                }
-            }
-            _ => {
-                // For unknown networks, return as-is
-                Ok(extended_key.to_string())
-            }
+        // Determine target version based on network
+        let target_version = match self.network {
+            Network::Bitcoin => Version::Xpub,
+            Network::Testnet | Network::Regtest | Network::Signet => Version::Tpub,
+            _ => return Ok(extended_key.to_string()),
+        };
+
+        // Check if conversion is needed
+        let needs_conversion = match (prefix, &target_version) {
+            ("xpub", Version::Xpub) => false, // Already normalized for mainnet
+            ("tpub", Version::Tpub) => false, // Already normalized for testnet/regtest
+            ("ypub" | "zpub" | "upub" | "vpub" | "tpub" | "xpub", _) => true,
+            _ => false, // Unknown format, return as-is
+        };
+
+        if !needs_conversion {
+            return Ok(extended_key.to_string());
         }
+
+        // Use xyzpub for proper base58check conversion
+        convert_version(extended_key, &target_version)
+            .map_err(|e| anyhow!("Failed to convert extended key: {:?}", e))
     }
 
     /// Detect which network a key belongs to based on its prefix

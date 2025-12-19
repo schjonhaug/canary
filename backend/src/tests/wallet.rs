@@ -110,37 +110,43 @@ mod tests {
         use crate::xpub_converter::XpubConverter;
         use bdk_wallet::bitcoin::Network;
 
-        // Test normalization for different networks and extended key formats
-        let test_cases = vec![
-            // Mainnet cases
-            (Network::Bitcoin, "xpub6BmTxpDFqy", "xpub6BmTxpDFqy"), // Already normalized
-            (Network::Bitcoin, "ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNpj7MmV", "xpub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNpj7MmV"),
-            (Network::Bitcoin, "zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs", "xpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs"),
+        // Test normalization using VALID keys with proper base58check encoding
+        // The xyzpub crate validates checksums, so we must use real keys
 
-            // Testnet cases
-            (Network::Testnet, "tpub6BmTxpDFqy", "tpub6BmTxpDFqy"), // Already normalized
-            (Network::Testnet, "upub5EFU65HtV5TeiSHmZZm7FUffBGy8UKeqp7vw43jYbvjNECs", "tpub5EFU65HtV5TeiSHmZZm7FUffBGy8UKeqp7vw43jYbvjNECs"),
-            (Network::Testnet, "vpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc", "tpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc"),
+        // Bacon wallet keys (from 12x "bacon" BIP39 mnemonic)
+        let bacon_xpub = "xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K";
+        let bacon_zpub = "zpub6ruWz99tQHrv7eYEDDq2n7xF1XELG19MVKfmqsL5yYorA6aMSFLeTF2yyiLWPEaQ8GLkeSaNuqzvLUKe56H3jz9nPabYbvDXq1WYZ5NMmEk";
+        let bacon_tpub = "tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi";
 
-            // Cross-network normalization (mainnet keys on testnet)
-            (Network::Testnet, "xpub6BmTxpDFqy", "tpub6BmTxpDFqy"),
-            (Network::Testnet, "ypub6Ww3ibxVfGzL", "tpub6Ww3ibxVfGzL"),
-            (Network::Testnet, "zpub6rFR7y4Q2Aij", "tpub6rFR7y4Q2Aij"),
+        // Test 1: xpub on mainnet passes through unchanged
+        let converter = XpubConverter::new(Network::Bitcoin, None);
+        let result = converter.normalize_xpub(bacon_xpub).unwrap();
+        assert_eq!(result, bacon_xpub, "xpub on mainnet should pass through unchanged");
 
-            // Regtest (uses testnet format)
-            (Network::Regtest, "xpub6BmTxpDFqy", "tpub6BmTxpDFqy"),
-            (Network::Regtest, "tpub6BmTxpDFqy", "tpub6BmTxpDFqy"),
-        ];
+        // Test 2: zpub on mainnet converts to xpub (proper base58check conversion)
+        let converter = XpubConverter::new(Network::Bitcoin, None);
+        let result = converter.normalize_xpub(bacon_zpub).unwrap();
+        assert_eq!(result, bacon_xpub, "zpub on mainnet should convert to xpub");
 
-        for (network, input, expected) in test_cases {
-            let converter = XpubConverter::new(network, None);
-            let result = converter.normalize_xpub(input).unwrap();
-            assert_eq!(
-                result, expected,
-                "Network: {:?}, Input: {} -> Expected: {}, Got: {}",
-                network, input, expected, result
-            );
-        }
+        // Test 3: tpub on testnet passes through unchanged
+        let converter = XpubConverter::new(Network::Testnet, None);
+        let result = converter.normalize_xpub(bacon_tpub).unwrap();
+        assert_eq!(result, bacon_tpub, "tpub on testnet should pass through unchanged");
+
+        // Test 4: tpub on regtest passes through unchanged
+        let converter = XpubConverter::new(Network::Regtest, None);
+        let result = converter.normalize_xpub(bacon_tpub).unwrap();
+        assert_eq!(result, bacon_tpub, "tpub on regtest should pass through unchanged");
+
+        // Test 5: xpub on testnet converts to tpub
+        let converter = XpubConverter::new(Network::Testnet, None);
+        let result = converter.normalize_xpub(bacon_xpub).unwrap();
+        assert!(result.starts_with("tpub"), "xpub on testnet should convert to tpub");
+
+        // Test 6: Short/invalid strings pass through unchanged (no conversion attempted)
+        let converter = XpubConverter::new(Network::Bitcoin, None);
+        let result = converter.normalize_xpub("short").unwrap();
+        assert_eq!(result, "short", "Short strings should pass through unchanged");
 
         println!("✅ XPUB normalization tests passed!");
     }
