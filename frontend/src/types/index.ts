@@ -84,6 +84,7 @@ export interface Contact {
 export interface BlockHeader {
   height: number
   timestamp: number
+  network: 'mainnet' | 'testnet' | 'regtest'
 }
 
 export interface BlockHeaderState {

@@ -16,13 +16,30 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Lightbulb } from "lucide-react"
 import { useModal } from "@/hooks/useModal"
 import { api } from "@/lib/api"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { Wallet } from "@/types"
+
+// Well-known "bacon" test wallet (12x "bacon" as BIP39 mnemonic)
+const SAMPLE_WALLETS: Record<'mainnet' | 'testnet' | 'regtest', { name: string; descriptor: string }> = {
+  mainnet: {
+    name: "Bacon",
+    descriptor: "wpkh([00000000/84h/0h/0h]xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K/<0;1>/*)#4jhrljfg",
+  },
+  testnet: {
+    name: "Bacon",
+    descriptor: "wpkh([9a6a2580/84h/1h/0h]tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#4laqdwct",
+  },
+  regtest: {
+    name: "Bacon",
+    descriptor: "wpkh([9a6a2580/84h/1h/0h]tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#4laqdwct",
+  },
+}
 
 interface CreateWalletModalProps {
   isOpen: boolean
@@ -45,12 +62,25 @@ export function CreateWalletModal({
   const [stopGap, setStopGap] = useState("")
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const modal = useModal()
-  const { user } = useAuth()
+  const { user, isSelfHostedMode } = useAuth()
+  const { blockHeader } = useBlockHeader()
   const descriptorRef = useRef<HTMLTextAreaElement>(null)
   const nameRef = useRef<HTMLInputElement>(null)
-  
+
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'cloud'
+
+  // Get current network for sample wallet
+  const network = blockHeader?.network ?? 'mainnet'
+  const sampleWallet = SAMPLE_WALLETS[network]
+
+  // Show sample wallet button only for first wallet in self-hosted mode
+  const showSampleWalletButton = isSelfHostedMode && isFirstWallet
+
+  const prefillWithSampleWallet = () => {
+    setName(sampleWallet.name)
+    setDescriptor(sampleWallet.descriptor)
+  }
   
   // Prefill name when modal opens
   useEffect(() => {
@@ -182,6 +212,24 @@ export function CreateWalletModal({
             Add an existing wallet for monitoring by providing a name and output descriptor or extended public key (XPUB).
           </DialogDescription>
         </DialogHeader>
+
+        {showSampleWalletButton && (
+          <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-700 dark:text-amber-300 flex-1">
+              New here? Try with a sample wallet first.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={prefillWithSampleWallet}
+              className="shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+            >
+              Use Bacon Wallet
+            </Button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

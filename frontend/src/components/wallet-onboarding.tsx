@@ -19,7 +19,7 @@ interface WalletOnboardingProps {
 export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
   const { billingStatus, isCloudMode } = useAuth()
   const isPending = isCloudMode && billingStatus?.subscription_status === 'pending'
-  
+
   // If user is in pending status (cloud mode only), show trial activation message + wallet descriptor info
   if (isPending) {
     return (
@@ -31,7 +31,7 @@ export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
             Your trial will begin when you add your first wallet. You&apos;ll get full access to all Team features for 30 days.
           </AlertDescription>
         </Alert>
-        
+
         <Card className="border-muted">
           <CardContent className="pt-12 pb-10 px-8">
             <div className="space-y-8">
@@ -40,16 +40,16 @@ export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
                   <Clock className="w-8 h-8 text-blue-600" />
                 </div>
-                
+
                 <h2 className="text-3xl font-bold">
                   Ready to Start Your Trial{user?.name ? `, ${user.name}` : ''}?
                 </h2>
-                
+
                 <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  Add your first wallet to activate your <span className="font-semibold text-blue-600">30-day Team trial</span>. 
+                  Add your first wallet to activate your <span className="font-semibold text-blue-600">30-day Team trial</span>.
                   You&apos;ll get instant access to all features including real-time sync, unlimited notifications, and priority support.
                 </p>
-                
+
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 max-w-2xl mx-auto">
                   <h3 className="font-semibold text-lg text-blue-800 mb-3">What you&apos;ll get:</h3>
                   <div className="grid md:grid-cols-2 gap-3 text-sm text-blue-700">
@@ -79,16 +79,16 @@ export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
                 <p className="text-muted-foreground">
                   To get started, you&apos;ll need an <span className="font-semibold text-foreground">output descriptor</span> from your existing Bitcoin wallet.
                 </p>
-                
+
                 <div className="bg-muted/30 rounded-lg p-6 space-y-3">
                   <h4 className="font-semibold text-lg">What is an Output Descriptor?</h4>
                   <p className="text-muted-foreground">
-                    An output descriptor is a standardized way to describe Bitcoin wallet addresses and scripts. 
-                    It contains all the information needed to track your wallet&apos;s transactions without having access 
+                    An output descriptor is a standardized way to describe Bitcoin wallet addresses and scripts.
+                    It contains all the information needed to track your wallet&apos;s transactions without having access
                     to your private keys—making it perfect for watch-only monitoring.
                   </p>
                 </div>
-                
+
                 <div className="bg-muted/30 rounded-lg p-6 space-y-3">
                   <h4 className="font-semibold text-lg">How to Get Your Output Descriptor</h4>
                   <div className="space-y-2 text-muted-foreground">
@@ -99,21 +99,21 @@ export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
                       <li>Click &quot;Show&quot; next to Output Descriptor</li>
                       <li>Copy the descriptor string</li>
                     </ol>
-                    
+
                     <p className="font-medium text-foreground mt-4">From other wallets:</p>
-                    <p>Most modern Bitcoin wallets support output descriptors. Look for options like &quot;Export&quot;, 
+                    <p>Most modern Bitcoin wallets support output descriptors. Look for options like &quot;Export&quot;,
                        &quot;Wallet Information&quot;, or &quot;Watch-Only Export&quot; in your wallet&apos;s settings.</p>
                   </div>
                 </div>
-                
+
                 <div className="bg-muted border border-border rounded-lg p-4 mt-6">
                   <p className="text-sm text-foreground">
-                    <strong>Note:</strong> Canary is a watch-only service. It can monitor your wallet&apos;s transactions 
+                    <strong>Note:</strong> Canary is a watch-only service. It can monitor your wallet&apos;s transactions
                     but cannot spend your Bitcoin. Your private keys remain secure in your wallet software.
                   </p>
                 </div>
               </div>
-              
+
               <div className="text-center pt-4">
                 <Button
                   onClick={onAddWallet}
@@ -133,8 +133,8 @@ export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
       </div>
     )
   }
-  
-  // For non-pending users with no wallets (they already know what descriptors are)
+
+  // For non-pending users with no wallets (both self-hosted and cloud mode)
   return (
     <div className="max-w-lg mx-auto mt-16">
       <Card className="border-muted">
@@ -143,15 +143,15 @@ export function WalletOnboarding({ onAddWallet, user }: WalletOnboardingProps) {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-accent/10 rounded-full mb-4">
               <Plus className="w-8 h-8 text-accent" />
             </div>
-            
+
             <h2 className="text-2xl font-bold">
-              No wallets yet
+              Add Your First Wallet
             </h2>
-            
+
             <p className="text-muted-foreground">
-              Add a wallet to start monitoring your Bitcoin transactions.
+              Add a wallet descriptor to start monitoring your Bitcoin transactions.
             </p>
-            
+
             <div className="pt-4">
               <Button
                 onClick={onAddWallet}

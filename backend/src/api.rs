@@ -4,7 +4,7 @@ use crate::auth::{
     AuthUserResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
     UpdateUserPreferencesRequest, UpdateUserRequest, UpdateUserResponse, UserPreferencesResponse,
 };
-use crate::config::AppConfig;
+use crate::config::{AppConfig, NetworkConfig};
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::metadata::{
@@ -69,6 +69,16 @@ pub struct CreateWalletResponse {
 pub struct ErrorResponse {
     /// Error description
     pub error: String,
+}
+
+#[derive(Serialize)]
+pub struct BlockHeaderResponse {
+    /// Block height
+    pub height: u32,
+    /// Block timestamp
+    pub timestamp: u64,
+    /// Network name (mainnet, testnet, regtest)
+    pub network: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -2707,7 +2717,7 @@ pub async fn verify_contact(
 }
 
 pub async fn get_current_block_header(
-    State((app_services, _stripe_billing, _config)): State<(
+    State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
         StripeBillingState,
         ConfigState,
@@ -2715,8 +2725,22 @@ pub async fn get_current_block_header(
 ) -> Response {
     let result = app_services.metadata_db.get_current_block_header().await;
 
+    // Get network name from config
+    let network = match config.network {
+        NetworkConfig::Mainnet => "mainnet",
+        NetworkConfig::Testnet => "testnet",
+        NetworkConfig::Regtest => "regtest",
+    };
+
     match result {
-        Ok(Some(block_header)) => (StatusCode::OK, Json(block_header)).into_response(),
+        Ok(Some(block_header)) => {
+            let response = BlockHeaderResponse {
+                height: block_header.height,
+                timestamp: block_header.timestamp,
+                network: network.to_string(),
+            };
+            (StatusCode::OK, Json(response)).into_response()
+        }
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
