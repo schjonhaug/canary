@@ -10,9 +10,10 @@ interface WalletsContextType {
   lastUpdate: number | null
   isConnected: boolean
   isLoading: boolean
-  onAddWallet: () => void
   currentWallet?: Wallet | null
   setCurrentWallet?: (wallet: Wallet | null) => void
+  addWallet?: (wallet: Wallet) => void
+  refetchWallets?: () => void
 }
 
 export const WalletsContext = createContext<WalletsContextType | null>(null)
