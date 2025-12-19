@@ -356,7 +356,7 @@ export function CreateWalletModal({
           </Collapsible>
 
           {modal.error && (
-            <ErrorDisplay message={modal.error} variant="inline" />
+            <ErrorDisplay message={modal.error} variant="inline" className="[&_*]:break-all" />
           )}
 
           <DialogFooter>
