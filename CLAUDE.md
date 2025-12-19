@@ -268,10 +268,9 @@ Database consists of 16 migrations providing comprehensive schema:
 3. Subscribe to topics at https://ntfy.sh/your-topic
 4. Automatic push notifications for all transactions
 
-### Twilio SMS (Optional)
-1. Set environment variables in `.env`:
+### Twilio SMS (Cloud mode only)
+1. Twilio is auto-enabled in cloud mode when credentials are configured in `.env`:
    ```
-   CANARY_ENABLE_TWILIO=true
    TWILIO_ACCOUNT_SID=your_account_sid
    TWILIO_AUTH_TOKEN=your_auth_token
    # Sender ID: alphanumeric name (e.g., "Canary"), phone number, or Messaging Service SID
