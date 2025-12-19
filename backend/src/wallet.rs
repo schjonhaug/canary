@@ -65,29 +65,30 @@ impl WalletCreationService {
         // Validate network compatibility (defense-in-depth)
         XpubConverter::validate_descriptor_network(descriptor_str, self.network)?;
 
-        // Check if input is an XPUB with known script type
+        // Check if input is an XPUB - convert to descriptor with script type
         if XpubConverter::is_xpub(descriptor_str) && !is_fresh_wallet {
-            if let Some(script_type_str) = script_type {
-                if script_type_str != "auto" {
-                    // Fast path: XPUB + known script type = skip probing
-                    debug!(
-                        "Fast path: XPUB with known script type '{}'",
-                        script_type_str
-                    );
-                    return self
-                        .create_from_xpub_with_known_type(
-                            name,
-                            descriptor_str,
-                            user_id,
-                            script_type_str,
-                            stop_gap,
-                        )
-                        .await;
+            // Use provided script type, or default to P2WPKH (most common for existing wallets)
+            let effective_script_type = match script_type {
+                Some(st) if st != "auto" => st,
+                _ => {
+                    debug!("No script type specified for XPUB, defaulting to p2wpkh");
+                    "p2wpkh"
                 }
-            }
-            // For unknown XPUB script types, fall through to use XPUB as descriptor
-            // Background task will handle script type detection
-            debug!("Detected XPUB format - background task will handle script type detection");
+            };
+
+            debug!(
+                "Converting XPUB to descriptor with script type '{}'",
+                effective_script_type
+            );
+            return self
+                .create_from_xpub_with_known_type(
+                    name,
+                    descriptor_str,
+                    user_id,
+                    effective_script_type,
+                    stop_gap,
+                )
+                .await;
         }
 
         // Strip key origin to prevent duplicate wallets with same XPUB
