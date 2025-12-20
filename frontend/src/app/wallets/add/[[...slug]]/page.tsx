@@ -13,13 +13,48 @@ import { useAuth } from "@/contexts/auth-context"
 import { useWalletsContext } from "@/contexts/wallets-context"
 import { api } from "@/lib/api"
 import { hasReachedWalletLimit, getTierDisplayName, getWalletLimit } from "@/lib/utils"
-import { AddWalletForm, SAMPLE_WALLETS } from "@/components/add-wallet-form"
+import { AddWalletForm, SAMPLE_WALLETS, SAMPLE_WALLET_SLUG } from "@/components/add-wallet-form"
 import { PlanComparison } from "@/components/plan-comparison"
 import { walletGuides, type WalletGuide } from "@/lib/wallet-guides"
 import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { Wallet } from "@/types"
 
 type WizardStep = 'choose' | 'instructions' | 'form'
+
+// Props for shared breadcrumb navigation
+interface BreadcrumbProps {
+  selectedWallet: WalletGuide | null
+  step: WizardStep
+  onNavigateToChoose: () => void
+  onNavigateToInstructions: () => void
+}
+
+// Props for the Choose step
+interface ChooseStepProps {
+  breadcrumbProps: BreadcrumbProps
+  isSelfHostedMode: boolean
+  isFirstWallet: boolean
+  onSelectWallet: (wallet: WalletGuide) => void
+  onSkipToForm: () => void
+  onSelectSampleWallet: () => void
+}
+
+// Props for the Instructions step
+interface InstructionsStepProps {
+  breadcrumbProps: BreadcrumbProps
+  selectedWallet: WalletGuide
+  onProceedToForm: () => void
+}
+
+// Props for the Form step
+interface FormStepProps {
+  breadcrumbProps: BreadcrumbProps
+  selectedWallet: WalletGuide | null
+  isBaconWallet: boolean
+  isFirstWallet: boolean
+  baconWallet: { name: string; descriptor: string }
+  onWalletCreated: (wallet: Wallet) => void
+}
 
 // Breadcrumb component
 function Breadcrumb({
@@ -78,6 +113,193 @@ function Breadcrumb({
   )
 }
 
+// Step 1: Choose your wallet
+function ChooseStep({
+  breadcrumbProps,
+  isSelfHostedMode,
+  isFirstWallet,
+  onSelectWallet,
+  onSkipToForm,
+  onSelectSampleWallet,
+}: ChooseStepProps) {
+  return (
+    <div className="space-y-8">
+      <Breadcrumb {...breadcrumbProps} />
+
+      <div className="max-w-3xl mx-auto space-y-8">
+        <div className="text-center space-y-2">
+          <p className="text-muted-foreground text-lg">
+            Which wallet do you use? We&apos;ll show you how to get your output descriptor.
+          </p>
+        </div>
+
+        {/* Bacon sample wallet for self-hosted first wallet */}
+        {isSelfHostedMode && isFirstWallet && (
+          <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-700 dark:text-amber-300 flex-1">
+              New here? Try with a sample wallet first to see how Canary works.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onSelectSampleWallet}
+              className="shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+            >
+              Use Bacon Wallet
+            </Button>
+          </div>
+        )}
+
+        {/* Wallet grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {walletGuides.map((wallet) => (
+            <button
+              key={wallet.id}
+              onClick={() => onSelectWallet(wallet)}
+              className="flex flex-col items-center gap-3 p-6 rounded-xl border hover:bg-accent/5 hover:border-accent transition-all text-center group"
+            >
+              <div className="w-16 h-16 flex items-center justify-center">
+                <Image
+                  src={wallet.logo}
+                  alt={wallet.name}
+                  width={48}
+                  height={48}
+                  className="object-contain"
+                />
+              </div>
+              <div>
+                <div className="font-medium">{wallet.name}</div>
+                <div className="text-xs text-muted-foreground capitalize">{wallet.type}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Skip to form option */}
+        <div className="text-center pt-4 border-t">
+          <button
+            onClick={onSkipToForm}
+            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1 text-sm"
+          >
+            I already have my output descriptor or XPUB
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Step 2: Show instructions for selected wallet
+function InstructionsStep({
+  breadcrumbProps,
+  selectedWallet,
+  onProceedToForm,
+}: InstructionsStepProps) {
+  return (
+    <div className="space-y-6">
+      <Breadcrumb {...breadcrumbProps} />
+
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 flex items-center justify-center shrink-0">
+            <Image
+              src={selectedWallet.logo}
+              alt={selectedWallet.name}
+              width={48}
+              height={48}
+              className="object-contain"
+            />
+          </div>
+          <div>
+            <p className="text-muted-foreground">{selectedWallet.description}</p>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Follow these steps to export your descriptor</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="space-y-3">
+              {selectedWallet.steps.map((stepText, index) => (
+                <li key={index} className="flex gap-3">
+                  <span className="shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center">
+                    {index + 1}
+                  </span>
+                  <span className="pt-0.5">{stepText}</span>
+                </li>
+              ))}
+            </ol>
+
+            {selectedWallet.notes && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+                {selectedWallet.notes}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end">
+          <Button onClick={onProceedToForm} size="lg">
+            I have my {selectedWallet.outputType === 'xpub' ? 'XPUB' : 'descriptor'}
+            <ChevronRight size={16} className="ml-1" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Step 3: Form (either directly or after instructions)
+function FormStep({
+  breadcrumbProps,
+  selectedWallet,
+  isBaconWallet,
+  isFirstWallet,
+  baconWallet,
+  onWalletCreated,
+}: FormStepProps) {
+  return (
+    <div className="space-y-6">
+      <Breadcrumb {...breadcrumbProps} />
+
+      <div className="max-w-xl mx-auto space-y-6">
+        <div className="text-center space-y-2">
+          <p className="text-muted-foreground">
+            {isBaconWallet
+              ? "We've prefilled the Bacon sample wallet for you. Just click Add Wallet to continue."
+              : `Paste your ${selectedWallet?.outputType === 'xpub' ? 'XPUB' : 'output descriptor or XPUB'} below.`
+            }
+          </p>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <AddWalletForm
+              isFirstWallet={isFirstWallet}
+              onWalletCreated={onWalletCreated}
+              autoFocusDescriptor={!isBaconWallet}
+              initialName={isBaconWallet ? baconWallet.name : undefined}
+              initialDescriptor={isBaconWallet ? baconWallet.descriptor : undefined}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Watch-only note */}
+        <Alert className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
+          <Shield className="h-4 w-4 text-green-600 dark:text-green-500" />
+          <AlertTitle className="text-green-800 dark:text-green-400">Watch-only monitoring</AlertTitle>
+          <AlertDescription className="text-green-700 dark:text-green-500">
+            Canary only needs your public key to monitor transactions. Your private keys stay safe in your wallet.
+          </AlertDescription>
+        </Alert>
+      </div>
+    </div>
+  )
+}
+
 interface PageProps {
   params: Promise<{ slug?: string[] }>
 }
@@ -98,7 +320,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const baconWallet = SAMPLE_WALLETS[network]
 
   // Check if we're using the Bacon sample wallet
-  const isBaconWallet = slug?.[0] === 'bacon'
+  const isBaconWallet = slug?.[0] === SAMPLE_WALLET_SLUG
 
   // Derive wizard state from URL path segments
   // /wallets/add → choose
@@ -108,13 +330,13 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   // /wallets/add/bacon → form with Bacon wallet prefilled
   const selectedWallet = useMemo(() => {
     if (!slug || slug.length === 0) return null
-    if (slug[0] === 'form' || slug[0] === 'bacon') return null
+    if (slug[0] === 'form' || slug[0] === SAMPLE_WALLET_SLUG) return null
     return walletGuides.find(w => w.id === slug[0]) || null
   }, [slug])
 
   const step: WizardStep = useMemo(() => {
     if (!slug || slug.length === 0) return 'choose'
-    if (slug[0] === 'form' || slug[0] === 'bacon') return 'form'
+    if (slug[0] === 'form' || slug[0] === SAMPLE_WALLET_SLUG) return 'form'
     if (slug.length >= 2 && slug[1] === 'form') return 'form'
     if (selectedWallet) return 'instructions'
     return 'choose'
@@ -122,7 +344,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
 
   // Redirect invalid wallet IDs to clean choose URL
   useEffect(() => {
-    if (slug && slug.length > 0 && slug[0] !== 'form' && slug[0] !== 'bacon' && !selectedWallet) {
+    if (slug && slug.length > 0 && slug[0] !== 'form' && slug[0] !== SAMPLE_WALLET_SLUG && !selectedWallet) {
       router.replace('/wallets/add')
     }
   }, [slug, selectedWallet, router])
@@ -257,186 +479,49 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     )
   }
 
+  // Shared breadcrumb props for all steps
+  const breadcrumbProps: BreadcrumbProps = {
+    selectedWallet,
+    step,
+    onNavigateToChoose: handleNavigateToChoose,
+    onNavigateToInstructions: handleNavigateToInstructions,
+  }
+
   // Step 1: Choose your wallet
   if (step === 'choose') {
     return (
-      <div className="space-y-8">
-        <Breadcrumb
-          selectedWallet={null}
-          step="choose"
-          onNavigateToChoose={handleNavigateToChoose}
-          onNavigateToInstructions={handleNavigateToInstructions}
-        />
-
-        <div className="max-w-3xl mx-auto space-y-8">
-          <div className="text-center space-y-2">
-            <p className="text-muted-foreground text-lg">
-              Which wallet do you use? We&apos;ll show you how to get your output descriptor.
-            </p>
-          </div>
-
-          {/* Bacon sample wallet for self-hosted first wallet */}
-          {isSelfHostedMode && isFirstWallet && (
-            <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-              <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0" />
-              <p className="text-sm text-amber-700 dark:text-amber-300 flex-1">
-                New here? Try with a sample wallet first to see how Canary works.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push('/wallets/add/bacon')}
-                className="shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
-              >
-                Use Bacon Wallet
-              </Button>
-            </div>
-          )}
-
-          {/* Wallet grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {walletGuides.map((wallet) => (
-              <button
-                key={wallet.id}
-                onClick={() => handleSelectWallet(wallet)}
-                className="flex flex-col items-center gap-3 p-6 rounded-xl border hover:bg-accent/5 hover:border-accent transition-all text-center group"
-              >
-                <div className="w-16 h-16 flex items-center justify-center">
-                  <Image
-                    src={wallet.logo}
-                    alt={wallet.name}
-                    width={48}
-                    height={48}
-                    className="object-contain"
-                  />
-                </div>
-                <div>
-                  <div className="font-medium">{wallet.name}</div>
-                  <div className="text-xs text-muted-foreground capitalize">{wallet.type}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Skip to form option */}
-          <div className="text-center pt-4 border-t">
-            <button
-              onClick={handleSkipToForm}
-              className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1 text-sm"
-            >
-              I already have my output descriptor or XPUB
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      </div>
+      <ChooseStep
+        breadcrumbProps={breadcrumbProps}
+        isSelfHostedMode={isSelfHostedMode}
+        isFirstWallet={isFirstWallet}
+        onSelectWallet={handleSelectWallet}
+        onSkipToForm={handleSkipToForm}
+        onSelectSampleWallet={() => router.push(`/wallets/add/${SAMPLE_WALLET_SLUG}`)}
+      />
     )
   }
 
   // Step 2: Show instructions for selected wallet
   if (step === 'instructions' && selectedWallet) {
     return (
-      <div className="space-y-6">
-        <Breadcrumb
-          selectedWallet={selectedWallet}
-          step="instructions"
-          onNavigateToChoose={handleNavigateToChoose}
-          onNavigateToInstructions={handleNavigateToInstructions}
-        />
-
-        <div className="max-w-3xl mx-auto space-y-6">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 flex items-center justify-center shrink-0">
-              <Image
-                src={selectedWallet.logo}
-                alt={selectedWallet.name}
-                width={48}
-                height={48}
-                className="object-contain"
-              />
-            </div>
-            <div>
-              <p className="text-muted-foreground">{selectedWallet.description}</p>
-            </div>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Follow these steps to export your descriptor</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ol className="space-y-3">
-                {selectedWallet.steps.map((stepText, index) => (
-                  <li key={index} className="flex gap-3">
-                    <span className="shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center">
-                      {index + 1}
-                    </span>
-                    <span className="pt-0.5">{stepText}</span>
-                  </li>
-                ))}
-              </ol>
-
-              {selectedWallet.notes && (
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-                  {selectedWallet.notes}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end">
-            <Button onClick={handleProceedToForm} size="lg">
-              I have my {selectedWallet.outputType === 'xpub' ? 'XPUB' : 'descriptor'}
-              <ChevronRight size={16} className="ml-1" />
-            </Button>
-          </div>
-        </div>
-      </div>
+      <InstructionsStep
+        breadcrumbProps={breadcrumbProps}
+        selectedWallet={selectedWallet}
+        onProceedToForm={handleProceedToForm}
+      />
     )
   }
 
   // Step 3: Form (either directly or after instructions)
   return (
-    <div className="space-y-6">
-      <Breadcrumb
-        selectedWallet={selectedWallet}
-        step="form"
-        onNavigateToChoose={handleNavigateToChoose}
-        onNavigateToInstructions={handleNavigateToInstructions}
-      />
-
-      <div className="max-w-xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <p className="text-muted-foreground">
-            {isBaconWallet
-              ? "We've prefilled the Bacon sample wallet for you. Just click Add Wallet to continue."
-              : `Paste your ${selectedWallet?.outputType === 'xpub' ? 'XPUB' : 'output descriptor or XPUB'} below.`
-            }
-          </p>
-        </div>
-
-        <Card>
-          <CardContent className="pt-6">
-            <AddWalletForm
-              isFirstWallet={isFirstWallet}
-              onWalletCreated={handleWalletCreated}
-              autoFocusDescriptor={!isBaconWallet}
-              initialName={isBaconWallet ? baconWallet.name : undefined}
-              initialDescriptor={isBaconWallet ? baconWallet.descriptor : undefined}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Watch-only note */}
-        <Alert className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
-          <Shield className="h-4 w-4 text-green-600 dark:text-green-500" />
-          <AlertTitle className="text-green-800 dark:text-green-400">Watch-only monitoring</AlertTitle>
-          <AlertDescription className="text-green-700 dark:text-green-500">
-            Canary only needs your public key to monitor transactions. Your private keys stay safe in your wallet.
-          </AlertDescription>
-        </Alert>
-      </div>
-    </div>
+    <FormStep
+      breadcrumbProps={breadcrumbProps}
+      selectedWallet={selectedWallet}
+      isBaconWallet={isBaconWallet}
+      isFirstWallet={isFirstWallet}
+      baconWallet={baconWallet}
+      onWalletCreated={handleWalletCreated}
+    />
   )
 }
 

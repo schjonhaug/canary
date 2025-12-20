@@ -1,6 +1,7 @@
 import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AddWalletPage from '../page'
+import { SAMPLE_WALLET_SLUG } from '@/components/add-wallet-form'
 
 // Mock next/navigation
 const mockPush = jest.fn()
@@ -128,7 +129,7 @@ describe('AddWalletPage', () => {
 
     it('shows form with prefilled data for bacon wallet', async () => {
       await act(async () => {
-        renderWithSlug(['bacon'])
+        renderWithSlug([SAMPLE_WALLET_SLUG])
       })
 
       await waitFor(() => {
@@ -286,7 +287,7 @@ describe('AddWalletPage', () => {
 
       await user.click(screen.getByText('Use Bacon Wallet'))
 
-      expect(mockPush).toHaveBeenCalledWith('/wallets/add/bacon')
+      expect(mockPush).toHaveBeenCalledWith(`/wallets/add/${SAMPLE_WALLET_SLUG}`)
     })
   })
 

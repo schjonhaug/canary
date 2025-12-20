@@ -15,6 +15,9 @@ import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
 
+// Slug for the sample wallet route
+export const SAMPLE_WALLET_SLUG = 'bacon'
+
 // Well-known "bacon" test wallet (12x "bacon" as BIP39 mnemonic)
 export const SAMPLE_WALLETS: Record<'mainnet' | 'testnet' | 'regtest', { name: string; descriptor: string }> = {
   mainnet: {
@@ -110,6 +113,19 @@ export function AddWalletForm({
     return ''
   }
 
+  // Helper function to check if custom stop gap requires a specific script type
+  // Custom stop gap with XPUB format requires explicit script type selection (not auto-detect)
+  const needsScriptTypeForStopGap = (
+    stopGapValue: string,
+    descriptorValue: string,
+    scriptTypeValue: string
+  ): boolean => {
+    const hasCustomStopGap = Boolean(stopGapValue) && stopGapValue !== "auto"
+    const isXpub = !isDescriptorFormat(descriptorValue)
+    const hasAutoScriptType = !scriptTypeValue || scriptTypeValue === "auto"
+    return hasCustomStopGap && isXpub && hasAutoScriptType
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -130,14 +146,9 @@ export function AddWalletForm({
     }
 
     // Validate stop gap: custom stop gap requires specific script type (except for output descriptors)
-    if (stopGap && stopGap !== "auto") {
-      // Skip script type requirement for output descriptors (they already contain script type info)
-      if (!isDescriptorFormat(descriptor)) {
-        if (!scriptType || scriptType === "auto") {
-          modal.setError("Custom stop gap requires selecting a specific script type (not auto)")
-          return
-        }
-      }
+    if (needsScriptTypeForStopGap(stopGap, descriptor, scriptType)) {
+      modal.setError("Custom stop gap requires selecting a specific script type (not auto)")
+      return
     }
 
     modal.setLoading(true)
@@ -288,7 +299,7 @@ export function AddWalletForm({
             <p className="text-xs text-muted-foreground">
               Number of consecutive unused addresses to check before stopping. Increase if your wallet has addresses used at random high indices (e.g., BTCPay Server)
             </p>
-            {stopGap && stopGap !== "auto" && !isDescriptorFormat(descriptor) && (!scriptType || scriptType === "auto") && (
+            {needsScriptTypeForStopGap(stopGap, descriptor, scriptType) && (
               <p className="text-xs text-red-500">
                 Custom stop gap requires selecting a specific script type
               </p>
