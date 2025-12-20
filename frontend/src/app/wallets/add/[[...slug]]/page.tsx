@@ -85,7 +85,7 @@ interface PageProps {
 function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const router = useRouter()
   const { user, billingStatus, isSelfHostedMode, isCloudMode, isLoading: authLoading, isAuthenticated, refreshBillingStatus } = useAuth()
-  const { wallets, isLoading: isLoadingWallets } = useWalletsContext()
+  const { wallets, isLoading: isLoadingWallets, addWallet } = useWalletsContext()
   const { blockHeader } = useBlockHeader()
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
@@ -139,6 +139,8 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const limitReached = isCloudMode && !isSelfHostedMode && hasReachedWalletLimit(walletCount, currentTier)
 
   const handleWalletCreated = (wallet: Wallet) => {
+    // Add wallet to context immediately so it appears in the list
+    addWallet?.(wallet)
     router.push('/wallets')
   }
 
