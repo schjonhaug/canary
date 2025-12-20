@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, use } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -76,7 +76,11 @@ function Breadcrumb({
   )
 }
 
-export default function AddWalletPage() {
+interface PageProps {
+  params: Promise<{ slug?: string[] }>
+}
+
+function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const router = useRouter()
   const { user, billingStatus, isSelfHostedMode, isCloudMode, isLoading: authLoading, isAuthenticated, refreshBillingStatus } = useAuth()
   const [walletCount, setWalletCount] = useState<number | null>(null)
@@ -85,9 +89,24 @@ export default function AddWalletPage() {
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
 
-  // Wizard state
-  const [step, setStep] = useState<WizardStep>('choose')
-  const [selectedWallet, setSelectedWallet] = useState<WalletGuide | null>(null)
+  // Derive wizard state from URL path segments
+  // /wallets/add → choose
+  // /wallets/add/sparrow → instructions for sparrow
+  // /wallets/add/sparrow/form → form with sparrow context
+  // /wallets/add/form → form without wallet context
+  const selectedWallet = useMemo(() => {
+    if (!slug || slug.length === 0) return null
+    if (slug[0] === 'form') return null
+    return walletGuides.find(w => w.id === slug[0]) || null
+  }, [slug])
+
+  const step: WizardStep = useMemo(() => {
+    if (!slug || slug.length === 0) return 'choose'
+    if (slug[0] === 'form') return 'form'
+    if (slug.length >= 2 && slug[1] === 'form') return 'form'
+    if (selectedWallet) return 'instructions'
+    return 'choose'
+  }, [slug, selectedWallet])
 
   // Fetch wallet count on mount
   useEffect(() => {
@@ -127,24 +146,27 @@ export default function AddWalletPage() {
   }
 
   const handleNavigateToChoose = () => {
-    setStep('choose')
-    setSelectedWallet(null)
+    router.push('/wallets/add')
   }
 
   const handleNavigateToInstructions = () => {
     if (selectedWallet) {
-      setStep('instructions')
+      router.push(`/wallets/add/${selectedWallet.id}`)
     }
   }
 
   const handleSelectWallet = (wallet: WalletGuide) => {
-    setSelectedWallet(wallet)
-    setStep('instructions')
+    router.push(`/wallets/add/${wallet.id}`)
   }
 
   const handleSkipToForm = () => {
-    setSelectedWallet(null)
-    setStep('form')
+    router.push('/wallets/add/form')
+  }
+
+  const handleProceedToForm = () => {
+    if (selectedWallet) {
+      router.push(`/wallets/add/${selectedWallet.id}/form`)
+    }
   }
 
   const handleUpgrade = async (targetTier: string, isYearly: boolean = false) => {
@@ -356,7 +378,7 @@ export default function AddWalletPage() {
           </Card>
 
           <div className="flex justify-end">
-            <Button onClick={() => setStep('form')} size="lg">
+            <Button onClick={handleProceedToForm} size="lg">
               I have my {selectedWallet.outputType === 'xpub' ? 'XPUB' : 'descriptor'}
               <ChevronRight size={16} className="ml-1" />
             </Button>
@@ -395,4 +417,9 @@ export default function AddWalletPage() {
       </div>
     </div>
   )
+}
+
+export default function AddWalletPage({ params }: PageProps) {
+  const { slug } = use(params)
+  return <AddWalletPageContent slug={slug} />
 }
