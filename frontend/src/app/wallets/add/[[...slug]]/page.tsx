@@ -26,7 +26,6 @@ interface BreadcrumbProps {
   selectedWallet: WalletGuide | null
   step: WizardStep
   onNavigateToChoose: () => void
-  onNavigateToInstructions: () => void
 }
 
 // Props for the Choose step
@@ -39,11 +38,12 @@ interface ChooseStepProps {
   onSelectSampleWallet: () => void
 }
 
-// Props for the Instructions step
+// Props for the Instructions step (now includes form)
 interface InstructionsStepProps {
   breadcrumbProps: BreadcrumbProps
   selectedWallet: WalletGuide
-  onProceedToForm: () => void
+  isFirstWallet: boolean
+  onWalletCreated: (wallet: Wallet) => void
 }
 
 // Props for the Form step
@@ -61,12 +61,10 @@ function Breadcrumb({
   selectedWallet,
   step,
   onNavigateToChoose,
-  onNavigateToInstructions
 }: {
   selectedWallet: WalletGuide | null
   step: WizardStep
   onNavigateToChoose: () => void
-  onNavigateToInstructions: () => void
 }) {
   return (
     <nav className="flex items-center text-2xl text-muted-foreground flex-wrap">
@@ -90,20 +88,7 @@ function Breadcrumb({
           <span className="text-foreground font-semibold">{selectedWallet.name}</span>
         </>
       )}
-      {step === 'form' && selectedWallet && (
-        <>
-          <span className="mx-2">/</span>
-          <button
-            onClick={onNavigateToInstructions}
-            className="hover:text-foreground font-semibold"
-          >
-            {selectedWallet.name}
-          </button>
-          <span className="mx-2">/</span>
-          <span className="text-foreground font-semibold">Enter Details</span>
-        </>
-      )}
-      {step === 'form' && !selectedWallet && (
+      {step === 'form' && (
         <>
           <span className="mx-2">/</span>
           <span className="text-foreground font-semibold">Enter Details</span>
@@ -191,11 +176,12 @@ function ChooseStep({
   )
 }
 
-// Step 2: Show instructions for selected wallet
+// Step 2: Show instructions for selected wallet with form below
 function InstructionsStep({
   breadcrumbProps,
   selectedWallet,
-  onProceedToForm,
+  isFirstWallet,
+  onWalletCreated,
 }: InstructionsStepProps) {
   return (
     <div className="space-y-6">
@@ -241,12 +227,31 @@ function InstructionsStep({
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
-          <Button onClick={onProceedToForm} size="lg">
-            I have my {selectedWallet.outputType === 'xpub' ? 'XPUB' : 'descriptor'}
-            <ChevronRight size={16} className="ml-1" />
-          </Button>
+        {/* Form section */}
+        <div className="text-center space-y-2">
+          <p className="text-muted-foreground">
+            Paste your {selectedWallet.outputType === 'xpub' ? 'XPUB' : 'output descriptor or XPUB'} below.
+          </p>
         </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <AddWalletForm
+              isFirstWallet={isFirstWallet}
+              onWalletCreated={onWalletCreated}
+              autoFocusDescriptor={true}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Watch-only note */}
+        <Alert className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
+          <Shield className="h-4 w-4 text-green-600 dark:text-green-500" />
+          <AlertTitle className="text-green-800 dark:text-green-400">Watch-only monitoring</AlertTitle>
+          <AlertDescription className="text-green-700 dark:text-green-500">
+            Canary only needs your public key to monitor transactions. Your private keys stay safe in your wallet.
+          </AlertDescription>
+        </Alert>
       </div>
     </div>
   )
@@ -324,9 +329,8 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
 
   // Derive wizard state from URL path segments
   // /wallets/add → choose
-  // /wallets/add/sparrow → instructions for sparrow
-  // /wallets/add/sparrow/form → form with sparrow context
-  // /wallets/add/form → form without wallet context
+  // /wallets/add/sparrow → instructions + form for sparrow
+  // /wallets/add/form → form without wallet context (skipped instructions)
   // /wallets/add/bacon → form with Bacon wallet prefilled
   const selectedWallet = useMemo(() => {
     if (!slug || slug.length === 0) return null
@@ -337,15 +341,19 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const step: WizardStep = useMemo(() => {
     if (!slug || slug.length === 0) return 'choose'
     if (slug[0] === 'form' || slug[0] === SAMPLE_WALLET_SLUG) return 'form'
-    if (slug.length >= 2 && slug[1] === 'form') return 'form'
     if (selectedWallet) return 'instructions'
     return 'choose'
   }, [slug, selectedWallet])
 
   // Redirect invalid wallet IDs to clean choose URL
+  // Also redirect legacy /wallets/add/{wallet-id}/form URLs to /wallets/add/{wallet-id}
   useEffect(() => {
     if (slug && slug.length > 0 && slug[0] !== 'form' && slug[0] !== SAMPLE_WALLET_SLUG && !selectedWallet) {
       router.replace('/wallets/add')
+    }
+    // Redirect legacy /wallets/add/{wallet-id}/form to /wallets/add/{wallet-id}
+    if (slug && slug.length >= 2 && slug[1] === 'form' && selectedWallet) {
+      router.replace(`/wallets/add/${selectedWallet.id}`)
     }
   }, [slug, selectedWallet, router])
 
@@ -370,24 +378,12 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     router.push('/wallets/add')
   }
 
-  const handleNavigateToInstructions = () => {
-    if (selectedWallet) {
-      router.push(`/wallets/add/${selectedWallet.id}`)
-    }
-  }
-
   const handleSelectWallet = (wallet: WalletGuide) => {
     router.push(`/wallets/add/${wallet.id}`)
   }
 
   const handleSkipToForm = () => {
     router.push('/wallets/add/form')
-  }
-
-  const handleProceedToForm = () => {
-    if (selectedWallet) {
-      router.push(`/wallets/add/${selectedWallet.id}/form`)
-    }
   }
 
   const handleUpgrade = async (targetTier: string, isYearly: boolean = false) => {
@@ -449,7 +445,6 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
           selectedWallet={null}
           step="choose"
           onNavigateToChoose={handleNavigateToChoose}
-          onNavigateToInstructions={handleNavigateToInstructions}
         />
 
         <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
@@ -484,7 +479,6 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     selectedWallet,
     step,
     onNavigateToChoose: handleNavigateToChoose,
-    onNavigateToInstructions: handleNavigateToInstructions,
   }
 
   // Step 1: Choose your wallet
@@ -501,13 +495,14 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     )
   }
 
-  // Step 2: Show instructions for selected wallet
+  // Step 2: Show instructions for selected wallet (with form included)
   if (step === 'instructions' && selectedWallet) {
     return (
       <InstructionsStep
         breadcrumbProps={breadcrumbProps}
         selectedWallet={selectedWallet}
-        onProceedToForm={handleProceedToForm}
+        isFirstWallet={isFirstWallet}
+        onWalletCreated={handleWalletCreated}
       />
     )
   }
