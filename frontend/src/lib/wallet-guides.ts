@@ -1,7 +1,8 @@
 export interface WalletGuide {
   id: string
   name: string
-  logo: string
+  logoSmall: string
+  logoLarge: string
   type: 'software' | 'hardware'
   description: string
   steps: string[]
@@ -14,7 +15,8 @@ export const walletGuides: WalletGuide[] = [
   {
     id: 'sparrow',
     name: 'Sparrow',
-    logo: '/images/wallets/sparrow.svg',
+    logoSmall: '/images/wallets/sparrow-small.svg',
+    logoLarge: '/images/wallets/sparrow-large.svg',
     type: 'software',
     description: 'Desktop wallet for Bitcoin with full descriptor support',
     outputType: 'descriptor',
@@ -29,7 +31,8 @@ export const walletGuides: WalletGuide[] = [
   {
     id: 'bluewallet',
     name: 'BlueWallet',
-    logo: '/images/wallets/bluewallet.svg',
+    logoSmall: '/images/wallets/bluewallet-small.svg',
+    logoLarge: '/images/wallets/bluewallet-large.svg',
     type: 'software',
     description: 'Mobile Bitcoin wallet for iOS and Android',
     outputType: 'xpub',
@@ -45,7 +48,8 @@ export const walletGuides: WalletGuide[] = [
   {
     id: 'electrum',
     name: 'Electrum',
-    logo: '/images/wallets/electrum.svg',
+    logoSmall: '/images/wallets/electrum-small.svg',
+    logoLarge: '/images/wallets/electrum-large.svg',
     type: 'software',
     description: 'Lightweight desktop Bitcoin wallet',
     outputType: 'xpub',
@@ -61,12 +65,13 @@ export const walletGuides: WalletGuide[] = [
   {
     id: 'coldcard',
     name: 'ColdCard',
-    logo: '/images/wallets/coldcard.svg',
+    logoSmall: '/images/wallets/coldcard-small.svg',
+    logoLarge: '/images/wallets/coldcard-large.svg',
     type: 'hardware',
     description: 'Air-gapped hardware wallet',
     outputType: 'both',
     steps: [
-      'Insert your ColdCard and enter your PIN',
+      'Power up your ColdCard and enter your PIN',
       'Go to Advanced/Tools → Export Wallet',
       'Select "Generic JSON" format',
       'Export to your SD card',
@@ -78,14 +83,15 @@ export const walletGuides: WalletGuide[] = [
   {
     id: 'ledger',
     name: 'Ledger',
-    logo: '/images/wallets/ledger.svg',
+    logoSmall: '/images/wallets/ledger-small.svg',
+    logoLarge: '/images/wallets/ledger-large.svg',
     type: 'hardware',
     description: 'Popular hardware wallet',
     outputType: 'xpub',
     steps: [
       'Connect your Ledger device and unlock it',
       'Open the Bitcoin app on your Ledger',
-      'Open Ledger Live on your computer',
+      'Open the Ledger Wallet app on your computer',
       'Go to your Bitcoin account → click the wrench icon',
       'Click "Advanced logs"',
       'Copy the xpub string from the logs',
@@ -95,7 +101,8 @@ export const walletGuides: WalletGuide[] = [
   {
     id: 'trezor',
     name: 'Trezor',
-    logo: '/images/wallets/trezor.svg',
+    logoSmall: '/images/wallets/trezor-small.svg',
+    logoLarge: '/images/wallets/trezor-large.svg',
     type: 'hardware',
     description: 'Open-source hardware wallet',
     outputType: 'xpub',
