@@ -146,7 +146,7 @@ function ChooseStep({
             >
               <div className="w-16 h-16 flex items-center justify-center">
                 <Image
-                  src={wallet.logo}
+                  src={wallet.logoSmall}
                   alt={wallet.name}
                   width={48}
                   height={48}
@@ -188,24 +188,18 @@ function InstructionsStep({
       <Breadcrumb {...breadcrumbProps} />
 
       <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 flex items-center justify-center shrink-0">
-            <Image
-              src={selectedWallet.logo}
-              alt={selectedWallet.name}
-              width={48}
-              height={48}
-              className="object-contain"
-            />
-          </div>
-          <div>
-            <p className="text-muted-foreground">{selectedWallet.description}</p>
-          </div>
-        </div>
-
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Follow these steps to export your descriptor</CardTitle>
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle className="text-lg">Follow these steps to export your descriptor from {selectedWallet.name}</CardTitle>
+              <Image
+                src={selectedWallet.logoLarge}
+                alt={selectedWallet.name}
+                width={0}
+                height={36}
+                className="h-9 w-auto shrink-0"
+              />
+            </div>
           </CardHeader>
           <CardContent>
             <ol className="space-y-3">
