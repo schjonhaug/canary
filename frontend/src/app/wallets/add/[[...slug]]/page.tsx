@@ -118,6 +118,13 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     return 'choose'
   }, [slug, selectedWallet])
 
+  // Redirect invalid wallet IDs to clean choose URL
+  useEffect(() => {
+    if (slug && slug.length > 0 && slug[0] !== 'form' && slug[0] !== 'bacon' && !selectedWallet) {
+      router.replace('/wallets/add')
+    }
+  }, [slug, selectedWallet, router])
+
   // Fetch wallet count on mount
   useEffect(() => {
     async function fetchWalletCount() {
