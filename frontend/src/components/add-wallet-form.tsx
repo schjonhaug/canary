@@ -8,16 +8,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronDown, Lightbulb, Loader2 } from "lucide-react"
+import { ChevronDown, Loader2 } from "lucide-react"
 import { useModal } from "@/hooks/useModal"
 import { api } from "@/lib/api"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
-import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { Wallet } from "@/types"
 
 // Well-known "bacon" test wallet (12x "bacon" as BIP39 mnemonic)
-const SAMPLE_WALLETS: Record<'mainnet' | 'testnet' | 'regtest', { name: string; descriptor: string }> = {
+export const SAMPLE_WALLETS: Record<'mainnet' | 'testnet' | 'regtest', { name: string; descriptor: string }> = {
   mainnet: {
     name: "Bacon",
     descriptor: "wpkh([00000000/84h/0h/0h]xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K/<0;1>/*)#4jhrljfg",
@@ -37,6 +36,8 @@ interface AddWalletFormProps {
   onWalletCreated: (wallet: Wallet) => void
   onCancel?: () => void
   autoFocusDescriptor?: boolean
+  initialName?: string
+  initialDescriptor?: string
 }
 
 export function AddWalletForm({
@@ -44,38 +45,40 @@ export function AddWalletForm({
   onWalletCreated,
   onCancel,
   autoFocusDescriptor = false,
+  initialName = "",
+  initialDescriptor = "",
 }: AddWalletFormProps) {
-  const [name, setName] = useState("")
-  const [descriptor, setDescriptor] = useState("")
+  const [name, setName] = useState(initialName)
+  const [descriptor, setDescriptor] = useState(initialDescriptor)
   const [isFreshWallet, setIsFreshWallet] = useState(false)
   const [scriptType, setScriptType] = useState("")
   const [stopGap, setStopGap] = useState("")
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const modal = useModal()
-  const { user, isSelfHostedMode } = useAuth()
-  const { blockHeader } = useBlockHeader()
+  const { user } = useAuth()
 
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'cloud'
 
-  // Get current network for sample wallet
-  const network = blockHeader?.network ?? 'mainnet'
-  const sampleWallet = SAMPLE_WALLETS[network]
-
-  // Show sample wallet button only for first wallet in self-hosted mode
-  const showSampleWalletButton = isSelfHostedMode && isFirstWallet
-
-  const prefillWithSampleWallet = () => {
-    setName(sampleWallet.name)
-    setDescriptor(sampleWallet.descriptor)
-  }
-
-  // Prefill name on mount for first wallet in cloud mode
+  // Sync state when initial values change (e.g., when blockHeader loads for Bacon wallet)
   useEffect(() => {
-    if (isFirstWallet && authEnabled && user?.name) {
+    if (initialName) {
+      setName(initialName)
+    }
+  }, [initialName])
+
+  useEffect(() => {
+    if (initialDescriptor) {
+      setDescriptor(initialDescriptor)
+    }
+  }, [initialDescriptor])
+
+  // Prefill name on mount for first wallet in cloud mode (only if not already set)
+  useEffect(() => {
+    if (isFirstWallet && authEnabled && user?.name && !initialName) {
       setName(user.name)
     }
-  }, [isFirstWallet, authEnabled, user?.name])
+  }, [isFirstWallet, authEnabled, user?.name, initialName])
 
   // Set default script type for fresh XPUB wallets (auto not allowed)
   useEffect(() => {
@@ -173,24 +176,6 @@ export function AddWalletForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {showSampleWalletButton && (
-        <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-          <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0" />
-          <p className="text-sm text-amber-700 dark:text-amber-300 flex-1">
-            New here? Try with a sample wallet first.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={prefillWithSampleWallet}
-            className="shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
-          >
-            Use Bacon Wallet
-          </Button>
-        </div>
-      )}
-
       <div className="space-y-2">
         <Label htmlFor="wallet-name">Wallet Name</Label>
         <Input

@@ -8,13 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle, Shield, ChevronRight } from "lucide-react"
+import { AlertTriangle, Shield, ChevronRight, Lightbulb } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { hasReachedWalletLimit, getTierDisplayName, getWalletLimit } from "@/lib/utils"
-import { AddWalletForm } from "@/components/add-wallet-form"
+import { AddWalletForm, SAMPLE_WALLETS } from "@/components/add-wallet-form"
 import { PlanComparison } from "@/components/plan-comparison"
 import { walletGuides, type WalletGuide } from "@/lib/wallet-guides"
+import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { Wallet } from "@/types"
 
 type WizardStep = 'choose' | 'instructions' | 'form'
@@ -83,26 +84,35 @@ interface PageProps {
 function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const router = useRouter()
   const { user, billingStatus, isSelfHostedMode, isCloudMode, isLoading: authLoading, isAuthenticated, refreshBillingStatus } = useAuth()
+  const { blockHeader } = useBlockHeader()
   const [walletCount, setWalletCount] = useState<number | null>(null)
   const [isLoadingWallets, setIsLoadingWallets] = useState(true)
   const [limitReached, setLimitReached] = useState(false)
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
 
+  // Get network for Bacon wallet
+  const network = blockHeader?.network ?? 'mainnet'
+  const baconWallet = SAMPLE_WALLETS[network]
+
+  // Check if we're using the Bacon sample wallet
+  const isBaconWallet = slug?.[0] === 'bacon'
+
   // Derive wizard state from URL path segments
   // /wallets/add → choose
   // /wallets/add/sparrow → instructions for sparrow
   // /wallets/add/sparrow/form → form with sparrow context
   // /wallets/add/form → form without wallet context
+  // /wallets/add/bacon → form with Bacon wallet prefilled
   const selectedWallet = useMemo(() => {
     if (!slug || slug.length === 0) return null
-    if (slug[0] === 'form') return null
+    if (slug[0] === 'form' || slug[0] === 'bacon') return null
     return walletGuides.find(w => w.id === slug[0]) || null
   }, [slug])
 
   const step: WizardStep = useMemo(() => {
     if (!slug || slug.length === 0) return 'choose'
-    if (slug[0] === 'form') return 'form'
+    if (slug[0] === 'form' || slug[0] === 'bacon') return 'form'
     if (slug.length >= 2 && slug[1] === 'form') return 'form'
     if (selectedWallet) return 'instructions'
     return 'choose'
@@ -277,6 +287,24 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
             </p>
           </div>
 
+          {/* Bacon sample wallet for self-hosted first wallet */}
+          {isSelfHostedMode && isFirstWallet && (
+            <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0" />
+              <p className="text-sm text-amber-700 dark:text-amber-300 flex-1">
+                New here? Try with a sample wallet first to see how Canary works.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/wallets/add/bacon')}
+                className="shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+              >
+                Use Bacon Wallet
+              </Button>
+            </div>
+          )}
+
           {/* Wallet grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {walletGuides.map((wallet) => (
@@ -401,7 +429,10 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
       <div className="max-w-xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <p className="text-muted-foreground">
-            Paste your {selectedWallet?.outputType === 'xpub' ? 'XPUB' : 'output descriptor or XPUB'} below.
+            {isBaconWallet
+              ? "We've prefilled the Bacon sample wallet for you. Just click Add Wallet to continue."
+              : `Paste your ${selectedWallet?.outputType === 'xpub' ? 'XPUB' : 'output descriptor or XPUB'} below.`
+            }
           </p>
         </div>
 
@@ -410,7 +441,9 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
             <AddWalletForm
               isFirstWallet={isFirstWallet}
               onWalletCreated={handleWalletCreated}
-              autoFocusDescriptor={true}
+              autoFocusDescriptor={!isBaconWallet}
+              initialName={isBaconWallet ? baconWallet.name : undefined}
+              initialDescriptor={isBaconWallet ? baconWallet.descriptor : undefined}
             />
           </CardContent>
         </Card>
