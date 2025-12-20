@@ -3,8 +3,7 @@
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Plus, Clock, Sparkles } from "lucide-react"
+import { Plus, Clock } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 interface User {
@@ -24,14 +23,6 @@ export function WalletOnboarding({ user }: WalletOnboardingProps) {
   if (isPending) {
     return (
       <div className="max-w-3xl mx-auto mt-16">
-        <Alert className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 dark:from-blue-950/30 dark:to-indigo-950/30 dark:border-blue-900">
-          <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          <AlertTitle className="text-blue-800 dark:text-blue-300">Start Your 30-Day Team Trial</AlertTitle>
-          <AlertDescription className="text-blue-700 dark:text-blue-400">
-            Your trial will begin when you add your first wallet. You&apos;ll get full access to all Team features for 30 days.
-          </AlertDescription>
-        </Alert>
-
         <Card className="border-muted">
           <CardContent className="pt-12 pb-10 px-8">
             <div className="space-y-8">
