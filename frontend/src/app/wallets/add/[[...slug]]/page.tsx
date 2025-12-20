@@ -190,16 +190,7 @@ function InstructionsStep({
       <div className="max-w-3xl mx-auto space-y-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-4">
-              <CardTitle className="text-lg">Follow these steps to export your descriptor from {selectedWallet.name}</CardTitle>
-              <Image
-                src={selectedWallet.logoLarge}
-                alt={selectedWallet.name}
-                width={0}
-                height={36}
-                className="h-9 w-auto shrink-0"
-              />
-            </div>
+            <CardTitle className="text-lg">Follow these steps to export your descriptor from {selectedWallet.name}</CardTitle>
           </CardHeader>
           <CardContent>
             <ol className="space-y-3">
