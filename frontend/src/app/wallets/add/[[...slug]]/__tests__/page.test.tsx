@@ -89,7 +89,7 @@ describe('AddWalletPage', () => {
       expect(screen.getByText('Electrum')).toBeInTheDocument()
     })
 
-    it('shows instructions step for valid wallet ID', async () => {
+    it('shows instructions step with form for valid wallet ID', async () => {
       await act(async () => {
         renderWithSlug(['sparrow'])
       })
@@ -100,19 +100,20 @@ describe('AddWalletPage', () => {
 
       // Should show Sparrow-specific content
       expect(screen.getByText(/Open your wallet in Sparrow/)).toBeInTheDocument()
+
+      // Should also show form elements on same page
+      expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
+      expect(screen.getByText(/Paste your/)).toBeInTheDocument()
     })
 
-    it('shows form step when slug ends with form', async () => {
+    it('redirects legacy /wallet-id/form URLs to /wallet-id', async () => {
       await act(async () => {
         renderWithSlug(['sparrow', 'form'])
       })
 
       await waitFor(() => {
-        expect(screen.getByText(/Paste your/)).toBeInTheDocument()
+        expect(mockReplace).toHaveBeenCalledWith('/wallets/add/sparrow')
       })
-
-      // Should show form elements
-      expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
     })
 
     it('shows form step when slug is form (skipped instructions)', async () => {
@@ -310,7 +311,8 @@ describe('AddWalletPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Wallets')).toBeInTheDocument()
-        expect(screen.getByText('Add Wallet')).toBeInTheDocument()
+        // There are two "Add Wallet" texts - one in breadcrumb, one as submit button
+        expect(screen.getAllByText('Add Wallet').length).toBeGreaterThanOrEqual(1)
         expect(screen.getByText('Sparrow')).toBeInTheDocument()
       })
     })
@@ -322,11 +324,18 @@ describe('AddWalletPage', () => {
         renderWithSlug(['sparrow'])
       })
 
+      // Find the breadcrumb "Add Wallet" button (not the form submit button)
+      // The breadcrumb button is within nav and doesn't have type="submit"
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Add Wallet' })).toBeInTheDocument()
+        const navElement = screen.getByRole('navigation')
+        expect(navElement).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('button', { name: 'Add Wallet' }))
+      const navElement = screen.getByRole('navigation')
+      const breadcrumbButton = navElement.querySelector('button')
+      expect(breadcrumbButton).toBeInTheDocument()
+
+      await user.click(breadcrumbButton!)
 
       expect(mockPush).toHaveBeenCalledWith('/wallets/add')
     })
