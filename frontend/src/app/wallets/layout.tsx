@@ -21,14 +21,14 @@ export default function WalletsLayout({
   const pathname = usePathname()
   const { user, isCloudMode } = useAuth()
 
-  // Check if we're on a wallet detail page
-  const isWalletDetailPage = pathname.startsWith('/wallets/') && pathname !== '/wallets' && pathname !== '/wallets/add'
+  // Check if we're on a wallet detail page (excludes main list and add pages)
+  const isWalletDetailPage = pathname.startsWith('/wallets/') && pathname !== '/wallets' && !pathname.startsWith('/wallets/add')
 
-  // Check if we're on the add wallet page
-  const isAddWalletPage = pathname === '/wallets/add'
+  // Check if we're on the add wallet page (including sub-routes like /wallets/add/sparrow)
+  const isAddWalletPage = pathname.startsWith('/wallets/add')
 
-  // Only fetch wallets list on the main wallets page, not on detail or add pages
-  const shouldFetchWallets = pathname === '/wallets'
+  // Fetch wallets list on the main wallets page and add wallet pages (for limit checking)
+  const shouldFetchWallets = pathname === '/wallets' || isAddWalletPage
   const { wallets, error, lastUpdate, isConnected, isLoading, refresh: refetchWallets, addWallet } = useWalletsList(shouldFetchWallets)
 
   // Load SVG when current wallet data is available for detail pages

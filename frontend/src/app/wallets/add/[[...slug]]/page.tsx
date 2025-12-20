@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertTriangle, Shield, ChevronRight, Lightbulb } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useWalletsContext } from "@/contexts/wallets-context"
 import { api } from "@/lib/api"
 import { hasReachedWalletLimit, getTierDisplayName, getWalletLimit } from "@/lib/utils"
 import { AddWalletForm, SAMPLE_WALLETS } from "@/components/add-wallet-form"
@@ -84,12 +85,13 @@ interface PageProps {
 function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const router = useRouter()
   const { user, billingStatus, isSelfHostedMode, isCloudMode, isLoading: authLoading, isAuthenticated, refreshBillingStatus } = useAuth()
+  const { wallets, isLoading: isLoadingWallets } = useWalletsContext()
   const { blockHeader } = useBlockHeader()
-  const [walletCount, setWalletCount] = useState<number | null>(null)
-  const [isLoadingWallets, setIsLoadingWallets] = useState(true)
-  const [limitReached, setLimitReached] = useState(false)
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
+
+  // Derive wallet count and limit status from context
+  const walletCount = wallets.length
 
   // Get network for Bacon wallet
   const network = blockHeader?.network ?? 'mainnet'
@@ -125,38 +127,16 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     }
   }, [slug, selectedWallet, router])
 
-  // Fetch wallet count on mount
+  // Redirect to sign-in if not authenticated in cloud mode
   useEffect(() => {
-    async function fetchWalletCount() {
-      try {
-        const response = await api.getWallets()
-        setWalletCount(response.wallets.length)
-
-        // Check limits in cloud mode
-        if (isCloudMode && !isSelfHostedMode) {
-          const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
-          if (hasReachedWalletLimit(response.wallets.length, currentTier)) {
-            setLimitReached(true)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch wallets:', error)
-        if (isSelfHostedMode) {
-          setWalletCount(0)
-        }
-      } finally {
-        setIsLoadingWallets(false)
-      }
+    if (!authLoading && isCloudMode && !isAuthenticated) {
+      router.push('/sign-in')
     }
+  }, [authLoading, isCloudMode, isAuthenticated, router])
 
-    if (!authLoading) {
-      if (isCloudMode && !isAuthenticated) {
-        router.push('/sign-in')
-        return
-      }
-      fetchWalletCount()
-    }
-  }, [authLoading, isAuthenticated, isCloudMode, isSelfHostedMode, billingStatus, user, router])
+  // Derive limit reached status from context data
+  const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
+  const limitReached = isCloudMode && !isSelfHostedMode && hasReachedWalletLimit(walletCount, currentTier)
 
   const handleWalletCreated = (wallet: Wallet) => {
     router.push('/wallets')
@@ -212,7 +192,6 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     }
   }
 
-  const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
   const isFirstWallet = walletCount === 0
   const hasPaidSubscription = billingStatus?.subscription_status === 'active' && !!billingStatus?.stripe_customer_id
 

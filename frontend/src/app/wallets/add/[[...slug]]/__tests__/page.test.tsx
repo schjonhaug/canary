@@ -12,13 +12,9 @@ jest.mock('next/navigation', () => ({
   }),
 }))
 
-// Mock API
-const mockGetWallets = jest.fn()
-const mockCreateWallet = jest.fn()
+// Mock API (for checkout and billing)
 jest.mock('../../../../../lib/api', () => ({
   api: {
-    getWallets: (...args: unknown[]) => mockGetWallets(...args),
-    createWallet: (...args: unknown[]) => mockCreateWallet(...args),
     getBillingPricing: jest.fn().mockResolvedValue({ tiers: [] }),
     createCheckoutSession: jest.fn(),
   },
@@ -29,6 +25,21 @@ jest.mock('../../../../../hooks/useBlockHeader', () => ({
   useBlockHeader: () => ({
     blockHeader: { network: 'regtest', height: 100, timestamp: 1234567890 },
   }),
+}))
+
+// Default wallets context mock
+const defaultWalletsContextMock = {
+  wallets: [],
+  isLoading: false,
+  error: null,
+  lastUpdate: null,
+  isConnected: true,
+}
+
+let walletsContextMockValue = { ...defaultWalletsContextMock }
+
+jest.mock('../../../../../contexts/wallets-context', () => ({
+  useWalletsContext: () => walletsContextMockValue,
 }))
 
 // Default auth mock - self-hosted mode
@@ -58,7 +69,7 @@ describe('AddWalletPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     authMockValue = { ...defaultAuthMock }
-    mockGetWallets.mockResolvedValue({ wallets: [] })
+    walletsContextMockValue = { ...defaultWalletsContextMock }
   })
 
   describe('URL Routing', () => {
@@ -152,7 +163,7 @@ describe('AddWalletPage', () => {
     })
 
     it('shows Bacon wallet option for first wallet', async () => {
-      mockGetWallets.mockResolvedValue({ wallets: [] })
+      walletsContextMockValue = { ...defaultWalletsContextMock, wallets: [] }
 
       await act(async () => {
         renderWithSlug(undefined)
@@ -166,9 +177,10 @@ describe('AddWalletPage', () => {
     })
 
     it('hides Bacon wallet option when wallets exist', async () => {
-      mockGetWallets.mockResolvedValue({
-        wallets: [{ checksum: 'test', name: 'Test Wallet' }],
-      })
+      walletsContextMockValue = {
+        ...defaultWalletsContextMock,
+        wallets: [{ checksum: 'test', name: 'Test Wallet' }] as never[],
+      }
 
       await act(async () => {
         renderWithSlug(undefined)
@@ -198,7 +210,7 @@ describe('AddWalletPage', () => {
     })
 
     it('hides Bacon wallet option in cloud mode', async () => {
-      mockGetWallets.mockResolvedValue({ wallets: [] })
+      walletsContextMockValue = { ...defaultWalletsContextMock, wallets: [] }
 
       await act(async () => {
         renderWithSlug(undefined)
@@ -212,9 +224,10 @@ describe('AddWalletPage', () => {
     })
 
     it('shows upgrade prompt when wallet limit reached', async () => {
-      mockGetWallets.mockResolvedValue({
-        wallets: [{ checksum: 'test', name: 'Test Wallet' }],
-      })
+      walletsContextMockValue = {
+        ...defaultWalletsContextMock,
+        wallets: [{ checksum: 'test', name: 'Test Wallet' }] as never[],
+      }
 
       await act(async () => {
         renderWithSlug(undefined)
@@ -261,7 +274,7 @@ describe('AddWalletPage', () => {
 
     it('navigates to bacon form when Bacon wallet is clicked', async () => {
       const user = userEvent.setup()
-      mockGetWallets.mockResolvedValue({ wallets: [] })
+      walletsContextMockValue = { ...defaultWalletsContextMock, wallets: [] }
 
       await act(async () => {
         renderWithSlug(undefined)
