@@ -9,11 +9,10 @@ import { useAuth } from "@/contexts/auth-context"
 
 interface AppHeaderProps {
   showAddWallet?: boolean
-  onAddWallet?: () => void
   customLogo?: string
 }
 
-export function AppHeader({ showAddWallet = false, onAddWallet, customLogo }: AppHeaderProps) {
+export function AppHeader({ showAddWallet = false, customLogo }: AppHeaderProps) {
   const { isCloudMode } = useAuth()
 
   return (
@@ -38,15 +37,16 @@ export function AppHeader({ showAddWallet = false, onAddWallet, customLogo }: Ap
         <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">Canary</h1>
       </Link>
       <div className="flex items-center gap-2 sm:gap-6">
-        {showAddWallet && onAddWallet && (
-          <Button
-            onClick={onAddWallet}
-            size="sm"
-            className="bg-accent hover:bg-accent/90 text-accent-foreground gap-1.5 sm:gap-2"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Add Wallet</span>
-          </Button>
+        {showAddWallet && (
+          <Link href="/wallets/add">
+            <Button
+              size="sm"
+              className="bg-accent hover:bg-accent/90 text-accent-foreground gap-1.5 sm:gap-2"
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline">Add Wallet</span>
+            </Button>
+          </Link>
         )}
 
         {/* Settings button for self-hosted mode */}

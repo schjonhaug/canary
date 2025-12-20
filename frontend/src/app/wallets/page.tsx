@@ -12,7 +12,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useWalletsContext } from "@/contexts/wallets-context"
 
 export default function WalletsPage() {
-  const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading, onAddWallet } = useWalletsContext()
+  const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading } = useWalletsContext()
   const { isAuthenticated, isLoading: authLoading, user, isCloudMode, billingStatus } = useAuth()
   const router = useRouter()
 
@@ -86,7 +86,7 @@ export default function WalletsPage() {
       )}
       
       {wallets.length === 0 ? (
-        <WalletOnboarding onAddWallet={onAddWallet} user={user} />
+        <WalletOnboarding user={user} />
       ) : (
         <div className="mt-8 space-y-8">
           {/* Wallet Cards Section */}
