@@ -32,28 +32,40 @@ use stripe_billing::StripeBilling;
 use subscription::SubscriptionTier;
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::{interval, Duration};
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use twilio_provider::TwilioProvider;
 use wallet::WalletManager;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Set up file appender - writes to logs/backend.log with daily rotation
-    let log_dir = std::env::current_dir()?.join("logs");
-    std::fs::create_dir_all(&log_dir)?;
-    let file_appender = RollingFileAppender::new(Rotation::DAILY, &log_dir, "backend.log");
-
     // Create env filter for log levels
-    let env_filter =
-        EnvFilter::from_default_env().add_directive("canary=info".parse()?);
+    let env_filter = EnvFilter::from_default_env().add_directive("canary=info".parse()?);
 
-    // Initialize tracing with both stdout and file output
-    tracing_subscriber::registry()
-        .with(env_filter)
-        .with(fmt::layer().with_writer(std::io::stdout))
-        .with(fmt::layer().with_writer(file_appender).with_ansi(false))
-        .init();
+    // Check if file logging is enabled (for local development)
+    let file_logging_enabled = std::env::var("CANARY_FILE_LOGGING")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+
+    if file_logging_enabled {
+        // Set up file appender - writes to logs/backend.log with daily rotation
+        use tracing_appender::rolling::{RollingFileAppender, Rotation};
+        let log_dir = std::env::current_dir()?.join("logs");
+        std::fs::create_dir_all(&log_dir)?;
+        let file_appender = RollingFileAppender::new(Rotation::DAILY, &log_dir, "backend.log");
+
+        // Initialize tracing with both stdout and file output
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt::layer().with_writer(std::io::stdout))
+            .with(fmt::layer().with_writer(file_appender).with_ansi(false))
+            .init();
+    } else {
+        // Initialize tracing with stdout only (default for Docker/production)
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt::layer().with_writer(std::io::stdout))
+            .init();
+    }
 
     // Load configuration
     let config = AppConfig::load()?;
