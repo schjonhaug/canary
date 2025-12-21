@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle, Shield, ChevronRight, Lightbulb } from "lucide-react"
+import { AlertTriangle, ChevronRight, Lightbulb } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useWalletsContext } from "@/contexts/wallets-context"
 import { api } from "@/lib/api"
@@ -114,7 +114,10 @@ function ChooseStep({
       <div className="max-w-3xl mx-auto space-y-8">
         <div className="text-center space-y-2">
           <p className="text-muted-foreground text-lg">
-            Which wallet do you use? We&apos;ll show you how to get your output descriptor.
+            Which wallet do you use? We&apos;ll show you how to export your output descriptor or XPUB.
+          </p>
+          <p className="text-muted-foreground text-sm">
+            Canary only needs this to monitor your transactions. Your private keys stay safe in your wallet.
           </p>
         </div>
 
@@ -203,12 +206,6 @@ function InstructionsStep({
                 </li>
               ))}
             </ol>
-
-            {selectedWallet.notes && (
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-                {selectedWallet.notes}
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -228,15 +225,6 @@ function InstructionsStep({
             />
           </CardContent>
         </Card>
-
-        {/* Watch-only note */}
-        <Alert className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
-          <Shield className="h-4 w-4 text-green-600 dark:text-green-500" />
-          <AlertTitle className="text-green-800 dark:text-green-400">Watch-only monitoring</AlertTitle>
-          <AlertDescription className="text-green-700 dark:text-green-500">
-            Canary only needs your public key to monitor transactions. Your private keys stay safe in your wallet.
-          </AlertDescription>
-        </Alert>
       </div>
     </div>
   )
@@ -276,15 +264,6 @@ function FormStep({
             />
           </CardContent>
         </Card>
-
-        {/* Watch-only note */}
-        <Alert className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
-          <Shield className="h-4 w-4 text-green-600 dark:text-green-500" />
-          <AlertTitle className="text-green-800 dark:text-green-400">Watch-only monitoring</AlertTitle>
-          <AlertDescription className="text-green-700 dark:text-green-500">
-            Canary only needs your public key to monitor transactions. Your private keys stay safe in your wallet.
-          </AlertDescription>
-        </Alert>
       </div>
     </div>
   )

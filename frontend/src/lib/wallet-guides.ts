@@ -7,7 +7,6 @@ export interface WalletGuide {
   description: string
   steps: string[]
   outputType: 'descriptor' | 'xpub' | 'both'
-  notes?: string
 }
 
 export const walletGuides: WalletGuide[] = [
@@ -26,7 +25,6 @@ export const walletGuides: WalletGuide[] = [
       'Click "Show" next to Output Descriptor',
       'Copy the entire descriptor string (starts with wpkh, wsh, or tr)',
     ],
-    notes: 'Sparrow provides full output descriptors which include all the information Canary needs.',
   },
   {
     id: 'bluewallet',
@@ -43,7 +41,6 @@ export const walletGuides: WalletGuide[] = [
       'Tap "Export Wallet"',
       'Copy the XPUB string (starts with xpub, ypub, or zpub)',
     ],
-    notes: 'BlueWallet exports XPUBs. Canary will automatically detect the address type from the prefix.',
   },
   {
     id: 'electrum',
@@ -59,7 +56,6 @@ export const walletGuides: WalletGuide[] = [
       'Find the "Master Public Key" section',
       'Copy the zpub, ypub, or xpub string',
     ],
-    notes: 'For SegWit wallets, Electrum shows a zpub. For legacy wallets, it shows an xpub.',
   },
   // Hardware Wallets
   {
@@ -78,7 +74,6 @@ export const walletGuides: WalletGuide[] = [
       'Open the JSON file on your computer',
       'Copy the descriptor or xpub from the file',
     ],
-    notes: 'ColdCard can export full descriptors. The JSON file contains both the descriptor and individual XPUBs.',
   },
   {
     id: 'ledger',
@@ -96,7 +91,6 @@ export const walletGuides: WalletGuide[] = [
       'Click "Advanced logs"',
       'Copy the xpub string from the logs',
     ],
-    notes: 'Alternatively, you can use Sparrow Wallet connected to your Ledger for easier descriptor export.',
   },
   {
     id: 'trezor',
@@ -114,7 +108,6 @@ export const walletGuides: WalletGuide[] = [
       'Confirm on your Trezor device',
       'Copy the XPUB string',
     ],
-    notes: 'For an easier experience with full descriptor support, you can connect your Trezor to Sparrow Wallet.',
   },
 ]
 
