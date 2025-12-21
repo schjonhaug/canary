@@ -40,3 +40,4 @@ logs/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+src/lib/build-info.json
