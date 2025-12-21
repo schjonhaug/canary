@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
-// Get build commit at config load time (works with both webpack and Turbopack)
+// Get build commit: prefer env var (Docker build arg), fallback to git
 const { getBuildCommit } = require('./scripts/generate-build-info');
-const buildCommit = getBuildCommit();
+const buildCommit = process.env.NEXT_PUBLIC_BUILD_COMMIT || getBuildCommit();
 
 const nextConfig: NextConfig = {
   // Enable Turbopack (Next.js 16 default)
