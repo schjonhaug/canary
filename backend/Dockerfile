@@ -37,8 +37,8 @@ COPY --from=rust-builder /app/target/release/canary /app/canary
 # Copy migrations with correct ownership for non-root user
 COPY --from=rust-builder --chown=1000:1000 /app/migrations /app/migrations
 
-# Create data directory
-RUN mkdir -p /app/data
+# Create data directory with correct ownership for non-root user
+RUN mkdir -p /app/data && chown 1000:1000 /app/data
 
 # Expose port
 EXPOSE 3000
