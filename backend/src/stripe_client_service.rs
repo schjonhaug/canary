@@ -257,6 +257,16 @@ impl StripeClientService {
             .send()
             .await?;
 
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow::anyhow!(
+                "Stripe API error ({}): {}",
+                status,
+                error_text
+            ));
+        }
+
         let products: ProductList = response.json().await?;
         Ok(products)
     }

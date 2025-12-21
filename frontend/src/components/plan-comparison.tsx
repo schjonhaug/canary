@@ -37,7 +37,7 @@ export function PlanComparison({
 }: PlanComparisonProps) {
   const { pricing, loading, error } = usePricing()
 
-  // Add self-hosted tier manually (not from Stripe)
+  // Add self-hosted tier manually (not from Stripe) - only for public landing page
   const selfHostedTier = {
     tier: 'selfhosted',
     name: 'Self-hosted',
@@ -45,9 +45,9 @@ export function PlanComparison({
     features: {}
   }
 
-  // Only use Stripe pricing and prepend self-hosted
+  // Only use Stripe pricing; prepend self-hosted only on public pages (not in modal)
   const stripeTiers = pricing ? sortTiers(pricing.tiers) : []
-  const sortedTiers = [selfHostedTier, ...stripeTiers]
+  const sortedTiers = isModal ? stripeTiers : [selfHostedTier, ...stripeTiers]
   
   // Filter tiers to show only current tier and higher tiers for modal (unless showAllTiers is true)
   const tiersToShow = isModal && !showAllTiers

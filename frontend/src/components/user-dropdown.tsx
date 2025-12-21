@@ -17,7 +17,7 @@ import { getTierDisplayName } from '@/lib/pricing-data'
 import Link from 'next/link'
 
 export function UserDropdown() {
-  const { user, billingStatus, isCloudMode, isSelfHostedMode } = useAuth()
+  const { user, isCloudMode, isSelfHostedMode } = useAuth()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
 
@@ -27,9 +27,8 @@ export function UserDropdown() {
   }
 
   const displayName = user.name || user.email
-  const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
+  const currentTier = user.subscription_tier || 'personal'
   const isDemoUser = user.email === 'demo@canarybitcoin.com'
-  // const hasStripeCustomer = Boolean(billingStatus?.stripe_customer_id)
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -81,27 +80,12 @@ export function UserDropdown() {
             </Link>
 
             {!user.is_admin && (
-              <Link href="/settings/subscription" className="block">
+              <Link href="/subscription" className="block">
                 <DropdownMenuItem className="cursor-pointer">
                   <CreditCard className="mr-2 h-4 w-4" />
                   <span>Subscription</span>
                 </DropdownMenuItem>
               </Link>
-            )}
-
-            {billingStatus && !user.is_admin && (
-              <div className="px-2 py-1">
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <div className="flex justify-between">
-                    <span>Wallets:</span>
-                    <span>{billingStatus.wallet_count} / {billingStatus.limits?.max_wallets === -1 ? '∞' : billingStatus.limits?.max_wallets}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Sync:</span>
-                    <span>{billingStatus.limits?.sync_interval_seconds < 60 ? `${billingStatus.limits.sync_interval_seconds}s` : `${Math.round(billingStatus.limits.sync_interval_seconds / 60)}min`}</span>
-                  </div>
-                </div>
-              </div>
             )}
 
             <DropdownMenuSeparator />

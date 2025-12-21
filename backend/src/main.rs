@@ -241,7 +241,7 @@ async fn main() -> anyhow::Result<()> {
 
     let notification_manager = Arc::new(Mutex::new(notification_manager));
 
-    // Initialize Stripe billing only in cloud mode
+    // Initialize Stripe billing only in cloud mode (REQUIRED for cloud mode)
     let stripe_billing = if config.is_cloud_mode() {
         println!("🏦 Cloud mode: Initializing Stripe billing...");
         match StripeBilling::new(Arc::new(app_services.metadata_db.clone())).await {
@@ -250,9 +250,12 @@ async fn main() -> anyhow::Result<()> {
                 Some(Arc::new(billing))
             }
             Err(e) => {
-                println!("⚠️  Stripe billing initialization failed: {}", e);
-                println!("   Billing endpoints will not be available");
-                None
+                eprintln!("❌ Stripe billing initialization failed: {}", e);
+                eprintln!("   Stripe is REQUIRED for cloud mode. Please check:");
+                eprintln!("   - STRIPE_SECRET_KEY is set and valid");
+                eprintln!("   - STRIPE_WEBHOOK_SECRET is set");
+                eprintln!("   - Stripe products exist with metadata.tier = 'personal' or 'team'");
+                std::process::exit(1);
             }
         }
     } else {
