@@ -221,7 +221,7 @@ function InstructionsStep({
             <AddWalletForm
               isFirstWallet={isFirstWallet}
               onWalletCreated={onWalletCreated}
-              autoFocusDescriptor={true}
+              autoFocusDescriptor={false}
             />
           </CardContent>
         </Card>
@@ -258,7 +258,7 @@ function FormStep({
             <AddWalletForm
               isFirstWallet={isFirstWallet}
               onWalletCreated={onWalletCreated}
-              autoFocusDescriptor={!isBaconWallet}
+              autoFocusDescriptor={false}
               initialName={isBaconWallet ? baconWallet.name : undefined}
               initialDescriptor={isBaconWallet ? baconWallet.descriptor : undefined}
             />
