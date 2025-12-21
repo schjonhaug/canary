@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { SuccessDisplay } from '@/components/ui/error-display'
 import { Loader2 } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 
 export default function ContactPage() {
@@ -90,8 +89,9 @@ export default function ContactPage() {
   // In self-hosted mode, show a simple message (no contact form needed)
   if (isSelfHostedMode) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <Card className="w-full max-w-md">
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold">Contact</h2>
+        <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Self-Hosted Mode</CardTitle>
             <CardDescription>
@@ -111,24 +111,16 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
+    <div className="space-y-6">
+      {/* Page Title */}
+      <h2 className="text-2xl font-semibold">Contact</h2>
+
+      <Card className="max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
-            <Link href="/">
-              <Image
-                src="/images/canary.svg"
-                alt="Canary Logo"
-                width={48}
-                height={48}
-                className="h-12 w-12"
-              />
-            </Link>
-          </div>
-          <CardTitle className="text-2xl font-bold text-center">
-            Contact Us
+          <CardTitle className="text-xl">
+            Get in Touch
           </CardTitle>
-          <CardDescription className="text-center">
+          <CardDescription>
             Have a question or feedback? We would love to hear from you.
           </CardDescription>
         </CardHeader>
@@ -186,12 +178,6 @@ export default function ContactPage() {
               )}
             </Button>
           </form>
-
-          <div className="mt-6 text-center">
-            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
-              Back to Home
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>

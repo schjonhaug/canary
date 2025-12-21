@@ -7,7 +7,7 @@ export function useBlockHeader() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
-  const { token, isAuthenticated, billingStatus } = useAuth();
+  const { token, billingStatus } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -18,23 +18,17 @@ export function useBlockHeader() {
   }, [billingStatus?.limits?.sync_interval_seconds]);
 
   const fetchBlockHeader = useCallback(async () => {
-    // Only fetch data if user is authenticated and has a token
-    if (!isAuthenticated || !token) {
-      // User not authenticated, skip block header fetch
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
 
     try {
       const headers: HeadersInit = {};
-      
+
       // Add Authorization header if token is available
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      
+
       const response = await fetch('/api/block-headers/current', {
         headers,
       });
@@ -61,7 +55,7 @@ export function useBlockHeader() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, isAuthenticated]);
+  }, [token]);
 
   const refresh = useCallback(() => {
     fetchBlockHeader();

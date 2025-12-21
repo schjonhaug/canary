@@ -2,18 +2,28 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Plus, Settings } from "lucide-react"
 import { UserDropdown } from "@/components/user-dropdown"
 import { useAuth } from "@/contexts/auth-context"
 
 interface AppHeaderProps {
-  showAddWallet?: boolean
   customLogo?: string
 }
 
-export function AppHeader({ showAddWallet = false, customLogo }: AppHeaderProps) {
-  const { isCloudMode } = useAuth()
+export function AppHeader({ customLogo }: AppHeaderProps) {
+  const { isCloudMode, user } = useAuth()
+  const pathname = usePathname()
+
+  // Show Add Wallet button on most pages, except:
+  // - On the add wallet page itself
+  // - For admin users in cloud mode
+  // - For demo users
+  // - For logged-out users in cloud mode
+  const isAddWalletPage = pathname.startsWith('/wallets/add')
+  const isLoggedOut = isCloudMode && !user
+  const showAddWallet = !isAddWalletPage && !isLoggedOut && !(isCloudMode && user?.is_admin) && !user?.is_demo
 
   return (
     <div className="mb-4 sm:mb-6 flex items-center justify-between">

@@ -9,11 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, CreditCard, Users, Calendar, TrendingUp, Zap, AlertTriangle, Clock, XCircle } from "lucide-react"
 import { PlansModal } from "@/components/plans-modal"
 import { getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
-import { AppHeader } from "@/components/app-header"
-import { AppFooter } from "@/components/app-footer"
 import Link from "next/link"
 
-export default function BillingPage() {
+export default function SubscriptionPage() {
   const { user, billingStatus, isLoading, refreshBillingStatus, isSelfHostedMode } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
@@ -30,7 +28,7 @@ export default function BillingPage() {
 
     try {
       setIsPortalLoading(true)
-      const { url } = await api.createCustomerPortalSession(window.location.origin + '/settings/subscription')
+      const { url } = await api.createCustomerPortalSession(window.location.origin + '/subscription')
       window.location.href = url
     } catch (error) {
       console.error('Failed to open customer portal:', error)
@@ -44,47 +42,46 @@ export default function BillingPage() {
   // Hide billing page in self-hosted mode
   if (isSelfHostedMode) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <AppHeader />
-        <div className="text-center py-12">
-          <h1 className="text-2xl font-bold mb-4">Billing Not Available</h1>
-          <p className="text-muted-foreground mb-6">
-            This is a self-hosted installation with no subscription billing.
-          </p>
-          <Button asChild>
-            <Link href="/wallets">Go to Wallets</Link>
-          </Button>
-        </div>
-        <AppFooter />
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold">Subscription</h2>
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Self-Hosted Mode</CardTitle>
+            <CardDescription>
+              Subscription billing is not available in self-hosted mode.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/wallets">
+              <Button variant="outline" className="w-full">
+                Back to Wallets
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   if (isLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <AppHeader />
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground">Loading billing information...</span>
-        </div>
-        <AppFooter />
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Loading billing information...</span>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <AppHeader />
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold">Subscription</h2>
         <div className="text-center py-12">
-          <h1 className="text-2xl font-bold mb-4">Sign in to view billing</h1>
-          <p className="text-muted-foreground mb-6">You need to be signed in to manage your billing and subscription.</p>
+          <p className="text-muted-foreground mb-6">You need to be signed in to manage your subscription.</p>
           <Button asChild>
             <Link href="/sign-in">Sign In</Link>
           </Button>
         </div>
-        <AppFooter />
       </div>
     )
   }
@@ -108,22 +105,12 @@ export default function BillingPage() {
   const walletsExceeded = maxWallets !== -1 && walletCount > maxWallets
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <AppHeader />
-      
-      <div className="mt-8 space-y-8">
-        {/* Page Header */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div>
-                <h2 className="text-2xl font-semibold">Subscription</h2>
-              </div>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Page Title */}
+      <h2 className="text-2xl font-semibold">Subscription</h2>
 
-        {/* Current Plan Overview */}
-        <Card>
+      {/* Current Plan Overview */}
+      <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="space-y-1">
@@ -153,12 +140,12 @@ export default function BillingPage() {
                 <div className="font-medium text-orange-700">Subscription Limit Exceeded</div>
               </div>
               <div className="text-sm text-orange-600 mb-3">
-                You have {walletCount} wallets but your {getTierDisplayName(currentTier)} plan allows only {maxWallets}. 
+                You have {walletCount} wallets but your {getTierDisplayName(currentTier)} plan allows only {maxWallets}.
                 Excess wallets won&apos;t sync automatically and some contacts may be inactive.
               </div>
-              <Button 
-                onClick={() => setShowUpgradeModal(true)} 
-                size="sm" 
+              <Button
+                onClick={() => setShowUpgradeModal(true)}
+                size="sm"
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 Upgrade Plan
@@ -176,9 +163,9 @@ export default function BillingPage() {
               <div className="text-sm text-blue-600 mb-3">
                 Your 30-day Team trial will begin when you add your first wallet. No syncing is active until then.
               </div>
-              <Button 
-                onClick={() => window.location.href = '/wallets'} 
-                size="sm" 
+              <Button
+                onClick={() => window.location.href = '/wallets'}
+                size="sm"
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Add Your First Wallet
@@ -240,10 +227,10 @@ export default function BillingPage() {
               <div className="text-sm text-orange-600 mb-3">
                 Your last payment failed and wallet syncing has been stopped immediately. Update your payment method to resume service.
               </div>
-              <Button 
+              <Button
                 onClick={handleManageBilling}
                 disabled={isPortalLoading}
-                size="sm" 
+                size="sm"
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -251,7 +238,7 @@ export default function BillingPage() {
               </Button>
             </div>
           )}
-          
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Badge variant="secondary" className="text-lg px-3 py-1">
@@ -317,8 +304,8 @@ export default function BillingPage() {
                 <div>
                   <div className="font-medium">Sync Interval</div>
                   <div className="text-sm text-muted-foreground">
-                    {limits.sync_interval_seconds < 60 
-                      ? `${limits.sync_interval_seconds}s` 
+                    {limits.sync_interval_seconds < 60
+                      ? `${limits.sync_interval_seconds}s`
                       : `${Math.round(limits.sync_interval_seconds / 60)}min`}
                   </div>
                 </div>
@@ -337,26 +324,21 @@ export default function BillingPage() {
           )}
         </CardContent>
       </Card>
-        </section>
 
-
-        {/* Plans Modal */}
-        <PlansModal
-          isOpen={showUpgradeModal}
-          onClose={() => setShowUpgradeModal(false)}
-          currentTier={currentTier}
-          currentWalletCount={billingStatus?.wallet_count || 0}
-          currentContactCount={billingStatus?.contact_count || 0}
-          limitType="wallets"
-          isTrialUser={isTrialUser}
-          billingStatus={billingStatus ? {
-            subscription_status: billingStatus.subscription_status,
-            stripe_customer_id: billingStatus.stripe_customer_id
-          } : undefined}
-        />
-      </div>
-      
-      <AppFooter />
+      {/* Plans Modal */}
+      <PlansModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        currentTier={currentTier}
+        currentWalletCount={billingStatus?.wallet_count || 0}
+        currentContactCount={billingStatus?.contact_count || 0}
+        limitType="wallets"
+        isTrialUser={isTrialUser}
+        billingStatus={billingStatus ? {
+          subscription_status: billingStatus.subscription_status,
+          stripe_customer_id: billingStatus.stripe_customer_id
+        } : undefined}
+      />
     </div>
   )
 }

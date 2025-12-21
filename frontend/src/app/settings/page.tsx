@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, CreditCard, Globe, Bell } from "lucide-react"
-import Link from "next/link"
+import { Globe, Bell } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -16,7 +15,7 @@ import { SUPPORTED_CURRENCIES } from "@/lib/currencies"
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading: authLoading, isCloudMode, billingStatus, user } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, isCloudMode, user } = useAuth()
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD')
   const [ntfyServerUrl, setNtfyServerUrl] = useState<string>('')
   const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>('')
@@ -194,19 +193,11 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-6">
-        <Link href="/wallets">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft size={16} />
-            Back to Wallets
-          </Button>
-        </Link>
-      </div>
+    <div className="space-y-6">
+      {/* Page Title */}
+      <h2 className="text-2xl font-semibold">Settings</h2>
 
-      <h1 className="text-3xl font-bold mb-8">Settings</h1>
-
-      <div className="space-y-6">
+      <div className="max-w-4xl space-y-6">
         {/* Display Preferences */}
         <Card>
           <CardHeader>
@@ -415,35 +406,6 @@ export default function SettingsPage() {
           </Card>
         )}
 
-        {/* Subscription Management */}
-        {isCloudMode && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Subscription
-              </CardTitle>
-              <CardDescription>
-                Manage your subscription and billing settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Current Plan</p>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {billingStatus?.subscription_tier || 'Personal'} Plan
-                    </p>
-                  </div>
-                  <Link href="/settings/subscription">
-                    <Button variant="outline">Manage Subscription</Button>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   )

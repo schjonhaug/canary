@@ -18,13 +18,13 @@ export default function BillingCancelPage() {
             You cancelled the payment process. No charges have been made to your account.
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {/* What happened */}
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <h3 className="font-semibold">What happened?</h3>
             <p className="text-sm text-muted-foreground">
-              You closed the payment window or clicked the back button during checkout. 
+              You closed the payment window or clicked the back button during checkout.
               Your subscription remains unchanged, and no payment was processed.
             </p>
           </div>
@@ -34,18 +34,18 @@ export default function BillingCancelPage() {
             <h3 className="font-semibold">What would you like to do?</h3>
             <div className="grid gap-3">
               <Button asChild>
-                <a href="/settings/subscription">
+                <a href="/subscription">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Try Again
                 </a>
               </Button>
-              
+
               <Button variant="outline" asChild>
                 <Link href="/wallets">
                   Continue with Current Plan
                 </Link>
               </Button>
-              
+
               <Button variant="outline" asChild>
                 <a href="mailto:support@canarybitcoin.com?subject=Billing Question&body=Hi, I was trying to upgrade my plan but cancelled the payment. Can you help me with...">
                   <MessageCircle className="mr-2 h-4 w-4" />

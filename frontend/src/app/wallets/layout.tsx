@@ -9,7 +9,6 @@ import { useWalletsList } from "@/hooks/useWalletsList"
 import { loadCanarySvg, getCachedCanarySvg } from "@/lib/utils"
 import { Wallet } from "@/types"
 import { WalletsContext } from "@/contexts/wallets-context"
-import { useAuth } from "@/contexts/auth-context"
 
 export default function WalletsLayout({
   children,
@@ -19,7 +18,6 @@ export default function WalletsLayout({
   const [walletSvg, setWalletSvg] = useState<string>("")
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null)
   const pathname = usePathname()
-  const { user, isCloudMode } = useAuth()
 
   // Check if we're on a wallet detail page (excludes main list and add pages)
   const isWalletDetailPage = pathname.startsWith('/wallets/') && pathname !== '/wallets' && !pathname.startsWith('/wallets/add')
@@ -45,17 +43,10 @@ export default function WalletsLayout({
     }
   }, [isWalletDetailPage, currentWallet?.hex_color])
 
-  // Determine if we should show the Add Wallet button in header
-  // Show on main wallets page (if has wallets) and detail pages, but not on add wallet page
-  const showAddWallet = !isAddWalletPage && (wallets.length > 0 || isWalletDetailPage) && !(isCloudMode && user?.is_admin) && !user?.is_demo
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <DemoBanner />
-      <AppHeader
-        showAddWallet={showAddWallet}
-        customLogo={isWalletDetailPage ? walletSvg : undefined}
-      />
+      <AppHeader customLogo={isWalletDetailPage ? walletSvg : undefined} />
 
       {/* Pass wallet data to children via React context */}
       <WalletsContext.Provider value={{ wallets, error, lastUpdate, isConnected, isLoading, currentWallet, setCurrentWallet, addWallet, refetchWallets }}>

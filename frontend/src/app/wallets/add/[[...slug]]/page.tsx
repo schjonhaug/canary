@@ -108,7 +108,7 @@ function ChooseStep({
   onSelectSampleWallet,
 }: ChooseStepProps) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <Breadcrumb {...breadcrumbProps} />
 
       <div className="max-w-3xl mx-auto space-y-8">

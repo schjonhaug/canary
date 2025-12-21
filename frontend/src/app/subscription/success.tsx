@@ -18,7 +18,7 @@ export default function BillingSuccessPage() {
   const { refreshBillingStatus } = useAuth()
   const { pricing } = usePricing()
   const discountPercent = pricing?.yearly_discount_percent || 20
-  
+
   const [sessionDetails, setSessionDetails] = useState<{
     session_id: string
     status: string
@@ -82,7 +82,7 @@ export default function BillingSuccessPage() {
             </p>
             <div className="flex gap-3 justify-center">
               <Button asChild>
-                <Link href="/settings/subscription">View Subscription</Link>
+                <Link href="/subscription">View Subscription</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/wallets">Go to Wallets</Link>
@@ -113,12 +113,12 @@ export default function BillingSuccessPage() {
             {isSuccessful ? 'Payment Successful!' : 'Payment Processing'}
           </CardTitle>
           <CardDescription>
-            {isSuccessful 
-              ? 'Your subscription has been updated successfully.' 
+            {isSuccessful
+              ? 'Your subscription has been updated successfully.'
               : 'Your payment is being processed. This may take a few minutes.'}
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {/* Payment Summary */}
           <div className="bg-muted/50 rounded-lg p-4 space-y-3">
@@ -128,7 +128,7 @@ export default function BillingSuccessPage() {
                 {tierName} {isYearly ? '(Yearly)' : '(Monthly)'}
               </Badge>
             </div>
-            
+
             {amount && (
               <div className="flex justify-between items-center">
                 <span className="font-medium">Amount Paid</span>
@@ -138,7 +138,7 @@ export default function BillingSuccessPage() {
                 </span>
               </div>
             )}
-            
+
             <div className="flex justify-between items-center">
               <span className="font-medium">Status</span>
               <Badge variant={isSuccessful ? "default" : "secondary"}>
@@ -181,7 +181,7 @@ export default function BillingSuccessPage() {
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/settings/subscription">Manage Subscription</Link>
+              <Link href="/subscription">Manage Subscription</Link>
             </Button>
           </div>
         </CardContent>

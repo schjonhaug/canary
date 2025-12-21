@@ -117,7 +117,7 @@ export default function WalletDetailPage() {
 
   if (isLoading && !wallet) {
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header Skeleton */}
         <section>
           <div className="flex items-center justify-between mb-4">
@@ -292,7 +292,7 @@ export default function WalletDetailPage() {
               : "This wallet exceeds your subscription tier limits and won't sync automatically."}{' '}
             Transaction history and balance shown may be outdated.
             <span className="block mt-2">
-              <Link href="/settings/subscription">
+              <Link href="/subscription">
                 <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
                   Upgrade Plan
                 </Button>
@@ -302,7 +302,7 @@ export default function WalletDetailPage() {
         </Alert>
       )}
       
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header Section */}
         <section>
           <div className="flex items-center justify-between mb-4">

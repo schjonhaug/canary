@@ -88,7 +88,7 @@ export default function WalletsPage() {
       {wallets.length === 0 ? (
         <WalletOnboarding user={user} />
       ) : (
-        <div className="mt-8 space-y-8">
+        <div className="space-y-8">
           {/* Wallet Cards Section */}
           <section>
             <div className="flex items-center justify-between mb-4">
