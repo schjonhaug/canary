@@ -9,7 +9,7 @@ use crate::handlers::{
     reset_password, send_contact_verification, submit_contact_form, update_user,
     update_user_preferences, update_wallet, update_wallet_contact, verify_contact, verify_email,
 };
-use crate::metadata::{Language, MetadataDb, WalletsListResponse};
+use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
 use crate::stripe_billing::StripeBilling;
 use crate::wallet::WalletCreationService;
@@ -18,8 +18,6 @@ use axum::{
     routing::{get, post, put},
     Router,
 };
-use phonenumber::PhoneNumber;
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
@@ -225,58 +223,6 @@ impl FromRef<AppState> for StripeBillingState {
 impl FromRef<AppState> for ConfigState {
     fn from_ref(state: &AppState) -> Self {
         state.config.clone()
-    }
-}
-
-/// Validates and normalizes a phone number
-pub(crate) fn validate_phone_number(phone: &str) -> Result<String, String> {
-    // Check if phone number starts with country code
-    if !phone.starts_with('+') {
-        return Err(
-            "Phone number must include country code (e.g., +1 for US, +44 for UK, +47 for Norway)"
-                .to_string(),
-        );
-    }
-
-    // Parse phone number using the phonenumber crate
-    let parsed_number =
-        PhoneNumber::from_str(phone).map_err(|_| "Invalid phone number format".to_string())?;
-
-    // Check if it's a valid number
-    if !parsed_number.is_valid() {
-        return Err("Invalid phone number".to_string());
-    }
-
-    // Return normalized E.164 format
-    Ok(parsed_number
-        .format()
-        .mode(phonenumber::Mode::E164)
-        .to_string())
-}
-
-/// Generates an ntfy topic from contact name, language, and wallet descriptor
-pub(crate) fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> String {
-    // Extract checksum from descriptor
-    let checksum = descriptor
-        .rfind('#')
-        .map(|i| &descriptor[i + 1..])
-        .unwrap_or("unknown");
-
-    // Sanitize name for topic
-    let sanitized_name = name
-        .to_lowercase()
-        .chars()
-        .map(|c| if c.is_alphanumeric() { c } else { '-' })
-        .collect::<String>()
-        .trim_matches('-')
-        .to_string();
-
-    // Combine into topic (max 64 chars)
-    let topic = format!("{}-{}-{}", sanitized_name, language.as_str(), checksum);
-    if topic.len() > 64 {
-        topic[..64].to_string()
-    } else {
-        topic
     }
 }
 

@@ -1,10 +1,13 @@
 //! Contact verification handlers
 
-use crate::api::{validate_phone_number, AppServicesState};
+use crate::api::AppServicesState;
 use crate::auth::{load_twilio_config_from_env, AuthService};
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
-use crate::models::{ErrorResponse, SendContactVerificationRequest, VerifyContactRequest, VerifyContactResponse};
+use crate::models::{
+    validate_phone_number, ErrorResponse, SendContactVerificationRequest, VerifyContactRequest,
+    VerifyContactResponse,
+};
 use axum::{
     extract::{Path, State},
     http::StatusCode,

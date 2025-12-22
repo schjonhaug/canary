@@ -1,11 +1,11 @@
 //! Contact management handlers
 
-use crate::api::{generate_ntfy_topic, validate_phone_number, AppServicesState};
+use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::metadata::ProviderType;
+use crate::metadata::{Language, ProviderType};
 use crate::models::{
-    CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
+    validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
     NotificationMethodRequest, UpdateContactRequest,
 };
 use crate::stripe_billing::StripeBilling;
@@ -17,6 +17,32 @@ use axum::{
 };
 use std::sync::Arc;
 use tracing::info;
+
+/// Generates an ntfy topic from contact name, language, and wallet descriptor
+fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> String {
+    // Extract checksum from descriptor
+    let checksum = descriptor
+        .rfind('#')
+        .map(|i| &descriptor[i + 1..])
+        .unwrap_or("unknown");
+
+    // Sanitize name for topic
+    let sanitized_name = name
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+
+    // Combine into topic (max 64 chars)
+    let topic = format!("{}-{}-{}", sanitized_name, language.as_str(), checksum);
+    if topic.len() > 64 {
+        topic[..64].to_string()
+    } else {
+        topic
+    }
+}
 
 /// Type alias for Stripe billing state
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
