@@ -24,7 +24,7 @@ use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletCreationService;
 use crate::xpub_converter::XpubConverter;
 use axum::{
-    extract::{Path, State},
+    extract::{FromRef, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
     routing::{get, post, put},
@@ -203,6 +203,43 @@ pub type AppServicesState = Arc<AppServices>; // New non-blocking architecture
 pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
+
+/// Unified application state for all handlers.
+/// Contains all state components and implements FromRef for each,
+/// allowing custom extractors (like AuthenticatedUser) to access specific state.
+#[derive(Clone)]
+pub struct AppState {
+    pub app_services: AppServicesState,
+    pub notification_manager: NotificationManagerState,
+    pub stripe_billing: StripeBillingState,
+    pub config: ConfigState,
+}
+
+// FromRef implementations allow extractors to access individual state components
+impl FromRef<AppState> for AppServicesState {
+    fn from_ref(state: &AppState) -> Self {
+        state.app_services.clone()
+    }
+}
+
+impl FromRef<AppState> for NotificationManagerState {
+    fn from_ref(state: &AppState) -> Self {
+        state.notification_manager.clone()
+    }
+}
+
+impl FromRef<AppState> for StripeBillingState {
+    fn from_ref(state: &AppState) -> Self {
+        state.stripe_billing.clone()
+    }
+}
+
+// ConfigState = Arc<AppConfig>, so this also enables AuthenticatedUser extractor
+impl FromRef<AppState> for ConfigState {
+    fn from_ref(state: &AppState) -> Self {
+        state.config.clone()
+    }
+}
 
 /// Validates and normalizes a phone number
 fn validate_phone_number(phone: &str) -> Result<String, String> {
