@@ -8,10 +8,17 @@ use crate::config::{AppConfig, NetworkConfig};
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::metadata::{
-    BalanceAlert, BalanceAlertType, Language, MetadataDb, ProviderType, WalletDetailResponse,
-    WalletMetadata, WalletsListResponse,
+    BalanceAlertType, Language, MetadataDb, ProviderType, WalletDetailResponse, WalletsListResponse,
 };
-use crate::notifications::{NotificationManager, ProviderInfo};
+use crate::models::{
+    BalanceAlertsResponse, BillingStatusResponse, BillingTierLimits, BlockHeaderResponse,
+    ContactFormRequest, ContactFormResponse, CreateBalanceAlertRequest,
+    CreateCheckoutSessionRequest, CreateContactResponse, CreateContactWithMethodsRequest,
+    CreateCustomerPortalRequest, CreateWalletRequest, CreateWalletResponse, ErrorResponse,
+    NotificationMethodRequest, ProvidersResponse, SendContactVerificationRequest,
+    UpdateContactRequest, UpdateWalletRequest, VerifyContactRequest, VerifyContactResponse,
+};
+use crate::notifications::NotificationManager;
 use crate::stripe_billing::StripeBilling;
 use crate::subscription::{check_limit, SubscriptionTier};
 use crate::wallet::WalletCreationService;
@@ -24,138 +31,12 @@ use axum::{
     Router,
 };
 use phonenumber::PhoneNumber;
-use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 use tracing::info;
 
-#[derive(Deserialize, Serialize)]
-pub struct CreateWalletRequest {
-    /// The name of the wallet
-    pub name: String,
-    /// The multipath output descriptor for the wallet or extended public key (XPUB)
-    pub descriptor: String,
-    /// The user's preferred language for notifications (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub preferred_language: Option<String>,
-    /// Whether this is a fresh wallet with no transaction history (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub is_fresh_wallet: Option<bool>,
-    /// Script type for XPUB wallets (required when is_fresh_wallet=true and descriptor is XPUB, optional for advanced settings)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub script_type: Option<String>,
-    /// Stop gap for advanced users (auto, 250, 500, 750, 1000)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stop_gap: Option<String>,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct UpdateWalletRequest {
-    /// The new name for the wallet
-    pub name: String,
-}
-
-#[derive(Serialize)]
-pub struct CreateWalletResponse {
-    /// Success message
-    pub message: String,
-    /// Created wallet metadata
-    pub wallet: WalletMetadata,
-}
-
-#[derive(Serialize)]
-pub struct ErrorResponse {
-    /// Error description
-    pub error: String,
-}
-
-#[derive(Serialize)]
-pub struct BlockHeaderResponse {
-    /// Block height
-    pub height: u32,
-    /// Block timestamp
-    pub timestamp: u64,
-    /// Network name (mainnet, testnet, regtest)
-    pub network: String,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct NotificationMethodRequest {
-    /// The provider type (sms or ntfy)
-    pub provider_type: ProviderType,
-    /// The notification target (phone number or ntfy topic)
-    pub notification_target: String,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct CreateContactWithMethodsRequest {
-    /// The name of the contact person
-    pub name: String,
-    /// The language preference for notifications
-    pub language: Language,
-    /// List of notification methods for this contact
-    pub notification_methods: Vec<NotificationMethodRequest>,
-}
-
-#[derive(Serialize)]
-pub struct CreateContactResponse {
-    /// Success message
-    pub message: String,
-    /// Contact ID
-    pub contact_id: String, // UUIDv4
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct SendContactVerificationRequest {
-    /// Contact name
-    pub name: String,
-    /// Language for notifications
-    pub language: String,
-    /// Phone number to verify (optional)
-    pub phone_number: Option<String>,
-    /// Email address to verify (optional)
-    pub email_address: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct ProvidersResponse {
-    /// Available notification providers
-    pub providers: Vec<ProviderInfo>,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct CreateBalanceAlertRequest {
-    /// Balance threshold in satoshis (Option 1: BTC threshold)
-    pub threshold_sats: Option<i64>,
-    /// Alert type (above, below, equals)
-    pub alert_type: BalanceAlertType,
-    /// Fiat currency code (Option 2: Fiat threshold)
-    pub threshold_currency: Option<String>, // e.g., "USD", "EUR"
-    /// Fiat amount when currency is set
-    pub threshold_fiat_amount: Option<f64>,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct ContactFormRequest {
-    /// The sender's email address
-    pub email: String,
-    /// The message content
-    pub message: String,
-}
-
-#[derive(Serialize)]
-pub struct ContactFormResponse {
-    /// Success message
-    pub message: String,
-}
-
-#[derive(Serialize)]
-pub struct BalanceAlertsResponse {
-    /// List of balance alerts for the wallet
-    pub alerts: Vec<BalanceAlert>,
-}
 
 // New architecture: Separate web serving from wallet sync operations
 pub struct AppServices {
@@ -322,52 +203,6 @@ pub type AppServicesState = Arc<AppServices>; // New non-blocking architecture
 pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
-
-// Stripe billing request/response structures
-#[derive(Deserialize, Serialize)]
-pub struct CreateCheckoutSessionRequest {
-    /// The subscription tier to purchase
-    pub tier: String,
-    /// Whether to use yearly billing (default is monthly)
-    pub is_yearly: Option<bool>,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct CreateCustomerPortalRequest {
-    /// Return URL after customer portal session
-    pub return_url: String,
-}
-
-#[derive(Serialize)]
-pub struct BillingTierLimits {
-    pub max_wallets: i32,             // -1 for unlimited
-    pub max_contacts_per_wallet: i32, // -1 for unlimited
-    pub sync_interval_seconds: u64,
-}
-
-#[derive(Serialize)]
-pub struct BillingStatusResponse {
-    /// User ID
-    pub user_id: String,
-    /// Current subscription tier
-    pub subscription_tier: String,
-    /// Subscription status (trial, active, expired, cancelled)
-    pub subscription_status: String,
-    /// Trial end date (if in trial)
-    pub trial_ends_at: Option<String>,
-    /// Subscription started date (if active)
-    pub subscription_started_at: Option<String>,
-    /// Subscription end date (for cancelled subscriptions)
-    pub subscription_ends_at: Option<String>,
-    /// Stripe customer ID
-    pub stripe_customer_id: Option<String>,
-    /// Current wallet count
-    pub wallet_count: usize,
-    /// Current contact count across all wallets
-    pub contact_count: usize,
-    /// Subscription tier limits
-    pub limits: BillingTierLimits,
-}
 
 /// Validates and normalizes a phone number
 fn validate_phone_number(phone: &str) -> Result<String, String> {
@@ -1595,16 +1430,6 @@ pub async fn delete_wallet_contact(
     }
 }
 
-#[derive(Deserialize, Serialize)]
-pub struct UpdateContactRequest {
-    /// Contact name
-    pub name: String,
-    /// Contact language
-    pub language: Language,
-    /// Notification methods for the contact
-    pub notification_methods: Vec<NotificationMethodRequest>,
-}
-
 pub async fn update_wallet_contact(
     State((app_services, _stripe_billing, config)): State<(
         AppServicesState,
@@ -2458,22 +2283,6 @@ pub async fn send_contact_verification(
     let elapsed = start_time.elapsed();
     info!("send_contact_verification completed in {:?}", elapsed);
     final_result
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct VerifyContactRequest {
-    /// Phone number being verified (optional)
-    pub phone_number: Option<String>,
-    /// Email address being verified (optional)
-    pub email_address: Option<String>,
-    /// Verification code
-    pub code: String,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct VerifyContactResponse {
-    pub valid: bool,
-    pub message: String,
 }
 
 pub async fn verify_contact(
