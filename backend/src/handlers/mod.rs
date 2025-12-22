@@ -3,6 +3,7 @@
 mod balance_alerts;
 mod blockchain;
 mod contact;
+mod contact_verification;
 mod providers;
 mod user_preferences;
 mod wallet;
@@ -14,6 +15,7 @@ pub use blockchain::{get_current_block_header, get_exchange_rates};
 pub use contact::{
     create_wallet_contact, delete_wallet_contact, get_wallet_contacts, update_wallet_contact,
 };
+pub use contact_verification::{send_contact_verification, verify_contact};
 pub use providers::get_providers;
 pub use user_preferences::{get_user_preferences, update_user_preferences};
 pub use wallet::{
