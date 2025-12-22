@@ -1,5 +1,6 @@
 //! API request handlers organized by domain
 
+mod auth;
 mod balance_alerts;
 mod billing;
 mod blockchain;
@@ -9,6 +10,10 @@ mod providers;
 mod user_preferences;
 mod wallet;
 
+pub use auth::{
+    demo_login, forgot_password, login, logout, me, register, reset_password, submit_contact_form,
+    update_user, verify_email,
+};
 pub use balance_alerts::{
     create_wallet_balance_alert, delete_balance_alert, get_wallet_balance_alerts,
 };
