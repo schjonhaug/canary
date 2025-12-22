@@ -1,8 +1,9 @@
 use crate::admin_notifications::AdminNotifications;
+use crate::handlers::{get_providers, get_user_preferences, update_user_preferences};
 use crate::auth::{
     authenticate_user, load_twilio_config_from_env, AuthResponse, AuthService, AuthUser,
     AuthUserResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
-    UpdateUserPreferencesRequest, UpdateUserRequest, UpdateUserResponse, UserPreferencesResponse,
+    UpdateUserRequest, UpdateUserResponse,
 };
 use crate::config::{AppConfig, NetworkConfig};
 use crate::email_service::EmailService;
@@ -15,8 +16,8 @@ use crate::models::{
     ContactFormRequest, ContactFormResponse, CreateBalanceAlertRequest,
     CreateCheckoutSessionRequest, CreateContactResponse, CreateContactWithMethodsRequest,
     CreateCustomerPortalRequest, CreateWalletRequest, CreateWalletResponse, ErrorResponse,
-    NotificationMethodRequest, ProvidersResponse, SendContactVerificationRequest,
-    UpdateContactRequest, UpdateWalletRequest, VerifyContactRequest, VerifyContactResponse,
+    NotificationMethodRequest, SendContactVerificationRequest, UpdateContactRequest,
+    UpdateWalletRequest, VerifyContactRequest, VerifyContactResponse,
 };
 use crate::notifications::NotificationManager;
 use crate::stripe_billing::StripeBilling;
@@ -3903,15 +3904,6 @@ pub async fn update_user(
     Json(UpdateUserResponse { user: user_info }).into_response()
 }
 
-pub async fn get_providers(
-    State(notification_manager): State<NotificationManagerState>,
-) -> Response {
-    #[allow(unused_mut)]
-    let mut manager = notification_manager.lock().await;
-    let providers = manager.list_providers();
-    (StatusCode::OK, Json(ProvidersResponse { providers })).into_response()
-}
-
 // Stripe billing endpoints
 pub async fn create_stripe_checkout_session(
     State((app_services, stripe_billing)): State<(AppServicesState, StripeBillingState)>,
@@ -4590,6 +4582,14 @@ pub fn create_router_with_services(
 ) -> Router {
     let config_state = Arc::new(config);
 
+    // Create unified AppState for handlers that use the AuthenticatedUser extractor
+    let app_state = AppState {
+        app_services: app_services.clone(),
+        notification_manager: notification_manager.clone(),
+        stripe_billing: stripe_billing.clone(),
+        config: config_state.clone(),
+    };
+
     // Auth routes (public) - only routes that still use wallet_manager
     // AppServices routes (non-blocking, metadata operations only)
     let app_routes_2param = Router::new()
@@ -4615,6 +4615,14 @@ pub fn create_router_with_services(
         ));
 
     // Delete wallet route moved to app_services_routes for non-blocking operation
+
+    // Routes using unified AppState with AuthenticatedUser extractor
+    let app_state_routes = Router::new()
+        .route(
+            "/user/preferences",
+            get(get_user_preferences).put(update_user_preferences),
+        )
+        .with_state(app_state.clone());
 
     let provider_routes = Router::new()
         .route("/providers", get(get_providers))
@@ -4678,10 +4686,6 @@ pub fn create_router_with_services(
     let app_routes_auth = Router::new()
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
-        .route(
-            "/user/preferences",
-            get(get_user_preferences).put(update_user_preferences),
-        )
         .route("/billing/status", get(get_billing_status))
         .with_state((
             app_services.clone(),
@@ -4693,276 +4697,13 @@ pub fn create_router_with_services(
         .merge(app_routes_3param)
         .merge(app_routes_metadata)
         .merge(app_routes_auth)
+        .merge(app_state_routes)
         .merge(provider_routes)
         .merge(stripe_routes);
 
     Router::new()
         .nest("/api", api_routes)
         .layer(CorsLayer::permissive())
-}
-
-pub async fn get_user_preferences(
-    State((app_services, _stripe_billing, config)): State<(
-        AppServicesState,
-        StripeBillingState,
-        ConfigState,
-    )>,
-    headers: HeaderMap,
-) -> Response {
-    // Authenticate user (works in both cloud and self-hosted mode)
-    let user = match authenticate_user_mode_aware(
-        &config,
-        headers.get("authorization").and_then(|h| h.to_str().ok()),
-    ) {
-        Ok(user) => user,
-        Err(err) => {
-            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
-        }
-    };
-
-    // Get user's preferred currency
-    let currency = match app_services
-        .metadata_db
-        .get_user_preferred_currency(&user.user_id)
-        .await
-    {
-        Ok(currency) => currency,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get user preferences: {}", e),
-                }),
-            )
-                .into_response();
-        }
-    };
-
-    // Get user's ntfy server URL preference
-    let ntfy_server_url = match app_services
-        .metadata_db
-        .get_user_ntfy_server_url(&user.user_id)
-        .await
-    {
-        Ok(url) => url,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get user preferences: {}", e),
-                }),
-            )
-                .into_response();
-        }
-    };
-
-    // Get ntfy authentication status (don't expose actual credentials)
-    let (ntfy_has_access_token, ntfy_has_credentials, ntfy_username) = match app_services
-        .metadata_db
-        .get_user_ntfy_auth(&user.user_id)
-        .await
-    {
-        Ok((access_token, username, password)) => (
-            access_token.is_some(),
-            username.is_some() && password.is_some(),
-            username,
-        ),
-        Err(_) => (false, false, None),
-    };
-
-    Json(UserPreferencesResponse {
-        preferred_fiat_currency: currency,
-        ntfy_server_url,
-        ntfy_has_access_token,
-        ntfy_has_credentials,
-        ntfy_username,
-    })
-    .into_response()
-}
-
-pub async fn update_user_preferences(
-    State((app_services, _stripe_billing, config)): State<(
-        AppServicesState,
-        StripeBillingState,
-        ConfigState,
-    )>,
-    headers: HeaderMap,
-    Json(request): Json<UpdateUserPreferencesRequest>,
-) -> Response {
-    // Authenticate user (works in both cloud and self-hosted mode)
-    let user = match authenticate_user_mode_aware(
-        &config,
-        headers.get("authorization").and_then(|h| h.to_str().ok()),
-    ) {
-        Ok(user) => user,
-        Err(err) => {
-            return (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: err })).into_response();
-        }
-    };
-
-    // Reject demo users from updating preferences
-    if let Err(response) = reject_if_demo(&user) {
-        return response;
-    }
-
-    // Update preferred_fiat_currency if provided
-    let current_currency = if let Some(ref currency) = request.preferred_fiat_currency {
-        // Validate currency is supported
-        if !exchange_rates::SUPPORTED_CURRENCIES.contains(&currency.as_str()) {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: format!("Unsupported currency: {}", currency),
-                }),
-            )
-                .into_response();
-        }
-
-        // Update user's preferred currency
-        if let Err(e) = app_services
-            .metadata_db
-            .update_user_preferred_currency(&user.user_id, currency)
-            .await
-        {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to update preferences: {}", e),
-                }),
-            )
-                .into_response();
-        }
-        currency.clone()
-    } else {
-        // Get current currency
-        app_services
-            .metadata_db
-            .get_user_preferred_currency(&user.user_id)
-            .await
-            .unwrap_or_else(|_| "USD".to_string())
-    };
-
-    // Update ntfy_server_url if the field was provided in the request
-    // Note: We check if the outer Option is Some (field was in JSON)
-    // The inner value can be Some(url) to set, or could be empty string to clear
-    let current_ntfy_url = if let Some(ref ntfy_url) = request.ntfy_server_url {
-        // Validate URL format if not empty
-        let url_to_store = if ntfy_url.is_empty() {
-            None
-        } else {
-            // Basic URL validation
-            if !ntfy_url.starts_with("http://") && !ntfy_url.starts_with("https://") {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse {
-                        error: "ntfy server URL must start with http:// or https://".to_string(),
-                    }),
-                )
-                    .into_response();
-            }
-            Some(ntfy_url.as_str())
-        };
-
-        if let Err(e) = app_services
-            .metadata_db
-            .update_user_ntfy_server_url(&user.user_id, url_to_store)
-            .await
-        {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to update ntfy server URL: {}", e),
-                }),
-            )
-                .into_response();
-        }
-        url_to_store.map(|s| s.to_string())
-    } else {
-        // Get current ntfy URL
-        app_services
-            .metadata_db
-            .get_user_ntfy_server_url(&user.user_id)
-            .await
-            .unwrap_or(None)
-    };
-
-    // Update ntfy authentication if any auth fields were provided
-    // Access token takes precedence - if set, it clears username/password
-    // Username/password are set together - both required
-    let should_update_auth = request.ntfy_access_token.is_some()
-        || request.ntfy_username.is_some()
-        || request.ntfy_password.is_some();
-
-    if should_update_auth {
-        let (access_token, username, password) = if let Some(ref token) = request.ntfy_access_token
-        {
-            // Access token auth - clear username/password
-            let token = if token.is_empty() { None } else { Some(token.as_str()) };
-            (token, None, None)
-        } else if request.ntfy_username.is_some() || request.ntfy_password.is_some() {
-            // Basic auth - both username and password required
-            let username = request.ntfy_username.as_deref();
-            let password = request.ntfy_password.as_deref();
-
-            // Allow clearing by setting both to empty
-            let is_clearing = username.is_none_or(|u| u.is_empty())
-                && password.is_none_or(|p| p.is_empty());
-
-            if is_clearing {
-                (None, None, None)
-            } else if username.is_none() || password.is_none() {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse {
-                        error: "Both ntfy_username and ntfy_password are required for Basic auth"
-                            .to_string(),
-                    }),
-                )
-                    .into_response();
-            } else {
-                (None, username, password)
-            }
-        } else {
-            (None, None, None)
-        };
-
-        if let Err(e) = app_services
-            .metadata_db
-            .update_user_ntfy_auth(&user.user_id, access_token, username, password)
-            .await
-        {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to update ntfy authentication: {}", e),
-                }),
-            )
-                .into_response();
-        }
-    }
-
-    // Get current ntfy auth status for response
-    let (ntfy_has_access_token, ntfy_has_credentials, ntfy_username) = match app_services
-        .metadata_db
-        .get_user_ntfy_auth(&user.user_id)
-        .await
-    {
-        Ok((access_token, username, password)) => (
-            access_token.is_some(),
-            username.is_some() && password.is_some(),
-            username,
-        ),
-        Err(_) => (false, false, None),
-    };
-
-    Json(UserPreferencesResponse {
-        preferred_fiat_currency: current_currency,
-        ntfy_server_url: current_ntfy_url,
-        ntfy_has_access_token,
-        ntfy_has_credentials,
-        ntfy_username,
-    })
-    .into_response()
 }
 
 pub async fn get_exchange_rates(
