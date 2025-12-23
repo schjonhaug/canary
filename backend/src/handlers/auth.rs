@@ -850,10 +850,7 @@ pub async fn reset_password(
 }
 
 /// Logout endpoint
-pub async fn logout(
-    State(app_services): State<AppServicesState>,
-    headers: HeaderMap,
-) -> Response {
+pub async fn logout(State(app_services): State<AppServicesState>, headers: HeaderMap) -> Response {
     let start_time = std::time::Instant::now();
 
     // Get the token from the Authorization header

@@ -22,7 +22,6 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
-
 // New architecture: Separate web serving from wallet sync operations
 pub struct AppServices {
     pub metadata_db: MetadataDb, // Fast access for web endpoints (no mutex needed)
@@ -325,9 +324,7 @@ pub fn create_router_with_services(
         Router::new() // Empty router if Stripe not configured
     };
 
-    let api_routes = app_state_routes
-        .merge(provider_routes)
-        .merge(stripe_routes);
+    let api_routes = app_state_routes.merge(provider_routes).merge(stripe_routes);
 
     Router::new()
         .nest("/api", api_routes)

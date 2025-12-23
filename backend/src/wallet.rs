@@ -724,7 +724,9 @@ impl WalletManager {
 
         // Add wallet to in-memory storage after it's fully set up and marked as ready
         if let Ok((wallet, conn)) = Self::load_wallet_from_disk(&wallet_path, network).await {
-            wallet_manager.register_wallet(checksum.clone(), wallet, conn).await;
+            wallet_manager
+                .register_wallet(checksum.clone(), wallet, conn)
+                .await;
         } else {
             error!(
                 "[{}] Failed to load wallet into memory after creation",

@@ -153,7 +153,14 @@ async fn test_balance_alert_types() {
         .unwrap();
 
     let _equals_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            0,
+            BalanceAlertType::Equals,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -214,7 +221,14 @@ async fn test_balance_alert_edge_cases() {
 
     // Test 2: Zero threshold handling
     let zero_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            0,
+            BalanceAlertType::Equals,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -242,7 +256,14 @@ async fn test_balance_alert_wallet_isolation() {
 
     // Create two different wallets
     let user1_id = metadata_db
-        .create_user("user1@example.com", "hash", Some("User 1"), false, None, None)
+        .create_user(
+            "user1@example.com",
+            "hash",
+            Some("User 1"),
+            false,
+            None,
+            None,
+        )
         .await
         .unwrap();
     let wallet1_checksum = metadata_db
@@ -251,7 +272,14 @@ async fn test_balance_alert_wallet_isolation() {
         .unwrap();
 
     let user2_id = metadata_db
-        .create_user("user2@example.com", "hash", Some("User 2"), false, None, None)
+        .create_user(
+            "user2@example.com",
+            "hash",
+            Some("User 2"),
+            false,
+            None,
+            None,
+        )
         .await
         .unwrap();
     let wallet2_checksum = metadata_db
@@ -521,7 +549,14 @@ async fn test_wallet_drain_alert_special_case() {
 
     // Create wallet drain alert (balance = 0)
     let drain_alert = metadata_db
-        .create_balance_alert(&wallet_checksum, 0, BalanceAlertType::Equals, None, None, None)
+        .create_balance_alert(
+            &wallet_checksum,
+            0,
+            BalanceAlertType::Equals,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
 

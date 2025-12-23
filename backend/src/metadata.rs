@@ -377,7 +377,6 @@ impl Default for TransactionInsert {
     }
 }
 
-
 /// Extract checksum from a Bitcoin descriptor
 fn extract_checksum(descriptor: &str) -> String {
     if let Some(start) = descriptor.rfind('#') {

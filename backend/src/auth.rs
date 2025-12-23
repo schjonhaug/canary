@@ -19,8 +19,8 @@ pub fn load_twilio_config_from_env() -> Result<TwilioConfig> {
     let auth_token =
         std::env::var("TWILIO_AUTH_TOKEN").map_err(|_| anyhow!("TWILIO_AUTH_TOKEN not set"))?;
 
-    let sender_id = std::env::var("TWILIO_SENDER_ID")
-        .map_err(|_| anyhow!("TWILIO_SENDER_ID not set"))?;
+    let sender_id =
+        std::env::var("TWILIO_SENDER_ID").map_err(|_| anyhow!("TWILIO_SENDER_ID not set"))?;
 
     let verify_service_sid = std::env::var("TWILIO_VERIFY_SERVICE_SID").ok();
 

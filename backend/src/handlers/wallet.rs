@@ -5,7 +5,9 @@ use crate::api::AppServicesState;
 use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::metadata::{Language, ProviderType, WalletDetailResponse};
-use crate::models::{CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest};
+use crate::models::{
+    CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
+};
 use crate::stripe_billing::StripeBilling;
 use crate::subscription::check_limit;
 use crate::xpub_converter::XpubConverter;

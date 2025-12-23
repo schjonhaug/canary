@@ -63,8 +63,9 @@ impl EmailService {
             || language.to_lowercase().starts_with("nb")
             || language.to_lowercase().starts_with("nn");
 
-        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) = if is_norwegian {
-            (
+        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) =
+            if is_norwegian {
+                (
                 "Bekreft e-postadressen din - Canary",
                 "Velkommen til Canary!",
                 format!("Hei {},", to_name),
@@ -74,8 +75,8 @@ impl EmailService {
                 "Denne bekreftelseslenken utløper om 24 timer. Hvis du ikke opprettet en konto, kan du trygt ignorere denne e-posten.",
                 "Dette varselet ble sendt av Canary",
             )
-        } else {
-            (
+            } else {
+                (
                 "Verify Your Email - Canary",
                 "Welcome to Canary!",
                 format!("Hi {},", to_name),
@@ -85,7 +86,7 @@ impl EmailService {
                 "This verification link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.",
                 "This notification was sent by Canary",
             )
-        };
+            };
 
         let html_body = format!(
             r#"
@@ -188,8 +189,9 @@ impl EmailService {
             || language.to_lowercase().starts_with("nb")
             || language.to_lowercase().starts_with("nn");
 
-        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) = if is_norwegian {
-            (
+        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) =
+            if is_norwegian {
+                (
                 "Tilbakestill passordet ditt - Canary",
                 "Tilbakestill passordet ditt",
                 format!("Hei {},", to_name),
@@ -199,8 +201,8 @@ impl EmailService {
                 "Denne tilbakestillingslenken utløper om 1 time. Hvis du ikke ba om å tilbakestille passordet, kan du trygt ignorere denne e-posten.",
                 "Dette varselet ble sendt av Canary",
             )
-        } else {
-            (
+            } else {
+                (
                 "Reset Your Password - Canary",
                 "Reset Your Password",
                 format!("Hi {},", to_name),
@@ -210,7 +212,7 @@ impl EmailService {
                 "This reset link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.",
                 "This notification was sent by Canary",
             )
-        };
+            };
 
         let html_body = format!(
             r#"
@@ -462,7 +464,10 @@ Your verification code is: {otp_code}
                 "Your Canary trial ends in 3 days",
                 "Your Trial is Ending Soon",
                 format!("Hi {},", to_name),
-                format!("Your 30-day Canary Team trial will end in 3 days on <strong>{}</strong>.", trial_ends_at),
+                format!(
+                    "Your 30-day Canary Team trial will end in 3 days on <strong>{}</strong>.",
+                    trial_ends_at
+                ),
                 "What happens when your trial ends?",
                 "Wallet syncing will stop",
                 "Notifications will stop",
@@ -476,9 +481,15 @@ Your verification code is: {otp_code}
         };
 
         let body_text_plain = if is_norwegian {
-            format!("Din 30-dagers Canary Team-prøveperiode utløper om 3 dager, den {}.", trial_ends_at)
+            format!(
+                "Din 30-dagers Canary Team-prøveperiode utløper om 3 dager, den {}.",
+                trial_ends_at
+            )
         } else {
-            format!("Your 30-day Canary Team trial will end in 3 days on {}.", trial_ends_at)
+            format!(
+                "Your 30-day Canary Team trial will end in 3 days on {}.",
+                trial_ends_at
+            )
         };
 
         let continue_text = if is_norwegian {

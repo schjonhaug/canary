@@ -305,9 +305,7 @@ pub async fn get_billing_status(
 }
 
 /// Get pricing information from Stripe (no auth required)
-pub async fn get_billing_pricing(
-    State(stripe_billing): State<StripeBillingState>,
-) -> Response {
+pub async fn get_billing_pricing(State(stripe_billing): State<StripeBillingState>) -> Response {
     // Get Stripe billing from state
     let stripe_billing = match stripe_billing.as_ref() {
         Some(billing) => billing.as_ref(),

@@ -179,7 +179,11 @@ pub async fn update_user_preferences(
         let (access_token, username, password) = if let Some(ref token) = request.ntfy_access_token
         {
             // Access token auth - clear username/password
-            let token = if token.is_empty() { None } else { Some(token.as_str()) };
+            let token = if token.is_empty() {
+                None
+            } else {
+                Some(token.as_str())
+            };
             (token, None, None)
         } else if request.ntfy_username.is_some() || request.ntfy_password.is_some() {
             // Basic auth - both username and password required
@@ -187,8 +191,8 @@ pub async fn update_user_preferences(
             let password = request.ntfy_password.as_deref();
 
             // Allow clearing by setting both to empty
-            let is_clearing = username.is_none_or(|u| u.is_empty())
-                && password.is_none_or(|p| p.is_empty());
+            let is_clearing =
+                username.is_none_or(|u| u.is_empty()) && password.is_none_or(|p| p.is_empty());
 
             if is_clearing {
                 (None, None, None)
