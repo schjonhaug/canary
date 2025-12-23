@@ -21,6 +21,7 @@ mod stripe_client_service;
 mod subscription;
 mod sync;
 mod twilio_provider;
+mod utils;
 mod wallet;
 mod xpub_converter;
 

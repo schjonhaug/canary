@@ -24,6 +24,7 @@ pub mod stripe_client_service;
 pub mod subscription;
 pub mod sync;
 pub mod twilio_provider;
+pub mod utils;
 pub mod wallet;
 pub mod xpub_converter;
 
@@ -48,6 +49,7 @@ pub use stripe_billing::{
     PricingInfo, StripeBilling,
 };
 pub use twilio_provider::TwilioProvider;
+pub use utils::{parse_multipath_descriptor, strip_key_origin};
 pub use wallet::{WalletCreationService, WalletManager};
 pub use xpub_converter::{ScriptType, XpubConverter};
 
