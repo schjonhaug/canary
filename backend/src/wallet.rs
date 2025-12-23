@@ -24,8 +24,8 @@ pub struct WalletCreationService {
     metadata_db: MetadataDb,
     electrum_client: Option<ElectrumClient>,
     network: Network,
-    // Reference to in-memory wallet storage for adding new wallets
-    wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
+    // Reference to WalletManager for registering new wallets
+    wallet_manager: Arc<WalletManager>,
 }
 
 impl WalletCreationService {
@@ -34,14 +34,14 @@ impl WalletCreationService {
         metadata_db: MetadataDb,
         electrum_client: Option<ElectrumClient>,
         network: Network,
-        wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
+        wallet_manager: Arc<WalletManager>,
     ) -> Self {
         Self {
             wallet_dir,
             metadata_db,
             electrum_client,
             network,
-            wallets,
+            wallet_manager,
         }
     }
 
@@ -148,7 +148,7 @@ impl WalletCreationService {
         let network = self.network;
         let checksum_clone = checksum.clone();
         let stop_gap_clone = stop_gap.map(|s| s.to_string());
-        let wallets_clone = self.wallets.clone();
+        let wallet_manager_clone = self.wallet_manager.clone();
         let wallet_path_clone = wallet_path.clone();
 
         tokio::spawn(async move {
@@ -166,7 +166,7 @@ impl WalletCreationService {
                 checksum_clone.clone(),
                 is_fresh_wallet,
                 stop_gap_clone.as_deref(),
-                wallets_clone,
+                wallet_manager_clone,
             )
             .await
             {
@@ -269,7 +269,7 @@ impl WalletCreationService {
         let network = self.network;
         let checksum_clone = checksum.clone();
         let stop_gap_clone = stop_gap.map(|s| s.to_string());
-        let wallets_clone = self.wallets.clone();
+        let wallet_manager_clone = self.wallet_manager.clone();
         let wallet_path_clone = wallet_path.clone();
 
         tokio::spawn(async move {
@@ -287,7 +287,7 @@ impl WalletCreationService {
                 checksum_clone.clone(),
                 true, // Fresh wallet for XPUB with known type
                 stop_gap_clone.as_deref(),
-                wallets_clone,
+                wallet_manager_clone,
             )
             .await
             {
@@ -421,6 +421,22 @@ impl WalletManager {
         }
     }
 
+    /// Register a newly created wallet into the in-memory storage.
+    /// Called by WalletCreationService after background wallet setup completes.
+    pub async fn register_wallet(
+        &self,
+        checksum: String,
+        wallet: PersistedWallet<Connection>,
+        conn: Connection,
+    ) {
+        let mut wallets_map = self.wallets.lock().await;
+        wallets_map.insert(checksum.clone(), Arc::new(Mutex::new((wallet, conn))));
+        debug!(
+            "[{}] Added newly created wallet to in-memory storage",
+            checksum
+        );
+    }
+
     /// Strip key origin information from descriptor to prevent duplicates.
     /// Static version of strip_key_origin for use without WalletManager instance.
     pub fn strip_key_origin_static(descriptor_str: &str) -> Result<String> {
@@ -503,7 +519,7 @@ impl WalletManager {
         checksum: String,
         is_fresh_wallet: bool,
         stop_gap: Option<&str>,
-        wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
+        wallet_manager: Arc<WalletManager>,
     ) -> Result<()> {
         debug!(
             "[{}] Starting background wallet creation with stop gap: {:?}",
@@ -708,12 +724,7 @@ impl WalletManager {
 
         // Add wallet to in-memory storage after it's fully set up and marked as ready
         if let Ok((wallet, conn)) = Self::load_wallet_from_disk(&wallet_path, network).await {
-            let mut wallets_map = wallets.lock().await;
-            wallets_map.insert(checksum.clone(), Arc::new(Mutex::new((wallet, conn))));
-            debug!(
-                "[{}] Added newly created wallet to in-memory storage after full setup",
-                checksum
-            );
+            wallet_manager.register_wallet(checksum.clone(), wallet, conn).await;
         } else {
             error!(
                 "[{}] Failed to load wallet into memory after creation",

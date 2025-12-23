@@ -33,7 +33,7 @@ async fn create_test_app() -> axum::Router {
         broadcast::channel::<canary::metadata::TransactionNotification>(100);
     let _current_block_header = Arc::new(Mutex::new(None::<canary::electrum::BlockHeader>));
 
-    let wallet_manager = Arc::new(Mutex::new(
+    let wallet_manager = Arc::new(
         WalletManager::new(
             event_tx.clone(),
             temp_path.into(),
@@ -43,21 +43,20 @@ async fn create_test_app() -> axum::Router {
             &test_config,
         )
         .await,
-    ));
+    );
 
     // Create AppServices for non-blocking architecture
     let app_services = {
-        let manager = wallet_manager.lock().await;
-        let electrum_client = manager.get_electrum_client().await;
+        let electrum_client = wallet_manager.get_electrum_client().await;
         let wallet_creation_service = WalletCreationService::new(
-            manager.wallet_dir.clone(),
-            manager.metadata_db.clone(),
+            wallet_manager.wallet_dir.clone(),
+            wallet_manager.metadata_db.clone(),
             electrum_client,
-            manager.get_network(),
-            manager.wallets.clone(),
+            wallet_manager.get_network(),
+            wallet_manager.clone(),
         );
         Arc::new(AppServices {
-            metadata_db: manager.metadata_db.clone(),
+            metadata_db: wallet_manager.metadata_db.clone(),
             wallet_creation_service,
         })
     };

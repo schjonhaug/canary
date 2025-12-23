@@ -166,7 +166,7 @@ async fn main() -> anyhow::Result<()> {
             wallet_manager.metadata_db.clone(),
             electrum_client,
             wallet_manager.get_network(),
-            wallet_manager.wallets.clone(), // Pass reference to in-memory wallet storage
+            wallet_manager.clone(), // Pass WalletManager for registering new wallets
         );
         Arc::new(api::AppServices {
             metadata_db: wallet_manager.metadata_db.clone(),

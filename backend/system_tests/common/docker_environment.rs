@@ -6,6 +6,7 @@ use canary::wallet::WalletManager;
 use serde_json::{self, Value};
 use std::fs;
 use std::process::Command;
+use std::sync::Arc;
 use std::time::Duration;
 use tempfile::tempdir;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -20,7 +21,7 @@ pub const SYNC_WAIT_MS: u64 = 15000; // Time to wait for mempool propagation and
 #[allow(dead_code)] // charlie_checksum and bitcoin_rpc_port used in other test files
 pub struct IsolatedTestEnvironment {
     pub metadata_db: MetadataDb,
-    pub wallet_manager: WalletManager,
+    pub wallet_manager: Arc<WalletManager>,
     _temp_dir: tempfile::TempDir,
     pub alice_checksum: String,
     pub bob_checksum: String,
@@ -141,15 +142,17 @@ impl IsolatedTestEnvironment {
         let (notification_sender, _notification_receiver) =
             broadcast::channel::<TransactionNotification>(100);
 
-        let wallet_manager = WalletManager::new(
-            notification_sender,
-            wallet_dir,
-            &db_path.to_string_lossy(),
-            bdk_wallet::bitcoin::Network::Regtest,
-            &format!("tcp://127.0.0.1:{}", fulcrum_port),
-            &test_config,
-        )
-        .await;
+        let wallet_manager = Arc::new(
+            WalletManager::new(
+                notification_sender,
+                wallet_dir,
+                &db_path.to_string_lossy(),
+                bdk_wallet::bitcoin::Network::Regtest,
+                &format!("tcp://127.0.0.1:{}", fulcrum_port),
+                &test_config,
+            )
+            .await,
+        );
 
         // Create AppServices to access wallet creation service
         let wallet_creation_service = canary::wallet::WalletCreationService::new(
@@ -157,7 +160,7 @@ impl IsolatedTestEnvironment {
             metadata_db.clone(),
             wallet_manager.get_electrum_client().await,
             wallet_manager.get_network(),
-            wallet_manager.wallets.clone(),
+            wallet_manager.clone(),
         );
         let app_services = AppServices {
             metadata_db: metadata_db.clone(),
@@ -299,15 +302,17 @@ impl IsolatedTestEnvironment {
         let (notification_sender, _notification_receiver) =
             broadcast::channel::<TransactionNotification>(100);
 
-        let wallet_manager = WalletManager::new(
-            notification_sender,
-            wallet_dir,
-            &db_path.to_string_lossy(),
-            bdk_wallet::bitcoin::Network::Regtest,
-            &format!("tcp://127.0.0.1:{}", fulcrum_port),
-            &test_config,
-        )
-        .await;
+        let wallet_manager = Arc::new(
+            WalletManager::new(
+                notification_sender,
+                wallet_dir,
+                &db_path.to_string_lossy(),
+                bdk_wallet::bitcoin::Network::Regtest,
+                &format!("tcp://127.0.0.1:{}", fulcrum_port),
+                &test_config,
+            )
+            .await,
+        );
 
         // Create AppServices to access wallet creation service
         let wallet_creation_service = canary::wallet::WalletCreationService::new(
@@ -315,7 +320,7 @@ impl IsolatedTestEnvironment {
             metadata_db.clone(),
             wallet_manager.get_electrum_client().await,
             wallet_manager.get_network(),
-            wallet_manager.wallets.clone(),
+            wallet_manager.clone(),
         );
         let app_services = AppServices {
             metadata_db: metadata_db.clone(),
