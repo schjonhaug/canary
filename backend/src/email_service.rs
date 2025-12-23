@@ -9,6 +9,7 @@ pub struct EmailConfig {
     pub resend_api_key: String,
     pub resend_from_email: String,
     pub resend_from_name: String,
+    pub frontend_url: String,
 }
 
 impl EmailConfig {
@@ -19,11 +20,14 @@ impl EmailConfig {
             .map_err(|_| anyhow!("RESEND_FROM_EMAIL environment variable not set"))?;
         let resend_from_name = std::env::var("RESEND_FROM_NAME")
             .unwrap_or_else(|_| "Canary Bitcoin Wallet".to_string());
+        let frontend_url = std::env::var("FRONTEND_URL")
+            .map_err(|_| anyhow!("FRONTEND_URL environment variable not set"))?;
 
         Ok(Self {
             resend_api_key,
             resend_from_email,
             resend_from_name,
+            frontend_url,
         })
     }
 }
@@ -54,8 +58,7 @@ impl EmailService {
     ) -> Result<()> {
         let verification_url = format!(
             "{}/verify-email/{}",
-            std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set"),
-            verification_token
+            self.config.frontend_url, verification_token
         );
 
         // Detect Norwegian language
@@ -63,8 +66,9 @@ impl EmailService {
             || language.to_lowercase().starts_with("nb")
             || language.to_lowercase().starts_with("nn");
 
-        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) = if is_norwegian {
-            (
+        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) =
+            if is_norwegian {
+                (
                 "Bekreft e-postadressen din - Canary",
                 "Velkommen til Canary!",
                 format!("Hei {},", to_name),
@@ -74,8 +78,8 @@ impl EmailService {
                 "Denne bekreftelseslenken utløper om 24 timer. Hvis du ikke opprettet en konto, kan du trygt ignorere denne e-posten.",
                 "Dette varselet ble sendt av Canary",
             )
-        } else {
-            (
+            } else {
+                (
                 "Verify Your Email - Canary",
                 "Welcome to Canary!",
                 format!("Hi {},", to_name),
@@ -85,7 +89,7 @@ impl EmailService {
                 "This verification link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.",
                 "This notification was sent by Canary",
             )
-        };
+            };
 
         let html_body = format!(
             r#"
@@ -179,8 +183,7 @@ impl EmailService {
     ) -> Result<()> {
         let reset_url = format!(
             "{}/reset-password/{}",
-            std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set"),
-            reset_token
+            self.config.frontend_url, reset_token
         );
 
         // Detect Norwegian language
@@ -188,8 +191,9 @@ impl EmailService {
             || language.to_lowercase().starts_with("nb")
             || language.to_lowercase().starts_with("nn");
 
-        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) = if is_norwegian {
-            (
+        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) =
+            if is_norwegian {
+                (
                 "Tilbakestill passordet ditt - Canary",
                 "Tilbakestill passordet ditt",
                 format!("Hei {},", to_name),
@@ -199,8 +203,8 @@ impl EmailService {
                 "Denne tilbakestillingslenken utløper om 1 time. Hvis du ikke ba om å tilbakestille passordet, kan du trygt ignorere denne e-posten.",
                 "Dette varselet ble sendt av Canary",
             )
-        } else {
-            (
+            } else {
+                (
                 "Reset Your Password - Canary",
                 "Reset Your Password",
                 format!("Hi {},", to_name),
@@ -210,7 +214,7 @@ impl EmailService {
                 "This reset link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.",
                 "This notification was sent by Canary",
             )
-        };
+            };
 
         let html_body = format!(
             r#"
@@ -417,10 +421,7 @@ Your verification code is: {otp_code}
         trial_ends_at: &str,
         language: &str,
     ) -> Result<()> {
-        let billing_url = format!(
-            "{}/billing",
-            std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set")
-        );
+        let billing_url = format!("{}/billing", self.config.frontend_url);
 
         // Detect Norwegian language
         let is_norwegian = language.to_lowercase().starts_with("no")
@@ -462,7 +463,10 @@ Your verification code is: {otp_code}
                 "Your Canary trial ends in 3 days",
                 "Your Trial is Ending Soon",
                 format!("Hi {},", to_name),
-                format!("Your 30-day Canary Team trial will end in 3 days on <strong>{}</strong>.", trial_ends_at),
+                format!(
+                    "Your 30-day Canary Team trial will end in 3 days on <strong>{}</strong>.",
+                    trial_ends_at
+                ),
                 "What happens when your trial ends?",
                 "Wallet syncing will stop",
                 "Notifications will stop",
@@ -476,9 +480,15 @@ Your verification code is: {otp_code}
         };
 
         let body_text_plain = if is_norwegian {
-            format!("Din 30-dagers Canary Team-prøveperiode utløper om 3 dager, den {}.", trial_ends_at)
+            format!(
+                "Din 30-dagers Canary Team-prøveperiode utløper om 3 dager, den {}.",
+                trial_ends_at
+            )
         } else {
-            format!("Your 30-day Canary Team trial will end in 3 days on {}.", trial_ends_at)
+            format!(
+                "Your 30-day Canary Team trial will end in 3 days on {}.",
+                trial_ends_at
+            )
         };
 
         let continue_text = if is_norwegian {

@@ -13,6 +13,7 @@ async fn create_test_db() -> (MetadataDb, tempfile::TempDir) {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
         operating_mode: OperatingMode::SelfHosted,
+        frontend_url: None,
     };
 
     let db = MetadataDb::new(db_path.to_str().unwrap(), &test_config)

@@ -377,7 +377,6 @@ impl Default for TransactionInsert {
     }
 }
 
-
 /// Extract checksum from a Bitcoin descriptor
 fn extract_checksum(descriptor: &str) -> String {
     if let Some(start) = descriptor.rfind('#') {
@@ -3406,6 +3405,41 @@ impl MetadataDb {
                 alerts.push(alert?);
             }
             Ok(alerts)
+        })
+        .await?
+    }
+
+    pub async fn get_balance_alert_by_id(&self, alert_id: &str) -> Result<Option<BalanceAlert>> {
+        let pool = self.pool.clone();
+        let alert_id = alert_id.to_string();
+
+        spawn_blocking(move || -> Result<Option<BalanceAlert>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
+                        threshold_currency, threshold_fiat_amount, last_checked_balance_sats
+                 FROM balance_alerts
+                 WHERE id = ?1",
+            )?;
+
+            let alert = stmt
+                .query_row(params![alert_id], |row| {
+                    Ok(BalanceAlert {
+                        id: row.get(0)?,
+                        wallet_checksum: row.get(1)?,
+                        threshold_sats: row.get(2)?,
+                        alert_type: BalanceAlertType::from(row.get::<_, String>(3)?.as_str()),
+                        is_active: row.get::<_, i64>(4)? != 0,
+                        last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
+                        created_at: row.get(6)?,
+                        threshold_currency: row.get(7)?,
+                        threshold_fiat_amount: row.get(8)?,
+                        last_checked_balance_sats: row.get(9)?,
+                    })
+                })
+                .optional()?;
+
+            Ok(alert)
         })
         .await?
     }

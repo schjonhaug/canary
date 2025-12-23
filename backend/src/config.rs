@@ -110,6 +110,7 @@ pub struct AppConfig {
     pub bind_address: String,
     pub data_dir: String,
     pub operating_mode: OperatingMode,
+    pub frontend_url: Option<String>,
 }
 
 impl AppConfig {
@@ -177,12 +178,16 @@ impl AppConfig {
             }
         };
 
+        // Load frontend URL (optional in self-hosted mode, validated in cloud mode)
+        let frontend_url = std::env::var("FRONTEND_URL").ok();
+
         Ok(AppConfig {
             network,
             electrum_url,
             bind_address,
             data_dir,
             operating_mode,
+            frontend_url,
         })
     }
 
@@ -199,6 +204,12 @@ impl AppConfig {
     /// Check if running in self-hosted mode (single-user, no authentication or billing)
     pub fn is_self_hosted_mode(&self) -> bool {
         self.operating_mode == OperatingMode::SelfHosted
+    }
+
+    /// Get the frontend URL for email links (verification, password reset, etc.)
+    /// Returns None in self-hosted mode or if not configured
+    pub fn frontend_url(&self) -> Option<&str> {
+        self.frontend_url.as_deref()
     }
 
     /// Check if ntfy provider should be enabled
@@ -425,6 +436,7 @@ mod tests {
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::Cloud, // Default for tests
+            frontend_url: Some("http://localhost:3001".to_string()),
         }
     }
 
@@ -435,6 +447,7 @@ mod tests {
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: data_dir.to_string(),
             operating_mode: OperatingMode::Cloud,
+            frontend_url: Some("http://localhost:3001".to_string()),
         }
     }
 
@@ -445,6 +458,7 @@ mod tests {
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::SelfHosted,
+            frontend_url: None,
         }
     }
 
@@ -599,6 +613,7 @@ mod tests {
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::Cloud,
+            frontend_url: Some("http://localhost:3001".to_string()),
         };
         assert_eq!(config.electrum_url(), "ssl://custom.electrum.server:50002");
     }

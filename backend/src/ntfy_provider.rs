@@ -90,36 +90,50 @@ impl NotificationProvider for NtfyProvider {
 
                 // Create localized title for push notification
                 let localized_title = match notification {
-                    TransactionNotification::Pending(tx) => {
-                        match tx.transaction_type {
-                            EventType::Receive => match contact.language {
-                                crate::metadata::Language::Norwegian => format!("Mottar Bitcoin - {}", wallet_name),
-                                crate::metadata::Language::English => format!("Receiving Bitcoin - {}", wallet_name),
-                            },
-                            EventType::Send => match contact.language {
-                                crate::metadata::Language::Norwegian => format!("Sender Bitcoin - {}", wallet_name),
-                                crate::metadata::Language::English => format!("Sending Bitcoin - {}", wallet_name),
-                            },
+                    TransactionNotification::Pending(tx) => match tx.transaction_type {
+                        EventType::Receive => match contact.language {
+                            crate::metadata::Language::Norwegian => {
+                                format!("Mottar Bitcoin - {}", wallet_name)
+                            }
+                            crate::metadata::Language::English => {
+                                format!("Receiving Bitcoin - {}", wallet_name)
+                            }
+                        },
+                        EventType::Send => match contact.language {
+                            crate::metadata::Language::Norwegian => {
+                                format!("Sender Bitcoin - {}", wallet_name)
+                            }
+                            crate::metadata::Language::English => {
+                                format!("Sending Bitcoin - {}", wallet_name)
+                            }
+                        },
+                    },
+                    TransactionNotification::Confirmed(tx) => match tx.transaction_type {
+                        EventType::Receive => match contact.language {
+                            crate::metadata::Language::Norwegian => {
+                                format!("Bitcoin mottatt - {}", wallet_name)
+                            }
+                            crate::metadata::Language::English => {
+                                format!("Bitcoin Received - {}", wallet_name)
+                            }
+                        },
+                        EventType::Send => match contact.language {
+                            crate::metadata::Language::Norwegian => {
+                                format!("Bitcoin sendt - {}", wallet_name)
+                            }
+                            crate::metadata::Language::English => {
+                                format!("Bitcoin Sent - {}", wallet_name)
+                            }
+                        },
+                    },
+                    TransactionNotification::BalanceAlert(_) => match contact.language {
+                        crate::metadata::Language::Norwegian => {
+                            format!("Saldovarsel - {}", wallet_name)
                         }
-                    }
-                    TransactionNotification::Confirmed(tx) => {
-                        match tx.transaction_type {
-                            EventType::Receive => match contact.language {
-                                crate::metadata::Language::Norwegian => format!("Bitcoin mottatt - {}", wallet_name),
-                                crate::metadata::Language::English => format!("Bitcoin Received - {}", wallet_name),
-                            },
-                            EventType::Send => match contact.language {
-                                crate::metadata::Language::Norwegian => format!("Bitcoin sendt - {}", wallet_name),
-                                crate::metadata::Language::English => format!("Bitcoin Sent - {}", wallet_name),
-                            },
+                        crate::metadata::Language::English => {
+                            format!("Balance Alert - {}", wallet_name)
                         }
-                    }
-                    TransactionNotification::BalanceAlert(_) => {
-                        match contact.language {
-                            crate::metadata::Language::Norwegian => format!("Saldovarsel - {}", wallet_name),
-                            crate::metadata::Language::English => format!("Balance Alert - {}", wallet_name),
-                        }
-                    }
+                    },
                 };
 
                 // Build the request with optional authentication
@@ -149,8 +163,7 @@ impl NotificationProvider for NtfyProvider {
                     request = request.header("Authorization", auth_value);
                 }
 
-                let result = match request.body(message.clone()).send().await
-                {
+                let result = match request.body(message.clone()).send().await {
                     Ok(response) => {
                         if response.status().is_success() {
                             NotificationResult {

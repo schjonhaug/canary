@@ -10,9 +10,12 @@ pub mod email_provider;
 pub mod email_queue;
 pub mod email_service;
 pub mod exchange_rates;
+pub mod extractors;
+pub mod handlers;
 pub mod message_formatter;
 pub mod metadata;
 pub mod migrations;
+pub mod models;
 pub mod notification_failure_tracker;
 pub mod notifications;
 pub mod ntfy_provider;
@@ -21,6 +24,7 @@ pub mod stripe_client_service;
 pub mod subscription;
 pub mod sync;
 pub mod twilio_provider;
+pub mod utils;
 pub mod wallet;
 pub mod xpub_converter;
 
@@ -45,6 +49,7 @@ pub use stripe_billing::{
     PricingInfo, StripeBilling,
 };
 pub use twilio_provider::TwilioProvider;
+pub use utils::{parse_multipath_descriptor, strip_key_origin};
 pub use wallet::{WalletCreationService, WalletManager};
 pub use xpub_converter::{ScriptType, XpubConverter};
 

@@ -2,6 +2,7 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
+use crate::utils::{parse_multipath_descriptor, strip_key_origin};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
@@ -24,8 +25,8 @@ pub struct WalletCreationService {
     metadata_db: MetadataDb,
     electrum_client: Option<ElectrumClient>,
     network: Network,
-    // Reference to in-memory wallet storage for adding new wallets
-    wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
+    // Reference to WalletManager for registering new wallets
+    wallet_manager: Arc<WalletManager>,
 }
 
 impl WalletCreationService {
@@ -34,14 +35,14 @@ impl WalletCreationService {
         metadata_db: MetadataDb,
         electrum_client: Option<ElectrumClient>,
         network: Network,
-        wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
+        wallet_manager: Arc<WalletManager>,
     ) -> Self {
         Self {
             wallet_dir,
             metadata_db,
             electrum_client,
             network,
-            wallets,
+            wallet_manager,
         }
     }
 
@@ -92,7 +93,7 @@ impl WalletCreationService {
         }
 
         // Strip key origin to prevent duplicate wallets with same XPUB
-        let normalized_descriptor = WalletManager::strip_key_origin_static(descriptor_str)?;
+        let normalized_descriptor = strip_key_origin(descriptor_str)?;
 
         // Check if normalized descriptor already exists
         if self
@@ -106,7 +107,7 @@ impl WalletCreationService {
 
         // Parse and validate the normalized multipath descriptor
         let (receive_descriptor, change_descriptor) =
-            WalletManager::parse_multipath_descriptor_static(&normalized_descriptor)?;
+            parse_multipath_descriptor(&normalized_descriptor)?;
 
         // Extract checksum from the normalized descriptor for consistent filename
         let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
@@ -148,7 +149,7 @@ impl WalletCreationService {
         let network = self.network;
         let checksum_clone = checksum.clone();
         let stop_gap_clone = stop_gap.map(|s| s.to_string());
-        let wallets_clone = self.wallets.clone();
+        let wallet_manager_clone = self.wallet_manager.clone();
         let wallet_path_clone = wallet_path.clone();
 
         tokio::spawn(async move {
@@ -166,7 +167,7 @@ impl WalletCreationService {
                 checksum_clone.clone(),
                 is_fresh_wallet,
                 stop_gap_clone.as_deref(),
-                wallets_clone,
+                wallet_manager_clone,
             )
             .await
             {
@@ -220,7 +221,7 @@ impl WalletCreationService {
         debug!("Generated descriptor: {}", descriptor);
 
         // Strip key origin for consistency
-        let normalized_descriptor = WalletManager::strip_key_origin_static(&descriptor)?;
+        let normalized_descriptor = strip_key_origin(&descriptor)?;
 
         // Check if this descriptor already exists
         if self
@@ -234,7 +235,7 @@ impl WalletCreationService {
 
         // Parse multipath descriptor
         let (receive_descriptor, change_descriptor) =
-            WalletManager::parse_multipath_descriptor_static(&normalized_descriptor)?;
+            parse_multipath_descriptor(&normalized_descriptor)?;
 
         // Extract checksum
         let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
@@ -269,7 +270,7 @@ impl WalletCreationService {
         let network = self.network;
         let checksum_clone = checksum.clone();
         let stop_gap_clone = stop_gap.map(|s| s.to_string());
-        let wallets_clone = self.wallets.clone();
+        let wallet_manager_clone = self.wallet_manager.clone();
         let wallet_path_clone = wallet_path.clone();
 
         tokio::spawn(async move {
@@ -287,7 +288,7 @@ impl WalletCreationService {
                 checksum_clone.clone(),
                 true, // Fresh wallet for XPUB with known type
                 stop_gap_clone.as_deref(),
-                wallets_clone,
+                wallet_manager_clone,
             )
             .await
             {
@@ -421,75 +422,20 @@ impl WalletManager {
         }
     }
 
-    /// Strip key origin information from descriptor to prevent duplicates.
-    /// Static version of strip_key_origin for use without WalletManager instance.
-    pub fn strip_key_origin_static(descriptor_str: &str) -> Result<String> {
-        use regex::Regex;
-
-        // First strip any existing checksum (everything after #)
-        let without_checksum = if let Some(pos) = descriptor_str.find('#') {
-            &descriptor_str[..pos]
-        } else {
-            descriptor_str
-        };
-
-        // Pattern to match [fingerprint/derivation/path] anywhere in the descriptor
-        // This handles both bare xpubs and script-wrapped descriptors like wpkh([fingerprint/path]xpub...)
-        // Supports both 'h' and '\'' for hardened paths
-        let key_origin_pattern = Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h']?)*\]").unwrap();
-
-        // Strip key origin if present
-        let stripped_without_checksum = if key_origin_pattern.is_match(without_checksum) {
-            let result = key_origin_pattern.replace_all(without_checksum, "");
-            debug!(" Stripped key origin: {} -> {}", without_checksum, result);
-            result.to_string()
-        } else {
-            // No key origin found, return without checksum
-            without_checksum.to_string()
-        };
-
-        // Parse the stripped descriptor to recalculate checksum
-        let descriptor: Descriptor<DescriptorPublicKey> = stripped_without_checksum
-            .parse()
-            .map_err(|e| anyhow!("Invalid stripped descriptor: {}", e))?;
-
-        // Convert back to string with new checksum
-        let final_descriptor = descriptor.to_string();
-        debug!(" Final normalized descriptor: {}", final_descriptor);
-
-        Ok(final_descriptor)
-    }
-
-    /// Static version of parse_multipath_descriptor for use without WalletManager instance
-    pub fn parse_multipath_descriptor_static(descriptor_str: &str) -> Result<(String, String)> {
-        // Parse the descriptor
-        let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str
-            .parse()
-            .map_err(|e| anyhow!("Invalid descriptor: {}", e))?;
-
-        // Check if it's a multipath descriptor
-        if !descriptor.is_multipath() {
-            return Err(anyhow!("Descriptor is not a multipath descriptor"));
-        }
-
-        // Split multipath descriptor into receive and change descriptors
-        let descriptors = descriptor
-            .into_single_descriptors()
-            .map_err(|e| anyhow!("Failed to split multipath descriptor: {}", e))?;
-
-        if descriptors.len() != 2 {
-            return Err(anyhow!(
-                "Multipath descriptor must have exactly 2 paths (receive and change)"
-            ));
-        }
-
-        let receive_descriptor = descriptors[0].to_string();
-        let change_descriptor = descriptors[1].to_string();
-
-        debug!(" Receive descriptor: {}", receive_descriptor);
-        debug!(" Change descriptor: {}", change_descriptor);
-
-        Ok((receive_descriptor, change_descriptor))
+    /// Register a newly created wallet into the in-memory storage.
+    /// Called by WalletCreationService after background wallet setup completes.
+    pub async fn register_wallet(
+        &self,
+        checksum: String,
+        wallet: PersistedWallet<Connection>,
+        conn: Connection,
+    ) {
+        let mut wallets_map = self.wallets.lock().await;
+        wallets_map.insert(checksum.clone(), Arc::new(Mutex::new((wallet, conn))));
+        debug!(
+            "[{}] Added newly created wallet to in-memory storage",
+            checksum
+        );
     }
 
     /// Background task to complete wallet creation with scan depth support
@@ -503,7 +449,7 @@ impl WalletManager {
         checksum: String,
         is_fresh_wallet: bool,
         stop_gap: Option<&str>,
-        wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
+        wallet_manager: Arc<WalletManager>,
     ) -> Result<()> {
         debug!(
             "[{}] Starting background wallet creation with stop gap: {:?}",
@@ -708,12 +654,9 @@ impl WalletManager {
 
         // Add wallet to in-memory storage after it's fully set up and marked as ready
         if let Ok((wallet, conn)) = Self::load_wallet_from_disk(&wallet_path, network).await {
-            let mut wallets_map = wallets.lock().await;
-            wallets_map.insert(checksum.clone(), Arc::new(Mutex::new((wallet, conn))));
-            debug!(
-                "[{}] Added newly created wallet to in-memory storage after full setup",
-                checksum
-            );
+            wallet_manager
+                .register_wallet(checksum.clone(), wallet, conn)
+                .await;
         } else {
             error!(
                 "[{}] Failed to load wallet into memory after creation",

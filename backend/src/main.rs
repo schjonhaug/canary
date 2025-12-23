@@ -7,9 +7,12 @@ mod email_provider;
 mod email_queue;
 mod email_service;
 mod exchange_rates;
+mod extractors;
+mod handlers;
 mod message_formatter;
 mod metadata;
 mod migrations;
+mod models;
 mod notification_failure_tracker;
 mod notifications;
 mod ntfy_provider;
@@ -18,6 +21,7 @@ mod stripe_client_service;
 mod subscription;
 mod sync;
 mod twilio_provider;
+mod utils;
 mod wallet;
 mod xpub_converter;
 
@@ -163,7 +167,7 @@ async fn main() -> anyhow::Result<()> {
             wallet_manager.metadata_db.clone(),
             electrum_client,
             wallet_manager.get_network(),
-            wallet_manager.wallets.clone(), // Pass reference to in-memory wallet storage
+            wallet_manager.clone(), // Pass WalletManager for registering new wallets
         );
         Arc::new(api::AppServices {
             metadata_db: wallet_manager.metadata_db.clone(),
@@ -711,7 +715,9 @@ async fn main() -> anyhow::Result<()> {
                     }
                     Err(_) => {
                         eprintln!("⏱️  Timeout checking block height, triggering reconnection");
-                        electrum_mgr.mark_disconnected("Block height check timed out").await;
+                        electrum_mgr
+                            .mark_disconnected("Block height check timed out")
+                            .await;
                         let _ = electrum_mgr.reconnect().await;
                     }
                 }
@@ -803,10 +809,11 @@ async fn main() -> anyhow::Result<()> {
                             // For ntfy, use user's preferred server URL and auth if set
                             let results = if provider_name == "ntfy" {
                                 // Determine the ntfy server URL: user preference > env var > default
-                                let ntfy_server = user_ntfy_server_url.clone().unwrap_or_else(|| {
-                                    std::env::var("NTFY_SERVER_URL")
-                                        .unwrap_or_else(|_| "https://ntfy.sh".to_string())
-                                });
+                                let ntfy_server =
+                                    user_ntfy_server_url.clone().unwrap_or_else(|| {
+                                        std::env::var("NTFY_SERVER_URL")
+                                            .unwrap_or_else(|_| "https://ntfy.sh".to_string())
+                                    });
 
                                 // Get ntfy authentication credentials
                                 let ntfy_auth = match notification_wallet_manager
@@ -814,9 +821,7 @@ async fn main() -> anyhow::Result<()> {
                                     .get_user_ntfy_auth(&wallet_info.user_id)
                                     .await
                                 {
-                                    Ok((Some(token), _, _)) => {
-                                        NtfyAuth::AccessToken(token)
-                                    }
+                                    Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
                                     Ok((None, Some(username), Some(password))) => {
                                         NtfyAuth::BasicAuth { username, password }
                                     }
@@ -910,7 +915,10 @@ async fn main() -> anyhow::Result<()> {
                                             "❌ {} notification failed for {}: {}",
                                             provider_name,
                                             notification_method.notification_target,
-                                            result.error_message.as_deref().unwrap_or("Unknown error")
+                                            result
+                                                .error_message
+                                                .as_deref()
+                                                .unwrap_or("Unknown error")
                                         );
                                     }
 

@@ -61,13 +61,34 @@ cd scripts && ./dev.sh run-tests <wallet_address>
 ```
 canary/
 ├── backend/          # Rust service with BDK wallet management
-│   ├── src/         # All source code (api.rs, main.rs, wallet.rs, metadata.rs, sync.rs, auth.rs, stripe_billing.rs, notification providers, etc.)
-│   ├── database-self-hosted/    # self-hosted mode SQLite databases (database-self-hosted/{network}/)
-│   ├── database-cloud/    # cloud mode SQLite databases (database-cloud/{network}/)
-│   ├── migrations/  # 16 database schema migrations (001-016)
-│   ├── tests/       # Integration tests (stripe_integration_tests.rs, balance_alerts_system_tests.rs, contact_duplicates_test.rs)
-│   ├── system_tests/     # End-to-end Docker-based tests (balance_alert_scenarios.rs, mined_directly_scenarios.rs, two_stage_send_scenarios.rs, etc.)
-│   └── tasks/       # Development tasks and documentation
+│   ├── src/
+│   │   ├── main.rs           # Application entry point
+│   │   ├── api.rs            # Router configuration, AppServices, AppState
+│   │   ├── extractors/       # Custom Axum extractors
+│   │   │   ├── mod.rs
+│   │   │   └── auth.rs       # AuthenticatedUser extractor
+│   │   ├── handlers/         # Domain-specific API handlers
+│   │   │   ├── mod.rs
+│   │   │   ├── auth.rs       # Authentication (register, login, etc.)
+│   │   │   ├── wallet.rs     # Wallet CRUD operations
+│   │   │   ├── contact.rs    # Contact management
+│   │   │   ├── billing.rs    # Stripe integration
+│   │   │   └── ...           # Other domain handlers
+│   │   ├── models/           # Request/response DTOs
+│   │   │   ├── mod.rs
+│   │   │   ├── requests.rs   # API request types
+│   │   │   ├── responses.rs  # API response types
+│   │   │   └── validators.rs # Input validation
+│   │   ├── wallet.rs         # BDK wallet operations
+│   │   ├── metadata.rs       # SQLite database layer
+│   │   ├── sync.rs           # Background sync operations
+│   │   └── ...               # Notification providers, config, etc.
+│   ├── database-self-hosted/ # self-hosted mode SQLite databases
+│   ├── database-cloud/       # cloud mode SQLite databases
+│   ├── migrations/           # 16 database schema migrations (001-016)
+│   ├── tests/                # Integration tests
+│   ├── system_tests/         # End-to-end Docker-based tests
+│   └── tasks/                # Development tasks and documentation
 ├── frontend/        # Next.js app with React components
 │   ├── src/
 │   │   ├── app/        # Next.js 13+ app directory (pages, layouts, API routes)

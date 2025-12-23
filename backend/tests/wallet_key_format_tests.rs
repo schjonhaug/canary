@@ -1,9 +1,9 @@
+use bdk_wallet::bitcoin::Network;
 use canary::{
     config::{AppConfig, NetworkConfig, OperatingMode},
     metadata::MetadataDb,
     xpub_converter::XpubConverter,
 };
-use bdk_wallet::bitcoin::Network;
 use std::sync::Arc;
 use tempfile::TempDir;
 
@@ -36,7 +36,10 @@ fn test_zpub_xpub_normalize_to_same_value() {
         "Normalized zpub should convert to xpub format"
     );
 
-    println!("✅ zpub and xpub normalize to same value: {}", normalized_xpub);
+    println!(
+        "✅ zpub and xpub normalize to same value: {}",
+        normalized_xpub
+    );
 }
 
 /// Test that vpub and tpub formats normalize to the same value on testnet
@@ -66,7 +69,10 @@ fn test_vpub_tpub_normalize_to_same_value() {
         "Normalized vpub should convert to tpub format"
     );
 
-    println!("✅ vpub and tpub normalize to same value: {}", normalized_tpub);
+    println!(
+        "✅ vpub and tpub normalize to same value: {}",
+        normalized_tpub
+    );
 }
 
 /// Test that vpub and tpub formats normalize to the same value on regtest
@@ -85,7 +91,10 @@ fn test_vpub_tpub_normalize_to_same_value_regtest() {
         "vpub and tpub of the same key should normalize to the same tpub value on regtest"
     );
 
-    println!("✅ vpub and tpub normalize to same value on regtest: {}", normalized_tpub);
+    println!(
+        "✅ vpub and tpub normalize to same value on regtest: {}",
+        normalized_tpub
+    );
 }
 
 // TODO: Add tests for ypub (mainnet BIP49) and upub (testnet BIP49) formats
@@ -174,6 +183,7 @@ async fn test_duplicate_wallet_detection_zpub_xpub() {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
         operating_mode: OperatingMode::SelfHosted,
+        frontend_url: None,
     };
 
     let metadata_db = Arc::new(
@@ -184,7 +194,14 @@ async fn test_duplicate_wallet_detection_zpub_xpub() {
 
     // Create a test user
     let user_id = metadata_db
-        .create_user("test@example.com", "hash", Some("Test User"), false, None, None)
+        .create_user(
+            "test@example.com",
+            "hash",
+            Some("Test User"),
+            false,
+            None,
+            None,
+        )
         .await
         .unwrap();
 
@@ -210,11 +227,17 @@ async fn test_duplicate_wallet_detection_zpub_xpub() {
     println!("✅ Created wallet with checksum: {}", wallet_checksum);
 
     // Verify the descriptor exists
-    let exists_xpub = metadata_db.descriptor_exists(&descriptor_from_xpub).await.unwrap();
+    let exists_xpub = metadata_db
+        .descriptor_exists(&descriptor_from_xpub)
+        .await
+        .unwrap();
     assert!(exists_xpub, "Descriptor from xpub should exist");
 
     // The zpub-derived descriptor should be identical, so it should also "exist"
-    let exists_zpub = metadata_db.descriptor_exists(&descriptor_from_zpub).await.unwrap();
+    let exists_zpub = metadata_db
+        .descriptor_exists(&descriptor_from_zpub)
+        .await
+        .unwrap();
     assert!(
         exists_zpub,
         "Descriptor from zpub should also be detected as existing (same wallet)"
@@ -247,6 +270,7 @@ async fn test_duplicate_wallet_detection_vpub_tpub() {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
         operating_mode: OperatingMode::SelfHosted,
+        frontend_url: None,
     };
 
     let metadata_db = Arc::new(
@@ -257,7 +281,14 @@ async fn test_duplicate_wallet_detection_vpub_tpub() {
 
     // Create a test user
     let user_id = metadata_db
-        .create_user("test@example.com", "hash", Some("Test User"), false, None, None)
+        .create_user(
+            "test@example.com",
+            "hash",
+            Some("Test User"),
+            false,
+            None,
+            None,
+        )
         .await
         .unwrap();
 

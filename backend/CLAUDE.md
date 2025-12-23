@@ -68,15 +68,47 @@ The backend will fail fast with clear error messages if required variables are m
 ## Code Architecture
 
 ### Backend Structure
-- **Core Entry Point**: `src/main.rs` - Application initialization with async task spawning
-- **API Routes**: `src/api.rs` - RESTful endpoints with OpenAPI documentation
-- **Wallet Management**: `src/wallet.rs` - BDK wallet operations, sync logic, address revelation
-- **Database Layer**: `src/metadata.rs` - SQLite with r2d2 connection pooling
-- **Authentication**: `src/auth.rs` - JWT session management, email verification
-- **Billing**: `src/stripe_billing.rs` + `src/stripe_client_service.rs` - Subscription management
-- **Notifications**: Plugin-based system with provider modules (`src/ntfy_provider.rs`, `src/twilio_provider.rs`, `src/email_provider.rs`, etc.)
+```
+src/
+  main.rs                   # Application initialization with async task spawning
+  api.rs                    # Router configuration, AppServices, AppState (~335 lines)
+  extractors/
+    mod.rs                  # Re-exports
+    auth.rs                 # AuthenticatedUser custom Axum extractor
+  handlers/
+    mod.rs                  # Re-exports all handlers
+    auth.rs                 # 10 handlers (register, login, logout, me, etc.)
+    balance_alerts.rs       # 3 handlers (create, get, delete alerts)
+    billing.rs              # 6 handlers (checkout, portal, webhook, pricing, etc.)
+    blockchain.rs           # 4 handlers (block headers, exchange rates)
+    contact.rs              # 4 handlers (CRUD for contacts)
+    contact_verification.rs # 2 handlers (send verification, verify)
+    providers.rs            # 1 handler (list notification providers)
+    user_preferences.rs     # 2 handlers (get, update preferences)
+    wallet.rs               # 4 handlers (CRUD for wallets)
+  models/
+    mod.rs                  # Re-exports
+    requests.rs             # Request DTOs (~200 lines)
+    responses.rs            # Response DTOs (~170 lines)
+    validators.rs           # Input validation (phone number, etc.)
+  wallet.rs                 # BDK wallet operations, sync logic, address revelation
+  metadata.rs               # SQLite with r2d2 connection pooling
+  auth.rs                   # JWT session management, email verification
+  stripe_billing.rs         # Subscription management
+  stripe_client_service.rs  # Stripe API client
+  notifications.rs          # Notification manager
+  ntfy_provider.rs          # ntfy.sh push notifications
+  twilio_provider.rs        # Twilio SMS notifications
+  email_provider.rs         # Resend email notifications
+  sync.rs                   # Background wallet sync operations
+  config.rs                 # Application configuration
+  subscription.rs           # Subscription tier logic
+```
 
 **Key Patterns:**
+- **Domain-driven Handler Organization**: Handlers grouped by domain (auth, wallet, billing, etc.)
+- **Custom Axum Extractors**: `AuthenticatedUser` extractor for type-safe authentication
+- **Unified AppState**: Single state struct with `FromRef` implementations for handler access
 - **Non-blocking Web Architecture**: `AppServices` struct provides fast metadata access without wallet mutex locks
 - **Dual State Management**: Web endpoints use `AppServices`, sync operations use `WalletManager` with Arc<Mutex<T>>
 - **Background Sync Tasks**: Heavy wallet operations run in separate async tasks to avoid blocking web serving
@@ -228,7 +260,10 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - **No Index Limits**: Handles transactions at any address index (150, 200+)
 
 ### File Structure Conventions
-- **Backend**: All source in `src/` with single-file modules  
+- **Backend**: Modular architecture with `handlers/`, `extractors/`, and `models/` directories
+- **Handlers**: Domain-specific handler modules (auth, wallet, billing, etc.)
+- **Extractors**: Custom Axum extractors for authentication and authorization
+- **Models**: Request/response DTOs and validators
 - **Frontend**: App router structure with co-located component tests
 - **Migrations**: 16 migration files for schema evolution
 - **Database**: Mode and network-specific directories under `database-{mode}/{network}/` (e.g., `database-cloud/regtest/`)
