@@ -383,8 +383,61 @@ pub async fn delete_balance_alert(
         return response;
     }
 
-    // TODO: Add permission check - verify user owns the wallet that contains this alert
-    // For now, allow all authenticated users to delete alerts
+    // Get the alert first to verify ownership
+    let alert = match app_services
+        .metadata_db
+        .get_balance_alert_by_id(&alert_id)
+        .await
+    {
+        Ok(Some(alert)) => alert,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "Balance alert not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Verify user owns the wallet containing this alert (unless admin)
+    if !user.is_admin {
+        match app_services
+            .metadata_db
+            .is_wallet_owned_by_user(&alert.wallet_checksum, &user.user_id)
+            .await
+        {
+            Ok(true) => {} // User owns the wallet, proceed
+            Ok(false) => {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(ErrorResponse {
+                        error: "Access denied".to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Database error: {}", e),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+    }
 
     // Delete the balance alert
     match app_services

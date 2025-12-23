@@ -1,6 +1,6 @@
 //! Stripe billing and subscription management handlers
 
-use crate::api::{AppServicesState, StripeBillingState};
+use crate::api::{AppServicesState, ConfigState, StripeBillingState};
 use crate::extractors::AuthenticatedUser;
 use crate::models::{
     BillingStatusResponse, BillingTierLimits, CreateCheckoutSessionRequest,
@@ -20,6 +20,7 @@ pub async fn create_stripe_checkout_session(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
+    State(config): State<ConfigState>,
     Json(payload): Json<CreateCheckoutSessionRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -79,7 +80,18 @@ pub async fn create_stripe_checkout_session(
     // Create checkout session with configurable URLs
     let is_yearly = payload.is_yearly.unwrap_or(false);
     let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
-    let frontend_url = std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
+    let frontend_url = match config.frontend_url() {
+        Some(url) => url,
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "FRONTEND_URL not configured".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
     let success_url = format!("{}/settings/subscription?success=true", frontend_url);
     let cancel_url = format!("{}/settings/subscription?cancelled=true", frontend_url);
 
@@ -236,26 +248,60 @@ pub async fn get_billing_status(
     };
 
     // Get wallet count for this user
-    let wallet_count = app_services
+    let wallet_count = match app_services
         .metadata_db
         .count_wallets_for_user(&user.user_id)
         .await
-        .unwrap_or(0);
+    {
+        Ok(count) => count,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
 
     // Get contact count across all wallets for this user
-    let user_wallets = app_services
+    let user_wallets = match app_services
         .metadata_db
         .get_wallets_for_user(Some(&user.user_id))
         .await
-        .unwrap_or_default();
+    {
+        Ok(wallets) => wallets,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
     let contact_count = {
         let mut total = 0;
         for wallet in &user_wallets {
-            total += app_services
+            let count = match app_services
                 .metadata_db
                 .count_contacts_for_wallet(&wallet.checksum)
                 .await
-                .unwrap_or(0);
+            {
+                Ok(count) => count,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Database error: {}", e),
+                        }),
+                    )
+                        .into_response();
+                }
+            };
+            total += count;
         }
         total
     };

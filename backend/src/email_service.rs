@@ -9,6 +9,7 @@ pub struct EmailConfig {
     pub resend_api_key: String,
     pub resend_from_email: String,
     pub resend_from_name: String,
+    pub frontend_url: String,
 }
 
 impl EmailConfig {
@@ -19,11 +20,14 @@ impl EmailConfig {
             .map_err(|_| anyhow!("RESEND_FROM_EMAIL environment variable not set"))?;
         let resend_from_name = std::env::var("RESEND_FROM_NAME")
             .unwrap_or_else(|_| "Canary Bitcoin Wallet".to_string());
+        let frontend_url = std::env::var("FRONTEND_URL")
+            .map_err(|_| anyhow!("FRONTEND_URL environment variable not set"))?;
 
         Ok(Self {
             resend_api_key,
             resend_from_email,
             resend_from_name,
+            frontend_url,
         })
     }
 }
@@ -54,8 +58,7 @@ impl EmailService {
     ) -> Result<()> {
         let verification_url = format!(
             "{}/verify-email/{}",
-            std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set"),
-            verification_token
+            self.config.frontend_url, verification_token
         );
 
         // Detect Norwegian language
@@ -180,8 +183,7 @@ impl EmailService {
     ) -> Result<()> {
         let reset_url = format!(
             "{}/reset-password/{}",
-            std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set"),
-            reset_token
+            self.config.frontend_url, reset_token
         );
 
         // Detect Norwegian language
@@ -419,10 +421,7 @@ Your verification code is: {otp_code}
         trial_ends_at: &str,
         language: &str,
     ) -> Result<()> {
-        let billing_url = format!(
-            "{}/billing",
-            std::env::var("FRONTEND_URL").expect("FRONTEND_URL must be set")
-        );
+        let billing_url = format!("{}/billing", self.config.frontend_url);
 
         // Detect Norwegian language
         let is_norwegian = language.to_lowercase().starts_with("no")

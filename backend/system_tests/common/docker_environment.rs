@@ -114,6 +114,7 @@ impl IsolatedTestEnvironment {
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: temp_path.clone(),
             operating_mode: OperatingMode::SelfHosted, // Self-hosted mode for simpler testing without Stripe
+            frontend_url: None,
         };
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
@@ -274,6 +275,7 @@ impl IsolatedTestEnvironment {
             bind_address: "127.0.0.1:3000".to_string(),
             data_dir: temp_path.clone(),
             operating_mode: OperatingMode::SelfHosted, // Self-hosted mode for simpler testing without Stripe
+            frontend_url: None,
         };
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;

@@ -23,6 +23,7 @@ async fn create_test_db() -> (Arc<MetadataDb>, tempfile::TempDir) {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_str().unwrap().to_string(),
         operating_mode: OperatingMode::SelfHosted,
+        frontend_url: None,
     };
 
     let db = Arc::new(
@@ -630,6 +631,7 @@ async fn test_fiat_alert_fires_on_exchange_rate_change() {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_str().unwrap().to_string(),
         operating_mode: OperatingMode::SelfHosted,
+        frontend_url: None,
     };
     let sync_service = create_sync_service(&metadata_db, &test_config);
 
@@ -746,6 +748,7 @@ async fn test_balance_alert_threshold_crossing_detection() {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: _temp_dir.path().to_str().unwrap().to_string(),
         operating_mode: OperatingMode::SelfHosted,
+        frontend_url: None,
     };
 
     let sync_service = create_sync_service(&metadata_db, &test_config);

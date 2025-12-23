@@ -183,6 +183,7 @@ async fn test_duplicate_wallet_detection_zpub_xpub() {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
         operating_mode: OperatingMode::SelfHosted,
+        frontend_url: None,
     };
 
     let metadata_db = Arc::new(
@@ -269,6 +270,7 @@ async fn test_duplicate_wallet_detection_vpub_tpub() {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_dir.path().to_string_lossy().to_string(),
         operating_mode: OperatingMode::SelfHosted,
+        frontend_url: None,
     };
 
     let metadata_db = Arc::new(

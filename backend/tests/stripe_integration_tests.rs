@@ -27,6 +27,7 @@ async fn create_test_app() -> axum::Router {
         bind_address: "127.0.0.1:3000".to_string(),
         data_dir: temp_path.to_string(),
         operating_mode: OperatingMode::Cloud, // Stripe tests need cloud mode
+        frontend_url: Some("http://localhost:3001".to_string()),
     };
 
     let (event_tx, _event_rx) =
