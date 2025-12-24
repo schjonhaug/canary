@@ -12,8 +12,13 @@ export interface Currency {
 }
 
 /**
- * List of supported fiat currencies from the backend.
+ * List of supported fiat currencies.
  * Sorted alphabetically by name for easy selection.
+ *
+ * IMPORTANT: This list must stay in sync with currencies supported by the
+ * backend's CoinGecko exchange rate API. Adding currencies here that CoinGecko
+ * doesn't support will cause "Unsupported currency" errors.
+ * See: https://api.coingecko.com/api/v3/simple/supported_vs_currencies
  */
 export const SUPPORTED_CURRENCIES: Currency[] = [
   { code: 'USD', name: 'US Dollar', symbol: '$' },
@@ -55,12 +60,13 @@ export const SUPPORTED_CURRENCIES: Currency[] = [
   { code: 'VND', name: 'Vietnamese Dong', symbol: '₫' },
   { code: 'UAH', name: 'Ukrainian Hryvnia', symbol: '₴' },
   { code: 'GEL', name: 'Georgian Lari', symbol: '₾' },
-  { code: 'BGN', name: 'Bulgarian Lev', symbol: 'лв' },
-  { code: 'RON', name: 'Romanian Leu', symbol: 'lei' },
   { code: 'BDT', name: 'Bangladeshi Taka', symbol: '৳' },
   { code: 'VEF', name: 'Venezuelan Bolívar', symbol: 'Bs' },
   { code: 'LKR', name: 'Sri Lankan Rupee', symbol: 'Rs' },
-  { code: 'XAF', name: 'Central African CFA Franc', symbol: 'FCFA' }
+  { code: 'BHD', name: 'Bahraini Dinar', symbol: 'BD' },
+  { code: 'BMD', name: 'Bermudian Dollar', symbol: '$' },
+  { code: 'KWD', name: 'Kuwaiti Dinar', symbol: 'KD' },
+  { code: 'MMK', name: 'Myanmar Kyat', symbol: 'K' },
 ].sort((a, b) => a.name.localeCompare(b.name))
 
 /**
