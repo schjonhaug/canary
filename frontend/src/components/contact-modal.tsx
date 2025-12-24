@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Bell, MessageCircle, Mail } from "lucide-react"
-import { api, ProviderInfo } from "../lib/api"
+import { api, ProviderInfo, ApiError } from "../lib/api"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
 
@@ -259,7 +259,16 @@ export function ContactModal({
       setError(null)
       startTimer()
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
+      let errorMessage: string
+      if (err instanceof ApiError) {
+        // Use user-friendly message for network/server errors
+        errorMessage = err.isNetworkError() || err.isServerError()
+          ? err.getUserFriendlyMessage()
+          : err.message
+      } else {
+        errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
+      }
+
       if (errorMessage.toLowerCase().includes("phone") || errorMessage.toLowerCase().includes("number")) {
         setPhoneNumberError(errorMessage)
       } else {
@@ -304,8 +313,16 @@ export function ContactModal({
         setSmsVerificationCode("")
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Invalid verification code"
-      
+      let errorMessage: string
+      if (err instanceof ApiError) {
+        // Use user-friendly message for network/server errors
+        errorMessage = err.isNetworkError() || err.isServerError()
+          ? err.getUserFriendlyMessage()
+          : err.message
+      } else {
+        errorMessage = err instanceof Error ? err.message : "Invalid verification code"
+      }
+
       if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
         setSmsVerificationError("Verification code expired. Please request a new code.")
         setSmsVerificationSent(false)
@@ -357,7 +374,16 @@ export function ContactModal({
         startTimer()
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
+      let errorMessage: string
+      if (err instanceof ApiError) {
+        // Use user-friendly message for network/server errors
+        errorMessage = err.isNetworkError() || err.isServerError()
+          ? err.getUserFriendlyMessage()
+          : err.message
+      } else {
+        errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
+      }
+
       if (errorMessage.toLowerCase().includes("email") || errorMessage.toLowerCase().includes("address")) {
         setEmailAddressError(errorMessage)
       } else {
@@ -402,8 +428,16 @@ export function ContactModal({
         setEmailVerificationCode("")
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Invalid verification code"
-      
+      let errorMessage: string
+      if (err instanceof ApiError) {
+        // Use user-friendly message for network/server errors
+        errorMessage = err.isNetworkError() || err.isServerError()
+          ? err.getUserFriendlyMessage()
+          : err.message
+      } else {
+        errorMessage = err instanceof Error ? err.message : "Invalid verification code"
+      }
+
       if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
         setEmailVerificationError("Verification code expired. Please request a new code.")
         setEmailVerificationSent(false)
@@ -504,8 +538,16 @@ export function ContactModal({
         }
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'create'} contact`
-      
+      let errorMessage: string
+      if (err instanceof ApiError) {
+        // Use user-friendly message for network/server errors
+        errorMessage = err.isNetworkError() || err.isServerError()
+          ? err.getUserFriendlyMessage()
+          : err.message
+      } else {
+        errorMessage = err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'create'} contact`
+      }
+
       // Provide more specific error messages for SMS verification
       if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
         setError("Verification code expired. Please request a new code.")
@@ -552,7 +594,14 @@ export function ContactModal({
       startTimer()
       setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to resend code")
+      if (err instanceof ApiError) {
+        // Use user-friendly message for network/server errors
+        setError(err.isNetworkError() || err.isServerError()
+          ? err.getUserFriendlyMessage()
+          : err.message)
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to resend code")
+      }
     } finally {
       setIsSendingVerification(false)
     }

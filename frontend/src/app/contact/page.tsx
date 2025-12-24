@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
+import { EMAIL_REGEX, EMAIL_CONSTRAINTS, MESSAGE_CONSTRAINTS } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -28,16 +29,16 @@ export default function ContactPage() {
     }
   }, [isAuthenticated, user])
 
-  // Validation
+  // Validation (uses centralized patterns from constants.ts)
   const validateEmail = (email: string): string | null => {
     if (!email.trim()) {
       return 'Email is required'
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!EMAIL_REGEX.test(email)) {
       return 'Please enter a valid email address'
     }
-    if (email.length > 255) {
-      return 'Email must be less than 255 characters'
+    if (email.length > EMAIL_CONSTRAINTS.MAX_LENGTH) {
+      return `Email must be less than ${EMAIL_CONSTRAINTS.MAX_LENGTH} characters`
     }
     return null
   }
@@ -46,11 +47,11 @@ export default function ContactPage() {
     if (!message.trim()) {
       return 'Message is required'
     }
-    if (message.trim().length < 10) {
-      return 'Message must be at least 10 characters'
+    if (message.trim().length < MESSAGE_CONSTRAINTS.MIN_LENGTH) {
+      return `Message must be at least ${MESSAGE_CONSTRAINTS.MIN_LENGTH} characters`
     }
-    if (message.length > 5000) {
-      return 'Message must be less than 5000 characters'
+    if (message.length > MESSAGE_CONSTRAINTS.MAX_LENGTH) {
+      return `Message must be less than ${MESSAGE_CONSTRAINTS.MAX_LENGTH} characters`
     }
     return null
   }
@@ -80,7 +81,14 @@ export default function ContactPage() {
       setSuccess(response.message)
       setMessage('') // Clear message on success, keep email
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send message')
+      if (err instanceof ApiError) {
+        // Use user-friendly message for network/server errors, actual message for validation
+        setError(err.isNetworkError() || err.isServerError()
+          ? err.getUserFriendlyMessage()
+          : err.message)
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to send message')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -160,7 +168,7 @@ export default function ContactPage() {
                 className="min-h-[120px]"
               />
               <p className="text-xs text-muted-foreground">
-                {message.length}/5000 characters
+                {message.length}/{MESSAGE_CONSTRAINTS.MAX_LENGTH} characters
               </p>
             </div>
             <Button

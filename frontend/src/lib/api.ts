@@ -1,4 +1,7 @@
-import { getApiBaseUrl, handleApiResponse } from './utils'
+import { getApiBaseUrl, handleApiResponse, createNetworkError, ApiError } from './utils'
+
+// Re-export ApiError for convenience
+export { ApiError } from './utils'
 import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest } from '../types'
 
 export interface ProviderInfo {
@@ -29,7 +32,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
-    
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string> || {}),
@@ -39,11 +42,17 @@ class ApiClient {
     if (this.authToken) {
       headers['Authorization'] = `Bearer ${this.authToken}`
     }
-    
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    })
+
+    let response: Response
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers,
+      })
+    } catch (err) {
+      // Network error (fetch failed entirely - no response)
+      throw createNetworkError(err instanceof Error ? err : undefined)
+    }
 
     return handleApiResponse(response) as T
   }

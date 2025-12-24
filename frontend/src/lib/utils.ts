@@ -5,6 +5,117 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// =============================================================================
+// API Error Types and Classes
+// =============================================================================
+
+/**
+ * Error types for API responses
+ *
+ * - network: Network connectivity issues (fetch failed, timeout, etc.)
+ * - validation: Input validation errors (400 Bad Request)
+ * - authentication: Auth errors (401 Unauthorized)
+ * - forbidden: Permission errors (403 Forbidden)
+ * - not_found: Resource not found (404 Not Found)
+ * - conflict: Resource conflict (409 Conflict)
+ * - server: Server-side errors (500+)
+ * - unknown: Unclassified errors
+ */
+export type ApiErrorType =
+  | 'network'
+  | 'validation'
+  | 'authentication'
+  | 'forbidden'
+  | 'not_found'
+  | 'conflict'
+  | 'server'
+  | 'unknown'
+
+/**
+ * Typed API error class for structured error handling
+ *
+ * Provides:
+ * - Error type categorization for UI differentiation
+ * - HTTP status code for debugging
+ * - User-friendly error message
+ * - Helper methods for error type checking
+ */
+export class ApiError extends Error {
+  public readonly type: ApiErrorType
+  public readonly statusCode: number | null
+
+  constructor(message: string, type: ApiErrorType, statusCode: number | null = null) {
+    super(message)
+    this.name = 'ApiError'
+    this.type = type
+    this.statusCode = statusCode
+
+    // Maintains proper stack trace for where our error was thrown (only in V8)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ApiError)
+    }
+  }
+
+  /**
+   * Check if this is a network-related error (connectivity issues)
+   */
+  isNetworkError(): boolean {
+    return this.type === 'network'
+  }
+
+  /**
+   * Check if this is a validation error (user input issues)
+   */
+  isValidationError(): boolean {
+    return this.type === 'validation'
+  }
+
+  /**
+   * Check if this is an authentication error
+   */
+  isAuthError(): boolean {
+    return this.type === 'authentication' || this.type === 'forbidden'
+  }
+
+  /**
+   * Check if this is a server error (backend issues)
+   */
+  isServerError(): boolean {
+    return this.type === 'server'
+  }
+
+  /**
+   * Get a user-friendly error message based on error type
+   */
+  getUserFriendlyMessage(): string {
+    switch (this.type) {
+      case 'network':
+        return 'Unable to connect. Please check your internet connection and try again.'
+      case 'authentication':
+        return 'Please sign in to continue.'
+      case 'forbidden':
+        return 'You do not have permission to perform this action.'
+      case 'server':
+        return 'Something went wrong on our end. Please try again later.'
+      default:
+        return this.message
+    }
+  }
+}
+
+/**
+ * Determine the error type from HTTP status code
+ */
+function getErrorTypeFromStatus(status: number): ApiErrorType {
+  if (status === 400) return 'validation'
+  if (status === 401) return 'authentication'
+  if (status === 403) return 'forbidden'
+  if (status === 404) return 'not_found'
+  if (status === 409) return 'conflict'
+  if (status >= 500) return 'server'
+  return 'unknown'
+}
+
 
 // Cache for the SVG content to avoid re-fetching
 let cachedSvgContent: string | null = null
@@ -137,32 +248,70 @@ export function getApiBaseUrl(): string {
 
 export async function handleApiResponse(response: Response): Promise<unknown> {
   if (!response.ok) {
-    // Try to get error message from response first
+    const errorType = getErrorTypeFromStatus(response.status)
     let errorMessage: string
+
+    // Try to get error message from response first
     try {
       const errorData = await response.json()
-      errorMessage = errorData.error || errorData.message || `HTTP error! status: ${response.status}`
+      errorMessage = errorData.error || errorData.message || getDefaultErrorMessage(response.status)
     } catch {
-      // Fallback to generic messages based on status code
-      if (response.status === 404) {
-        errorMessage = 'Resource not found'
-      } else if (response.status === 409) {
-        errorMessage = 'Resource already exists'
-      } else {
-        errorMessage = `HTTP error! status: ${response.status}`
-      }
+      errorMessage = getDefaultErrorMessage(response.status)
     }
-    
-    throw new Error(errorMessage)
+
+    throw new ApiError(errorMessage, errorType, response.status)
   }
-  
+
   // Return JSON if response has content
   const contentType = response.headers.get('content-type')
   if (contentType && contentType.includes('application/json')) {
     return response.json()
   }
-  
+
   return null
+}
+
+/**
+ * Get default error message based on HTTP status code
+ */
+function getDefaultErrorMessage(status: number): string {
+  switch (status) {
+    case 400:
+      return 'Invalid request. Please check your input.'
+    case 401:
+      return 'Please sign in to continue.'
+    case 403:
+      return 'You do not have permission to perform this action.'
+    case 404:
+      return 'Resource not found'
+    case 409:
+      return 'Resource already exists'
+    case 422:
+      return 'Unable to process request. Please check your input.'
+    case 429:
+      return 'Too many requests. Please wait a moment and try again.'
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      return 'Something went wrong on our end. Please try again later.'
+    default:
+      return `HTTP error! status: ${status}`
+  }
+}
+
+/**
+ * Create a network error (for use when fetch fails entirely)
+ */
+export function createNetworkError(originalError?: Error): ApiError {
+  const message = originalError?.message || 'Network request failed'
+  return new ApiError(
+    message.includes('fetch') || message.includes('network')
+      ? 'Unable to connect. Please check your internet connection and try again.'
+      : message,
+    'network',
+    null
+  )
 }
 
 // Common error styles
