@@ -12,8 +12,13 @@ export interface Currency {
 }
 
 /**
- * List of supported fiat currencies from the backend.
+ * List of supported fiat currencies.
  * Sorted alphabetically by name for easy selection.
+ *
+ * IMPORTANT: This list must stay in sync with currencies supported by the
+ * backend's CoinGecko exchange rate API. Adding currencies here that CoinGecko
+ * doesn't support will cause "Unsupported currency" errors.
+ * See: https://api.coingecko.com/api/v3/simple/supported_vs_currencies
  */
 export const SUPPORTED_CURRENCIES: Currency[] = [
   { code: 'USD', name: 'US Dollar', symbol: '$' },
