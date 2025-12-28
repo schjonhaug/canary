@@ -34,6 +34,18 @@ impl NetworkConfig {
             NetworkConfig::Mainnet => "ssl://electrum.blockstream.info:50002",
         }
     }
+
+    /// Returns the mempool expiry threshold in seconds
+    /// After this time, unconfirmed transactions are considered dropped from the mempool
+    /// - Regtest: 1 hour (for testing)
+    /// - Testnet/Mainnet: 14 days (matches Bitcoin Core's default mempoolexpiry=336 hours)
+    pub fn mempool_expiry_seconds(&self) -> u64 {
+        match self {
+            NetworkConfig::Regtest => 3600,           // 1 hour
+            NetworkConfig::Testnet => 14 * 24 * 3600, // 14 days
+            NetworkConfig::Mainnet => 14 * 24 * 3600, // 14 days
+        }
+    }
 }
 
 impl std::str::FromStr for NetworkConfig {

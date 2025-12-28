@@ -267,9 +267,11 @@ pub struct Transaction {
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub parent_txid: Option<String>,
     // RBF replacement tracking
-    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub transaction_status: String, // 'pending', 'confirmed', 'replaced', 'dropped'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
     pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+    // Mempool drop tracking
+    pub dropped_at: Option<u64>, // Unix timestamp when transaction was detected as dropped from mempool
     pub notification_status: Vec<NotificationStatus>,
 }
 
@@ -298,9 +300,11 @@ pub struct TransactionWithWallet {
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub parent_txid: Option<String>,
     // RBF replacement tracking
-    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub transaction_status: String, // 'pending', 'confirmed', 'replaced', 'dropped'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
     pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+    // Mempool drop tracking
+    pub dropped_at: Option<u64>, // Unix timestamp when transaction was detected as dropped from mempool
     pub notification_status: Vec<NotificationStatus>,
 }
 
@@ -1207,7 +1211,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<Transaction>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at
+                "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at, dropped_at
                  FROM transactions
                  WHERE wallet_checksum = ?1 AND txid = ?2"
             )?;
@@ -1226,6 +1230,7 @@ impl MetadataDb {
                     transaction_status: row.get(9)?,
                     replaced_by_txid: row.get(10)?,
                     replaced_at: row.get(11)?,
+                    dropped_at: row.get(12)?,
                     notification_status: vec![], // Will be populated by calling code if needed
                 })
             })?;
@@ -1272,7 +1277,7 @@ impl MetadataDb {
 
             // First get transactions
             let mut stmt = conn.prepare(
-                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.parent_txid, t.transaction_status, t.replaced_by_txid, t.replaced_at
+                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.parent_txid, t.transaction_status, t.replaced_by_txid, t.replaced_at, t.dropped_at
                  FROM transactions t
                  JOIN wallets w ON t.wallet_checksum = w.checksum
                  WHERE t.wallet_checksum = ?1
@@ -1295,6 +1300,7 @@ impl MetadataDb {
                     transaction_status: row.get(10)?,
                     replaced_by_txid: row.get(11)?,
                     replaced_at: row.get(12)?,
+                    dropped_at: row.get(13)?,
                     notification_status: vec![], // Will be populated below
                 })
             })?;
@@ -3094,6 +3100,34 @@ impl MetadataDb {
                  SET transaction_status = 'replaced', replaced_by_txid = ?1, replaced_at = ?2
                  WHERE wallet_checksum = ?3 AND txid = ?4 AND transaction_status = 'pending'",
                 params![&replaced_by_txid, replaced_at, &checksum, &original_txid],
+            )?;
+            Ok(affected > 0)
+        })
+        .await?
+    }
+
+    /// Mark a transaction as dropped from the mempool
+    /// This is called when a pending transaction is no longer present in BDK's canonical transaction set
+    pub async fn mark_transaction_dropped(
+        &self,
+        wallet_checksum: &str,
+        txid: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let txid = txid.to_string();
+        let dropped_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let affected = conn.execute(
+                "UPDATE transactions
+                 SET transaction_status = 'dropped', dropped_at = ?1
+                 WHERE wallet_checksum = ?2 AND txid = ?3 AND transaction_status = 'pending'",
+                params![dropped_at, &checksum, &txid],
             )?;
             Ok(affected > 0)
         })

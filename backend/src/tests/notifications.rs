@@ -25,6 +25,7 @@ fn create_test_transaction(
         transaction_status: "pending".to_string(),
         replaced_by_txid: None,
         replaced_at: None,
+        dropped_at: None,
         parent_txid: None,
         notification_status: vec![],
     }

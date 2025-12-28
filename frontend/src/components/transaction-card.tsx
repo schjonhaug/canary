@@ -14,7 +14,8 @@ import {
   XCircle,
   Loader2,
   ArrowRight,
-  Clock
+  Clock,
+  AlertTriangle
 } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatTransactionAmount, formatDateTime } from "@/lib/utils"
@@ -233,13 +234,18 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
           <div className="flex items-start justify-between mb-0.5">
             <div className="flex items-center gap-2">
               <Badge
-                variant={transaction.transaction_status === "replaced" ? "secondary" : "outline"}
+                variant={transaction.transaction_status === "replaced" || transaction.transaction_status === "dropped" ? "secondary" : "outline"}
                 className="text-xs"
               >
                 {transaction.transaction_status === "replaced" ? (
                   <>
                     <XCircle className="h-3 w-3 text-orange-500 mr-1" />
                     Replaced
+                  </>
+                ) : transaction.transaction_status === "dropped" ? (
+                  <>
+                    <AlertTriangle className="h-3 w-3 text-gray-500 mr-1" />
+                    Dropped
                   </>
                 ) : transaction.block_height !== null ? (
                   <>
@@ -337,6 +343,15 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                   <div className="flex items-center gap-3 text-sm">
                     <span className="font-medium min-w-[80px]">Replaced at:</span>
                     <span className="text-xs">{formatDateTime(transaction.replaced_at)}</span>
+                  </div>
+                )}
+                {transaction.transaction_status === "dropped" && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="font-medium min-w-[80px]">Dropped:</span>
+                    <span className="text-xs text-gray-500">
+                      Transaction was removed from mempool
+                      {transaction.dropped_at && ` on ${formatDateTime(transaction.dropped_at)}`}
+                    </span>
                   </div>
                 )}
               </div>

@@ -799,6 +799,51 @@ impl WalletSyncService {
 
         let conflict_detection_duration = conflict_detection_start.elapsed();
 
+        // Detect dropped transactions - pending transactions that have exceeded the mempool expiry threshold
+        // This happens when transactions are purged from the mempool (low fees, node restart, expiry)
+        // Note: BDK persists transactions in its local database even after they're dropped from the actual mempool,
+        // so we use a time-based approach instead of checking BDK's canonical set
+        let dropped_detection_start = Instant::now();
+        let mut dropped_count = 0usize;
+
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let expiry_threshold = self.config.network.mempool_expiry_seconds();
+
+        for existing_tx in &existing_transactions {
+            // Only check pending transactions
+            if existing_tx.transaction_status != "pending" {
+                continue;
+            }
+
+            // Check if the transaction has been pending longer than the expiry threshold
+            let pending_duration = current_time.saturating_sub(existing_tx.first_seen_at);
+            if pending_duration > expiry_threshold {
+                debug!(
+                    "[{}] Detected dropped transaction: {} (pending for {}s, threshold {}s)",
+                    wallet_checksum, existing_tx.txid, pending_duration, expiry_threshold
+                );
+
+                let dropped_marked = self
+                    .metadata_db
+                    .mark_transaction_dropped(wallet_checksum, &existing_tx.txid)
+                    .await?;
+
+                if dropped_marked {
+                    has_changes = true;
+                    dropped_count += 1;
+                    info!(
+                        "[{}] Marked transaction {} as dropped from mempool (pending for {} hours)",
+                        wallet_checksum, existing_tx.txid, pending_duration / 3600
+                    );
+                }
+            }
+        }
+
+        let dropped_detection_duration = dropped_detection_start.elapsed();
+
         debug!(
             "[{}] Transaction processing loop took {:.2?}",
             wallet_checksum, processing_loop_duration
@@ -808,8 +853,12 @@ impl WalletSyncService {
             wallet_checksum, conflict_detection_duration, conflicts_marked
         );
         debug!(
-            "[{}] Transaction changes summary: new={}, confirmations={}",
-            wallet_checksum, new_tx_count, confirmation_updates
+            "[{}] Dropped detection duration: {:.2?} (dropped_count={})",
+            wallet_checksum, dropped_detection_duration, dropped_count
+        );
+        debug!(
+            "[{}] Transaction changes summary: new={}, confirmations={}, dropped={}",
+            wallet_checksum, new_tx_count, confirmation_updates, dropped_count
         );
 
         debug!(
@@ -845,6 +894,7 @@ impl WalletSyncService {
             transaction_status: transaction.transaction_status.clone(),
             replaced_by_txid: transaction.replaced_by_txid.clone(),
             replaced_at: transaction.replaced_at,
+            dropped_at: None, // New transactions are never dropped
             notification_status: vec![], // Empty for new transactions
         };
 

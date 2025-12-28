@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, Baby, Mail, MessageCircle, Bell, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
+import { CheckCircle, Baby, Mail, MessageCircle, Bell, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight, AlertTriangle } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatTransactionAmount, formatDateTime } from "@/lib/utils"
 import { TransactionCard } from "./transaction-card"
@@ -265,26 +265,31 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                       )}
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Badge 
-                            variant={transaction.transaction_status === "replaced" ? "secondary" : "outline"}
+                          <Badge
+                            variant={transaction.transaction_status === "replaced" || transaction.transaction_status === "dropped" ? "secondary" : "outline"}
                             className="flex items-center gap-1"
                             title={`${transaction.transaction_type === "receive" ? "Receive" : "Send"} - ${
                               transaction.transaction_status === "replaced" ? "Replaced by RBF" :
+                              transaction.transaction_status === "dropped" ? "Dropped from mempool" :
                               transaction.block_height !== null ? "Confirmed" : "Pending"
                             }`}
                           >
                             {transaction.transaction_status === "replaced" ? (
                               <XCircle className="h-3 w-3 text-orange-500" />
+                            ) : transaction.transaction_status === "dropped" ? (
+                              <AlertTriangle className="h-3 w-3 text-gray-500" />
                             ) : transaction.block_height !== null ? (
                               <CheckCircle className="h-3 w-3 text-green-500" />
                             ) : (
                               <Loader2 className="h-3 w-3 text-yellow-500 animate-spin" />
                             )}
-                            {transaction.transaction_status === "replaced" 
+                            {transaction.transaction_status === "replaced"
                               ? "Replaced"
-                              : transaction.block_height !== null 
-                                ? (transaction.transaction_type === "receive" ? "Received" : "Sent")
-                                : (transaction.transaction_type === "receive" ? "Receiving" : "Sending")
+                              : transaction.transaction_status === "dropped"
+                                ? "Dropped"
+                                : transaction.block_height !== null
+                                  ? (transaction.transaction_type === "receive" ? "Received" : "Sent")
+                                  : (transaction.transaction_type === "receive" ? "Receiving" : "Sending")
                             }
                           </Badge>
                           {transaction.parent_txid && (
@@ -354,6 +359,12 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                       <span className="text-xs">{formatDateTime(transaction.replaced_at)}</span>
                                     </div>
                                   )}
+                                  {transaction.dropped_at && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="font-medium min-w-[80px]">Dropped at:</span>
+                                      <span className="text-xs">{formatDateTime(transaction.dropped_at)}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -369,6 +380,14 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                         <ArrowRight className="h-3 w-3" />
                                         <span className="font-semibold">
                                           CONFIRMED - {formatDateTime(transaction.confirmed_at)}
+                                        </span>
+                                      </>
+                                    )}
+                                    {transaction.dropped_at && (
+                                      <>
+                                        <ArrowRight className="h-3 w-3" />
+                                        <span className="font-semibold text-gray-500">
+                                          DROPPED - {formatDateTime(transaction.dropped_at)}
                                         </span>
                                       </>
                                     )}
@@ -547,6 +566,12 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                       <span className="text-xs">{formatDateTime(transaction.replaced_at)}</span>
                                     </div>
                                   )}
+                                  {transaction.dropped_at && (
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="font-medium min-w-[80px]">Dropped at:</span>
+                                      <span className="text-xs">{formatDateTime(transaction.dropped_at)}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -562,6 +587,14 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                         <ArrowRight className="h-3 w-3" />
                                         <span className="font-semibold">
                                           CONFIRMED - {formatDateTime(transaction.confirmed_at)}
+                                        </span>
+                                      </>
+                                    )}
+                                    {transaction.dropped_at && (
+                                      <>
+                                        <ArrowRight className="h-3 w-3" />
+                                        <span className="font-semibold text-gray-500">
+                                          DROPPED - {formatDateTime(transaction.dropped_at)}
                                         </span>
                                       </>
                                     )}

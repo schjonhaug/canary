@@ -40,9 +40,11 @@ export interface Transaction {
   confirmed_at: number | null // Unix timestamp when transaction was confirmed
   parent_txid: string | null
   // RBF replacement tracking
-  transaction_status: string // 'pending' | 'confirmed' | 'replaced'
+  transaction_status: string // 'pending' | 'confirmed' | 'replaced' | 'dropped'
   replaced_by_txid: string | null // Transaction ID that replaced this one (if any)
   replaced_at: number | null // Unix timestamp when this transaction was replaced
+  // Mempool drop tracking
+  dropped_at: number | null // Unix timestamp when transaction was detected as dropped from mempool
   notification_status: NotificationStatus[]
 }
 
