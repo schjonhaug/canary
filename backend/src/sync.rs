@@ -838,6 +838,32 @@ impl WalletSyncService {
                         "[{}] Marked transaction {} as dropped from mempool (pending for {} hours)",
                         wallet_checksum, existing_tx.txid, pending_duration / 3600
                     );
+
+                    // Send dropped notification
+                    let dropped_tx = Transaction {
+                        txid: existing_tx.txid.clone(),
+                        wallet_checksum: existing_tx.wallet_checksum.clone(),
+                        transaction_type: existing_tx.transaction_type,
+                        amount_sats: existing_tx.amount_sats,
+                        fee_sats: existing_tx.fee_sats,
+                        block_height: existing_tx.block_height,
+                        first_seen_at: existing_tx.first_seen_at,
+                        confirmed_at: existing_tx.confirmed_at,
+                        transaction_status: "dropped".to_string(),
+                        replaced_by_txid: existing_tx.replaced_by_txid.clone(),
+                        replaced_at: existing_tx.replaced_at,
+                        dropped_at: Some(current_time),
+                        parent_txid: existing_tx.parent_txid.clone(),
+                        notification_status: vec![],
+                    };
+
+                    let notification = TransactionNotification::Dropped(dropped_tx);
+                    if self.notification_sender.send(notification).is_err() {
+                        debug!(
+                            "[{}] No notification listeners active for dropped transaction",
+                            wallet_checksum
+                        );
+                    }
                 }
             }
         }

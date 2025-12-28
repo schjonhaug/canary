@@ -770,6 +770,7 @@ async fn main() -> anyhow::Result<()> {
             let (wallet_checksum, notification_type) = match &notification {
                 TransactionNotification::Pending(tx) => (&tx.wallet_checksum, "pending"),
                 TransactionNotification::Confirmed(tx) => (&tx.wallet_checksum, "confirmed"),
+                TransactionNotification::Dropped(tx) => (&tx.wallet_checksum, "dropped"),
                 TransactionNotification::BalanceAlert(alert) => {
                     (&alert.wallet_checksum, "balance_alert")
                 }
@@ -859,7 +860,8 @@ async fn main() -> anyhow::Result<()> {
                                         // Handle logging based on notification type
                                         let log_result = match &notification {
                                             TransactionNotification::Pending(tx)
-                                            | TransactionNotification::Confirmed(tx) => {
+                                            | TransactionNotification::Confirmed(tx)
+                                            | TransactionNotification::Dropped(tx) => {
                                                 // Log transaction notifications
                                                 notification_wallet_manager
                                                     .metadata_db

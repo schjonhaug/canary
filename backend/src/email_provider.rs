@@ -116,6 +116,25 @@ impl NotificationProvider for EmailProvider {
 
                         (html_body, text_body)
                     }
+                    TransactionNotification::Dropped(_) => {
+                        // Use warning emoji for dropped transactions
+                        let html_body = Self::build_transaction_html(
+                            &subject,
+                            "⚠️",
+                            &contact.name,
+                            &message,
+                            &contact.language,
+                        );
+
+                        let text_body = Self::build_transaction_text(
+                            &subject,
+                            &contact.name,
+                            &message,
+                            &contact.language,
+                        );
+
+                        (html_body, text_body)
+                    }
                     TransactionNotification::BalanceAlert(_) => {
                         let html_body = Self::build_balance_alert_html(
                             wallet_name,

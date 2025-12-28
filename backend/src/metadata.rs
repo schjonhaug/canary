@@ -283,6 +283,8 @@ pub enum TransactionNotification {
     Pending(Transaction),
     /// Transaction confirmed in block (second notification round)
     Confirmed(Transaction),
+    /// Transaction dropped from mempool (expired, low fee, or node restart)
+    Dropped(Transaction),
     /// Balance alert triggered (balance threshold crossed)
     BalanceAlert(BalanceAlertNotification),
 }

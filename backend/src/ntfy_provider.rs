@@ -82,6 +82,7 @@ impl NotificationProvider for NtfyProvider {
                 let priority = match notification {
                     TransactionNotification::Pending(_) => "high",
                     TransactionNotification::Confirmed(_) => "default",
+                    TransactionNotification::Dropped(_) => "urgent",
                     TransactionNotification::BalanceAlert(_) => "urgent",
                 };
 
@@ -126,6 +127,14 @@ impl NotificationProvider for NtfyProvider {
                             }
                         },
                     },
+                    TransactionNotification::Dropped(_) => match contact.language {
+                        crate::metadata::Language::Norwegian => {
+                            format!("Transaksjon fjernet - {}", wallet_name)
+                        }
+                        crate::metadata::Language::English => {
+                            format!("Transaction Dropped - {}", wallet_name)
+                        }
+                    },
                     TransactionNotification::BalanceAlert(_) => match contact.language {
                         crate::metadata::Language::Norwegian => {
                             format!("Saldovarsel - {}", wallet_name)
@@ -154,6 +163,7 @@ impl NotificationProvider for NtfyProvider {
                                     "arrow_right"
                                 }
                             }
+                            TransactionNotification::Dropped(_) => "warning",
                             TransactionNotification::BalanceAlert(_) => "chart_with_upwards_trend",
                         },
                     );

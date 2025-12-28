@@ -199,3 +199,67 @@ fn test_create_english_message_send_unconfirmed() {
     );
     assert_eq!(message, "📤 Sending: 0.75000000 BTC from Test Wallet");
 }
+
+#[test]
+fn test_create_norwegian_message_send_dropped() {
+    let event = create_test_transaction(EventType::Send, 50_000_000, false);
+    let notification = TransactionNotification::Dropped(event);
+
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::Norwegian,
+    );
+    assert_eq!(
+        message,
+        "⚠️ Transaksjon fjernet: 0,50000000 BTC fra Test Wallet ble fjernet fra mempool. Du må kanskje sende transaksjonen på nytt eller øke gebyret."
+    );
+}
+
+#[test]
+fn test_create_english_message_send_dropped() {
+    let event = create_test_transaction(EventType::Send, 50_000_000, false);
+    let notification = TransactionNotification::Dropped(event);
+
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::English,
+    );
+    assert_eq!(
+        message,
+        "⚠️ Transaction Dropped: 0.50000000 BTC from Test Wallet was removed from the mempool. You may need to re-broadcast or increase the fee."
+    );
+}
+
+#[test]
+fn test_create_norwegian_message_receive_dropped() {
+    let event = create_test_transaction(EventType::Receive, 25_000_000, false);
+    let notification = TransactionNotification::Dropped(event);
+
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::Norwegian,
+    );
+    assert_eq!(
+        message,
+        "⚠️ Transaksjon fjernet: 0,25000000 BTC til Test Wallet ble fjernet fra mempool. Avsender må kanskje sende transaksjonen på nytt."
+    );
+}
+
+#[test]
+fn test_create_english_message_receive_dropped() {
+    let event = create_test_transaction(EventType::Receive, 25_000_000, false);
+    let notification = TransactionNotification::Dropped(event);
+
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::English,
+    );
+    assert_eq!(
+        message,
+        "⚠️ Transaction Dropped: 0.25000000 BTC to Test Wallet was removed from the mempool. The sender may need to re-broadcast the transaction."
+    );
+}

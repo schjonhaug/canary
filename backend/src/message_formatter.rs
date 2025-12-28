@@ -85,6 +85,9 @@ impl MessageFormatter {
             TransactionNotification::Confirmed(tx) => {
                 Self::create_transaction_message(tx, wallet_name, language, true)
             }
+            TransactionNotification::Dropped(tx) => {
+                Self::create_dropped_message(tx, wallet_name, language)
+            }
             TransactionNotification::BalanceAlert(alert) => {
                 Self::create_balance_alert_message(alert, wallet_name, language)
             }
@@ -123,6 +126,13 @@ impl MessageFormatter {
                     },
                 };
                 format!("{} {} - {}", emoji, subject_text, wallet_name)
+            }
+            TransactionNotification::Dropped(_) => {
+                let subject_text = match language {
+                    Language::Norwegian => "Transaksjon fjernet fra mempool",
+                    Language::English => "Transaction Dropped from Mempool",
+                };
+                format!("⚠️ {} - {}", subject_text, wallet_name)
             }
             TransactionNotification::BalanceAlert(_) => {
                 let subject_text = match language {
@@ -221,6 +231,38 @@ impl MessageFormatter {
                 Language::English => format!(
                     "📊 Balance Alert: {} balance is now below {} (current: {})",
                     wallet_name, threshold_display, current_display
+                ),
+            },
+        }
+    }
+
+    /// Generate localized message for dropped transaction notification
+    fn create_dropped_message(
+        transaction: &crate::metadata::Transaction,
+        wallet_name: &str,
+        language: &Language,
+    ) -> String {
+        let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
+
+        match transaction.transaction_type {
+            EventType::Send => match language {
+                Language::Norwegian => format!(
+                    "⚠️ Transaksjon fjernet: {} BTC fra {} ble fjernet fra mempool. Du må kanskje sende transaksjonen på nytt eller øke gebyret.",
+                    amount_btc, wallet_name
+                ),
+                Language::English => format!(
+                    "⚠️ Transaction Dropped: {} BTC from {} was removed from the mempool. You may need to re-broadcast or increase the fee.",
+                    amount_btc, wallet_name
+                ),
+            },
+            EventType::Receive => match language {
+                Language::Norwegian => format!(
+                    "⚠️ Transaksjon fjernet: {} BTC til {} ble fjernet fra mempool. Avsender må kanskje sende transaksjonen på nytt.",
+                    amount_btc, wallet_name
+                ),
+                Language::English => format!(
+                    "⚠️ Transaction Dropped: {} BTC to {} was removed from the mempool. The sender may need to re-broadcast the transaction.",
+                    amount_btc, wallet_name
                 ),
             },
         }
