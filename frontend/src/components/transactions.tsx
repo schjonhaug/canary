@@ -359,7 +359,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                       <span className="text-xs">{formatDateTime(transaction.replaced_at)}</span>
                                     </div>
                                   )}
-                                  {transaction.dropped_at && (
+                                  {transaction.transaction_status === "dropped" && transaction.dropped_at && (
                                     <div className="flex items-center gap-3 text-sm">
                                       <span className="font-medium min-w-[80px]">Dropped at:</span>
                                       <span className="text-xs">{formatDateTime(transaction.dropped_at)}</span>
@@ -383,7 +383,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                         </span>
                                       </>
                                     )}
-                                    {transaction.dropped_at && (
+                                    {transaction.transaction_status === "dropped" && transaction.dropped_at && (
                                       <>
                                         <ArrowRight className="h-3 w-3" />
                                         <span className="font-semibold text-gray-500">
@@ -401,7 +401,14 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                   {(() => {
                                     // Group notifications by type
                                     const groupedNotifications = transaction.notification_status.reduce((acc, notification) => {
-                                      const type = notification.notification_type === 'pending' ? 'pending' : 'confirmed'
+                                      let type: string
+                                      if (notification.notification_type === 'pending') {
+                                        type = 'pending'
+                                      } else if (notification.notification_type === 'dropped') {
+                                        type = 'dropped'
+                                      } else {
+                                        type = 'confirmed'
+                                      }
                                       if (!acc[type]) acc[type] = []
                                       acc[type].push(notification)
                                       return acc
@@ -409,6 +416,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
 
                                     const pendingNotifications = groupedNotifications.pending || []
                                     const confirmedNotifications = groupedNotifications.confirmed || []
+                                    const droppedNotifications = groupedNotifications.dropped || []
 
 
                                     const renderNotificationGroup = (notifications: typeof transaction.notification_status) => {
@@ -497,7 +505,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                               </div>
                                             )}
                                           </div>
-                                          {pendingNotifications.length > 0 && confirmedNotifications.length > 0 && (
+                                          {pendingNotifications.length > 0 && (confirmedNotifications.length > 0 || droppedNotifications.length > 0) && (
                                             <div className="flex items-center justify-center px-2">
                                               <ArrowRight className="h-4 w-4 text-muted-foreground" />
                                             </div>
@@ -510,6 +518,16 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                                 </h5>
                                                 <div className="space-y-2">
                                                   {renderNotificationGroup(confirmedNotifications)}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {droppedNotifications.length > 0 && (
+                                              <div className="border rounded-md bg-muted/30 p-3">
+                                                <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                                  DROPPED{transaction.dropped_at ? ` - ${formatDateTime(transaction.dropped_at)}` : ''}
+                                                </h5>
+                                                <div className="space-y-2">
+                                                  {renderNotificationGroup(droppedNotifications)}
                                                 </div>
                                               </div>
                                             )}
@@ -566,7 +584,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                       <span className="text-xs">{formatDateTime(transaction.replaced_at)}</span>
                                     </div>
                                   )}
-                                  {transaction.dropped_at && (
+                                  {transaction.transaction_status === "dropped" && transaction.dropped_at && (
                                     <div className="flex items-center gap-3 text-sm">
                                       <span className="font-medium min-w-[80px]">Dropped at:</span>
                                       <span className="text-xs">{formatDateTime(transaction.dropped_at)}</span>
@@ -590,7 +608,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                         </span>
                                       </>
                                     )}
-                                    {transaction.dropped_at && (
+                                    {transaction.transaction_status === "dropped" && transaction.dropped_at && (
                                       <>
                                         <ArrowRight className="h-3 w-3" />
                                         <span className="font-semibold text-gray-500">
@@ -608,7 +626,14 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                   {(() => {
                                     // Group notifications by type
                                     const groupedNotifications = transaction.notification_status.reduce((acc, notification) => {
-                                      const type = notification.notification_type === 'pending' ? 'pending' : 'confirmed'
+                                      let type: string
+                                      if (notification.notification_type === 'pending') {
+                                        type = 'pending'
+                                      } else if (notification.notification_type === 'dropped') {
+                                        type = 'dropped'
+                                      } else {
+                                        type = 'confirmed'
+                                      }
                                       if (!acc[type]) acc[type] = []
                                       acc[type].push(notification)
                                       return acc
@@ -616,6 +641,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
 
                                     const pendingNotifications = groupedNotifications.pending || []
                                     const confirmedNotifications = groupedNotifications.confirmed || []
+                                    const droppedNotifications = groupedNotifications.dropped || []
 
 
                                     const renderNotificationGroup = (notifications: typeof transaction.notification_status) => {
@@ -704,7 +730,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                               </div>
                                             )}
                                           </div>
-                                          {pendingNotifications.length > 0 && confirmedNotifications.length > 0 && (
+                                          {pendingNotifications.length > 0 && (confirmedNotifications.length > 0 || droppedNotifications.length > 0) && (
                                             <div className="flex items-center justify-center px-2">
                                               <ArrowRight className="h-4 w-4 text-muted-foreground" />
                                             </div>
@@ -717,6 +743,16 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                                                 </h5>
                                                 <div className="space-y-2">
                                                   {renderNotificationGroup(confirmedNotifications)}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {droppedNotifications.length > 0 && (
+                                              <div className="border rounded-md bg-muted/30 p-3">
+                                                <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                                  DROPPED{transaction.dropped_at ? ` - ${formatDateTime(transaction.dropped_at)}` : ''}
+                                                </h5>
+                                                <div className="space-y-2">
+                                                  {renderNotificationGroup(droppedNotifications)}
                                                 </div>
                                               </div>
                                             )}
