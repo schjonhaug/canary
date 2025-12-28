@@ -37,11 +37,11 @@ impl NetworkConfig {
 
     /// Returns the mempool expiry threshold in seconds
     /// After this time, unconfirmed transactions are considered dropped from the mempool
-    /// - Regtest: 1 hour (for testing)
+    /// - Regtest: 5 minutes (for testing)
     /// - Testnet/Mainnet: 14 days (matches Bitcoin Core's default mempoolexpiry=336 hours)
     pub fn mempool_expiry_seconds(&self) -> u64 {
         match self {
-            NetworkConfig::Regtest => 3600,           // 1 hour
+            NetworkConfig::Regtest => 300,            // 5 minutes
             NetworkConfig::Testnet => 14 * 24 * 3600, // 14 days
             NetworkConfig::Mainnet => 14 * 24 * 3600, // 14 days
         }
