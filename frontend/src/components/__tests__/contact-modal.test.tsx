@@ -3,16 +3,20 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ContactModal } from '../contact-modal'
 
-// Mock the api module
-jest.mock('../../lib/api', () => ({
-  api: {
-    getProviders: jest.fn(),
-    sendContactVerification: jest.fn(),
-    verifyContact: jest.fn(),
-    createContact: jest.fn(),
-    deleteContact: jest.fn(),
-  },
-}))
+// Mock the api module but keep ApiError from the real module
+jest.mock('../../lib/api', () => {
+  const actual = jest.requireActual('../../lib/api')
+  return {
+    ApiError: actual.ApiError,
+    api: {
+      getProviders: jest.fn(),
+      sendContactVerification: jest.fn(),
+      verifyContact: jest.fn(),
+      createContact: jest.fn(),
+      deleteContact: jest.fn(),
+    },
+  }
+})
 
 const mockApi = jest.requireMock('../../lib/api').api
 

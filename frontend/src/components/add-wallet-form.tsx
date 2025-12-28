@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown, Loader2 } from "lucide-react"
 import { useModal } from "@/hooks/useModal"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
+import { XPUB_REGEX, DESCRIPTOR_REGEX } from "@/lib/constants"
 
 // Slug for the sample wallet route
 export const SAMPLE_WALLET_SLUG = 'bacon'
@@ -90,16 +91,14 @@ export function AddWalletForm({
     }
   }, [descriptor, isFreshWallet, scriptType])
 
-  // Helper function to detect XPUB format
+  // Helper function to detect XPUB format (uses centralized pattern)
   const isXpubFormat = (input: string): boolean => {
-    const xpubRegex = /^[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{107,108}$/
-    return xpubRegex.test(input.trim())
+    return XPUB_REGEX.test(input.trim())
   }
 
-  // Helper function to detect output descriptor format
+  // Helper function to detect output descriptor format (uses centralized pattern)
   const isDescriptorFormat = (input: string): boolean => {
-    const descriptorRegex = /^(wpkh|wsh|sh|pkh|tr)\(/
-    return descriptorRegex.test(input.trim())
+    return DESCRIPTOR_REGEX.test(input.trim())
   }
 
   // Helper function to extract script type from descriptor
@@ -179,7 +178,14 @@ export function AddWalletForm({
       })
       onWalletCreated(wallet)
     } catch (err) {
-      modal.setError(err instanceof Error ? err.message : "Failed to add wallet")
+      if (err instanceof ApiError) {
+        // Use user-friendly message for network/server errors, actual message for validation
+        modal.setError(err.isNetworkError() || err.isServerError()
+          ? err.getUserFriendlyMessage()
+          : err.message)
+      } else {
+        modal.setError(err instanceof Error ? err.message : "Failed to add wallet")
+      }
     } finally {
       modal.setLoading(false)
     }
