@@ -17,7 +17,7 @@
     "verifying": "Verifiserer...",
     "send": "Send",
     "sending": "Sender...",
-    "retry": "Prov igjen",
+    "retry": "Prøv igjen",
     "yes": "Ja",
     "no": "Nei",
     "or": "eller",
@@ -38,7 +38,7 @@
     "signIn": "Logg inn",
     "signOut": "Logg ut",
     "settings": "Innstillinger",
-    "wallets": "Lommeboker",
+    "wallets": "Lommebøker",
     "addWallet": "Legg til lommebok",
     "alreadyUser": "Allerede bruker? Logg inn",
     "contact": "Kontakt",
@@ -46,46 +46,46 @@
   },
   "landing": {
     "hero": {
-      "title": "Komplett Bitcoin-overvaking",
-      "description": "Profesjonell Bitcoin-overvaking med transaksjonsvarsler og intelligente saldovarsler. Sett egendefinerte terskelgrenser, overvar tomme lommeboker, spor alle transaksjoner - alt med kun lesetilgang.",
-      "startTrial": "Start 30-dagers gratis proveperiode",
-      "tryDemo": "Prov demo",
+      "title": "Komplett Bitcoin-overvåking",
+      "description": "Profesjonell Bitcoin-overvåking med transaksjonsvarsler og intelligente saldovarsler. Sett egendefinerte terskelgrenser, overvåk tomme lommebøker, spor alle transaksjoner - alt med kun lesetilgang.",
+      "startTrial": "Start 30-dagers gratis prøveperiode",
+      "tryDemo": "Prøv demo",
       "viewPricing": "Se priser"
     },
     "features": {
-      "title": "Komplett Bitcoin-overvaking",
-      "subtitle": "Transaksjonssporing, saldovarsler og sikker kun-lese overvaking",
+      "title": "Komplett Bitcoin-overvåking",
+      "subtitle": "Transaksjonssporing, saldovarsler og sikker skrivebeskyttet overvåking",
       "notifications": {
-        "title": "Oyeblikkelige Bitcoin-transaksjonsvarsler",
+        "title": "Øyeblikkelige Bitcoin-transaksjonsvarsler",
         "description": "Sanntids Bitcoin-lommebokvarsler via e-post, SMS og push-varsler levert rett til enheten din"
       },
       "balanceAlerts": {
         "title": "Intelligent saldovarselsystem",
-        "description": "Egendefinerte saldoterskler med varsler for tomme lommeboker, store innskudd eller spesifikke belopsmalsettinger. Ga aldri glipp av kritiske saldoendringer."
+        "description": "Egendefinerte saldoterskler med varsler for tomme lommebøker, store innskudd eller spesifikke beløpsmålsettinger. Gå aldri glipp av kritiske saldoendringer."
       },
       "security": {
-        "title": "Sikker kun-lese Bitcoin-overvaking",
-        "description": "Kun lesetilgang til Bitcoin-lommeboker ved bruk av XPUB-er eller deskriptorer - vi tar aldri pa dine private nokler"
+        "title": "Sikker skrivebeskyttet Bitcoin-overvåking",
+        "description": "Kun lesetilgang til Bitcoin-lommebøker ved bruk av XPUB-er eller deskriptorer - vi rører aldri dine private nøkler"
       },
       "sync": {
         "title": "Sanntids Bitcoin-lommeboksynkronisering",
-        "description": "Bitcoin-lommeboksynkronisering fra 10 minutter ned til 2 minutter basert pa abonnementsplanen din"
+        "description": "Bitcoin-lommeboksynkronisering fra 10 minutter ned til 2 minutter basert på abonnementsplanen din"
       }
     },
     "balanceAlerts": {
-      "title": "Ga aldri glipp av kritiske saldoendringer",
-      "description": "Sett egendefinerte saldoterskler for a overvake din totale lommebokbeholdning. Fa varsler nar saldoen din nar bestemte nivaer. Perfekt for overvaking av kald lagring, oppdaging av tomme lommeboker eller sporing av viktige saldomilepaler.",
+      "title": "Gå aldri glipp av kritiske saldoendringer",
+      "description": "Sett egendefinerte saldoterskler for å overvåke din totale lommebokbeholdning. Få varsler når saldoen din når bestemte nivåer. Perfekt for overvåking av kald lagring, oppdaging av tomme lommebøker eller sporing av viktige saldomilepæler.",
       "above": {
-        "title": "Over terskel-varsler",
-        "description": "Fa varsel nar din totale saldo overstiger en terskelverdi. Overva nar beholdningen din nar viktige milepaler."
+        "title": "Varsler over terskel",
+        "description": "Få varsel når din totale saldo overstiger en terskelverdi. Overvåk når beholdningen din når viktige milepæler."
       },
       "below": {
-        "title": "Under terskel-varsler",
-        "description": "Fa varsel nar din totale saldo synker under en terskelverdi. Sett lavt saldo-advarsler for beholdningen din."
+        "title": "Varsler under terskel",
+        "description": "Få varsel når din totale saldo synker under en terskelverdi. Sett lavt saldo-advarsler for beholdningen din."
       },
       "drain": {
         "title": "Oppdaging av tom lommebok",
-        "description": "Fa varsel nar din totale saldo er lik et bestemt belop, som null for tomme lommeboker. Kritisk sikkerhetsovervaking."
+        "description": "Få varsel når din totale saldo er lik et bestemt beløp, som null for tomme lommebøker. Kritisk sikkerhetsovervåking."
       },
       "example": {
         "title": "Din Bitcoin-lommebok",
@@ -98,21 +98,21 @@
     "pricing": {
       "title": "Enkel, transparent prising",
       "subtitle": "Velg planen som passer dine behov",
-      "trialNote": "Sky-planer inkluderer en 30-dagers gratis proveperiode - Ingen kredittkort kreves"
+      "trialNote": "Sky-planer inkluderer en 30-dagers gratis prøveperiode - Ingen kredittkort kreves"
     },
     "faq": {
-      "title": "Ofte stilte sporsmal",
+      "title": "Ofte stilte spørsmål",
       "contactUs": "Kontakt oss her"
     },
     "cta": {
-      "title": "Start komplett Bitcoin-overvaking i dag",
-      "description": "Transaksjonsvarsler, saldoovervaking og trygghet for din Bitcoin-formue"
+      "title": "Start komplett Bitcoin-overvåking i dag",
+      "description": "Transaksjonsvarsler, saldoovervåking og trygghet for din Bitcoin-formue"
     }
   },
   "auth": {
     "signIn": {
       "title": "Velkommen tilbake",
-      "subtitle": "Logg inn pa din Canary-konto",
+      "subtitle": "Logg inn på din Canary-konto",
       "emailLabel": "E-post",
       "emailPlaceholder": "din@epost.no",
       "passwordLabel": "Passord",
@@ -125,7 +125,7 @@
       "loginFailed": "Innlogging mislyktes"
     },
     "signUp": {
-      "title": "Start din 30-dagers gratis proveperiode",
+      "title": "Start din 30-dagers gratis prøveperiode",
       "subtitle": "30 dager gratis, fortsett deretter med planen du velger",
       "nameLabel": "Navn",
       "namePlaceholder": "Skriv inn navnet ditt",
@@ -133,7 +133,7 @@
       "emailPlaceholder": "din@epost.no",
       "passwordLabel": "Passord",
       "passwordPlaceholder": "Velg et sterkt passord",
-      "passwordHint": "Passordet ma vare minst 6 tegn",
+      "passwordHint": "Passordet må være minst 6 tegn",
       "marketingConsent": "Jeg vil gjerne motta e-poster om oppdateringer til tjenesten",
       "submit": "Opprett konto",
       "submitting": "Oppretter konto...",
@@ -143,15 +143,15 @@
     },
     "signUpSuccess": {
       "title": "Sjekk e-posten din",
-      "description": "Vi har sendt en verifiseringslenke til e-postadressen din. Klikk pa lenken for a verifisere kontoen din.",
+      "description": "Vi har sendt en verifiseringslenke til e-postadressen din. Klikk på lenken for å verifisere kontoen din.",
       "didntReceive": "Mottok du ikke e-posten?",
       "checkSpam": "Sjekk spam-mappen",
-      "resend": "Send verifiseringsmelding pa nytt",
+      "resend": "Send verifiseringsmelding på nytt",
       "backToSignIn": "Tilbake til innlogging"
     },
     "forgotPassword": {
       "title": "Glemt passordet?",
-      "subtitle": "Skriv inn e-postadressen din sa sender vi deg en tilbakestillingslenke",
+      "subtitle": "Skriv inn e-postadressen din så sender vi deg en tilbakestillingslenke",
       "emailLabel": "E-post",
       "emailPlaceholder": "din@epost.no",
       "submit": "Send tilbakestillingslenke",
@@ -171,15 +171,15 @@
       "submitting": "Tilbakestiller...",
       "passwordMismatch": "Passordene samsvarer ikke",
       "successTitle": "Passord tilbakestilt",
-      "successMessage": "Passordet ditt er tilbakestilt. Du kan na logge inn.",
-      "invalidToken": "Ugyldig eller utlopt tilbakestillingslenke"
+      "successMessage": "Passordet ditt er tilbakestilt. Du kan nå logge inn.",
+      "invalidToken": "Ugyldig eller utløpt tilbakestillingslenke"
     },
     "verifyEmail": {
       "verifying": "Verifiserer e-posten din...",
       "successTitle": "E-post verifisert",
-      "successMessage": "E-posten din er verifisert. Du kan na logge inn.",
+      "successMessage": "E-posten din er verifisert. Du kan nå logge inn.",
       "errorTitle": "Verifisering mislyktes",
-      "invalidToken": "Ugyldig eller utlopt verifiseringslenke",
+      "invalidToken": "Ugyldig eller utløpt verifiseringslenke",
       "signIn": "Logg inn"
     }
   },
@@ -187,23 +187,23 @@
     "title": "Innstillinger",
     "display": {
       "title": "Visningsinnstillinger",
-      "description": "Tilpass hvordan Bitcoin-verdier vises i lommebokene dine",
+      "description": "Tilpass hvordan Bitcoin-verdier vises i lommebøkene dine",
       "currencyLabel": "Fiat-valuta",
       "currencyPlaceholder": "Velg en valuta",
       "currencyNote": "Valutakurser oppdateres hvert 10. minutt fra CoinGecko"
     },
     "language": {
-      "title": "Sprak",
-      "description": "Velg foretrukket sprak for grensesnittet og varsler",
-      "label": "Sprak"
+      "title": "Språk",
+      "description": "Velg foretrukket språk for grensesnittet og varsler",
+      "label": "Språk"
     },
     "ntfy": {
       "title": "Push-varsler",
       "description": "Konfigurer din ntfy-server for push-varsler",
       "serverLabel": "ntfy-server URL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNote": "La sta tom for a bruke den offentlige ntfy.sh-serveren. Du kan kjore din egen ntfy for fullstendig personvern.",
-      "selfHostLink": "kjor ntfy selv",
+      "serverNote": "La stå tom for å bruke den offentlige ntfy.sh-serveren. Du kan kjøre din egen ntfy for fullstendig personvern.",
+      "selfHostLink": "kjør ntfy selv",
       "auth": {
         "title": "Autentisering",
         "configured": {
@@ -223,15 +223,15 @@
         "passwordLabel": "Passord",
         "passwordPlaceholder": "Passord",
         "saveAuth": "Lagre autentisering",
-        "tokenRequired": "Tilgangstoken er pakrevd",
-        "credentialsRequired": "Bade brukernavn og passord er pakrevd",
+        "tokenRequired": "Tilgangstoken er påkrevd",
+        "credentialsRequired": "Både brukernavn og passord er påkrevd",
         "authSaved": "Autentisering lagret!"
       }
     }
   },
   "wallets": {
-    "title": "Mine lommeboker",
-    "summary": "Sporer {count} {count, plural, one {lommebok} other {lommeboker}} med en total saldo på {balance}",
+    "title": "Mine lommebøker",
+    "summary": "Sporer {count} {count, plural, one {lommebok} other {lommebøker}} med en total saldo på {balance}",
     "onboarding": {
       "trial": {
         "title": "Klar til å starte prøveperioden",
@@ -259,18 +259,18 @@
       "lastUpdated": "Sist oppdatert: {time}"
     },
     "empty": {
-      "title": "Ingen lommeboker",
-      "description": "Ingen lommeboker funnet. Bruk \"Legg til lommebok\"-knappen for a komme i gang.",
-      "addFirst": "Legg til din forste lommebok"
+      "title": "Ingen lommebøker",
+      "description": "Ingen lommebøker funnet. Bruk \"Legg til lommebok\"-knappen for å komme i gang.",
+      "addFirst": "Legg til din første lommebok"
     },
     "error": {
       "title": "Feil",
-      "loadFailed": "Kunne ikke laste lommeboker: {error}"
+      "loadFailed": "Kunne ikke laste lommebøker: {error}"
     },
     "card": {
       "syncing": "Synkroniserer...",
       "inactive": "Inaktiv",
-      "inactiveExpired": "Abonnementet ditt har utgatt - lommeboken synkroniseres ikke automatisk",
+      "inactiveExpired": "Abonnementet ditt har utgått - lommeboken synkroniseres ikke automatisk",
       "inactiveTierLimit": "Denne lommeboken overstiger abonnementsgrensene dine og synkroniseres ikke automatisk",
       "balance": "Saldo",
       "lastActivity": "Siste aktivitet: {date}",
@@ -294,7 +294,7 @@
       },
       "freshWallet": {
         "label": "Ny lommebok (ingen transaksjonshistorikk)",
-        "hint": "Hopp over dyp skanning for lommeboker uten tidligere transaksjoner"
+        "hint": "Hopp over dyp skanning for lommebøker uten tidligere transaksjoner"
       },
       "submit": "Legg til lommebok",
       "submitting": "Legger til...",
@@ -314,7 +314,7 @@
       },
       "limitReached": {
         "title": "Lommebokgrense nådd",
-        "description": "Du har nådd grensen på {count} {count, plural, one {lommebok} other {lommeboker}} for {tier}-planen din. Oppgrader for å legge til flere lommeboker."
+        "description": "Du har nådd grensen på {count} {count, plural, one {lommebok} other {lommebøker}} for {tier}-planen din. Oppgrader for å legge til flere lommebøker."
       },
       "checkoutError": "Kunne ikke starte betaling. Prøv igjen."
     },
@@ -323,14 +323,14 @@
       "transactions": "Transaksjoner",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarsler",
-      "noTransactions": "Ingen transaksjoner enna",
+      "noTransactions": "Ingen transaksjoner ennå",
       "pendingSync": "Lommebok synkroniseres...",
       "lastSync": "Sist synkronisert",
       "syncStatus": {
         "pending": "Synkroniserer",
         "ready": "Synkronisert"
       },
-      "backToWallets": "Tilbake til lommeboker",
+      "backToWallets": "Tilbake til lommebøker",
       "new": "Ny",
       "notFound": {
         "title": "Lommebok ikke funnet",
@@ -338,12 +338,12 @@
       },
       "syncing": {
         "title": "Lommebok synkroniserer fortsatt",
-        "description": "{name} synkroniserer fortsatt og skanner etter historiske transaksjoner. Denne prosessen kan ta noen minutter for lommeboker med transaksjonshistorikk.",
-        "returnPrompt": "Vennligst ga tilbake til lommeboksiden og vent til synkroniseringen er fullfort."
+        "description": "{name} synkroniserer fortsatt og skanner etter historiske transaksjoner. Denne prosessen kan ta noen minutter for lommebøker med transaksjonshistorikk.",
+        "returnPrompt": "Vennligst gå tilbake til lommeboksiden og vent til synkroniseringen er fullført."
       },
       "inactive": {
         "title": "Lommebok inaktiv",
-        "descriptionExpired": "Abonnementet ditt har utlopt - lommeboken synkroniseres ikke automatisk.",
+        "descriptionExpired": "Abonnementet ditt har utløpt - lommeboken synkroniseres ikke automatisk.",
         "descriptionTierLimit": "Denne lommeboken overskrider grensene for abonnementsnivået ditt og synkroniseres ikke automatisk.",
         "outdatedWarning": "Transaksjonshistorikk og saldo som vises kan være utdatert.",
         "upgradePlan": "Oppgrader plan"
@@ -351,7 +351,7 @@
     },
     "delete": {
       "title": "Slett lommebok",
-      "description": "Er du sikker pa at du vil slette denne lommeboken? Denne handlingen kan ikke angres.",
+      "description": "Er du sikker på at du vil slette denne lommeboken? Denne handlingen kan ikke angres.",
       "confirm": "Slett",
       "cancel": "Avbryt"
     },
@@ -462,7 +462,7 @@
         "below": "Varsle når saldoen går under dette beløpet",
         "equals": "Varsle når saldoen er lik dette beløpet (f.eks. tømt lommebok)"
       },
-      "currencyLabel": "Valutaype",
+      "currencyLabel": "Valutatype",
       "bitcoinBtc": "Bitcoin (BTC)",
       "fiatCurrency": "Fiat-valuta ({currency})",
       "bitcoinAmount": "Bitcoin-beløp",
@@ -504,7 +504,7 @@
     "title": "Transaksjoner",
     "titleWithWallet": "Transaksjoner - {walletName}",
     "loading": "Laster transaksjoner...",
-    "empty": "Ingen transaksjoner enna",
+    "empty": "Ingen transaksjoner ennå",
     "emptyForWallet": "Ingen transaksjoner funnet for valgt lommebok.",
     "count": "{count} {count, plural, one {transaksjon} other {transaksjoner}}",
     "types": {
@@ -521,7 +521,7 @@
     },
     "details": {
       "txid": "Transaksjons-ID",
-      "amount": "Belop",
+      "amount": "Beløp",
       "fee": "Gebyr",
       "date": "Dato",
       "confirmations": "Bekreftelser",
@@ -534,7 +534,7 @@
       "dateTime": "Dato/Tid",
       "wallet": "Lommebok",
       "transaction": "Transaksjon",
-      "amount": "Belop",
+      "amount": "Beløp",
       "details": "Detaljer"
     },
     "tooltips": {
@@ -567,13 +567,13 @@
     "currentPlan": "Gjeldende plan",
     "status": {
       "active": "Aktiv",
-      "trialing": "Proveperiode",
+      "trialing": "Prøveperiode",
       "canceled": "Kansellert",
-      "expired": "Utlopt"
+      "expired": "Utløpt"
     },
     "trial": {
       "daysLeft": "{days} dager igjen",
-      "endsOn": "Proveperioden slutter {date}"
+      "endsOn": "Prøveperioden slutter {date}"
     },
     "manage": "Administrer fakturering",
     "upgrade": "Oppgrader",
@@ -591,9 +591,9 @@
       },
       "team": {
         "name": "Team",
-        "description": "For Uncle Jims og familievokter",
+        "description": "For Uncle Jims og familievoktere",
         "features": {
-          "wallets": "5 lommeboker",
+          "wallets": "5 lommebøker",
           "contacts": "5 kontakter per lommebok",
           "sync": "2-minutters synkronisering",
           "notifications": "Alle varslingstyper"
@@ -601,54 +601,54 @@
       },
       "selfHosted": {
         "name": "Selvhostet",
-        "description": "Kjor pa din egen infrastruktur",
+        "description": "Kjør på din egen infrastruktur",
         "features": {
-          "wallets": "Ubegrensede lommeboker",
+          "wallets": "Ubegrensede lommebøker",
           "contacts": "Ubegrensede kontakter",
           "sync": "Egendefinerte synkroniseringsintervaller",
           "notifications": "ntfy push-varsler"
         }
       }
     },
-    "perMonth": "/maned",
-    "perYear": "/ar",
-    "saveYearly": "Spar {percent}% arlig",
-    "popular": "POPULAER",
+    "perMonth": "/måned",
+    "perYear": "/år",
+    "saveYearly": "Spar {percent}% årlig",
+    "popular": "POPULÆR",
     "currentPlanBadge": "GJELDENDE PLAN",
-    "trialPlanBadge": "PROVEPERIODE",
-    "freeToSelfHost": "Gratis a selvhoste",
+    "trialPlanBadge": "PRØVEPERIODE",
+    "freeToSelfHost": "Gratis å selvhoste",
     "plusTaxes": "Pluss gjeldende avgifter",
     "changePlan": "Endre plan",
-    "subscribeTo": "Abonner pa {plan}",
+    "subscribeTo": "Abonner på {plan}",
     "upgradeTo": "Oppgrader til {plan}",
-    "startTrial": "Start 30-dagers gratis proveperiode",
+    "startTrial": "Start 30-dagers gratis prøveperiode",
     "loadingPricing": "Laster priser...",
     "errorTitle": "Kunne ikke laste priser",
-    "errorDescription": "Vennligst oppdater siden eller prov igjen senere.",
+    "errorDescription": "Vennligst oppdater siden eller prøv igjen senere.",
     "selfHosted": {
-      "description": "Foretrekker du a selvhoste? Canary er gratis a kjore pa din egen infrastruktur med push-varsler via ntfy.",
-      "installUmbrel": "Installer pa Umbrel",
-      "viewGithub": "Se pa GitHub"
+      "description": "Foretrekker du å selvhoste? Canary er gratis å kjøre på din egen infrastruktur med push-varsler via ntfy.",
+      "installUmbrel": "Installer på Umbrel",
+      "viewGithub": "Se på GitHub"
     }
   },
   "upgrade": {
     "title": "Oppgrader planen din",
     "walletLimit": {
-      "title": "Lommebokgrense nadd",
-      "description": "Du har nadd maksimalt antall lommeboker for planen din. Oppgrader for a legge til flere lommeboker."
+      "title": "Lommebokgrense nådd",
+      "description": "Du har nådd maksimalt antall lommebøker for planen din. Oppgrader for å legge til flere lommebøker."
     },
     "contactLimit": {
-      "title": "Kontaktgrense nadd",
-      "description": "Du har nadd maksimalt antall kontakter for denne lommeboken. Oppgrader for a legge til flere kontakter."
+      "title": "Kontaktgrense nådd",
+      "description": "Du har nådd maksimalt antall kontakter for denne lommeboken. Oppgrader for å legge til flere kontakter."
     }
   },
   "errors": {
-    "generic": "Noe gikk galt. Vennligst prov igjen.",
+    "generic": "Noe gikk galt. Vennligst prøv igjen.",
     "network": "Nettverksfeil. Vennligst sjekk tilkoblingen din.",
-    "unauthorized": "Vennligst logg inn for a fortsette.",
+    "unauthorized": "Vennligst logg inn for å fortsette.",
     "notFound": "Ikke funnet.",
-    "serverError": "Serverfeil. Vennligst prov igjen senere.",
-    "validation": "Vennligst sjekk inndataene dine og prov igjen."
+    "serverError": "Serverfeil. Vennligst prøv igjen senere.",
+    "validation": "Vennligst sjekk inndataene dine og prøv igjen."
   },
   "footer": {
     "logoAlt": "Canary-logo",
