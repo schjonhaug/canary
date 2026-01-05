@@ -684,5 +684,11 @@
     "errors": {
       "sendFailed": "Error al enviar el mensaje"
     }
+  },
+  "demoBanner": {
+    "title": "Modo Demo",
+    "description": "Estas viendo una billetera demo de solo lectura. Todas las funciones son solo para visualizacion.",
+    "signUp": "Registrate para crear tu propia billetera",
+    "dismiss": "Cerrar banner"
   }
 }

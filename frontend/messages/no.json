@@ -684,5 +684,11 @@
     "logoAlt": "Canary-logo",
     "appName": "Canary",
     "blockInfo": "Blokk {height}"
+  },
+  "demoBanner": {
+    "title": "Demomodus",
+    "description": "Du ser på en skrivebeskyttet demo-lommebok. Alle funksjoner er kun for visning.",
+    "signUp": "Registrer deg for å opprette din egen lommebok",
+    "dismiss": "Lukk banner"
   }
 }

@@ -684,5 +684,11 @@
     "logoAlt": "Canary-Logo",
     "appName": "Canary",
     "blockInfo": "Block {height}"
+  },
+  "demoBanner": {
+    "title": "Demo-Modus",
+    "description": "Sie sehen eine schreibgeschutzte Demo-Wallet. Alle Funktionen sind nur zur Ansicht.",
+    "signUp": "Registrieren Sie sich, um Ihre eigene Wallet zu erstellen",
+    "dismiss": "Banner schliessen"
   }
 }

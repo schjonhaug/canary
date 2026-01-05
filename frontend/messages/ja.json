@@ -684,5 +684,11 @@
     "logoAlt": "Canaryロゴ",
     "appName": "Canary",
     "blockInfo": "ブロック {height}"
+  },
+  "demoBanner": {
+    "title": "デモモード",
+    "description": "読み取り専用のデモウォレットを表示しています。すべての機能は閲覧のみです。",
+    "signUp": "登録して自分のウォレットを作成",
+    "dismiss": "バナーを閉じる"
   }
 }
