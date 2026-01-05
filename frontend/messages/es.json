@@ -1,0 +1,483 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "save": "Guardar",
+    "saving": "Guardando...",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "deleting": "Eliminando...",
+    "edit": "Editar",
+    "add": "Agregar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "back": "Atras",
+    "next": "Siguiente",
+    "submit": "Enviar",
+    "verify": "Verificar",
+    "verifying": "Verificando...",
+    "send": "Enviar",
+    "sending": "Enviando...",
+    "retry": "Reintentar",
+    "yes": "Si",
+    "no": "No",
+    "or": "o",
+    "and": "y",
+    "active": "ACTIVO",
+    "inactive": "INACTIVO",
+    "pending": "Pendiente",
+    "confirmed": "Confirmado",
+    "failed": "Fallido",
+    "success": "Exito",
+    "error": "Error",
+    "warning": "Advertencia",
+    "info": "Info",
+    "savedSuccessfully": "Guardado exitosamente!",
+    "connectingToNetwork": "Conectando a la red..."
+  },
+  "nav": {
+    "signIn": "Iniciar sesion",
+    "signOut": "Cerrar sesion",
+    "settings": "Configuracion",
+    "wallets": "Billeteras",
+    "addWallet": "Agregar Billetera",
+    "alreadyUser": "Ya tienes cuenta? Inicia sesion"
+  },
+  "landing": {
+    "hero": {
+      "title": "Monitoreo Completo de Bitcoin",
+      "description": "Monitoreo profesional de Bitcoin con alertas de transacciones y notificaciones inteligentes de saldo. Establece umbrales personalizados, monitorea vaciados de billetera, rastrea todas las transacciones - todo con seguridad de solo lectura.",
+      "startTrial": "Comienza Prueba Gratis de 30 Dias",
+      "tryDemo": "Probar Demo",
+      "viewPricing": "Ver Precios"
+    },
+    "features": {
+      "title": "Monitoreo Completo de Bitcoin",
+      "subtitle": "Seguimiento de transacciones, alertas de saldo y monitoreo seguro de solo lectura",
+      "notifications": {
+        "title": "Notificaciones Instantaneas de Transacciones Bitcoin",
+        "description": "Alertas de billetera Bitcoin en tiempo real via email, SMS y notificaciones push directamente a tu dispositivo"
+      },
+      "balanceAlerts": {
+        "title": "Sistema Inteligente de Alertas de Saldo",
+        "description": "Umbrales de saldo personalizados con alertas para vaciados de billetera, depositos grandes o alcanzar cantidades especificas. Nunca pierdas cambios criticos de saldo."
+      },
+      "security": {
+        "title": "Monitoreo Seguro de Bitcoin Solo Lectura",
+        "description": "Acceso de solo lectura a billeteras Bitcoin usando XPUBs o descriptores - nunca tocamos tus claves privadas"
+      },
+      "sync": {
+        "title": "Sincronizacion en Tiempo Real de Billetera Bitcoin",
+        "description": "Intervalos de sincronizacion de billetera Bitcoin desde 10 minutos hasta 2 minutos segun tu plan de suscripcion"
+      }
+    },
+    "balanceAlerts": {
+      "title": "Nunca Pierdas Cambios Criticos de Saldo",
+      "description": "Establece umbrales de saldo personalizados para monitorear tus holdings totales. Recibe alertas cuando tu saldo alcance niveles especificos. Perfecto para monitoreo de almacenamiento frio, deteccion de vaciado de billetera o seguimiento de hitos importantes de saldo.",
+      "above": {
+        "title": "Alertas de Umbral Superior",
+        "description": "Recibe notificaciones cuando tu saldo total suba por encima de un umbral establecido. Monitorea cuando tus holdings alcancen hitos importantes."
+      },
+      "below": {
+        "title": "Alertas de Umbral Inferior",
+        "description": "Recibe notificaciones cuando tu saldo total baje por debajo de un umbral establecido. Configura advertencias de saldo bajo para tus holdings."
+      },
+      "drain": {
+        "title": "Deteccion de Vaciado de Billetera",
+        "description": "Recibe notificaciones cuando tu saldo total sea igual a una cantidad especifica, como cero para vaciados de billetera. Monitoreo de seguridad critico."
+      },
+      "example": {
+        "title": "Tu Billetera Bitcoin",
+        "aboveThreshold": "Por encima de 0.1 BTC",
+        "belowThreshold": "Por debajo de 0.01 BTC",
+        "equalsZero": "Igual a 0 BTC",
+        "deliveryNote": "Todas las alertas entregadas via email, SMS y notificaciones push"
+      }
+    },
+    "pricing": {
+      "title": "Precios Simples y Transparentes",
+      "subtitle": "Elige el plan que se adapte a tus necesidades",
+      "trialNote": "Los planes en la nube incluyen una prueba gratuita de 30 dias - No se requiere tarjeta de credito"
+    },
+    "faq": {
+      "title": "Preguntas Frecuentes",
+      "contactUs": "Contactanos aqui"
+    },
+    "cta": {
+      "title": "Comienza el Monitoreo Completo de Bitcoin Hoy",
+      "description": "Alertas de transacciones, monitoreo de saldo y tranquilidad para tu patrimonio en Bitcoin"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Bienvenido de nuevo",
+      "subtitle": "Inicia sesion en tu cuenta de Canary",
+      "emailLabel": "Email",
+      "emailPlaceholder": "tu@email.com",
+      "passwordLabel": "Contrasena",
+      "passwordPlaceholder": "Ingresa tu contrasena",
+      "submit": "Iniciar sesion",
+      "submitting": "Iniciando sesion...",
+      "noAccount": "No tienes cuenta? Registrate",
+      "forgotPassword": "Olvidaste tu contrasena?",
+      "devMode": "Modo Desarrollo",
+      "loginFailed": "Error al iniciar sesion"
+    },
+    "signUp": {
+      "title": "Comienza tu prueba gratuita de 30 dias",
+      "subtitle": "30 dias gratis, luego continua con el plan de tu eleccion",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Ingresa tu nombre",
+      "emailLabel": "Email",
+      "emailPlaceholder": "tu@email.com",
+      "passwordLabel": "Contrasena",
+      "passwordPlaceholder": "Ingresa una contrasena segura",
+      "passwordHint": "La contrasena debe tener al menos 6 caracteres",
+      "marketingConsent": "Me gustaria recibir emails ocasionales sobre actualizaciones del servicio",
+      "submit": "Crear cuenta",
+      "submitting": "Creando cuenta...",
+      "hasAccount": "Ya tienes cuenta? Inicia sesion",
+      "signInInstead": "Iniciar sesion en su lugar",
+      "registrationFailed": "Error en el registro"
+    },
+    "signUpSuccess": {
+      "title": "Revisa tu email",
+      "description": "Hemos enviado un enlace de verificacion a tu direccion de email. Por favor haz clic en el enlace para verificar tu cuenta.",
+      "didntReceive": "No recibiste el email?",
+      "checkSpam": "Revisa tu carpeta de spam",
+      "resend": "Reenviar email de verificacion",
+      "backToSignIn": "Volver a iniciar sesion"
+    },
+    "forgotPassword": {
+      "title": "Olvidaste tu contrasena?",
+      "subtitle": "Ingresa tu email y te enviaremos un enlace de restablecimiento",
+      "emailLabel": "Email",
+      "emailPlaceholder": "tu@email.com",
+      "submit": "Enviar enlace de restablecimiento",
+      "submitting": "Enviando...",
+      "backToSignIn": "Volver a iniciar sesion",
+      "successTitle": "Revisa tu email",
+      "successMessage": "Si existe una cuenta con ese email, recibiras un enlace de restablecimiento de contrasena."
+    },
+    "resetPassword": {
+      "title": "Restablece tu contrasena",
+      "subtitle": "Ingresa tu nueva contrasena abajo",
+      "passwordLabel": "Nueva contrasena",
+      "passwordPlaceholder": "Ingresa tu nueva contrasena",
+      "confirmLabel": "Confirmar contrasena",
+      "confirmPlaceholder": "Confirma tu nueva contrasena",
+      "submit": "Restablecer contrasena",
+      "submitting": "Restableciendo...",
+      "passwordMismatch": "Las contrasenas no coinciden",
+      "successTitle": "Contrasena restablecida",
+      "successMessage": "Tu contrasena ha sido restablecida. Ahora puedes iniciar sesion.",
+      "invalidToken": "Enlace de restablecimiento invalido o expirado"
+    },
+    "verifyEmail": {
+      "verifying": "Verificando tu email...",
+      "successTitle": "Email verificado",
+      "successMessage": "Tu email ha sido verificado. Ahora puedes iniciar sesion.",
+      "errorTitle": "Verificacion fallida",
+      "invalidToken": "Enlace de verificacion invalido o expirado",
+      "signIn": "Iniciar sesion"
+    }
+  },
+  "settings": {
+    "title": "Configuracion",
+    "display": {
+      "title": "Preferencias de Visualizacion",
+      "description": "Personaliza como se muestran los valores de Bitcoin en tus billeteras",
+      "currencyLabel": "Moneda Fiat",
+      "currencyPlaceholder": "Selecciona una moneda",
+      "currencyNote": "Las tasas de cambio se actualizan cada 10 minutos desde CoinGecko"
+    },
+    "language": {
+      "title": "Idioma",
+      "description": "Elige tu idioma preferido para la interfaz y notificaciones",
+      "label": "Idioma"
+    },
+    "ntfy": {
+      "title": "Notificaciones Push",
+      "description": "Configura tu servidor ntfy para notificaciones push",
+      "serverLabel": "URL del Servidor ntfy",
+      "serverPlaceholder": "https://ntfy.sh",
+      "serverNote": "Deja vacio para usar el servidor publico ntfy.sh. Puedes auto-alojar ntfy para completa privacidad.",
+      "selfHostLink": "auto-alojar ntfy",
+      "auth": {
+        "title": "Autenticacion",
+        "configured": {
+          "token": "Token de acceso configurado",
+          "credentials": "Usuario/contrasena configurado ({username})",
+          "none": "Sin autenticacion configurada"
+        },
+        "type": {
+          "none": "Sin autenticacion",
+          "token": "Token de Acceso",
+          "basic": "Usuario y Contrasena"
+        },
+        "tokenLabel": "Token de Acceso",
+        "tokenPlaceholder": "tk_...",
+        "usernameLabel": "Usuario",
+        "usernamePlaceholder": "Usuario",
+        "passwordLabel": "Contrasena",
+        "passwordPlaceholder": "Contrasena",
+        "saveAuth": "Guardar Autenticacion",
+        "tokenRequired": "El token de acceso es requerido",
+        "credentialsRequired": "Se requieren usuario y contrasena",
+        "authSaved": "Autenticacion guardada!"
+      }
+    }
+  },
+  "wallets": {
+    "title": "Mis Billeteras",
+    "empty": {
+      "title": "Sin billeteras aun",
+      "description": "Agrega tu primera billetera Bitcoin para comenzar a monitorear",
+      "addFirst": "Agregar Tu Primera Billetera"
+    },
+    "add": {
+      "title": "Agregar Billetera",
+      "nameLabel": "Nombre de Billetera",
+      "namePlaceholder": "Mi Billetera Bitcoin",
+      "descriptorLabel": "Descriptor de Billetera o XPUB",
+      "descriptorPlaceholder": "wpkh([huella/84'/0'/0']xpub.../0/*)",
+      "descriptorHint": "Ingresa el descriptor de salida de tu billetera o XPUB. Detectaremos automaticamente el tipo de script.",
+      "advancedSettings": "Configuracion Avanzada",
+      "scriptType": {
+        "label": "Tipo de Script",
+        "auto": "Auto-detectar (recomendado)",
+        "p2wpkh": "SegWit Nativo (P2WPKH)",
+        "p2sh": "SegWit Anidado (P2SH-P2WPKH)",
+        "p2pkh": "Legado (P2PKH)",
+        "p2tr": "Taproot (P2TR)"
+      },
+      "freshWallet": {
+        "label": "Billetera nueva (sin historial de transacciones)",
+        "hint": "Omitir escaneo profundo para billeteras sin transacciones previas"
+      },
+      "submit": "Agregar Billetera",
+      "submitting": "Agregando...",
+      "success": "Billetera agregada exitosamente",
+      "error": "Error al agregar billetera"
+    },
+    "detail": {
+      "balance": "Saldo",
+      "transactions": "Transacciones",
+      "contacts": "Contactos",
+      "balanceAlerts": "Alertas de Saldo",
+      "noTransactions": "Sin transacciones aun",
+      "pendingSync": "La billetera esta sincronizando...",
+      "lastSync": "Ultima sincronizacion",
+      "syncStatus": {
+        "pending": "Sincronizando",
+        "ready": "Sincronizado"
+      }
+    },
+    "delete": {
+      "title": "Eliminar Billetera",
+      "description": "Estas seguro de que deseas eliminar esta billetera? Esta accion no se puede deshacer.",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "edit": {
+      "title": "Editar Billetera",
+      "nameLabel": "Nombre de Billetera",
+      "submit": "Guardar Cambios"
+    }
+  },
+  "contacts": {
+    "title": "Contactos",
+    "empty": {
+      "title": "Sin contactos aun",
+      "description": "Agrega contactos para recibir notificaciones sobre esta billetera"
+    },
+    "add": {
+      "title": "Agregar Contacto",
+      "nameLabel": "Nombre del Contacto",
+      "namePlaceholder": "Juan Perez",
+      "languageLabel": "Idioma de Notificacion",
+      "methodTitle": "Metodo de Notificacion",
+      "methodDescription": "Elige como este contacto recibira notificaciones",
+      "ntfy": {
+        "title": "Notificaciones Push (ntfy)",
+        "description": "Notificaciones push gratuitas via la app ntfy",
+        "topicLabel": "Nombre del Tema",
+        "topicPlaceholder": "mis-alertas-billetera",
+        "topicHint": "Suscribete a este tema en la app ntfy para recibir notificaciones"
+      },
+      "sms": {
+        "title": "SMS",
+        "description": "Notificaciones por mensaje de texto",
+        "phoneLabel": "Numero de Telefono",
+        "phonePlaceholder": "+34123456789",
+        "phoneHint": "Incluye codigo de pais (ej., +34 para Espana)"
+      },
+      "email": {
+        "title": "Email",
+        "description": "Notificaciones por email",
+        "emailLabel": "Direccion de Email",
+        "emailPlaceholder": "juan@ejemplo.com"
+      },
+      "submit": "Agregar Contacto",
+      "submitting": "Agregando..."
+    },
+    "edit": {
+      "title": "Editar Contacto",
+      "submit": "Guardar Cambios"
+    },
+    "delete": {
+      "title": "Eliminar Contacto",
+      "description": "Estas seguro de que deseas eliminar este contacto? Ya no recibira notificaciones.",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "verification": {
+      "title": "Verificar Contacto",
+      "description": "Hemos enviado un codigo de verificacion a {contact}. Ingresalo abajo para verificar.",
+      "codeLabel": "Codigo de Verificacion",
+      "codePlaceholder": "Ingresa codigo de 6 digitos",
+      "submit": "Verificar",
+      "resend": "Reenviar Codigo",
+      "expiresIn": "Expira en {time}",
+      "expired": "Codigo expirado",
+      "invalid": "Codigo de verificacion invalido",
+      "verified": "Contacto verificado!"
+    }
+  },
+  "balanceAlerts": {
+    "title": "Alertas de Saldo",
+    "empty": {
+      "title": "Sin alertas de saldo",
+      "description": "Configura alertas para ser notificado cuando el saldo de tu billetera alcance ciertos umbrales"
+    },
+    "add": {
+      "title": "Agregar Alerta de Saldo",
+      "typeLabel": "Tipo de Alerta",
+      "types": {
+        "above": "Por encima",
+        "below": "Por debajo",
+        "equals": "Igual a"
+      },
+      "thresholdLabel": "Umbral",
+      "thresholdPlaceholder": "0.1",
+      "btc": "BTC",
+      "submit": "Agregar Alerta",
+      "submitting": "Agregando..."
+    },
+    "edit": {
+      "title": "Editar Alerta de Saldo"
+    },
+    "delete": {
+      "title": "Eliminar Alerta",
+      "description": "Estas seguro de que deseas eliminar esta alerta de saldo?",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "status": {
+      "active": "Activa",
+      "triggered": "Activada",
+      "reactivate": "Reactivar"
+    },
+    "errors": {
+      "negativeAmount": "La cantidad no puede ser negativa",
+      "belowZero": "No se puede crear alerta para 'por debajo de 0'"
+    }
+  },
+  "transactions": {
+    "title": "Transacciones",
+    "empty": "Sin transacciones aun",
+    "types": {
+      "receive": "Recibido",
+      "send": "Enviado"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "confirmed": "Confirmado",
+      "dropped": "Descartado"
+    },
+    "details": {
+      "txid": "ID de Transaccion",
+      "amount": "Cantidad",
+      "fee": "Comision",
+      "date": "Fecha",
+      "confirmations": "Confirmaciones",
+      "block": "Bloque",
+      "address": "Direccion"
+    },
+    "rbf": "RBF",
+    "cpfp": "CPFP",
+    "replacement": "Reemplazo"
+  },
+  "billing": {
+    "title": "Suscripcion",
+    "currentPlan": "Plan Actual",
+    "status": {
+      "active": "Activo",
+      "trialing": "Prueba",
+      "canceled": "Cancelado",
+      "expired": "Expirado"
+    },
+    "trial": {
+      "daysLeft": "{days} dias restantes",
+      "endsOn": "La prueba termina el {date}"
+    },
+    "manage": "Gestionar Facturacion",
+    "upgrade": "Mejorar",
+    "subscribe": "Suscribirse",
+    "plans": {
+      "personal": {
+        "name": "Personal",
+        "description": "Para poseedores individuales de Bitcoin",
+        "features": {
+          "wallets": "1 billetera",
+          "contacts": "1 contacto por billetera",
+          "sync": "Sincronizacion cada 10 minutos",
+          "notifications": "Todos los tipos de notificacion"
+        }
+      },
+      "team": {
+        "name": "Equipo",
+        "description": "Para guardianes familiares",
+        "features": {
+          "wallets": "5 billeteras",
+          "contacts": "5 contactos por billetera",
+          "sync": "Sincronizacion cada 2 minutos",
+          "notifications": "Todos los tipos de notificacion"
+        }
+      },
+      "selfHosted": {
+        "name": "Auto-alojado",
+        "description": "Ejecuta en tu propia infraestructura",
+        "features": {
+          "wallets": "Billeteras ilimitadas",
+          "contacts": "Contactos ilimitados",
+          "sync": "Intervalos de sincronizacion personalizados",
+          "notifications": "Notificaciones push ntfy"
+        }
+      }
+    },
+    "perMonth": "/mes",
+    "perYear": "/ano",
+    "saveYearly": "Ahorra {percent}% anual",
+    "popular": "POPULAR",
+    "currentPlanBadge": "PLAN ACTUAL"
+  },
+  "upgrade": {
+    "title": "Mejora Tu Plan",
+    "walletLimit": {
+      "title": "Limite de Billeteras Alcanzado",
+      "description": "Has alcanzado el numero maximo de billeteras para tu plan. Mejora para agregar mas billeteras."
+    },
+    "contactLimit": {
+      "title": "Limite de Contactos Alcanzado",
+      "description": "Has alcanzado el numero maximo de contactos para esta billetera. Mejora para agregar mas contactos."
+    }
+  },
+  "errors": {
+    "generic": "Algo salio mal. Por favor intenta de nuevo.",
+    "network": "Error de red. Por favor verifica tu conexion.",
+    "unauthorized": "Por favor inicia sesion para continuar.",
+    "notFound": "No encontrado.",
+    "serverError": "Error del servidor. Por favor intenta mas tarde.",
+    "validation": "Por favor verifica tu entrada e intenta de nuevo."
+  }
+}
