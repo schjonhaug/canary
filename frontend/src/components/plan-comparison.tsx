@@ -1,8 +1,9 @@
 "use client"
 
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, Loader2 } from "lucide-react"
+import { CheckCircle2, Loader2, Github } from "lucide-react"
 import { allFeatures, getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
 import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
 
@@ -45,9 +46,10 @@ export function PlanComparison({
     features: {}
   }
 
-  // Only use Stripe pricing; prepend self-hosted only on public pages (not in modal)
+  // Only use Stripe pricing; append self-hosted only on public pages (not in modal)
+  // Paid tiers (Personal, Team) come first since those are where we make money
   const stripeTiers = pricing ? sortTiers(pricing.tiers) : []
-  const sortedTiers = isModal ? stripeTiers : [selfHostedTier, ...stripeTiers]
+  const sortedTiers = isModal ? stripeTiers : [...stripeTiers, selfHostedTier]
   
   // Filter tiers to show only current tier and higher tiers for modal (unless showAllTiers is true)
   const tiersToShow = isModal && !showAllTiers
@@ -132,12 +134,17 @@ function PlanComparisonContent({
   loadingTier,
   hasPaidSubscription
 }: PlanComparisonContentProps) {
+  // Separate paid tiers from self-hosted for different layout
+  const paidTiers = tiersToShow.filter(tier => tier.tier !== 'selfhosted')
+  const selfHostedTier = tiersToShow.find(tier => tier.tier === 'selfhosted')
+
   return (
     <div className="space-y-6">
 {/* Removed billing toggle - always show monthly with yearly savings */}
-      
-      <div className={`grid gap-6 ${tiersToShow.length === 3 ? 'md:grid-cols-3' : tiersToShow.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1'} ${isModal ? 'max-w-6xl mx-auto' : 'max-w-5xl mx-auto'}`}>
-      {tiersToShow.map((tier) => {
+
+      {/* Paid tiers grid */}
+      <div className={`grid gap-6 ${paidTiers.length === 2 ? 'md:grid-cols-2' : paidTiers.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-3'} ${isModal ? 'max-w-6xl mx-auto' : 'max-w-3xl mx-auto'}`}>
+      {paidTiers.map((tier) => {
         const isCurrentTier = tier.tier === currentTier
         const isUpgrade = !isCurrentTier && highlightUpgrades
         const isLoadingThisTier = isLoading && loadingTier === tier.tier
@@ -227,22 +234,7 @@ function PlanComparisonContent({
               </ul>
             </CardContent>
 
-
-            {tier.tier === 'selfhosted' && showCallToAction && (
-              <CardFooter>
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  asChild
-                >
-                  <a href="https://github.com/schjonhaug/canary" target="_blank" rel="noopener noreferrer">
-                    View on GitHub
-                  </a>
-                </Button>
-              </CardFooter>
-            )}
-
-            {onUpgrade && (!isCurrentTier || isTrialUser) && !showCallToAction && tier.tier !== 'selfhosted' && (
+            {onUpgrade && (!isCurrentTier || isTrialUser) && !showCallToAction && (
               <CardFooter>
                 <Button
                   className="w-full"
@@ -264,7 +256,7 @@ function PlanComparisonContent({
         )
       })}
       </div>
-      
+
       {showUnifiedTrialButton && (
         <div className="text-center mt-8">
           <Button size="lg" asChild>
@@ -272,6 +264,44 @@ function PlanComparisonContent({
               Start 30-Day Free Trial
             </a>
           </Button>
+        </div>
+      )}
+
+      {/* Self-hosted section - shown below paid tiers on public page */}
+      {selfHostedTier && showCallToAction && (
+        <div className="max-w-3xl mx-auto mt-12 pt-8 border-t">
+          <div className="text-center space-y-3">
+            <p className="text-muted-foreground">
+              Prefer to self-host? Canary is free to run on your own infrastructure with push notifications via ntfy.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+              <a
+                href="https://apps.umbrel.com/app/canary"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Image
+                  src="/images/umbrel.svg"
+                  alt="Umbrel"
+                  width={16}
+                  height={16}
+                  className="opacity-60"
+                />
+                Install on Umbrel
+              </a>
+              <span className="text-muted-foreground/40">•</span>
+              <a
+                href="https://github.com/schjonhaug/canary"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Github className="h-4 w-4" />
+                View on GitHub
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>
