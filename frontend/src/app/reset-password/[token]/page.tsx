@@ -11,8 +11,11 @@ import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { api } from '@/lib/api'
+import { useTranslations } from 'next-intl'
 
 export default function ResetPasswordPage() {
+  const t = useTranslations('auth.resetPassword')
+  const tSignUp = useTranslations('auth.signUp')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -25,18 +28,18 @@ export default function ResetPasswordPage() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    
+
     // Validate passwords match
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('passwordMismatch'))
       return
     }
-    
+
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long')
+      setError(tSignUp('passwordHint'))
       return
     }
-    
+
     setIsLoading(true)
 
     try {
@@ -47,7 +50,7 @@ export default function ResetPasswordPage() {
         router.push('/sign-in')
       }, 3000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset password')
+      setError(err instanceof Error ? err.message : t('invalidToken'))
     } finally {
       setIsLoading(false)
     }
@@ -68,22 +71,22 @@ export default function ResetPasswordPage() {
               />
             </div>
             <CardTitle className="text-2xl font-bold text-center">
-              Password Reset Complete
+              {t('successTitle')}
             </CardTitle>
             <CardDescription className="text-center">
-              Your password has been successfully updated
+              {t('successMessage')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Alert className="mb-4">
               <AlertDescription>
-                Your password has been reset successfully. You will be redirected to sign in shortly.
+                {t('successMessage')}
               </AlertDescription>
             </Alert>
-            
+
             <Link href="/sign-in" className="block">
               <Button className="w-full">
-                Continue to Sign In
+                {t('submit')}
               </Button>
             </Link>
           </CardContent>
@@ -106,10 +109,10 @@ export default function ResetPasswordPage() {
             />
           </div>
           <CardTitle className="text-2xl font-bold text-center">
-            Reset Your Password
+            {t('title')}
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your new password below
+            {t('subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -121,11 +124,11 @@ export default function ResetPasswordPage() {
 
           <form onSubmit={handleResetPassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
+              <Label htmlFor="password">{t('passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your new password"
+                placeholder={t('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -134,31 +137,31 @@ export default function ResetPasswordPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Label htmlFor="confirmPassword">{t('confirmLabel')}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="Confirm your new password"
+                placeholder={t('confirmPlaceholder')}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={isLoading}
                 minLength={6}
               />
-              <p className="text-sm text-gray-500">Password must be at least 6 characters long</p>
+              <p className="text-sm text-gray-500">{tSignUp('passwordHint')}</p>
             </div>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full"
               disabled={isLoading || !password || !confirmPassword}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Resetting Password...
+                  {t('submitting')}
                 </>
               ) : (
-                'Reset Password'
+                t('submit')
               )}
             </Button>
             <Link href="/sign-in">
@@ -168,7 +171,7 @@ export default function ResetPasswordPage() {
                 className="w-full"
                 disabled={isLoading}
               >
-                Back to Sign In
+                {t('submit')}
               </Button>
             </Link>
           </form>
