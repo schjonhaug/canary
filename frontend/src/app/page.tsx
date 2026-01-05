@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import LandingPage from '@/components/landing-page'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { useTranslations } from 'next-intl'
 
 export default function HomePage() {
   const { isAuthenticated, isLoading, isCloudMode, isSelfHostedMode } = useAuth()
   const router = useRouter()
+  const tCommon = useTranslations('common')
 
   useEffect(() => {
     // If user is authenticated or in self-hosted mode, redirect to wallets
@@ -23,7 +25,7 @@ export default function HomePage() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto" />
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">{tCommon('loading')}</p>
         </div>
       </div>
     )
@@ -35,7 +37,7 @@ export default function HomePage() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto" />
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">{tCommon('loading')}</p>
         </div>
       </div>
     )
