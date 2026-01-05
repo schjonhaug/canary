@@ -684,5 +684,11 @@
     "logoAlt": "Canary Logo",
     "appName": "Canary",
     "blockInfo": "Block {height}"
+  },
+  "demoBanner": {
+    "title": "Demo Mode",
+    "description": "You're viewing a read-only demo wallet. All features are view-only.",
+    "signUp": "Sign Up to Create Your Own Wallet",
+    "dismiss": "Dismiss banner"
   }
 }

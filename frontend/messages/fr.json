@@ -684,5 +684,11 @@
     "logoAlt": "Logo Canary",
     "appName": "Canary",
     "blockInfo": "Bloc {height}"
+  },
+  "demoBanner": {
+    "title": "Mode Demo",
+    "description": "Vous visualisez un portefeuille demo en lecture seule. Toutes les fonctionnalites sont en lecture seule.",
+    "signUp": "Inscrivez-vous pour creer votre propre portefeuille",
+    "dismiss": "Fermer la banniere"
   }
 }

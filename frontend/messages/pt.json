@@ -684,5 +684,11 @@
     "logoAlt": "Logo do Canary",
     "appName": "Canary",
     "blockInfo": "Bloco {height}"
+  },
+  "demoBanner": {
+    "title": "Modo Demo",
+    "description": "Voce esta visualizando uma carteira demo somente leitura. Todos os recursos sao apenas para visualizacao.",
+    "signUp": "Cadastre-se para criar sua propria carteira",
+    "dismiss": "Fechar banner"
   }
 }
