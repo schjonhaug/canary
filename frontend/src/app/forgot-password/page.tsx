@@ -12,12 +12,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations('auth.forgotPassword')
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
+  const [success, setSuccess] = useState(false)
   const { isSelfHostedMode } = useAuth()
   const router = useRouter()
 
@@ -31,12 +33,12 @@ export default function ForgotPasswordPage() {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setMessage('')
+    setSuccess(false)
     setIsLoading(true)
 
     try {
       await api.forgotPassword(email)
-      setMessage('If an account with that email exists, a password reset link has been sent.')
+      setSuccess(true)
       setEmail('') // Clear the form
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send reset email')
@@ -48,6 +50,39 @@ export default function ForgotPasswordPage() {
   // Don't render anything while redirecting in self-hosted mode
   if (isSelfHostedMode) {
     return null
+  }
+
+  if (success) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <div className="flex items-center justify-center mb-4">
+              <Image
+                src="/images/canary.svg"
+                alt="Canary Logo"
+                width={48}
+                height={48}
+                className="h-12 w-12"
+              />
+            </div>
+            <CardTitle className="text-2xl font-bold text-center">
+              {t('successTitle')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert className="mb-4">
+              <AlertDescription>{t('successMessage')}</AlertDescription>
+            </Alert>
+            <Link href="/sign-in">
+              <Button className="w-full">
+                {t('backToSignIn')}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -64,10 +99,10 @@ export default function ForgotPasswordPage() {
             />
           </div>
           <CardTitle className="text-2xl font-bold text-center">
-            Forgot your password?
+            {t('title')}
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your email and we&apos;ll send you a link to reset your password
+            {t('subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -76,38 +111,32 @@ export default function ForgotPasswordPage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          
-          {message && (
-            <Alert className="mb-4">
-              <AlertDescription>{message}</AlertDescription>
-            </Alert>
-          )}
 
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="your@email.com"
+                placeholder={t('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
               />
             </div>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full"
               disabled={isLoading || !email}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
+                  {t('submitting')}
                 </>
               ) : (
-                'Send reset link'
+                t('submit')
               )}
             </Button>
             <Link href="/sign-in">
@@ -117,7 +146,7 @@ export default function ForgotPasswordPage() {
                 className="w-full"
                 disabled={isLoading}
               >
-                Back to sign in
+                {t('backToSignIn')}
               </Button>
             </Link>
           </form>

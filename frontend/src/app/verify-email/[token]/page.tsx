@@ -5,8 +5,10 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 export default function VerifyEmailPage() {
+  const t = useTranslations('auth.verifyEmail')
   const params = useParams()
   const router = useRouter()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -21,22 +23,22 @@ export default function VerifyEmailPage() {
 
         if (response.ok) {
           setStatus('success')
-          setMessage('Your email has been verified successfully! You can now log in.')
+          setMessage(t('successMessage'))
         } else {
           const errorData = await response.json()
           setStatus('error')
-          setMessage(errorData.error || 'Email verification failed')
+          setMessage(errorData.error || t('invalidToken'))
         }
       } catch {
         setStatus('error')
-        setMessage('Network error occurred during verification')
+        setMessage(t('invalidToken'))
       }
     }
 
     if (params.token) {
       verifyEmail()
     }
-  }, [params.token])
+  }, [params.token, t])
 
   const handleContinue = () => {
     router.push('/sign-in')
@@ -46,11 +48,13 @@ export default function VerifyEmailPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle>Email Verification</CardTitle>
+          <CardTitle>
+            {status === 'success' ? t('successTitle') : status === 'error' ? t('errorTitle') : t('verifying')}
+          </CardTitle>
           <CardDescription>
-            {status === 'loading' && 'Verifying your email address...'}
-            {status === 'success' && 'Verification Complete'}
-            {status === 'error' && 'Verification Failed'}
+            {status === 'loading' && t('verifying')}
+            {status === 'success' && t('successTitle')}
+            {status === 'error' && t('errorTitle')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -71,12 +75,12 @@ export default function VerifyEmailPage() {
           </p>
 
           {status !== 'loading' && (
-            <Button 
-              onClick={handleContinue} 
+            <Button
+              onClick={handleContinue}
               className="w-full"
               variant={status === 'success' ? 'default' : 'outline'}
             >
-              {status === 'success' ? 'Continue to Login' : 'Back to Login'}
+              {t('signIn')}
             </Button>
           )}
         </CardContent>
