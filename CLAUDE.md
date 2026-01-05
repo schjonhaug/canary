@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language notifications (Norwegian and English) via configurable providers, optional email/password authentication with email verification, Stripe subscription billing, and balance alert notifications.
+Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language support (7 languages: English, Norwegian, Spanish, Portuguese, German, French, Japanese) for both UI and notifications via configurable providers, optional email/password authentication with email verification, Stripe subscription billing, and balance alert notifications.
 
 ## Architecture
 Built with a **non-blocking web architecture** that separates wallet sync operations from web serving to ensure fast API responses. Features dual-state design with `AppServices` for immediate metadata access and `WalletManager` for background sync operations. Implements plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with email/password and email verification for multi-user support. SMS verification via Twilio Verify is still used for contact verification when adding SMS contacts. Uses polling-based frontend updates rather than server-sent events. **Tier-based serial sync** processes wallets by subscription tier with automatic cleanup of deleted wallets during sync cycles.
@@ -90,12 +90,14 @@ canary/
 │   ├── system_tests/         # End-to-end Docker-based tests
 │   └── tasks/                # Development tasks and documentation
 ├── frontend/        # Next.js app with React components
+│   ├── messages/       # i18n translation files (en.json, no.json, es.json, pt.json, de.json, fr.json, ja.json)
 │   ├── src/
 │   │   ├── app/        # Next.js 13+ app directory (pages, layouts, API routes)
 │   │   ├── components/ # UI components (plan-comparison.tsx, plans-modal.tsx, contact-modal.tsx)
 │   │   ├── lib/        # Shared utilities (pricing-data.ts, utils.ts, api.ts)
 │   │   ├── contexts/   # React contexts (auth-context.tsx, wallets-context.tsx)
-│   │   ├── hooks/      # Custom React hooks (useWalletDetail.ts, usePricing.ts)
+│   │   ├── hooks/      # Custom React hooks (useWalletDetail.ts, usePricing.ts, useRelativeTime.ts)
+│   │   ├── i18n/       # Internationalization config (config.ts, request.ts)
 │   │   └── types/      # TypeScript type definitions
 ├── scripts/        # Development scripts and Docker setup
 └── CLAUDE.md       # This file
@@ -103,7 +105,7 @@ canary/
 
 ## Key Dependencies
 - **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio + Resend email notifications
-- **Frontend**: Next.js 15, React 19, Tailwind CSS 4, Radix UI with shadcn/ui components, JWT authentication support
+- **Frontend**: Next.js 15, React 19, Tailwind CSS 4, Radix UI with shadcn/ui components, next-intl for i18n, date-fns for localized dates, JWT authentication support
 
 ## API Endpoints
 
@@ -214,7 +216,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Plugin-based Notifications**: Extensible provider system supporting ntfy.sh, Twilio SMS, and Resend email
 - **Multiple Notification Methods**: Each contact can have multiple notification methods (SMS + email + ntfy)
 - **Auto-detection**: Automatically detects provider type from contact address format
-- **Multi-language Support**: Norwegian and English with proper Bitcoin amount formatting
+- **Multi-language Support**: 7 languages (English, Norwegian, Spanish, Portuguese, German, French, Japanese) with proper Bitcoin amount formatting
 - **Notification Tracking**: Delivery status tracking with ✅/❌ UI indicators for all providers
 - **Secure Verification System**: OTP verification for SMS/email with 30-minute validity windows
 - **Admin Notifications**: Infrastructure alerts for trial expirations, non-syncing wallets, and system issues
@@ -226,6 +228,33 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Normalized Database**: 16 migration files with clean schema design supporting extensibility
 - **Environment Configuration**: Provider selection and network config via .env variables
 - **Atomic Updates**: Database transactions prevent data loss during modifications
+
+### Internationalization (i18n)
+- **7 Supported Languages**: English (default), Norwegian, Spanish, Portuguese, German, French, Japanese
+- **Frontend**: next-intl library with JSON translation files in `frontend/messages/{locale}.json`
+- **Backend**: Notification messages translated in `message_formatter.rs`, `email_provider.rs`, `ntfy_provider.rs`
+- **Language Selection**: User preference stored in database and cookie, configurable in Settings page
+- **Browser Detection**: Auto-detects browser locale on first visit, falls back to English
+- **Localized Dates**: date-fns locales for relative time formatting (e.g., "hace 5 horas" in Spanish)
+- **Translation Pattern**: Components use `useTranslations('namespace')` hook from next-intl
+
+**Frontend Translation Structure:**
+```
+frontend/messages/
+├── en.json    # English (source/default)
+├── no.json    # Norwegian
+├── es.json    # Spanish
+├── pt.json    # Portuguese
+├── de.json    # German
+├── fr.json    # French
+└── ja.json    # Japanese
+```
+
+**Adding New Translations:**
+1. Add keys to `frontend/messages/en.json` first
+2. Copy to all other locale files with translated values
+3. Use in components: `const t = useTranslations('namespace'); t('key')`
+4. For variables: `t('greeting', { name: 'John' })` with `"greeting": "Hello, {name}"`
 
 ## Subscription Tiers & Limits
 
