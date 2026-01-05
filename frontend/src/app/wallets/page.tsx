@@ -10,8 +10,11 @@ import { WalletOnboarding } from "@/components/wallet-onboarding"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useWalletsContext } from "@/contexts/wallets-context"
+import { useTranslations } from "next-intl"
 
 export default function WalletsPage() {
+  const t = useTranslations('wallets')
+  const tCommon = useTranslations('common')
   const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading } = useWalletsContext()
   const { isAuthenticated, isLoading: authLoading, user, isCloudMode, billingStatus } = useAuth()
   const router = useRouter()
@@ -55,7 +58,7 @@ export default function WalletsPage() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto" />
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">{tCommon('loading')}</p>
         </div>
       </div>
     )
@@ -94,7 +97,7 @@ export default function WalletsPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3 flex-wrap">
                 <div>
-                  <h2 className="text-2xl font-semibold">Wallets</h2>
+                  <h2 className="text-2xl font-semibold">{t('title')}</h2>
                   {wallets.length > 1 && (
                     <p className="text-sm text-muted-foreground">
                       Tracking {wallets.length} wallets with a total balance of {formatBitcoinAmount(getTotalBalance())}
