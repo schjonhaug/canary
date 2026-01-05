@@ -44,6 +44,36 @@
     "contact": "Contato",
     "subscription": "Assinatura"
   },
+  "contactPage": {
+    "title": "Contato",
+    "selfHosted": {
+      "title": "Modo Auto-hospedado",
+      "description": "O formulario de contato nao esta disponivel no modo auto-hospedado.",
+      "backToWallets": "Voltar para Carteiras"
+    },
+    "form": {
+      "title": "Entre em Contato",
+      "description": "Tem alguma pergunta ou feedback? Adorariamos ouvir de voce.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "seu@email.com",
+      "messageLabel": "Mensagem",
+      "messagePlaceholder": "Como podemos ajudar?",
+      "characterCount": "{count}/{max} caracteres",
+      "submit": "Enviar Mensagem",
+      "submitting": "Enviando..."
+    },
+    "validation": {
+      "emailRequired": "Email e obrigatorio",
+      "emailInvalid": "Por favor insira um email valido",
+      "emailTooLong": "Email deve ter menos de {max} caracteres",
+      "messageRequired": "Mensagem e obrigatoria",
+      "messageTooShort": "Mensagem deve ter pelo menos {min} caracteres",
+      "messageTooLong": "Mensagem deve ter menos de {max} caracteres"
+    },
+    "errors": {
+      "sendFailed": "Falha ao enviar mensagem"
+    }
+  },
   "landing": {
     "hero": {
       "title": "Monitoramento Completo de Bitcoin",

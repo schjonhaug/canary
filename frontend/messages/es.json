@@ -654,5 +654,35 @@
     "logoAlt": "Logo de Canary",
     "appName": "Canary",
     "blockInfo": "Bloque {height}"
+  },
+  "contactPage": {
+    "title": "Contacto",
+    "selfHosted": {
+      "title": "Modo Auto-alojado",
+      "description": "El formulario de contacto no esta disponible en modo auto-alojado.",
+      "backToWallets": "Volver a Billeteras"
+    },
+    "form": {
+      "title": "Contactanos",
+      "description": "Tienes una pregunta o comentario? Nos encantaria saber de ti.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "tu@email.com",
+      "messageLabel": "Mensaje",
+      "messagePlaceholder": "Como podemos ayudarte?",
+      "characterCount": "{count}/{max} caracteres",
+      "submit": "Enviar Mensaje",
+      "submitting": "Enviando..."
+    },
+    "validation": {
+      "emailRequired": "El email es obligatorio",
+      "emailInvalid": "Por favor ingresa una direccion de email valida",
+      "emailTooLong": "El email debe tener menos de {max} caracteres",
+      "messageRequired": "El mensaje es obligatorio",
+      "messageTooShort": "El mensaje debe tener al menos {min} caracteres",
+      "messageTooLong": "El mensaje debe tener menos de {max} caracteres"
+    },
+    "errors": {
+      "sendFailed": "Error al enviar el mensaje"
+    }
   }
 }
