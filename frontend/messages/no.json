@@ -132,7 +132,57 @@
     },
     "faq": {
       "title": "Ofte stilte spørsmål",
-      "contactUs": "Kontakt oss her"
+      "contactUs": "Kontakt oss her",
+      "items": {
+        "whatIsCanary": {
+          "question": "Hva er Canary Bitcoin-lommebokovervåking?",
+          "answer": "Canary er en profesjonell Bitcoin-lommebokovervåking- og varslingstjeneste som overvåker Bitcoin-lommebøkene dine ved hjelp av XPUBs eller deskriptorer og sender umiddelbare varsler for alle transaksjoner via e-post, SMS og push-varsler. Perfekt for overvåking av kjølelager, maskinvarelommebøker og skrivebeskyttede Bitcoin-adresser."
+        },
+        "howDoesItWork": {
+          "question": "Hvordan fungerer Bitcoin-lommebokovervåking uten private nøkler?",
+          "answer": "Canary bruker lommebokens XPUB (utvidet offentlig nøkkel) eller deskriptor for skrivebeskyttet Bitcoin-overvåking. Dette gir oss skrivebeskyttet tilgang til å spore Bitcoin-adressene dine og oppdage transaksjoner. Vi har aldri tilgang til dine private nøkler og kan ikke flytte din Bitcoin - noe som sikrer fullstendig sikkerhet for din kjølelagerovervåking."
+        },
+        "whatIsXpub": {
+          "question": "Hva er XPUB-lommebokovervåking?",
+          "answer": "XPUB-overvåking lar deg spore alle adresser i Bitcoin-lommeboken din uten å eksponere private nøkler. Ved å oppgi lommebokens XPUB eller deskriptor kan Canary overvåke ubegrensede adresser, oppdage transaksjoner på hvilken som helst dybde (selv 200+ adresser dypt), og varsle deg umiddelbart når Bitcoin beveger seg."
+        },
+        "coldStorage": {
+          "question": "Kan jeg overvåke Bitcoin-kjølelagerlommebøker?",
+          "answer": "Ja! Canary er perfekt for Bitcoin-kjølelagerovervåking. Enten du bruker maskinvarelommebøker som Ledger eller Trezor, papirlommebøker eller andre kjølelagerløsninger, oppgi bare din XPUB eller deskriptor for sikker skrivebeskyttet overvåking med umiddelbare varsler."
+        },
+        "notificationSpeed": {
+          "question": "Hvor raske er Bitcoin-transaksjonsvarsler?",
+          "answer": "Med vårt Team-abonnement får du nesten sanntids Bitcoin-transaksjonsvarsler med synkroniseringsintervaller så raske som 2 minutter på mainnet. De fleste varsler ankommer innen sekunder etter transaksjonsoppdagelse. Personlige abonnementer synkroniserer hvert 10. minutt, noe som fortsatt sikrer rettidige varsler for dine Bitcoin-lommebøker."
+        },
+        "walletTypes": {
+          "question": "Hvilke Bitcoin-lommeboktyper støttes?",
+          "answer": "Canary støtter alle store Bitcoin-lommeboktyper inkludert Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR) adresser. Vi oppdager automatisk lommeboktypen din fra XPUB, eller du kan spesifisere den manuelt. Multi-signatur og maskinvarelommebokovervåking støttes fullt ut."
+        },
+        "whyCanary": {
+          "question": "Hvorfor heter det Canary?",
+          "answer": "Som en kanarifugl i en kullgruve som gir tidlig varsling, fungerer Canary som ditt Bitcoin-lommeboks tidlige varslingssystem. Når din Bitcoin er i kjølelager, sjekker du den sjelden. Canary overvåker 24/7 og varsler deg umiddelbart når din Bitcoin beveger seg, noe som gir trygghet for langsiktige eiere."
+        },
+        "noBlockchain": {
+          "question": "Kan jeg spore Bitcoin uten å laste ned blokkjeden?",
+          "answer": "Ja! Canary kobler til profesjonelle Electrum-servere for å overvåke Bitcoin-blokkjeden for deg. Ingen grunn til å kjøre en full node eller laste ned blokkjeden - bare oppgi din XPUB og begynn å motta umiddelbare varsler for all Bitcoin-lommebokaktivitet."
+        },
+        "balanceAlerts": {
+          "question": "Hvordan fungerer Bitcoin-saldovarsler?",
+          "answer": "Canarys saldovarslingssystem lar deg sette egendefinerte terskler for å overvåke din totale lommeboksaldo. Opprett varsler for når saldoen din går over et visst beløp, under en terskel (lavt saldo-advarsel), eller er lik null (lommebøk-tømmingsdeteksjon). Perfekt for å spore kjølelager uten manuell sjekking."
+        },
+        "alertTypes": {
+          "question": "Hvilke saldovarseltyper er tilgjengelige?",
+          "answer": "Du kan opprette tre typer saldovarsler: 'Over'-varsler utløses når total saldo overstiger en terskel (overvåk når beholdninger når milepæler), 'Under'-varsler advarer når total saldo faller under et beløp (lave saldo-advarsler), og 'Lik'-varsler oppdager eksakte saldobeløp som lommeboktømminger (saldo = 0) eller spesifikke mål."
+        },
+        "multipleWallets": {
+          "question": "Kan jeg overvåke flere Bitcoin-lommebøker med forskjellige saldoterskler?",
+          "answer": "Ja! Hver Bitcoin-lommebok kan ha sitt eget sett med egendefinerte saldovarsler. Med vårt Team-abonnement kan du overvåke opptil 5 lommebøker, hver med unike saldoterskler. Perfekt for Uncle Jims som overvåker familiens Bitcoin-beholdninger eller bedrifter som sporer flere treasury-lommebøker med forskjellige varselkrav."
+        },
+        "contact": {
+          "question": "Hvordan kan jeg kontakte dere?",
+          "answer": "Vi vil gjerne høre fra deg! Du kan nå oss gjennom vårt kontaktskjema for spørsmål, tilbakemeldinger eller støtteforespørsler. Vi svarer vanligvis innen 24 timer."
+        }
+      }
     },
     "cta": {
       "title": "Start komplett Bitcoin-overvåking i dag",
@@ -639,6 +689,35 @@
           "notifications": "ntfy push-varsler"
         }
       }
+    },
+    "features": {
+      "wallets": {
+        "label": "Bitcoin-lommebøker",
+        "selfhosted": "Ubegrensede lommebøker",
+        "personal": "1 lommebok",
+        "team": "5 lommebøker"
+      },
+      "contacts": {
+        "label": "Kontakter per lommebok",
+        "selfhosted": "Ubegrensede kontakter",
+        "personal": "1 kontakt",
+        "team": "5 kontakter per lommebok"
+      },
+      "sync": {
+        "label": "Synkroniseringsintervall",
+        "selfhosted": "Konfigurerbar synkroniseringstid",
+        "personal": "10 minutters synkronisering",
+        "team": "2 minutters synkronisering"
+      },
+      "trial": "30 dagers gratis prøveperiode",
+      "email": "E-postvarsler",
+      "sms": "SMS-varsler",
+      "push": "Push-varsler",
+      "balanceAlerts": "Egendefinerte saldovarsler",
+      "analysis": "Transaksjonsanalyse (RBF/CPFP)",
+      "ownNode": "Din egen Bitcoin-node",
+      "privacy": "Full personvern og kontroll",
+      "noSubscription": "Ingen abonnementsavgifter"
     },
     "perMonth": "/måned",
     "perYear": "/år",

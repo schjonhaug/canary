@@ -132,7 +132,57 @@
     },
     "faq": {
       "title": "Questions frequemment posees",
-      "contactUs": "Contactez-nous ici"
+      "contactUs": "Contactez-nous ici",
+      "items": {
+        "whatIsCanary": {
+          "question": "Qu'est-ce que la surveillance de portefeuille Bitcoin Canary?",
+          "answer": "Canary est un service professionnel de surveillance et de notification de portefeuilles Bitcoin qui surveille vos portefeuilles Bitcoin a l'aide de XPUBs ou de descripteurs et envoie des alertes instantanees pour toutes les transactions par email, SMS et notifications push. Parfait pour surveiller le stockage a froid, les portefeuilles materiels et les adresses Bitcoin en lecture seule."
+        },
+        "howDoesItWork": {
+          "question": "Comment fonctionne la surveillance de portefeuille Bitcoin sans cles privees?",
+          "answer": "Canary utilise le XPUB (cle publique etendue) ou le descripteur de votre portefeuille pour une surveillance Bitcoin en lecture seule. Cela nous donne un acces en lecture seule pour suivre vos adresses Bitcoin et detecter les transactions. Nous n'avons jamais acces a vos cles privees et ne pouvons pas deplacer votre Bitcoin - garantissant une securite complete pour la surveillance de votre stockage a froid."
+        },
+        "whatIsXpub": {
+          "question": "Qu'est-ce que la surveillance de portefeuille XPUB?",
+          "answer": "La surveillance XPUB vous permet de suivre toutes les adresses de votre portefeuille Bitcoin sans exposer les cles privees. En fournissant l'XPUB ou le descripteur de votre portefeuille, Canary peut surveiller des adresses illimitees, detecter des transactions a n'importe quelle profondeur (meme plus de 200 adresses), et vous alerter instantanement lorsque le Bitcoin bouge."
+        },
+        "coldStorage": {
+          "question": "Puis-je surveiller les portefeuilles Bitcoin de stockage a froid?",
+          "answer": "Oui! Canary est parfait pour la surveillance du stockage a froid Bitcoin. Que vous utilisiez des portefeuilles materiels comme Ledger ou Trezor, des portefeuilles papier ou toute autre solution de stockage a froid, fournissez simplement votre XPUB ou descripteur pour une surveillance securisee en lecture seule avec des notifications instantanees."
+        },
+        "notificationSpeed": {
+          "question": "Quelle est la rapidite des notifications de transaction Bitcoin?",
+          "answer": "Avec notre plan Team, vous obtenez des notifications de transaction Bitcoin en temps quasi reel avec des intervalles de synchronisation aussi rapides que 2 minutes sur mainnet. La plupart des notifications arrivent en quelques secondes apres la detection de la transaction. Les plans Personnel se synchronisent toutes les 10 minutes, garantissant toujours des alertes opportunes pour vos portefeuilles Bitcoin."
+        },
+        "walletTypes": {
+          "question": "Quels types de portefeuilles Bitcoin sont pris en charge?",
+          "answer": "Canary prend en charge tous les principaux types de portefeuilles Bitcoin, y compris Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) et les adresses Taproot (P2TR). Nous detectons automatiquement le type de votre portefeuille a partir de l'XPUB ou vous pouvez le specifier manuellement. La surveillance multi-signature et des portefeuilles materiels est entierement prise en charge."
+        },
+        "whyCanary": {
+          "question": "Pourquoi s'appelle-t-il Canary?",
+          "answer": "Comme un canari dans une mine de charbon fournissant un avertissement precoce, Canary agit comme le systeme d'alerte precoce de votre portefeuille Bitcoin. Lorsque votre Bitcoin est en stockage a froid, vous le verifiez rarement. Canary surveille 24h/24 et 7j/7 et vous alerte instantanement lorsque votre Bitcoin bouge, offrant la tranquillite d'esprit aux detenteurs a long terme."
+        },
+        "noBlockchain": {
+          "question": "Puis-je suivre Bitcoin sans telecharger la blockchain?",
+          "answer": "Oui! Canary se connecte a des serveurs Electrum professionnels pour surveiller la blockchain Bitcoin pour vous. Pas besoin d'executer un noeud complet ou de telecharger la blockchain - fournissez simplement votre XPUB et commencez a recevoir des notifications instantanees pour toute l'activite de votre portefeuille Bitcoin."
+        },
+        "balanceAlerts": {
+          "question": "Comment fonctionnent les alertes de solde Bitcoin?",
+          "answer": "Le systeme d'alerte de solde de Canary vous permet de definir des seuils personnalises pour surveiller le solde total de votre portefeuille. Creez des alertes pour quand votre solde depasse un certain montant, passe en dessous d'un seuil (avertissement de solde bas), ou est egal a zero (detection de vidage de portefeuille). Parfait pour suivre le stockage a froid sans verification manuelle."
+        },
+        "alertTypes": {
+          "question": "Quels types d'alertes de solde sont disponibles?",
+          "answer": "Vous pouvez creer trois types d'alertes de solde: Les alertes 'Au-dessus' se declenchent lorsque votre solde total depasse un seuil (surveillez quand les avoirs atteignent des jalons), les alertes 'En dessous' avertissent lorsque le solde total tombe sous un montant (avertissements de solde bas), et les alertes 'Egal' detectent des montants de solde exacts comme les vidages de portefeuille (solde = 0) ou des cibles specifiques."
+        },
+        "multipleWallets": {
+          "question": "Puis-je surveiller plusieurs portefeuilles Bitcoin avec differents seuils de solde?",
+          "answer": "Oui! Chaque portefeuille Bitcoin peut avoir son propre ensemble d'alertes de solde personnalisees. Avec notre plan Team, vous pouvez surveiller jusqu'a 5 portefeuilles, chacun avec des seuils de solde uniques. Parfait pour les Uncle Jims surveillant les avoirs Bitcoin de la famille ou les entreprises suivant plusieurs portefeuilles de tresorerie avec differentes exigences d'alerte."
+        },
+        "contact": {
+          "question": "Comment puis-je vous contacter?",
+          "answer": "Nous serions ravis d'avoir de vos nouvelles! Vous pouvez nous joindre via notre formulaire de contact pour toute question, commentaire ou demande d'assistance. Nous repondons generalement dans les 24 heures."
+        }
+      }
     },
     "cta": {
       "title": "Commencez la surveillance complete de Bitcoin aujourd'hui",
@@ -639,6 +689,35 @@
           "notifications": "Notifications push ntfy"
         }
       }
+    },
+    "features": {
+      "wallets": {
+        "label": "Portefeuilles Bitcoin",
+        "selfhosted": "Portefeuilles illimites",
+        "personal": "1 portefeuille",
+        "team": "5 portefeuilles"
+      },
+      "contacts": {
+        "label": "Contacts par portefeuille",
+        "selfhosted": "Contacts illimites",
+        "personal": "1 contact",
+        "team": "5 contacts par portefeuille"
+      },
+      "sync": {
+        "label": "Intervalle de synchronisation",
+        "selfhosted": "Temps de synchronisation configurable",
+        "personal": "Synchronisation toutes les 10 minutes",
+        "team": "Synchronisation toutes les 2 minutes"
+      },
+      "trial": "Essai gratuit de 30 jours",
+      "email": "Notifications par email",
+      "sms": "Notifications par SMS",
+      "push": "Notifications push",
+      "balanceAlerts": "Alertes de solde personnalisees",
+      "analysis": "Analyse des transactions (RBF/CPFP)",
+      "ownNode": "Votre propre noeud Bitcoin",
+      "privacy": "Confidentialite et controle total",
+      "noSubscription": "Pas de frais d'abonnement"
     },
     "perMonth": "/mois",
     "perYear": "/an",
