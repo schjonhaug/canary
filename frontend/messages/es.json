@@ -102,7 +102,57 @@
     },
     "faq": {
       "title": "Preguntas Frecuentes",
-      "contactUs": "Contactanos aqui"
+      "contactUs": "Contactanos aqui",
+      "items": {
+        "whatIsCanary": {
+          "question": "Que es el monitoreo de billeteras Bitcoin de Canary?",
+          "answer": "Canary es un servicio profesional de monitoreo y notificacion de billeteras Bitcoin que vigila tus billeteras usando XPUBs o descriptores y envia alertas instantaneas para todas las transacciones via email, SMS y notificaciones push. Perfecto para monitorear almacenamiento frio, billeteras de hardware y direcciones Bitcoin de solo lectura."
+        },
+        "howDoesItWork": {
+          "question": "Como funciona el monitoreo de billeteras Bitcoin sin claves privadas?",
+          "answer": "Canary usa el XPUB (clave publica extendida) o descriptor de tu billetera para monitoreo Bitcoin de solo lectura. Esto nos da acceso de solo lectura para rastrear tus direcciones Bitcoin y detectar transacciones. Nunca tenemos acceso a tus claves privadas y no podemos mover tu Bitcoin - asegurando seguridad completa para tu monitoreo de almacenamiento frio."
+        },
+        "whatIsXpub": {
+          "question": "Que es el monitoreo de billetera XPUB?",
+          "answer": "El monitoreo XPUB te permite rastrear todas las direcciones en tu billetera Bitcoin sin exponer claves privadas. Al proporcionar el XPUB o descriptor de tu billetera, Canary puede monitorear direcciones ilimitadas, detectar transacciones a cualquier profundidad (incluso 200+ direcciones de profundidad), y alertarte instantaneamente cuando Bitcoin se mueve."
+        },
+        "coldStorage": {
+          "question": "Puedo monitorear billeteras de almacenamiento frio de Bitcoin?",
+          "answer": "Si! Canary es perfecto para monitoreo de almacenamiento frio de Bitcoin. Ya sea que uses billeteras de hardware como Ledger o Trezor, billeteras de papel u otras soluciones de almacenamiento frio, simplemente proporciona tu XPUB o descriptor para monitoreo seguro de solo lectura con notificaciones instantaneas."
+        },
+        "notificationSpeed": {
+          "question": "Que tan rapidas son las notificaciones de transacciones Bitcoin?",
+          "answer": "Con nuestro plan Team, obtienes notificaciones de transacciones Bitcoin casi en tiempo real con intervalos de sincronizacion tan rapidos como 2 minutos en mainnet. La mayoria de las notificaciones llegan en segundos despues de la deteccion de la transaccion. Los planes Personal sincronizan cada 10 minutos, aun asegurando alertas oportunas para tus billeteras Bitcoin."
+        },
+        "walletTypes": {
+          "question": "Que tipos de billeteras Bitcoin son compatibles?",
+          "answer": "Canary soporta todos los tipos principales de billeteras Bitcoin incluyendo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) y direcciones Taproot (P2TR). Detectamos automaticamente el tipo de tu billetera desde el XPUB o puedes especificarlo manualmente. El monitoreo de multi-firma y billeteras de hardware esta totalmente soportado."
+        },
+        "whyCanary": {
+          "question": "Por que se llama Canary?",
+          "answer": "Como un canario en una mina de carbon proporcionando alerta temprana, Canary actua como el sistema de alerta temprana de tu billetera Bitcoin. Cuando tu Bitcoin esta en almacenamiento frio, raramente lo verificas. Canary monitorea 24/7 y te alerta instantaneamente cuando tu Bitcoin se mueve, proporcionando tranquilidad para los tenedores a largo plazo."
+        },
+        "noBlockchain": {
+          "question": "Puedo rastrear Bitcoin sin descargar la blockchain?",
+          "answer": "Si! Canary se conecta a servidores Electrum profesionales para monitorear la blockchain de Bitcoin por ti. No necesitas ejecutar un nodo completo ni descargar la blockchain - solo proporciona tu XPUB y comienza a recibir notificaciones instantaneas para toda la actividad de tu billetera Bitcoin."
+        },
+        "balanceAlerts": {
+          "question": "Como funcionan las alertas de saldo de Bitcoin?",
+          "answer": "El sistema de alertas de saldo de Canary te permite establecer umbrales personalizados para monitorear el saldo total de tu billetera. Crea alertas para cuando tu saldo suba por encima de cierta cantidad, baje de un umbral (advertencia de saldo bajo), o sea igual a cero (deteccion de vaciado de billetera). Perfecto para rastrear almacenamiento frio sin verificacion manual."
+        },
+        "alertTypes": {
+          "question": "Que tipos de alertas de saldo estan disponibles?",
+          "answer": "Puedes crear tres tipos de alertas de saldo: alertas 'Por encima' se activan cuando tu saldo total excede un umbral (monitorea cuando las tenencias alcanzan hitos), alertas 'Por debajo' advierten cuando el saldo total cae bajo una cantidad (advertencias de saldo bajo), y alertas 'Igual a' detectan cantidades exactas de saldo como vaciados de billetera (saldo = 0) u objetivos especificos."
+        },
+        "multipleWallets": {
+          "question": "Puedo monitorear multiples billeteras Bitcoin con diferentes umbrales de saldo?",
+          "answer": "Si! Cada billetera Bitcoin puede tener su propio conjunto de alertas de saldo personalizadas. Con nuestro plan Team, puedes monitorear hasta 5 billeteras, cada una con umbrales de saldo unicos. Perfecto para Uncle Jims monitoreando tenencias familiares de Bitcoin o empresas rastreando multiples billeteras de tesoreria con diferentes requisitos de alerta."
+        },
+        "contact": {
+          "question": "Como puedo contactarlos?",
+          "answer": "Nos encantaria saber de ti! Puedes contactarnos a traves de nuestro formulario de contacto para cualquier pregunta, comentario o solicitud de soporte. Normalmente respondemos dentro de 24 horas."
+        }
+      }
     },
     "cta": {
       "title": "Comienza el Monitoreo Completo de Bitcoin Hoy",
@@ -609,6 +659,35 @@
           "notifications": "Notificaciones push ntfy"
         }
       }
+    },
+    "features": {
+      "wallets": {
+        "label": "Billeteras Bitcoin",
+        "selfhosted": "Billeteras ilimitadas",
+        "personal": "1 billetera",
+        "team": "5 billeteras"
+      },
+      "contacts": {
+        "label": "Contactos por billetera",
+        "selfhosted": "Contactos ilimitados",
+        "personal": "1 contacto",
+        "team": "5 contactos por billetera"
+      },
+      "sync": {
+        "label": "Intervalo de sincronizacion",
+        "selfhosted": "Tiempo de sincronizacion configurable",
+        "personal": "Sincronizacion cada 10 minutos",
+        "team": "Sincronizacion cada 2 minutos"
+      },
+      "trial": "Prueba gratuita de 30 dias",
+      "email": "Notificaciones por email",
+      "sms": "Notificaciones por SMS",
+      "push": "Notificaciones push",
+      "balanceAlerts": "Alertas de saldo personalizadas",
+      "analysis": "Analisis de transacciones (RBF/CPFP)",
+      "ownNode": "Tu propio nodo Bitcoin",
+      "privacy": "Privacidad y control total",
+      "noSubscription": "Sin tarifas de suscripcion"
     },
     "perMonth": "/mes",
     "perYear": "/ano",

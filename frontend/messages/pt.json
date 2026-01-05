@@ -132,7 +132,57 @@
     },
     "faq": {
       "title": "Perguntas Frequentes",
-      "contactUs": "Entre em contato aqui"
+      "contactUs": "Entre em contato aqui",
+      "items": {
+        "whatIsCanary": {
+          "question": "O que e o monitoramento de carteiras Bitcoin do Canary?",
+          "answer": "Canary e um servico profissional de monitoramento e notificacao de carteiras Bitcoin que vigia suas carteiras usando XPUBs ou descritores e envia alertas instantaneos para todas as transacoes via email, SMS e notificacoes push. Perfeito para monitorar armazenamento frio, carteiras de hardware e enderecos Bitcoin somente leitura."
+        },
+        "howDoesItWork": {
+          "question": "Como funciona o monitoramento de carteiras Bitcoin sem chaves privadas?",
+          "answer": "Canary usa o XPUB (chave publica estendida) ou descritor da sua carteira para monitoramento Bitcoin somente leitura. Isso nos da acesso somente leitura para rastrear seus enderecos Bitcoin e detectar transacoes. Nunca temos acesso as suas chaves privadas e nao podemos mover seu Bitcoin - garantindo seguranca completa para seu monitoramento de armazenamento frio."
+        },
+        "whatIsXpub": {
+          "question": "O que e monitoramento de carteira XPUB?",
+          "answer": "O monitoramento XPUB permite rastrear todos os enderecos na sua carteira Bitcoin sem expor chaves privadas. Ao fornecer o XPUB ou descritor da sua carteira, o Canary pode monitorar enderecos ilimitados, detectar transacoes em qualquer profundidade (mesmo 200+ enderecos de profundidade), e alertar voce instantaneamente quando Bitcoin se move."
+        },
+        "coldStorage": {
+          "question": "Posso monitorar carteiras de armazenamento frio de Bitcoin?",
+          "answer": "Sim! Canary e perfeito para monitoramento de armazenamento frio de Bitcoin. Seja usando carteiras de hardware como Ledger ou Trezor, carteiras de papel ou outras solucoes de armazenamento frio, basta fornecer seu XPUB ou descritor para monitoramento seguro somente leitura com notificacoes instantaneas."
+        },
+        "notificationSpeed": {
+          "question": "Quao rapidas sao as notificacoes de transacoes Bitcoin?",
+          "answer": "Com nosso plano Team, voce obtem notificacoes de transacoes Bitcoin quase em tempo real com intervalos de sincronizacao tao rapidos quanto 2 minutos na mainnet. A maioria das notificacoes chega em segundos apos a deteccao da transacao. Planos Personal sincronizam a cada 10 minutos, ainda garantindo alertas oportunos para suas carteiras Bitcoin."
+        },
+        "walletTypes": {
+          "question": "Quais tipos de carteiras Bitcoin sao suportados?",
+          "answer": "Canary suporta todos os principais tipos de carteiras Bitcoin incluindo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) e enderecos Taproot (P2TR). Detectamos automaticamente o tipo da sua carteira a partir do XPUB ou voce pode especificar manualmente. Monitoramento de multi-assinatura e carteiras de hardware sao totalmente suportados."
+        },
+        "whyCanary": {
+          "question": "Por que se chama Canary?",
+          "answer": "Como um canario em uma mina de carvao fornecendo alerta antecipado, o Canary atua como o sistema de alerta antecipado da sua carteira Bitcoin. Quando seu Bitcoin esta em armazenamento frio, voce raramente o verifica. O Canary monitora 24/7 e alerta voce instantaneamente quando seu Bitcoin se move, proporcionando tranquilidade para detentores de longo prazo."
+        },
+        "noBlockchain": {
+          "question": "Posso rastrear Bitcoin sem baixar a blockchain?",
+          "answer": "Sim! Canary se conecta a servidores Electrum profissionais para monitorar a blockchain do Bitcoin para voce. Nao precisa executar um no completo ou baixar a blockchain - basta fornecer seu XPUB e comecar a receber notificacoes instantaneas para toda a atividade da sua carteira Bitcoin."
+        },
+        "balanceAlerts": {
+          "question": "Como funcionam os alertas de saldo de Bitcoin?",
+          "answer": "O sistema de alertas de saldo do Canary permite definir limites personalizados para monitorar o saldo total da sua carteira. Crie alertas para quando seu saldo ultrapassar uma certa quantia, ficar abaixo de um limite (aviso de saldo baixo), ou for igual a zero (deteccao de esvaziamento de carteira). Perfeito para rastrear armazenamento frio sem verificacao manual."
+        },
+        "alertTypes": {
+          "question": "Quais tipos de alertas de saldo estao disponiveis?",
+          "answer": "Voce pode criar tres tipos de alertas de saldo: alertas 'Acima' sao acionados quando seu saldo total excede um limite (monitore quando seus ativos atingem marcos), alertas 'Abaixo' avisam quando o saldo total cai abaixo de uma quantia (avisos de saldo baixo), e alertas 'Igual' detectam quantias exatas de saldo como esvaziamentos de carteira (saldo = 0) ou alvos especificos."
+        },
+        "multipleWallets": {
+          "question": "Posso monitorar multiplas carteiras Bitcoin com diferentes limites de saldo?",
+          "answer": "Sim! Cada carteira Bitcoin pode ter seu proprio conjunto de alertas de saldo personalizados. Com nosso plano Team, voce pode monitorar ate 5 carteiras, cada uma com limites de saldo unicos. Perfeito para Uncle Jims monitorando ativos familiares de Bitcoin ou empresas rastreando multiplas carteiras de tesouraria com diferentes requisitos de alerta."
+        },
+        "contact": {
+          "question": "Como posso entrar em contato?",
+          "answer": "Adorariamos ouvir de voce! Voce pode nos contatar atraves do nosso formulario de contato para quaisquer perguntas, feedback ou solicitacoes de suporte. Normalmente respondemos dentro de 24 horas."
+        }
+      }
     },
     "cta": {
       "title": "Comece o Monitoramento Completo de Bitcoin Hoje",
@@ -639,6 +689,35 @@
           "notifications": "Notificacoes push ntfy"
         }
       }
+    },
+    "features": {
+      "wallets": {
+        "label": "Carteiras Bitcoin",
+        "selfhosted": "Carteiras ilimitadas",
+        "personal": "1 carteira",
+        "team": "5 carteiras"
+      },
+      "contacts": {
+        "label": "Contatos por carteira",
+        "selfhosted": "Contatos ilimitados",
+        "personal": "1 contato",
+        "team": "5 contatos por carteira"
+      },
+      "sync": {
+        "label": "Intervalo de sincronizacao",
+        "selfhosted": "Tempo de sincronizacao configuravel",
+        "personal": "Sincronizacao a cada 10 minutos",
+        "team": "Sincronizacao a cada 2 minutos"
+      },
+      "trial": "Teste gratuito de 30 dias",
+      "email": "Notificacoes por email",
+      "sms": "Notificacoes por SMS",
+      "push": "Notificacoes push",
+      "balanceAlerts": "Alertas de saldo personalizados",
+      "analysis": "Analise de transacoes (RBF/CPFP)",
+      "ownNode": "Seu proprio node Bitcoin",
+      "privacy": "Privacidade e controle total",
+      "noSubscription": "Sem taxas de assinatura"
     },
     "perMonth": "/mes",
     "perYear": "/ano",

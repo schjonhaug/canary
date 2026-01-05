@@ -132,7 +132,57 @@
     },
     "faq": {
       "title": "Haufig gestellte Fragen",
-      "contactUs": "Kontaktieren Sie uns hier"
+      "contactUs": "Kontaktieren Sie uns hier",
+      "items": {
+        "whatIsCanary": {
+          "question": "Was ist Bitcoin-Wallet-Uberwachung von Canary?",
+          "answer": "Canary ist ein professioneller Bitcoin-Wallet-Uberwachungs- und Benachrichtigungsdienst, der Ihre Bitcoin-Wallets mittels XPUBs oder Deskriptoren uberwacht und sofortige Benachrichtigungen fur alle Transaktionen per E-Mail, SMS und Push-Benachrichtigungen sendet. Perfekt fur die Uberwachung von Cold Storage, Hardware-Wallets und Bitcoin-Adressen im Nur-Lese-Modus."
+        },
+        "howDoesItWork": {
+          "question": "Wie funktioniert Bitcoin-Wallet-Uberwachung ohne private Schlussel?",
+          "answer": "Canary verwendet den XPUB (erweiterten offentlichen Schlussel) oder Deskriptor Ihrer Wallet fur Nur-Lese-Bitcoin-Uberwachung. Dies gibt uns Nur-Lese-Zugriff, um Ihre Bitcoin-Adressen zu verfolgen und Transaktionen zu erkennen. Wir haben niemals Zugriff auf Ihre privaten Schlussel und konnen Ihr Bitcoin nicht bewegen - was vollstandige Sicherheit fur Ihre Cold-Storage-Uberwachung gewahrleistet."
+        },
+        "whatIsXpub": {
+          "question": "Was ist XPUB-Wallet-Uberwachung?",
+          "answer": "XPUB-Uberwachung ermoglicht es Ihnen, alle Adressen in Ihrer Bitcoin-Wallet zu verfolgen, ohne private Schlussel preiszugeben. Indem Sie den XPUB oder Deskriptor Ihrer Wallet angeben, kann Canary unbegrenzte Adressen uberwachen, Transaktionen in jeder Tiefe erkennen (sogar 200+ Adressen tief) und Sie sofort benachrichtigen, wenn sich Bitcoin bewegt."
+        },
+        "coldStorage": {
+          "question": "Kann ich Bitcoin-Cold-Storage-Wallets uberwachen?",
+          "answer": "Ja! Canary ist perfekt fur Bitcoin-Cold-Storage-Uberwachung. Egal ob Sie Hardware-Wallets wie Ledger oder Trezor, Paper-Wallets oder andere Cold-Storage-Losungen verwenden - geben Sie einfach Ihren XPUB oder Deskriptor an fur sichere Nur-Lese-Uberwachung mit sofortigen Benachrichtigungen."
+        },
+        "notificationSpeed": {
+          "question": "Wie schnell sind Bitcoin-Transaktionsbenachrichtigungen?",
+          "answer": "Mit unserem Team-Plan erhalten Sie nahezu Echtzeit-Bitcoin-Transaktionsbenachrichtigungen mit Synchronisierungsintervallen von nur 2 Minuten im Mainnet. Die meisten Benachrichtigungen kommen innerhalb von Sekunden nach der Transaktionserkennung an. Personal-Plane synchronisieren alle 10 Minuten und gewahrleisten dennoch rechtzeitige Benachrichtigungen fur Ihre Bitcoin-Wallets."
+        },
+        "walletTypes": {
+          "question": "Welche Bitcoin-Wallet-Typen werden unterstutzt?",
+          "answer": "Canary unterstutzt alle wichtigen Bitcoin-Wallet-Typen einschliesslich Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) und Taproot (P2TR) Adressen. Wir erkennen automatisch Ihren Wallet-Typ aus dem XPUB oder Sie konnen ihn manuell angeben. Multi-Signatur- und Hardware-Wallet-Uberwachung werden vollstandig unterstutzt."
+        },
+        "whyCanary": {
+          "question": "Warum heisst es Canary?",
+          "answer": "Wie ein Kanarienvogel in einer Kohlenmine, der Fruhwarnung bietet, fungiert Canary als Fruhwarnsystem Ihrer Bitcoin-Wallet. Wenn Ihr Bitcoin in Cold Storage liegt, prufen Sie es selten. Canary uberwacht 24/7 und benachrichtigt Sie sofort, wenn sich Ihr Bitcoin bewegt, was Ruhe fur Langzeithalter bietet."
+        },
+        "noBlockchain": {
+          "question": "Kann ich Bitcoin verfolgen, ohne die Blockchain herunterzuladen?",
+          "answer": "Ja! Canary verbindet sich mit professionellen Electrum-Servern, um die Bitcoin-Blockchain fur Sie zu uberwachen. Kein Bedarf, einen vollstandigen Knoten zu betreiben oder die Blockchain herunterzuladen - geben Sie einfach Ihren XPUB an und beginnen Sie, sofortige Benachrichtigungen fur alle Bitcoin-Wallet-Aktivitaten zu erhalten."
+        },
+        "balanceAlerts": {
+          "question": "Wie funktionieren Bitcoin-Saldowarnungen?",
+          "answer": "Das Saldowarnungssystem von Canary lasst Sie benutzerdefinierte Schwellenwerte setzen, um Ihren gesamten Wallet-Saldo zu uberwachen. Erstellen Sie Warnungen, wenn Ihr Saldo einen bestimmten Betrag uberschreitet, unter einen Schwellenwert fallt (Warnung bei niedrigem Saldo) oder null ist (Wallet-Leerungs-Erkennung). Perfekt fur die Verfolgung von Cold Storage ohne manuelle Uberprufung."
+        },
+        "alertTypes": {
+          "question": "Welche Arten von Saldowarnungen sind verfugbar?",
+          "answer": "Sie konnen drei Arten von Saldowarnungen erstellen: 'Uber'-Warnungen werden ausgelost, wenn Ihr Gesamtsaldo einen Schwellenwert uberschreitet (uberwachen Sie, wenn Bestande Meilensteine erreichen), 'Unter'-Warnungen warnen, wenn der Gesamtsaldo unter einen Betrag fallt (Warnungen bei niedrigem Saldo), und 'Gleich'-Warnungen erkennen exakte Saldobetrage wie Wallet-Leerungen (Saldo = 0) oder spezifische Ziele."
+        },
+        "multipleWallets": {
+          "question": "Kann ich mehrere Bitcoin-Wallets mit unterschiedlichen Saldoschwellenwerten uberwachen?",
+          "answer": "Ja! Jede Bitcoin-Wallet kann ihr eigenes Set an benutzerdefinierten Saldowarnungen haben. Mit unserem Team-Plan konnen Sie bis zu 5 Wallets uberwachen, jede mit einzigartigen Saldoschwellenwerten. Perfekt fur Uncle Jims, die Bitcoin-Bestande von Familien uberwachen, oder Unternehmen, die mehrere Treasury-Wallets mit unterschiedlichen Warnanforderungen verfolgen."
+        },
+        "contact": {
+          "question": "Wie kann ich Sie kontaktieren?",
+          "answer": "Wir wurden gerne von Ihnen horen! Sie konnen uns uber unser Kontaktformular fur alle Fragen, Feedback oder Support-Anfragen erreichen. Wir antworten normalerweise innerhalb von 24 Stunden."
+        }
+      }
     },
     "cta": {
       "title": "Starten Sie heute mit vollstandiger Bitcoin-Uberwachung",
@@ -639,6 +689,35 @@
           "notifications": "ntfy Push-Benachrichtigungen"
         }
       }
+    },
+    "features": {
+      "wallets": {
+        "label": "Bitcoin-Wallets",
+        "selfhosted": "Unbegrenzte Wallets",
+        "personal": "1 Wallet",
+        "team": "5 Wallets"
+      },
+      "contacts": {
+        "label": "Kontakte pro Wallet",
+        "selfhosted": "Unbegrenzte Kontakte",
+        "personal": "1 Kontakt",
+        "team": "5 Kontakte pro Wallet"
+      },
+      "sync": {
+        "label": "Synchronisierungsintervall",
+        "selfhosted": "Konfigurierbare Synchronisierungszeit",
+        "personal": "10-Minuten-Synchronisation",
+        "team": "2-Minuten-Synchronisation"
+      },
+      "trial": "30 Tage kostenlos testen",
+      "email": "E-Mail-Benachrichtigungen",
+      "sms": "SMS-Benachrichtigungen",
+      "push": "Push-Benachrichtigungen",
+      "balanceAlerts": "Benutzerdefinierte Saldo-Warnungen",
+      "analysis": "Transaktionsanalyse (RBF/CPFP)",
+      "ownNode": "Ihr eigener Bitcoin-Node",
+      "privacy": "Volle Privatsphare und Kontrolle",
+      "noSubscription": "Keine Abonnementgebuhren"
     },
     "perMonth": "/Monat",
     "perYear": "/Jahr",

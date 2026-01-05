@@ -9,56 +9,21 @@ import { PlanComparison } from "./plan-comparison"
 import { useTranslations } from "next-intl"
 
 
-const faqs = [
-  {
-    question: "What is Canary Bitcoin wallet monitoring?",
-    answer: "Canary is a professional Bitcoin wallet monitoring and notification service that watches your Bitcoin wallets using XPUBs or descriptors and sends instant alerts for all transactions through email, SMS and push notifications. Perfect for monitoring cold storage, hardware wallets, and watch-only Bitcoin addresses."
-  },
-  {
-    question: "How does Bitcoin wallet monitoring work without private keys?",
-    answer: "Canary uses your wallet's XPUB (extended public key) or descriptor for watch-only Bitcoin monitoring. This gives us read-only access to track your Bitcoin addresses and detect transactions. We never have access to your private keys and cannot move your Bitcoin - ensuring complete security for your cold storage monitoring."
-  },
-  {
-    question: "What is XPUB wallet monitoring?",
-    answer: "XPUB monitoring allows you to track all addresses in your Bitcoin wallet without exposing private keys. By providing your wallet's XPUB or descriptor, Canary can monitor unlimited addresses, detect transactions at any depth (even 200+ addresses deep), and alert you instantly when Bitcoin moves."
-  },
-  {
-    question: "Can I monitor Bitcoin cold storage wallets?",
-    answer: "Yes! Canary is perfect for Bitcoin cold storage monitoring. Whether you're using hardware wallets like Ledger or Trezor, paper wallets, or any other cold storage solution, simply provide your XPUB or descriptor for secure watch-only monitoring with instant notifications."
-  },
-  {
-    question: "How fast are Bitcoin transaction notifications?",
-    answer: "With our Team plan, you get near real-time Bitcoin transaction notifications with sync intervals as fast as 2 minutes on mainnet. Most notifications arrive within seconds of transaction detection. Personal plans sync every 10 minutes, still ensuring timely alerts for your Bitcoin wallets."
-  },
-  {
-    question: "What Bitcoin wallet types are supported?",
-    answer: "Canary supports all major Bitcoin wallet types including Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH), and Taproot (P2TR) addresses. We automatically detect your wallet type from the XPUB or you can specify it manually. Multi-signature and hardware wallet monitoring are fully supported."
-  },
-  {
-    question: "Why is it called Canary?",
-    answer: "Like a canary in a coal mine providing early warning, Canary acts as your Bitcoin wallet's early warning system. When your Bitcoin is in cold storage, you rarely check on it. Canary monitors 24/7 and alerts you instantly when your Bitcoin moves, providing peace of mind for long-term holders."
-  },
-  {
-    question: "Can I track Bitcoin without downloading the blockchain?",
-    answer: "Yes! Canary connects to professional Electrum servers to monitor the Bitcoin blockchain for you. No need to run a full node or download the blockchain - just provide your XPUB and start receiving instant notifications for all Bitcoin wallet activity."
-  },
-  {
-    question: "How do Bitcoin balance alerts work?",
-    answer: "Canary's balance alert system lets you set custom thresholds to monitor your total wallet balance. Create alerts for when your balance goes above a certain amount, below a threshold (low balance warning), or equals zero (wallet drain detection). Perfect for tracking cold storage without manual checking."
-  },
-  {
-    question: "What balance alert types are available?",
-    answer: "You can create three types of balance alerts: 'Above' alerts trigger when your total balance exceeds a threshold (monitor when holdings reach milestones), 'Below' alerts warn when total balance drops under an amount (low balance warnings), and 'Equals' alerts detect exact balance amounts like wallet drains (balance = 0) or specific targets."
-  },
-  {
-    question: "Can I monitor multiple Bitcoin wallets with different balance thresholds?",
-    answer: "Yes! Each Bitcoin wallet can have its own set of custom balance alerts. With our Team plan, you can monitor up to 5 wallets, each with unique balance thresholds. Perfect for Uncle Jims monitoring family Bitcoin holdings or businesses tracking multiple treasury wallets with different alert requirements."
-  },
-  {
-    question: "How can I contact you?",
-    answer: "We'd love to hear from you! You can reach us through our contact form for any questions, feedback, or support requests. We typically respond within 24 hours."
-  }
-]
+// FAQ keys matching the translation file structure
+const faqKeys = [
+  'whatIsCanary',
+  'howDoesItWork',
+  'whatIsXpub',
+  'coldStorage',
+  'notificationSpeed',
+  'walletTypes',
+  'whyCanary',
+  'noBlockchain',
+  'balanceAlerts',
+  'alertTypes',
+  'multipleWallets',
+  'contact'
+] as const
 
 export default function LandingPage() {
   const t = useTranslations('landing')
@@ -286,23 +251,23 @@ export default function LandingPage() {
             <h2 className="text-2xl font-semibold mb-3">{t('faq.title')}</h2>
           </div>
           <div className="space-y-4">
-            {faqs.map((faq, index) => (
-              <Card key={index}>
+            {faqKeys.map((key) => (
+              <Card key={key}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">
-                    {faq.question === "How can I contact you?" ? (
+                    {key === 'contact' ? (
                       <Link href="/contact" className="hover:text-primary transition-colors">
-                        {faq.question}
+                        {t(`faq.items.${key}.question`)}
                       </Link>
                     ) : (
-                      faq.question
+                      t(`faq.items.${key}.question`)
                     )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    {faq.answer}
-                    {faq.question === "How can I contact you?" && (
+                    {t(`faq.items.${key}.answer`)}
+                    {key === 'contact' && (
                       <>
                         {" "}
                         <Link href="/contact" className="text-primary hover:underline">

@@ -13,6 +13,25 @@ function getTierTranslationKey(tier: string): string {
   return tier === 'selfhosted' ? 'selfHosted' : tier
 }
 
+// Map feature ID to translation key
+function getFeatureTranslationKey(featureId: string): string {
+  const mapping: Record<string, string> = {
+    'wallets': 'wallets',
+    'contacts': 'contacts',
+    'sync': 'sync',
+    'trial': 'trial',
+    'email': 'email',
+    'sms': 'sms',
+    'push': 'push',
+    'balance-alerts': 'balanceAlerts',
+    'analysis': 'analysis',
+    'own-node': 'ownNode',
+    'privacy': 'privacy',
+    'subscription': 'noSubscription'
+  }
+  return mapping[featureId] || featureId
+}
+
 interface PlanComparisonProps {
   currentTier: string
   onUpgrade?: (targetTier: string, isYearly: boolean) => void
@@ -225,17 +244,28 @@ function PlanComparisonContent({
                   const tierKey = tier.tier as 'selfhosted' | 'personal' | 'team'
                   const value = feature[tierKey]
                   const isUnique = feature.unique?.[tierKey as keyof typeof feature.unique] || false
+                  const featureKey = getFeatureTranslationKey(feature.id)
 
                   // Skip features that are false or undefined for this tier
                   if (value === false || value === undefined) {
                     return null
                   }
 
+                  // Get the translated feature text
+                  let featureText: string
+                  if (typeof value === 'string') {
+                    // Features with tier-specific values (wallets, contacts, sync)
+                    featureText = t(`features.${featureKey}.${tierKey}`)
+                  } else {
+                    // Boolean features (trial, email, sms, push, etc.)
+                    featureText = t(`features.${featureKey}`)
+                  }
+
                   return (
                     <li key={feature.id} className={`flex items-start text-sm ${isUnique && tier.tier !== 'personal' ? 'font-medium' : ''}`}>
                       <CheckCircle2 className={`h-4 w-4 mr-2 flex-shrink-0 mt-0.5 ${isUnique && tier.tier !== 'personal' ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span>
-                        {typeof value === 'string' ? value : feature.label}
+                        {featureText}
                       </span>
                     </li>
                   )
