@@ -4,9 +4,14 @@ import Image from "next/image"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Loader2, Github } from "lucide-react"
-import { allFeatures, getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
+import { allFeatures } from "@/lib/pricing-data"
 import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
 import { useTranslations } from "next-intl"
+
+// Map tier slug to translation key (handles selfhosted -> selfHosted)
+function getTierTranslationKey(tier: string): string {
+  return tier === 'selfhosted' ? 'selfHosted' : tier
+}
 
 interface PlanComparisonProps {
   currentTier: string
@@ -191,8 +196,8 @@ function PlanComparisonContent({
             )}
             
             <CardHeader>
-              <CardTitle className="text-lg">{getTierDisplayName(tier.tier)}</CardTitle>
-              <CardDescription className="text-sm">{tier.description || getTierDescription(tier.tier)}</CardDescription>
+              <CardTitle className="text-lg">{t(`plans.${getTierTranslationKey(tier.tier)}.name`)}</CardTitle>
+              <CardDescription className="text-sm">{t(`plans.${getTierTranslationKey(tier.tier)}.description`)}</CardDescription>
               {showPricing && tier.tier === 'selfhosted' && (
                 <div className="mt-3">
                   <span className="text-2xl font-bold text-green-600">{t('freeToSelfHost')}</span>
@@ -251,7 +256,7 @@ function PlanComparisonContent({
                   disabled={isLoadingThisTier}
                 >
                   {isLoadingThisTier && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {hasPaidSubscription ? t('changePlan') : (isTrialUser ? t('subscribeTo', { plan: getTierDisplayName(tier.tier) }) : t('upgradeTo', { plan: getTierDisplayName(tier.tier) }))}
+                  {hasPaidSubscription ? t('changePlan') : (isTrialUser ? t('subscribeTo', { plan: t(`plans.${getTierTranslationKey(tier.tier)}.name`) }) : t('upgradeTo', { plan: t(`plans.${getTierTranslationKey(tier.tier)}.name`) }))}
                 </Button>
               </CardFooter>
             )}

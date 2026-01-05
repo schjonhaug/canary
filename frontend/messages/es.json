@@ -633,6 +633,10 @@
   },
   "upgrade": {
     "title": "Mejora Tu Plan",
+    "choosePlan": "Elige Tu Plan",
+    "trialDescription": "Suscribete hoy para asegurar que las notificaciones de tu billetera continuen sin interrupcion cuando termine tu prueba. Mantén tu Bitcoin seguro con monitoreo continuo.",
+    "limitReachedDescription": "Has alcanzado tu limite de {limitType} de {limit} en el plan {tierName}. Compara planes y mejora para agregar mas.",
+    "currentUsage": "Uso actual: {count} / {limit}",
     "walletLimit": {
       "title": "Limite de Billeteras Alcanzado",
       "description": "Has alcanzado el numero maximo de billeteras para tu plan. Mejora para agregar mas billeteras."

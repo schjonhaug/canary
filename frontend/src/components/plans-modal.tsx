@@ -10,10 +10,16 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Zap } from "lucide-react"
-import { getWalletLimit, getContactLimit, getTierDisplayName } from "@/lib/utils"
+import { getWalletLimit, getContactLimit } from "@/lib/utils"
 import { PlanComparison } from "./plan-comparison"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
+import { useTranslations } from "next-intl"
+
+// Map tier slug to translation key (handles selfhosted -> selfHosted)
+function getTierTranslationKey(tier: string): string {
+  return tier === 'selfhosted' ? 'selfHosted' : tier
+}
 
 interface PlansModalProps {
   isOpen: boolean
@@ -39,14 +45,15 @@ export function PlansModal({
   isTrialUser = false,
   billingStatus,
 }: PlansModalProps) {
+  const t = useTranslations('upgrade')
+  const tBilling = useTranslations('billing')
   const { isAuthenticated, refreshBillingStatus } = useAuth()
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
-  
+
   // Get the appropriate limit based on limitType
   const currentLimit = limitType === 'wallets' ? getWalletLimit(currentTier) : getContactLimit(currentTier)
   const currentCount = limitType === 'wallets' ? currentWalletCount : currentContactCount
-  const limitTypeText = limitType === 'wallets' ? 'wallet' : 'contact'
 
   const handleUpgrade = async (targetTier: string, isYearly: boolean = false) => {
     if (!isAuthenticated) {
@@ -110,18 +117,18 @@ export function PlansModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-500" />
-            {isTrialUser ? 'Choose Your Plan' : `${limitType === 'wallets' ? 'Wallet' : 'Contact'} Limit Reached`}
+            {isTrialUser ? t('choosePlan') : t(`${limitType === 'wallets' ? 'walletLimit' : 'contactLimit'}.title`)}
           </DialogTitle>
           <DialogDescription>
             {isTrialUser ? (
-              'Subscribe today to ensure your wallet notifications continue uninterrupted when your trial ends. Keep your Bitcoin secure with continuous monitoring.'
+              t('trialDescription')
             ) : (
               <>
-                You&apos;ve reached your {limitTypeText} limit of {currentLimit} {limitTypeText}{currentLimit !== 1 ? 's' : ''} on the{' '}
-                <Badge variant="outline" className="mx-1">
-                  {getTierDisplayName(currentTier)}
-                </Badge>
-                {' '}plan. Compare plans and upgrade to add more {limitTypeText}s.
+                {t('limitReachedDescription', {
+                  limitType: limitType === 'wallets' ? tBilling('plans.personal.features.wallets').split(' ')[1] : tBilling('plans.personal.features.contacts').split(' ')[1],
+                  limit: currentLimit,
+                  tierName: tBilling(`plans.${getTierTranslationKey(currentTier)}.name`)
+                })}
               </>
             )}
           </DialogDescription>
@@ -130,7 +137,7 @@ export function PlansModal({
         <div className="space-y-6">
           {!isTrialUser && (
             <div className="text-sm text-muted-foreground text-center">
-              Current usage: {currentCount} / {currentLimit} {limitTypeText}s
+              {t('currentUsage', { count: currentCount, limit: currentLimit })}
             </div>
           )}
 

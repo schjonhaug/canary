@@ -663,6 +663,10 @@
   },
   "upgrade": {
     "title": "プランをアップグレード",
+    "choosePlan": "プランを選択",
+    "trialDescription": "トライアル終了後もウォレット通知が中断なく続くよう、今すぐご登録ください。継続的な監視でビットコインを安全に保ちましょう。",
+    "limitReachedDescription": "{tierName}プランの{limitType}制限{limit}に達しました。プランを比較してアップグレードし、追加してください。",
+    "currentUsage": "現在の使用量: {count} / {limit}",
     "walletLimit": {
       "title": "ウォレット制限に達しました",
       "description": "プランの最大ウォレット数に達しました。アップグレードしてウォレットを追加してください。"

@@ -663,6 +663,10 @@
   },
   "upgrade": {
     "title": "Atualize Seu Plano",
+    "choosePlan": "Escolha Seu Plano",
+    "trialDescription": "Assine hoje para garantir que as notificacoes da sua carteira continuem ininterruptas quando seu periodo de teste terminar. Mantenha seu Bitcoin seguro com monitoramento continuo.",
+    "limitReachedDescription": "Voce atingiu seu limite de {limitType} de {limit} no plano {tierName}. Compare planos e atualize para adicionar mais.",
+    "currentUsage": "Uso atual: {count} / {limit}",
     "walletLimit": {
       "title": "Limite de Carteiras Atingido",
       "description": "Voce atingiu o numero maximo de carteiras para seu plano. Atualize para adicionar mais carteiras."

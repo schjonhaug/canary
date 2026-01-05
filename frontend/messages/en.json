@@ -663,6 +663,10 @@
   },
   "upgrade": {
     "title": "Upgrade Your Plan",
+    "choosePlan": "Choose Your Plan",
+    "trialDescription": "Subscribe today to ensure your wallet notifications continue uninterrupted when your trial ends. Keep your Bitcoin secure with continuous monitoring.",
+    "limitReachedDescription": "You've reached your {limitType} limit of {limit} on the {tierName} plan. Compare plans and upgrade to add more.",
+    "currentUsage": "Current usage: {count} / {limit}",
     "walletLimit": {
       "title": "Wallet Limit Reached",
       "description": "You've reached the maximum number of wallets for your plan. Upgrade to add more wallets."
