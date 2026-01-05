@@ -26,14 +26,22 @@ CREATE TABLE notification_logs_new (
 
 -- Copy existing data
 INSERT INTO notification_logs_new (
-    id, txid, wallet_checksum, notification_method_id, provider,
+    txid, wallet_checksum, notification_method_id, provider,
     provider_message_id, status, error_message, message_content,
     notification_type, sent_at, balance_alert_id
 )
 SELECT
-    id, txid, wallet_checksum, notification_method_id, provider,
-    provider_message_id, status, error_message, message_content,
-    notification_type, sent_at, balance_alert_id
+    transaction_txid,            -- Map transaction_txid -> txid
+    transaction_wallet_checksum, -- Map transaction_wallet_checksum -> wallet_checksum
+    notification_method_id,      -- Keep as is (SQLite is flexible with types)
+    provider_name,               -- Map provider_name -> provider
+    provider_message_id,
+    status, 
+    error_message, 
+    message_content,
+    notification_type, 
+    created_at,                  -- Map created_at -> sent_at
+    NULL                         -- New column balance_alert_id
 FROM notification_logs;
 
 -- Drop old table and rename new one
