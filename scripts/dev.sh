@@ -1435,15 +1435,7 @@ case "$1" in
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo "Resetting environment..."
-            
-            # Remove wallets from backend if it's running
-            echo "Removing wallets from backend..."
-            if curl -s --connect-timeout 2 http://localhost:3000/api/wallets > /dev/null 2>&1; then
-                ./docker-utils.sh remove-wallets-from-backend
-            else
-                echo "⚠️  Backend not running, skipping wallet removal"
-            fi
-            
+
             # Try to unload wallets before reset (if Bitcoin is running)
             if btc getblockchaininfo > /dev/null 2>&1; then
                 echo "Unloading test wallets..."
@@ -1457,13 +1449,24 @@ case "$1" in
             # Stop containers and remove all volumes (includes wallet data)
             docker-compose down -v
             
-            # Clean up regtest database folder completely
-            echo "Cleaning up regtest database..."
-            if [ -d "../backend/database/regtest" ]; then
-                rm -rf ../backend/database/regtest
-                echo "✅ Regtest database folder removed"
-            else
-                echo "⚠️  Regtest database folder not found (this is normal for first run)"
+            # Clean up regtest database folders completely
+            echo "Cleaning up regtest databases..."
+            FOUND_DB=false
+
+            if [ -d "../backend/database-cloud/regtest" ]; then
+                rm -rf ../backend/database-cloud/regtest
+                echo "✅ Cloud regtest database folder removed"
+                FOUND_DB=true
+            fi
+
+            if [ -d "../backend/database-self-hosted/regtest" ]; then
+                rm -rf ../backend/database-self-hosted/regtest
+                echo "✅ Self-hosted regtest database folder removed"
+                FOUND_DB=true
+            fi
+
+            if [ "$FOUND_DB" = false ]; then
+                echo "⚠️  No regtest database folders found (this is normal for first run)"
             fi
             
             echo "✅ Environment reset complete (all wallets, blockchain data, and database wiped)"
@@ -1779,23 +1782,27 @@ case "$1" in
         ;;
         
     "wipe-database")
-        echo "🗑️  Wiping SQLite database..."
-        
-        # Remove SQLite metadata database
-        if [ -f "../backend/canary.sqlite" ]; then
-            rm -f ../backend/canary.sqlite
-            echo "✅ SQLite metadata database removed"
-            echo "💡 The database will be recreated when the backend starts"
-        else
-            echo "⚠️  SQLite metadata database not found"
+        echo "🗑️  Wiping all SQLite databases..."
+        FOUND_DB=false
+
+        # Remove cloud mode databases
+        if [ -d "../backend/database-cloud" ]; then
+            rm -rf ../backend/database-cloud
+            echo "✅ Cloud database folder removed"
+            FOUND_DB=true
         fi
-        
-        # Remove BDK wallet files
-        if [ -d "../backend/wallets" ]; then
-            rm -rf ../backend/wallets
-            echo "✅ BDK wallets directory removed"
+
+        # Remove self-hosted mode databases
+        if [ -d "../backend/database-self-hosted" ]; then
+            rm -rf ../backend/database-self-hosted
+            echo "✅ Self-hosted database folder removed"
+            FOUND_DB=true
+        fi
+
+        if [ "$FOUND_DB" = true ]; then
+            echo "💡 Databases will be recreated when the backend starts"
         else
-            echo "⚠️  BDK wallets directory not found"
+            echo "⚠️  No database folders found"
         fi
         ;;
         
@@ -1816,7 +1823,7 @@ case "$1" in
         echo "  stop                Stop all containers"
         echo "  restart             Restart all containers"  
         echo "  reset               Stop containers and delete all data (includes database)"
-        echo "  wipe-database       Drop all database tables (standalone command)"
+        echo "  wipe-database       Remove all database folders (cloud & self-hosted)"
         echo "  kill                Kill processes on localhost ports 3000 and 3001"
         echo "  logs [service]      Show logs (bitcoin/electrum or all)"
         echo "  status              Show environment status"
