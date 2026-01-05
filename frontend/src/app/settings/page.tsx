@@ -7,16 +7,21 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Globe, Bell } from "lucide-react"
+import { Globe, Bell, Languages } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { SUPPORTED_CURRENCIES } from "@/lib/currencies"
+import { locales, localeNames, type Locale } from "@/i18n/config"
+import { getStoredLocale, setStoredLocale } from "@/lib/locale"
+import { useTranslations } from "next-intl"
 
 export default function SettingsPage() {
   const router = useRouter()
+  const t = useTranslations('settings')
   const { isAuthenticated, isLoading: authLoading, isCloudMode, user } = useAuth()
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD')
+  const [currentLocale, setCurrentLocale] = useState<Locale>('en')
   const [ntfyServerUrl, setNtfyServerUrl] = useState<string>('')
   const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>('')
   const [isUpdating, setIsUpdating] = useState(false)
@@ -77,6 +82,28 @@ export default function SettingsPage() {
       fetchPreferences()
     }
   }, [isAuthenticated])
+
+  // Initialize locale from cookie
+  useEffect(() => {
+    setCurrentLocale(getStoredLocale())
+  }, [])
+
+  const handleLanguageChange = async (locale: Locale) => {
+    setStoredLocale(locale)
+    setCurrentLocale(locale)
+
+    // Sync to backend for authenticated users
+    if (isAuthenticated) {
+      try {
+        await api.updateUserPreferences({ preferred_language: locale })
+      } catch (error) {
+        console.error('Failed to sync language preference:', error)
+      }
+    }
+
+    // Refresh to apply new locale
+    router.refresh()
+  }
 
   const handleCurrencyChange = async (currency: string) => {
     setSelectedCurrency(currency)
@@ -236,6 +263,42 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground mt-2">
                   Exchange rates are updated every 10 minutes from CoinGecko
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Language Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Languages className="h-5 w-5" />
+              {t('language.title')}
+            </CardTitle>
+            <CardDescription>
+              {t('language.description')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="language">{t('language.label')}</Label>
+                <Select
+                  value={currentLocale}
+                  onValueChange={(value) => handleLanguageChange(value as Locale)}
+                  disabled={isCloudMode && user?.is_demo}
+                >
+                  <SelectTrigger id="language" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locales.map((locale) => (
+                      <SelectItem key={locale} value={locale}>
+                        {localeNames[locale]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardContent>
