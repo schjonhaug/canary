@@ -44,6 +44,36 @@
     "contact": "お問い合わせ",
     "subscription": "サブスクリプション"
   },
+  "contactPage": {
+    "title": "お問い合わせ",
+    "selfHosted": {
+      "title": "セルフホストモード",
+      "description": "セルフホストモードではお問い合わせフォームは利用できません。",
+      "backToWallets": "ウォレットに戻る"
+    },
+    "form": {
+      "title": "お問い合わせ",
+      "description": "ご質問やフィードバックがありますか？お気軽にご連絡ください。",
+      "emailLabel": "メールアドレス",
+      "emailPlaceholder": "your@email.com",
+      "messageLabel": "メッセージ",
+      "messagePlaceholder": "どのようにお手伝いできますか？",
+      "characterCount": "{count}/{max}文字",
+      "submit": "メッセージを送信",
+      "submitting": "送信中..."
+    },
+    "validation": {
+      "emailRequired": "メールアドレスは必須です",
+      "emailInvalid": "有効なメールアドレスを入力してください",
+      "emailTooLong": "メールアドレスは{max}文字以内にしてください",
+      "messageRequired": "メッセージは必須です",
+      "messageTooShort": "メッセージは{min}文字以上にしてください",
+      "messageTooLong": "メッセージは{max}文字以内にしてください"
+    },
+    "errors": {
+      "sendFailed": "メッセージの送信に失敗しました"
+    }
+  },
   "landing": {
     "hero": {
       "title": "完全なビットコイン監視",

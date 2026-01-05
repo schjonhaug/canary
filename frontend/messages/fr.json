@@ -44,6 +44,36 @@
     "contact": "Contact",
     "subscription": "Abonnement"
   },
+  "contactPage": {
+    "title": "Contact",
+    "selfHosted": {
+      "title": "Mode Auto-heberge",
+      "description": "Le formulaire de contact n'est pas disponible en mode auto-heberge.",
+      "backToWallets": "Retour aux Portefeuilles"
+    },
+    "form": {
+      "title": "Contactez-nous",
+      "description": "Vous avez une question ou un commentaire? Nous serions ravis de vous entendre.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "votre@email.fr",
+      "messageLabel": "Message",
+      "messagePlaceholder": "Comment pouvons-nous vous aider?",
+      "characterCount": "{count}/{max} caracteres",
+      "submit": "Envoyer le message",
+      "submitting": "Envoi en cours..."
+    },
+    "validation": {
+      "emailRequired": "L'email est requis",
+      "emailInvalid": "Veuillez entrer une adresse email valide",
+      "emailTooLong": "L'email doit contenir moins de {max} caracteres",
+      "messageRequired": "Le message est requis",
+      "messageTooShort": "Le message doit contenir au moins {min} caracteres",
+      "messageTooLong": "Le message doit contenir moins de {max} caracteres"
+    },
+    "errors": {
+      "sendFailed": "Echec de l'envoi du message"
+    }
+  },
   "landing": {
     "hero": {
       "title": "Surveillance Complete de Bitcoin",

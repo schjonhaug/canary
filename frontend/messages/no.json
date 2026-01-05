@@ -44,6 +44,36 @@
     "contact": "Kontakt",
     "subscription": "Abonnement"
   },
+  "contactPage": {
+    "title": "Kontakt",
+    "selfHosted": {
+      "title": "Selvhostet modus",
+      "description": "Kontaktskjema er ikke tilgjengelig i selvhostet modus.",
+      "backToWallets": "Tilbake til lommebøker"
+    },
+    "form": {
+      "title": "Ta kontakt",
+      "description": "Har du et spørsmål eller tilbakemelding? Vi vil gjerne høre fra deg.",
+      "emailLabel": "E-post",
+      "emailPlaceholder": "din@epost.no",
+      "messageLabel": "Melding",
+      "messagePlaceholder": "Hvordan kan vi hjelpe deg?",
+      "characterCount": "{count}/{max} tegn",
+      "submit": "Send melding",
+      "submitting": "Sender..."
+    },
+    "validation": {
+      "emailRequired": "E-post er påkrevd",
+      "emailInvalid": "Vennligst skriv inn en gyldig e-postadresse",
+      "emailTooLong": "E-post må være mindre enn {max} tegn",
+      "messageRequired": "Melding er påkrevd",
+      "messageTooShort": "Melding må være minst {min} tegn",
+      "messageTooLong": "Melding må være mindre enn {max} tegn"
+    },
+    "errors": {
+      "sendFailed": "Kunne ikke sende melding"
+    }
+  },
   "landing": {
     "hero": {
       "title": "Komplett Bitcoin-overvåking",

@@ -44,6 +44,36 @@
     "contact": "Contact",
     "subscription": "Subscription"
   },
+  "contactPage": {
+    "title": "Contact",
+    "selfHosted": {
+      "title": "Self-Hosted Mode",
+      "description": "Contact form is not available in self-hosted mode.",
+      "backToWallets": "Back to Wallets"
+    },
+    "form": {
+      "title": "Get in Touch",
+      "description": "Have a question or feedback? We'd love to hear from you.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "your@email.com",
+      "messageLabel": "Message",
+      "messagePlaceholder": "How can we help you?",
+      "characterCount": "{count}/{max} characters",
+      "submit": "Send Message",
+      "submitting": "Sending..."
+    },
+    "validation": {
+      "emailRequired": "Email is required",
+      "emailInvalid": "Please enter a valid email address",
+      "emailTooLong": "Email must be less than {max} characters",
+      "messageRequired": "Message is required",
+      "messageTooShort": "Message must be at least {min} characters",
+      "messageTooLong": "Message must be less than {max} characters"
+    },
+    "errors": {
+      "sendFailed": "Failed to send message"
+    }
+  },
   "landing": {
     "hero": {
       "title": "Complete Bitcoin Wealth Monitoring",

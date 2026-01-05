@@ -44,6 +44,36 @@
     "contact": "Kontakt",
     "subscription": "Abonnement"
   },
+  "contactPage": {
+    "title": "Kontakt",
+    "selfHosted": {
+      "title": "Selbst gehosteter Modus",
+      "description": "Das Kontaktformular ist im selbst gehosteten Modus nicht verfugbar.",
+      "backToWallets": "Zuruck zu Wallets"
+    },
+    "form": {
+      "title": "Kontaktieren Sie uns",
+      "description": "Haben Sie eine Frage oder Feedback? Wir wurden gerne von Ihnen horen.",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "ihre@email.de",
+      "messageLabel": "Nachricht",
+      "messagePlaceholder": "Wie konnen wir Ihnen helfen?",
+      "characterCount": "{count}/{max} Zeichen",
+      "submit": "Nachricht senden",
+      "submitting": "Wird gesendet..."
+    },
+    "validation": {
+      "emailRequired": "E-Mail ist erforderlich",
+      "emailInvalid": "Bitte geben Sie eine gultige E-Mail-Adresse ein",
+      "emailTooLong": "E-Mail muss weniger als {max} Zeichen haben",
+      "messageRequired": "Nachricht ist erforderlich",
+      "messageTooShort": "Nachricht muss mindestens {min} Zeichen haben",
+      "messageTooLong": "Nachricht muss weniger als {max} Zeichen haben"
+    },
+    "errors": {
+      "sendFailed": "Nachricht konnte nicht gesendet werden"
+    }
+  },
   "landing": {
     "hero": {
       "title": "Vollstandige Bitcoin-Uberwachung",
