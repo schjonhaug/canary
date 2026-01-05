@@ -886,6 +886,70 @@
       "viewGithub": "View on GitHub"
     }
   },
+  "subscriptionPage": {
+    "title": "Subscription",
+    "selfHosted": {
+      "title": "Self-Hosted Mode",
+      "description": "Subscription billing is not available in self-hosted mode.",
+      "backToWallets": "Back to Wallets"
+    },
+    "loading": "Loading billing information...",
+    "notSignedIn": {
+      "message": "You need to be signed in to manage your subscription.",
+      "signIn": "Sign In"
+    },
+    "manageBilling": "Manage Billing",
+    "currentPlan": {
+      "title": "Current Plan",
+      "description": "Your active subscription and usage"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Subscription Limit Exceeded",
+        "description": "You have {walletCount} wallets but your {tierName} plan allows only {maxWallets}. Excess wallets won't sync automatically and some contacts may be inactive.",
+        "upgrade": "Upgrade Plan"
+      },
+      "pending": {
+        "title": "Trial Not Started",
+        "description": "Your 30-day Team trial will begin when you add your first wallet. No syncing is active until then.",
+        "addWallet": "Add Your First Wallet"
+      },
+      "cancelled": {
+        "title": "Subscription Cancelled",
+        "description": "Your subscription has been cancelled. You have access until {date} ({daysRemaining} days remaining).",
+        "reactivate": "Reactivate Subscription"
+      },
+      "expired": {
+        "title": "Subscription Expired",
+        "description": "Your subscription has expired. Wallet syncing has stopped completely, but your data is preserved.",
+        "reactivate": "Reactivate Subscription"
+      },
+      "pastDue": {
+        "title": "Payment Failed - Syncing Stopped",
+        "description": "Your last payment failed and wallet syncing has been stopped immediately. Update your payment method to resume service.",
+        "updatePayment": "Update Payment Method"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Trial: {days} days left",
+      "accessDaysLeft": "Access until: {days} days left"
+    },
+    "buttons": {
+      "subscribe": "Subscribe",
+      "reactivate": "Reactivate"
+    },
+    "usage": {
+      "wallets": "Wallets",
+      "overLimit": "(over limit)",
+      "walletsInactive": "Some wallets are inactive",
+      "syncInterval": "Sync Interval",
+      "features": "Features",
+      "featuresList": "SMS, Push, Email, Transaction Analysis"
+    },
+    "errors": {
+      "portalFailed": "Failed to open billing management. Please try again."
+    }
+  },
   "upgrade": {
     "title": "Upgrade Your Plan",
     "choosePlan": "Choose Your Plan",

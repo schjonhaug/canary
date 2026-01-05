@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,10 +9,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, CreditCard, Users, Calendar, TrendingUp, Zap, AlertTriangle, Clock, XCircle } from "lucide-react"
 import { PlansModal } from "@/components/plans-modal"
-import { getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
 import Link from "next/link"
 
 export default function SubscriptionPage() {
+  const t = useTranslations('subscriptionPage')
+  const tBilling = useTranslations('billing')
   const { user, billingStatus, isLoading, refreshBillingStatus, isSelfHostedMode } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
@@ -32,7 +34,7 @@ export default function SubscriptionPage() {
       window.location.href = url
     } catch (error) {
       console.error('Failed to open customer portal:', error)
-      alert('Failed to open billing management. Please try again.')
+      alert(t('errors.portalFailed'))
     } finally {
       setIsPortalLoading(false)
     }
@@ -43,18 +45,18 @@ export default function SubscriptionPage() {
   if (isSelfHostedMode) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Subscription</h2>
+        <h2 className="text-2xl font-semibold">{t('title')}</h2>
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>Self-Hosted Mode</CardTitle>
+            <CardTitle>{t('selfHosted.title')}</CardTitle>
             <CardDescription>
-              Subscription billing is not available in self-hosted mode.
+              {t('selfHosted.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/wallets">
               <Button variant="outline" className="w-full">
-                Back to Wallets
+                {t('selfHosted.backToWallets')}
               </Button>
             </Link>
           </CardContent>
@@ -67,7 +69,7 @@ export default function SubscriptionPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">Loading billing information...</span>
+        <span className="ml-2 text-muted-foreground">{t('loading')}</span>
       </div>
     )
   }
@@ -75,11 +77,11 @@ export default function SubscriptionPage() {
   if (!user) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Subscription</h2>
+        <h2 className="text-2xl font-semibold">{t('title')}</h2>
         <div className="text-center py-12">
-          <p className="text-muted-foreground mb-6">You need to be signed in to manage your subscription.</p>
+          <p className="text-muted-foreground mb-6">{t('notSignedIn.message')}</p>
           <Button asChild>
-            <Link href="/sign-in">Sign In</Link>
+            <Link href="/sign-in">{t('notSignedIn.signIn')}</Link>
           </Button>
         </div>
       </div>
@@ -107,7 +109,7 @@ export default function SubscriptionPage() {
   return (
     <div className="space-y-6">
       {/* Page Title */}
-      <h2 className="text-2xl font-semibold">Subscription</h2>
+      <h2 className="text-2xl font-semibold">{t('title')}</h2>
 
       {/* Current Plan Overview */}
       <Card>
@@ -116,9 +118,9 @@ export default function SubscriptionPage() {
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
-                Current Plan
+                {t('currentPlan.title')}
               </CardTitle>
-              <CardDescription>Your active subscription and usage</CardDescription>
+              <CardDescription>{t('currentPlan.description')}</CardDescription>
             </div>
             {billingStatus?.stripe_customer_id && !isTrialUser && billingStatus?.subscription_status !== 'expired' && (
               <Button
@@ -127,7 +129,7 @@ export default function SubscriptionPage() {
                 disabled={isPortalLoading}
               >
                 {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Manage Billing
+                {t('manageBilling')}
               </Button>
             )}
           </div>
@@ -137,18 +139,17 @@ export default function SubscriptionPage() {
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-5 w-5 text-orange-600" />
-                <div className="font-medium text-orange-700">Subscription Limit Exceeded</div>
+                <div className="font-medium text-orange-700">{t('alerts.limitExceeded.title')}</div>
               </div>
               <div className="text-sm text-orange-600 mb-3">
-                You have {walletCount} wallets but your {getTierDisplayName(currentTier)} plan allows only {maxWallets}.
-                Excess wallets won&apos;t sync automatically and some contacts may be inactive.
+                {t('alerts.limitExceeded.description', { walletCount, tierName: tBilling(`plans.${currentTier.toLowerCase()}.name`), maxWallets })}
               </div>
               <Button
                 onClick={() => setShowUpgradeModal(true)}
                 size="sm"
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
-                Upgrade Plan
+                {t('alerts.limitExceeded.upgrade')}
               </Button>
             </div>
           )}
@@ -158,17 +159,17 @@ export default function SubscriptionPage() {
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="h-5 w-5 text-blue-600" />
-                <div className="font-medium text-blue-700">Trial Not Started</div>
+                <div className="font-medium text-blue-700">{t('alerts.pending.title')}</div>
               </div>
               <div className="text-sm text-blue-600 mb-3">
-                Your 30-day Team trial will begin when you add your first wallet. No syncing is active until then.
+                {t('alerts.pending.description')}
               </div>
               <Button
                 onClick={() => window.location.href = '/wallets'}
                 size="sm"
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                Add Your First Wallet
+                {t('alerts.pending.addWallet')}
               </Button>
             </div>
           )}
@@ -178,10 +179,10 @@ export default function SubscriptionPage() {
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                <div className="font-medium text-yellow-700">Subscription Cancelled</div>
+                <div className="font-medium text-yellow-700">{t('alerts.cancelled.title')}</div>
               </div>
               <div className="text-sm text-yellow-600 mb-3">
-                Your subscription has been cancelled. You have access until {new Date(billingStatus?.subscription_ends_at || '').toLocaleDateString()} ({subscriptionDaysRemaining} days remaining).
+                {t('alerts.cancelled.description', { date: new Date(billingStatus?.subscription_ends_at || '').toLocaleDateString(), daysRemaining: subscriptionDaysRemaining })}
               </div>
               <Button
                 onClick={handleManageBilling}
@@ -190,7 +191,7 @@ export default function SubscriptionPage() {
                 className="bg-yellow-600 hover:bg-yellow-700 text-white"
               >
                 {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Reactivate Subscription
+                {t('alerts.cancelled.reactivate')}
               </Button>
             </div>
           )}
@@ -200,10 +201,10 @@ export default function SubscriptionPage() {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <XCircle className="h-5 w-5 text-red-600" />
-                <div className="font-medium text-red-700">Subscription Expired</div>
+                <div className="font-medium text-red-700">{t('alerts.expired.title')}</div>
               </div>
               <div className="text-sm text-red-600 mb-3">
-                Your subscription has expired. Wallet syncing has stopped completely, but your data is preserved.
+                {t('alerts.expired.description')}
               </div>
               <Button
                 onClick={handleManageBilling}
@@ -212,7 +213,7 @@ export default function SubscriptionPage() {
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
                 {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Reactivate Subscription
+                {t('alerts.expired.reactivate')}
               </Button>
             </div>
           )}
@@ -222,10 +223,10 @@ export default function SubscriptionPage() {
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-5 w-5 text-orange-600" />
-                <div className="font-medium text-orange-700">Payment Failed - Syncing Stopped</div>
+                <div className="font-medium text-orange-700">{t('alerts.pastDue.title')}</div>
               </div>
               <div className="text-sm text-orange-600 mb-3">
-                Your last payment failed and wallet syncing has been stopped immediately. Update your payment method to resume service.
+                {t('alerts.pastDue.description')}
               </div>
               <Button
                 onClick={handleManageBilling}
@@ -234,7 +235,7 @@ export default function SubscriptionPage() {
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update Payment Method
+                {t('alerts.pastDue.updatePayment')}
               </Button>
             </div>
           )}
@@ -242,36 +243,36 @@ export default function SubscriptionPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Badge variant="secondary" className="text-lg px-3 py-1">
-                {getTierDisplayName(currentTier)}
+                {tBilling(`plans.${currentTier.toLowerCase()}.name`)}
               </Badge>
               {isTrialUser && (
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-orange-600 border-orange-600">
-                    Trial: {trialDaysRemaining} days left
+                    {t('badges.trialDaysLeft', { days: trialDaysRemaining })}
                   </Badge>
                 </div>
               )}
               {isCancelledUser && subscriptionDaysRemaining > 0 && (
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-                    Access until: {subscriptionDaysRemaining} days left
+                    {t('badges.accessDaysLeft', { days: subscriptionDaysRemaining })}
                   </Badge>
                 </div>
               )}
               {!isTrialUser && !isCancelledUser && (
-                <span className="text-muted-foreground">{getTierDescription(currentTier)}</span>
+                <span className="text-muted-foreground">{tBilling(`plans.${currentTier.toLowerCase()}.description`)}</span>
               )}
             </div>
             {isTrialUser && (
               <Button onClick={() => setShowUpgradeModal(true)} className="bg-blue-600 hover:bg-blue-700">
                 <Zap className="mr-2 h-4 w-4" />
-                Subscribe
+                {t('buttons.subscribe')}
               </Button>
             )}
             {isCancelledUser && subscriptionDaysRemaining > 0 && (
               <Button onClick={handleManageBilling} disabled={isPortalLoading} className="bg-yellow-600 hover:bg-yellow-700">
                 {isPortalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Reactivate
+                {t('buttons.reactivate')}
               </Button>
             )}
           </div>
@@ -286,14 +287,14 @@ export default function SubscriptionPage() {
                   {walletsExceeded && <AlertTriangle className="h-4 w-4 text-orange-600" />}
                 </div>
                 <div>
-                  <div className={`font-medium ${walletsExceeded ? 'text-orange-700' : ''}`}>Wallets</div>
+                  <div className={`font-medium ${walletsExceeded ? 'text-orange-700' : ''}`}>{t('usage.wallets')}</div>
                   <div className={`text-sm ${walletsExceeded ? 'text-orange-600 font-medium' : 'text-muted-foreground'}`}>
                     {billingStatus?.wallet_count || 0} / {limits.max_wallets === -1 ? '∞' : limits.max_wallets}
-                    {walletsExceeded && <span className="ml-1 text-xs">(over limit)</span>}
+                    {walletsExceeded && <span className="ml-1 text-xs">{t('usage.overLimit')}</span>}
                   </div>
                   {walletsExceeded && (
                     <div className="text-xs text-orange-600 mt-1">
-                      Some wallets are inactive
+                      {t('usage.walletsInactive')}
                     </div>
                   )}
                 </div>
@@ -302,7 +303,7 @@ export default function SubscriptionPage() {
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                 <TrendingUp className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <div className="font-medium">Sync Interval</div>
+                  <div className="font-medium">{t('usage.syncInterval')}</div>
                   <div className="text-sm text-muted-foreground">
                     {limits.sync_interval_seconds < 60
                       ? `${limits.sync_interval_seconds}s`
@@ -314,9 +315,9 @@ export default function SubscriptionPage() {
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                 <Calendar className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <div className="font-medium">Features</div>
+                  <div className="font-medium">{t('usage.features')}</div>
                   <div className="text-sm text-muted-foreground">
-                    SMS, Push, Email, Transaction Analysis
+                    {t('usage.featuresList')}
                   </div>
                 </div>
               </div>

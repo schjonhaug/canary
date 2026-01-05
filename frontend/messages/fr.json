@@ -886,6 +886,70 @@
       "viewGithub": "Voir sur GitHub"
     }
   },
+  "subscriptionPage": {
+    "title": "Abonnement",
+    "selfHosted": {
+      "title": "Mode auto-hébergé",
+      "description": "La facturation d'abonnement n'est pas disponible en mode auto-hébergé.",
+      "backToWallets": "Retour aux portefeuilles"
+    },
+    "loading": "Chargement des informations de facturation...",
+    "notSignedIn": {
+      "message": "Vous devez être connecté pour gérer votre abonnement.",
+      "signIn": "Se connecter"
+    },
+    "manageBilling": "Gérer la facturation",
+    "currentPlan": {
+      "title": "Plan actuel",
+      "description": "Votre abonnement actif et utilisation"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Limite d'abonnement dépassée",
+        "description": "Vous avez {walletCount} portefeuilles mais votre plan {tierName} n'en autorise que {maxWallets}. Les portefeuilles excédentaires ne se synchroniseront pas automatiquement et certains contacts peuvent être inactifs.",
+        "upgrade": "Mettre à niveau le plan"
+      },
+      "pending": {
+        "title": "Essai non démarré",
+        "description": "Votre essai Team de 30 jours commencera lorsque vous ajouterez votre premier portefeuille. Aucune synchronisation n'est active jusque-là.",
+        "addWallet": "Ajouter votre premier portefeuille"
+      },
+      "cancelled": {
+        "title": "Abonnement annulé",
+        "description": "Votre abonnement a été annulé. Vous avez accès jusqu'au {date} ({daysRemaining} jours restants).",
+        "reactivate": "Réactiver l'abonnement"
+      },
+      "expired": {
+        "title": "Abonnement expiré",
+        "description": "Votre abonnement a expiré. La synchronisation des portefeuilles est complètement arrêtée, mais vos données sont préservées.",
+        "reactivate": "Réactiver l'abonnement"
+      },
+      "pastDue": {
+        "title": "Paiement échoué - Synchronisation arrêtée",
+        "description": "Votre dernier paiement a échoué et la synchronisation des portefeuilles a été arrêtée immédiatement. Mettez à jour votre méthode de paiement pour reprendre le service.",
+        "updatePayment": "Mettre à jour le moyen de paiement"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Essai : {days} jours restants",
+      "accessDaysLeft": "Accès jusqu'à : {days} jours restants"
+    },
+    "buttons": {
+      "subscribe": "S'abonner",
+      "reactivate": "Réactiver"
+    },
+    "usage": {
+      "wallets": "Portefeuilles",
+      "overLimit": "(au-dessus de la limite)",
+      "walletsInactive": "Certains portefeuilles sont inactifs",
+      "syncInterval": "Intervalle de synchronisation",
+      "features": "Fonctionnalités",
+      "featuresList": "SMS, Push, E-mail, Analyse des transactions"
+    },
+    "errors": {
+      "portalFailed": "Impossible d'ouvrir la gestion de facturation. Veuillez réessayer."
+    }
+  },
   "upgrade": {
     "title": "Mettre a niveau votre plan",
     "choosePlan": "Choisissez votre plan",
