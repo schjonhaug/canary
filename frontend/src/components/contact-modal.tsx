@@ -16,11 +16,10 @@ import { Bell, MessageCircle, Mail } from "lucide-react"
 import { api, ProviderInfo, ApiError } from "../lib/api"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
+import { useTranslations } from "next-intl"
 
-const LANGUAGES = [
-  { value: 'en', label: 'English' },
-  { value: 'no', label: 'Norwegian' },
-] as const
+// Notification languages supported by backend (for contact notifications)
+const NOTIFICATION_LANGUAGE_VALUES = ['en', 'no'] as const
 
 interface ContactModalProps {
   isOpen: boolean
@@ -30,15 +29,16 @@ interface ContactModalProps {
   editContact?: Contact
 }
 
-export function ContactModal({ 
-  isOpen, 
-  onClose, 
-  walletChecksum, 
+export function ContactModal({
+  isOpen,
+  onClose,
+  walletChecksum,
   onContactSaved,
-  editContact 
+  editContact
 }: ContactModalProps) {
+  const t = useTranslations('contacts')
   const [name, setName] = useState("")
-  const [language, setLanguage] = useState<'en' | 'no'>('en')
+  const [language, setLanguage] = useState<typeof NOTIFICATION_LANGUAGE_VALUES[number]>('en')
   const [providers, setProviders] = useState<ProviderInfo[]>([])
   const [enabledProviders, setEnabledProviders] = useState<Record<string, boolean>>({})
   const [providerValues, setProviderValues] = useState<Record<string, string>>({})
@@ -111,7 +111,7 @@ export function ContactModal({
           }
           // Auto-cancel verification when expired
           setSmsVerificationSent(false)
-          setError("Verification code expired. Please try again.")
+          setError(t('verification.expired'))
           return 0
         }
         return prev - 1
@@ -237,7 +237,7 @@ export function ContactModal({
   const handleSendSmsVerification = async () => {
     const phoneNumber = providerValues['twilio']?.trim()
     if (!phoneNumber) {
-      setError("Phone number is required for SMS verification")
+      setError(t('verification.smsRequired'))
       return
     }
 
@@ -281,7 +281,7 @@ export function ContactModal({
 
   const handleVerifySmsCode = async () => {
     if (!smsVerificationCode.trim() || !smsVerificationPhone) {
-      setError("Please enter the verification code")
+      setError(t('verification.enterCode'))
       return
     }
 
@@ -324,14 +324,14 @@ export function ContactModal({
       }
 
       if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
-        setSmsVerificationError("Verification code expired. Please request a new code.")
+        setSmsVerificationError(t('verification.expiredRequest'))
         setSmsVerificationSent(false)
         setSmsVerified(false)
         if (timerRef.current) {
           clearInterval(timerRef.current)
         }
       } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setSmsVerificationError("Invalid verification code. Please try again.")
+        setSmsVerificationError(t('verification.invalid'))
         setSmsVerificationCode("") // Clear the input
       } else {
         setSmsVerificationError(errorMessage)
@@ -344,7 +344,7 @@ export function ContactModal({
   const handleSendEmailVerification = async () => {
     const emailAddress = providerValues['email']?.trim()
     if (!emailAddress) {
-      setEmailAddressError("Email address is required for email verification")
+      setEmailAddressError(t('verification.emailRequired'))
       return
     }
 
@@ -396,7 +396,7 @@ export function ContactModal({
 
   const handleVerifyEmailCode = async () => {
     if (!emailVerificationCode.trim() || !emailVerificationAddress) {
-      setEmailVerificationError("Please enter the verification code")
+      setEmailVerificationError(t('verification.enterCode'))
       return
     }
 
@@ -439,14 +439,14 @@ export function ContactModal({
       }
 
       if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
-        setEmailVerificationError("Verification code expired. Please request a new code.")
+        setEmailVerificationError(t('verification.expiredRequest'))
         setEmailVerificationSent(false)
         setEmailVerified(false)
         if (timerRef.current) {
           clearInterval(timerRef.current)
         }
       } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setEmailVerificationError("Invalid verification code. Please try again.")
+        setEmailVerificationError(t('verification.invalid'))
         setEmailVerificationCode("")
       } else {
         setEmailVerificationError(errorMessage)
@@ -458,7 +458,7 @@ export function ContactModal({
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      setError("Contact name is required")
+      setError(t('errors.nameRequired'))
       return
     }
 
@@ -470,9 +470,9 @@ export function ContactModal({
     // Check if SMS verification is required but not completed
     if (smsVerificationRequired && !smsVerified) {
       if (phoneNumberChanged) {
-        setError("Please verify the new SMS phone number before saving the contact")
+        setError(t('verification.verifyNewSms'))
       } else {
-        setError("Please verify the SMS code before saving the contact")
+        setError(t('verification.verifySmsFirst'))
       }
       return
     }
@@ -480,9 +480,9 @@ export function ContactModal({
     // Check if email verification is required but not completed
     if (emailVerificationRequired && !emailVerified) {
       if (emailAddressChanged) {
-        setError("Please verify the new email address before saving the contact")
+        setError(t('verification.verifyNewEmail'))
       } else {
-        setError("Please verify the email code before saving the contact")
+        setError(t('verification.verifyEmailFirst'))
       }
       return
     }
@@ -550,13 +550,13 @@ export function ContactModal({
 
       // Provide more specific error messages for SMS verification
       if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
-        setError("Verification code expired. Please request a new code.")
+        setError(t('verification.expiredRequest'))
         setSmsVerificationSent(false)
         if (timerRef.current) {
           clearInterval(timerRef.current)
         }
       } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setError("Invalid verification code. Please try again.")
+        setError(t('verification.invalid'))
         setSmsVerificationCode("") // Clear the input
       } else {
         setError(errorMessage)
@@ -612,13 +612,10 @@ export function ContactModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isEditMode ? 'Edit Contact' : 'Add New Contact'}
+            {isEditMode ? t('edit.title') : t('add.title')}
           </DialogTitle>
           <DialogDescription>
-            {isEditMode 
-              ? 'Update the contact information and notification methods.' 
-              : 'Set up a new contact to receive Bitcoin transaction notifications.'
-            }
+            {isEditMode ? t('edit.description') : t('add.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -630,7 +627,7 @@ export function ContactModal({
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="contact-name">Name</Label>
+            <Label htmlFor="contact-name">{t('add.nameLabel')}</Label>
             <Input
               id="contact-name"
               value={name}
@@ -638,33 +635,33 @@ export function ContactModal({
                 setName(e.target.value)
                 setHasChanges(true)
               }}
-              placeholder="Contact name"
+              placeholder={t('add.namePlaceholder')}
               disabled={isSubmitting}
             />
           </div>
 
           <div>
-            <Label htmlFor="contact-language">Language</Label>
+            <Label htmlFor="contact-language">{t('add.languageLabel')}</Label>
             <select
               id="contact-language"
               value={language}
               onChange={(e) => {
-                setLanguage(e.target.value as 'en' | 'no')
+                setLanguage(e.target.value as typeof NOTIFICATION_LANGUAGE_VALUES[number])
                 setHasChanges(true)
               }}
               disabled={isSubmitting}
               className="w-full h-10 border border-input bg-background px-3 py-2 rounded-md text-sm"
             >
-              {LANGUAGES.map((lang) => (
-                <option key={lang.value} value={lang.value}>
-                  {lang.label}
+              {NOTIFICATION_LANGUAGE_VALUES.map((langValue) => (
+                <option key={langValue} value={langValue}>
+                  {t(`languages.${langValue}`)}
                 </option>
               ))}
             </select>
           </div>
 
           <div>
-            <Label>Notification Methods</Label>
+            <Label>{t('add.methodTitle')}</Label>
             <div className="space-y-3 mt-2">
               {providers.map((provider) => (
                 <div key={provider.name} className="p-3 border rounded-lg">
@@ -743,7 +740,7 @@ export function ContactModal({
                             )}
                             {(!providerValues[provider.name] || !smsVerified) && !phoneNumberError && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                Include country code
+                                {t('add.sms.phoneHint')}
                               </p>
                             )}
                           </div>
@@ -758,7 +755,7 @@ export function ContactModal({
                               disabled={isSendingVerification || isSubmitting || !providerValues['twilio']?.trim()}
                               className="w-full"
                             >
-                              {isSendingVerification ? "Sending..." : "Send Verification Code"}
+                              {isSendingVerification ? t('verification.sendingCode') : t('verification.sendCode')}
                             </Button>
                           )}
 
@@ -766,7 +763,7 @@ export function ContactModal({
                           {smsVerificationSent && !smsVerified && (
                             <div className="space-y-3">
                               <div>
-                                <Label htmlFor="sms-verification-code">Verification Code</Label>
+                                <Label htmlFor="sms-verification-code">{t('verification.codeLabel')}</Label>
                                 <div className="flex gap-2">
                                   <Input
                                     id="sms-verification-code"
@@ -778,7 +775,7 @@ export function ContactModal({
                                         setSmsVerificationError(null)
                                       }
                                     }}
-                                    placeholder="Enter 6-digit code"
+                                    placeholder={t('verification.codePlaceholder')}
                                     disabled={isSubmitting || isVerifyingCode}
                                     maxLength={6}
                                     autoComplete="one-time-code"
@@ -794,7 +791,7 @@ export function ContactModal({
                                     onClick={handleVerifySmsCode}
                                     disabled={!smsVerificationCode.trim() || isVerifyingCode || isSubmitting}
                                   >
-                                    {isVerifyingCode ? "Verifying..." : "Verify"}
+                                    {isVerifyingCode ? t('verification.verifying') : t('verification.verify')}
                                   </Button>
                                 </div>
                                 {/* SMS verification error under the input */}
@@ -806,9 +803,9 @@ export function ContactModal({
                               </div>
                               <div className="flex justify-between items-center text-xs text-muted-foreground">
                                 <span>
-                                  Code sent to {smsVerificationPhone}
+                                  {t('verification.codeSentTo', { target: smsVerificationPhone || '' })}
                                   {timeRemaining > 0 && (
-                                    <span className="block">Expires in {formatTime(timeRemaining)}</span>
+                                    <span className="block">{t('verification.expiresIn', { time: formatTime(timeRemaining) })}</span>
                                   )}
                                 </span>
                                 <button
@@ -817,7 +814,7 @@ export function ContactModal({
                                   disabled={isSendingVerification || timeRemaining > 540} // Allow resend after 1 minute
                                   className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 underline"
                                 >
-                                  Resend
+                                  {t('verification.resend')}
                                 </button>
                               </div>
                             </div>
@@ -829,7 +826,7 @@ export function ContactModal({
                               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              SMS verified successfully
+                              {t('verification.smsVerified')}
                             </div>
                           )}
                         </div>
@@ -888,11 +885,11 @@ export function ContactModal({
                             )}
                             {(!providerValues[provider.name] || !emailVerified) && !emailAddressError && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                Enter valid email address
+                                {t('add.email.emailHint')}
                               </p>
                             )}
                           </div>
-                          
+
                           {/* Send Verification Button - only show when verification is required */}
                           {(emailVerificationRequired && !emailVerificationSent) && (
                             <Button
@@ -903,7 +900,7 @@ export function ContactModal({
                               disabled={isSendingEmailVerification || isSubmitting || !providerValues['email']?.trim()}
                               className="w-full"
                             >
-                              {isSendingEmailVerification ? "Sending..." : "Send Verification Code"}
+                              {isSendingEmailVerification ? t('verification.sendingCode') : t('verification.sendCode')}
                             </Button>
                           )}
 
@@ -911,7 +908,7 @@ export function ContactModal({
                           {emailVerificationSent && !emailVerified && (
                             <div className="space-y-3">
                               <div>
-                                <Label htmlFor="email-verification-code">Verification Code</Label>
+                                <Label htmlFor="email-verification-code">{t('verification.codeLabel')}</Label>
                                 <div className="flex gap-2">
                                   <Input
                                     id="email-verification-code"
@@ -921,10 +918,10 @@ export function ContactModal({
                                       // Clear email verification error when user starts typing
                                       if (emailVerificationError) {
                                         setEmailVerificationError(null)
-      setEmailAddressError(null)
+                                        setEmailAddressError(null)
                                       }
                                     }}
-                                    placeholder="Enter 6-digit code"
+                                    placeholder={t('verification.codePlaceholder')}
                                     disabled={isSubmitting || isVerifyingEmailCode}
                                     maxLength={6}
                                     autoComplete="one-time-code"
@@ -940,7 +937,7 @@ export function ContactModal({
                                     onClick={handleVerifyEmailCode}
                                     disabled={!emailVerificationCode.trim() || isVerifyingEmailCode || isSubmitting}
                                   >
-                                    {isVerifyingEmailCode ? "Verifying..." : "Verify"}
+                                    {isVerifyingEmailCode ? t('verification.verifying') : t('verification.verify')}
                                   </Button>
                                 </div>
                                 {/* Email verification error under the input */}
@@ -952,9 +949,9 @@ export function ContactModal({
                               </div>
                               <div className="flex justify-between items-center text-xs text-muted-foreground">
                                 <span>
-                                  Code sent to {emailVerificationAddress}
+                                  {t('verification.codeSentTo', { target: emailVerificationAddress || '' })}
                                   {timeRemaining > 0 && (
-                                    <span className="block">Expires in {formatTime(timeRemaining)}</span>
+                                    <span className="block">{t('verification.expiresIn', { time: formatTime(timeRemaining) })}</span>
                                   )}
                                 </span>
                                 <button
@@ -963,7 +960,7 @@ export function ContactModal({
                                   disabled={isSendingEmailVerification || timeRemaining > 540} // Allow resend after 1 minute
                                   className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 underline"
                                 >
-                                  Resend
+                                  {t('verification.resend')}
                                 </button>
                               </div>
                             </div>
@@ -975,14 +972,14 @@ export function ContactModal({
                               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              Email verified successfully
+                              {t('verification.emailVerified')}
                             </div>
                           )}
                         </div>
                       )}
                       {enabledProviders[provider.name] && provider.name === 'ntfy' && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          Topic will be auto-generated based on contact name
+                          {t('add.ntfy.topicHint')}
                         </p>
                       )}
                     </div>
@@ -1001,11 +998,11 @@ export function ContactModal({
               onClick={() => setIsDeleteModalOpen(true)}
               disabled={isSubmitting}
             >
-              Delete
+              {t('delete.confirm')}
             </Button>
           )}
           <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges)}>
-            {isSubmitting ? "Processing..." : (isEditMode ? "Update Contact" : "Create Contact")}
+            {isSubmitting ? t('add.submitting') : (isEditMode ? t('edit.submit') : t('add.submit'))}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -40,7 +40,9 @@
     "settings": "設定",
     "wallets": "ウォレット",
     "addWallet": "ウォレットを追加",
-    "alreadyUser": "既にアカウントをお持ちですか？ログイン"
+    "alreadyUser": "既にアカウントをお持ちですか？ログイン",
+    "contact": "お問い合わせ",
+    "subscription": "サブスクリプション"
   },
   "landing": {
     "hero": {
@@ -230,15 +232,49 @@
   "wallets": {
     "title": "マイウォレット",
     "summary": "合計残高{balance}の{count}個のウォレットを追跡中",
+    "onboarding": {
+      "trial": {
+        "title": "トライアルを開始する準備はできましたか",
+        "titleWithName": "トライアルを開始する準備はできましたか、{name}さん?",
+        "description": "最初のウォレットを追加して<highlight>30日間のTeamトライアル</highlight>を有効にしてください。リアルタイム同期、無制限の通知、優先サポートを含むすべての機能に即座にアクセスできます。",
+        "whatYouGet": "利用できる機能:",
+        "features": {
+          "wallets": "2分同期の5ウォレット",
+          "contacts": "ウォレットごとに5連絡先",
+          "emailSms": "メールとSMS通知",
+          "push": "ntfy経由のプッシュ通知"
+        },
+        "button": "最初のウォレットを追加してトライアルを開始",
+        "note": "ウォレットを追加するとトライアルが開始されます"
+      },
+      "simple": {
+        "title": "最初のウォレットを追加",
+        "description": "ウォレットディスクリプタを追加して、ビットコイントランザクションの監視を開始します。",
+        "button": "ウォレットを追加"
+      }
+    },
     "connectionLost": {
       "title": "バックエンド接続が失われました",
       "description": "バックエンドサービスに接続できません。キャッシュされたデータを表示しています。",
       "lastUpdated": "最終更新: {time}"
     },
     "empty": {
-      "title": "ウォレットがありません",
-      "description": "最初のビットコインウォレットを追加して監視を開始",
+      "title": "ウォレットなし",
+      "description": "ウォレットが見つかりません。「ウォレットを追加」ボタンを使用して開始してください。",
       "addFirst": "最初のウォレットを追加"
+    },
+    "error": {
+      "title": "エラー",
+      "loadFailed": "ウォレットの読み込みに失敗しました: {error}"
+    },
+    "card": {
+      "syncing": "同期中...",
+      "inactive": "非アクティブ",
+      "inactiveExpired": "サブスクリプションの有効期限が切れました - ウォレットは自動同期されません",
+      "inactiveTierLimit": "このウォレットはサブスクリプションの制限を超えており、自動同期されません",
+      "balance": "残高",
+      "lastActivity": "最終活動: {date}",
+      "noRecentActivity": "最近の活動なし"
     },
     "add": {
       "title": "ウォレットを追加",
@@ -293,6 +329,24 @@
       "syncStatus": {
         "pending": "同期中",
         "ready": "同期済み"
+      },
+      "backToWallets": "ウォレットに戻る",
+      "new": "新規",
+      "notFound": {
+        "title": "ウォレットが見つかりません",
+        "description": "チェックサム#{checksum}のウォレットが見つかりませんでした。"
+      },
+      "syncing": {
+        "title": "ウォレットを同期中",
+        "description": "{name}はまだ同期中で、過去のトランザクションをスキャンしています。トランザクション履歴のあるウォレットでは、このプロセスに数分かかる場合があります。",
+        "returnPrompt": "ウォレットページに戻り、同期が完了するまでお待ちください。"
+      },
+      "inactive": {
+        "title": "ウォレット非アクティブ",
+        "descriptionExpired": "サブスクリプションの有効期限が切れました - ウォレットは自動的に同期されません。",
+        "descriptionTierLimit": "このウォレットはサブスクリプションの制限を超えており、自動的に同期されません。",
+        "outdatedWarning": "表示されているトランザクション履歴と残高は古い可能性があります。",
+        "upgradePlan": "プランをアップグレード"
       }
     },
     "delete": {
@@ -311,41 +365,37 @@
     "title": "連絡先",
     "empty": {
       "title": "連絡先がありません",
-      "description": "このウォレットに関する通知を受け取る連絡先を追加"
+      "description": "このウォレットに関する通知を受け取る連絡先を追加",
+      "list": "連絡先が追加されていません"
+    },
+    "inactive": {
+      "badge": "非アクティブ",
+      "expired": "サブスクリプションの有効期限が切れました - 連絡先は通知を受け取れません",
+      "tierLimit": "この連絡先はサブスクリプションの制限を超えており、通知を受け取れません"
     },
     "add": {
-      "title": "連絡先を追加",
-      "nameLabel": "連絡先名",
-      "namePlaceholder": "山田太郎",
-      "languageLabel": "通知言語",
+      "title": "新しい連絡先を追加",
+      "description": "Bitcoinトランザクション通知を受け取る新しい連絡先を設定します。",
+      "nameLabel": "名前",
+      "namePlaceholder": "連絡先名",
+      "languageLabel": "言語",
       "methodTitle": "通知方法",
-      "methodDescription": "この連絡先が通知を受け取る方法を選択",
       "ntfy": {
-        "title": "プッシュ通知 (ntfy)",
-        "description": "ntfyアプリ経由の無料プッシュ通知",
-        "topicLabel": "トピック名",
-        "topicPlaceholder": "my-wallet-alerts",
-        "topicHint": "ntfyアプリでこのトピックを購読して通知を受け取る"
+        "topicHint": "トピックは連絡先名に基づいて自動生成されます"
       },
       "sms": {
-        "title": "SMS",
-        "description": "テキストメッセージ通知",
-        "phoneLabel": "電話番号",
-        "phonePlaceholder": "+81901234567",
-        "phoneHint": "国番号を含める（例：日本は+81）"
+        "phoneHint": "国番号を含める"
       },
       "email": {
-        "title": "メール",
-        "description": "メール通知",
-        "emailLabel": "メールアドレス",
-        "emailPlaceholder": "yamada@example.com"
+        "emailHint": "有効なメールアドレスを入力"
       },
-      "submit": "連絡先を追加",
-      "submitting": "追加中..."
+      "submit": "連絡先を作成",
+      "submitting": "処理中..."
     },
     "edit": {
       "title": "連絡先を編集",
-      "submit": "変更を保存"
+      "description": "連絡先情報と通知方法を更新します。",
+      "submit": "連絡先を更新"
     },
     "delete": {
       "title": "連絡先を削除",
@@ -354,37 +404,77 @@
       "cancel": "キャンセル"
     },
     "verification": {
-      "title": "連絡先を確認",
-      "description": "{contact}に確認コードを送信しました。以下に入力して確認してください。",
       "codeLabel": "確認コード",
       "codePlaceholder": "6桁のコードを入力",
-      "submit": "確認",
-      "resend": "コードを再送信",
+      "sendCode": "確認コードを送信",
+      "sendingCode": "送信中...",
+      "verify": "確認",
+      "verifying": "確認中...",
+      "resend": "再送信",
+      "codeSentTo": "コードを{target}に送信しました",
       "expiresIn": "{time}で期限切れ",
-      "expired": "コードの期限切れ",
-      "invalid": "無効な確認コード",
-      "verified": "連絡先が確認されました！"
+      "expired": "確認コードが期限切れです。もう一度お試しください。",
+      "expiredRequest": "確認コードが期限切れです。新しいコードをリクエストしてください。",
+      "invalid": "無効な確認コードです。もう一度お試しください。",
+      "smsVerified": "SMS認証が完了しました",
+      "emailVerified": "メール認証が完了しました",
+      "smsRequired": "SMS認証には電話番号が必要です",
+      "emailRequired": "メール認証にはメールアドレスが必要です",
+      "enterCode": "確認コードを入力してください",
+      "verifySmsFirst": "連絡先を保存する前にSMSコードを確認してください",
+      "verifyNewSms": "連絡先を保存する前に新しい電話番号を確認してください",
+      "verifyEmailFirst": "連絡先を保存する前にメールコードを確認してください",
+      "verifyNewEmail": "連絡先を保存する前に新しいメールアドレスを確認してください"
+    },
+    "errors": {
+      "nameRequired": "連絡先名は必須です"
+    },
+    "languages": {
+      "en": "英語",
+      "no": "ノルウェー語",
+      "es": "スペイン語",
+      "pt": "ポルトガル語",
+      "de": "ドイツ語",
+      "fr": "フランス語",
+      "ja": "日本語"
     }
   },
   "balanceAlerts": {
     "title": "残高アラート",
+    "new": "新規",
     "empty": {
       "title": "残高アラートがありません",
-      "description": "ウォレットの残高が特定のしきい値に達したときに通知を受けるアラートを設定"
+      "description": "ウォレットの残高が特定のしきい値に達したときに通知を受けるアラートを設定",
+      "list": "アラートが設定されていません"
     },
+    "lastFired": "最終発動 {date}",
+    "deleteAlert": "アラートを削除",
     "add": {
-      "title": "残高アラートを追加",
+      "title": "新しいアラートを作成",
       "typeLabel": "アラートタイプ",
       "types": {
         "above": "以上",
         "below": "以下",
         "equals": "等しい"
       },
+      "typeDescriptions": {
+        "above": "残高がこの金額を超えたときにアラート",
+        "below": "残高がこの金額を下回ったときにアラート",
+        "equals": "残高がこの金額と等しくなったときにアラート（例：ウォレット枯渇）"
+      },
+      "currencyLabel": "通貨タイプ",
+      "bitcoinBtc": "ビットコイン（BTC）",
+      "fiatCurrency": "法定通貨（{currency}）",
+      "bitcoinAmount": "ビットコイン金額",
+      "amount": "金額（{currency}）",
+      "enterAmountBtc": "BTCで金額を入力",
+      "enterAmount": "{currency}で金額を入力",
       "thresholdLabel": "しきい値",
       "thresholdPlaceholder": "0.1",
       "btc": "BTC",
-      "submit": "アラートを追加",
-      "submitting": "追加中..."
+      "cancel": "キャンセル",
+      "submit": "作成",
+      "submitting": "作成中..."
     },
     "edit": {
       "title": "残高アラートを編集"
@@ -401,21 +491,33 @@
       "reactivate": "再有効化"
     },
     "errors": {
+      "invalidBtcAmount": "有効なビットコイン金額を入力してください",
+      "invalidPositiveAmount": "有効な正の金額を入力してください",
       "negativeAmount": "金額は負の値にできません",
-      "belowZero": "'0以下'のアラートは作成できません"
+      "belowZero": "'0以下'のアラートは作成できません - 残高は負になりません",
+      "duplicateAlert": "このタイプと金額のアラートは既に存在します",
+      "createFailed": "残高アラートの作成に失敗しました",
+      "deleteFailed": "アラートの削除に失敗しました"
     }
   },
   "transactions": {
     "title": "トランザクション",
+    "titleWithWallet": "トランザクション - {walletName}",
+    "loading": "トランザクションを読み込み中...",
     "empty": "トランザクションがありません",
+    "emptyForWallet": "選択されたウォレットのトランザクションが見つかりません。",
+    "count": "{count}件のトランザクション",
     "types": {
       "receive": "受信",
-      "send": "送信"
+      "send": "送信",
+      "receiving": "受信中",
+      "sending": "送信中"
     },
     "status": {
       "pending": "保留中",
       "confirmed": "確認済み",
-      "dropped": "ドロップ"
+      "dropped": "ドロップ",
+      "replaced": "置換済み"
     },
     "details": {
       "txid": "トランザクションID",
@@ -424,11 +526,41 @@
       "date": "日付",
       "confirmations": "確認数",
       "block": "ブロック",
-      "address": "アドレス"
+      "address": "アドレス",
+      "replacedBy": "置換先",
+      "replacedAt": "置換日時"
     },
+    "tableHeaders": {
+      "dateTime": "日時",
+      "wallet": "ウォレット",
+      "transaction": "トランザクション",
+      "amount": "金額",
+      "details": "詳細"
+    },
+    "tooltips": {
+      "cpfp": "CPFPトランザクション",
+      "rbfReplaced": "RBFにより置換",
+      "notificationsFailed": "一部の通知に失敗しました",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - {txid}の子",
+      "replacedByTx": "トランザクションによる置換: {txid}",
+      "viewOnMempool": "Mempool Spaceで{txid}を表示"
+    },
+    "timeline": {
+      "pending": "保留中",
+      "confirmed": "確認済み"
+    },
+    "notifications": {
+      "sentAt": "送信日時",
+      "statusLabel": "ステータス",
+      "errorLabel": "エラー",
+      "unknownTime": "不明な時刻",
+      "unknownTarget": "不明な宛先"
+    },
+    "error": "エラー: {error}",
     "rbf": "RBF",
     "cpfp": "CPFP",
-    "replacement": "置換"
+    "replacement": "置換",
+    "walletLabel": "ウォレット: {name}"
   },
   "billing": {
     "title": "サブスクリプション",
@@ -482,7 +614,22 @@
     "perYear": "/年",
     "saveYearly": "年間{percent}%節約",
     "popular": "人気",
-    "currentPlanBadge": "現在のプラン"
+    "currentPlanBadge": "現在のプラン",
+    "trialPlanBadge": "お試しプラン",
+    "freeToSelfHost": "セルフホストは無料",
+    "plusTaxes": "税別",
+    "changePlan": "プランを変更",
+    "subscribeTo": "{plan}に登録",
+    "upgradeTo": "{plan}にアップグレード",
+    "startTrial": "30日間の無料トライアルを開始",
+    "loadingPricing": "料金を読み込み中...",
+    "errorTitle": "料金を読み込めませんでした",
+    "errorDescription": "ページを更新するか、後でもう一度お試しください。",
+    "selfHosted": {
+      "description": "セルフホストをご希望ですか？Canaryはntfy経由のプッシュ通知付きで、お客様のインフラで無料で実行できます。",
+      "installUmbrel": "Umbrelにインストール",
+      "viewGithub": "GitHubで見る"
+    }
   },
   "upgrade": {
     "title": "プランをアップグレード",
@@ -502,5 +649,10 @@
     "notFound": "見つかりません。",
     "serverError": "サーバーエラー。後でもう一度お試しください。",
     "validation": "入力を確認してもう一度お試しください。"
+  },
+  "footer": {
+    "logoAlt": "Canaryロゴ",
+    "appName": "Canary",
+    "blockInfo": "ブロック {height}"
   }
 }

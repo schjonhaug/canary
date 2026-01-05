@@ -4,10 +4,13 @@ import Image from "next/image"
 import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { useRelativeTime } from "@/hooks/useRelativeTime"
 import { BuildInfo } from "./build-info"
+import { useTranslations } from "next-intl"
 
 export function AppFooter() {
   const { blockHeader } = useBlockHeader()
   const blockHeaderTime = useRelativeTime(blockHeader?.timestamp)
+  const t = useTranslations('footer')
+  const tCommon = useTranslations('common')
 
   return (
     <footer className="mt-16 pt-8 border-t border-border">
@@ -15,23 +18,23 @@ export function AppFooter() {
         <div className="flex items-center gap-4">
           <Image
             src="/images/canary-in-a-coalmine.svg"
-            alt="Canary Logo"
+            alt={t('logoAlt')}
             width={48}
             height={48}
             className="h-12 w-12"
           />
           <div>
-            <h3 className="text-lg font-bold tracking-wide">Canary</h3>
+            <h3 className="text-lg font-bold tracking-wide">{t('appName')}</h3>
             {blockHeader ? (
               <p className="text-muted-foreground text-sm">
-                Block {blockHeader.height.toLocaleString()} • {blockHeaderTime}
+                {t('blockInfo', { height: blockHeader.height.toLocaleString() })} • {blockHeaderTime}
               </p>
             ) : (
-              <p className="text-muted-foreground text-sm">Connecting to network...</p>
+              <p className="text-muted-foreground text-sm">{tCommon('connectingToNetwork')}</p>
             )}
           </div>
         </div>
-        
+
         <BuildInfo />
       </div>
     </footer>

@@ -40,7 +40,9 @@
     "settings": "Configuracion",
     "wallets": "Billeteras",
     "addWallet": "Agregar Billetera",
-    "alreadyUser": "Ya tienes cuenta? Inicia sesion"
+    "alreadyUser": "Ya tienes cuenta? Inicia sesion",
+    "contact": "Contacto",
+    "subscription": "Suscripcion"
   },
   "landing": {
     "hero": {
@@ -230,15 +232,49 @@
   "wallets": {
     "title": "Mis Billeteras",
     "summary": "Rastreando {count} {count, plural, one {billetera} other {billeteras}} con un saldo total de {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "¿Listo para comenzar tu prueba",
+        "titleWithName": "¿Listo para comenzar tu prueba, {name}?",
+        "description": "Agrega tu primera billetera para activar tu <highlight>prueba de 30 días del plan Team</highlight>. Obtendrás acceso instantáneo a todas las funciones, incluyendo sincronización en tiempo real, notificaciones ilimitadas y soporte prioritario.",
+        "whatYouGet": "Lo que obtendrás:",
+        "features": {
+          "wallets": "5 billeteras con sincronización de 2 minutos",
+          "contacts": "5 contactos por billetera",
+          "emailSms": "Notificaciones por email y SMS",
+          "push": "Notificaciones push via ntfy"
+        },
+        "button": "Agregar tu primera billetera e iniciar prueba",
+        "note": "La prueba comienza cuando agregas tu billetera"
+      },
+      "simple": {
+        "title": "Agregar tu primera billetera",
+        "description": "Agrega un descriptor de billetera para comenzar a monitorear tus transacciones de Bitcoin.",
+        "button": "Agregar billetera"
+      }
+    },
     "connectionLost": {
       "title": "Conexión con el backend perdida",
       "description": "No se puede conectar al servicio backend. Mostrando datos en caché.",
       "lastUpdated": "Última actualización: {time}"
     },
     "empty": {
-      "title": "Sin billeteras aun",
-      "description": "Agrega tu primera billetera Bitcoin para comenzar a monitorear",
+      "title": "Sin Billeteras",
+      "description": "No se encontraron billeteras. Usa el boton \"Agregar Billetera\" para comenzar.",
       "addFirst": "Agregar Tu Primera Billetera"
+    },
+    "error": {
+      "title": "Error",
+      "loadFailed": "Error al cargar billeteras: {error}"
+    },
+    "card": {
+      "syncing": "Sincronizando...",
+      "inactive": "Inactiva",
+      "inactiveExpired": "Tu suscripcion ha expirado - la billetera no se sincronizara automaticamente",
+      "inactiveTierLimit": "Esta billetera excede los limites de tu plan y no se sincronizara automaticamente",
+      "balance": "Saldo",
+      "lastActivity": "Ultima actividad: {date}",
+      "noRecentActivity": "Sin actividad reciente"
     },
     "add": {
       "title": "Agregar Billetera",
@@ -293,6 +329,24 @@
       "syncStatus": {
         "pending": "Sincronizando",
         "ready": "Sincronizado"
+      },
+      "backToWallets": "Volver a billeteras",
+      "new": "Nuevo",
+      "notFound": {
+        "title": "Billetera no encontrada",
+        "description": "No se pudo encontrar la billetera con checksum #{checksum}."
+      },
+      "syncing": {
+        "title": "Billetera aun sincronizando",
+        "description": "{name} aun esta sincronizando y escaneando transacciones historicas. Este proceso puede tomar unos minutos para billeteras con historial de transacciones.",
+        "returnPrompt": "Por favor regrese a la pagina de billeteras y espere a que la sincronizacion se complete."
+      },
+      "inactive": {
+        "title": "Billetera inactiva",
+        "descriptionExpired": "Tu suscripcion ha expirado - la billetera no se sincronizara automaticamente.",
+        "descriptionTierLimit": "Esta billetera excede los limites de tu nivel de suscripcion y no se sincronizara automaticamente.",
+        "outdatedWarning": "El historial de transacciones y el saldo mostrado pueden estar desactualizados.",
+        "upgradePlan": "Mejorar plan"
       }
     },
     "delete": {
@@ -310,81 +364,117 @@
   "contacts": {
     "title": "Contactos",
     "empty": {
-      "title": "Sin contactos aun",
-      "description": "Agrega contactos para recibir notificaciones sobre esta billetera"
+      "title": "Sin contactos aún",
+      "description": "Agrega contactos para recibir notificaciones sobre esta billetera",
+      "list": "No hay contactos agregados aún"
+    },
+    "inactive": {
+      "badge": "Inactivo",
+      "expired": "Tu suscripción ha expirado - el contacto no recibirá notificaciones",
+      "tierLimit": "Este contacto excede los límites de tu nivel de suscripción y no recibirá notificaciones"
     },
     "add": {
-      "title": "Agregar Contacto",
-      "nameLabel": "Nombre del Contacto",
-      "namePlaceholder": "Juan Perez",
-      "languageLabel": "Idioma de Notificacion",
-      "methodTitle": "Metodo de Notificacion",
-      "methodDescription": "Elige como este contacto recibira notificaciones",
+      "title": "Agregar nuevo contacto",
+      "description": "Configura un nuevo contacto para recibir notificaciones de transacciones de Bitcoin.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Nombre del contacto",
+      "languageLabel": "Idioma",
+      "methodTitle": "Métodos de notificación",
       "ntfy": {
-        "title": "Notificaciones Push (ntfy)",
-        "description": "Notificaciones push gratuitas via la app ntfy",
-        "topicLabel": "Nombre del Tema",
-        "topicPlaceholder": "mis-alertas-billetera",
-        "topicHint": "Suscribete a este tema en la app ntfy para recibir notificaciones"
+        "topicHint": "El tema se generará automáticamente según el nombre del contacto"
       },
       "sms": {
-        "title": "SMS",
-        "description": "Notificaciones por mensaje de texto",
-        "phoneLabel": "Numero de Telefono",
-        "phonePlaceholder": "+34123456789",
-        "phoneHint": "Incluye codigo de pais (ej., +34 para Espana)"
+        "phoneHint": "Incluye código de país"
       },
       "email": {
-        "title": "Email",
-        "description": "Notificaciones por email",
-        "emailLabel": "Direccion de Email",
-        "emailPlaceholder": "juan@ejemplo.com"
+        "emailHint": "Ingresa una dirección de email válida"
       },
-      "submit": "Agregar Contacto",
-      "submitting": "Agregando..."
+      "submit": "Crear contacto",
+      "submitting": "Procesando..."
     },
     "edit": {
-      "title": "Editar Contacto",
-      "submit": "Guardar Cambios"
+      "title": "Editar contacto",
+      "description": "Actualiza la información del contacto y los métodos de notificación.",
+      "submit": "Actualizar contacto"
     },
     "delete": {
-      "title": "Eliminar Contacto",
-      "description": "Estas seguro de que deseas eliminar este contacto? Ya no recibira notificaciones.",
+      "title": "Eliminar contacto",
+      "description": "¿Estás seguro de que deseas eliminar este contacto? Ya no recibirá notificaciones.",
       "confirm": "Eliminar",
       "cancel": "Cancelar"
     },
     "verification": {
-      "title": "Verificar Contacto",
-      "description": "Hemos enviado un codigo de verificacion a {contact}. Ingresalo abajo para verificar.",
-      "codeLabel": "Codigo de Verificacion",
-      "codePlaceholder": "Ingresa codigo de 6 digitos",
-      "submit": "Verificar",
-      "resend": "Reenviar Codigo",
+      "codeLabel": "Código de verificación",
+      "codePlaceholder": "Ingresa código de 6 dígitos",
+      "sendCode": "Enviar código de verificación",
+      "sendingCode": "Enviando...",
+      "verify": "Verificar",
+      "verifying": "Verificando...",
+      "resend": "Reenviar",
+      "codeSentTo": "Código enviado a {target}",
       "expiresIn": "Expira en {time}",
-      "expired": "Codigo expirado",
-      "invalid": "Codigo de verificacion invalido",
-      "verified": "Contacto verificado!"
+      "expired": "El código de verificación expiró. Inténtalo de nuevo.",
+      "expiredRequest": "El código de verificación expiró. Solicita un nuevo código.",
+      "invalid": "Código de verificación inválido. Inténtalo de nuevo.",
+      "smsVerified": "SMS verificado correctamente",
+      "emailVerified": "Email verificado correctamente",
+      "smsRequired": "Se requiere número de teléfono para la verificación por SMS",
+      "emailRequired": "Se requiere dirección de email para la verificación por email",
+      "enterCode": "Por favor ingresa el código de verificación",
+      "verifySmsFirst": "Verifica el código SMS antes de guardar el contacto",
+      "verifyNewSms": "Verifica el nuevo número de teléfono antes de guardar el contacto",
+      "verifyEmailFirst": "Verifica el código de email antes de guardar el contacto",
+      "verifyNewEmail": "Verifica la nueva dirección de email antes de guardar el contacto"
+    },
+    "errors": {
+      "nameRequired": "El nombre del contacto es obligatorio"
+    },
+    "languages": {
+      "en": "Inglés",
+      "no": "Noruego",
+      "es": "Español",
+      "pt": "Portugués",
+      "de": "Alemán",
+      "fr": "Francés",
+      "ja": "Japonés"
     }
   },
   "balanceAlerts": {
     "title": "Alertas de Saldo",
+    "new": "Nueva",
     "empty": {
       "title": "Sin alertas de saldo",
-      "description": "Configura alertas para ser notificado cuando el saldo de tu billetera alcance ciertos umbrales"
+      "description": "Configura alertas para ser notificado cuando el saldo de tu billetera alcance ciertos umbrales",
+      "list": "Sin alertas configuradas"
     },
+    "lastFired": "Ultima activacion {date}",
+    "deleteAlert": "Eliminar alerta",
     "add": {
-      "title": "Agregar Alerta de Saldo",
+      "title": "Crear Nueva Alerta",
       "typeLabel": "Tipo de Alerta",
       "types": {
         "above": "Por encima",
         "below": "Por debajo",
         "equals": "Igual a"
       },
+      "typeDescriptions": {
+        "above": "Alertar cuando el saldo supere esta cantidad",
+        "below": "Alertar cuando el saldo baje de esta cantidad",
+        "equals": "Alertar cuando el saldo sea igual a esta cantidad (ej. vaciado de billetera)"
+      },
+      "currencyLabel": "Tipo de Moneda",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Moneda Fiat ({currency})",
+      "bitcoinAmount": "Cantidad en Bitcoin",
+      "amount": "Cantidad ({currency})",
+      "enterAmountBtc": "Ingrese cantidad en BTC",
+      "enterAmount": "Ingrese cantidad en {currency}",
       "thresholdLabel": "Umbral",
       "thresholdPlaceholder": "0.1",
       "btc": "BTC",
-      "submit": "Agregar Alerta",
-      "submitting": "Agregando..."
+      "cancel": "Cancelar",
+      "submit": "Crear",
+      "submitting": "Creando..."
     },
     "edit": {
       "title": "Editar Alerta de Saldo"
@@ -401,21 +491,33 @@
       "reactivate": "Reactivar"
     },
     "errors": {
+      "invalidBtcAmount": "Por favor ingrese una cantidad valida de Bitcoin",
+      "invalidPositiveAmount": "Por favor ingrese una cantidad positiva valida",
       "negativeAmount": "La cantidad no puede ser negativa",
-      "belowZero": "No se puede crear alerta para 'por debajo de 0'"
+      "belowZero": "No se puede crear alerta para 'por debajo de 0' - el saldo no puede ser negativo",
+      "duplicateAlert": "Ya existe una alerta con este tipo y cantidad",
+      "createFailed": "Error al crear la alerta de saldo",
+      "deleteFailed": "Error al eliminar la alerta"
     }
   },
   "transactions": {
     "title": "Transacciones",
+    "titleWithWallet": "Transacciones - {walletName}",
+    "loading": "Cargando transacciones...",
     "empty": "Sin transacciones aun",
+    "emptyForWallet": "No se encontraron transacciones para la billetera seleccionada.",
+    "count": "{count} {count, plural, one {transaccion} other {transacciones}}",
     "types": {
       "receive": "Recibido",
-      "send": "Enviado"
+      "send": "Enviado",
+      "receiving": "Recibiendo",
+      "sending": "Enviando"
     },
     "status": {
       "pending": "Pendiente",
       "confirmed": "Confirmado",
-      "dropped": "Descartado"
+      "dropped": "Descartado",
+      "replaced": "Reemplazado"
     },
     "details": {
       "txid": "ID de Transaccion",
@@ -424,11 +526,41 @@
       "date": "Fecha",
       "confirmations": "Confirmaciones",
       "block": "Bloque",
-      "address": "Direccion"
+      "address": "Direccion",
+      "replacedBy": "Reemplazado por",
+      "replacedAt": "Reemplazado en"
     },
+    "tableHeaders": {
+      "dateTime": "Fecha/Hora",
+      "wallet": "Billetera",
+      "transaction": "Transaccion",
+      "amount": "Cantidad",
+      "details": "Detalles"
+    },
+    "tooltips": {
+      "cpfp": "Transaccion CPFP",
+      "rbfReplaced": "Reemplazado por RBF",
+      "notificationsFailed": "Algunas notificaciones fallaron",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Hijo de {txid}",
+      "replacedByTx": "Reemplazado por transaccion: {txid}",
+      "viewOnMempool": "Ver {txid} en Mempool Space"
+    },
+    "timeline": {
+      "pending": "PENDIENTE",
+      "confirmed": "CONFIRMADO"
+    },
+    "notifications": {
+      "sentAt": "Enviado",
+      "statusLabel": "Estado",
+      "errorLabel": "Error",
+      "unknownTime": "Hora desconocida",
+      "unknownTarget": "Destino desconocido"
+    },
+    "error": "Error: {error}",
     "rbf": "RBF",
     "cpfp": "CPFP",
-    "replacement": "Reemplazo"
+    "replacement": "Reemplazo",
+    "walletLabel": "Billetera: {name}"
   },
   "billing": {
     "title": "Suscripcion",
@@ -482,7 +614,22 @@
     "perYear": "/ano",
     "saveYearly": "Ahorra {percent}% anual",
     "popular": "POPULAR",
-    "currentPlanBadge": "PLAN ACTUAL"
+    "currentPlanBadge": "PLAN ACTUAL",
+    "trialPlanBadge": "PLAN DE PRUEBA",
+    "freeToSelfHost": "Gratis para autoalojar",
+    "plusTaxes": "Mas impuestos aplicables",
+    "changePlan": "Cambiar plan",
+    "subscribeTo": "Suscribirse a {plan}",
+    "upgradeTo": "Mejorar a {plan}",
+    "startTrial": "Iniciar prueba gratuita de 30 dias",
+    "loadingPricing": "Cargando precios...",
+    "errorTitle": "No se pudo cargar los precios",
+    "errorDescription": "Por favor actualice la pagina o intente de nuevo mas tarde.",
+    "selfHosted": {
+      "description": "Prefiere autoalojar? Canary es gratis para ejecutar en su propia infraestructura con notificaciones push via ntfy.",
+      "installUmbrel": "Instalar en Umbrel",
+      "viewGithub": "Ver en GitHub"
+    }
   },
   "upgrade": {
     "title": "Mejora Tu Plan",
@@ -502,5 +649,10 @@
     "notFound": "No encontrado.",
     "serverError": "Error del servidor. Por favor intenta mas tarde.",
     "validation": "Por favor verifica tu entrada e intenta de nuevo."
+  },
+  "footer": {
+    "logoAlt": "Logo de Canary",
+    "appName": "Canary",
+    "blockInfo": "Bloque {height}"
   }
 }

@@ -40,7 +40,9 @@
     "settings": "Parametres",
     "wallets": "Portefeuilles",
     "addWallet": "Ajouter un portefeuille",
-    "alreadyUser": "Deja inscrit? Se connecter"
+    "alreadyUser": "Deja inscrit? Se connecter",
+    "contact": "Contact",
+    "subscription": "Abonnement"
   },
   "landing": {
     "hero": {
@@ -230,15 +232,49 @@
   "wallets": {
     "title": "Mes portefeuilles",
     "summary": "Suivi de {count} {count, plural, one {portefeuille} other {portefeuilles}} avec un solde total de {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "Prêt à commencer votre essai",
+        "titleWithName": "Prêt à commencer votre essai, {name}?",
+        "description": "Ajoutez votre premier portefeuille pour activer votre <highlight>essai de 30 jours du plan Team</highlight>. Vous obtiendrez un accès instantané à toutes les fonctionnalités, y compris la synchronisation en temps réel, les notifications illimitées et le support prioritaire.",
+        "whatYouGet": "Ce que vous obtiendrez:",
+        "features": {
+          "wallets": "5 portefeuilles avec sync de 2 minutes",
+          "contacts": "5 contacts par portefeuille",
+          "emailSms": "Notifications par email et SMS",
+          "push": "Notifications push via ntfy"
+        },
+        "button": "Ajouter votre premier portefeuille et commencer l'essai",
+        "note": "L'essai commence lorsque vous ajoutez votre portefeuille"
+      },
+      "simple": {
+        "title": "Ajouter votre premier portefeuille",
+        "description": "Ajoutez un descripteur de portefeuille pour commencer à surveiller vos transactions Bitcoin.",
+        "button": "Ajouter un portefeuille"
+      }
+    },
     "connectionLost": {
       "title": "Connexion au backend perdue",
       "description": "Impossible de se connecter au service backend. Affichage des données en cache.",
       "lastUpdated": "Dernière mise à jour: {time}"
     },
     "empty": {
-      "title": "Pas encore de portefeuilles",
-      "description": "Ajoutez votre premier portefeuille Bitcoin pour commencer la surveillance",
+      "title": "Aucun portefeuille",
+      "description": "Aucun portefeuille trouve. Utilisez le bouton \"Ajouter un portefeuille\" pour commencer.",
       "addFirst": "Ajouter votre premier portefeuille"
+    },
+    "error": {
+      "title": "Erreur",
+      "loadFailed": "Echec du chargement des portefeuilles: {error}"
+    },
+    "card": {
+      "syncing": "Synchronisation...",
+      "inactive": "Inactif",
+      "inactiveExpired": "Votre abonnement a expire - le portefeuille ne se synchronisera pas automatiquement",
+      "inactiveTierLimit": "Ce portefeuille depasse les limites de votre abonnement et ne se synchronisera pas automatiquement",
+      "balance": "Solde",
+      "lastActivity": "Derniere activite: {date}",
+      "noRecentActivity": "Aucune activite recente"
     },
     "add": {
       "title": "Ajouter un portefeuille",
@@ -293,6 +329,24 @@
       "syncStatus": {
         "pending": "Synchronisation",
         "ready": "Synchronise"
+      },
+      "backToWallets": "Retour aux portefeuilles",
+      "new": "Nouveau",
+      "notFound": {
+        "title": "Portefeuille introuvable",
+        "description": "Le portefeuille avec la somme de controle #{checksum} n'a pas ete trouve."
+      },
+      "syncing": {
+        "title": "Portefeuille en cours de synchronisation",
+        "description": "{name} est encore en cours de synchronisation et d'analyse des transactions historiques. Ce processus peut prendre quelques minutes pour les portefeuilles avec un historique de transactions.",
+        "returnPrompt": "Veuillez retourner a la page des portefeuilles et attendre que la synchronisation soit terminee."
+      },
+      "inactive": {
+        "title": "Portefeuille inactif",
+        "descriptionExpired": "Votre abonnement a expire - le portefeuille ne se synchronisera pas automatiquement.",
+        "descriptionTierLimit": "Ce portefeuille depasse les limites de votre niveau d'abonnement et ne se synchronisera pas automatiquement.",
+        "outdatedWarning": "L'historique des transactions et le solde affiches peuvent etre obsoletes.",
+        "upgradePlan": "Mettre a niveau"
       }
     },
     "delete": {
@@ -311,80 +365,116 @@
     "title": "Contacts",
     "empty": {
       "title": "Pas encore de contacts",
-      "description": "Ajoutez des contacts pour recevoir des notifications sur ce portefeuille"
+      "description": "Ajoutez des contacts pour recevoir des notifications sur ce portefeuille",
+      "list": "Aucun contact ajouté"
+    },
+    "inactive": {
+      "badge": "Inactif",
+      "expired": "Votre abonnement a expiré - le contact ne recevra pas de notifications",
+      "tierLimit": "Ce contact dépasse les limites de votre niveau d'abonnement et ne recevra pas de notifications"
     },
     "add": {
-      "title": "Ajouter un contact",
-      "nameLabel": "Nom du contact",
-      "namePlaceholder": "Jean Dupont",
-      "languageLabel": "Langue des notifications",
-      "methodTitle": "Methode de notification",
-      "methodDescription": "Choisissez comment ce contact recevra les notifications",
+      "title": "Ajouter un nouveau contact",
+      "description": "Configurez un nouveau contact pour recevoir les notifications de transactions Bitcoin.",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Nom du contact",
+      "languageLabel": "Langue",
+      "methodTitle": "Méthodes de notification",
       "ntfy": {
-        "title": "Notifications push (ntfy)",
-        "description": "Notifications push gratuites via l'application ntfy",
-        "topicLabel": "Nom du sujet",
-        "topicPlaceholder": "mes-alertes-portefeuille",
-        "topicHint": "Abonnez-vous a ce sujet dans l'application ntfy pour recevoir des notifications"
+        "topicHint": "Le sujet sera généré automatiquement en fonction du nom du contact"
       },
       "sms": {
-        "title": "SMS",
-        "description": "Notifications par SMS",
-        "phoneLabel": "Numero de telephone",
-        "phonePlaceholder": "+33123456789",
-        "phoneHint": "Inclure l'indicatif du pays (ex., +33 pour la France)"
+        "phoneHint": "Inclure l'indicatif du pays"
       },
       "email": {
-        "title": "Email",
-        "description": "Notifications par email",
-        "emailLabel": "Adresse email",
-        "emailPlaceholder": "jean@exemple.com"
+        "emailHint": "Entrez une adresse email valide"
       },
-      "submit": "Ajouter le contact",
-      "submitting": "Ajout..."
+      "submit": "Créer le contact",
+      "submitting": "Traitement..."
     },
     "edit": {
       "title": "Modifier le contact",
-      "submit": "Enregistrer les modifications"
+      "description": "Mettez à jour les informations du contact et les méthodes de notification.",
+      "submit": "Mettre à jour le contact"
     },
     "delete": {
       "title": "Supprimer le contact",
-      "description": "Etes-vous sur de vouloir supprimer ce contact? Il ne recevra plus de notifications.",
+      "description": "Êtes-vous sûr de vouloir supprimer ce contact? Il ne recevra plus de notifications.",
       "confirm": "Supprimer",
       "cancel": "Annuler"
     },
     "verification": {
-      "title": "Verifier le contact",
-      "description": "Nous avons envoye un code de verification a {contact}. Entrez-le ci-dessous pour verifier.",
-      "codeLabel": "Code de verification",
-      "codePlaceholder": "Entrez le code a 6 chiffres",
-      "submit": "Verifier",
-      "resend": "Renvoyer le code",
+      "codeLabel": "Code de vérification",
+      "codePlaceholder": "Entrez le code à 6 chiffres",
+      "sendCode": "Envoyer le code de vérification",
+      "sendingCode": "Envoi...",
+      "verify": "Vérifier",
+      "verifying": "Vérification...",
+      "resend": "Renvoyer",
+      "codeSentTo": "Code envoyé à {target}",
       "expiresIn": "Expire dans {time}",
-      "expired": "Code expire",
-      "invalid": "Code de verification invalide",
-      "verified": "Contact verifie!"
+      "expired": "Le code de vérification a expiré. Veuillez réessayer.",
+      "expiredRequest": "Le code de vérification a expiré. Veuillez demander un nouveau code.",
+      "invalid": "Code de vérification invalide. Veuillez réessayer.",
+      "smsVerified": "SMS vérifié avec succès",
+      "emailVerified": "Email vérifié avec succès",
+      "smsRequired": "Le numéro de téléphone est requis pour la vérification par SMS",
+      "emailRequired": "L'adresse email est requise pour la vérification par email",
+      "enterCode": "Veuillez entrer le code de vérification",
+      "verifySmsFirst": "Veuillez vérifier le code SMS avant d'enregistrer le contact",
+      "verifyNewSms": "Veuillez vérifier le nouveau numéro de téléphone avant d'enregistrer le contact",
+      "verifyEmailFirst": "Veuillez vérifier le code email avant d'enregistrer le contact",
+      "verifyNewEmail": "Veuillez vérifier la nouvelle adresse email avant d'enregistrer le contact"
+    },
+    "errors": {
+      "nameRequired": "Le nom du contact est obligatoire"
+    },
+    "languages": {
+      "en": "Anglais",
+      "no": "Norvégien",
+      "es": "Espagnol",
+      "pt": "Portugais",
+      "de": "Allemand",
+      "fr": "Français",
+      "ja": "Japonais"
     }
   },
   "balanceAlerts": {
     "title": "Alertes de solde",
+    "new": "Nouvelle",
     "empty": {
       "title": "Pas d'alertes de solde",
-      "description": "Configurez des alertes pour etre notifie lorsque le solde de votre portefeuille atteint certains seuils"
+      "description": "Configurez des alertes pour etre notifie lorsque le solde de votre portefeuille atteint certains seuils",
+      "list": "Aucune alerte configuree"
     },
+    "lastFired": "Derniere activation {date}",
+    "deleteAlert": "Supprimer l'alerte",
     "add": {
-      "title": "Ajouter une alerte de solde",
+      "title": "Creer une nouvelle alerte",
       "typeLabel": "Type d'alerte",
       "types": {
         "above": "Au-dessus de",
         "below": "En dessous de",
         "equals": "Egal a"
       },
+      "typeDescriptions": {
+        "above": "Alerter lorsque le solde depasse ce montant",
+        "below": "Alerter lorsque le solde passe en dessous de ce montant",
+        "equals": "Alerter lorsque le solde est egal a ce montant (ex. portefeuille vide)"
+      },
+      "currencyLabel": "Type de devise",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Devise fiat ({currency})",
+      "bitcoinAmount": "Montant en Bitcoin",
+      "amount": "Montant ({currency})",
+      "enterAmountBtc": "Entrez le montant en BTC",
+      "enterAmount": "Entrez le montant en {currency}",
       "thresholdLabel": "Seuil",
       "thresholdPlaceholder": "0,1",
       "btc": "BTC",
-      "submit": "Ajouter l'alerte",
-      "submitting": "Ajout..."
+      "cancel": "Annuler",
+      "submit": "Creer",
+      "submitting": "Creation..."
     },
     "edit": {
       "title": "Modifier l'alerte de solde"
@@ -401,21 +491,33 @@
       "reactivate": "Reactiver"
     },
     "errors": {
+      "invalidBtcAmount": "Veuillez entrer un montant Bitcoin valide",
+      "invalidPositiveAmount": "Veuillez entrer un montant positif valide",
       "negativeAmount": "Le montant ne peut pas etre negatif",
-      "belowZero": "Impossible de creer une alerte pour 'en dessous de 0'"
+      "belowZero": "Impossible de creer une alerte pour 'en dessous de 0' - le solde ne peut pas etre negatif",
+      "duplicateAlert": "Une alerte avec ce type et ce montant existe deja",
+      "createFailed": "Echec de la creation de l'alerte de solde",
+      "deleteFailed": "Echec de la suppression de l'alerte"
     }
   },
   "transactions": {
     "title": "Transactions",
+    "titleWithWallet": "Transactions - {walletName}",
+    "loading": "Chargement des transactions...",
     "empty": "Pas encore de transactions",
+    "emptyForWallet": "Aucune transaction trouvee pour le portefeuille selectionne.",
+    "count": "{count} {count, plural, one {transaction} other {transactions}}",
     "types": {
       "receive": "Recu",
-      "send": "Envoye"
+      "send": "Envoye",
+      "receiving": "Reception",
+      "sending": "Envoi"
     },
     "status": {
       "pending": "En attente",
       "confirmed": "Confirme",
-      "dropped": "Abandonne"
+      "dropped": "Abandonne",
+      "replaced": "Remplace"
     },
     "details": {
       "txid": "ID de transaction",
@@ -424,11 +526,41 @@
       "date": "Date",
       "confirmations": "Confirmations",
       "block": "Bloc",
-      "address": "Adresse"
+      "address": "Adresse",
+      "replacedBy": "Remplace par",
+      "replacedAt": "Remplace le"
     },
+    "tableHeaders": {
+      "dateTime": "Date/Heure",
+      "wallet": "Portefeuille",
+      "transaction": "Transaction",
+      "amount": "Montant",
+      "details": "Details"
+    },
+    "tooltips": {
+      "cpfp": "Transaction CPFP",
+      "rbfReplaced": "Remplace par RBF",
+      "notificationsFailed": "Certaines notifications ont echoue",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Enfant de {txid}",
+      "replacedByTx": "Remplace par transaction: {txid}",
+      "viewOnMempool": "Voir {txid} sur Mempool Space"
+    },
+    "timeline": {
+      "pending": "EN ATTENTE",
+      "confirmed": "CONFIRMÉ"
+    },
+    "notifications": {
+      "sentAt": "Envoyé",
+      "statusLabel": "Statut",
+      "errorLabel": "Erreur",
+      "unknownTime": "Heure inconnue",
+      "unknownTarget": "Cible inconnue"
+    },
+    "error": "Erreur: {error}",
     "rbf": "RBF",
     "cpfp": "CPFP",
-    "replacement": "Remplacement"
+    "replacement": "Remplacement",
+    "walletLabel": "Portefeuille: {name}"
   },
   "billing": {
     "title": "Abonnement",
@@ -482,7 +614,22 @@
     "perYear": "/an",
     "saveYearly": "Economisez {percent}% par an",
     "popular": "POPULAIRE",
-    "currentPlanBadge": "PLAN ACTUEL"
+    "currentPlanBadge": "PLAN ACTUEL",
+    "trialPlanBadge": "PLAN D'ESSAI",
+    "freeToSelfHost": "Gratuit en auto-hebergement",
+    "plusTaxes": "Plus taxes applicables",
+    "changePlan": "Changer de plan",
+    "subscribeTo": "S'abonner a {plan}",
+    "upgradeTo": "Passer a {plan}",
+    "startTrial": "Demarrer l'essai gratuit de 30 jours",
+    "loadingPricing": "Chargement des tarifs...",
+    "errorTitle": "Impossible de charger les tarifs",
+    "errorDescription": "Veuillez rafraichir la page ou reessayer plus tard.",
+    "selfHosted": {
+      "description": "Vous preferez l'auto-hebergement ? Canary est gratuit sur votre propre infrastructure avec notifications push via ntfy.",
+      "installUmbrel": "Installer sur Umbrel",
+      "viewGithub": "Voir sur GitHub"
+    }
   },
   "upgrade": {
     "title": "Mettre a niveau votre plan",
@@ -502,5 +649,10 @@
     "notFound": "Non trouve.",
     "serverError": "Erreur serveur. Veuillez reessayer plus tard.",
     "validation": "Veuillez verifier votre saisie et reessayer."
+  },
+  "footer": {
+    "logoAlt": "Logo Canary",
+    "appName": "Canary",
+    "blockInfo": "Bloc {height}"
   }
 }
