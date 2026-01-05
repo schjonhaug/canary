@@ -229,6 +229,12 @@
   },
   "wallets": {
     "title": "My Wallets",
+    "summary": "Tracking {count} {count, plural, one {wallet} other {wallets}} with a total balance of {balance}",
+    "connectionLost": {
+      "title": "Backend Connection Lost",
+      "description": "Unable to connect to the backend service. Displaying cached data.",
+      "lastUpdated": "Last updated: {time}"
+    },
     "empty": {
       "title": "No wallets yet",
       "description": "Add your first Bitcoin wallet to start monitoring",
@@ -257,7 +263,24 @@
       "submit": "Add Wallet",
       "submitting": "Adding...",
       "success": "Wallet added successfully",
-      "error": "Failed to add wallet"
+      "error": "Failed to add wallet",
+      "wizard": {
+        "chooseWallet": "Which wallet do you use? We'll show you how to export your output descriptor or XPUB.",
+        "keysStaySafe": "Canary only needs this to monitor your transactions. Your private keys stay safe in your wallet.",
+        "tryBaconWallet": "New here? Try with a sample wallet first to see how Canary works.",
+        "useBaconWallet": "Use Bacon Wallet",
+        "haveDescriptor": "I already have my output descriptor or XPUB",
+        "exportSteps": "Follow these steps to export your descriptor from {walletName}",
+        "pasteXpub": "Paste your XPUB below.",
+        "pasteDescriptor": "Paste your output descriptor or XPUB below.",
+        "baconPrefilled": "We've prefilled the Bacon sample wallet for you. Just click Add Wallet to continue.",
+        "enterDetails": "Enter Details"
+      },
+      "limitReached": {
+        "title": "Wallet Limit Reached",
+        "description": "You've reached your {tier} plan limit of {count} {count, plural, one {wallet} other {wallets}}. Upgrade to add more wallets."
+      },
+      "checkoutError": "Failed to start checkout. Please try again."
     },
     "detail": {
       "balance": "Balance",

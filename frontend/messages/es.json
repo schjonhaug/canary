@@ -229,6 +229,12 @@
   },
   "wallets": {
     "title": "Mis Billeteras",
+    "summary": "Rastreando {count} {count, plural, one {billetera} other {billeteras}} con un saldo total de {balance}",
+    "connectionLost": {
+      "title": "Conexión con el backend perdida",
+      "description": "No se puede conectar al servicio backend. Mostrando datos en caché.",
+      "lastUpdated": "Última actualización: {time}"
+    },
     "empty": {
       "title": "Sin billeteras aun",
       "description": "Agrega tu primera billetera Bitcoin para comenzar a monitorear",
@@ -257,7 +263,24 @@
       "submit": "Agregar Billetera",
       "submitting": "Agregando...",
       "success": "Billetera agregada exitosamente",
-      "error": "Error al agregar billetera"
+      "error": "Error al agregar billetera",
+      "wizard": {
+        "chooseWallet": "¿Qué billetera usas? Te mostraremos cómo exportar tu descriptor de salida o XPUB.",
+        "keysStaySafe": "Canary solo necesita esto para monitorear tus transacciones. Tus claves privadas permanecen seguras en tu billetera.",
+        "tryBaconWallet": "¿Nuevo aquí? Prueba primero con una billetera de muestra para ver cómo funciona Canary.",
+        "useBaconWallet": "Usar Billetera Bacon",
+        "haveDescriptor": "Ya tengo mi descriptor de salida o XPUB",
+        "exportSteps": "Sigue estos pasos para exportar tu descriptor desde {walletName}",
+        "pasteXpub": "Pega tu XPUB abajo.",
+        "pasteDescriptor": "Pega tu descriptor de salida o XPUB abajo.",
+        "baconPrefilled": "Hemos rellenado la billetera de muestra Bacon para ti. Solo haz clic en Agregar Billetera para continuar.",
+        "enterDetails": "Ingresar Detalles"
+      },
+      "limitReached": {
+        "title": "Límite de Billeteras Alcanzado",
+        "description": "Has alcanzado el límite de {count} {count, plural, one {billetera} other {billeteras}} de tu plan {tier}. Actualiza para agregar más billeteras."
+      },
+      "checkoutError": "Error al iniciar el pago. Por favor, inténtalo de nuevo."
     },
     "detail": {
       "balance": "Saldo",

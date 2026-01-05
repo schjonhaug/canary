@@ -371,7 +371,7 @@ export default function SettingsPage() {
                       {userPreferences?.ntfy_has_access_token
                         ? t('ntfy.auth.configured.token')
                         : userPreferences?.ntfy_has_credentials
-                          ? t('ntfy.auth.configured.credentials', { username: userPreferences.ntfy_username })
+                          ? t('ntfy.auth.configured.credentials', { username: userPreferences.ntfy_username ?? '' })
                           : t('ntfy.auth.configured.none')}
                     </p>
 

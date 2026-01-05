@@ -76,12 +76,12 @@ export default function WalletsPage() {
       {!isConnected && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Backend Connection Lost</AlertTitle>
+          <AlertTitle>{t('connectionLost.title')}</AlertTitle>
           <AlertDescription>
-            Unable to connect to the backend service. Displaying cached data.
+            {t('connectionLost.description')}
             {lastUpdate && (
               <span className="block mt-1 text-xs">
-                Last updated: {new Date(lastUpdate * 1000).toLocaleString()}
+                {t('connectionLost.lastUpdated', { time: new Date(lastUpdate * 1000).toLocaleString() })}
               </span>
             )}
           </AlertDescription>
@@ -100,7 +100,7 @@ export default function WalletsPage() {
                   <h2 className="text-2xl font-semibold">{t('title')}</h2>
                   {wallets.length > 1 && (
                     <p className="text-sm text-muted-foreground">
-                      Tracking {wallets.length} wallets with a total balance of {formatBitcoinAmount(getTotalBalance())}
+                      {t('summary', { count: wallets.length, balance: formatBitcoinAmount(getTotalBalance()) })}
                       {(() => {
                         const fiatTotal = getTotalFiatBalance()
                         if (fiatTotal) {

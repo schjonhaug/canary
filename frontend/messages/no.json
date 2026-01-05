@@ -229,6 +229,12 @@
   },
   "wallets": {
     "title": "Mine lommeboker",
+    "summary": "Sporer {count} {count, plural, one {lommebok} other {lommeboker}} med en total saldo på {balance}",
+    "connectionLost": {
+      "title": "Tapt kontakt med backend",
+      "description": "Kan ikke koble til backend-tjenesten. Viser bufrede data.",
+      "lastUpdated": "Sist oppdatert: {time}"
+    },
     "empty": {
       "title": "Ingen lommeboker enna",
       "description": "Legg til din forste Bitcoin-lommebok for a starte overvakingen",
@@ -257,7 +263,24 @@
       "submit": "Legg til lommebok",
       "submitting": "Legger til...",
       "success": "Lommebok lagt til",
-      "error": "Kunne ikke legge til lommebok"
+      "error": "Kunne ikke legge til lommebok",
+      "wizard": {
+        "chooseWallet": "Hvilken lommebok bruker du? Vi viser deg hvordan du eksporterer output-deskriptoren eller XPUB.",
+        "keysStaySafe": "Canary trenger bare dette for å overvåke transaksjonene dine. Dine private nøkler forblir trygge i lommeboken din.",
+        "tryBaconWallet": "Ny her? Prøv med en prøvelommebok først for å se hvordan Canary fungerer.",
+        "useBaconWallet": "Bruk Bacon-lommebok",
+        "haveDescriptor": "Jeg har allerede min output-deskriptor eller XPUB",
+        "exportSteps": "Følg disse trinnene for å eksportere deskriptoren fra {walletName}",
+        "pasteXpub": "Lim inn XPUB nedenfor.",
+        "pasteDescriptor": "Lim inn output-deskriptoren eller XPUB nedenfor.",
+        "baconPrefilled": "Vi har forhåndsutfylt Bacon-prøvelommeboken for deg. Bare klikk på Legg til lommebok for å fortsette.",
+        "enterDetails": "Skriv inn detaljer"
+      },
+      "limitReached": {
+        "title": "Lommebokgrense nådd",
+        "description": "Du har nådd grensen på {count} {count, plural, one {lommebok} other {lommeboker}} for {tier}-planen din. Oppgrader for å legge til flere lommeboker."
+      },
+      "checkoutError": "Kunne ikke starte betaling. Prøv igjen."
     },
     "detail": {
       "balance": "Saldo",

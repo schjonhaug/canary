@@ -229,6 +229,12 @@
   },
   "wallets": {
     "title": "マイウォレット",
+    "summary": "合計残高{balance}の{count}個のウォレットを追跡中",
+    "connectionLost": {
+      "title": "バックエンド接続が失われました",
+      "description": "バックエンドサービスに接続できません。キャッシュされたデータを表示しています。",
+      "lastUpdated": "最終更新: {time}"
+    },
     "empty": {
       "title": "ウォレットがありません",
       "description": "最初のビットコインウォレットを追加して監視を開始",
@@ -257,7 +263,24 @@
       "submit": "ウォレットを追加",
       "submitting": "追加中...",
       "success": "ウォレットが正常に追加されました",
-      "error": "ウォレットの追加に失敗しました"
+      "error": "ウォレットの追加に失敗しました",
+      "wizard": {
+        "chooseWallet": "どのウォレットをお使いですか？出力ディスクリプタまたはXPUBのエクスポート方法をご案内します。",
+        "keysStaySafe": "Canaryはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
+        "tryBaconWallet": "初めてですか？まずサンプルウォレットでCanaryの動作を確認してください。",
+        "useBaconWallet": "Baconウォレットを使用",
+        "haveDescriptor": "出力ディスクリプタまたはXPUBを持っています",
+        "exportSteps": "{walletName}からディスクリプタをエクスポートするには、以下の手順に従ってください",
+        "pasteXpub": "下にXPUBを貼り付けてください。",
+        "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。",
+        "baconPrefilled": "Baconサンプルウォレットを事前入力しました。ウォレットを追加をクリックして続行してください。",
+        "enterDetails": "詳細を入力"
+      },
+      "limitReached": {
+        "title": "ウォレット数制限に達しました",
+        "description": "{tier}プランの{count}ウォレット制限に達しました。アップグレードしてウォレットを追加してください。"
+      },
+      "checkoutError": "チェックアウトの開始に失敗しました。もう一度お試しください。"
     },
     "detail": {
       "balance": "残高",

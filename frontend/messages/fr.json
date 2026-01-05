@@ -229,6 +229,12 @@
   },
   "wallets": {
     "title": "Mes portefeuilles",
+    "summary": "Suivi de {count} {count, plural, one {portefeuille} other {portefeuilles}} avec un solde total de {balance}",
+    "connectionLost": {
+      "title": "Connexion au backend perdue",
+      "description": "Impossible de se connecter au service backend. Affichage des données en cache.",
+      "lastUpdated": "Dernière mise à jour: {time}"
+    },
     "empty": {
       "title": "Pas encore de portefeuilles",
       "description": "Ajoutez votre premier portefeuille Bitcoin pour commencer la surveillance",
@@ -257,7 +263,24 @@
       "submit": "Ajouter le portefeuille",
       "submitting": "Ajout...",
       "success": "Portefeuille ajoute avec succes",
-      "error": "Echec de l'ajout du portefeuille"
+      "error": "Echec de l'ajout du portefeuille",
+      "wizard": {
+        "chooseWallet": "Quel portefeuille utilisez-vous? Nous vous montrerons comment exporter votre descripteur de sortie ou XPUB.",
+        "keysStaySafe": "Canary n'a besoin de cela que pour surveiller vos transactions. Vos clés privées restent en sécurité dans votre portefeuille.",
+        "tryBaconWallet": "Nouveau ici? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary.",
+        "useBaconWallet": "Utiliser le portefeuille Bacon",
+        "haveDescriptor": "J'ai déjà mon descripteur de sortie ou XPUB",
+        "exportSteps": "Suivez ces étapes pour exporter votre descripteur depuis {walletName}",
+        "pasteXpub": "Collez votre XPUB ci-dessous.",
+        "pasteDescriptor": "Collez votre descripteur de sortie ou XPUB ci-dessous.",
+        "baconPrefilled": "Nous avons prérempli le portefeuille exemple Bacon pour vous. Cliquez simplement sur Ajouter le portefeuille pour continuer.",
+        "enterDetails": "Entrer les détails"
+      },
+      "limitReached": {
+        "title": "Limite de portefeuilles atteinte",
+        "description": "Vous avez atteint la limite de {count} {count, plural, one {portefeuille} other {portefeuilles}} de votre plan {tier}. Mettez à niveau pour ajouter plus de portefeuilles."
+      },
+      "checkoutError": "Échec du démarrage du paiement. Veuillez réessayer."
     },
     "detail": {
       "balance": "Solde",
