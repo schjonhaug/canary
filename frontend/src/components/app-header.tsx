@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Plus, Settings } from "lucide-react"
 import { UserDropdown } from "@/components/user-dropdown"
 import { useAuth } from "@/contexts/auth-context"
+import { useTranslations } from "next-intl"
 
 interface AppHeaderProps {
   customLogo?: string
@@ -15,6 +16,7 @@ interface AppHeaderProps {
 export function AppHeader({ customLogo }: AppHeaderProps) {
   const { isCloudMode, user } = useAuth()
   const pathname = usePathname()
+  const tNav = useTranslations('nav')
 
   // Show Add Wallet button on most pages, except:
   // - On the add wallet page itself
@@ -54,7 +56,7 @@ export function AppHeader({ customLogo }: AppHeaderProps) {
               className="bg-accent hover:bg-accent/90 text-accent-foreground gap-1.5 sm:gap-2"
             >
               <Plus size={16} />
-              <span className="hidden sm:inline">Add Wallet</span>
+              <span className="hidden sm:inline">{tNav('addWallet')}</span>
             </Button>
           </Link>
         )}
@@ -68,7 +70,7 @@ export function AppHeader({ customLogo }: AppHeaderProps) {
               className="gap-1.5 sm:gap-2"
             >
               <Settings size={16} />
-              <span className="hidden sm:inline">Settings</span>
+              <span className="hidden sm:inline">{tNav('settings')}</span>
             </Button>
           </Link>
         )}

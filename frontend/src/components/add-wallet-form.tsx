@@ -15,6 +15,7 @@ import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
 import { XPUB_REGEX, DESCRIPTOR_REGEX } from "@/lib/constants"
+import { useTranslations } from "next-intl"
 
 // Slug for the sample wallet route
 export const SAMPLE_WALLET_SLUG = 'bacon'
@@ -60,6 +61,7 @@ export function AddWalletForm({
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const modal = useModal()
   const { user } = useAuth()
+  const t = useTranslations('wallets')
 
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'cloud'
@@ -194,11 +196,11 @@ export function AddWalletForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="wallet-name">Wallet Name</Label>
+        <Label htmlFor="wallet-name">{t('add.nameLabel')}</Label>
         <Input
           id="wallet-name"
           type="text"
-          placeholder="Enter wallet name"
+          placeholder={t('add.namePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={modal.isLoading}
@@ -207,10 +209,10 @@ export function AddWalletForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="output-descriptor">Output Descriptor or Extended Public Key</Label>
+        <Label htmlFor="output-descriptor">{t('add.descriptorLabel')}</Label>
         <Textarea
           id="output-descriptor"
-          placeholder="Enter output descriptor (wpkh(xpub.../<0;1>/*)) or extended public key (xpub/ypub/zpub...)"
+          placeholder={t('add.descriptorPlaceholder')}
           value={descriptor}
           onChange={(e) => setDescriptor(e.target.value)}
           disabled={modal.isLoading}
@@ -229,7 +231,7 @@ export function AddWalletForm({
             className="flex items-center justify-between w-full p-0 h-auto font-normal"
             disabled={modal.isLoading}
           >
-            <span className="text-sm font-medium">Advanced settings</span>
+            <span className="text-sm font-medium">{t('add.advancedSettings')}</span>
             <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAdvancedSettings ? 'rotate-180' : ''}`} />
           </Button>
         </CollapsibleTrigger>
@@ -246,13 +248,13 @@ export function AddWalletForm({
               htmlFor="fresh-wallet"
               className="text-sm font-normal cursor-pointer"
             >
-              This is a fresh wallet (no transaction history)
+              {t('add.freshWallet.label')}
             </Label>
           </div>
 
           {/* Script Type */}
           <div className="space-y-2">
-            <Label htmlFor="script-type">Script Type</Label>
+            <Label htmlFor="script-type">{t('add.scriptType.label')}</Label>
             <Select
               value={isDescriptorFormat(descriptor) ? getDescriptorScriptType(descriptor) : (scriptType || (isFreshWallet && isXpubFormat(descriptor) ? "" : "auto"))}
               onValueChange={(value) => setScriptType(value)}
@@ -338,10 +340,10 @@ export function AddWalletForm({
           {modal.isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Adding...
+              {t('add.submitting')}
             </>
           ) : (
-            "Add Wallet"
+            t('add.submit')
           )}
         </Button>
       </div>
