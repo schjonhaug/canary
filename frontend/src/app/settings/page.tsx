@@ -254,7 +254,7 @@ export default function SettingsPage() {
                       <SelectItem key={currency.code} value={currency.code}>
                         <span className="flex items-center gap-2">
                           <span className="font-mono text-sm">{currency.code}</span>
-                          <span>{currency.name}</span>
+                          <span>{t(`currencies.${currency.code}`)}</span>
                           <span className="text-muted-foreground">({currency.symbol})</span>
                         </span>
                       </SelectItem>
@@ -350,7 +350,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-green-500 mt-1">{tCommon('savedSuccessfully')}</p>
                   )}
                   <p className="text-sm text-muted-foreground mt-2">
-                    {t('ntfy.serverNote').split('self-host ntfy')[0]}
+                    {t('ntfy.serverNoteBefore')}
                     <a
                       href="https://ntfy.sh/docs/install/"
                       target="_blank"
@@ -359,7 +359,7 @@ export default function SettingsPage() {
                     >
                       {t('ntfy.selfHostLink')}
                     </a>
-                    {t('ntfy.serverNote').split('self-host ntfy')[1] || '.'}
+                    {t('ntfy.serverNoteAfter')}
                   </p>
                 </div>
 

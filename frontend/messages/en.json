@@ -272,9 +272,57 @@
       "currencyPlaceholder": "Select a currency",
       "currencyNote": "Exchange rates are updated every 10 minutes from CoinGecko"
     },
+    "currencies": {
+      "USD": "US Dollar",
+      "EUR": "Euro",
+      "GBP": "British Pound",
+      "CAD": "Canadian Dollar",
+      "AUD": "Australian Dollar",
+      "CHF": "Swiss Franc",
+      "JPY": "Japanese Yen",
+      "CNY": "Chinese Yuan",
+      "INR": "Indian Rupee",
+      "KRW": "South Korean Won",
+      "RUB": "Russian Ruble",
+      "BRL": "Brazilian Real",
+      "MXN": "Mexican Peso",
+      "SGD": "Singapore Dollar",
+      "HKD": "Hong Kong Dollar",
+      "NOK": "Norwegian Krone",
+      "SEK": "Swedish Krona",
+      "DKK": "Danish Krone",
+      "PLN": "Polish Złoty",
+      "THB": "Thai Baht",
+      "IDR": "Indonesian Rupiah",
+      "HUF": "Hungarian Forint",
+      "CZK": "Czech Koruna",
+      "ILS": "Israeli Shekel",
+      "CLP": "Chilean Peso",
+      "PHP": "Philippine Peso",
+      "AED": "UAE Dirham",
+      "TRY": "Turkish Lira",
+      "ZAR": "South African Rand",
+      "TWD": "Taiwan Dollar",
+      "NZD": "New Zealand Dollar",
+      "ARS": "Argentine Peso",
+      "SAR": "Saudi Riyal",
+      "PKR": "Pakistani Rupee",
+      "MYR": "Malaysian Ringgit",
+      "NGN": "Nigerian Naira",
+      "VND": "Vietnamese Dong",
+      "UAH": "Ukrainian Hryvnia",
+      "GEL": "Georgian Lari",
+      "BDT": "Bangladeshi Taka",
+      "VEF": "Venezuelan Bolívar",
+      "LKR": "Sri Lankan Rupee",
+      "BHD": "Bahraini Dinar",
+      "BMD": "Bermudian Dollar",
+      "KWD": "Kuwaiti Dinar",
+      "MMK": "Myanmar Kyat"
+    },
     "language": {
       "title": "Language",
-      "description": "Choose your preferred language for the interface and notifications",
+      "description": "Choose your preferred language for the interface",
       "label": "Language"
     },
     "ntfy": {
@@ -282,8 +330,9 @@
       "description": "Configure your ntfy server for push notifications",
       "serverLabel": "ntfy Server URL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNote": "Leave empty to use the public ntfy.sh server. You can self-host ntfy for complete privacy.",
+      "serverNoteBefore": "Leave empty to use the public ntfy.sh server. You can ",
       "selfHostLink": "self-host ntfy",
+      "serverNoteAfter": " for complete privacy.",
       "auth": {
         "title": "Authentication",
         "configured": {
@@ -366,11 +415,29 @@
       "advancedSettings": "Advanced Settings",
       "scriptType": {
         "label": "Script Type",
+        "selectPlaceholder": "Select script type",
+        "autoPlaceholder": "Auto-detect",
         "auto": "Auto-detect (recommended)",
-        "p2wpkh": "Native SegWit (P2WPKH)",
-        "p2sh": "Nested SegWit (P2SH-P2WPKH)",
-        "p2pkh": "Legacy (P2PKH)",
-        "p2tr": "Taproot (P2TR)"
+        "p2wpkh": "Native SegWit (bc1...)",
+        "p2wpkhFresh": "Native SegWit (bc1...) - Most common",
+        "p2sh": "Nested SegWit (3...)",
+        "p2shFresh": "Nested SegWit (3...) - Legacy compatibility",
+        "p2pkh": "Legacy (1...)",
+        "p2pkhFresh": "Legacy (1...) - Oldest",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - Modern",
+        "detectedHint": "Script type detected from descriptor and cannot be changed",
+        "requiredHint": "Script type is required for fresh XPUB wallets"
+      },
+      "stopGap": {
+        "label": "Stop Gap",
+        "default": "Default (20 consecutive unused)",
+        "extended": "Extended (250 consecutive unused)",
+        "deep": "Deep (500 consecutive unused)",
+        "deeper": "Deeper (750 consecutive unused)",
+        "maximum": "Maximum (1000 consecutive unused)",
+        "hint": "Number of consecutive unused addresses to check before stopping. Increase if your wallet has addresses used at random high indices (e.g., BTCPay Server)",
+        "requiresScriptType": "Custom stop gap requires selecting a specific script type"
       },
       "freshWallet": {
         "label": "Fresh wallet (no transaction history)",
@@ -380,6 +447,11 @@
       "submitting": "Adding...",
       "success": "Wallet added successfully",
       "error": "Failed to add wallet",
+      "validation": {
+        "nameRequired": "Wallet name is required",
+        "descriptorRequired": "Output descriptor or extended public key is required",
+        "scriptTypeRequired": "Script type is required for fresh XPUB wallets"
+      },
       "wizard": {
         "chooseWallet": "Which wallet do you use? We'll show you how to export your output descriptor or XPUB.",
         "keysStaySafe": "Canary only needs this to monitor your transactions. Your private keys stay safe in your wallet.",
@@ -390,7 +462,74 @@
         "pasteXpub": "Paste your XPUB below.",
         "pasteDescriptor": "Paste your output descriptor or XPUB below.",
         "baconPrefilled": "We've prefilled the Bacon sample wallet for you. Just click Add Wallet to continue.",
-        "enterDetails": "Enter Details"
+        "enterDetails": "Enter Details",
+        "walletType": {
+          "software": "software",
+          "hardware": "hardware"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "Desktop wallet for Bitcoin with full descriptor support",
+          "steps": [
+            "Open your wallet in Sparrow",
+            "Go to the Settings tab",
+            "Click \"Show\" next to Output Descriptor",
+            "Copy the entire descriptor string (starts with wpkh, wsh, or tr)"
+          ]
+        },
+        "bluewallet": {
+          "description": "Mobile Bitcoin wallet for iOS and Android",
+          "steps": [
+            "Open your wallet in BlueWallet",
+            "Tap the three dots menu (⋯) in the top right",
+            "Select \"Export/Backup\"",
+            "Tap \"Export Wallet\"",
+            "Copy the XPUB string (starts with xpub, ypub, or zpub)"
+          ]
+        },
+        "electrum": {
+          "description": "Lightweight desktop Bitcoin wallet",
+          "steps": [
+            "Open your wallet in Electrum",
+            "Go to Wallet menu → Information",
+            "Find the \"Master Public Key\" section",
+            "Copy the zpub, ypub, or xpub string"
+          ]
+        },
+        "coldcard": {
+          "description": "Air-gapped hardware wallet",
+          "steps": [
+            "Power up your ColdCard and enter your PIN",
+            "Go to Advanced/Tools → Export Wallet",
+            "Select \"Generic JSON\" format",
+            "Export to your SD card",
+            "Open the JSON file on your computer",
+            "Copy the descriptor or xpub from the file"
+          ]
+        },
+        "ledger": {
+          "description": "Popular hardware wallet",
+          "steps": [
+            "Connect your Ledger device and unlock it",
+            "Open the Bitcoin app on your Ledger",
+            "Open the Ledger Wallet app on your computer",
+            "Go to your Bitcoin account → click the wrench icon",
+            "Click \"Advanced logs\"",
+            "Copy the xpub string from the logs"
+          ]
+        },
+        "trezor": {
+          "description": "Open-source hardware wallet",
+          "steps": [
+            "Connect your Trezor and go to Trezor Suite",
+            "Open your Bitcoin account",
+            "Click on the account name to open settings",
+            "Click \"Show public key (XPUB)\"",
+            "Confirm on your Trezor device",
+            "Copy the XPUB string"
+          ]
+        }
       },
       "limitReached": {
         "title": "Wallet Limit Reached",
@@ -460,6 +599,11 @@
       "namePlaceholder": "Contact name",
       "languageLabel": "Language",
       "methodTitle": "Notification Methods",
+      "providers": {
+        "ntfy": "ntfy.sh Notifications",
+        "twilio": "SMS Notifications",
+        "email": "Email Notifications"
+      },
       "ntfy": {
         "topicHint": "Topic will be auto-generated based on contact name"
       },

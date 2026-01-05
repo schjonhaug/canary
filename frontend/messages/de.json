@@ -274,7 +274,7 @@
     },
     "language": {
       "title": "Sprache",
-      "description": "Wahlen Sie Ihre bevorzugte Sprache fur die Oberflache und Benachrichtigungen",
+      "description": "Wählen Sie Ihre bevorzugte Sprache für die Oberfläche",
       "label": "Sprache"
     },
     "ntfy": {
@@ -282,8 +282,9 @@
       "description": "Konfigurieren Sie Ihren ntfy-Server fur Push-Benachrichtigungen",
       "serverLabel": "ntfy Server-URL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNote": "Leer lassen, um den offentlichen ntfy.sh-Server zu verwenden. Sie konnen ntfy selbst hosten fur vollstandige Privatsphare.",
+      "serverNoteBefore": "Leer lassen, um den öffentlichen ntfy.sh-Server zu verwenden. Sie können ",
       "selfHostLink": "ntfy selbst hosten",
+      "serverNoteAfter": " für vollständige Privatsphäre.",
       "auth": {
         "title": "Authentifizierung",
         "configured": {
@@ -307,6 +308,54 @@
         "credentialsRequired": "Benutzername und Passwort sind erforderlich",
         "authSaved": "Authentifizierung gespeichert!"
       }
+    },
+    "currencies": {
+      "USD": "US-Dollar",
+      "EUR": "Euro",
+      "GBP": "Britisches Pfund",
+      "CAD": "Kanadischer Dollar",
+      "AUD": "Australischer Dollar",
+      "CHF": "Schweizer Franken",
+      "JPY": "Japanischer Yen",
+      "CNY": "Chinesischer Yuan",
+      "INR": "Indische Rupie",
+      "KRW": "Südkoreanischer Won",
+      "RUB": "Russischer Rubel",
+      "BRL": "Brasilianischer Real",
+      "MXN": "Mexikanischer Peso",
+      "SGD": "Singapur-Dollar",
+      "HKD": "Hongkong-Dollar",
+      "NOK": "Norwegische Krone",
+      "SEK": "Schwedische Krone",
+      "DKK": "Dänische Krone",
+      "PLN": "Polnischer Złoty",
+      "THB": "Thailändischer Baht",
+      "IDR": "Indonesische Rupiah",
+      "HUF": "Ungarischer Forint",
+      "CZK": "Tschechische Krone",
+      "ILS": "Israelischer Schekel",
+      "CLP": "Chilenischer Peso",
+      "PHP": "Philippinischer Peso",
+      "AED": "VAE-Dirham",
+      "TRY": "Türkische Lira",
+      "ZAR": "Südafrikanischer Rand",
+      "TWD": "Neuer Taiwan-Dollar",
+      "NZD": "Neuseeland-Dollar",
+      "ARS": "Argentinischer Peso",
+      "SAR": "Saudi-Riyal",
+      "PKR": "Pakistanische Rupie",
+      "MYR": "Malaysischer Ringgit",
+      "NGN": "Nigerianische Naira",
+      "VND": "Vietnamesischer Dong",
+      "UAH": "Ukrainische Hrywnja",
+      "GEL": "Georgischer Lari",
+      "BDT": "Bangladeschischer Taka",
+      "VEF": "Venezolanischer Bolívar",
+      "LKR": "Sri-Lanka-Rupie",
+      "BHD": "Bahrain-Dinar",
+      "BMD": "Bermuda-Dollar",
+      "KWD": "Kuwait-Dinar",
+      "MMK": "Myanmarischer Kyat"
     }
   },
   "wallets": {
@@ -366,11 +415,29 @@
       "advancedSettings": "Erweiterte Einstellungen",
       "scriptType": {
         "label": "Script-Typ",
+        "selectPlaceholder": "Script-Typ auswählen",
+        "autoPlaceholder": "Automatisch erkennen",
         "auto": "Automatisch erkennen (empfohlen)",
-        "p2wpkh": "Native SegWit (P2WPKH)",
-        "p2sh": "Nested SegWit (P2SH-P2WPKH)",
-        "p2pkh": "Legacy (P2PKH)",
-        "p2tr": "Taproot (P2TR)"
+        "p2wpkh": "Native SegWit (bc1...)",
+        "p2wpkhFresh": "Native SegWit (bc1...) - Am häufigsten",
+        "p2sh": "Nested SegWit (3...)",
+        "p2shFresh": "Nested SegWit (3...) - Legacy-Kompatibilität",
+        "p2pkh": "Legacy (1...)",
+        "p2pkhFresh": "Legacy (1...) - Älteste",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - Modern",
+        "detectedHint": "Script-Typ aus Descriptor erkannt und kann nicht geändert werden",
+        "requiredHint": "Script-Typ ist für neue XPUB-Wallets erforderlich"
+      },
+      "stopGap": {
+        "label": "Stop Gap",
+        "default": "Standard (20 aufeinanderfolgende unbenutzte)",
+        "extended": "Erweitert (250 aufeinanderfolgende unbenutzte)",
+        "deep": "Tief (500 aufeinanderfolgende unbenutzte)",
+        "deeper": "Tiefer (750 aufeinanderfolgende unbenutzte)",
+        "maximum": "Maximum (1000 aufeinanderfolgende unbenutzte)",
+        "hint": "Anzahl der aufeinanderfolgenden unbenutzten Adressen, die vor dem Stoppen überprüft werden. Erhöhen Sie, wenn Ihre Wallet Adressen an zufälligen hohen Indizes verwendet (z.B. BTCPay Server)",
+        "requiresScriptType": "Benutzerdefinierter Stop Gap erfordert die Auswahl eines bestimmten Script-Typs"
       },
       "freshWallet": {
         "label": "Neue Wallet (keine Transaktionshistorie)",
@@ -379,7 +446,12 @@
       "submit": "Wallet hinzufugen",
       "submitting": "Fugt hinzu...",
       "success": "Wallet erfolgreich hinzugefugt",
-      "error": "Wallet konnte nicht hinzugefugt werden",
+      "error": "Wallet konnte nicht hinzugefügt werden",
+      "validation": {
+        "nameRequired": "Wallet-Name ist erforderlich",
+        "descriptorRequired": "Output-Descriptor oder erweiterter öffentlicher Schlüssel ist erforderlich",
+        "scriptTypeRequired": "Script-Typ ist für neue XPUB-Wallets erforderlich"
+      },
       "wizard": {
         "chooseWallet": "Welche Wallet verwenden Sie? Wir zeigen Ihnen, wie Sie Ihren Output-Descriptor oder XPUB exportieren.",
         "keysStaySafe": "Canary braucht dies nur, um Ihre Transaktionen zu überwachen. Ihre privaten Schlüssel bleiben sicher in Ihrer Wallet.",
@@ -390,7 +462,74 @@
         "pasteXpub": "Fügen Sie Ihren XPUB unten ein.",
         "pasteDescriptor": "Fügen Sie Ihren Output-Descriptor oder XPUB unten ein.",
         "baconPrefilled": "Wir haben die Bacon-Beispiel-Wallet für Sie vorausgefüllt. Klicken Sie einfach auf Wallet hinzufügen, um fortzufahren.",
-        "enterDetails": "Details eingeben"
+        "enterDetails": "Details eingeben",
+        "walletType": {
+          "software": "Software",
+          "hardware": "Hardware"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "Desktop-Wallet für Bitcoin mit vollständiger Descriptor-Unterstützung",
+          "steps": [
+            "Öffnen Sie Ihre Wallet in Sparrow",
+            "Gehen Sie zur Registerkarte Settings",
+            "Klicken Sie auf \"Show\" neben Output Descriptor",
+            "Kopieren Sie die gesamte Descriptor-Zeichenkette (beginnt mit wpkh, wsh oder tr)"
+          ]
+        },
+        "bluewallet": {
+          "description": "Mobile Bitcoin-Wallet für iOS und Android",
+          "steps": [
+            "Öffnen Sie Ihre Wallet in BlueWallet",
+            "Tippen Sie auf das Drei-Punkte-Menü (⋯) oben rechts",
+            "Wählen Sie \"Export/Backup\"",
+            "Tippen Sie auf \"Export Wallet\"",
+            "Kopieren Sie die XPUB-Zeichenkette (beginnt mit xpub, ypub oder zpub)"
+          ]
+        },
+        "electrum": {
+          "description": "Leichtgewichtige Desktop-Bitcoin-Wallet",
+          "steps": [
+            "Öffnen Sie Ihre Wallet in Electrum",
+            "Gehen Sie zum Menü Wallet → Information",
+            "Finden Sie den Abschnitt \"Master Public Key\"",
+            "Kopieren Sie die zpub-, ypub- oder xpub-Zeichenkette"
+          ]
+        },
+        "coldcard": {
+          "description": "Air-gapped Hardware-Wallet",
+          "steps": [
+            "Schalten Sie Ihre ColdCard ein und geben Sie Ihre PIN ein",
+            "Gehen Sie zu Advanced/Tools → Export Wallet",
+            "Wählen Sie das Format \"Generic JSON\"",
+            "Exportieren Sie auf Ihre SD-Karte",
+            "Öffnen Sie die JSON-Datei auf Ihrem Computer",
+            "Kopieren Sie den Descriptor oder xpub aus der Datei"
+          ]
+        },
+        "ledger": {
+          "description": "Beliebte Hardware-Wallet",
+          "steps": [
+            "Verbinden Sie Ihr Ledger-Gerät und entsperren Sie es",
+            "Öffnen Sie die Bitcoin-App auf Ihrem Ledger",
+            "Öffnen Sie die Ledger Wallet-App auf Ihrem Computer",
+            "Gehen Sie zu Ihrem Bitcoin-Konto → klicken Sie auf das Schraubenschlüssel-Symbol",
+            "Klicken Sie auf \"Advanced logs\"",
+            "Kopieren Sie die xpub-Zeichenkette aus den Logs"
+          ]
+        },
+        "trezor": {
+          "description": "Open-Source Hardware-Wallet",
+          "steps": [
+            "Verbinden Sie Ihren Trezor und öffnen Sie Trezor Suite",
+            "Öffnen Sie Ihr Bitcoin-Konto",
+            "Klicken Sie auf den Kontonamen, um die Einstellungen zu öffnen",
+            "Klicken Sie auf \"Show public key (XPUB)\"",
+            "Bestätigen Sie auf Ihrem Trezor-Gerät",
+            "Kopieren Sie die XPUB-Zeichenkette"
+          ]
+        }
       },
       "limitReached": {
         "title": "Wallet-Limit erreicht",
@@ -460,6 +599,11 @@
       "namePlaceholder": "Kontaktname",
       "languageLabel": "Sprache",
       "methodTitle": "Benachrichtigungsmethoden",
+      "providers": {
+        "ntfy": "ntfy.sh-Benachrichtigungen",
+        "twilio": "SMS-Benachrichtigungen",
+        "email": "E-Mail-Benachrichtigungen"
+      },
       "ntfy": {
         "topicHint": "Topic wird automatisch basierend auf dem Kontaktnamen generiert"
       },

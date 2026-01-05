@@ -272,9 +272,57 @@
       "currencyPlaceholder": "Velg en valuta",
       "currencyNote": "Valutakurser oppdateres hvert 10. minutt fra CoinGecko"
     },
+    "currencies": {
+      "USD": "Amerikanske dollar",
+      "EUR": "Euro",
+      "GBP": "Britiske pund",
+      "CAD": "Kanadiske dollar",
+      "AUD": "Australske dollar",
+      "CHF": "Sveitsiske franc",
+      "JPY": "Japanske yen",
+      "CNY": "Kinesiske yuan",
+      "INR": "Indiske rupier",
+      "KRW": "Sørkoreanske won",
+      "RUB": "Russiske rubler",
+      "BRL": "Brasilianske real",
+      "MXN": "Meksikanske peso",
+      "SGD": "Singaporske dollar",
+      "HKD": "Hong Kong-dollar",
+      "NOK": "Norske kroner",
+      "SEK": "Svenske kroner",
+      "DKK": "Danske kroner",
+      "PLN": "Polske złoty",
+      "THB": "Thailandske baht",
+      "IDR": "Indonesiske rupiah",
+      "HUF": "Ungarske forint",
+      "CZK": "Tsjekkiske koruna",
+      "ILS": "Israelske shekel",
+      "CLP": "Chilenske peso",
+      "PHP": "Filippinske peso",
+      "AED": "Emiratiske dirham",
+      "TRY": "Tyrkiske lira",
+      "ZAR": "Sørafrikanske rand",
+      "TWD": "Taiwanske dollar",
+      "NZD": "Newzealandske dollar",
+      "ARS": "Argentinske peso",
+      "SAR": "Saudiarabiske riyal",
+      "PKR": "Pakistanske rupier",
+      "MYR": "Malaysiske ringgit",
+      "NGN": "Nigerianske naira",
+      "VND": "Vietnamesiske dong",
+      "UAH": "Ukrainske hryvnia",
+      "GEL": "Georgiske lari",
+      "BDT": "Bangladeshiske taka",
+      "VEF": "Venezuelanske bolívar",
+      "LKR": "Sri Lankiske rupier",
+      "BHD": "Bahrainske dinar",
+      "BMD": "Bermudiske dollar",
+      "KWD": "Kuwaitiske dinar",
+      "MMK": "Myanmarske kyat"
+    },
     "language": {
       "title": "Språk",
-      "description": "Velg foretrukket språk for grensesnittet og varsler",
+      "description": "Velg foretrukket språk for grensesnittet",
       "label": "Språk"
     },
     "ntfy": {
@@ -282,8 +330,9 @@
       "description": "Konfigurer din ntfy-server for push-varsler",
       "serverLabel": "ntfy-server URL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNote": "La stå tom for å bruke den offentlige ntfy.sh-serveren. Du kan kjøre din egen ntfy for fullstendig personvern.",
-      "selfHostLink": "kjør ntfy selv",
+      "serverNoteBefore": "La stå tom for å bruke den offentlige ntfy.sh-serveren. Du kan ",
+      "selfHostLink": "kjøre ntfy selv",
+      "serverNoteAfter": " for fullstendig personvern.",
       "auth": {
         "title": "Autentisering",
         "configured": {
@@ -366,11 +415,29 @@
       "advancedSettings": "Avanserte innstillinger",
       "scriptType": {
         "label": "Skripttype",
+        "selectPlaceholder": "Velg skripttype",
+        "autoPlaceholder": "Automatisk oppdaging",
         "auto": "Automatisk oppdaging (anbefalt)",
-        "p2wpkh": "Native SegWit (P2WPKH)",
-        "p2sh": "Nested SegWit (P2SH-P2WPKH)",
-        "p2pkh": "Legacy (P2PKH)",
-        "p2tr": "Taproot (P2TR)"
+        "p2wpkh": "Native SegWit (bc1...)",
+        "p2wpkhFresh": "Native SegWit (bc1...) - Mest vanlig",
+        "p2sh": "Nested SegWit (3...)",
+        "p2shFresh": "Nested SegWit (3...) - Eldre kompatibilitet",
+        "p2pkh": "Legacy (1...)",
+        "p2pkhFresh": "Legacy (1...) - Eldst",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - Moderne",
+        "detectedHint": "Skripttype oppdaget fra deskriptor og kan ikke endres",
+        "requiredHint": "Skripttype er påkrevd for nye XPUB-lommebøker"
+      },
+      "stopGap": {
+        "label": "Stop Gap",
+        "default": "Standard (20 ubrukte på rad)",
+        "extended": "Utvidet (250 ubrukte på rad)",
+        "deep": "Dyp (500 ubrukte på rad)",
+        "deeper": "Dypere (750 ubrukte på rad)",
+        "maximum": "Maksimum (1000 ubrukte på rad)",
+        "hint": "Antall ubrukte adresser på rad som skal sjekkes før stopp. Øk hvis lommeboken din har adresser brukt på tilfeldige høye indekser (f.eks. BTCPay Server)",
+        "requiresScriptType": "Egendefinert stop gap krever valg av en spesifikk skripttype"
       },
       "freshWallet": {
         "label": "Ny lommebok (ingen transaksjonshistorikk)",
@@ -380,6 +447,11 @@
       "submitting": "Legger til...",
       "success": "Lommebok lagt til",
       "error": "Kunne ikke legge til lommebok",
+      "validation": {
+        "nameRequired": "Lommeboknavn er påkrevd",
+        "descriptorRequired": "Output-deskriptor eller utvidet offentlig nøkkel er påkrevd",
+        "scriptTypeRequired": "Skripttype er påkrevd for nye XPUB-lommebøker"
+      },
       "wizard": {
         "chooseWallet": "Hvilken lommebok bruker du? Vi viser deg hvordan du eksporterer output-deskriptoren eller XPUB.",
         "keysStaySafe": "Canary trenger bare dette for å overvåke transaksjonene dine. Dine private nøkler forblir trygge i lommeboken din.",
@@ -390,7 +462,74 @@
         "pasteXpub": "Lim inn XPUB nedenfor.",
         "pasteDescriptor": "Lim inn output-deskriptoren eller XPUB nedenfor.",
         "baconPrefilled": "Vi har forhåndsutfylt Bacon-prøvelommeboken for deg. Bare klikk på Legg til lommebok for å fortsette.",
-        "enterDetails": "Skriv inn detaljer"
+        "enterDetails": "Skriv inn detaljer",
+        "walletType": {
+          "software": "programvare",
+          "hardware": "maskinvare"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "Skrivebordslommebok for Bitcoin med full deskriptorstøtte",
+          "steps": [
+            "Åpne lommeboken din i Sparrow",
+            "Gå til Innstillinger-fanen",
+            "Klikk \"Show\" ved siden av Output Descriptor",
+            "Kopier hele deskriptorstrengen (starter med wpkh, wsh eller tr)"
+          ]
+        },
+        "bluewallet": {
+          "description": "Mobil Bitcoin-lommebok for iOS og Android",
+          "steps": [
+            "Åpne lommeboken din i BlueWallet",
+            "Trykk på de tre prikkene (⋯) øverst til høyre",
+            "Velg \"Export/Backup\"",
+            "Trykk \"Export Wallet\"",
+            "Kopier XPUB-strengen (starter med xpub, ypub eller zpub)"
+          ]
+        },
+        "electrum": {
+          "description": "Lettvekts skrivebords Bitcoin-lommebok",
+          "steps": [
+            "Åpne lommeboken din i Electrum",
+            "Gå til Wallet-menyen → Information",
+            "Finn \"Master Public Key\"-seksjonen",
+            "Kopier zpub-, ypub- eller xpub-strengen"
+          ]
+        },
+        "coldcard": {
+          "description": "Air-gapped maskinvarelommebok",
+          "steps": [
+            "Slå på ColdCard og tast inn PIN-koden",
+            "Gå til Advanced/Tools → Export Wallet",
+            "Velg \"Generic JSON\"-format",
+            "Eksporter til SD-kortet",
+            "Åpne JSON-filen på datamaskinen din",
+            "Kopier deskriptoren eller xpub fra filen"
+          ]
+        },
+        "ledger": {
+          "description": "Populær maskinvarelommebok",
+          "steps": [
+            "Koble til Ledger-enheten og lås den opp",
+            "Åpne Bitcoin-appen på Ledger",
+            "Åpne Ledger Wallet-appen på datamaskinen",
+            "Gå til Bitcoin-kontoen din → klikk på skiftenøkkel-ikonet",
+            "Klikk \"Advanced logs\"",
+            "Kopier xpub-strengen fra loggene"
+          ]
+        },
+        "trezor": {
+          "description": "Åpen kildekode maskinvarelommebok",
+          "steps": [
+            "Koble til Trezor og gå til Trezor Suite",
+            "Åpne Bitcoin-kontoen din",
+            "Klikk på kontonavnet for å åpne innstillinger",
+            "Klikk \"Show public key (XPUB)\"",
+            "Bekreft på Trezor-enheten",
+            "Kopier XPUB-strengen"
+          ]
+        }
       },
       "limitReached": {
         "title": "Lommebokgrense nådd",
@@ -460,6 +599,11 @@
       "namePlaceholder": "Kontaktnavn",
       "languageLabel": "Språk",
       "methodTitle": "Varslingsmetoder",
+      "providers": {
+        "ntfy": "ntfy.sh-varsler",
+        "twilio": "SMS-varsler",
+        "email": "E-postvarsler"
+      },
       "ntfy": {
         "topicHint": "Emne genereres automatisk basert på kontaktnavn"
       },

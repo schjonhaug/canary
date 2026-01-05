@@ -2,7 +2,7 @@ import { getApiBaseUrl, handleApiResponse, createNetworkError, ApiError } from '
 
 // Re-export ApiError for convenience
 export { ApiError } from './utils'
-import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest } from '../types'
+import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest, NotificationLanguage } from '../types'
 
 export interface ProviderInfo {
   name: string
@@ -112,9 +112,9 @@ class ApiClient {
   }
 
   async createContact(
-    walletChecksum: string, 
+    walletChecksum: string,
     name: string,
-    language: 'en' | 'no',
+    language: NotificationLanguage,
     notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts`, {
@@ -165,7 +165,7 @@ class ApiClient {
     walletChecksum: string,
     contactId: string,
     name: string,
-    language: 'en' | 'no',
+    language: NotificationLanguage,
     notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {

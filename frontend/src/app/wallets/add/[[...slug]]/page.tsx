@@ -27,8 +27,9 @@ interface BreadcrumbProps {
   selectedWallet: WalletGuide | null
   step: WizardStep
   onNavigateToChoose: () => void
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, string>) => string
   tNav: (key: string) => string
+  getGuideSteps: (walletId: string) => string[]
 }
 
 // Props for the Choose step
@@ -166,7 +167,7 @@ function ChooseStep({
               </div>
               <div>
                 <div className="font-medium">{wallet.name}</div>
-                <div className="text-xs text-muted-foreground capitalize">{wallet.type}</div>
+                <div className="text-xs text-muted-foreground capitalize">{t(`add.wizard.walletType.${wallet.type}`)}</div>
               </div>
             </button>
           ))}
@@ -202,11 +203,11 @@ function InstructionsStep({
       <div className="max-w-3xl mx-auto space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">{t('add.wizard.exportSteps').replace('{walletName}', selectedWallet.name)}</CardTitle>
+            <CardTitle className="text-lg">{t('add.wizard.exportSteps', { walletName: selectedWallet.name })}</CardTitle>
           </CardHeader>
           <CardContent>
             <ol className="space-y-3">
-              {selectedWallet.steps.map((stepText, index) => (
+              {breadcrumbProps.getGuideSteps(selectedWallet.id).map((stepText, index) => (
                 <li key={index} className="flex gap-3">
                   <span className="shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center">
                     {index + 1}
@@ -451,6 +452,22 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     )
   }
 
+  // Helper to get translated guide steps
+  const getGuideSteps = (walletId: string): string[] => {
+    // Use t.raw to get the array of steps from translations
+    // Falls back to the original steps from wallet-guides if translation not found
+    try {
+      const steps = (t as unknown as { raw: (key: string) => unknown }).raw(`add.guides.${walletId}.steps`)
+      if (Array.isArray(steps)) {
+        return steps as string[]
+      }
+    } catch {
+      // Translation not found, fall back to original
+    }
+    const guide = walletGuides.find(w => w.id === walletId)
+    return guide?.steps || []
+  }
+
   // Shared breadcrumb props for all steps
   const breadcrumbProps: BreadcrumbProps = {
     selectedWallet,
@@ -458,6 +475,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     onNavigateToChoose: handleNavigateToChoose,
     t,
     tNav,
+    getGuideSteps,
   }
 
   // Step 1: Choose your wallet

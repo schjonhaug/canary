@@ -274,7 +274,7 @@
     },
     "language": {
       "title": "言語",
-      "description": "インターフェースと通知の優先言語を選択",
+      "description": "インターフェースの優先言語を選択",
       "label": "言語"
     },
     "ntfy": {
@@ -282,8 +282,9 @@
       "description": "プッシュ通知用のntfyサーバーを設定",
       "serverLabel": "ntfyサーバーURL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNote": "空のままにすると公開ntfy.shサーバーを使用します。完全なプライバシーのためにntfyを自己ホストできます。",
+      "serverNoteBefore": "空のままにすると公開ntfy.shサーバーを使用します。完全なプライバシーのために",
       "selfHostLink": "ntfyを自己ホスト",
+      "serverNoteAfter": "できます。",
       "auth": {
         "title": "認証",
         "configured": {
@@ -307,6 +308,54 @@
         "credentialsRequired": "ユーザー名とパスワードの両方が必要です",
         "authSaved": "認証が保存されました！"
       }
+    },
+    "currencies": {
+      "USD": "米ドル",
+      "EUR": "ユーロ",
+      "GBP": "英ポンド",
+      "CAD": "カナダドル",
+      "AUD": "オーストラリアドル",
+      "CHF": "スイスフラン",
+      "JPY": "日本円",
+      "CNY": "中国人民元",
+      "INR": "インドルピー",
+      "KRW": "韓国ウォン",
+      "RUB": "ロシアルーブル",
+      "BRL": "ブラジルレアル",
+      "MXN": "メキシコペソ",
+      "SGD": "シンガポールドル",
+      "HKD": "香港ドル",
+      "NOK": "ノルウェークローネ",
+      "SEK": "スウェーデンクローナ",
+      "DKK": "デンマーククローネ",
+      "PLN": "ポーランドズウォティ",
+      "THB": "タイバーツ",
+      "IDR": "インドネシアルピア",
+      "HUF": "ハンガリーフォリント",
+      "CZK": "チェココルナ",
+      "ILS": "イスラエルシェケル",
+      "CLP": "チリペソ",
+      "PHP": "フィリピンペソ",
+      "AED": "UAEディルハム",
+      "TRY": "トルコリラ",
+      "ZAR": "南アフリカランド",
+      "TWD": "新台湾ドル",
+      "NZD": "ニュージーランドドル",
+      "ARS": "アルゼンチンペソ",
+      "SAR": "サウジアラビアリヤル",
+      "PKR": "パキスタンルピー",
+      "MYR": "マレーシアリンギット",
+      "NGN": "ナイジェリアナイラ",
+      "VND": "ベトナムドン",
+      "UAH": "ウクライナフリヴニャ",
+      "GEL": "ジョージアラリ",
+      "BDT": "バングラデシュタカ",
+      "VEF": "ベネズエラボリバル",
+      "LKR": "スリランカルピー",
+      "BHD": "バーレーンディナール",
+      "BMD": "バミューダドル",
+      "KWD": "クウェートディナール",
+      "MMK": "ミャンマーチャット"
     }
   },
   "wallets": {
@@ -366,11 +415,29 @@
       "advancedSettings": "詳細設定",
       "scriptType": {
         "label": "スクリプトタイプ",
+        "selectPlaceholder": "スクリプトタイプを選択",
+        "autoPlaceholder": "自動検出",
         "auto": "自動検出（推奨）",
-        "p2wpkh": "ネイティブSegWit (P2WPKH)",
-        "p2sh": "ネステッドSegWit (P2SH-P2WPKH)",
-        "p2pkh": "レガシー (P2PKH)",
-        "p2tr": "Taproot (P2TR)"
+        "p2wpkh": "ネイティブSegWit (bc1...)",
+        "p2wpkhFresh": "ネイティブSegWit (bc1...) - 最も一般的",
+        "p2sh": "ネステッドSegWit (3...)",
+        "p2shFresh": "ネステッドSegWit (3...) - レガシー互換",
+        "p2pkh": "レガシー (1...)",
+        "p2pkhFresh": "レガシー (1...) - 最も古い",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - モダン",
+        "detectedHint": "スクリプトタイプはディスクリプタから検出され、変更できません",
+        "requiredHint": "新しいXPUBウォレットにはスクリプトタイプが必要です"
+      },
+      "stopGap": {
+        "label": "ストップギャップ",
+        "default": "デフォルト（連続20個の未使用）",
+        "extended": "拡張（連続250個の未使用）",
+        "deep": "深い（連続500個の未使用）",
+        "deeper": "より深い（連続750個の未使用）",
+        "maximum": "最大（連続1000個の未使用）",
+        "hint": "停止前に確認する連続未使用アドレス数。ランダムな高インデックスでアドレスが使用されている場合（例：BTCPay Server）は増やしてください",
+        "requiresScriptType": "カスタムストップギャップには特定のスクリプトタイプの選択が必要です"
       },
       "freshWallet": {
         "label": "新規ウォレット（トランザクション履歴なし）",
@@ -380,6 +447,11 @@
       "submitting": "追加中...",
       "success": "ウォレットが正常に追加されました",
       "error": "ウォレットの追加に失敗しました",
+      "validation": {
+        "nameRequired": "ウォレット名は必須です",
+        "descriptorRequired": "出力ディスクリプタまたは拡張公開鍵が必要です",
+        "scriptTypeRequired": "新しいXPUBウォレットにはスクリプトタイプが必要です"
+      },
       "wizard": {
         "chooseWallet": "どのウォレットをお使いですか？出力ディスクリプタまたはXPUBのエクスポート方法をご案内します。",
         "keysStaySafe": "Canaryはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
@@ -390,7 +462,74 @@
         "pasteXpub": "下にXPUBを貼り付けてください。",
         "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。",
         "baconPrefilled": "Baconサンプルウォレットを事前入力しました。ウォレットを追加をクリックして続行してください。",
-        "enterDetails": "詳細を入力"
+        "enterDetails": "詳細を入力",
+        "walletType": {
+          "software": "ソフトウェア",
+          "hardware": "ハードウェア"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "ディスクリプタを完全サポートするBitcoinデスクトップウォレット",
+          "steps": [
+            "Sparrowでウォレットを開く",
+            "Settingsタブに移動",
+            "Output Descriptorの横にある「Show」をクリック",
+            "ディスクリプタ文字列全体をコピー（wpkh、wsh、またはtrで始まる）"
+          ]
+        },
+        "bluewallet": {
+          "description": "iOS/Android対応のモバイルBitcoinウォレット",
+          "steps": [
+            "BlueWalletでウォレットを開く",
+            "右上の三点メニュー（⋯）をタップ",
+            "「Export/Backup」を選択",
+            "「Export Wallet」をタップ",
+            "XPUB文字列をコピー（xpub、ypub、またはzpubで始まる）"
+          ]
+        },
+        "electrum": {
+          "description": "軽量なBitcoinデスクトップウォレット",
+          "steps": [
+            "Electrumでウォレットを開く",
+            "Walletメニュー → Informationに移動",
+            "「Master Public Key」セクションを見つける",
+            "zpub、ypub、またはxpub文字列をコピー"
+          ]
+        },
+        "coldcard": {
+          "description": "エアギャップハードウェアウォレット",
+          "steps": [
+            "ColdCardの電源を入れてPINを入力",
+            "Advanced/Tools → Export Walletに移動",
+            "「Generic JSON」形式を選択",
+            "SDカードにエクスポート",
+            "コンピュータでJSONファイルを開く",
+            "ファイルからディスクリプタまたはxpubをコピー"
+          ]
+        },
+        "ledger": {
+          "description": "人気のハードウェアウォレット",
+          "steps": [
+            "Ledgerデバイスを接続してロック解除",
+            "LedgerでBitcoinアプリを開く",
+            "コンピュータでLedger Walletアプリを開く",
+            "Bitcoinアカウントに移動 → レンチアイコンをクリック",
+            "「Advanced logs」をクリック",
+            "ログからxpub文字列をコピー"
+          ]
+        },
+        "trezor": {
+          "description": "オープンソースのハードウェアウォレット",
+          "steps": [
+            "Trezorを接続してTrezor Suiteを開く",
+            "Bitcoinアカウントを開く",
+            "アカウント名をクリックして設定を開く",
+            "「Show public key (XPUB)」をクリック",
+            "Trezorデバイスで確認",
+            "XPUB文字列をコピー"
+          ]
+        }
       },
       "limitReached": {
         "title": "ウォレット数制限に達しました",
@@ -460,6 +599,11 @@
       "namePlaceholder": "連絡先名",
       "languageLabel": "言語",
       "methodTitle": "通知方法",
+      "providers": {
+        "ntfy": "ntfy.sh通知",
+        "twilio": "SMS通知",
+        "email": "メール通知"
+      },
       "ntfy": {
         "topicHint": "トピックは連絡先名に基づいて自動生成されます"
       },

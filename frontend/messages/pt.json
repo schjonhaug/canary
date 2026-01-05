@@ -274,7 +274,7 @@
     },
     "language": {
       "title": "Idioma",
-      "description": "Escolha seu idioma preferido para a interface e notificacoes",
+      "description": "Escolha seu idioma preferido para a interface",
       "label": "Idioma"
     },
     "ntfy": {
@@ -282,8 +282,9 @@
       "description": "Configure seu servidor ntfy para notificacoes push",
       "serverLabel": "URL do Servidor ntfy",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNote": "Deixe vazio para usar o servidor publico ntfy.sh. Voce pode auto-hospedar ntfy para privacidade completa.",
+      "serverNoteBefore": "Deixe vazio para usar o servidor público ntfy.sh. Você pode ",
       "selfHostLink": "auto-hospedar ntfy",
+      "serverNoteAfter": " para privacidade completa.",
       "auth": {
         "title": "Autenticacao",
         "configured": {
@@ -307,6 +308,54 @@
         "credentialsRequired": "Usuario e senha sao obrigatorios",
         "authSaved": "Autenticacao salva!"
       }
+    },
+    "currencies": {
+      "USD": "Dólar americano",
+      "EUR": "Euro",
+      "GBP": "Libra esterlina",
+      "CAD": "Dólar canadense",
+      "AUD": "Dólar australiano",
+      "CHF": "Franco suíço",
+      "JPY": "Iene japonês",
+      "CNY": "Yuan chinês",
+      "INR": "Rúpia indiana",
+      "KRW": "Won sul-coreano",
+      "RUB": "Rublo russo",
+      "BRL": "Real brasileiro",
+      "MXN": "Peso mexicano",
+      "SGD": "Dólar de Singapura",
+      "HKD": "Dólar de Hong Kong",
+      "NOK": "Coroa norueguesa",
+      "SEK": "Coroa sueca",
+      "DKK": "Coroa dinamarquesa",
+      "PLN": "Złoty polonês",
+      "THB": "Baht tailandês",
+      "IDR": "Rupia indonésia",
+      "HUF": "Florim húngaro",
+      "CZK": "Coroa tcheca",
+      "ILS": "Shekel israelense",
+      "CLP": "Peso chileno",
+      "PHP": "Peso filipino",
+      "AED": "Dirham dos EAU",
+      "TRY": "Lira turca",
+      "ZAR": "Rand sul-africano",
+      "TWD": "Dólar taiwanês",
+      "NZD": "Dólar neozelandês",
+      "ARS": "Peso argentino",
+      "SAR": "Rial saudita",
+      "PKR": "Rúpia paquistanesa",
+      "MYR": "Ringgit malaio",
+      "NGN": "Naira nigeriana",
+      "VND": "Dong vietnamita",
+      "UAH": "Grívnia ucraniana",
+      "GEL": "Lari georgiano",
+      "BDT": "Taka de Bangladesh",
+      "VEF": "Bolívar venezuelano",
+      "LKR": "Rúpia do Sri Lanka",
+      "BHD": "Dinar do Bahrein",
+      "BMD": "Dólar das Bermudas",
+      "KWD": "Dinar kuwaitiano",
+      "MMK": "Kyat birmanês"
     }
   },
   "wallets": {
@@ -366,11 +415,29 @@
       "advancedSettings": "Configuracoes Avancadas",
       "scriptType": {
         "label": "Tipo de Script",
+        "selectPlaceholder": "Selecionar tipo de script",
+        "autoPlaceholder": "Auto-detectar",
         "auto": "Auto-detectar (recomendado)",
-        "p2wpkh": "SegWit Nativo (P2WPKH)",
-        "p2sh": "SegWit Aninhado (P2SH-P2WPKH)",
-        "p2pkh": "Legado (P2PKH)",
-        "p2tr": "Taproot (P2TR)"
+        "p2wpkh": "SegWit Nativo (bc1...)",
+        "p2wpkhFresh": "SegWit Nativo (bc1...) - Mais comum",
+        "p2sh": "SegWit Aninhado (3...)",
+        "p2shFresh": "SegWit Aninhado (3...) - Compatibilidade legacy",
+        "p2pkh": "Legado (1...)",
+        "p2pkhFresh": "Legado (1...) - Mais antigo",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - Moderno",
+        "detectedHint": "Tipo de script detectado do descritor e não pode ser alterado",
+        "requiredHint": "Tipo de script é necessário para novas carteiras XPUB"
+      },
+      "stopGap": {
+        "label": "Stop Gap",
+        "default": "Padrão (20 consecutivas não utilizadas)",
+        "extended": "Estendido (250 consecutivas não utilizadas)",
+        "deep": "Profundo (500 consecutivas não utilizadas)",
+        "deeper": "Mais profundo (750 consecutivas não utilizadas)",
+        "maximum": "Máximo (1000 consecutivas não utilizadas)",
+        "hint": "Número de endereços consecutivos não utilizados para verificar antes de parar. Aumente se sua carteira usa endereços em índices altos aleatórios (ex. BTCPay Server)",
+        "requiresScriptType": "Stop gap personalizado requer selecionar um tipo de script específico"
       },
       "freshWallet": {
         "label": "Carteira nova (sem historico de transacoes)",
@@ -380,6 +447,11 @@
       "submitting": "Adicionando...",
       "success": "Carteira adicionada com sucesso",
       "error": "Falha ao adicionar carteira",
+      "validation": {
+        "nameRequired": "Nome da carteira é obrigatório",
+        "descriptorRequired": "Descritor de saída ou chave pública estendida é obrigatório",
+        "scriptTypeRequired": "Tipo de script é obrigatório para novas carteiras XPUB"
+      },
       "wizard": {
         "chooseWallet": "Qual carteira você usa? Mostraremos como exportar seu descritor de saída ou XPUB.",
         "keysStaySafe": "O Canary só precisa disso para monitorar suas transações. Suas chaves privadas permanecem seguras na sua carteira.",
@@ -390,7 +462,74 @@
         "pasteXpub": "Cole seu XPUB abaixo.",
         "pasteDescriptor": "Cole seu descritor de saída ou XPUB abaixo.",
         "baconPrefilled": "Preenchemos a carteira de amostra Bacon para você. Basta clicar em Adicionar Carteira para continuar.",
-        "enterDetails": "Inserir Detalhes"
+        "enterDetails": "Inserir Detalhes",
+        "walletType": {
+          "software": "software",
+          "hardware": "hardware"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "Carteira de desktop para Bitcoin com suporte completo a descritores",
+          "steps": [
+            "Abra sua carteira no Sparrow",
+            "Vá para a aba Settings",
+            "Clique em \"Show\" ao lado de Output Descriptor",
+            "Copie toda a string do descritor (começa com wpkh, wsh ou tr)"
+          ]
+        },
+        "bluewallet": {
+          "description": "Carteira Bitcoin móvel para iOS e Android",
+          "steps": [
+            "Abra sua carteira no BlueWallet",
+            "Toque no menu de três pontos (⋯) no canto superior direito",
+            "Selecione \"Export/Backup\"",
+            "Toque em \"Export Wallet\"",
+            "Copie a string XPUB (começa com xpub, ypub ou zpub)"
+          ]
+        },
+        "electrum": {
+          "description": "Carteira Bitcoin de desktop leve",
+          "steps": [
+            "Abra sua carteira no Electrum",
+            "Vá para o menu Wallet → Information",
+            "Encontre a seção \"Master Public Key\"",
+            "Copie a string zpub, ypub ou xpub"
+          ]
+        },
+        "coldcard": {
+          "description": "Carteira hardware air-gapped",
+          "steps": [
+            "Ligue seu ColdCard e digite seu PIN",
+            "Vá para Advanced/Tools → Export Wallet",
+            "Selecione o formato \"Generic JSON\"",
+            "Exporte para seu cartão SD",
+            "Abra o arquivo JSON no seu computador",
+            "Copie o descritor ou xpub do arquivo"
+          ]
+        },
+        "ledger": {
+          "description": "Carteira hardware popular",
+          "steps": [
+            "Conecte seu dispositivo Ledger e desbloqueie-o",
+            "Abra o aplicativo Bitcoin no seu Ledger",
+            "Abra o aplicativo Ledger Wallet no seu computador",
+            "Vá para sua conta Bitcoin → clique no ícone de chave",
+            "Clique em \"Advanced logs\"",
+            "Copie a string xpub dos logs"
+          ]
+        },
+        "trezor": {
+          "description": "Carteira hardware open-source",
+          "steps": [
+            "Conecte seu Trezor e abra o Trezor Suite",
+            "Abra sua conta Bitcoin",
+            "Clique no nome da conta para abrir configurações",
+            "Clique em \"Show public key (XPUB)\"",
+            "Confirme no seu dispositivo Trezor",
+            "Copie a string XPUB"
+          ]
+        }
       },
       "limitReached": {
         "title": "Limite de Carteiras Atingido",
@@ -460,6 +599,11 @@
       "namePlaceholder": "Nome do contato",
       "languageLabel": "Idioma",
       "methodTitle": "Métodos de notificação",
+      "providers": {
+        "ntfy": "Notificações ntfy.sh",
+        "twilio": "Notificações SMS",
+        "email": "Notificações por e-mail"
+      },
       "ntfy": {
         "topicHint": "O tópico será gerado automaticamente com base no nome do contato"
       },

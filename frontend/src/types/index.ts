@@ -70,11 +70,14 @@ export interface NotificationMethod {
   created_at: string
 }
 
+// Supported notification languages (must match backend Language enum)
+export type NotificationLanguage = 'en' | 'no' | 'es' | 'pt' | 'de' | 'fr' | 'ja'
+
 export interface Contact {
   id: string
   wallet_checksum: string
   name: string
-  language: 'en' | 'no'
+  language: NotificationLanguage
   notification_methods: NotificationMethod[]
   created_at: string
   is_active: boolean
