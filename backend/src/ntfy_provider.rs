@@ -89,50 +89,56 @@ impl NotificationProvider for NtfyProvider {
                 let ntfy_url = format!("{}/{}", self.server_url, topic);
 
                 // Create localized title for push notification
+                use crate::metadata::Language;
                 let localized_title = match notification {
                     TransactionNotification::Pending(tx) => match tx.transaction_type {
                         EventType::Receive => match contact.language {
-                            crate::metadata::Language::Norwegian => {
-                                format!("Mottar Bitcoin - {}", wallet_name)
-                            }
-                            crate::metadata::Language::English => {
-                                format!("Receiving Bitcoin - {}", wallet_name)
-                            }
+                            Language::English => format!("Receiving Bitcoin - {}", wallet_name),
+                            Language::Norwegian => format!("Mottar Bitcoin - {}", wallet_name),
+                            Language::Spanish => format!("Recibiendo Bitcoin - {}", wallet_name),
+                            Language::Portuguese => format!("Recebendo Bitcoin - {}", wallet_name),
+                            Language::German => format!("Bitcoin empfangen - {}", wallet_name),
+                            Language::French => format!("Reception de Bitcoin - {}", wallet_name),
+                            Language::Japanese => format!("ビットコイン受取中 - {}", wallet_name),
                         },
                         EventType::Send => match contact.language {
-                            crate::metadata::Language::Norwegian => {
-                                format!("Sender Bitcoin - {}", wallet_name)
-                            }
-                            crate::metadata::Language::English => {
-                                format!("Sending Bitcoin - {}", wallet_name)
-                            }
+                            Language::English => format!("Sending Bitcoin - {}", wallet_name),
+                            Language::Norwegian => format!("Sender Bitcoin - {}", wallet_name),
+                            Language::Spanish => format!("Enviando Bitcoin - {}", wallet_name),
+                            Language::Portuguese => format!("Enviando Bitcoin - {}", wallet_name),
+                            Language::German => format!("Bitcoin senden - {}", wallet_name),
+                            Language::French => format!("Envoi de Bitcoin - {}", wallet_name),
+                            Language::Japanese => format!("ビットコイン送信中 - {}", wallet_name),
                         },
                     },
                     TransactionNotification::Confirmed(tx) => match tx.transaction_type {
                         EventType::Receive => match contact.language {
-                            crate::metadata::Language::Norwegian => {
-                                format!("Bitcoin mottatt - {}", wallet_name)
-                            }
-                            crate::metadata::Language::English => {
-                                format!("Bitcoin Received - {}", wallet_name)
-                            }
+                            Language::English => format!("Bitcoin Received - {}", wallet_name),
+                            Language::Norwegian => format!("Bitcoin mottatt - {}", wallet_name),
+                            Language::Spanish => format!("Bitcoin Recibido - {}", wallet_name),
+                            Language::Portuguese => format!("Bitcoin Recebido - {}", wallet_name),
+                            Language::German => format!("Bitcoin erhalten - {}", wallet_name),
+                            Language::French => format!("Bitcoin Recu - {}", wallet_name),
+                            Language::Japanese => format!("ビットコイン受取完了 - {}", wallet_name),
                         },
                         EventType::Send => match contact.language {
-                            crate::metadata::Language::Norwegian => {
-                                format!("Bitcoin sendt - {}", wallet_name)
-                            }
-                            crate::metadata::Language::English => {
-                                format!("Bitcoin Sent - {}", wallet_name)
-                            }
+                            Language::English => format!("Bitcoin Sent - {}", wallet_name),
+                            Language::Norwegian => format!("Bitcoin sendt - {}", wallet_name),
+                            Language::Spanish => format!("Bitcoin Enviado - {}", wallet_name),
+                            Language::Portuguese => format!("Bitcoin Enviado - {}", wallet_name),
+                            Language::German => format!("Bitcoin gesendet - {}", wallet_name),
+                            Language::French => format!("Bitcoin Envoye - {}", wallet_name),
+                            Language::Japanese => format!("ビットコイン送信完了 - {}", wallet_name),
                         },
                     },
                     TransactionNotification::BalanceAlert(_) => match contact.language {
-                        crate::metadata::Language::Norwegian => {
-                            format!("Saldovarsel - {}", wallet_name)
-                        }
-                        crate::metadata::Language::English => {
-                            format!("Balance Alert - {}", wallet_name)
-                        }
+                        Language::English => format!("Balance Alert - {}", wallet_name),
+                        Language::Norwegian => format!("Saldovarsel - {}", wallet_name),
+                        Language::Spanish => format!("Alerta de Saldo - {}", wallet_name),
+                        Language::Portuguese => format!("Alerta de Saldo - {}", wallet_name),
+                        Language::German => format!("Kontostandwarnung - {}", wallet_name),
+                        Language::French => format!("Alerte de Solde - {}", wallet_name),
+                        Language::Japanese => format!("残高アラート - {}", wallet_name),
                     },
                 };
 

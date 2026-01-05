@@ -224,15 +224,40 @@ impl EmailProvider {
         language: &Language,
     ) -> String {
         let (header, greeting, footer) = match language {
+            Language::English => (
+                "Bitcoin Transaction",
+                format!("Hi {},", to_name),
+                "This notification was sent by Canary",
+            ),
             Language::Norwegian => (
                 "Bitcoin-transaksjon",
                 format!("Hei {},", to_name),
                 "Dette varselet ble sendt av Canary",
             ),
-            Language::English => (
-                "Bitcoin Transaction",
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
+            Language::Spanish => (
+                "Transaccion de Bitcoin",
+                format!("Hola {},", to_name),
+                "Esta notificacion fue enviada por Canary",
+            ),
+            Language::Portuguese => (
+                "Transacao de Bitcoin",
+                format!("Ola {},", to_name),
+                "Esta notificacao foi enviada por Canary",
+            ),
+            Language::German => (
+                "Bitcoin-Transaktion",
+                format!("Hallo {},", to_name),
+                "Diese Benachrichtigung wurde von Canary gesendet",
+            ),
+            Language::French => (
+                "Transaction Bitcoin",
+                format!("Bonjour {},", to_name),
+                "Cette notification a ete envoyee par Canary",
+            ),
+            Language::Japanese => (
+                "ビットコイン取引",
+                format!("{} 様,", to_name),
+                "この通知はCanaryから送信されました",
             ),
         };
 
@@ -273,13 +298,33 @@ impl EmailProvider {
         language: &Language,
     ) -> String {
         let (greeting, footer) = match language {
+            Language::English => (
+                format!("Hi {},", to_name),
+                "This notification was sent by Canary",
+            ),
             Language::Norwegian => (
                 format!("Hei {},", to_name),
                 "Dette varselet ble sendt av Canary",
             ),
-            Language::English => (
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
+            Language::Spanish => (
+                format!("Hola {},", to_name),
+                "Esta notificacion fue enviada por Canary",
+            ),
+            Language::Portuguese => (
+                format!("Ola {},", to_name),
+                "Esta notificacao foi enviada por Canary",
+            ),
+            Language::German => (
+                format!("Hallo {},", to_name),
+                "Diese Benachrichtigung wurde von Canary gesendet",
+            ),
+            Language::French => (
+                format!("Bonjour {},", to_name),
+                "Cette notification a ete envoyee par Canary",
+            ),
+            Language::Japanese => (
+                format!("{} 様,", to_name),
+                "この通知はCanaryから送信されました",
             ),
         };
 
@@ -294,17 +339,47 @@ impl EmailProvider {
         language: &Language,
     ) -> String {
         let (header, wallet_label, greeting, footer) = match language {
+            Language::English => (
+                "Balance Alert",
+                "Wallet",
+                format!("Hi {},", to_name),
+                "This notification was sent by Canary",
+            ),
             Language::Norwegian => (
                 "Saldovarsel",
                 "Lommebok",
                 format!("Hei {},", to_name),
                 "Dette varselet ble sendt av Canary",
             ),
-            Language::English => (
-                "Balance Alert",
+            Language::Spanish => (
+                "Alerta de Saldo",
+                "Cartera",
+                format!("Hola {},", to_name),
+                "Esta notificacion fue enviada por Canary",
+            ),
+            Language::Portuguese => (
+                "Alerta de Saldo",
+                "Carteira",
+                format!("Ola {},", to_name),
+                "Esta notificacao foi enviada por Canary",
+            ),
+            Language::German => (
+                "Kontostandwarnung",
                 "Wallet",
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
+                format!("Hallo {},", to_name),
+                "Diese Benachrichtigung wurde von Canary gesendet",
+            ),
+            Language::French => (
+                "Alerte de Solde",
+                "Portefeuille",
+                format!("Bonjour {},", to_name),
+                "Cette notification a ete envoyee par Canary",
+            ),
+            Language::Japanese => (
+                "残高アラート",
+                "ウォレット",
+                format!("{} 様,", to_name),
+                "この通知はCanaryから送信されました",
             ),
         };
 
@@ -346,17 +421,47 @@ impl EmailProvider {
         language: &Language,
     ) -> String {
         let (header, wallet_label, greeting, footer) = match language {
+            Language::English => (
+                "Balance Alert",
+                "Wallet",
+                format!("Hi {},", to_name),
+                "This notification was sent by Canary",
+            ),
             Language::Norwegian => (
                 "Saldovarsel",
                 "Lommebok",
                 format!("Hei {},", to_name),
                 "Dette varselet ble sendt av Canary",
             ),
-            Language::English => (
-                "Balance Alert",
+            Language::Spanish => (
+                "Alerta de Saldo",
+                "Cartera",
+                format!("Hola {},", to_name),
+                "Esta notificacion fue enviada por Canary",
+            ),
+            Language::Portuguese => (
+                "Alerta de Saldo",
+                "Carteira",
+                format!("Ola {},", to_name),
+                "Esta notificacao foi enviada por Canary",
+            ),
+            Language::German => (
+                "Kontostandwarnung",
                 "Wallet",
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
+                format!("Hallo {},", to_name),
+                "Diese Benachrichtigung wurde von Canary gesendet",
+            ),
+            Language::French => (
+                "Alerte de Solde",
+                "Portefeuille",
+                format!("Bonjour {},", to_name),
+                "Cette notification a ete envoyee par Canary",
+            ),
+            Language::Japanese => (
+                "残高アラート",
+                "ウォレット",
+                format!("{} 様,", to_name),
+                "この通知はCanaryから送信されました",
             ),
         };
 
