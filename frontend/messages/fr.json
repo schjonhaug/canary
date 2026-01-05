@@ -663,6 +663,10 @@
   },
   "upgrade": {
     "title": "Mettre a niveau votre plan",
+    "choosePlan": "Choisissez votre plan",
+    "trialDescription": "Abonnez-vous aujourd'hui pour vous assurer que les notifications de votre portefeuille continuent sans interruption a la fin de votre essai. Gardez votre Bitcoin en securite avec une surveillance continue.",
+    "limitReachedDescription": "Vous avez atteint votre limite de {limitType} de {limit} sur le plan {tierName}. Comparez les plans et mettez a niveau pour en ajouter plus.",
+    "currentUsage": "Utilisation actuelle: {count} / {limit}",
     "walletLimit": {
       "title": "Limite de portefeuilles atteinte",
       "description": "Vous avez atteint le nombre maximum de portefeuilles pour votre plan. Mettez a niveau pour ajouter plus de portefeuilles."

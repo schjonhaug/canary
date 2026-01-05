@@ -663,6 +663,10 @@
   },
   "upgrade": {
     "title": "Plan upgraden",
+    "choosePlan": "Wahlen Sie Ihren Plan",
+    "trialDescription": "Abonnieren Sie heute, um sicherzustellen, dass Ihre Wallet-Benachrichtigungen nach Ende Ihrer Testphase ununterbrochen weiterlaufen. Halten Sie Ihr Bitcoin mit kontinuierlicher Uberwachung sicher.",
+    "limitReachedDescription": "Sie haben Ihr {limitType}-Limit von {limit} im {tierName}-Plan erreicht. Vergleichen Sie Plane und upgraden Sie, um mehr hinzuzufugen.",
+    "currentUsage": "Aktuelle Nutzung: {count} / {limit}",
     "walletLimit": {
       "title": "Wallet-Limit erreicht",
       "description": "Sie haben die maximale Anzahl an Wallets fur Ihren Plan erreicht. Upgraden Sie, um mehr Wallets hinzuzufugen."

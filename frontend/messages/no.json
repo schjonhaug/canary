@@ -663,6 +663,10 @@
   },
   "upgrade": {
     "title": "Oppgrader planen din",
+    "choosePlan": "Velg din plan",
+    "trialDescription": "Abonner i dag for å sikre at lommebokvarslingene dine fortsetter uavbrutt når prøveperioden avsluttes. Hold Bitcoin-en din sikker med kontinuerlig overvåking.",
+    "limitReachedDescription": "Du har nådd {limitType}-grensen på {limit} på {tierName}-planen. Sammenlign planer og oppgrader for å legge til flere.",
+    "currentUsage": "Nåværende bruk: {count} / {limit}",
     "walletLimit": {
       "title": "Lommebokgrense nådd",
       "description": "Du har nådd maksimalt antall lommebøker for planen din. Oppgrader for å legge til flere lommebøker."
