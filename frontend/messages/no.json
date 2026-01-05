@@ -432,14 +432,14 @@
         "requiredHint": "Skripttype er påkrevd for nye XPUB-lommebøker"
       },
       "stopGap": {
-        "label": "Stop Gap",
+        "label": "Søkegrense",
         "default": "Standard (20 ubrukte på rad)",
         "extended": "Utvidet (250 ubrukte på rad)",
         "deep": "Dyp (500 ubrukte på rad)",
         "deeper": "Dypere (750 ubrukte på rad)",
         "maximum": "Maksimum (1000 ubrukte på rad)",
         "hint": "Antall ubrukte adresser på rad som skal sjekkes før stopp. Øk hvis lommeboken din har adresser brukt på tilfeldige høye indekser (f.eks. BTCPay Server)",
-        "requiresScriptType": "Egendefinert stop gap krever valg av en spesifikk skripttype"
+        "requiresScriptType": "Egendefinert søkegrense krever valg av en spesifikk skripttype"
       },
       "freshWallet": {
         "label": "Ny lommebok (ingen transaksjonshistorikk)",
