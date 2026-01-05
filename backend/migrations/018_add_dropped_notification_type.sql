@@ -19,6 +19,9 @@ CREATE TABLE notification_logs_new (
     error_message TEXT,
     message_content TEXT, -- Snapshot of actual message sent
     notification_type TEXT NOT NULL DEFAULT 'pending' CHECK (notification_type IN ('pending', 'confirmed', 'balance_alert', 'dropped')),
+    contact_name_snapshot TEXT,
+    notification_target_snapshot TEXT,
+    provider_type_snapshot TEXT,
     sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     balance_alert_id TEXT, -- Reference to balance_alerts.id for balance alert notifications
     FOREIGN KEY (wallet_checksum) REFERENCES wallets(checksum) ON DELETE CASCADE
@@ -28,18 +31,22 @@ CREATE TABLE notification_logs_new (
 INSERT INTO notification_logs_new (
     txid, wallet_checksum, notification_method_id, provider,
     provider_message_id, status, error_message, message_content,
-    notification_type, sent_at, balance_alert_id
+    notification_type, contact_name_snapshot, notification_target_snapshot,
+    provider_type_snapshot, sent_at, balance_alert_id
 )
 SELECT
     transaction_txid,            -- Map transaction_txid -> txid
     transaction_wallet_checksum, -- Map transaction_wallet_checksum -> wallet_checksum
-    notification_method_id,      -- Keep as is (SQLite is flexible with types)
+    notification_method_id,      -- Keep as is
     provider_name,               -- Map provider_name -> provider
     provider_message_id,
     status, 
     error_message, 
     message_content,
     notification_type, 
+    contact_name_snapshot,
+    notification_target_snapshot,
+    provider_type_snapshot,
     created_at,                  -- Map created_at -> sent_at
     NULL                         -- New column balance_alert_id
 FROM notification_logs;
