@@ -347,6 +347,43 @@ impl ElectrumClient {
         Ok(())
     }
 
+    pub async fn get_transaction_exists(&self, txid_str: &str) -> Result<bool> {
+        use std::str::FromStr;
+        let txid = bdk_wallet::bitcoin::Txid::from_str(txid_str)
+            .map_err(|e| anyhow!("Invalid txid: {}", e))?;
+
+        let client = Arc::clone(&self.client);
+
+        let result = timeout(
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            spawn_blocking(move || client.inner.transaction_get(&txid)),
+        )
+        .await
+        .map_err(|_| {
+            anyhow!("Get transaction operation timed out after {BLOCK_OP_TIMEOUT_SECS} seconds")
+        })?
+        .map_err(|e| anyhow!("Get transaction task failed: {}", e));
+
+        match result {
+            Ok(_) => Ok(true),
+            Err(e) => {
+                let err_msg = e.to_string();
+                // Check for common "not found" error messages from Electrum servers
+                // "missing" is common in electrum implementations
+                // "No such mempool" can happen if mempool is queried specifically
+                // "daemon error" can sometimes mask it, but we should be careful
+                if err_msg.contains("missing")
+                    || err_msg.contains("not found")
+                    || err_msg.contains("No such mempool")
+                {
+                    Ok(false)
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
     pub async fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
         let client = Arc::clone(&self.client);
         let header = timeout(

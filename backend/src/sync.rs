@@ -14,6 +14,10 @@ use tracing::{debug, error, info, warn};
 /// Number of consecutive reconnection failures before sending an alert
 const ALERT_FAILURE_THRESHOLD: u32 = 3;
 
+/// Grace period before actively checking if a transaction was dropped (20 minutes)
+/// This prevents false positives due to propagation delays
+const DROPPED_CHECK_GRACE_PERIOD_SECS: u64 = 1200;
+
 /// Transaction-based wallet sync service
 /// This replaces the old balance-based sync logic with proper transaction tracking
 pub struct WalletSyncService {
@@ -818,12 +822,54 @@ impl WalletSyncService {
                 continue;
             }
 
-            // Check if the transaction has been pending longer than the expiry threshold
             let pending_duration = current_time.saturating_sub(existing_tx.first_seen_at);
-            if pending_duration > expiry_threshold {
+            
+            // Determine if transaction is dropped
+            // Strategy:
+            // 1. If we have an Electrum client and the transaction is older than the grace period,
+            //    actively check if it exists on the server.
+            // 2. If the check returns "false" (not found), it's dropped.
+            // 3. If the check returns "true" (found), it's NOT dropped (even if old).
+            // 4. If the check fails (error) or no client, fall back to the passive expiry threshold.
+            
+            let is_dropped = if let Some(client) = electrum_client {
+                if pending_duration > DROPPED_CHECK_GRACE_PERIOD_SECS {
+                    // Active check
+                    match client.get_transaction_exists(&existing_tx.txid).await {
+                        Ok(exists) => {
+                            if !exists {
+                                info!(
+                                    "[{}] Transaction {} confirmed missing from Electrum server (pending {}s), marking as dropped", 
+                                    wallet_checksum, existing_tx.txid, pending_duration
+                                );
+                                true
+                            } else {
+                                // Exists on server, so it's valid (just stuck in mempool)
+                                false
+                            }
+                        },
+                        Err(e) => {
+                            warn!(
+                                "[{}] Failed to check transaction {} existence: {}, falling back to expiry threshold", 
+                                wallet_checksum, existing_tx.txid, e
+                            );
+                            // Fallback to strict time expiry
+                            pending_duration > expiry_threshold
+                        }
+                    }
+                } else {
+                    // Too new to check
+                    false
+                }
+            } else {
+                // No client available, fallback to strict time expiry
+                pending_duration > expiry_threshold
+            };
+
+            if is_dropped {
                 debug!(
-                    "[{}] Detected dropped transaction: {} (pending for {}s, threshold {}s)",
-                    wallet_checksum, existing_tx.txid, pending_duration, expiry_threshold
+                    "[{}] Detected dropped transaction: {} (pending for {}s)",
+                    wallet_checksum, existing_tx.txid, pending_duration
                 );
 
                 let dropped_marked = self
