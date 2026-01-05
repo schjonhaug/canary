@@ -40,7 +40,9 @@
     "settings": "Innstillinger",
     "wallets": "Lommeboker",
     "addWallet": "Legg til lommebok",
-    "alreadyUser": "Allerede bruker? Logg inn"
+    "alreadyUser": "Allerede bruker? Logg inn",
+    "contact": "Kontakt",
+    "subscription": "Abonnement"
   },
   "landing": {
     "hero": {
@@ -230,15 +232,49 @@
   "wallets": {
     "title": "Mine lommeboker",
     "summary": "Sporer {count} {count, plural, one {lommebok} other {lommeboker}} med en total saldo på {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "Klar til å starte prøveperioden",
+        "titleWithName": "Klar til å starte prøveperioden, {name}?",
+        "description": "Legg til din første lommebok for å aktivere din <highlight>30-dagers Team-prøveperiode</highlight>. Du får umiddelbar tilgang til alle funksjoner inkludert sanntidssynkronisering, ubegrensede varsler og prioritert støtte.",
+        "whatYouGet": "Dette får du:",
+        "features": {
+          "wallets": "5 lommebøker med 2-minutters synk",
+          "contacts": "5 kontakter per lommebok",
+          "emailSms": "E-post- og SMS-varsler",
+          "push": "Push-varsler via ntfy"
+        },
+        "button": "Legg til din første lommebok og start prøveperioden",
+        "note": "Prøveperioden starter når du legger til lommeboken"
+      },
+      "simple": {
+        "title": "Legg til din første lommebok",
+        "description": "Legg til en lommebokdeskriptor for å begynne å overvåke dine Bitcoin-transaksjoner.",
+        "button": "Legg til lommebok"
+      }
+    },
     "connectionLost": {
       "title": "Tapt kontakt med backend",
       "description": "Kan ikke koble til backend-tjenesten. Viser bufrede data.",
       "lastUpdated": "Sist oppdatert: {time}"
     },
     "empty": {
-      "title": "Ingen lommeboker enna",
-      "description": "Legg til din forste Bitcoin-lommebok for a starte overvakingen",
+      "title": "Ingen lommeboker",
+      "description": "Ingen lommeboker funnet. Bruk \"Legg til lommebok\"-knappen for a komme i gang.",
       "addFirst": "Legg til din forste lommebok"
+    },
+    "error": {
+      "title": "Feil",
+      "loadFailed": "Kunne ikke laste lommeboker: {error}"
+    },
+    "card": {
+      "syncing": "Synkroniserer...",
+      "inactive": "Inaktiv",
+      "inactiveExpired": "Abonnementet ditt har utgatt - lommeboken synkroniseres ikke automatisk",
+      "inactiveTierLimit": "Denne lommeboken overstiger abonnementsgrensene dine og synkroniseres ikke automatisk",
+      "balance": "Saldo",
+      "lastActivity": "Siste aktivitet: {date}",
+      "noRecentActivity": "Ingen nylig aktivitet"
     },
     "add": {
       "title": "Legg til lommebok",
@@ -293,6 +329,24 @@
       "syncStatus": {
         "pending": "Synkroniserer",
         "ready": "Synkronisert"
+      },
+      "backToWallets": "Tilbake til lommeboker",
+      "new": "Ny",
+      "notFound": {
+        "title": "Lommebok ikke funnet",
+        "description": "Lommeboken med kontrollsum #{checksum} ble ikke funnet."
+      },
+      "syncing": {
+        "title": "Lommebok synkroniserer fortsatt",
+        "description": "{name} synkroniserer fortsatt og skanner etter historiske transaksjoner. Denne prosessen kan ta noen minutter for lommeboker med transaksjonshistorikk.",
+        "returnPrompt": "Vennligst ga tilbake til lommeboksiden og vent til synkroniseringen er fullfort."
+      },
+      "inactive": {
+        "title": "Lommebok inaktiv",
+        "descriptionExpired": "Abonnementet ditt har utlopt - lommeboken synkroniseres ikke automatisk.",
+        "descriptionTierLimit": "Denne lommeboken overskrider grensene for abonnementsnivået ditt og synkroniseres ikke automatisk.",
+        "outdatedWarning": "Transaksjonshistorikk og saldo som vises kan være utdatert.",
+        "upgradePlan": "Oppgrader plan"
       }
     },
     "delete": {
@@ -310,112 +364,160 @@
   "contacts": {
     "title": "Kontakter",
     "empty": {
-      "title": "Ingen kontakter enna",
-      "description": "Legg til kontakter for a motta varsler om denne lommeboken"
+      "title": "Ingen kontakter ennå",
+      "description": "Legg til kontakter for å motta varsler om denne lommeboken",
+      "list": "Ingen kontakter lagt til ennå"
+    },
+    "inactive": {
+      "badge": "Inaktiv",
+      "expired": "Abonnementet ditt har utløpt - kontakten vil ikke motta varsler",
+      "tierLimit": "Denne kontakten overskrider grensene for abonnementsnivået ditt og vil ikke motta varsler"
     },
     "add": {
-      "title": "Legg til kontakt",
-      "nameLabel": "Kontaktnavn",
-      "namePlaceholder": "Ola Nordmann",
-      "languageLabel": "Varselsprak",
-      "methodTitle": "Varslingsmetode",
-      "methodDescription": "Velg hvordan denne kontakten skal motta varsler",
+      "title": "Legg til ny kontakt",
+      "description": "Sett opp en ny kontakt for å motta Bitcoin-transaksjonsvarsler.",
+      "nameLabel": "Navn",
+      "namePlaceholder": "Kontaktnavn",
+      "languageLabel": "Språk",
+      "methodTitle": "Varslingsmetoder",
       "ntfy": {
-        "title": "Push-varsler (ntfy)",
-        "description": "Gratis push-varsler via ntfy-appen",
-        "topicLabel": "Emnenavn",
-        "topicPlaceholder": "min-lommebok-varsler",
-        "topicHint": "Abonner pa dette emnet i ntfy-appen for a motta varsler"
+        "topicHint": "Emne genereres automatisk basert på kontaktnavn"
       },
       "sms": {
-        "title": "SMS",
-        "description": "Tekstmeldingsvarsler",
-        "phoneLabel": "Telefonnummer",
-        "phonePlaceholder": "+4712345678",
-        "phoneHint": "Inkluder landskode (f.eks. +47 for Norge)"
+        "phoneHint": "Inkluder landskode"
       },
       "email": {
-        "title": "E-post",
-        "description": "E-postvarsler",
-        "emailLabel": "E-postadresse",
-        "emailPlaceholder": "ola@eksempel.no"
+        "emailHint": "Skriv inn gyldig e-postadresse"
       },
-      "submit": "Legg til kontakt",
-      "submitting": "Legger til..."
+      "submit": "Opprett kontakt",
+      "submitting": "Behandler..."
     },
     "edit": {
       "title": "Rediger kontakt",
-      "submit": "Lagre endringer"
+      "description": "Oppdater kontaktinformasjon og varslingsmetoder.",
+      "submit": "Oppdater kontakt"
     },
     "delete": {
       "title": "Slett kontakt",
-      "description": "Er du sikker pa at du vil slette denne kontakten? De vil ikke lenger motta varsler.",
+      "description": "Er du sikker på at du vil slette denne kontakten? De vil ikke lenger motta varsler.",
       "confirm": "Slett",
       "cancel": "Avbryt"
     },
     "verification": {
-      "title": "Verifiser kontakt",
-      "description": "Vi har sendt en verifiseringskode til {contact}. Skriv den inn nedenfor for a verifisere.",
       "codeLabel": "Verifiseringskode",
       "codePlaceholder": "Skriv inn 6-sifret kode",
-      "submit": "Verifiser",
-      "resend": "Send kode pa nytt",
-      "expiresIn": "Utloper om {time}",
-      "expired": "Koden er utlopt",
-      "invalid": "Ugyldig verifiseringskode",
-      "verified": "Kontakt verifisert!"
+      "sendCode": "Send verifiseringskode",
+      "sendingCode": "Sender...",
+      "verify": "Verifiser",
+      "verifying": "Verifiserer...",
+      "resend": "Send på nytt",
+      "codeSentTo": "Kode sendt til {target}",
+      "expiresIn": "Utløper om {time}",
+      "expired": "Verifiseringskoden er utløpt. Prøv igjen.",
+      "expiredRequest": "Verifiseringskoden er utløpt. Be om ny kode.",
+      "invalid": "Ugyldig verifiseringskode. Prøv igjen.",
+      "smsVerified": "SMS verifisert",
+      "emailVerified": "E-post verifisert",
+      "smsRequired": "Telefonnummer kreves for SMS-verifisering",
+      "emailRequired": "E-postadresse kreves for e-postverifisering",
+      "enterCode": "Skriv inn verifiseringskoden",
+      "verifySmsFirst": "Verifiser SMS-koden før du lagrer kontakten",
+      "verifyNewSms": "Verifiser det nye telefonnummeret før du lagrer kontakten",
+      "verifyEmailFirst": "Verifiser e-postkoden før du lagrer kontakten",
+      "verifyNewEmail": "Verifiser den nye e-postadressen før du lagrer kontakten"
+    },
+    "errors": {
+      "nameRequired": "Kontaktnavn er påkrevd"
+    },
+    "languages": {
+      "en": "Engelsk",
+      "no": "Norsk",
+      "es": "Spansk",
+      "pt": "Portugisisk",
+      "de": "Tysk",
+      "fr": "Fransk",
+      "ja": "Japansk"
     }
   },
   "balanceAlerts": {
     "title": "Saldovarsler",
+    "new": "Ny",
     "empty": {
       "title": "Ingen saldovarsler",
-      "description": "Sett opp varsler for a bli varslet nar lommeboksaldoen din nar bestemte terskler"
+      "description": "Sett opp varsler for å bli varslet når lommeboksaldoen din når bestemte terskler",
+      "list": "Ingen varsler satt"
     },
+    "lastFired": "Sist utløst {date}",
+    "deleteAlert": "Slett varsel",
     "add": {
-      "title": "Legg til saldovarsel",
+      "title": "Opprett nytt varsel",
       "typeLabel": "Varseltype",
       "types": {
         "above": "Over",
         "below": "Under",
         "equals": "Lik"
       },
+      "typeDescriptions": {
+        "above": "Varsle når saldoen går over dette beløpet",
+        "below": "Varsle når saldoen går under dette beløpet",
+        "equals": "Varsle når saldoen er lik dette beløpet (f.eks. tømt lommebok)"
+      },
+      "currencyLabel": "Valutaype",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Fiat-valuta ({currency})",
+      "bitcoinAmount": "Bitcoin-beløp",
+      "amount": "Beløp ({currency})",
+      "enterAmountBtc": "Skriv inn beløp i BTC",
+      "enterAmount": "Skriv inn beløp i {currency}",
       "thresholdLabel": "Terskel",
       "thresholdPlaceholder": "0.1",
       "btc": "BTC",
-      "submit": "Legg til varsel",
-      "submitting": "Legger til..."
+      "cancel": "Avbryt",
+      "submit": "Opprett",
+      "submitting": "Oppretter..."
     },
     "edit": {
       "title": "Rediger saldovarsel"
     },
     "delete": {
       "title": "Slett varsel",
-      "description": "Er du sikker pa at du vil slette dette saldovarselet?",
+      "description": "Er du sikker på at du vil slette dette saldovarselet?",
       "confirm": "Slett",
       "cancel": "Avbryt"
     },
     "status": {
       "active": "Aktiv",
-      "triggered": "Utlost",
+      "triggered": "Utløst",
       "reactivate": "Reaktiver"
     },
     "errors": {
-      "negativeAmount": "Belop kan ikke vare negativt",
-      "belowZero": "Kan ikke opprette varsel for 'under 0'"
+      "invalidBtcAmount": "Vennligst skriv inn et gyldig Bitcoin-beløp",
+      "invalidPositiveAmount": "Vennligst skriv inn et gyldig positivt beløp",
+      "negativeAmount": "Beløp kan ikke være negativt",
+      "belowZero": "Kan ikke opprette varsel for \"under 0\" - saldo kan ikke gå under null",
+      "duplicateAlert": "Et varsel med denne typen og beløpet finnes allerede",
+      "createFailed": "Kunne ikke opprette saldovarsel",
+      "deleteFailed": "Kunne ikke slette varsel"
     }
   },
   "transactions": {
     "title": "Transaksjoner",
+    "titleWithWallet": "Transaksjoner - {walletName}",
+    "loading": "Laster transaksjoner...",
     "empty": "Ingen transaksjoner enna",
+    "emptyForWallet": "Ingen transaksjoner funnet for valgt lommebok.",
+    "count": "{count} {count, plural, one {transaksjon} other {transaksjoner}}",
     "types": {
       "receive": "Mottatt",
-      "send": "Sendt"
+      "send": "Sendt",
+      "receiving": "Mottar",
+      "sending": "Sender"
     },
     "status": {
       "pending": "Venter",
       "confirmed": "Bekreftet",
-      "dropped": "Droppet"
+      "dropped": "Droppet",
+      "replaced": "Erstattet"
     },
     "details": {
       "txid": "Transaksjons-ID",
@@ -424,11 +526,41 @@
       "date": "Dato",
       "confirmations": "Bekreftelser",
       "block": "Blokk",
-      "address": "Adresse"
+      "address": "Adresse",
+      "replacedBy": "Erstattet av",
+      "replacedAt": "Erstattet"
     },
+    "tableHeaders": {
+      "dateTime": "Dato/Tid",
+      "wallet": "Lommebok",
+      "transaction": "Transaksjon",
+      "amount": "Belop",
+      "details": "Detaljer"
+    },
+    "tooltips": {
+      "cpfp": "CPFP-transaksjon",
+      "rbfReplaced": "Erstattet av RBF",
+      "notificationsFailed": "Noen varsler mislyktes",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Barn av {txid}",
+      "replacedByTx": "Erstattet av transaksjon: {txid}",
+      "viewOnMempool": "Vis {txid} på Mempool Space"
+    },
+    "timeline": {
+      "pending": "VENTER",
+      "confirmed": "BEKREFTET"
+    },
+    "notifications": {
+      "sentAt": "Sendt",
+      "statusLabel": "Status",
+      "errorLabel": "Feil",
+      "unknownTime": "Ukjent tid",
+      "unknownTarget": "Ukjent mål"
+    },
+    "error": "Feil: {error}",
     "rbf": "RBF",
     "cpfp": "CPFP",
-    "replacement": "Erstatning"
+    "replacement": "Erstatning",
+    "walletLabel": "Lommebok: {name}"
   },
   "billing": {
     "title": "Abonnement",
@@ -482,7 +614,22 @@
     "perYear": "/ar",
     "saveYearly": "Spar {percent}% arlig",
     "popular": "POPULAER",
-    "currentPlanBadge": "GJELDENDE PLAN"
+    "currentPlanBadge": "GJELDENDE PLAN",
+    "trialPlanBadge": "PROVEPERIODE",
+    "freeToSelfHost": "Gratis a selvhoste",
+    "plusTaxes": "Pluss gjeldende avgifter",
+    "changePlan": "Endre plan",
+    "subscribeTo": "Abonner pa {plan}",
+    "upgradeTo": "Oppgrader til {plan}",
+    "startTrial": "Start 30-dagers gratis proveperiode",
+    "loadingPricing": "Laster priser...",
+    "errorTitle": "Kunne ikke laste priser",
+    "errorDescription": "Vennligst oppdater siden eller prov igjen senere.",
+    "selfHosted": {
+      "description": "Foretrekker du a selvhoste? Canary er gratis a kjore pa din egen infrastruktur med push-varsler via ntfy.",
+      "installUmbrel": "Installer pa Umbrel",
+      "viewGithub": "Se pa GitHub"
+    }
   },
   "upgrade": {
     "title": "Oppgrader planen din",
@@ -502,5 +649,10 @@
     "notFound": "Ikke funnet.",
     "serverError": "Serverfeil. Vennligst prov igjen senere.",
     "validation": "Vennligst sjekk inndataene dine og prov igjen."
+  },
+  "footer": {
+    "logoAlt": "Canary-logo",
+    "appName": "Canary",
+    "blockInfo": "Blokk {height}"
   }
 }

@@ -40,7 +40,9 @@
     "settings": "Configuracoes",
     "wallets": "Carteiras",
     "addWallet": "Adicionar Carteira",
-    "alreadyUser": "Ja tem conta? Entre"
+    "alreadyUser": "Ja tem conta? Entre",
+    "contact": "Contato",
+    "subscription": "Assinatura"
   },
   "landing": {
     "hero": {
@@ -230,15 +232,49 @@
   "wallets": {
     "title": "Minhas Carteiras",
     "summary": "Rastreando {count} {count, plural, one {carteira} other {carteiras}} com um saldo total de {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "Pronto para iniciar seu teste",
+        "titleWithName": "Pronto para iniciar seu teste, {name}?",
+        "description": "Adicione sua primeira carteira para ativar seu <highlight>teste de 30 dias do plano Team</highlight>. Você terá acesso instantâneo a todos os recursos, incluindo sincronização em tempo real, notificações ilimitadas e suporte prioritário.",
+        "whatYouGet": "O que você receberá:",
+        "features": {
+          "wallets": "5 carteiras com sincronização de 2 minutos",
+          "contacts": "5 contatos por carteira",
+          "emailSms": "Notificações por email e SMS",
+          "push": "Notificações push via ntfy"
+        },
+        "button": "Adicionar sua primeira carteira e iniciar teste",
+        "note": "O teste começa quando você adiciona sua carteira"
+      },
+      "simple": {
+        "title": "Adicionar sua primeira carteira",
+        "description": "Adicione um descritor de carteira para começar a monitorar suas transações de Bitcoin.",
+        "button": "Adicionar carteira"
+      }
+    },
     "connectionLost": {
       "title": "Conexão com o backend perdida",
       "description": "Não foi possível conectar ao serviço backend. Exibindo dados em cache.",
       "lastUpdated": "Última atualização: {time}"
     },
     "empty": {
-      "title": "Sem carteiras ainda",
-      "description": "Adicione sua primeira carteira Bitcoin para comecar a monitorar",
+      "title": "Sem Carteiras",
+      "description": "Nenhuma carteira encontrada. Use o botao \"Adicionar Carteira\" para comecar.",
       "addFirst": "Adicionar Sua Primeira Carteira"
+    },
+    "error": {
+      "title": "Erro",
+      "loadFailed": "Falha ao carregar carteiras: {error}"
+    },
+    "card": {
+      "syncing": "Sincronizando...",
+      "inactive": "Inativa",
+      "inactiveExpired": "Sua assinatura expirou - a carteira nao sincronizara automaticamente",
+      "inactiveTierLimit": "Esta carteira excede os limites do seu plano e nao sincronizara automaticamente",
+      "balance": "Saldo",
+      "lastActivity": "Ultima atividade: {date}",
+      "noRecentActivity": "Sem atividade recente"
     },
     "add": {
       "title": "Adicionar Carteira",
@@ -293,6 +329,24 @@
       "syncStatus": {
         "pending": "Sincronizando",
         "ready": "Sincronizado"
+      },
+      "backToWallets": "Voltar para carteiras",
+      "new": "Novo",
+      "notFound": {
+        "title": "Carteira nao encontrada",
+        "description": "A carteira com checksum #{checksum} nao foi encontrada."
+      },
+      "syncing": {
+        "title": "Carteira ainda sincronizando",
+        "description": "{name} ainda esta sincronizando e verificando transacoes historicas. Este processo pode levar alguns minutos para carteiras com historico de transacoes.",
+        "returnPrompt": "Por favor retorne a pagina de carteiras e aguarde a sincronizacao ser concluida."
+      },
+      "inactive": {
+        "title": "Carteira inativa",
+        "descriptionExpired": "Sua assinatura expirou - a carteira nao sincronizara automaticamente.",
+        "descriptionTierLimit": "Esta carteira excede os limites do seu nivel de assinatura e nao sincronizara automaticamente.",
+        "outdatedWarning": "O historico de transacoes e o saldo exibidos podem estar desatualizados.",
+        "upgradePlan": "Atualizar plano"
       }
     },
     "delete": {
@@ -311,80 +365,116 @@
     "title": "Contatos",
     "empty": {
       "title": "Sem contatos ainda",
-      "description": "Adicione contatos para receber notificacoes sobre esta carteira"
+      "description": "Adicione contatos para receber notificações sobre esta carteira",
+      "list": "Nenhum contato adicionado ainda"
+    },
+    "inactive": {
+      "badge": "Inativo",
+      "expired": "Sua assinatura expirou - o contato não receberá notificações",
+      "tierLimit": "Este contato excede os limites do seu nível de assinatura e não receberá notificações"
     },
     "add": {
-      "title": "Adicionar Contato",
-      "nameLabel": "Nome do Contato",
-      "namePlaceholder": "Joao Silva",
-      "languageLabel": "Idioma da Notificacao",
-      "methodTitle": "Metodo de Notificacao",
-      "methodDescription": "Escolha como este contato recebera notificacoes",
+      "title": "Adicionar novo contato",
+      "description": "Configure um novo contato para receber notificações de transações de Bitcoin.",
+      "nameLabel": "Nome",
+      "namePlaceholder": "Nome do contato",
+      "languageLabel": "Idioma",
+      "methodTitle": "Métodos de notificação",
       "ntfy": {
-        "title": "Notificacoes Push (ntfy)",
-        "description": "Notificacoes push gratuitas via app ntfy",
-        "topicLabel": "Nome do Topico",
-        "topicPlaceholder": "meus-alertas-carteira",
-        "topicHint": "Inscreva-se neste topico no app ntfy para receber notificacoes"
+        "topicHint": "O tópico será gerado automaticamente com base no nome do contato"
       },
       "sms": {
-        "title": "SMS",
-        "description": "Notificacoes por mensagem de texto",
-        "phoneLabel": "Numero de Telefone",
-        "phonePlaceholder": "+5511999999999",
-        "phoneHint": "Inclua codigo do pais (ex., +55 para Brasil)"
+        "phoneHint": "Inclua o código do país"
       },
       "email": {
-        "title": "Email",
-        "description": "Notificacoes por email",
-        "emailLabel": "Endereco de Email",
-        "emailPlaceholder": "joao@exemplo.com"
+        "emailHint": "Digite um endereço de email válido"
       },
-      "submit": "Adicionar Contato",
-      "submitting": "Adicionando..."
+      "submit": "Criar contato",
+      "submitting": "Processando..."
     },
     "edit": {
-      "title": "Editar Contato",
-      "submit": "Salvar Alteracoes"
+      "title": "Editar contato",
+      "description": "Atualize as informações do contato e os métodos de notificação.",
+      "submit": "Atualizar contato"
     },
     "delete": {
-      "title": "Excluir Contato",
-      "description": "Tem certeza de que deseja excluir este contato? Ele nao recebera mais notificacoes.",
+      "title": "Excluir contato",
+      "description": "Tem certeza de que deseja excluir este contato? Ele não receberá mais notificações.",
       "confirm": "Excluir",
       "cancel": "Cancelar"
     },
     "verification": {
-      "title": "Verificar Contato",
-      "description": "Enviamos um codigo de verificacao para {contact}. Digite-o abaixo para verificar.",
-      "codeLabel": "Codigo de Verificacao",
-      "codePlaceholder": "Digite codigo de 6 digitos",
-      "submit": "Verificar",
-      "resend": "Reenviar Codigo",
+      "codeLabel": "Código de verificação",
+      "codePlaceholder": "Digite código de 6 dígitos",
+      "sendCode": "Enviar código de verificação",
+      "sendingCode": "Enviando...",
+      "verify": "Verificar",
+      "verifying": "Verificando...",
+      "resend": "Reenviar",
+      "codeSentTo": "Código enviado para {target}",
       "expiresIn": "Expira em {time}",
-      "expired": "Codigo expirado",
-      "invalid": "Codigo de verificacao invalido",
-      "verified": "Contato verificado!"
+      "expired": "O código de verificação expirou. Tente novamente.",
+      "expiredRequest": "O código de verificação expirou. Solicite um novo código.",
+      "invalid": "Código de verificação inválido. Tente novamente.",
+      "smsVerified": "SMS verificado com sucesso",
+      "emailVerified": "Email verificado com sucesso",
+      "smsRequired": "Número de telefone é obrigatório para verificação por SMS",
+      "emailRequired": "Endereço de email é obrigatório para verificação por email",
+      "enterCode": "Por favor, digite o código de verificação",
+      "verifySmsFirst": "Verifique o código SMS antes de salvar o contato",
+      "verifyNewSms": "Verifique o novo número de telefone antes de salvar o contato",
+      "verifyEmailFirst": "Verifique o código de email antes de salvar o contato",
+      "verifyNewEmail": "Verifique o novo endereço de email antes de salvar o contato"
+    },
+    "errors": {
+      "nameRequired": "O nome do contato é obrigatório"
+    },
+    "languages": {
+      "en": "Inglês",
+      "no": "Norueguês",
+      "es": "Espanhol",
+      "pt": "Português",
+      "de": "Alemão",
+      "fr": "Francês",
+      "ja": "Japonês"
     }
   },
   "balanceAlerts": {
     "title": "Alertas de Saldo",
+    "new": "Novo",
     "empty": {
       "title": "Sem alertas de saldo",
-      "description": "Configure alertas para ser notificado quando o saldo da sua carteira atingir certos limites"
+      "description": "Configure alertas para ser notificado quando o saldo da sua carteira atingir certos limites",
+      "list": "Nenhum alerta configurado"
     },
+    "lastFired": "Ultima ativacao {date}",
+    "deleteAlert": "Excluir alerta",
     "add": {
-      "title": "Adicionar Alerta de Saldo",
+      "title": "Criar Novo Alerta",
       "typeLabel": "Tipo de Alerta",
       "types": {
         "above": "Acima de",
         "below": "Abaixo de",
         "equals": "Igual a"
       },
+      "typeDescriptions": {
+        "above": "Alertar quando o saldo ultrapassar este valor",
+        "below": "Alertar quando o saldo ficar abaixo deste valor",
+        "equals": "Alertar quando o saldo for igual a este valor (ex. carteira esvaziada)"
+      },
+      "currencyLabel": "Tipo de Moeda",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Moeda Fiat ({currency})",
+      "bitcoinAmount": "Valor em Bitcoin",
+      "amount": "Valor ({currency})",
+      "enterAmountBtc": "Digite o valor em BTC",
+      "enterAmount": "Digite o valor em {currency}",
       "thresholdLabel": "Limite",
       "thresholdPlaceholder": "0.1",
       "btc": "BTC",
-      "submit": "Adicionar Alerta",
-      "submitting": "Adicionando..."
+      "cancel": "Cancelar",
+      "submit": "Criar",
+      "submitting": "Criando..."
     },
     "edit": {
       "title": "Editar Alerta de Saldo"
@@ -401,21 +491,33 @@
       "reactivate": "Reativar"
     },
     "errors": {
+      "invalidBtcAmount": "Por favor insira um valor valido de Bitcoin",
+      "invalidPositiveAmount": "Por favor insira um valor positivo valido",
       "negativeAmount": "O valor nao pode ser negativo",
-      "belowZero": "Nao e possivel criar alerta para 'abaixo de 0'"
+      "belowZero": "Nao e possivel criar alerta para 'abaixo de 0' - o saldo nao pode ser negativo",
+      "duplicateAlert": "Ja existe um alerta com este tipo e valor",
+      "createFailed": "Falha ao criar alerta de saldo",
+      "deleteFailed": "Falha ao excluir alerta"
     }
   },
   "transactions": {
     "title": "Transacoes",
+    "titleWithWallet": "Transacoes - {walletName}",
+    "loading": "Carregando transacoes...",
     "empty": "Sem transacoes ainda",
+    "emptyForWallet": "Nenhuma transacao encontrada para a carteira selecionada.",
+    "count": "{count} {count, plural, one {transacao} other {transacoes}}",
     "types": {
       "receive": "Recebido",
-      "send": "Enviado"
+      "send": "Enviado",
+      "receiving": "Recebendo",
+      "sending": "Enviando"
     },
     "status": {
       "pending": "Pendente",
       "confirmed": "Confirmado",
-      "dropped": "Descartado"
+      "dropped": "Descartado",
+      "replaced": "Substituido"
     },
     "details": {
       "txid": "ID da Transacao",
@@ -424,11 +526,41 @@
       "date": "Data",
       "confirmations": "Confirmacoes",
       "block": "Bloco",
-      "address": "Endereco"
+      "address": "Endereco",
+      "replacedBy": "Substituido por",
+      "replacedAt": "Substituido em"
     },
+    "tableHeaders": {
+      "dateTime": "Data/Hora",
+      "wallet": "Carteira",
+      "transaction": "Transacao",
+      "amount": "Valor",
+      "details": "Detalhes"
+    },
+    "tooltips": {
+      "cpfp": "Transacao CPFP",
+      "rbfReplaced": "Substituido por RBF",
+      "notificationsFailed": "Algumas notificacoes falharam",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Filho de {txid}",
+      "replacedByTx": "Substituido por transacao: {txid}",
+      "viewOnMempool": "Ver {txid} no Mempool Space"
+    },
+    "timeline": {
+      "pending": "PENDENTE",
+      "confirmed": "CONFIRMADO"
+    },
+    "notifications": {
+      "sentAt": "Enviado",
+      "statusLabel": "Status",
+      "errorLabel": "Erro",
+      "unknownTime": "Hora desconhecida",
+      "unknownTarget": "Destino desconhecido"
+    },
+    "error": "Erro: {error}",
     "rbf": "RBF",
     "cpfp": "CPFP",
-    "replacement": "Substituicao"
+    "replacement": "Substituicao",
+    "walletLabel": "Carteira: {name}"
   },
   "billing": {
     "title": "Assinatura",
@@ -482,7 +614,22 @@
     "perYear": "/ano",
     "saveYearly": "Economize {percent}% anual",
     "popular": "POPULAR",
-    "currentPlanBadge": "PLANO ATUAL"
+    "currentPlanBadge": "PLANO ATUAL",
+    "trialPlanBadge": "PLANO DE TESTE",
+    "freeToSelfHost": "Gratis para auto-hospedar",
+    "plusTaxes": "Mais impostos aplicaveis",
+    "changePlan": "Mudar plano",
+    "subscribeTo": "Assinar {plan}",
+    "upgradeTo": "Atualizar para {plan}",
+    "startTrial": "Iniciar teste gratuito de 30 dias",
+    "loadingPricing": "Carregando precos...",
+    "errorTitle": "Nao foi possivel carregar precos",
+    "errorDescription": "Por favor atualize a pagina ou tente novamente mais tarde.",
+    "selfHosted": {
+      "description": "Prefere auto-hospedar? Canary e gratis para executar em sua propria infraestrutura com notificacoes push via ntfy.",
+      "installUmbrel": "Instalar no Umbrel",
+      "viewGithub": "Ver no GitHub"
+    }
   },
   "upgrade": {
     "title": "Atualize Seu Plano",
@@ -502,5 +649,10 @@
     "notFound": "Nao encontrado.",
     "serverError": "Erro do servidor. Por favor tente mais tarde.",
     "validation": "Por favor verifique sua entrada e tente novamente."
+  },
+  "footer": {
+    "logoAlt": "Logo do Canary",
+    "appName": "Canary",
+    "blockInfo": "Bloco {height}"
   }
 }

@@ -40,7 +40,9 @@
     "settings": "Settings",
     "wallets": "Wallets",
     "addWallet": "Add Wallet",
-    "alreadyUser": "Already a user? Sign in"
+    "alreadyUser": "Already a user? Sign in",
+    "contact": "Contact",
+    "subscription": "Subscription"
   },
   "landing": {
     "hero": {
@@ -230,15 +232,49 @@
   "wallets": {
     "title": "My Wallets",
     "summary": "Tracking {count} {count, plural, one {wallet} other {wallets}} with a total balance of {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "Ready to Start Your Trial",
+        "titleWithName": "Ready to Start Your Trial, {name}?",
+        "description": "Add your first wallet to activate your <highlight>30-day Team trial</highlight>. You'll get instant access to all features including real-time sync, unlimited notifications, and priority support.",
+        "whatYouGet": "What you'll get:",
+        "features": {
+          "wallets": "5 wallets with 2-minute sync",
+          "contacts": "5 contacts per wallet",
+          "emailSms": "Email & SMS notifications",
+          "push": "Push notifications via ntfy"
+        },
+        "button": "Add Your First Wallet & Start Trial",
+        "note": "Trial starts when you add your wallet"
+      },
+      "simple": {
+        "title": "Add Your First Wallet",
+        "description": "Add a wallet descriptor to start monitoring your Bitcoin transactions.",
+        "button": "Add Wallet"
+      }
+    },
     "connectionLost": {
       "title": "Backend Connection Lost",
       "description": "Unable to connect to the backend service. Displaying cached data.",
       "lastUpdated": "Last updated: {time}"
     },
     "empty": {
-      "title": "No wallets yet",
-      "description": "Add your first Bitcoin wallet to start monitoring",
+      "title": "No Wallets",
+      "description": "No wallets found. Use the \"Add Wallet\" button in the header to get started.",
       "addFirst": "Add Your First Wallet"
+    },
+    "error": {
+      "title": "Error",
+      "loadFailed": "Failed to load wallets: {error}"
+    },
+    "card": {
+      "syncing": "Syncing...",
+      "inactive": "Inactive",
+      "inactiveExpired": "Your subscription has expired - wallet won't sync automatically",
+      "inactiveTierLimit": "This wallet exceeds your subscription tier limits and won't sync automatically",
+      "balance": "Balance",
+      "lastActivity": "Last activity: {date}",
+      "noRecentActivity": "No recent activity"
     },
     "add": {
       "title": "Add Wallet",
@@ -293,6 +329,24 @@
       "syncStatus": {
         "pending": "Syncing",
         "ready": "Synced"
+      },
+      "backToWallets": "Back to Wallets",
+      "new": "New",
+      "notFound": {
+        "title": "Wallet Not Found",
+        "description": "The wallet with checksum #{checksum} could not be found."
+      },
+      "syncing": {
+        "title": "Wallet Still Syncing",
+        "description": "{name} is still syncing and scanning for historical transactions. This process can take a few minutes for wallets with transaction history.",
+        "returnPrompt": "Please return to the wallets page and wait for the syncing to complete."
+      },
+      "inactive": {
+        "title": "Wallet Inactive",
+        "descriptionExpired": "Your subscription has expired - wallet won't sync automatically.",
+        "descriptionTierLimit": "This wallet exceeds your subscription tier limits and won't sync automatically.",
+        "outdatedWarning": "Transaction history and balance shown may be outdated.",
+        "upgradePlan": "Upgrade Plan"
       }
     },
     "delete": {
@@ -311,41 +365,37 @@
     "title": "Contacts",
     "empty": {
       "title": "No contacts yet",
-      "description": "Add contacts to receive notifications about this wallet"
+      "description": "Add contacts to receive notifications about this wallet",
+      "list": "No contacts added yet"
+    },
+    "inactive": {
+      "badge": "Inactive",
+      "expired": "Your subscription has expired - contact won't receive notifications",
+      "tierLimit": "This contact exceeds your subscription tier limits and won't receive notifications"
     },
     "add": {
-      "title": "Add Contact",
-      "nameLabel": "Contact Name",
-      "namePlaceholder": "John Doe",
-      "languageLabel": "Notification Language",
-      "methodTitle": "Notification Method",
-      "methodDescription": "Choose how this contact will receive notifications",
+      "title": "Add New Contact",
+      "description": "Set up a new contact to receive Bitcoin transaction notifications.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Contact name",
+      "languageLabel": "Language",
+      "methodTitle": "Notification Methods",
       "ntfy": {
-        "title": "Push Notifications (ntfy)",
-        "description": "Free push notifications via the ntfy app",
-        "topicLabel": "Topic Name",
-        "topicPlaceholder": "my-wallet-alerts",
-        "topicHint": "Subscribe to this topic in the ntfy app to receive notifications"
+        "topicHint": "Topic will be auto-generated based on contact name"
       },
       "sms": {
-        "title": "SMS",
-        "description": "Text message notifications",
-        "phoneLabel": "Phone Number",
-        "phonePlaceholder": "+1234567890",
-        "phoneHint": "Include country code (e.g., +1 for US)"
+        "phoneHint": "Include country code"
       },
       "email": {
-        "title": "Email",
-        "description": "Email notifications",
-        "emailLabel": "Email Address",
-        "emailPlaceholder": "john@example.com"
+        "emailHint": "Enter valid email address"
       },
-      "submit": "Add Contact",
-      "submitting": "Adding..."
+      "submit": "Create Contact",
+      "submitting": "Processing..."
     },
     "edit": {
       "title": "Edit Contact",
-      "submit": "Save Changes"
+      "description": "Update the contact information and notification methods.",
+      "submit": "Update Contact"
     },
     "delete": {
       "title": "Delete Contact",
@@ -354,37 +404,77 @@
       "cancel": "Cancel"
     },
     "verification": {
-      "title": "Verify Contact",
-      "description": "We've sent a verification code to {contact}. Enter it below to verify.",
       "codeLabel": "Verification Code",
       "codePlaceholder": "Enter 6-digit code",
-      "submit": "Verify",
-      "resend": "Resend Code",
+      "sendCode": "Send Verification Code",
+      "sendingCode": "Sending...",
+      "verify": "Verify",
+      "verifying": "Verifying...",
+      "resend": "Resend",
+      "codeSentTo": "Code sent to {target}",
       "expiresIn": "Expires in {time}",
-      "expired": "Code expired",
-      "invalid": "Invalid verification code",
-      "verified": "Contact verified!"
+      "expired": "Verification code expired. Please try again.",
+      "expiredRequest": "Verification code expired. Please request a new code.",
+      "invalid": "Invalid verification code. Please try again.",
+      "smsVerified": "SMS verified successfully",
+      "emailVerified": "Email verified successfully",
+      "smsRequired": "Phone number is required for SMS verification",
+      "emailRequired": "Email address is required for email verification",
+      "enterCode": "Please enter the verification code",
+      "verifySmsFirst": "Please verify the SMS code before saving the contact",
+      "verifyNewSms": "Please verify the new SMS phone number before saving the contact",
+      "verifyEmailFirst": "Please verify the email code before saving the contact",
+      "verifyNewEmail": "Please verify the new email address before saving the contact"
+    },
+    "errors": {
+      "nameRequired": "Contact name is required"
+    },
+    "languages": {
+      "en": "English",
+      "no": "Norwegian",
+      "es": "Spanish",
+      "pt": "Portuguese",
+      "de": "German",
+      "fr": "French",
+      "ja": "Japanese"
     }
   },
   "balanceAlerts": {
     "title": "Balance Alerts",
+    "new": "New",
     "empty": {
       "title": "No balance alerts",
-      "description": "Set up alerts to be notified when your wallet balance reaches certain thresholds"
+      "description": "Set up alerts to be notified when your wallet balance reaches certain thresholds",
+      "list": "No alerts set"
     },
+    "lastFired": "Last fired {date}",
+    "deleteAlert": "Delete alert",
     "add": {
-      "title": "Add Balance Alert",
+      "title": "Create New Alert",
       "typeLabel": "Alert Type",
       "types": {
         "above": "Above",
         "below": "Below",
         "equals": "Equals"
       },
+      "typeDescriptions": {
+        "above": "Alert when balance goes above this amount",
+        "below": "Alert when balance goes below this amount",
+        "equals": "Alert when balance equals this amount (e.g., wallet drain)"
+      },
+      "currencyLabel": "Currency Type",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Fiat Currency ({currency})",
+      "bitcoinAmount": "Bitcoin Amount",
+      "amount": "Amount ({currency})",
+      "enterAmountBtc": "Enter amount in BTC",
+      "enterAmount": "Enter amount in {currency}",
       "thresholdLabel": "Threshold",
       "thresholdPlaceholder": "0.1",
       "btc": "BTC",
-      "submit": "Add Alert",
-      "submitting": "Adding..."
+      "cancel": "Cancel",
+      "submit": "Create",
+      "submitting": "Creating..."
     },
     "edit": {
       "title": "Edit Balance Alert"
@@ -401,21 +491,33 @@
       "reactivate": "Reactivate"
     },
     "errors": {
+      "invalidBtcAmount": "Please enter a valid Bitcoin amount",
+      "invalidPositiveAmount": "Please enter a valid positive amount",
       "negativeAmount": "Amount cannot be negative",
-      "belowZero": "Cannot create alert for 'below 0'"
+      "belowZero": "Cannot create alert for \"below 0\" - balance cannot go below zero",
+      "duplicateAlert": "An alert with this type and amount already exists",
+      "createFailed": "Failed to create balance alert",
+      "deleteFailed": "Failed to delete alert"
     }
   },
   "transactions": {
     "title": "Transactions",
+    "titleWithWallet": "Transactions - {walletName}",
+    "loading": "Loading transactions...",
     "empty": "No transactions yet",
+    "emptyForWallet": "No transactions found for the selected wallet.",
+    "count": "{count} {count, plural, one {transaction} other {transactions}}",
     "types": {
       "receive": "Received",
-      "send": "Sent"
+      "send": "Sent",
+      "receiving": "Receiving",
+      "sending": "Sending"
     },
     "status": {
       "pending": "Pending",
       "confirmed": "Confirmed",
-      "dropped": "Dropped"
+      "dropped": "Dropped",
+      "replaced": "Replaced"
     },
     "details": {
       "txid": "Transaction ID",
@@ -424,11 +526,41 @@
       "date": "Date",
       "confirmations": "Confirmations",
       "block": "Block",
-      "address": "Address"
+      "address": "Address",
+      "replacedBy": "Replaced by",
+      "replacedAt": "Replaced at"
     },
+    "tableHeaders": {
+      "dateTime": "Date/Time",
+      "wallet": "Wallet",
+      "transaction": "Transaction",
+      "amount": "Amount",
+      "details": "Details"
+    },
+    "tooltips": {
+      "cpfp": "CPFP transaction",
+      "rbfReplaced": "Replaced by RBF",
+      "notificationsFailed": "Some notifications failed",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Child of {txid}",
+      "replacedByTx": "Replaced by transaction: {txid}",
+      "viewOnMempool": "View {txid} on Mempool Space"
+    },
+    "timeline": {
+      "pending": "PENDING",
+      "confirmed": "CONFIRMED"
+    },
+    "notifications": {
+      "sentAt": "Sent at",
+      "statusLabel": "Status",
+      "errorLabel": "Error",
+      "unknownTime": "Unknown time",
+      "unknownTarget": "Unknown target"
+    },
+    "error": "Error: {error}",
     "rbf": "RBF",
     "cpfp": "CPFP",
-    "replacement": "Replacement"
+    "replacement": "Replacement",
+    "walletLabel": "Wallet: {name}"
   },
   "billing": {
     "title": "Subscription",
@@ -482,7 +614,22 @@
     "perYear": "/year",
     "saveYearly": "Save {percent}% yearly",
     "popular": "POPULAR",
-    "currentPlanBadge": "CURRENT PLAN"
+    "currentPlanBadge": "CURRENT PLAN",
+    "trialPlanBadge": "TRIAL PLAN",
+    "freeToSelfHost": "Free to Self-host",
+    "plusTaxes": "Plus applicable taxes",
+    "changePlan": "Change Plan",
+    "subscribeTo": "Subscribe to {plan}",
+    "upgradeTo": "Upgrade to {plan}",
+    "startTrial": "Start 30-Day Free Trial",
+    "loadingPricing": "Loading pricing...",
+    "errorTitle": "Unable to load pricing",
+    "errorDescription": "Please refresh the page or try again later.",
+    "selfHosted": {
+      "description": "Prefer to self-host? Canary is free to run on your own infrastructure with push notifications via ntfy.",
+      "installUmbrel": "Install on Umbrel",
+      "viewGithub": "View on GitHub"
+    }
   },
   "upgrade": {
     "title": "Upgrade Your Plan",
@@ -502,5 +649,10 @@
     "notFound": "Not found.",
     "serverError": "Server error. Please try again later.",
     "validation": "Please check your input and try again."
+  },
+  "footer": {
+    "logoAlt": "Canary Logo",
+    "appName": "Canary",
+    "blockInfo": "Block {height}"
   }
 }

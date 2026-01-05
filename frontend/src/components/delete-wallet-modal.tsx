@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Wallet } from "../types"
+import { useTranslations } from "next-intl"
 
 interface DeleteWalletModalProps {
   wallet: Wallet | null
@@ -28,6 +29,8 @@ export function DeleteWalletModal({
 }: DeleteWalletModalProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const t = useTranslations('wallets')
+  const tCommon = useTranslations('common')
 
   const handleDelete = async () => {
     if (!wallet) return
@@ -59,10 +62,10 @@ export function DeleteWalletModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">
             <Trash2 className="h-5 w-5" />
-            Delete Wallet
+            {t('delete.title')}
           </DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <strong>{wallet?.name}</strong>? This action cannot be undone.
+            {t('delete.description')} <strong>{wallet?.name}</strong>
           </DialogDescription>
         </DialogHeader>
 
@@ -78,14 +81,14 @@ export function DeleteWalletModal({
             onClick={handleClose}
             disabled={isDeleting}
           >
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button
             variant="destructive"
             onClick={handleDelete}
             disabled={isDeleting}
           >
-            {isDeleting ? "Deleting..." : "Delete Wallet"}
+            {isDeleting ? tCommon('deleting') : t('delete.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -40,7 +40,9 @@
     "settings": "Einstellungen",
     "wallets": "Wallets",
     "addWallet": "Wallet hinzufugen",
-    "alreadyUser": "Bereits registriert? Anmelden"
+    "alreadyUser": "Bereits registriert? Anmelden",
+    "contact": "Kontakt",
+    "subscription": "Abonnement"
   },
   "landing": {
     "hero": {
@@ -230,15 +232,49 @@
   "wallets": {
     "title": "Meine Wallets",
     "summary": "Verfolge {count} {count, plural, one {Wallet} other {Wallets}} mit einem Gesamtguthaben von {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "Bereit für Ihre Testversion",
+        "titleWithName": "Bereit für Ihre Testversion, {name}?",
+        "description": "Fügen Sie Ihre erste Wallet hinzu, um Ihre <highlight>30-tägige Team-Testversion</highlight> zu aktivieren. Sie erhalten sofortigen Zugriff auf alle Funktionen, einschließlich Echtzeit-Synchronisation, unbegrenzte Benachrichtigungen und Prioritäts-Support.",
+        "whatYouGet": "Was Sie erhalten:",
+        "features": {
+          "wallets": "5 Wallets mit 2-Minuten-Sync",
+          "contacts": "5 Kontakte pro Wallet",
+          "emailSms": "E-Mail- und SMS-Benachrichtigungen",
+          "push": "Push-Benachrichtigungen via ntfy"
+        },
+        "button": "Erste Wallet hinzufügen und Testversion starten",
+        "note": "Die Testversion beginnt, wenn Sie Ihre Wallet hinzufügen"
+      },
+      "simple": {
+        "title": "Erste Wallet hinzufügen",
+        "description": "Fügen Sie einen Wallet-Descriptor hinzu, um Ihre Bitcoin-Transaktionen zu überwachen.",
+        "button": "Wallet hinzufügen"
+      }
+    },
     "connectionLost": {
       "title": "Backend-Verbindung verloren",
       "description": "Verbindung zum Backend-Dienst nicht möglich. Zeige zwischengespeicherte Daten.",
       "lastUpdated": "Zuletzt aktualisiert: {time}"
     },
     "empty": {
-      "title": "Noch keine Wallets",
-      "description": "Fugen Sie Ihre erste Bitcoin-Wallet hinzu, um mit der Uberwachung zu beginnen",
+      "title": "Keine Wallets",
+      "description": "Keine Wallets gefunden. Verwenden Sie den Button \"Wallet hinzufugen\" um zu beginnen.",
       "addFirst": "Erste Wallet hinzufugen"
+    },
+    "error": {
+      "title": "Fehler",
+      "loadFailed": "Wallets konnten nicht geladen werden: {error}"
+    },
+    "card": {
+      "syncing": "Synchronisiere...",
+      "inactive": "Inaktiv",
+      "inactiveExpired": "Ihr Abonnement ist abgelaufen - Wallet wird nicht automatisch synchronisiert",
+      "inactiveTierLimit": "Diese Wallet uberschreitet Ihre Abonnementgrenzen und wird nicht automatisch synchronisiert",
+      "balance": "Guthaben",
+      "lastActivity": "Letzte Aktivitat: {date}",
+      "noRecentActivity": "Keine aktuelle Aktivitat"
     },
     "add": {
       "title": "Wallet hinzufugen",
@@ -293,6 +329,24 @@
       "syncStatus": {
         "pending": "Synchronisiert",
         "ready": "Synchronisiert"
+      },
+      "backToWallets": "Zuruck zu Wallets",
+      "new": "Neu",
+      "notFound": {
+        "title": "Wallet nicht gefunden",
+        "description": "Die Wallet mit Prufsumme #{checksum} wurde nicht gefunden."
+      },
+      "syncing": {
+        "title": "Wallet synchronisiert noch",
+        "description": "{name} synchronisiert noch und scannt nach historischen Transaktionen. Dieser Vorgang kann bei Wallets mit Transaktionshistorie einige Minuten dauern.",
+        "returnPrompt": "Bitte kehren Sie zur Wallet-Seite zuruck und warten Sie, bis die Synchronisierung abgeschlossen ist."
+      },
+      "inactive": {
+        "title": "Wallet inaktiv",
+        "descriptionExpired": "Ihr Abonnement ist abgelaufen - die Wallet wird nicht automatisch synchronisiert.",
+        "descriptionTierLimit": "Diese Wallet uberschreitet Ihre Abonnement-Limits und wird nicht automatisch synchronisiert.",
+        "outdatedWarning": "Transaktionshistorie und angezeigtes Guthaben sind moglicherweise veraltet.",
+        "upgradePlan": "Plan upgraden"
       }
     },
     "delete": {
@@ -311,80 +365,116 @@
     "title": "Kontakte",
     "empty": {
       "title": "Noch keine Kontakte",
-      "description": "Fugen Sie Kontakte hinzu, um Benachrichtigungen uber diese Wallet zu erhalten"
+      "description": "Fügen Sie Kontakte hinzu, um Benachrichtigungen über diese Wallet zu erhalten",
+      "list": "Noch keine Kontakte hinzugefügt"
+    },
+    "inactive": {
+      "badge": "Inaktiv",
+      "expired": "Ihr Abonnement ist abgelaufen - Kontakt erhält keine Benachrichtigungen",
+      "tierLimit": "Dieser Kontakt überschreitet Ihre Abonnementgrenzen und erhält keine Benachrichtigungen"
     },
     "add": {
-      "title": "Kontakt hinzufugen",
-      "nameLabel": "Kontaktname",
-      "namePlaceholder": "Max Mustermann",
-      "languageLabel": "Benachrichtigungssprache",
-      "methodTitle": "Benachrichtigungsmethode",
-      "methodDescription": "Wahlen Sie, wie dieser Kontakt Benachrichtigungen erhalten soll",
+      "title": "Neuen Kontakt hinzufügen",
+      "description": "Richten Sie einen neuen Kontakt ein, um Bitcoin-Transaktionsbenachrichtigungen zu erhalten.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Kontaktname",
+      "languageLabel": "Sprache",
+      "methodTitle": "Benachrichtigungsmethoden",
       "ntfy": {
-        "title": "Push-Benachrichtigungen (ntfy)",
-        "description": "Kostenlose Push-Benachrichtigungen uber die ntfy-App",
-        "topicLabel": "Topic-Name",
-        "topicPlaceholder": "meine-wallet-warnungen",
-        "topicHint": "Abonnieren Sie dieses Topic in der ntfy-App, um Benachrichtigungen zu erhalten"
+        "topicHint": "Topic wird automatisch basierend auf dem Kontaktnamen generiert"
       },
       "sms": {
-        "title": "SMS",
-        "description": "SMS-Benachrichtigungen",
-        "phoneLabel": "Telefonnummer",
-        "phonePlaceholder": "+491234567890",
-        "phoneHint": "Mit Landervorwahl (z.B. +49 fur Deutschland)"
+        "phoneHint": "Ländervorwahl angeben"
       },
       "email": {
-        "title": "E-Mail",
-        "description": "E-Mail-Benachrichtigungen",
-        "emailLabel": "E-Mail-Adresse",
-        "emailPlaceholder": "max@beispiel.de"
+        "emailHint": "Gültige E-Mail-Adresse eingeben"
       },
-      "submit": "Kontakt hinzufugen",
-      "submitting": "Fugt hinzu..."
+      "submit": "Kontakt erstellen",
+      "submitting": "Verarbeite..."
     },
     "edit": {
       "title": "Kontakt bearbeiten",
-      "submit": "Anderungen speichern"
+      "description": "Kontaktinformationen und Benachrichtigungsmethoden aktualisieren.",
+      "submit": "Kontakt aktualisieren"
     },
     "delete": {
-      "title": "Kontakt loschen",
-      "description": "Sind Sie sicher, dass Sie diesen Kontakt loschen mochten? Er erhalt keine Benachrichtigungen mehr.",
-      "confirm": "Loschen",
+      "title": "Kontakt löschen",
+      "description": "Sind Sie sicher, dass Sie diesen Kontakt löschen möchten? Er erhält keine Benachrichtigungen mehr.",
+      "confirm": "Löschen",
       "cancel": "Abbrechen"
     },
     "verification": {
-      "title": "Kontakt verifizieren",
-      "description": "Wir haben einen Bestatigungscode an {contact} gesendet. Geben Sie ihn unten ein, um zu verifizieren.",
-      "codeLabel": "Bestatigungscode",
+      "codeLabel": "Bestätigungscode",
       "codePlaceholder": "6-stelligen Code eingeben",
-      "submit": "Verifizieren",
-      "resend": "Code erneut senden",
-      "expiresIn": "Lauft ab in {time}",
-      "expired": "Code abgelaufen",
-      "invalid": "Ungultiger Bestatigungscode",
-      "verified": "Kontakt verifiziert!"
+      "sendCode": "Bestätigungscode senden",
+      "sendingCode": "Sende...",
+      "verify": "Verifizieren",
+      "verifying": "Verifiziere...",
+      "resend": "Erneut senden",
+      "codeSentTo": "Code gesendet an {target}",
+      "expiresIn": "Läuft ab in {time}",
+      "expired": "Bestätigungscode abgelaufen. Bitte erneut versuchen.",
+      "expiredRequest": "Bestätigungscode abgelaufen. Bitte neuen Code anfordern.",
+      "invalid": "Ungültiger Bestätigungscode. Bitte erneut versuchen.",
+      "smsVerified": "SMS erfolgreich verifiziert",
+      "emailVerified": "E-Mail erfolgreich verifiziert",
+      "smsRequired": "Telefonnummer ist für SMS-Verifizierung erforderlich",
+      "emailRequired": "E-Mail-Adresse ist für E-Mail-Verifizierung erforderlich",
+      "enterCode": "Bitte geben Sie den Bestätigungscode ein",
+      "verifySmsFirst": "Bitte verifizieren Sie den SMS-Code vor dem Speichern des Kontakts",
+      "verifyNewSms": "Bitte verifizieren Sie die neue Telefonnummer vor dem Speichern des Kontakts",
+      "verifyEmailFirst": "Bitte verifizieren Sie den E-Mail-Code vor dem Speichern des Kontakts",
+      "verifyNewEmail": "Bitte verifizieren Sie die neue E-Mail-Adresse vor dem Speichern des Kontakts"
+    },
+    "errors": {
+      "nameRequired": "Kontaktname ist erforderlich"
+    },
+    "languages": {
+      "en": "Englisch",
+      "no": "Norwegisch",
+      "es": "Spanisch",
+      "pt": "Portugiesisch",
+      "de": "Deutsch",
+      "fr": "Französisch",
+      "ja": "Japanisch"
     }
   },
   "balanceAlerts": {
     "title": "Saldo-Warnungen",
+    "new": "Neu",
     "empty": {
       "title": "Keine Saldo-Warnungen",
-      "description": "Richten Sie Warnungen ein, um benachrichtigt zu werden, wenn Ihr Wallet-Saldo bestimmte Schwellenwerte erreicht"
+      "description": "Richten Sie Warnungen ein, um benachrichtigt zu werden, wenn Ihr Wallet-Saldo bestimmte Schwellenwerte erreicht",
+      "list": "Keine Warnungen eingerichtet"
     },
+    "lastFired": "Zuletzt ausgelost {date}",
+    "deleteAlert": "Warnung loschen",
     "add": {
-      "title": "Saldo-Warnung hinzufugen",
+      "title": "Neue Warnung erstellen",
       "typeLabel": "Warnungstyp",
       "types": {
         "above": "Uber",
         "below": "Unter",
         "equals": "Gleich"
       },
+      "typeDescriptions": {
+        "above": "Warnen, wenn der Saldo diesen Betrag uberschreitet",
+        "below": "Warnen, wenn der Saldo unter diesen Betrag fallt",
+        "equals": "Warnen, wenn der Saldo diesem Betrag entspricht (z.B. Wallet leer)"
+      },
+      "currencyLabel": "Wahrungstyp",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Fiat-Wahrung ({currency})",
+      "bitcoinAmount": "Bitcoin-Betrag",
+      "amount": "Betrag ({currency})",
+      "enterAmountBtc": "Betrag in BTC eingeben",
+      "enterAmount": "Betrag in {currency} eingeben",
       "thresholdLabel": "Schwellenwert",
       "thresholdPlaceholder": "0,1",
       "btc": "BTC",
-      "submit": "Warnung hinzufugen",
-      "submitting": "Fugt hinzu..."
+      "cancel": "Abbrechen",
+      "submit": "Erstellen",
+      "submitting": "Wird erstellt..."
     },
     "edit": {
       "title": "Saldo-Warnung bearbeiten"
@@ -401,21 +491,33 @@
       "reactivate": "Reaktivieren"
     },
     "errors": {
+      "invalidBtcAmount": "Bitte geben Sie einen gultigen Bitcoin-Betrag ein",
+      "invalidPositiveAmount": "Bitte geben Sie einen gultigen positiven Betrag ein",
       "negativeAmount": "Betrag darf nicht negativ sein",
-      "belowZero": "Warnung fur 'unter 0' kann nicht erstellt werden"
+      "belowZero": "Warnung fur 'unter 0' kann nicht erstellt werden - Saldo kann nicht negativ sein",
+      "duplicateAlert": "Eine Warnung mit diesem Typ und Betrag existiert bereits",
+      "createFailed": "Saldo-Warnung konnte nicht erstellt werden",
+      "deleteFailed": "Warnung konnte nicht geloscht werden"
     }
   },
   "transactions": {
     "title": "Transaktionen",
+    "titleWithWallet": "Transaktionen - {walletName}",
+    "loading": "Transaktionen werden geladen...",
     "empty": "Noch keine Transaktionen",
+    "emptyForWallet": "Keine Transaktionen fur die ausgewahlte Wallet gefunden.",
+    "count": "{count} {count, plural, one {Transaktion} other {Transaktionen}}",
     "types": {
       "receive": "Empfangen",
-      "send": "Gesendet"
+      "send": "Gesendet",
+      "receiving": "Empfange",
+      "sending": "Sende"
     },
     "status": {
       "pending": "Ausstehend",
       "confirmed": "Bestatigt",
-      "dropped": "Verworfen"
+      "dropped": "Verworfen",
+      "replaced": "Ersetzt"
     },
     "details": {
       "txid": "Transaktions-ID",
@@ -424,11 +526,41 @@
       "date": "Datum",
       "confirmations": "Bestatigungen",
       "block": "Block",
-      "address": "Adresse"
+      "address": "Adresse",
+      "replacedBy": "Ersetzt durch",
+      "replacedAt": "Ersetzt am"
     },
+    "tableHeaders": {
+      "dateTime": "Datum/Zeit",
+      "wallet": "Wallet",
+      "transaction": "Transaktion",
+      "amount": "Betrag",
+      "details": "Details"
+    },
+    "tooltips": {
+      "cpfp": "CPFP-Transaktion",
+      "rbfReplaced": "Ersetzt durch RBF",
+      "notificationsFailed": "Einige Benachrichtigungen fehlgeschlagen",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Kind von {txid}",
+      "replacedByTx": "Ersetzt durch Transaktion: {txid}",
+      "viewOnMempool": "{txid} auf Mempool Space anzeigen"
+    },
+    "timeline": {
+      "pending": "AUSSTEHEND",
+      "confirmed": "BESTÄTIGT"
+    },
+    "notifications": {
+      "sentAt": "Gesendet",
+      "statusLabel": "Status",
+      "errorLabel": "Fehler",
+      "unknownTime": "Unbekannte Zeit",
+      "unknownTarget": "Unbekanntes Ziel"
+    },
+    "error": "Fehler: {error}",
     "rbf": "RBF",
     "cpfp": "CPFP",
-    "replacement": "Ersatz"
+    "replacement": "Ersatz",
+    "walletLabel": "Wallet: {name}"
   },
   "billing": {
     "title": "Abonnement",
@@ -482,7 +614,22 @@
     "perYear": "/Jahr",
     "saveYearly": "{percent}% jahrlich sparen",
     "popular": "BELIEBT",
-    "currentPlanBadge": "AKTUELLER PLAN"
+    "currentPlanBadge": "AKTUELLER PLAN",
+    "trialPlanBadge": "TESTPLAN",
+    "freeToSelfHost": "Kostenlos selbst hosten",
+    "plusTaxes": "Zzgl. anfallende Steuern",
+    "changePlan": "Plan andern",
+    "subscribeTo": "{plan} abonnieren",
+    "upgradeTo": "Auf {plan} upgraden",
+    "startTrial": "30-Tage-Testversion starten",
+    "loadingPricing": "Preise werden geladen...",
+    "errorTitle": "Preise konnten nicht geladen werden",
+    "errorDescription": "Bitte aktualisieren Sie die Seite oder versuchen Sie es spater erneut.",
+    "selfHosted": {
+      "description": "Lieber selbst hosten? Canary ist kostenlos auf Ihrer eigenen Infrastruktur ausfuhrbar mit Push-Benachrichtigungen uber ntfy.",
+      "installUmbrel": "Auf Umbrel installieren",
+      "viewGithub": "Auf GitHub ansehen"
+    }
   },
   "upgrade": {
     "title": "Plan upgraden",
@@ -502,5 +649,10 @@
     "notFound": "Nicht gefunden.",
     "serverError": "Serverfehler. Bitte versuchen Sie es spater erneut.",
     "validation": "Bitte prufen Sie Ihre Eingabe und versuchen Sie es erneut."
+  },
+  "footer": {
+    "logoAlt": "Canary-Logo",
+    "appName": "Canary",
+    "blockInfo": "Block {height}"
   }
 }
