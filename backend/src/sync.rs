@@ -14,10 +14,6 @@ use tracing::{debug, error, info, warn};
 /// Number of consecutive reconnection failures before sending an alert
 const ALERT_FAILURE_THRESHOLD: u32 = 3;
 
-/// Grace period before actively checking if a transaction was dropped (20 minutes)
-/// This prevents false positives due to propagation delays
-const DROPPED_CHECK_GRACE_PERIOD_SECS: u64 = 1200;
-
 /// Transaction-based wallet sync service
 /// This replaces the old balance-based sync logic with proper transaction tracking
 pub struct WalletSyncService {
@@ -814,7 +810,24 @@ impl WalletSyncService {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let expiry_threshold = self.config.network.mempool_expiry_seconds();
+        // Count pending transactions for logging
+        let pending_txs: Vec<_> = existing_transactions
+            .iter()
+            .filter(|tx| tx.transaction_status == "pending")
+            .collect();
+
+        if !pending_txs.is_empty() {
+            info!(
+                "[{}] Checking {} pending transaction(s) for dropped status (canonical_txs={})",
+                wallet_checksum,
+                pending_txs.len(),
+                canonical_txids.len()
+            );
+        }
+
+        // Grace period before checking if transaction was dropped
+        // This prevents false positives from propagation delays
+        let grace_period = self.config.network.dropped_check_grace_period_seconds();
 
         for existing_tx in &existing_transactions {
             // Only check pending transactions
@@ -823,52 +836,34 @@ impl WalletSyncService {
             }
 
             let pending_duration = current_time.saturating_sub(existing_tx.first_seen_at);
-            
-            // Determine if transaction is dropped
-            // Strategy:
-            // 1. If we have an Electrum client and the transaction is older than the grace period,
-            //    actively check if it exists on the server.
-            // 2. If the check returns "false" (not found), it's dropped.
-            // 3. If the check returns "true" (found), it's NOT dropped (even if old).
-            // 4. If the check fails (error) or no client, fall back to the passive expiry threshold.
-            
-            let is_dropped = if let Some(client) = electrum_client {
-                if pending_duration > DROPPED_CHECK_GRACE_PERIOD_SECS {
-                    // Active check
-                    match client.get_transaction_exists(&existing_tx.txid).await {
-                        Ok(exists) => {
-                            if !exists {
-                                info!(
-                                    "[{}] Transaction {} confirmed missing from Electrum server (pending {}s), marking as dropped", 
-                                    wallet_checksum, existing_tx.txid, pending_duration
-                                );
-                                true
-                            } else {
-                                // Exists on server, so it's valid (just stuck in mempool)
-                                false
-                            }
-                        },
-                        Err(e) => {
-                            warn!(
-                                "[{}] Failed to check transaction {} existence: {}, falling back to expiry threshold", 
-                                wallet_checksum, existing_tx.txid, e
-                            );
-                            // Fallback to strict time expiry
-                            pending_duration > expiry_threshold
-                        }
-                    }
-                } else {
-                    // Too new to check
-                    false
-                }
-            } else {
-                // No client available, fallback to strict time expiry
-                pending_duration > expiry_threshold
-            };
+
+            // Skip transactions that are too new (within grace period)
+            if pending_duration < grace_period {
+                continue;
+            }
+
+            // Detect dropped transactions using time-based expiry
+            //
+            // We use time-based expiry because:
+            // 1. Fulcrum caches all transactions it indexes (transaction_get returns cached data)
+            // 2. BDK persists its tx_graph to local SQLite (doesn't remove dropped transactions)
+            // 3. Even after clearing caches, both layers retain stale transaction data
+            //
+            // This matches Bitcoin Core's behavior (mempoolexpiry=336 hours = 14 days)
+            // For regtest, we use a shorter threshold (5 minutes) for faster testing
+            let expiry_threshold = self.config.network.mempool_expiry_seconds();
+
+            // Check if transaction is NOT in canonical set (fast path, works after full re-sync)
+            let is_in_canonical = canonical_txids.contains(&existing_tx.txid);
+
+            // Transaction is dropped if:
+            // 1. Not in BDK's canonical set (fast detection when caches are fresh), OR
+            // 2. Past the expiry threshold (reliable fallback when caches are stale)
+            let is_dropped = !is_in_canonical || pending_duration > expiry_threshold;
 
             if is_dropped {
-                debug!(
-                    "[{}] Detected dropped transaction: {} (pending for {}s)",
+                info!(
+                    "[{}] Transaction {} not in BDK canonical set (pending for {}s), marking as dropped",
                     wallet_checksum, existing_tx.txid, pending_duration
                 );
 
@@ -881,8 +876,8 @@ impl WalletSyncService {
                     has_changes = true;
                     dropped_count += 1;
                     info!(
-                        "[{}] Marked transaction {} as dropped from mempool (pending for {} hours)",
-                        wallet_checksum, existing_tx.txid, pending_duration / 3600
+                        "[{}] Marked transaction {} as dropped from mempool",
+                        wallet_checksum, existing_tx.txid
                     );
 
                     // Send dropped notification

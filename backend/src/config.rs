@@ -46,6 +46,18 @@ impl NetworkConfig {
             NetworkConfig::Mainnet => 14 * 24 * 3600, // 14 days
         }
     }
+
+    /// Returns the grace period before actively checking if a transaction was dropped
+    /// This prevents false positives from temporary network issues or slow propagation
+    /// - Regtest: 30 seconds (for fast testing)
+    /// - Testnet/Mainnet: 20 minutes (conservative for real networks)
+    pub fn dropped_check_grace_period_seconds(&self) -> u64 {
+        match self {
+            NetworkConfig::Regtest => 30,   // 30 seconds for testing
+            NetworkConfig::Testnet => 1200, // 20 minutes
+            NetworkConfig::Mainnet => 1200, // 20 minutes
+        }
+    }
 }
 
 impl std::str::FromStr for NetworkConfig {

@@ -29,7 +29,7 @@ CREATE TABLE notification_logs_new (
     FOREIGN KEY (notification_method_id) REFERENCES contact_notification_methods (id) ON DELETE SET NULL
 );
 
--- Copy existing data
+-- Copy existing data (mapping old column names to new ones)
 INSERT INTO notification_logs_new (
     id, transaction_txid, transaction_wallet_checksum, notification_method_id, provider_name,
     provider_message_id, status, error_message, message_content,
@@ -37,10 +37,10 @@ INSERT INTO notification_logs_new (
     provider_type_snapshot, created_at, balance_alert_id
 )
 SELECT
-    id, transaction_txid, transaction_wallet_checksum, notification_method_id, provider_name,
+    id, txid, wallet_checksum, notification_method_id, provider,
     provider_message_id, status, error_message, message_content,
-    notification_type, contact_name_snapshot, notification_target_snapshot,
-    provider_type_snapshot, created_at, NULL
+    notification_type, NULL, NULL,
+    NULL, sent_at, balance_alert_id
 FROM notification_logs;
 
 -- Drop old table and rename new one
