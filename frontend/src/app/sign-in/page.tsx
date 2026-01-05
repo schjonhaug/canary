@@ -11,8 +11,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, User, Shield } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 
 export default function SignInPage() {
+  const t = useTranslations('auth.signIn')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -36,7 +38,7 @@ export default function SignInPage() {
       await login(email, password)
       // Navigation is handled by the login function in auth context
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(err instanceof Error ? err.message : t('loginFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -75,10 +77,10 @@ export default function SignInPage() {
             />
           </div>
           <CardTitle className="text-2xl font-bold text-center">
-            Welcome back
+            {t('title')}
           </CardTitle>
           <CardDescription className="text-center">
-            Sign in to your Canary account
+            {t('subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -93,7 +95,7 @@ export default function SignInPage() {
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Shield className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">Development Mode</span>
+                <span className="text-sm font-medium text-blue-800">{t('devMode')}</span>
               </div>
               <div className="space-y-2">
                 <div className="grid grid-cols-1 gap-2">
@@ -102,13 +104,13 @@ export default function SignInPage() {
                     { email: 'delivered+alice@resend.dev', label: 'Alice (Personal)' },
                     { email: 'delivered+bob@resend.dev', label: 'Bob (Team)' },
                     { email: 'delivered+charlie@resend.dev', label: 'Charlie (Team)' }
-                  ].map(({ email, label }) => (
+                  ].map(({ email: devEmail, label }) => (
                     <Button
-                      key={email}
+                      key={devEmail}
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDevLogin(email)}
+                      onClick={() => handleDevLogin(devEmail)}
                       disabled={isLoading}
                     >
                       <User className="mr-2 h-3 w-3" />
@@ -122,11 +124,11 @@ export default function SignInPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="your@email.com"
+                placeholder={t('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -134,29 +136,29 @@ export default function SignInPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder={t('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
               />
             </div>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full"
               disabled={isLoading || !email || !password}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  {t('submitting')}
                 </>
               ) : (
-                'Sign in'
+                t('submit')
               )}
             </Button>
             <div className="flex flex-col gap-2">
@@ -167,7 +169,7 @@ export default function SignInPage() {
                   className="w-full"
                   disabled={isLoading}
                 >
-                  Don&apos;t have an account? Sign up
+                  {t('noAccount')}
                 </Button>
               </Link>
               <Link href="/forgot-password">
@@ -177,7 +179,7 @@ export default function SignInPage() {
                   className="w-full"
                   disabled={isLoading}
                 >
-                  Forgot your password?
+                  {t('forgotPassword')}
                 </Button>
               </Link>
             </div>
