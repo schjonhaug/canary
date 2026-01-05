@@ -1,0 +1,483 @@
+{
+  "common": {
+    "loading": "Laden...",
+    "save": "Speichern",
+    "saving": "Speichert...",
+    "cancel": "Abbrechen",
+    "delete": "Loschen",
+    "deleting": "Loscht...",
+    "edit": "Bearbeiten",
+    "add": "Hinzufugen",
+    "close": "Schliessen",
+    "confirm": "Bestatigen",
+    "back": "Zuruck",
+    "next": "Weiter",
+    "submit": "Absenden",
+    "verify": "Verifizieren",
+    "verifying": "Verifiziert...",
+    "send": "Senden",
+    "sending": "Sendet...",
+    "retry": "Erneut versuchen",
+    "yes": "Ja",
+    "no": "Nein",
+    "or": "oder",
+    "and": "und",
+    "active": "AKTIV",
+    "inactive": "INAKTIV",
+    "pending": "Ausstehend",
+    "confirmed": "Bestatigt",
+    "failed": "Fehlgeschlagen",
+    "success": "Erfolg",
+    "error": "Fehler",
+    "warning": "Warnung",
+    "info": "Info",
+    "savedSuccessfully": "Erfolgreich gespeichert!",
+    "connectingToNetwork": "Verbinde mit Netzwerk..."
+  },
+  "nav": {
+    "signIn": "Anmelden",
+    "signOut": "Abmelden",
+    "settings": "Einstellungen",
+    "wallets": "Wallets",
+    "addWallet": "Wallet hinzufugen",
+    "alreadyUser": "Bereits registriert? Anmelden"
+  },
+  "landing": {
+    "hero": {
+      "title": "Vollstandige Bitcoin-Uberwachung",
+      "description": "Professionelles Bitcoin-Monitoring mit Transaktionswarnungen und intelligenten Saldo-Benachrichtigungen. Legen Sie benutzerdefinierte Schwellenwerte fest, uberwachen Sie Wallet-Entleerungen, verfolgen Sie alle Transaktionen - alles mit Watch-Only-Sicherheit.",
+      "startTrial": "30-Tage-Testversion starten",
+      "tryDemo": "Demo testen",
+      "viewPricing": "Preise ansehen"
+    },
+    "features": {
+      "title": "Vollstandige Bitcoin-Uberwachung",
+      "subtitle": "Transaktionsverfolgung, Saldo-Warnungen und sicheres Watch-Only-Monitoring",
+      "notifications": {
+        "title": "Sofortige Bitcoin-Transaktionsbenachrichtigungen",
+        "description": "Echtzeit-Bitcoin-Wallet-Benachrichtigungen per E-Mail, SMS und Push-Benachrichtigungen direkt auf Ihr Gerat"
+      },
+      "balanceAlerts": {
+        "title": "Intelligentes Saldo-Warnsystem",
+        "description": "Benutzerdefinierte Saldo-Schwellenwerte mit Warnungen fur Wallet-Entleerungen, grosse Einzahlungen oder bestimmte Betrage. Verpassen Sie nie kritische Saldo-Anderungen."
+      },
+      "security": {
+        "title": "Sichere Watch-Only Bitcoin-Uberwachung",
+        "description": "Watch-Only-Zugriff auf Bitcoin-Wallets mit XPUBs oder Descriptors - wir beruhren nie Ihre privaten Schlussel"
+      },
+      "sync": {
+        "title": "Echtzeit-Bitcoin-Wallet-Synchronisation",
+        "description": "Bitcoin-Wallet-Synchronisationsintervalle von 10 Minuten bis zu 2 Minuten je nach Abonnement"
+      }
+    },
+    "balanceAlerts": {
+      "title": "Verpassen Sie nie kritische Saldo-Anderungen",
+      "description": "Legen Sie benutzerdefinierte Saldo-Schwellenwerte fest, um Ihre Gesamtbestande zu uberwachen. Erhalten Sie Warnungen, wenn Ihr Saldo bestimmte Werte erreicht. Perfekt fur Cold-Storage-Uberwachung, Wallet-Entleerungserkennung oder Verfolgung wichtiger Saldo-Meilensteine.",
+      "above": {
+        "title": "Warnungen bei Uberschreitung",
+        "description": "Benachrichtigung erhalten, wenn Ihr Gesamtsaldo einen festgelegten Schwellenwert uberschreitet. Uberwachen Sie, wenn Ihre Bestande wichtige Meilensteine erreichen."
+      },
+      "below": {
+        "title": "Warnungen bei Unterschreitung",
+        "description": "Benachrichtigung erhalten, wenn Ihr Gesamtsaldo unter einen festgelegten Schwellenwert fallt. Richten Sie Niedrigsaldo-Warnungen fur Ihre Bestande ein."
+      },
+      "drain": {
+        "title": "Wallet-Entleerungserkennung",
+        "description": "Benachrichtigung erhalten, wenn Ihr Gesamtsaldo einem bestimmten Betrag entspricht, wie null bei Wallet-Entleerungen. Kritische Sicherheitsuberwachung."
+      },
+      "example": {
+        "title": "Ihre Bitcoin-Wallet",
+        "aboveThreshold": "Uber 0,1 BTC",
+        "belowThreshold": "Unter 0,01 BTC",
+        "equalsZero": "Gleich 0 BTC",
+        "deliveryNote": "Alle Warnungen per E-Mail, SMS und Push-Benachrichtigungen"
+      }
+    },
+    "pricing": {
+      "title": "Einfache, transparente Preise",
+      "subtitle": "Wahlen Sie den Plan, der zu Ihren Bedurfnissen passt",
+      "trialNote": "Cloud-Plane beinhalten eine 30-tagige kostenlose Testversion - Keine Kreditkarte erforderlich"
+    },
+    "faq": {
+      "title": "Haufig gestellte Fragen",
+      "contactUs": "Kontaktieren Sie uns hier"
+    },
+    "cta": {
+      "title": "Starten Sie heute mit vollstandiger Bitcoin-Uberwachung",
+      "description": "Transaktionswarnungen, Saldo-Uberwachung und Sicherheit fur Ihr Bitcoin-Vermogen"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Willkommen zuruck",
+      "subtitle": "Melden Sie sich bei Ihrem Canary-Konto an",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "ihre@email.de",
+      "passwordLabel": "Passwort",
+      "passwordPlaceholder": "Passwort eingeben",
+      "submit": "Anmelden",
+      "submitting": "Meldet an...",
+      "noAccount": "Kein Konto? Registrieren",
+      "forgotPassword": "Passwort vergessen?",
+      "devMode": "Entwicklungsmodus",
+      "loginFailed": "Anmeldung fehlgeschlagen"
+    },
+    "signUp": {
+      "title": "Starten Sie Ihre 30-tagige kostenlose Testversion",
+      "subtitle": "30 Tage kostenlos, dann mit dem Plan Ihrer Wahl fortfahren",
+      "nameLabel": "Name",
+      "namePlaceholder": "Ihren Namen eingeben",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "ihre@email.de",
+      "passwordLabel": "Passwort",
+      "passwordPlaceholder": "Sicheres Passwort eingeben",
+      "passwordHint": "Das Passwort muss mindestens 6 Zeichen lang sein",
+      "marketingConsent": "Ich mochte gelegentlich E-Mails uber Service-Updates erhalten",
+      "submit": "Konto erstellen",
+      "submitting": "Erstellt Konto...",
+      "hasAccount": "Bereits ein Konto? Anmelden",
+      "signInInstead": "Stattdessen anmelden",
+      "registrationFailed": "Registrierung fehlgeschlagen"
+    },
+    "signUpSuccess": {
+      "title": "Prufen Sie Ihre E-Mail",
+      "description": "Wir haben einen Bestatigungslink an Ihre E-Mail-Adresse gesendet. Bitte klicken Sie auf den Link, um Ihr Konto zu verifizieren.",
+      "didntReceive": "E-Mail nicht erhalten?",
+      "checkSpam": "Prufen Sie Ihren Spam-Ordner",
+      "resend": "Bestatigungsmail erneut senden",
+      "backToSignIn": "Zuruck zur Anmeldung"
+    },
+    "forgotPassword": {
+      "title": "Passwort vergessen?",
+      "subtitle": "Geben Sie Ihre E-Mail ein und wir senden Ihnen einen Zurucksetzungslink",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "ihre@email.de",
+      "submit": "Zurucksetzungslink senden",
+      "submitting": "Sendet...",
+      "backToSignIn": "Zuruck zur Anmeldung",
+      "successTitle": "Prufen Sie Ihre E-Mail",
+      "successMessage": "Falls ein Konto mit dieser E-Mail existiert, erhalten Sie einen Link zur Passwortzurucksetzung."
+    },
+    "resetPassword": {
+      "title": "Passwort zurucksetzen",
+      "subtitle": "Geben Sie Ihr neues Passwort ein",
+      "passwordLabel": "Neues Passwort",
+      "passwordPlaceholder": "Neues Passwort eingeben",
+      "confirmLabel": "Passwort bestatigen",
+      "confirmPlaceholder": "Neues Passwort bestatigen",
+      "submit": "Passwort zurucksetzen",
+      "submitting": "Setzt zuruck...",
+      "passwordMismatch": "Passworter stimmen nicht uberein",
+      "successTitle": "Passwort zuruckgesetzt",
+      "successMessage": "Ihr Passwort wurde zuruckgesetzt. Sie konnen sich jetzt anmelden.",
+      "invalidToken": "Ungultiger oder abgelaufener Zurucksetzungslink"
+    },
+    "verifyEmail": {
+      "verifying": "Verifiziere Ihre E-Mail...",
+      "successTitle": "E-Mail verifiziert",
+      "successMessage": "Ihre E-Mail wurde verifiziert. Sie konnen sich jetzt anmelden.",
+      "errorTitle": "Verifizierung fehlgeschlagen",
+      "invalidToken": "Ungultiger oder abgelaufener Verifizierungslink",
+      "signIn": "Anmelden"
+    }
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "display": {
+      "title": "Anzeigeeinstellungen",
+      "description": "Passen Sie an, wie Bitcoin-Werte in Ihren Wallets angezeigt werden",
+      "currencyLabel": "Fiat-Wahrung",
+      "currencyPlaceholder": "Wahrung auswahlen",
+      "currencyNote": "Wechselkurse werden alle 10 Minuten von CoinGecko aktualisiert"
+    },
+    "language": {
+      "title": "Sprache",
+      "description": "Wahlen Sie Ihre bevorzugte Sprache fur die Oberflache und Benachrichtigungen",
+      "label": "Sprache"
+    },
+    "ntfy": {
+      "title": "Push-Benachrichtigungen",
+      "description": "Konfigurieren Sie Ihren ntfy-Server fur Push-Benachrichtigungen",
+      "serverLabel": "ntfy Server-URL",
+      "serverPlaceholder": "https://ntfy.sh",
+      "serverNote": "Leer lassen, um den offentlichen ntfy.sh-Server zu verwenden. Sie konnen ntfy selbst hosten fur vollstandige Privatsphare.",
+      "selfHostLink": "ntfy selbst hosten",
+      "auth": {
+        "title": "Authentifizierung",
+        "configured": {
+          "token": "Zugriffstoken konfiguriert",
+          "credentials": "Benutzername/Passwort konfiguriert ({username})",
+          "none": "Keine Authentifizierung konfiguriert"
+        },
+        "type": {
+          "none": "Keine Authentifizierung",
+          "token": "Zugriffstoken",
+          "basic": "Benutzername & Passwort"
+        },
+        "tokenLabel": "Zugriffstoken",
+        "tokenPlaceholder": "tk_...",
+        "usernameLabel": "Benutzername",
+        "usernamePlaceholder": "Benutzername",
+        "passwordLabel": "Passwort",
+        "passwordPlaceholder": "Passwort",
+        "saveAuth": "Authentifizierung speichern",
+        "tokenRequired": "Zugriffstoken ist erforderlich",
+        "credentialsRequired": "Benutzername und Passwort sind erforderlich",
+        "authSaved": "Authentifizierung gespeichert!"
+      }
+    }
+  },
+  "wallets": {
+    "title": "Meine Wallets",
+    "empty": {
+      "title": "Noch keine Wallets",
+      "description": "Fugen Sie Ihre erste Bitcoin-Wallet hinzu, um mit der Uberwachung zu beginnen",
+      "addFirst": "Erste Wallet hinzufugen"
+    },
+    "add": {
+      "title": "Wallet hinzufugen",
+      "nameLabel": "Wallet-Name",
+      "namePlaceholder": "Meine Bitcoin-Wallet",
+      "descriptorLabel": "Wallet-Descriptor oder XPUB",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorHint": "Geben Sie den Output-Descriptor Ihrer Wallet oder XPUB ein. Wir erkennen den Script-Typ automatisch.",
+      "advancedSettings": "Erweiterte Einstellungen",
+      "scriptType": {
+        "label": "Script-Typ",
+        "auto": "Automatisch erkennen (empfohlen)",
+        "p2wpkh": "Native SegWit (P2WPKH)",
+        "p2sh": "Nested SegWit (P2SH-P2WPKH)",
+        "p2pkh": "Legacy (P2PKH)",
+        "p2tr": "Taproot (P2TR)"
+      },
+      "freshWallet": {
+        "label": "Neue Wallet (keine Transaktionshistorie)",
+        "hint": "Tiefenscan fur Wallets ohne fruhere Transaktionen uberspringen"
+      },
+      "submit": "Wallet hinzufugen",
+      "submitting": "Fugt hinzu...",
+      "success": "Wallet erfolgreich hinzugefugt",
+      "error": "Wallet konnte nicht hinzugefugt werden"
+    },
+    "detail": {
+      "balance": "Saldo",
+      "transactions": "Transaktionen",
+      "contacts": "Kontakte",
+      "balanceAlerts": "Saldo-Warnungen",
+      "noTransactions": "Noch keine Transaktionen",
+      "pendingSync": "Wallet wird synchronisiert...",
+      "lastSync": "Zuletzt synchronisiert",
+      "syncStatus": {
+        "pending": "Synchronisiert",
+        "ready": "Synchronisiert"
+      }
+    },
+    "delete": {
+      "title": "Wallet loschen",
+      "description": "Sind Sie sicher, dass Sie diese Wallet loschen mochten? Diese Aktion kann nicht ruckgangig gemacht werden.",
+      "confirm": "Loschen",
+      "cancel": "Abbrechen"
+    },
+    "edit": {
+      "title": "Wallet bearbeiten",
+      "nameLabel": "Wallet-Name",
+      "submit": "Anderungen speichern"
+    }
+  },
+  "contacts": {
+    "title": "Kontakte",
+    "empty": {
+      "title": "Noch keine Kontakte",
+      "description": "Fugen Sie Kontakte hinzu, um Benachrichtigungen uber diese Wallet zu erhalten"
+    },
+    "add": {
+      "title": "Kontakt hinzufugen",
+      "nameLabel": "Kontaktname",
+      "namePlaceholder": "Max Mustermann",
+      "languageLabel": "Benachrichtigungssprache",
+      "methodTitle": "Benachrichtigungsmethode",
+      "methodDescription": "Wahlen Sie, wie dieser Kontakt Benachrichtigungen erhalten soll",
+      "ntfy": {
+        "title": "Push-Benachrichtigungen (ntfy)",
+        "description": "Kostenlose Push-Benachrichtigungen uber die ntfy-App",
+        "topicLabel": "Topic-Name",
+        "topicPlaceholder": "meine-wallet-warnungen",
+        "topicHint": "Abonnieren Sie dieses Topic in der ntfy-App, um Benachrichtigungen zu erhalten"
+      },
+      "sms": {
+        "title": "SMS",
+        "description": "SMS-Benachrichtigungen",
+        "phoneLabel": "Telefonnummer",
+        "phonePlaceholder": "+491234567890",
+        "phoneHint": "Mit Landervorwahl (z.B. +49 fur Deutschland)"
+      },
+      "email": {
+        "title": "E-Mail",
+        "description": "E-Mail-Benachrichtigungen",
+        "emailLabel": "E-Mail-Adresse",
+        "emailPlaceholder": "max@beispiel.de"
+      },
+      "submit": "Kontakt hinzufugen",
+      "submitting": "Fugt hinzu..."
+    },
+    "edit": {
+      "title": "Kontakt bearbeiten",
+      "submit": "Anderungen speichern"
+    },
+    "delete": {
+      "title": "Kontakt loschen",
+      "description": "Sind Sie sicher, dass Sie diesen Kontakt loschen mochten? Er erhalt keine Benachrichtigungen mehr.",
+      "confirm": "Loschen",
+      "cancel": "Abbrechen"
+    },
+    "verification": {
+      "title": "Kontakt verifizieren",
+      "description": "Wir haben einen Bestatigungscode an {contact} gesendet. Geben Sie ihn unten ein, um zu verifizieren.",
+      "codeLabel": "Bestatigungscode",
+      "codePlaceholder": "6-stelligen Code eingeben",
+      "submit": "Verifizieren",
+      "resend": "Code erneut senden",
+      "expiresIn": "Lauft ab in {time}",
+      "expired": "Code abgelaufen",
+      "invalid": "Ungultiger Bestatigungscode",
+      "verified": "Kontakt verifiziert!"
+    }
+  },
+  "balanceAlerts": {
+    "title": "Saldo-Warnungen",
+    "empty": {
+      "title": "Keine Saldo-Warnungen",
+      "description": "Richten Sie Warnungen ein, um benachrichtigt zu werden, wenn Ihr Wallet-Saldo bestimmte Schwellenwerte erreicht"
+    },
+    "add": {
+      "title": "Saldo-Warnung hinzufugen",
+      "typeLabel": "Warnungstyp",
+      "types": {
+        "above": "Uber",
+        "below": "Unter",
+        "equals": "Gleich"
+      },
+      "thresholdLabel": "Schwellenwert",
+      "thresholdPlaceholder": "0,1",
+      "btc": "BTC",
+      "submit": "Warnung hinzufugen",
+      "submitting": "Fugt hinzu..."
+    },
+    "edit": {
+      "title": "Saldo-Warnung bearbeiten"
+    },
+    "delete": {
+      "title": "Warnung loschen",
+      "description": "Sind Sie sicher, dass Sie diese Saldo-Warnung loschen mochten?",
+      "confirm": "Loschen",
+      "cancel": "Abbrechen"
+    },
+    "status": {
+      "active": "Aktiv",
+      "triggered": "Ausgelost",
+      "reactivate": "Reaktivieren"
+    },
+    "errors": {
+      "negativeAmount": "Betrag darf nicht negativ sein",
+      "belowZero": "Warnung fur 'unter 0' kann nicht erstellt werden"
+    }
+  },
+  "transactions": {
+    "title": "Transaktionen",
+    "empty": "Noch keine Transaktionen",
+    "types": {
+      "receive": "Empfangen",
+      "send": "Gesendet"
+    },
+    "status": {
+      "pending": "Ausstehend",
+      "confirmed": "Bestatigt",
+      "dropped": "Verworfen"
+    },
+    "details": {
+      "txid": "Transaktions-ID",
+      "amount": "Betrag",
+      "fee": "Gebuhr",
+      "date": "Datum",
+      "confirmations": "Bestatigungen",
+      "block": "Block",
+      "address": "Adresse"
+    },
+    "rbf": "RBF",
+    "cpfp": "CPFP",
+    "replacement": "Ersatz"
+  },
+  "billing": {
+    "title": "Abonnement",
+    "currentPlan": "Aktueller Plan",
+    "status": {
+      "active": "Aktiv",
+      "trialing": "Testversion",
+      "canceled": "Gekundigt",
+      "expired": "Abgelaufen"
+    },
+    "trial": {
+      "daysLeft": "{days} Tage ubrig",
+      "endsOn": "Testversion endet am {date}"
+    },
+    "manage": "Abrechnung verwalten",
+    "upgrade": "Upgraden",
+    "subscribe": "Abonnieren",
+    "plans": {
+      "personal": {
+        "name": "Personal",
+        "description": "Fur individuelle Bitcoin-Besitzer",
+        "features": {
+          "wallets": "1 Wallet",
+          "contacts": "1 Kontakt pro Wallet",
+          "sync": "10-Minuten-Synchronisation",
+          "notifications": "Alle Benachrichtigungstypen"
+        }
+      },
+      "team": {
+        "name": "Team",
+        "description": "Fur Familienwachter",
+        "features": {
+          "wallets": "5 Wallets",
+          "contacts": "5 Kontakte pro Wallet",
+          "sync": "2-Minuten-Synchronisation",
+          "notifications": "Alle Benachrichtigungstypen"
+        }
+      },
+      "selfHosted": {
+        "name": "Selbst gehostet",
+        "description": "Auf eigener Infrastruktur betreiben",
+        "features": {
+          "wallets": "Unbegrenzte Wallets",
+          "contacts": "Unbegrenzte Kontakte",
+          "sync": "Benutzerdefinierte Sync-Intervalle",
+          "notifications": "ntfy Push-Benachrichtigungen"
+        }
+      }
+    },
+    "perMonth": "/Monat",
+    "perYear": "/Jahr",
+    "saveYearly": "{percent}% jahrlich sparen",
+    "popular": "BELIEBT",
+    "currentPlanBadge": "AKTUELLER PLAN"
+  },
+  "upgrade": {
+    "title": "Plan upgraden",
+    "walletLimit": {
+      "title": "Wallet-Limit erreicht",
+      "description": "Sie haben die maximale Anzahl an Wallets fur Ihren Plan erreicht. Upgraden Sie, um mehr Wallets hinzuzufugen."
+    },
+    "contactLimit": {
+      "title": "Kontakt-Limit erreicht",
+      "description": "Sie haben die maximale Anzahl an Kontakten fur diese Wallet erreicht. Upgraden Sie, um mehr Kontakte hinzuzufugen."
+    }
+  },
+  "errors": {
+    "generic": "Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.",
+    "network": "Netzwerkfehler. Bitte prufen Sie Ihre Verbindung.",
+    "unauthorized": "Bitte melden Sie sich an, um fortzufahren.",
+    "notFound": "Nicht gefunden.",
+    "serverError": "Serverfehler. Bitte versuchen Sie es spater erneut.",
+    "validation": "Bitte prufen Sie Ihre Eingabe und versuchen Sie es erneut."
+  }
+}

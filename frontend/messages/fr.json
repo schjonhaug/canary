@@ -1,0 +1,483 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "deleting": "Suppression...",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "submit": "Envoyer",
+    "verify": "Verifier",
+    "verifying": "Verification...",
+    "send": "Envoyer",
+    "sending": "Envoi...",
+    "retry": "Reessayer",
+    "yes": "Oui",
+    "no": "Non",
+    "or": "ou",
+    "and": "et",
+    "active": "ACTIF",
+    "inactive": "INACTIF",
+    "pending": "En attente",
+    "confirmed": "Confirme",
+    "failed": "Echoue",
+    "success": "Succes",
+    "error": "Erreur",
+    "warning": "Avertissement",
+    "info": "Info",
+    "savedSuccessfully": "Enregistre avec succes!",
+    "connectingToNetwork": "Connexion au reseau..."
+  },
+  "nav": {
+    "signIn": "Se connecter",
+    "signOut": "Se deconnecter",
+    "settings": "Parametres",
+    "wallets": "Portefeuilles",
+    "addWallet": "Ajouter un portefeuille",
+    "alreadyUser": "Deja inscrit? Se connecter"
+  },
+  "landing": {
+    "hero": {
+      "title": "Surveillance Complete de Bitcoin",
+      "description": "Surveillance professionnelle de Bitcoin avec alertes de transactions et notifications intelligentes de solde. Definissez des seuils personnalises, surveillez les vidages de portefeuille, suivez toutes les transactions - le tout avec une securite en lecture seule.",
+      "startTrial": "Commencer l'essai gratuit de 30 jours",
+      "tryDemo": "Essayer la demo",
+      "viewPricing": "Voir les tarifs"
+    },
+    "features": {
+      "title": "Surveillance Complete de Bitcoin",
+      "subtitle": "Suivi des transactions, alertes de solde et surveillance securisee en lecture seule",
+      "notifications": {
+        "title": "Notifications instantanees de transactions Bitcoin",
+        "description": "Alertes de portefeuille Bitcoin en temps reel par email, SMS et notifications push directement sur votre appareil"
+      },
+      "balanceAlerts": {
+        "title": "Systeme intelligent d'alertes de solde",
+        "description": "Seuils de solde personnalises avec alertes pour les vidages de portefeuille, les gros depots ou les montants specifiques. Ne manquez jamais les changements critiques de solde."
+      },
+      "security": {
+        "title": "Surveillance Bitcoin securisee en lecture seule",
+        "description": "Acces en lecture seule aux portefeuilles Bitcoin utilisant XPUBs ou descripteurs - nous ne touchons jamais vos cles privees"
+      },
+      "sync": {
+        "title": "Synchronisation en temps reel du portefeuille Bitcoin",
+        "description": "Intervalles de synchronisation de portefeuille Bitcoin de 10 minutes a 2 minutes selon votre plan d'abonnement"
+      }
+    },
+    "balanceAlerts": {
+      "title": "Ne manquez jamais les changements critiques de solde",
+      "description": "Definissez des seuils de solde personnalises pour surveiller vos avoirs totaux. Recevez des alertes lorsque votre solde atteint des niveaux specifiques. Parfait pour la surveillance du stockage a froid, la detection de vidage de portefeuille ou le suivi des jalons importants de solde.",
+      "above": {
+        "title": "Alertes de seuil superieur",
+        "description": "Recevez une notification lorsque votre solde total depasse un seuil defini. Surveillez quand vos avoirs atteignent des jalons importants."
+      },
+      "below": {
+        "title": "Alertes de seuil inferieur",
+        "description": "Recevez une notification lorsque votre solde total tombe en dessous d'un seuil defini. Configurez des avertissements de solde bas pour vos avoirs."
+      },
+      "drain": {
+        "title": "Detection de vidage de portefeuille",
+        "description": "Recevez une notification lorsque votre solde total est egal a un montant specifique, comme zero pour les vidages de portefeuille. Surveillance de securite critique."
+      },
+      "example": {
+        "title": "Votre portefeuille Bitcoin",
+        "aboveThreshold": "Au-dessus de 0,1 BTC",
+        "belowThreshold": "En dessous de 0,01 BTC",
+        "equalsZero": "Egal a 0 BTC",
+        "deliveryNote": "Toutes les alertes livrees par email, SMS et notifications push"
+      }
+    },
+    "pricing": {
+      "title": "Tarification simple et transparente",
+      "subtitle": "Choisissez le plan qui correspond a vos besoins",
+      "trialNote": "Les plans cloud incluent un essai gratuit de 30 jours - Aucune carte de credit requise"
+    },
+    "faq": {
+      "title": "Questions frequemment posees",
+      "contactUs": "Contactez-nous ici"
+    },
+    "cta": {
+      "title": "Commencez la surveillance complete de Bitcoin aujourd'hui",
+      "description": "Alertes de transactions, surveillance de solde et tranquillite d'esprit pour votre patrimoine Bitcoin"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Bienvenue",
+      "subtitle": "Connectez-vous a votre compte Canary",
+      "emailLabel": "Email",
+      "emailPlaceholder": "votre@email.com",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Entrez votre mot de passe",
+      "submit": "Se connecter",
+      "submitting": "Connexion...",
+      "noAccount": "Pas de compte? Inscrivez-vous",
+      "forgotPassword": "Mot de passe oublie?",
+      "devMode": "Mode developpement",
+      "loginFailed": "Echec de la connexion"
+    },
+    "signUp": {
+      "title": "Commencez votre essai gratuit de 30 jours",
+      "subtitle": "30 jours gratuits, puis continuez avec le plan de votre choix",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Entrez votre nom",
+      "emailLabel": "Email",
+      "emailPlaceholder": "votre@email.com",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Entrez un mot de passe securise",
+      "passwordHint": "Le mot de passe doit contenir au moins 6 caracteres",
+      "marketingConsent": "Je souhaite recevoir occasionnellement des emails sur les mises a jour du service",
+      "submit": "Creer un compte",
+      "submitting": "Creation du compte...",
+      "hasAccount": "Deja un compte? Connectez-vous",
+      "signInInstead": "Se connecter a la place",
+      "registrationFailed": "Echec de l'inscription"
+    },
+    "signUpSuccess": {
+      "title": "Verifiez votre email",
+      "description": "Nous avons envoye un lien de verification a votre adresse email. Veuillez cliquer sur le lien pour verifier votre compte.",
+      "didntReceive": "Vous n'avez pas recu l'email?",
+      "checkSpam": "Verifiez votre dossier spam",
+      "resend": "Renvoyer l'email de verification",
+      "backToSignIn": "Retour a la connexion"
+    },
+    "forgotPassword": {
+      "title": "Mot de passe oublie?",
+      "subtitle": "Entrez votre email et nous vous enverrons un lien de reinitialisation",
+      "emailLabel": "Email",
+      "emailPlaceholder": "votre@email.com",
+      "submit": "Envoyer le lien de reinitialisation",
+      "submitting": "Envoi...",
+      "backToSignIn": "Retour a la connexion",
+      "successTitle": "Verifiez votre email",
+      "successMessage": "Si un compte existe avec cet email, vous recevrez un lien de reinitialisation du mot de passe."
+    },
+    "resetPassword": {
+      "title": "Reinitialiser votre mot de passe",
+      "subtitle": "Entrez votre nouveau mot de passe ci-dessous",
+      "passwordLabel": "Nouveau mot de passe",
+      "passwordPlaceholder": "Entrez votre nouveau mot de passe",
+      "confirmLabel": "Confirmer le mot de passe",
+      "confirmPlaceholder": "Confirmez votre nouveau mot de passe",
+      "submit": "Reinitialiser le mot de passe",
+      "submitting": "Reinitialisation...",
+      "passwordMismatch": "Les mots de passe ne correspondent pas",
+      "successTitle": "Mot de passe reinitialise",
+      "successMessage": "Votre mot de passe a ete reinitialise. Vous pouvez maintenant vous connecter.",
+      "invalidToken": "Lien de reinitialisation invalide ou expire"
+    },
+    "verifyEmail": {
+      "verifying": "Verification de votre email...",
+      "successTitle": "Email verifie",
+      "successMessage": "Votre email a ete verifie. Vous pouvez maintenant vous connecter.",
+      "errorTitle": "Echec de la verification",
+      "invalidToken": "Lien de verification invalide ou expire",
+      "signIn": "Se connecter"
+    }
+  },
+  "settings": {
+    "title": "Parametres",
+    "display": {
+      "title": "Preferences d'affichage",
+      "description": "Personnalisez l'affichage des valeurs Bitcoin dans vos portefeuilles",
+      "currencyLabel": "Devise fiat",
+      "currencyPlaceholder": "Selectionnez une devise",
+      "currencyNote": "Les taux de change sont mis a jour toutes les 10 minutes depuis CoinGecko"
+    },
+    "language": {
+      "title": "Langue",
+      "description": "Choisissez votre langue preferee pour l'interface et les notifications",
+      "label": "Langue"
+    },
+    "ntfy": {
+      "title": "Notifications push",
+      "description": "Configurez votre serveur ntfy pour les notifications push",
+      "serverLabel": "URL du serveur ntfy",
+      "serverPlaceholder": "https://ntfy.sh",
+      "serverNote": "Laissez vide pour utiliser le serveur public ntfy.sh. Vous pouvez auto-heberger ntfy pour une confidentialite complete.",
+      "selfHostLink": "auto-heberger ntfy",
+      "auth": {
+        "title": "Authentification",
+        "configured": {
+          "token": "Token d'acces configure",
+          "credentials": "Nom d'utilisateur/mot de passe configure ({username})",
+          "none": "Aucune authentification configuree"
+        },
+        "type": {
+          "none": "Aucune authentification",
+          "token": "Token d'acces",
+          "basic": "Nom d'utilisateur et mot de passe"
+        },
+        "tokenLabel": "Token d'acces",
+        "tokenPlaceholder": "tk_...",
+        "usernameLabel": "Nom d'utilisateur",
+        "usernamePlaceholder": "Nom d'utilisateur",
+        "passwordLabel": "Mot de passe",
+        "passwordPlaceholder": "Mot de passe",
+        "saveAuth": "Enregistrer l'authentification",
+        "tokenRequired": "Le token d'acces est requis",
+        "credentialsRequired": "Le nom d'utilisateur et le mot de passe sont requis",
+        "authSaved": "Authentification enregistree!"
+      }
+    }
+  },
+  "wallets": {
+    "title": "Mes portefeuilles",
+    "empty": {
+      "title": "Pas encore de portefeuilles",
+      "description": "Ajoutez votre premier portefeuille Bitcoin pour commencer la surveillance",
+      "addFirst": "Ajouter votre premier portefeuille"
+    },
+    "add": {
+      "title": "Ajouter un portefeuille",
+      "nameLabel": "Nom du portefeuille",
+      "namePlaceholder": "Mon portefeuille Bitcoin",
+      "descriptorLabel": "Descripteur de portefeuille ou XPUB",
+      "descriptorPlaceholder": "wpkh([empreinte/84'/0'/0']xpub.../0/*)",
+      "descriptorHint": "Entrez le descripteur de sortie de votre portefeuille ou XPUB. Nous detecterons automatiquement le type de script.",
+      "advancedSettings": "Parametres avances",
+      "scriptType": {
+        "label": "Type de script",
+        "auto": "Detection automatique (recommande)",
+        "p2wpkh": "SegWit natif (P2WPKH)",
+        "p2sh": "SegWit imbrique (P2SH-P2WPKH)",
+        "p2pkh": "Legacy (P2PKH)",
+        "p2tr": "Taproot (P2TR)"
+      },
+      "freshWallet": {
+        "label": "Nouveau portefeuille (pas d'historique de transactions)",
+        "hint": "Ignorer l'analyse approfondie pour les portefeuilles sans transactions precedentes"
+      },
+      "submit": "Ajouter le portefeuille",
+      "submitting": "Ajout...",
+      "success": "Portefeuille ajoute avec succes",
+      "error": "Echec de l'ajout du portefeuille"
+    },
+    "detail": {
+      "balance": "Solde",
+      "transactions": "Transactions",
+      "contacts": "Contacts",
+      "balanceAlerts": "Alertes de solde",
+      "noTransactions": "Pas encore de transactions",
+      "pendingSync": "Le portefeuille se synchronise...",
+      "lastSync": "Derniere synchronisation",
+      "syncStatus": {
+        "pending": "Synchronisation",
+        "ready": "Synchronise"
+      }
+    },
+    "delete": {
+      "title": "Supprimer le portefeuille",
+      "description": "Etes-vous sur de vouloir supprimer ce portefeuille? Cette action ne peut pas etre annulee.",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "edit": {
+      "title": "Modifier le portefeuille",
+      "nameLabel": "Nom du portefeuille",
+      "submit": "Enregistrer les modifications"
+    }
+  },
+  "contacts": {
+    "title": "Contacts",
+    "empty": {
+      "title": "Pas encore de contacts",
+      "description": "Ajoutez des contacts pour recevoir des notifications sur ce portefeuille"
+    },
+    "add": {
+      "title": "Ajouter un contact",
+      "nameLabel": "Nom du contact",
+      "namePlaceholder": "Jean Dupont",
+      "languageLabel": "Langue des notifications",
+      "methodTitle": "Methode de notification",
+      "methodDescription": "Choisissez comment ce contact recevra les notifications",
+      "ntfy": {
+        "title": "Notifications push (ntfy)",
+        "description": "Notifications push gratuites via l'application ntfy",
+        "topicLabel": "Nom du sujet",
+        "topicPlaceholder": "mes-alertes-portefeuille",
+        "topicHint": "Abonnez-vous a ce sujet dans l'application ntfy pour recevoir des notifications"
+      },
+      "sms": {
+        "title": "SMS",
+        "description": "Notifications par SMS",
+        "phoneLabel": "Numero de telephone",
+        "phonePlaceholder": "+33123456789",
+        "phoneHint": "Inclure l'indicatif du pays (ex., +33 pour la France)"
+      },
+      "email": {
+        "title": "Email",
+        "description": "Notifications par email",
+        "emailLabel": "Adresse email",
+        "emailPlaceholder": "jean@exemple.com"
+      },
+      "submit": "Ajouter le contact",
+      "submitting": "Ajout..."
+    },
+    "edit": {
+      "title": "Modifier le contact",
+      "submit": "Enregistrer les modifications"
+    },
+    "delete": {
+      "title": "Supprimer le contact",
+      "description": "Etes-vous sur de vouloir supprimer ce contact? Il ne recevra plus de notifications.",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "verification": {
+      "title": "Verifier le contact",
+      "description": "Nous avons envoye un code de verification a {contact}. Entrez-le ci-dessous pour verifier.",
+      "codeLabel": "Code de verification",
+      "codePlaceholder": "Entrez le code a 6 chiffres",
+      "submit": "Verifier",
+      "resend": "Renvoyer le code",
+      "expiresIn": "Expire dans {time}",
+      "expired": "Code expire",
+      "invalid": "Code de verification invalide",
+      "verified": "Contact verifie!"
+    }
+  },
+  "balanceAlerts": {
+    "title": "Alertes de solde",
+    "empty": {
+      "title": "Pas d'alertes de solde",
+      "description": "Configurez des alertes pour etre notifie lorsque le solde de votre portefeuille atteint certains seuils"
+    },
+    "add": {
+      "title": "Ajouter une alerte de solde",
+      "typeLabel": "Type d'alerte",
+      "types": {
+        "above": "Au-dessus de",
+        "below": "En dessous de",
+        "equals": "Egal a"
+      },
+      "thresholdLabel": "Seuil",
+      "thresholdPlaceholder": "0,1",
+      "btc": "BTC",
+      "submit": "Ajouter l'alerte",
+      "submitting": "Ajout..."
+    },
+    "edit": {
+      "title": "Modifier l'alerte de solde"
+    },
+    "delete": {
+      "title": "Supprimer l'alerte",
+      "description": "Etes-vous sur de vouloir supprimer cette alerte de solde?",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "status": {
+      "active": "Active",
+      "triggered": "Declenchee",
+      "reactivate": "Reactiver"
+    },
+    "errors": {
+      "negativeAmount": "Le montant ne peut pas etre negatif",
+      "belowZero": "Impossible de creer une alerte pour 'en dessous de 0'"
+    }
+  },
+  "transactions": {
+    "title": "Transactions",
+    "empty": "Pas encore de transactions",
+    "types": {
+      "receive": "Recu",
+      "send": "Envoye"
+    },
+    "status": {
+      "pending": "En attente",
+      "confirmed": "Confirme",
+      "dropped": "Abandonne"
+    },
+    "details": {
+      "txid": "ID de transaction",
+      "amount": "Montant",
+      "fee": "Frais",
+      "date": "Date",
+      "confirmations": "Confirmations",
+      "block": "Bloc",
+      "address": "Adresse"
+    },
+    "rbf": "RBF",
+    "cpfp": "CPFP",
+    "replacement": "Remplacement"
+  },
+  "billing": {
+    "title": "Abonnement",
+    "currentPlan": "Plan actuel",
+    "status": {
+      "active": "Actif",
+      "trialing": "Essai",
+      "canceled": "Annule",
+      "expired": "Expire"
+    },
+    "trial": {
+      "daysLeft": "{days} jours restants",
+      "endsOn": "L'essai se termine le {date}"
+    },
+    "manage": "Gerer la facturation",
+    "upgrade": "Mettre a niveau",
+    "subscribe": "S'abonner",
+    "plans": {
+      "personal": {
+        "name": "Personnel",
+        "description": "Pour les detenteurs individuels de Bitcoin",
+        "features": {
+          "wallets": "1 portefeuille",
+          "contacts": "1 contact par portefeuille",
+          "sync": "Synchronisation toutes les 10 minutes",
+          "notifications": "Tous les types de notifications"
+        }
+      },
+      "team": {
+        "name": "Equipe",
+        "description": "Pour les gardiens familiaux",
+        "features": {
+          "wallets": "5 portefeuilles",
+          "contacts": "5 contacts par portefeuille",
+          "sync": "Synchronisation toutes les 2 minutes",
+          "notifications": "Tous les types de notifications"
+        }
+      },
+      "selfHosted": {
+        "name": "Auto-heberge",
+        "description": "Executez sur votre propre infrastructure",
+        "features": {
+          "wallets": "Portefeuilles illimites",
+          "contacts": "Contacts illimites",
+          "sync": "Intervalles de synchronisation personnalises",
+          "notifications": "Notifications push ntfy"
+        }
+      }
+    },
+    "perMonth": "/mois",
+    "perYear": "/an",
+    "saveYearly": "Economisez {percent}% par an",
+    "popular": "POPULAIRE",
+    "currentPlanBadge": "PLAN ACTUEL"
+  },
+  "upgrade": {
+    "title": "Mettre a niveau votre plan",
+    "walletLimit": {
+      "title": "Limite de portefeuilles atteinte",
+      "description": "Vous avez atteint le nombre maximum de portefeuilles pour votre plan. Mettez a niveau pour ajouter plus de portefeuilles."
+    },
+    "contactLimit": {
+      "title": "Limite de contacts atteinte",
+      "description": "Vous avez atteint le nombre maximum de contacts pour ce portefeuille. Mettez a niveau pour ajouter plus de contacts."
+    }
+  },
+  "errors": {
+    "generic": "Quelque chose s'est mal passe. Veuillez reessayer.",
+    "network": "Erreur reseau. Veuillez verifier votre connexion.",
+    "unauthorized": "Veuillez vous connecter pour continuer.",
+    "notFound": "Non trouve.",
+    "serverError": "Erreur serveur. Veuillez reessayer plus tard.",
+    "validation": "Veuillez verifier votre saisie et reessayer."
+  }
+}

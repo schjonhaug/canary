@@ -1,0 +1,483 @@
+{
+  "common": {
+    "loading": "Carregando...",
+    "save": "Salvar",
+    "saving": "Salvando...",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "deleting": "Excluindo...",
+    "edit": "Editar",
+    "add": "Adicionar",
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "back": "Voltar",
+    "next": "Proximo",
+    "submit": "Enviar",
+    "verify": "Verificar",
+    "verifying": "Verificando...",
+    "send": "Enviar",
+    "sending": "Enviando...",
+    "retry": "Tentar novamente",
+    "yes": "Sim",
+    "no": "Nao",
+    "or": "ou",
+    "and": "e",
+    "active": "ATIVO",
+    "inactive": "INATIVO",
+    "pending": "Pendente",
+    "confirmed": "Confirmado",
+    "failed": "Falhou",
+    "success": "Sucesso",
+    "error": "Erro",
+    "warning": "Aviso",
+    "info": "Info",
+    "savedSuccessfully": "Salvo com sucesso!",
+    "connectingToNetwork": "Conectando a rede..."
+  },
+  "nav": {
+    "signIn": "Entrar",
+    "signOut": "Sair",
+    "settings": "Configuracoes",
+    "wallets": "Carteiras",
+    "addWallet": "Adicionar Carteira",
+    "alreadyUser": "Ja tem conta? Entre"
+  },
+  "landing": {
+    "hero": {
+      "title": "Monitoramento Completo de Bitcoin",
+      "description": "Monitoramento profissional de Bitcoin com alertas de transacoes e notificacoes inteligentes de saldo. Defina limites personalizados, monitore esvaziamentos de carteira, rastreie todas as transacoes - tudo com seguranca somente leitura.",
+      "startTrial": "Comece o Teste Gratis de 30 Dias",
+      "tryDemo": "Testar Demo",
+      "viewPricing": "Ver Precos"
+    },
+    "features": {
+      "title": "Monitoramento Completo de Bitcoin",
+      "subtitle": "Rastreamento de transacoes, alertas de saldo e monitoramento seguro somente leitura",
+      "notifications": {
+        "title": "Notificacoes Instantaneas de Transacoes Bitcoin",
+        "description": "Alertas de carteira Bitcoin em tempo real via email, SMS e notificacoes push diretamente no seu dispositivo"
+      },
+      "balanceAlerts": {
+        "title": "Sistema Inteligente de Alertas de Saldo",
+        "description": "Limites de saldo personalizados com alertas para esvaziamentos de carteira, depositos grandes ou valores especificos. Nunca perca mudancas criticas de saldo."
+      },
+      "security": {
+        "title": "Monitoramento Seguro de Bitcoin Somente Leitura",
+        "description": "Acesso somente leitura a carteiras Bitcoin usando XPUBs ou descritores - nunca tocamos suas chaves privadas"
+      },
+      "sync": {
+        "title": "Sincronizacao em Tempo Real de Carteira Bitcoin",
+        "description": "Intervalos de sincronizacao de carteira Bitcoin de 10 minutos ate 2 minutos baseado no seu plano de assinatura"
+      }
+    },
+    "balanceAlerts": {
+      "title": "Nunca Perca Mudancas Criticas de Saldo",
+      "description": "Defina limites de saldo personalizados para monitorar seus holdings totais. Receba alertas quando seu saldo atingir niveis especificos. Perfeito para monitoramento de cold storage, deteccao de esvaziamento de carteira ou rastreamento de marcos importantes de saldo.",
+      "above": {
+        "title": "Alertas de Limite Superior",
+        "description": "Receba notificacoes quando seu saldo total subir acima de um limite definido. Monitore quando seus holdings atingirem marcos importantes."
+      },
+      "below": {
+        "title": "Alertas de Limite Inferior",
+        "description": "Receba notificacoes quando seu saldo total cair abaixo de um limite definido. Configure avisos de saldo baixo para seus holdings."
+      },
+      "drain": {
+        "title": "Deteccao de Esvaziamento de Carteira",
+        "description": "Receba notificacoes quando seu saldo total for igual a um valor especifico, como zero para esvaziamentos de carteira. Monitoramento de seguranca critico."
+      },
+      "example": {
+        "title": "Sua Carteira Bitcoin",
+        "aboveThreshold": "Acima de 0.1 BTC",
+        "belowThreshold": "Abaixo de 0.01 BTC",
+        "equalsZero": "Igual a 0 BTC",
+        "deliveryNote": "Todos os alertas entregues via email, SMS e notificacoes push"
+      }
+    },
+    "pricing": {
+      "title": "Precos Simples e Transparentes",
+      "subtitle": "Escolha o plano que se adapta as suas necessidades",
+      "trialNote": "Planos na nuvem incluem teste gratuito de 30 dias - Nao e necessario cartao de credito"
+    },
+    "faq": {
+      "title": "Perguntas Frequentes",
+      "contactUs": "Entre em contato aqui"
+    },
+    "cta": {
+      "title": "Comece o Monitoramento Completo de Bitcoin Hoje",
+      "description": "Alertas de transacoes, monitoramento de saldo e tranquilidade para seu patrimonio em Bitcoin"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Bem-vindo de volta",
+      "subtitle": "Entre na sua conta Canary",
+      "emailLabel": "Email",
+      "emailPlaceholder": "seu@email.com",
+      "passwordLabel": "Senha",
+      "passwordPlaceholder": "Digite sua senha",
+      "submit": "Entrar",
+      "submitting": "Entrando...",
+      "noAccount": "Nao tem conta? Cadastre-se",
+      "forgotPassword": "Esqueceu sua senha?",
+      "devMode": "Modo Desenvolvimento",
+      "loginFailed": "Falha no login"
+    },
+    "signUp": {
+      "title": "Comece seu teste gratuito de 30 dias",
+      "subtitle": "30 dias gratis, depois continue com o plano de sua escolha",
+      "nameLabel": "Nome",
+      "namePlaceholder": "Digite seu nome",
+      "emailLabel": "Email",
+      "emailPlaceholder": "seu@email.com",
+      "passwordLabel": "Senha",
+      "passwordPlaceholder": "Digite uma senha forte",
+      "passwordHint": "A senha deve ter pelo menos 6 caracteres",
+      "marketingConsent": "Gostaria de receber emails ocasionais sobre atualizacoes do servico",
+      "submit": "Criar conta",
+      "submitting": "Criando conta...",
+      "hasAccount": "Ja tem conta? Entre",
+      "signInInstead": "Entrar em vez disso",
+      "registrationFailed": "Falha no cadastro"
+    },
+    "signUpSuccess": {
+      "title": "Verifique seu email",
+      "description": "Enviamos um link de verificacao para seu endereco de email. Por favor clique no link para verificar sua conta.",
+      "didntReceive": "Nao recebeu o email?",
+      "checkSpam": "Verifique sua pasta de spam",
+      "resend": "Reenviar email de verificacao",
+      "backToSignIn": "Voltar para login"
+    },
+    "forgotPassword": {
+      "title": "Esqueceu sua senha?",
+      "subtitle": "Digite seu email e enviaremos um link de redefinicao",
+      "emailLabel": "Email",
+      "emailPlaceholder": "seu@email.com",
+      "submit": "Enviar link de redefinicao",
+      "submitting": "Enviando...",
+      "backToSignIn": "Voltar para login",
+      "successTitle": "Verifique seu email",
+      "successMessage": "Se existir uma conta com esse email, voce recebera um link de redefinicao de senha."
+    },
+    "resetPassword": {
+      "title": "Redefina sua senha",
+      "subtitle": "Digite sua nova senha abaixo",
+      "passwordLabel": "Nova senha",
+      "passwordPlaceholder": "Digite sua nova senha",
+      "confirmLabel": "Confirmar senha",
+      "confirmPlaceholder": "Confirme sua nova senha",
+      "submit": "Redefinir senha",
+      "submitting": "Redefinindo...",
+      "passwordMismatch": "As senhas nao coincidem",
+      "successTitle": "Senha redefinida",
+      "successMessage": "Sua senha foi redefinida. Agora voce pode entrar.",
+      "invalidToken": "Link de redefinicao invalido ou expirado"
+    },
+    "verifyEmail": {
+      "verifying": "Verificando seu email...",
+      "successTitle": "Email verificado",
+      "successMessage": "Seu email foi verificado. Agora voce pode entrar.",
+      "errorTitle": "Verificacao falhou",
+      "invalidToken": "Link de verificacao invalido ou expirado",
+      "signIn": "Entrar"
+    }
+  },
+  "settings": {
+    "title": "Configuracoes",
+    "display": {
+      "title": "Preferencias de Exibicao",
+      "description": "Personalize como os valores de Bitcoin sao exibidos em suas carteiras",
+      "currencyLabel": "Moeda Fiat",
+      "currencyPlaceholder": "Selecione uma moeda",
+      "currencyNote": "As taxas de cambio sao atualizadas a cada 10 minutos do CoinGecko"
+    },
+    "language": {
+      "title": "Idioma",
+      "description": "Escolha seu idioma preferido para a interface e notificacoes",
+      "label": "Idioma"
+    },
+    "ntfy": {
+      "title": "Notificacoes Push",
+      "description": "Configure seu servidor ntfy para notificacoes push",
+      "serverLabel": "URL do Servidor ntfy",
+      "serverPlaceholder": "https://ntfy.sh",
+      "serverNote": "Deixe vazio para usar o servidor publico ntfy.sh. Voce pode auto-hospedar ntfy para privacidade completa.",
+      "selfHostLink": "auto-hospedar ntfy",
+      "auth": {
+        "title": "Autenticacao",
+        "configured": {
+          "token": "Token de acesso configurado",
+          "credentials": "Usuario/senha configurado ({username})",
+          "none": "Sem autenticacao configurada"
+        },
+        "type": {
+          "none": "Sem autenticacao",
+          "token": "Token de Acesso",
+          "basic": "Usuario e Senha"
+        },
+        "tokenLabel": "Token de Acesso",
+        "tokenPlaceholder": "tk_...",
+        "usernameLabel": "Usuario",
+        "usernamePlaceholder": "Usuario",
+        "passwordLabel": "Senha",
+        "passwordPlaceholder": "Senha",
+        "saveAuth": "Salvar Autenticacao",
+        "tokenRequired": "O token de acesso e obrigatorio",
+        "credentialsRequired": "Usuario e senha sao obrigatorios",
+        "authSaved": "Autenticacao salva!"
+      }
+    }
+  },
+  "wallets": {
+    "title": "Minhas Carteiras",
+    "empty": {
+      "title": "Sem carteiras ainda",
+      "description": "Adicione sua primeira carteira Bitcoin para comecar a monitorar",
+      "addFirst": "Adicionar Sua Primeira Carteira"
+    },
+    "add": {
+      "title": "Adicionar Carteira",
+      "nameLabel": "Nome da Carteira",
+      "namePlaceholder": "Minha Carteira Bitcoin",
+      "descriptorLabel": "Descritor de Carteira ou XPUB",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorHint": "Digite o descritor de saida da sua carteira ou XPUB. Detectaremos automaticamente o tipo de script.",
+      "advancedSettings": "Configuracoes Avancadas",
+      "scriptType": {
+        "label": "Tipo de Script",
+        "auto": "Auto-detectar (recomendado)",
+        "p2wpkh": "SegWit Nativo (P2WPKH)",
+        "p2sh": "SegWit Aninhado (P2SH-P2WPKH)",
+        "p2pkh": "Legado (P2PKH)",
+        "p2tr": "Taproot (P2TR)"
+      },
+      "freshWallet": {
+        "label": "Carteira nova (sem historico de transacoes)",
+        "hint": "Pular varredura profunda para carteiras sem transacoes anteriores"
+      },
+      "submit": "Adicionar Carteira",
+      "submitting": "Adicionando...",
+      "success": "Carteira adicionada com sucesso",
+      "error": "Falha ao adicionar carteira"
+    },
+    "detail": {
+      "balance": "Saldo",
+      "transactions": "Transacoes",
+      "contacts": "Contatos",
+      "balanceAlerts": "Alertas de Saldo",
+      "noTransactions": "Sem transacoes ainda",
+      "pendingSync": "A carteira esta sincronizando...",
+      "lastSync": "Ultima sincronizacao",
+      "syncStatus": {
+        "pending": "Sincronizando",
+        "ready": "Sincronizado"
+      }
+    },
+    "delete": {
+      "title": "Excluir Carteira",
+      "description": "Tem certeza de que deseja excluir esta carteira? Esta acao nao pode ser desfeita.",
+      "confirm": "Excluir",
+      "cancel": "Cancelar"
+    },
+    "edit": {
+      "title": "Editar Carteira",
+      "nameLabel": "Nome da Carteira",
+      "submit": "Salvar Alteracoes"
+    }
+  },
+  "contacts": {
+    "title": "Contatos",
+    "empty": {
+      "title": "Sem contatos ainda",
+      "description": "Adicione contatos para receber notificacoes sobre esta carteira"
+    },
+    "add": {
+      "title": "Adicionar Contato",
+      "nameLabel": "Nome do Contato",
+      "namePlaceholder": "Joao Silva",
+      "languageLabel": "Idioma da Notificacao",
+      "methodTitle": "Metodo de Notificacao",
+      "methodDescription": "Escolha como este contato recebera notificacoes",
+      "ntfy": {
+        "title": "Notificacoes Push (ntfy)",
+        "description": "Notificacoes push gratuitas via app ntfy",
+        "topicLabel": "Nome do Topico",
+        "topicPlaceholder": "meus-alertas-carteira",
+        "topicHint": "Inscreva-se neste topico no app ntfy para receber notificacoes"
+      },
+      "sms": {
+        "title": "SMS",
+        "description": "Notificacoes por mensagem de texto",
+        "phoneLabel": "Numero de Telefone",
+        "phonePlaceholder": "+5511999999999",
+        "phoneHint": "Inclua codigo do pais (ex., +55 para Brasil)"
+      },
+      "email": {
+        "title": "Email",
+        "description": "Notificacoes por email",
+        "emailLabel": "Endereco de Email",
+        "emailPlaceholder": "joao@exemplo.com"
+      },
+      "submit": "Adicionar Contato",
+      "submitting": "Adicionando..."
+    },
+    "edit": {
+      "title": "Editar Contato",
+      "submit": "Salvar Alteracoes"
+    },
+    "delete": {
+      "title": "Excluir Contato",
+      "description": "Tem certeza de que deseja excluir este contato? Ele nao recebera mais notificacoes.",
+      "confirm": "Excluir",
+      "cancel": "Cancelar"
+    },
+    "verification": {
+      "title": "Verificar Contato",
+      "description": "Enviamos um codigo de verificacao para {contact}. Digite-o abaixo para verificar.",
+      "codeLabel": "Codigo de Verificacao",
+      "codePlaceholder": "Digite codigo de 6 digitos",
+      "submit": "Verificar",
+      "resend": "Reenviar Codigo",
+      "expiresIn": "Expira em {time}",
+      "expired": "Codigo expirado",
+      "invalid": "Codigo de verificacao invalido",
+      "verified": "Contato verificado!"
+    }
+  },
+  "balanceAlerts": {
+    "title": "Alertas de Saldo",
+    "empty": {
+      "title": "Sem alertas de saldo",
+      "description": "Configure alertas para ser notificado quando o saldo da sua carteira atingir certos limites"
+    },
+    "add": {
+      "title": "Adicionar Alerta de Saldo",
+      "typeLabel": "Tipo de Alerta",
+      "types": {
+        "above": "Acima de",
+        "below": "Abaixo de",
+        "equals": "Igual a"
+      },
+      "thresholdLabel": "Limite",
+      "thresholdPlaceholder": "0.1",
+      "btc": "BTC",
+      "submit": "Adicionar Alerta",
+      "submitting": "Adicionando..."
+    },
+    "edit": {
+      "title": "Editar Alerta de Saldo"
+    },
+    "delete": {
+      "title": "Excluir Alerta",
+      "description": "Tem certeza de que deseja excluir este alerta de saldo?",
+      "confirm": "Excluir",
+      "cancel": "Cancelar"
+    },
+    "status": {
+      "active": "Ativo",
+      "triggered": "Disparado",
+      "reactivate": "Reativar"
+    },
+    "errors": {
+      "negativeAmount": "O valor nao pode ser negativo",
+      "belowZero": "Nao e possivel criar alerta para 'abaixo de 0'"
+    }
+  },
+  "transactions": {
+    "title": "Transacoes",
+    "empty": "Sem transacoes ainda",
+    "types": {
+      "receive": "Recebido",
+      "send": "Enviado"
+    },
+    "status": {
+      "pending": "Pendente",
+      "confirmed": "Confirmado",
+      "dropped": "Descartado"
+    },
+    "details": {
+      "txid": "ID da Transacao",
+      "amount": "Valor",
+      "fee": "Taxa",
+      "date": "Data",
+      "confirmations": "Confirmacoes",
+      "block": "Bloco",
+      "address": "Endereco"
+    },
+    "rbf": "RBF",
+    "cpfp": "CPFP",
+    "replacement": "Substituicao"
+  },
+  "billing": {
+    "title": "Assinatura",
+    "currentPlan": "Plano Atual",
+    "status": {
+      "active": "Ativo",
+      "trialing": "Teste",
+      "canceled": "Cancelado",
+      "expired": "Expirado"
+    },
+    "trial": {
+      "daysLeft": "{days} dias restantes",
+      "endsOn": "O teste termina em {date}"
+    },
+    "manage": "Gerenciar Cobranca",
+    "upgrade": "Atualizar",
+    "subscribe": "Assinar",
+    "plans": {
+      "personal": {
+        "name": "Pessoal",
+        "description": "Para detentores individuais de Bitcoin",
+        "features": {
+          "wallets": "1 carteira",
+          "contacts": "1 contato por carteira",
+          "sync": "Sincronizacao a cada 10 minutos",
+          "notifications": "Todos os tipos de notificacao"
+        }
+      },
+      "team": {
+        "name": "Equipe",
+        "description": "Para guardioes familiares",
+        "features": {
+          "wallets": "5 carteiras",
+          "contacts": "5 contatos por carteira",
+          "sync": "Sincronizacao a cada 2 minutos",
+          "notifications": "Todos os tipos de notificacao"
+        }
+      },
+      "selfHosted": {
+        "name": "Auto-hospedado",
+        "description": "Execute em sua propria infraestrutura",
+        "features": {
+          "wallets": "Carteiras ilimitadas",
+          "contacts": "Contatos ilimitados",
+          "sync": "Intervalos de sincronizacao personalizados",
+          "notifications": "Notificacoes push ntfy"
+        }
+      }
+    },
+    "perMonth": "/mes",
+    "perYear": "/ano",
+    "saveYearly": "Economize {percent}% anual",
+    "popular": "POPULAR",
+    "currentPlanBadge": "PLANO ATUAL"
+  },
+  "upgrade": {
+    "title": "Atualize Seu Plano",
+    "walletLimit": {
+      "title": "Limite de Carteiras Atingido",
+      "description": "Voce atingiu o numero maximo de carteiras para seu plano. Atualize para adicionar mais carteiras."
+    },
+    "contactLimit": {
+      "title": "Limite de Contatos Atingido",
+      "description": "Voce atingiu o numero maximo de contatos para esta carteira. Atualize para adicionar mais contatos."
+    }
+  },
+  "errors": {
+    "generic": "Algo deu errado. Por favor tente novamente.",
+    "network": "Erro de rede. Por favor verifique sua conexao.",
+    "unauthorized": "Por favor entre para continuar.",
+    "notFound": "Nao encontrado.",
+    "serverError": "Erro do servidor. Por favor tente mais tarde.",
+    "validation": "Por favor verifique sua entrada e tente novamente."
+  }
+}
