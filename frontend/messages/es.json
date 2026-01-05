@@ -856,6 +856,70 @@
       "viewGithub": "Ver en GitHub"
     }
   },
+  "subscriptionPage": {
+    "title": "Suscripción",
+    "selfHosted": {
+      "title": "Modo autoalojado",
+      "description": "La facturación de suscripción no está disponible en modo autoalojado.",
+      "backToWallets": "Volver a billeteras"
+    },
+    "loading": "Cargando información de facturación...",
+    "notSignedIn": {
+      "message": "Debes iniciar sesión para administrar tu suscripción.",
+      "signIn": "Iniciar sesión"
+    },
+    "manageBilling": "Administrar facturación",
+    "currentPlan": {
+      "title": "Plan actual",
+      "description": "Tu suscripción activa y uso"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Límite de suscripción excedido",
+        "description": "Tienes {walletCount} billeteras pero tu plan {tierName} solo permite {maxWallets}. Las billeteras excedentes no se sincronizarán automáticamente y algunos contactos pueden estar inactivos.",
+        "upgrade": "Mejorar plan"
+      },
+      "pending": {
+        "title": "Prueba no iniciada",
+        "description": "Tu prueba de 30 días de Team comenzará cuando agregues tu primera billetera. No hay sincronización activa hasta entonces.",
+        "addWallet": "Agregar tu primera billetera"
+      },
+      "cancelled": {
+        "title": "Suscripción cancelada",
+        "description": "Tu suscripción ha sido cancelada. Tienes acceso hasta {date} ({daysRemaining} días restantes).",
+        "reactivate": "Reactivar suscripción"
+      },
+      "expired": {
+        "title": "Suscripción expirada",
+        "description": "Tu suscripción ha expirado. La sincronización de billeteras se ha detenido completamente, pero tus datos están preservados.",
+        "reactivate": "Reactivar suscripción"
+      },
+      "pastDue": {
+        "title": "Pago fallido - Sincronización detenida",
+        "description": "Tu último pago falló y la sincronización de billeteras se ha detenido inmediatamente. Actualiza tu método de pago para reanudar el servicio.",
+        "updatePayment": "Actualizar método de pago"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Prueba: {days} días restantes",
+      "accessDaysLeft": "Acceso hasta: {days} días restantes"
+    },
+    "buttons": {
+      "subscribe": "Suscribirse",
+      "reactivate": "Reactivar"
+    },
+    "usage": {
+      "wallets": "Billeteras",
+      "overLimit": "(sobre el límite)",
+      "walletsInactive": "Algunas billeteras están inactivas",
+      "syncInterval": "Intervalo de sincronización",
+      "features": "Funciones",
+      "featuresList": "SMS, Push, Correo, Análisis de transacciones"
+    },
+    "errors": {
+      "portalFailed": "Error al abrir la administración de facturación. Por favor intenta de nuevo."
+    }
+  },
   "upgrade": {
     "title": "Mejora Tu Plan",
     "choosePlan": "Elige Tu Plan",

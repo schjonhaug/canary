@@ -16,9 +16,10 @@ import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
 
-// Map tier slug to translation key (handles selfhosted -> selfHosted)
+// Map tier slug to translation key (handles selfhosted -> selfHosted and lowercasing)
 function getTierTranslationKey(tier: string): string {
-  return tier === 'selfhosted' ? 'selfHosted' : tier
+  const lowerTier = tier.toLowerCase()
+  return lowerTier === 'selfhosted' ? 'selfHosted' : lowerTier
 }
 
 interface PlansModalProps {

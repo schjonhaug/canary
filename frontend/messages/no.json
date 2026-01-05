@@ -886,6 +886,70 @@
       "viewGithub": "Se på GitHub"
     }
   },
+  "subscriptionPage": {
+    "title": "Abonnement",
+    "selfHosted": {
+      "title": "Selvhostet modus",
+      "description": "Abonnementsfakturering er ikke tilgjengelig i selvhostet modus.",
+      "backToWallets": "Tilbake til lommebøker"
+    },
+    "loading": "Laster faktureringsinformasjon...",
+    "notSignedIn": {
+      "message": "Du må være logget inn for å administrere abonnementet ditt.",
+      "signIn": "Logg inn"
+    },
+    "manageBilling": "Administrer fakturering",
+    "currentPlan": {
+      "title": "Nåværende plan",
+      "description": "Ditt aktive abonnement og bruk"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Abonnementsgrense overskredet",
+        "description": "Du har {walletCount} lommebøker, men {tierName}-planen din tillater bare {maxWallets}. Overskytende lommebøker synkroniseres ikke automatisk, og noen kontakter kan være inaktive.",
+        "upgrade": "Oppgrader plan"
+      },
+      "pending": {
+        "title": "Prøveperiode ikke startet",
+        "description": "Din 30-dagers Team-prøveperiode begynner når du legger til din første lommebok. Ingen synkronisering er aktiv før da.",
+        "addWallet": "Legg til din første lommebok"
+      },
+      "cancelled": {
+        "title": "Abonnement kansellert",
+        "description": "Abonnementet ditt er kansellert. Du har tilgang til {date} ({daysRemaining} dager igjen).",
+        "reactivate": "Reaktiver abonnement"
+      },
+      "expired": {
+        "title": "Abonnement utløpt",
+        "description": "Abonnementet ditt har utløpt. Lommeboksynkronisering er fullstendig stoppet, men dataene dine er bevart.",
+        "reactivate": "Reaktiver abonnement"
+      },
+      "pastDue": {
+        "title": "Betaling mislyktes - Synkronisering stoppet",
+        "description": "Din siste betaling mislyktes og lommeboksynkronisering er stoppet umiddelbart. Oppdater betalingsmetoden din for å gjenoppta tjenesten.",
+        "updatePayment": "Oppdater betalingsmetode"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Prøveperiode: {days} dager igjen",
+      "accessDaysLeft": "Tilgang til: {days} dager igjen"
+    },
+    "buttons": {
+      "subscribe": "Abonner",
+      "reactivate": "Reaktiver"
+    },
+    "usage": {
+      "wallets": "Lommebøker",
+      "overLimit": "(over grensen)",
+      "walletsInactive": "Noen lommebøker er inaktive",
+      "syncInterval": "Synkroniseringsintervall",
+      "features": "Funksjoner",
+      "featuresList": "SMS, Push, E-post, Transaksjonsanalyse"
+    },
+    "errors": {
+      "portalFailed": "Kunne ikke åpne faktureringshåndtering. Vennligst prøv igjen."
+    }
+  },
   "upgrade": {
     "title": "Oppgrader planen din",
     "choosePlan": "Velg din plan",

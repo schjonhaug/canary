@@ -886,6 +886,70 @@
       "viewGithub": "Ver no GitHub"
     }
   },
+  "subscriptionPage": {
+    "title": "Assinatura",
+    "selfHosted": {
+      "title": "Modo auto-hospedado",
+      "description": "A cobrança de assinatura não está disponível no modo auto-hospedado.",
+      "backToWallets": "Voltar às carteiras"
+    },
+    "loading": "Carregando informações de cobrança...",
+    "notSignedIn": {
+      "message": "Você precisa estar conectado para gerenciar sua assinatura.",
+      "signIn": "Entrar"
+    },
+    "manageBilling": "Gerenciar cobrança",
+    "currentPlan": {
+      "title": "Plano atual",
+      "description": "Sua assinatura ativa e uso"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Limite de assinatura excedido",
+        "description": "Você tem {walletCount} carteiras, mas seu plano {tierName} permite apenas {maxWallets}. Carteiras excedentes não sincronizarão automaticamente e alguns contatos podem estar inativos.",
+        "upgrade": "Atualizar plano"
+      },
+      "pending": {
+        "title": "Teste não iniciado",
+        "description": "Seu teste de 30 dias do Team começará quando você adicionar sua primeira carteira. Nenhuma sincronização está ativa até então.",
+        "addWallet": "Adicionar sua primeira carteira"
+      },
+      "cancelled": {
+        "title": "Assinatura cancelada",
+        "description": "Sua assinatura foi cancelada. Você tem acesso até {date} ({daysRemaining} dias restantes).",
+        "reactivate": "Reativar assinatura"
+      },
+      "expired": {
+        "title": "Assinatura expirada",
+        "description": "Sua assinatura expirou. A sincronização de carteiras foi completamente interrompida, mas seus dados estão preservados.",
+        "reactivate": "Reativar assinatura"
+      },
+      "pastDue": {
+        "title": "Pagamento falhou - Sincronização parada",
+        "description": "Seu último pagamento falhou e a sincronização de carteiras foi interrompida imediatamente. Atualize seu método de pagamento para retomar o serviço.",
+        "updatePayment": "Atualizar método de pagamento"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Teste: {days} dias restantes",
+      "accessDaysLeft": "Acesso até: {days} dias restantes"
+    },
+    "buttons": {
+      "subscribe": "Assinar",
+      "reactivate": "Reativar"
+    },
+    "usage": {
+      "wallets": "Carteiras",
+      "overLimit": "(acima do limite)",
+      "walletsInactive": "Algumas carteiras estão inativas",
+      "syncInterval": "Intervalo de sincronização",
+      "features": "Recursos",
+      "featuresList": "SMS, Push, E-mail, Análise de transações"
+    },
+    "errors": {
+      "portalFailed": "Falha ao abrir gerenciamento de cobrança. Por favor, tente novamente."
+    }
+  },
   "upgrade": {
     "title": "Atualize Seu Plano",
     "choosePlan": "Escolha Seu Plano",

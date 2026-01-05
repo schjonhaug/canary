@@ -886,6 +886,70 @@
       "viewGithub": "Auf GitHub ansehen"
     }
   },
+  "subscriptionPage": {
+    "title": "Abonnement",
+    "selfHosted": {
+      "title": "Selbst gehosteter Modus",
+      "description": "Abonnement-Abrechnung ist im selbst gehosteten Modus nicht verfügbar.",
+      "backToWallets": "Zurück zu Wallets"
+    },
+    "loading": "Abrechnungsinformationen werden geladen...",
+    "notSignedIn": {
+      "message": "Sie müssen angemeldet sein, um Ihr Abonnement zu verwalten.",
+      "signIn": "Anmelden"
+    },
+    "manageBilling": "Abrechnung verwalten",
+    "currentPlan": {
+      "title": "Aktueller Plan",
+      "description": "Ihr aktives Abonnement und Nutzung"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Abonnement-Limit überschritten",
+        "description": "Sie haben {walletCount} Wallets, aber Ihr {tierName}-Plan erlaubt nur {maxWallets}. Überzählige Wallets werden nicht automatisch synchronisiert und einige Kontakte könnten inaktiv sein.",
+        "upgrade": "Plan upgraden"
+      },
+      "pending": {
+        "title": "Testphase noch nicht gestartet",
+        "description": "Ihre 30-tägige Team-Testphase beginnt, wenn Sie Ihr erstes Wallet hinzufügen. Bis dahin ist keine Synchronisierung aktiv.",
+        "addWallet": "Erstes Wallet hinzufügen"
+      },
+      "cancelled": {
+        "title": "Abonnement gekündigt",
+        "description": "Ihr Abonnement wurde gekündigt. Sie haben Zugang bis {date} ({daysRemaining} Tage verbleibend).",
+        "reactivate": "Abonnement reaktivieren"
+      },
+      "expired": {
+        "title": "Abonnement abgelaufen",
+        "description": "Ihr Abonnement ist abgelaufen. Die Wallet-Synchronisierung wurde vollständig gestoppt, aber Ihre Daten sind erhalten.",
+        "reactivate": "Abonnement reaktivieren"
+      },
+      "pastDue": {
+        "title": "Zahlung fehlgeschlagen - Synchronisierung gestoppt",
+        "description": "Ihre letzte Zahlung ist fehlgeschlagen und die Wallet-Synchronisierung wurde sofort gestoppt. Aktualisieren Sie Ihre Zahlungsmethode, um den Service fortzusetzen.",
+        "updatePayment": "Zahlungsmethode aktualisieren"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Testphase: {days} Tage übrig",
+      "accessDaysLeft": "Zugang bis: {days} Tage übrig"
+    },
+    "buttons": {
+      "subscribe": "Abonnieren",
+      "reactivate": "Reaktivieren"
+    },
+    "usage": {
+      "wallets": "Wallets",
+      "overLimit": "(über Limit)",
+      "walletsInactive": "Einige Wallets sind inaktiv",
+      "syncInterval": "Sync-Intervall",
+      "features": "Funktionen",
+      "featuresList": "SMS, Push, E-Mail, Transaktionsanalyse"
+    },
+    "errors": {
+      "portalFailed": "Abrechnungsverwaltung konnte nicht geöffnet werden. Bitte versuchen Sie es erneut."
+    }
+  },
   "upgrade": {
     "title": "Plan upgraden",
     "choosePlan": "Wahlen Sie Ihren Plan",

@@ -886,6 +886,70 @@
       "viewGithub": "GitHubで見る"
     }
   },
+  "subscriptionPage": {
+    "title": "サブスクリプション",
+    "selfHosted": {
+      "title": "セルフホストモード",
+      "description": "セルフホストモードでは、サブスクリプション課金は利用できません。",
+      "backToWallets": "ウォレットに戻る"
+    },
+    "loading": "請求情報を読み込み中...",
+    "notSignedIn": {
+      "message": "サブスクリプションを管理するにはサインインが必要です。",
+      "signIn": "サインイン"
+    },
+    "manageBilling": "請求を管理",
+    "currentPlan": {
+      "title": "現在のプラン",
+      "description": "有効なサブスクリプションと使用状況"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "サブスクリプション制限を超過",
+        "description": "{walletCount}個のウォレットがありますが、{tierName}プランでは{maxWallets}個までしか許可されていません。超過したウォレットは自動的に同期されず、一部の連絡先が非アクティブになる場合があります。",
+        "upgrade": "プランをアップグレード"
+      },
+      "pending": {
+        "title": "トライアル未開始",
+        "description": "30日間のTeamトライアルは、最初のウォレットを追加すると開始されます。それまで同期は有効になりません。",
+        "addWallet": "最初のウォレットを追加"
+      },
+      "cancelled": {
+        "title": "サブスクリプションがキャンセルされました",
+        "description": "サブスクリプションがキャンセルされました。{date}まで（残り{daysRemaining}日）アクセスできます。",
+        "reactivate": "サブスクリプションを再開"
+      },
+      "expired": {
+        "title": "サブスクリプションが期限切れ",
+        "description": "サブスクリプションが期限切れになりました。ウォレットの同期は完全に停止しましたが、データは保存されています。",
+        "reactivate": "サブスクリプションを再開"
+      },
+      "pastDue": {
+        "title": "支払い失敗 - 同期停止",
+        "description": "前回の支払いが失敗し、ウォレットの同期が直ちに停止しました。サービスを再開するには、支払い方法を更新してください。",
+        "updatePayment": "支払い方法を更新"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "トライアル: 残り{days}日",
+      "accessDaysLeft": "アクセス期限: 残り{days}日"
+    },
+    "buttons": {
+      "subscribe": "登録する",
+      "reactivate": "再開する"
+    },
+    "usage": {
+      "wallets": "ウォレット",
+      "overLimit": "（制限超過）",
+      "walletsInactive": "一部のウォレットが非アクティブです",
+      "syncInterval": "同期間隔",
+      "features": "機能",
+      "featuresList": "SMS、プッシュ、メール、取引分析"
+    },
+    "errors": {
+      "portalFailed": "請求管理を開けませんでした。もう一度お試しください。"
+    }
+  },
   "upgrade": {
     "title": "プランをアップグレード",
     "choosePlan": "プランを選択",
