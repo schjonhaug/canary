@@ -1542,10 +1542,6 @@ case "$1" in
         mempool_purge "$METHOD"
         ;;
     
-    "mempool-clear")
-        mempool_purge "restart"
-        ;;
-    
     "reorg")
         reorg
         ;;
@@ -1878,7 +1874,6 @@ case "$1" in
         echo ""
         echo "Mempool Commands:"
         echo "  mempool-status               Show mempool transaction count and details"
-        echo "  mempool-clear                Empty the mempool (restarts node)"
         echo "  get-mempool-txid [index]     Get TXID from mempool by index (default: 0)"
         echo "  mempool-purge [method]       Purge mempool using method (restart/double-spend/low-fee)"
         echo "  reorg                        Blockchain reorganization (1 block)"
