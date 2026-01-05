@@ -131,24 +131,24 @@ export function AddWalletForm({
     e.preventDefault()
 
     if (!name.trim()) {
-      modal.setError("Wallet name is required")
+      modal.setError(t('add.validation.nameRequired'))
       return
     }
 
     if (!descriptor.trim()) {
-      modal.setError("Output descriptor or extended public key is required")
+      modal.setError(t('add.validation.descriptorRequired'))
       return
     }
 
     // Validate script type for fresh XPUB wallets
     if (isFreshWallet && isXpubFormat(descriptor) && !scriptType) {
-      modal.setError("Script type is required for fresh XPUB wallets")
+      modal.setError(t('add.validation.scriptTypeRequired'))
       return
     }
 
     // Validate stop gap: custom stop gap requires specific script type (except for output descriptors)
     if (needsScriptTypeForStopGap(stopGap, descriptor, scriptType)) {
-      modal.setError("Custom stop gap requires selecting a specific script type (not auto)")
+      modal.setError(t('add.stopGap.requiresScriptType'))
       return
     }
 
@@ -261,55 +261,55 @@ export function AddWalletForm({
               disabled={modal.isLoading || isDescriptorFormat(descriptor)}
             >
               <SelectTrigger>
-                <SelectValue placeholder={isFreshWallet && isXpubFormat(descriptor) ? "Select script type" : "Auto-detect"} />
+                <SelectValue placeholder={isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.selectPlaceholder') : t('add.scriptType.autoPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {!(isFreshWallet && isXpubFormat(descriptor)) && (
-                  <SelectItem value="auto">Auto-detect (recommended)</SelectItem>
+                  <SelectItem value="auto">{t('add.scriptType.auto')}</SelectItem>
                 )}
-                <SelectItem value="p2wpkh">Native SegWit (bc1...){isFreshWallet && isXpubFormat(descriptor) ? " - Most common" : ""}</SelectItem>
-                <SelectItem value="p2sh">Nested SegWit (3...){isFreshWallet && isXpubFormat(descriptor) ? " - Legacy compatibility" : ""}</SelectItem>
-                <SelectItem value="p2pkh">Legacy (1...){isFreshWallet && isXpubFormat(descriptor) ? " - Oldest" : ""}</SelectItem>
-                <SelectItem value="p2tr">Taproot (bc1p...){isFreshWallet && isXpubFormat(descriptor) ? " - Modern" : ""}</SelectItem>
+                <SelectItem value="p2wpkh">{isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.p2wpkhFresh') : t('add.scriptType.p2wpkh')}</SelectItem>
+                <SelectItem value="p2sh">{isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.p2shFresh') : t('add.scriptType.p2sh')}</SelectItem>
+                <SelectItem value="p2pkh">{isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.p2pkhFresh') : t('add.scriptType.p2pkh')}</SelectItem>
+                <SelectItem value="p2tr">{isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.p2trFresh') : t('add.scriptType.p2tr')}</SelectItem>
               </SelectContent>
             </Select>
             {isDescriptorFormat(descriptor) && (
               <p className="text-xs text-muted-foreground">
-                Script type detected from descriptor and cannot be changed
+                {t('add.scriptType.detectedHint')}
               </p>
             )}
             {isFreshWallet && isXpubFormat(descriptor) && (
               <p className="text-xs text-muted-foreground">
-                Script type is required for fresh XPUB wallets
+                {t('add.scriptType.requiredHint')}
               </p>
             )}
           </div>
 
           {/* Stop Gap */}
           <div className="space-y-2">
-            <Label htmlFor="stop-gap">Stop Gap</Label>
+            <Label htmlFor="stop-gap">{t('add.stopGap.label')}</Label>
             <Select
               value={stopGap || "auto"}
               onValueChange={(value) => setStopGap(value)}
               disabled={modal.isLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Default (20 consecutive unused)" />
+                <SelectValue placeholder={t('add.stopGap.default')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Default (20 consecutive unused)</SelectItem>
-                <SelectItem value="250">Extended (250 consecutive unused)</SelectItem>
-                <SelectItem value="500">Deep (500 consecutive unused)</SelectItem>
-                <SelectItem value="750">Deeper (750 consecutive unused)</SelectItem>
-                <SelectItem value="1000">Maximum (1000 consecutive unused)</SelectItem>
+                <SelectItem value="auto">{t('add.stopGap.default')}</SelectItem>
+                <SelectItem value="250">{t('add.stopGap.extended')}</SelectItem>
+                <SelectItem value="500">{t('add.stopGap.deep')}</SelectItem>
+                <SelectItem value="750">{t('add.stopGap.deeper')}</SelectItem>
+                <SelectItem value="1000">{t('add.stopGap.maximum')}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Number of consecutive unused addresses to check before stopping. Increase if your wallet has addresses used at random high indices (e.g., BTCPay Server)
+              {t('add.stopGap.hint')}
             </p>
             {needsScriptTypeForStopGap(stopGap, descriptor, scriptType) && (
               <p className="text-xs text-red-500">
-                Custom stop gap requires selecting a specific script type
+                {t('add.stopGap.requiresScriptType')}
               </p>
             )}
           </div>

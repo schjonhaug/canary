@@ -19,7 +19,8 @@ import { DeleteContactModal } from "./delete-contact-modal"
 import { useTranslations } from "next-intl"
 
 // Notification languages supported by backend (for contact notifications)
-const NOTIFICATION_LANGUAGE_VALUES = ['en', 'no'] as const
+// Must match backend Language enum: English, Norwegian, Spanish, Portuguese, German, French, Japanese
+const NOTIFICATION_LANGUAGE_VALUES = ['en', 'no', 'es', 'pt', 'de', 'fr', 'ja'] as const
 
 interface ContactModalProps {
   isOpen: boolean
@@ -688,7 +689,7 @@ export function ContactModal({
                         ) : (
                           <Bell className="h-4 w-4" />
                         )}
-                        <span className="font-medium">{provider.display_name}</span>
+                        <span className="font-medium">{t(`add.providers.${provider.name}`)}</span>
                       </div>
                       {enabledProviders[provider.name] && provider.name === 'twilio' && (
                         <div className="mt-2 space-y-3">
