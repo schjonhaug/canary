@@ -229,6 +229,12 @@
   },
   "wallets": {
     "title": "Meine Wallets",
+    "summary": "Verfolge {count} {count, plural, one {Wallet} other {Wallets}} mit einem Gesamtguthaben von {balance}",
+    "connectionLost": {
+      "title": "Backend-Verbindung verloren",
+      "description": "Verbindung zum Backend-Dienst nicht möglich. Zeige zwischengespeicherte Daten.",
+      "lastUpdated": "Zuletzt aktualisiert: {time}"
+    },
     "empty": {
       "title": "Noch keine Wallets",
       "description": "Fugen Sie Ihre erste Bitcoin-Wallet hinzu, um mit der Uberwachung zu beginnen",
@@ -257,7 +263,24 @@
       "submit": "Wallet hinzufugen",
       "submitting": "Fugt hinzu...",
       "success": "Wallet erfolgreich hinzugefugt",
-      "error": "Wallet konnte nicht hinzugefugt werden"
+      "error": "Wallet konnte nicht hinzugefugt werden",
+      "wizard": {
+        "chooseWallet": "Welche Wallet verwenden Sie? Wir zeigen Ihnen, wie Sie Ihren Output-Descriptor oder XPUB exportieren.",
+        "keysStaySafe": "Canary braucht dies nur, um Ihre Transaktionen zu überwachen. Ihre privaten Schlüssel bleiben sicher in Ihrer Wallet.",
+        "tryBaconWallet": "Neu hier? Probieren Sie zuerst eine Beispiel-Wallet aus, um zu sehen, wie Canary funktioniert.",
+        "useBaconWallet": "Bacon-Wallet verwenden",
+        "haveDescriptor": "Ich habe bereits meinen Output-Descriptor oder XPUB",
+        "exportSteps": "Befolgen Sie diese Schritte, um Ihren Descriptor aus {walletName} zu exportieren",
+        "pasteXpub": "Fügen Sie Ihren XPUB unten ein.",
+        "pasteDescriptor": "Fügen Sie Ihren Output-Descriptor oder XPUB unten ein.",
+        "baconPrefilled": "Wir haben die Bacon-Beispiel-Wallet für Sie vorausgefüllt. Klicken Sie einfach auf Wallet hinzufügen, um fortzufahren.",
+        "enterDetails": "Details eingeben"
+      },
+      "limitReached": {
+        "title": "Wallet-Limit erreicht",
+        "description": "Sie haben das Limit von {count} {count, plural, one {Wallet} other {Wallets}} Ihres {tier}-Plans erreicht. Upgraden Sie, um mehr Wallets hinzuzufügen."
+      },
+      "checkoutError": "Checkout konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
     },
     "detail": {
       "balance": "Saldo",
