@@ -119,9 +119,11 @@
       },
       "example": {
         "title": "あなたのビットコインウォレット",
+        "currentBalance": "0.05 BTC",
         "aboveThreshold": "0.1 BTC以上",
         "belowThreshold": "0.01 BTC以下",
         "equalsZero": "0 BTCと等しい",
+        "active": "有効",
         "deliveryNote": "すべてのアラートはメール、SMS、プッシュ通知で配信"
       }
     },

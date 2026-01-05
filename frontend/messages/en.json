@@ -119,9 +119,11 @@
       },
       "example": {
         "title": "Your Bitcoin Wallet",
+        "currentBalance": "0.05 BTC",
         "aboveThreshold": "Above 0.1 BTC",
         "belowThreshold": "Below 0.01 BTC",
         "equalsZero": "Equals 0 BTC",
+        "active": "ACTIVE",
         "deliveryNote": "All alerts delivered via email, SMS & push notifications"
       }
     },
