@@ -38,6 +38,7 @@ export function ContactModal({
   editContact
 }: ContactModalProps) {
   const t = useTranslations('contacts')
+  const tCommon = useTranslations('common')
   const [name, setName] = useState("")
   const [language, setLanguage] = useState<typeof NOTIFICATION_LANGUAGE_VALUES[number]>('en')
   const [providers, setProviders] = useState<ProviderInfo[]>([])
@@ -873,7 +874,7 @@ export function ContactModal({
                                   }
                                 }
                               }}
-                              placeholder="user@example.com"
+                              placeholder={tCommon('emailPlaceholder')}
                               disabled={isSubmitting || isSendingEmailVerification}
                               type="email"
                               className={emailAddressError ? 'border-red-500 focus:border-red-500' : ''}

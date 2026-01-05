@@ -32,7 +32,10 @@
     "warning": "Aviso",
     "info": "Info",
     "savedSuccessfully": "Salvo com sucesso!",
-    "connectingToNetwork": "Conectando a rede..."
+    "connectingToNetwork": "Conectando a rede...",
+    "emailPlaceholder": "seu@email.com",
+    "emailLabel": "E-mail",
+    "passwordLabel": "Senha"
   },
   "nav": {
     "signIn": "Entrar",

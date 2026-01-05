@@ -32,7 +32,10 @@
     "warning": "警告",
     "info": "情報",
     "savedSuccessfully": "正常に保存されました！",
-    "connectingToNetwork": "ネットワークに接続中..."
+    "connectingToNetwork": "ネットワークに接続中...",
+    "emailPlaceholder": "your@email.com",
+    "emailLabel": "メールアドレス",
+    "passwordLabel": "パスワード"
   },
   "nav": {
     "signIn": "ログイン",

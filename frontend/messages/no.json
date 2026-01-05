@@ -32,7 +32,10 @@
     "warning": "Advarsel",
     "info": "Info",
     "savedSuccessfully": "Lagret!",
-    "connectingToNetwork": "Kobler til nettverk..."
+    "connectingToNetwork": "Kobler til nettverk...",
+    "emailPlaceholder": "din@epost.no",
+    "emailLabel": "E-post",
+    "passwordLabel": "Passord"
   },
   "nav": {
     "signIn": "Logg inn",
