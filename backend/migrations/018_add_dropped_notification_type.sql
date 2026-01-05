@@ -4,6 +4,9 @@
 -- SQLite doesn't support ALTER TABLE to modify CHECK constraints,
 -- so we need to recreate the table
 
+-- Drop temporary table if it exists (cleanup from failed migrations)
+DROP TABLE IF EXISTS notification_logs_new;
+
 -- Create new table with updated constraint
 CREATE TABLE notification_logs_new (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
