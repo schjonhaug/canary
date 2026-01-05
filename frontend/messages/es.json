@@ -89,9 +89,11 @@
       },
       "example": {
         "title": "Tu Billetera Bitcoin",
-        "aboveThreshold": "Por encima de 0.1 BTC",
-        "belowThreshold": "Por debajo de 0.01 BTC",
+        "currentBalance": "0,05 BTC",
+        "aboveThreshold": "Por encima de 0,1 BTC",
+        "belowThreshold": "Por debajo de 0,01 BTC",
         "equalsZero": "Igual a 0 BTC",
+        "active": "ACTIVO",
         "deliveryNote": "Todas las alertas entregadas via email, SMS y notificaciones push"
       }
     },

@@ -119,9 +119,11 @@
       },
       "example": {
         "title": "Din Bitcoin-lommebok",
-        "aboveThreshold": "Over 0.1 BTC",
-        "belowThreshold": "Under 0.01 BTC",
+        "currentBalance": "0,05 BTC",
+        "aboveThreshold": "Over 0,1 BTC",
+        "belowThreshold": "Under 0,01 BTC",
         "equalsZero": "Lik 0 BTC",
+        "active": "AKTIV",
         "deliveryNote": "Alle varsler leveres via e-post, SMS og push-varsler"
       }
     },

@@ -119,9 +119,11 @@
       },
       "example": {
         "title": "Sua Carteira Bitcoin",
-        "aboveThreshold": "Acima de 0.1 BTC",
-        "belowThreshold": "Abaixo de 0.01 BTC",
+        "currentBalance": "0,05 BTC",
+        "aboveThreshold": "Acima de 0,1 BTC",
+        "belowThreshold": "Abaixo de 0,01 BTC",
         "equalsZero": "Igual a 0 BTC",
+        "active": "ATIVO",
         "deliveryNote": "Todos os alertas entregues via email, SMS e notificacoes push"
       }
     },

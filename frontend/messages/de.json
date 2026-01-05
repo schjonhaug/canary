@@ -119,9 +119,11 @@
       },
       "example": {
         "title": "Ihre Bitcoin-Wallet",
-        "aboveThreshold": "Uber 0,1 BTC",
+        "currentBalance": "0,05 BTC",
+        "aboveThreshold": "Über 0,1 BTC",
         "belowThreshold": "Unter 0,01 BTC",
         "equalsZero": "Gleich 0 BTC",
+        "active": "AKTIV",
         "deliveryNote": "Alle Warnungen per E-Mail, SMS und Push-Benachrichtigungen"
       }
     },

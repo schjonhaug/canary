@@ -119,10 +119,12 @@
       },
       "example": {
         "title": "Votre portefeuille Bitcoin",
+        "currentBalance": "0,05 BTC",
         "aboveThreshold": "Au-dessus de 0,1 BTC",
         "belowThreshold": "En dessous de 0,01 BTC",
-        "equalsZero": "Egal a 0 BTC",
-        "deliveryNote": "Toutes les alertes livrees par email, SMS et notifications push"
+        "equalsZero": "Égal à 0 BTC",
+        "active": "ACTIF",
+        "deliveryNote": "Toutes les alertes livrées par email, SMS et notifications push"
       }
     },
     "pricing": {
