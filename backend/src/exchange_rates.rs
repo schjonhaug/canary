@@ -87,8 +87,11 @@ impl ExchangeRateService {
 
     /// Map browser locale to appropriate fiat currency
     pub fn locale_to_currency(locale: &str) -> &'static str {
+        // Strip quality value if present: "fr;q=0.8" -> "fr"
+        let locale_clean = locale.split(';').next().unwrap_or(locale);
+
         // Normalize locale: convert underscores to hyphens, lowercase
-        let normalized = locale.to_lowercase().replace('_', "-");
+        let normalized = locale_clean.to_lowercase().replace('_', "-");
 
         // Split into parts: "fr-FR" -> ["fr", "FR"], "fr" -> ["fr"]
         let parts: Vec<&str> = normalized.split('-').collect();
