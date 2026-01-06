@@ -25,3 +25,10 @@ export function setStoredLocale(locale: Locale): void {
   const maxAge = 60 * 60 * 24 * 365
   document.cookie = `${LOCALE_COOKIE_NAME}=${locale}; path=/; max-age=${maxAge}; samesite=lax`
 }
+
+export function clearStoredLocale(): void {
+  if (typeof document === 'undefined') return
+
+  // Clear cookie by setting max-age to 0
+  document.cookie = `${LOCALE_COOKIE_NAME}=; path=/; max-age=0; samesite=lax`
+}

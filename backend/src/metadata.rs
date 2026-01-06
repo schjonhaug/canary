@@ -3228,6 +3228,26 @@ impl MetadataDb {
         .await?
     }
 
+    /// Update user's preferred language
+    pub async fn update_user_preferred_language(
+        &self,
+        user_id: &str,
+        language: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let language = language.to_string();
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET preferred_language = ?1 WHERE id = ?2",
+                params![language, user_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     /// Get user's preferred ntfy server URL (None means use env var or default)
     pub async fn get_user_ntfy_server_url(&self, user_id: &str) -> Result<Option<String>> {
         let pool = self.pool.clone();
