@@ -71,7 +71,7 @@ export interface NotificationMethod {
 }
 
 // Supported notification languages (must match backend Language enum)
-export type NotificationLanguage = 'en' | 'no' | 'es' | 'pt' | 'de' | 'fr' | 'ja'
+export type NotificationLanguage = 'en' | 'no' | 'es' | 'pt' | 'de' | 'fr' | 'ja' | 'da' | 'sv'
 
 export interface Contact {
   id: string
