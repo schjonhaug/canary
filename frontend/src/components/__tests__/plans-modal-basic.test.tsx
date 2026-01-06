@@ -44,70 +44,72 @@ describe('PlansModal Basic Functionality', () => {
   describe('Wallet Limit Display', () => {
     it('shows wallet limit message for personal tier', () => {
       render(<PlansModal {...defaultProps} currentWalletCount={1} limitType="wallets" />)
-      
+
       expect(screen.getByText('Wallet Limit Reached')).toBeInTheDocument()
-      expect(screen.getByText(/You've reached your wallet limit of 1 wallet/)).toBeInTheDocument()
-      expect(screen.getByText('Current usage: 1 / 1 wallets')).toBeInTheDocument()
-      expect(screen.getByText('Personal')).toBeInTheDocument()
+      expect(screen.getByText(/You've reached your.*limit of 1 on the Personal plan/)).toBeInTheDocument()
+      expect(screen.getByText('Current usage: 1 / 1')).toBeInTheDocument()
+      // "Personal" tier name appears in the description
+      expect(screen.getByText(/Personal plan/)).toBeInTheDocument()
     })
 
     it('shows plural form for team tier wallets', () => {
       render(
-        <PlansModal 
+        <PlansModal
           {...defaultProps}
           currentTier="team"
           currentWalletCount={5}
           limitType="wallets"
         />
       )
-      
+
       // Check for text that might be split across elements
       expect(screen.getAllByText((content, element) => {
-        return element?.textContent?.includes("You've reached your wallet limit of 5 wallets") ?? false
+        return (element?.textContent?.includes("You've reached your") && element?.textContent?.includes("limit of 5 on the Team plan")) ?? false
       })[0]).toBeInTheDocument()
-      expect(screen.getByText('Current usage: 5 / 5 wallets')).toBeInTheDocument()
-      expect(screen.getByText('Team')).toBeInTheDocument()
+      expect(screen.getByText('Current usage: 5 / 5')).toBeInTheDocument()
+      // "Team" tier name appears in the description
+      expect(screen.getByText(/Team plan/)).toBeInTheDocument()
     })
   })
 
   describe('Contact Limit Display', () => {
     it('shows contact limit message for personal tier', () => {
       render(<PlansModal {...defaultProps} currentContactCount={1} limitType="contacts" />)
-      
+
       expect(screen.getByText('Contact Limit Reached')).toBeInTheDocument()
-      expect(screen.getByText(/You've reached your contact limit of 1 contact/)).toBeInTheDocument()
-      expect(screen.getByText('Current usage: 1 / 1 contacts')).toBeInTheDocument()
-      expect(screen.getByText(/upgrade to add more contacts/)).toBeInTheDocument()
+      expect(screen.getByText(/You've reached your.*limit of 1 on the Personal plan/)).toBeInTheDocument()
+      expect(screen.getByText('Current usage: 1 / 1')).toBeInTheDocument()
+      expect(screen.getByText(/upgrade to add more/)).toBeInTheDocument()
     })
 
     it('shows plural form for team tier contacts', () => {
       render(
-        <PlansModal 
+        <PlansModal
           {...defaultProps}
           currentTier="team"
           currentContactCount={5}
           limitType="contacts"
         />
       )
-      
+
       // Check for text that might be split across elements
       expect(screen.getAllByText((content, element) => {
-        return element?.textContent?.includes("You've reached your contact limit of 5 contacts") ?? false
+        return (element?.textContent?.includes("You've reached your") && element?.textContent?.includes("limit of 5 on the Team plan")) ?? false
       })[0]).toBeInTheDocument()
-      expect(screen.getByText('Current usage: 5 / 5 contacts')).toBeInTheDocument()
+      expect(screen.getByText('Current usage: 5 / 5')).toBeInTheDocument()
     })
 
   })
 
-  describe('Tier Badge Display', () => {
-    it('displays Personal tier badge', () => {
+  describe('Tier Display in Description', () => {
+    it('displays Personal tier in description', () => {
       render(<PlansModal {...defaultProps} currentWalletCount={1} />)
-      expect(screen.getByText('Personal')).toBeInTheDocument()
+      expect(screen.getByText(/Personal plan/)).toBeInTheDocument()
     })
 
-    it('displays Team tier badge', () => {
+    it('displays Team tier in description', () => {
       render(<PlansModal {...defaultProps} currentTier="team" currentWalletCount={5} />)
-      expect(screen.getByText('Team')).toBeInTheDocument()
+      expect(screen.getByText(/Team plan/)).toBeInTheDocument()
     })
 
   })
@@ -120,12 +122,12 @@ describe('PlansModal Basic Functionality', () => {
 
     it('defaults wallet count to 0', () => {
       render(<PlansModal {...defaultProps} limitType="wallets" />)
-      expect(screen.getByText('Current usage: 0 / 1 wallets')).toBeInTheDocument()
+      expect(screen.getByText('Current usage: 0 / 1')).toBeInTheDocument()
     })
 
     it('defaults contact count to 0', () => {
       render(<PlansModal {...defaultProps} limitType="contacts" />)
-      expect(screen.getByText('Current usage: 0 / 1 contacts')).toBeInTheDocument()
+      expect(screen.getByText('Current usage: 0 / 1')).toBeInTheDocument()
     })
   })
 

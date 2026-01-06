@@ -95,7 +95,7 @@ describe('AddWalletPage', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Follow these steps to export your descriptor')).toBeInTheDocument()
+        expect(screen.getByText(/Follow these steps to export your descriptor/)).toBeInTheDocument()
       })
 
       // Should show Sparrow-specific content

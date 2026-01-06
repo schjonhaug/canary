@@ -112,12 +112,13 @@ describe('ContactModal', () => {
       await act(async () => {
         render(<ContactModal {...defaultProps} />)
       })
-      
+
       await waitFor(() => {
         expect(mockApi.getProviders).toHaveBeenCalled()
       })
 
-      expect(screen.getByText('Push Notifications')).toBeInTheDocument()
+      // Provider names come from translations: add.providers.ntfy, .twilio, .email
+      expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
       expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       expect(screen.getByText('Email Notifications')).toBeInTheDocument()
     })
@@ -131,12 +132,12 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Push Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
       })
 
       // Fill in name and select ntfy
       await user.type(screen.getByLabelText('Name'), 'Test Contact')
-      await user.click(screen.getByRole('checkbox', { name: /Push Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
 
       // Submit
       await user.click(screen.getByText('Create Contact'))
@@ -158,10 +159,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Push Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /Push Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
       await user.click(screen.getByText('Create Contact'))
 
       await waitFor(() => {
@@ -178,6 +179,7 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -199,6 +201,7 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -233,6 +236,7 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -278,6 +282,7 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -309,6 +314,7 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -339,7 +345,7 @@ describe('ContactModal', () => {
       await user.type(screen.getByLabelText('Name'), 'Email Contact')
       await user.click(screen.getByRole('checkbox', { name: /Email Notifications/ }))
 
-      const emailInput = screen.getByPlaceholderText('user@example.com')
+      const emailInput = screen.getByPlaceholderText('your@email.com')
       await user.type(emailInput, 'test@example.com')
 
       expect(screen.getByText('Send Verification Code')).toBeInTheDocument()
@@ -363,8 +369,8 @@ describe('ContactModal', () => {
       await user.type(screen.getByLabelText('Name'), 'Email Contact')
       await user.click(screen.getByRole('checkbox', { name: /Email Notifications/ }))
 
-      const emailInput = screen.getByPlaceholderText('user@example.com')
-      await user.type(emailInput, 'user@example.com')
+      const emailInput = screen.getByPlaceholderText('your@email.com')
+      await user.type(emailInput, 'your@email.com')
 
       await user.click(screen.getByText('Send Verification Code'))
 
@@ -391,7 +397,7 @@ describe('ContactModal', () => {
       await user.type(screen.getByLabelText('Name'), 'Email Contact')
       await user.click(screen.getByRole('checkbox', { name: /Email Notifications/ }))
 
-      const emailInput = screen.getByPlaceholderText('user@example.com')
+      const emailInput = screen.getByPlaceholderText('your@email.com')
       await user.type(emailInput, 'test@example.com')
 
       // Send verification
@@ -425,6 +431,7 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -448,6 +455,7 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -467,6 +475,7 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -494,17 +503,17 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Push Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
       })
 
       // Enable multiple providers
-      await user.click(screen.getByRole('checkbox', { name: /Push Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
       await user.click(screen.getByRole('checkbox', { name: /Email Notifications/ }))
 
       // Verify all provider sections are visible
       expect(screen.getByPlaceholderText('+1234567890')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('user@example.com')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('your@email.com')).toBeInTheDocument()
       expect(screen.getAllByText('Send Verification Code')).toHaveLength(2) // SMS and Email verification buttons
     })
   })
@@ -518,10 +527,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Push Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /Push Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
       await user.click(screen.getByText('Create Contact'))
 
       await waitFor(() => {
@@ -538,6 +547,7 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -574,6 +584,7 @@ describe('ContactModal', () => {
       const { rerender } = renderResult
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
@@ -610,7 +621,7 @@ describe('ContactModal', () => {
       })
       
       // Mock createContact to return duplicate conflict error
-      mockApi.createContact.mockRejectedValue(new Error("Duplicate notification targets: Email 'user@example.com' is already used by contact 'John'"))
+      mockApi.createContact.mockRejectedValue(new Error("Duplicate notification targets: Email 'your@email.com' is already used by contact 'John'"))
       
       await act(async () => {
         render(<ContactModal {...defaultProps} />)
@@ -622,7 +633,7 @@ describe('ContactModal', () => {
 
       // Fill in contact details - only enable ntfy to simplify test
       await user.type(screen.getByLabelText('Name'), 'Duplicate Contact')
-      await user.click(screen.getByRole('checkbox', { name: /Push Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
 
       // Try to create contact - should fail with duplicate error
       await user.click(screen.getByText('Create Contact'))
@@ -646,12 +657,13 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
+        // SMS Notifications comes from translation add.providers.twilio
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
       // Fill in contact details - only enable ntfy to simplify test
       await user.type(screen.getByLabelText('Name'), 'Duplicate SMS Contact')
-      await user.click(screen.getByRole('checkbox', { name: /Push Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
 
       // Try to create contact - should fail with duplicate error
       await user.click(screen.getByText('Create Contact'))
