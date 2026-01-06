@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { setStoredLocale, clearStoredLocale } from '@/lib/locale'
+import { type Locale, locales } from '@/i18n/config'
 
 interface User {
   id: number
@@ -12,6 +14,7 @@ interface User {
   is_demo: boolean
   email_verified: boolean
   subscription_tier?: 'personal' | 'team'
+  preferred_language?: string
 }
 
 interface BillingStatus {
@@ -79,10 +82,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isSelfHostedMode = mode === 'self-hosted'
   
 
+  // Sync locale cookie from user's stored preference (used on page refresh when already logged in)
+  const syncLocaleFromUser = useCallback((userData: User) => {
+    if (userData.preferred_language && locales.includes(userData.preferred_language as Locale)) {
+      setStoredLocale(userData.preferred_language as Locale)
+    }
+  }, [])
+
   const fetchUser = useCallback(async () => {
     try {
       const { user: userData } = await api.getMe()
       setUser(userData)
+      syncLocaleFromUser(userData)
     } catch (error) {
       console.error('Failed to fetch user:', error)
       // Only clear auth on 401 Unauthorized - other errors might be temporary
@@ -98,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [syncLocaleFromUser])
 
   const fetchBillingStatus = useCallback(async () => {
     try {
@@ -173,7 +184,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user)
       localStorage.setItem('auth_token', data.token)
       api.setAuthToken(data.token)
-      router.push('/')
+
+      // Set locale cookie and force full page reload to apply new locale
+      if (data.user.preferred_language && locales.includes(data.user.preferred_language as Locale)) {
+        setStoredLocale(data.user.preferred_language as Locale)
+        // Force hard navigation to re-run server-side locale detection
+        window.location.href = '/'
+      } else {
+        router.push('/')
+      }
     } catch (error) {
       throw error
     }
@@ -186,7 +205,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user)
       localStorage.setItem('auth_token', data.token)
       api.setAuthToken(data.token)
-      router.push('/')
+
+      // Set locale cookie and force full page reload to apply new locale
+      if (data.user.preferred_language && locales.includes(data.user.preferred_language as Locale)) {
+        setStoredLocale(data.user.preferred_language as Locale)
+        window.location.href = '/'
+      } else {
+        router.push('/')
+      }
     } catch (error) {
       throw error
     }
@@ -234,6 +260,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Logout error:', error)
       }
     }
+
+    // Clear locale cookie so next user doesn't inherit this user's language
+    clearStoredLocale()
 
     setUser(null)
     setToken(null)

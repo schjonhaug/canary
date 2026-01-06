@@ -98,6 +98,7 @@ pub struct AuthUserResponse {
     pub subscription_tier: crate::subscription::SubscriptionTier,
     pub created_at: String,
     pub preferred_fiat_currency: Option<String>,
+    pub preferred_language: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -113,6 +114,7 @@ pub struct UpdateUserResponse {
 #[derive(Debug, Deserialize)]
 pub struct UpdateUserPreferencesRequest {
     pub preferred_fiat_currency: Option<String>,
+    pub preferred_language: Option<String>,
     pub ntfy_server_url: Option<String>,
     /// Access token for ntfy Bearer authentication (mutually exclusive with username/password)
     pub ntfy_access_token: Option<String>,

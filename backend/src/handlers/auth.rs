@@ -426,6 +426,7 @@ pub async fn login(
         subscription_tier: user_record.subscription_tier,
         created_at: user_record.created_at,
         preferred_fiat_currency: user_record.preferred_fiat_currency,
+        preferred_language: user_record.preferred_language,
     };
 
     Json(AuthResponse {
@@ -549,6 +550,7 @@ pub async fn demo_login(
         subscription_tier: user_record.subscription_tier,
         created_at: user_record.created_at,
         preferred_fiat_currency: user_record.preferred_fiat_currency,
+        preferred_language: user_record.preferred_language,
     };
 
     let elapsed = start_time.elapsed();
@@ -923,6 +925,7 @@ pub async fn me(
             subscription_tier: db_user.subscription_tier,
             created_at: db_user.created_at,
             preferred_fiat_currency: db_user.preferred_fiat_currency,
+            preferred_language: db_user.preferred_language,
         },
         Ok(None) => {
             return (
@@ -996,6 +999,7 @@ pub async fn update_user(
             subscription_tier: db_user.subscription_tier,
             created_at: db_user.created_at,
             preferred_fiat_currency: db_user.preferred_fiat_currency,
+            preferred_language: db_user.preferred_language,
         },
         Ok(None) => {
             return (
