@@ -5,6 +5,7 @@ use crate::metadata::{
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use rust_i18n::t;
 use serde_json::json;
 
 /// Authentication method for ntfy server
@@ -89,52 +90,20 @@ impl NotificationProvider for NtfyProvider {
                 let ntfy_url = format!("{}/{}", self.server_url, topic);
 
                 // Create localized title for push notification
-                let localized_title = match notification {
+                let locale = contact.language.as_str();
+                let title_key = match notification {
                     TransactionNotification::Pending(tx) => match tx.transaction_type {
-                        EventType::Receive => match contact.language {
-                            crate::metadata::Language::Norwegian => {
-                                format!("Mottar Bitcoin - {}", wallet_name)
-                            }
-                            crate::metadata::Language::English => {
-                                format!("Receiving Bitcoin - {}", wallet_name)
-                            }
-                        },
-                        EventType::Send => match contact.language {
-                            crate::metadata::Language::Norwegian => {
-                                format!("Sender Bitcoin - {}", wallet_name)
-                            }
-                            crate::metadata::Language::English => {
-                                format!("Sending Bitcoin - {}", wallet_name)
-                            }
-                        },
+                        EventType::Receive => "titles.receive.pending",
+                        EventType::Send => "titles.send.pending",
                     },
                     TransactionNotification::Confirmed(tx) => match tx.transaction_type {
-                        EventType::Receive => match contact.language {
-                            crate::metadata::Language::Norwegian => {
-                                format!("Bitcoin mottatt - {}", wallet_name)
-                            }
-                            crate::metadata::Language::English => {
-                                format!("Bitcoin Received - {}", wallet_name)
-                            }
-                        },
-                        EventType::Send => match contact.language {
-                            crate::metadata::Language::Norwegian => {
-                                format!("Bitcoin sendt - {}", wallet_name)
-                            }
-                            crate::metadata::Language::English => {
-                                format!("Bitcoin Sent - {}", wallet_name)
-                            }
-                        },
+                        EventType::Receive => "titles.receive.confirmed",
+                        EventType::Send => "titles.send.confirmed",
                     },
-                    TransactionNotification::BalanceAlert(_) => match contact.language {
-                        crate::metadata::Language::Norwegian => {
-                            format!("Saldovarsel - {}", wallet_name)
-                        }
-                        crate::metadata::Language::English => {
-                            format!("Balance Alert - {}", wallet_name)
-                        }
-                    },
+                    TransactionNotification::BalanceAlert(_) => "titles.balance_alert",
                 };
+                let localized_title =
+                    format!("{} - {}", t!(title_key, locale = locale), wallet_name);
 
                 // Build the request with optional authentication
                 let mut request = self

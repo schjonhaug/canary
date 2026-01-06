@@ -24,6 +24,7 @@ import {
 } from "@/lib/utils"
 import { formatFiatAmount } from "@/lib/currencies"
 import { useAuth } from "@/contexts/auth-context"
+import { useTranslations } from "next-intl"
 
 interface BalanceAlertsListProps {
   walletChecksum: string
@@ -56,6 +57,8 @@ export function BalanceAlertsList({
   balanceAlerts
 }: BalanceAlertsListProps) {
   const { user, isCloudMode } = useAuth()
+  const t = useTranslations('balanceAlerts')
+  const tCommon = useTranslations('common')
 
   // Use local state for optimistic updates
   const [localAlerts, setLocalAlerts] = useState<BalanceAlert[]>(balanceAlerts)
@@ -93,13 +96,13 @@ export function BalanceAlertsList({
       // BTC threshold validation
       const thresholdBtc = parseBtcInput(thresholdInput)
       if (thresholdBtc === null) {
-        setError('Please enter a valid Bitcoin amount')
+        setError(t('errors.invalidBtcAmount'))
         return
       }
 
       // Check for negative amounts
       if (thresholdBtc < 0) {
-        setError('Amount cannot be negative')
+        setError(t('errors.negativeAmount'))
         return
       }
 
@@ -107,7 +110,7 @@ export function BalanceAlertsList({
 
       // Check for "below 0" alerts (logically impossible)
       if (alertType === 'below' && thresholdSats === 0) {
-        setError('Cannot create alert for "below 0" - balance cannot go below zero')
+        setError(t('errors.belowZero'))
         return
       }
 
@@ -119,7 +122,7 @@ export function BalanceAlertsList({
       )
 
       if (duplicate) {
-        setError('An alert with this type and amount already exists')
+        setError(t('errors.duplicateAlert'))
         return
       }
 
@@ -137,7 +140,7 @@ export function BalanceAlertsList({
         setShowCreateForm(false)
         setThresholdInput('')
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to create balance alert')
+        setError(err instanceof Error ? err.message : t('errors.createFailed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -145,13 +148,13 @@ export function BalanceAlertsList({
       // Fiat threshold validation
       const thresholdFiat = parseFloat(thresholdInput)
       if (isNaN(thresholdFiat) || thresholdFiat <= 0) {
-        setError('Please enter a valid positive amount')
+        setError(t('errors.invalidPositiveAmount'))
         return
       }
 
       // Check for "below 0" alerts (logically impossible)
       if (alertType === 'below' && thresholdFiat === 0) {
-        setError('Cannot create alert for "below 0" - balance cannot go below zero')
+        setError(t('errors.belowZero'))
         return
       }
 
@@ -163,7 +166,7 @@ export function BalanceAlertsList({
       )
 
       if (duplicate) {
-        setError('An alert with this type and amount already exists')
+        setError(t('errors.duplicateAlert'))
         return
       }
 
@@ -182,7 +185,7 @@ export function BalanceAlertsList({
         setShowCreateForm(false)
         setThresholdInput('')
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to create balance alert')
+        setError(err instanceof Error ? err.message : t('errors.createFailed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -195,7 +198,7 @@ export function BalanceAlertsList({
       setLocalAlerts(prev => prev.filter(alert => alert.id !== alertId))
       setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete alert')
+      setError(err instanceof Error ? err.message : t('errors.deleteFailed'))
     }
   }
 
@@ -204,7 +207,7 @@ export function BalanceAlertsList({
   }
 
   const formatAlertDescription = (alert: BalanceAlert) => {
-    const typeLabel = ALERT_TYPE_OPTIONS.find(opt => opt.value === alert.alert_type)?.label || alert.alert_type
+    const typeLabel = t(`add.types.${alert.alert_type}`)
 
     if (alert.threshold_currency && alert.threshold_fiat_amount) {
       // Fiat alert - formatFiatAmount already includes currency symbol
@@ -225,7 +228,7 @@ export function BalanceAlertsList({
       {/* Existing Alerts */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium text-muted-foreground">Balance Alerts</h4>
+          <h4 className="text-sm font-medium text-muted-foreground">{t('title')}</h4>
           {!showCreateForm && !(isCloudMode && (user?.is_admin || user?.is_demo)) && (
             <Button
               variant="ghost"
@@ -234,7 +237,7 @@ export function BalanceAlertsList({
               className="h-6 px-2 text-xs gap-1"
             >
               <Plus className="h-3 w-3" />
-              New
+              {tCommon('new')}
             </Button>
           )}
         </div>
@@ -242,7 +245,7 @@ export function BalanceAlertsList({
         {localAlerts.length === 0 ? (
           <div className="text-center text-muted-foreground text-xs py-3">
             <Bell className="h-4 w-4 mx-auto mb-1 opacity-50" />
-            <p>No alerts set</p>
+            <p>{t('empty.list')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -260,7 +263,7 @@ export function BalanceAlertsList({
                         </div>
                         {alert.last_triggered_at && (
                           <div className="text-xs text-muted-foreground">
-                            Last fired {new Date(alert.last_triggered_at * 1000).toLocaleDateString()}
+                            {t('lastFired', { date: new Date(alert.last_triggered_at * 1000).toLocaleDateString() })}
                           </div>
                         )}
                       </div>
@@ -273,7 +276,7 @@ export function BalanceAlertsList({
                           size="sm"
                           onClick={() => handleDeleteAlert(alert.id)}
                           className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
-                          title="Delete alert"
+                          title={t('deleteAlert')}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -291,7 +294,7 @@ export function BalanceAlertsList({
       {showCreateForm && (
         <div className="p-3 border rounded space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-medium">Create New Alert</h4>
+            <h4 className="text-xs font-medium">{t('add.title')}</h4>
             <Button
               variant="ghost"
               size="sm"
@@ -304,7 +307,7 @@ export function BalanceAlertsList({
 
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Alert Type</Label>
+              <Label className="text-xs">{t('add.typeLabel')}</Label>
               <RadioGroup
                 value={alertType}
                 onValueChange={(value) => setAlertType(value as typeof alertType)}
@@ -320,19 +323,19 @@ export function BalanceAlertsList({
                         className="text-xs flex items-center gap-2 cursor-pointer flex-1"
                       >
                         <IconComponent className="h-3 w-3" />
-                        <span>{option.label}</span>
+                        <span>{t(`add.types.${option.value}`)}</span>
                       </Label>
                     </div>
                   )
                 })}
               </RadioGroup>
               <p className="text-xs text-muted-foreground mt-1">
-                {ALERT_TYPE_OPTIONS.find(opt => opt.value === alertType)?.description}
+                {t(`add.typeDescriptions.${alertType}`)}
               </p>
             </div>
 
             <div>
-              <Label className="text-xs">Currency Type</Label>
+              <Label className="text-xs">{t('add.currencyLabel')}</Label>
               <RadioGroup
                 value={currencyType}
                 onValueChange={(value) => {
@@ -344,13 +347,13 @@ export function BalanceAlertsList({
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="btc" id="currency-btc" />
                   <Label htmlFor="currency-btc" className="text-xs cursor-pointer">
-                    Bitcoin (BTC)
+                    {t('add.bitcoinBtc')}
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="fiat" id="currency-fiat" />
                   <Label htmlFor="currency-fiat" className="text-xs cursor-pointer">
-                    Fiat Currency ({preferredCurrency})
+                    {t('add.fiatCurrency', { currency: preferredCurrency })}
                   </Label>
                 </div>
               </RadioGroup>
@@ -358,7 +361,7 @@ export function BalanceAlertsList({
 
             <div>
               <Label htmlFor="threshold-amount" className="text-xs">
-                {currencyType === 'btc' ? 'Bitcoin Amount' : `Amount (${preferredCurrency})`}
+                {currencyType === 'btc' ? t('add.bitcoinAmount') : t('add.amount', { currency: preferredCurrency })}
               </Label>
               <Input
                 id="threshold-amount"
@@ -369,7 +372,7 @@ export function BalanceAlertsList({
                 className="font-mono h-8 text-xs"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                {currencyType === 'btc' ? 'Enter amount in BTC' : `Enter amount in ${preferredCurrency}`}
+                {currencyType === 'btc' ? t('add.enterAmountBtc') : t('add.enterAmount', { currency: preferredCurrency })}
               </p>
             </div>
           </div>
@@ -388,7 +391,7 @@ export function BalanceAlertsList({
               disabled={isSubmitting}
               className="h-7 px-2 text-xs"
             >
-              Cancel
+              {tCommon('cancel')}
             </Button>
             <Button
               size="sm"
@@ -396,7 +399,7 @@ export function BalanceAlertsList({
               disabled={isSubmitting || !thresholdInput.trim()}
               className="h-7 px-2 text-xs"
             >
-              {isSubmitting ? "Creating..." : "Create"}
+              {isSubmitting ? t('add.submitting') : t('add.submit')}
             </Button>
           </div>
         </div>

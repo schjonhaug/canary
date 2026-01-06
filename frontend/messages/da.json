@@ -1,0 +1,969 @@
+{
+  "common": {
+    "loading": "Indlæser...",
+    "save": "Gem",
+    "saving": "Gemmer...",
+    "cancel": "Annuller",
+    "delete": "Slet",
+    "deleting": "Sletter...",
+    "edit": "Rediger",
+    "add": "Tilføj",
+    "close": "Luk",
+    "confirm": "Bekræft",
+    "back": "Tilbage",
+    "next": "Næste",
+    "submit": "Indsend",
+    "verify": "Verificer",
+    "verifying": "Verificerer...",
+    "send": "Send",
+    "sending": "Sender...",
+    "retry": "Prøv igen",
+    "yes": "Ja",
+    "no": "Nej",
+    "or": "eller",
+    "and": "og",
+    "active": "AKTIV",
+    "inactive": "INAKTIV",
+    "pending": "Afventer",
+    "confirmed": "Bekræftet",
+    "failed": "Mislykkedes",
+    "success": "Succes",
+    "error": "Fejl",
+    "warning": "Advarsel",
+    "info": "Info",
+    "savedSuccessfully": "Gemt korrekt!",
+    "connectingToNetwork": "Forbinder til netværk...",
+    "emailPlaceholder": "din @email.com",
+    "emailLabel": "E-mail",
+    "passwordLabel": "Adgangskode",
+    "name": "Navn",
+    "new": "Ny",
+    "backToWallets": "Tilbage til wallets",
+    "backToSignIn": "Tilbage til log ind",
+    "selfHostedMode": "Self-Hosted tilstand"
+  },
+  "nav": {
+    "signIn": "Log ind",
+    "signOut": "Log ud",
+    "settings": "Indstillinger",
+    "wallets": "Wallets",
+    "addWallet": "Tilføj wallet",
+    "alreadyUser": "Allerede bruger? Log ind",
+    "contact": "Kontakt",
+    "subscription": "Abonnement"
+  },
+  "contactPage": {
+    "title": "Kontakt",
+    "selfHosted": {
+      "description": "Kontaktformularen er ikke tilgængelig i self-hosted tilstand."
+    },
+    "form": {
+      "title": "Kontakt os",
+      "description": "Har du et spørgsmål eller feedback? Vi vil meget gerne høre fra dig.",
+      "messageLabel": "Besked",
+      "messagePlaceholder": "Hvordan kan vi hjælpe dig?",
+      "characterCount": "{count}/{max} tegn",
+      "submit": "Send besked"
+    },
+    "validation": {
+      "emailRequired": "E-mail er påkrævet",
+      "emailInvalid": "Indtast venligst en gyldig e-mailadresse",
+      "emailTooLong": "E-mail skal være kortere end {max} tegn",
+      "messageRequired": "Besked er påkrævet",
+      "messageTooShort": "Besked skal være på mindst {min} tegn",
+      "messageTooLong": "Besked skal være kortere end {max} tegn"
+    },
+    "errors": {
+      "sendFailed": "Kunne ikke sende besked"
+    }
+  },
+  "landing": {
+    "hero": {
+      "title": "Komplet overvågning af Bitcoin-formue",
+      "description": "Professionel Bitcoin-overvågning med transaktionsvarsler og intelligente saldo-notifikationer. Indstil tilpassede saldogrænser, overvåg wallet-tømninger, spor alle transaktioner - alt sammen med watch-only sikkerhed.",
+      "startTrial": "Start 30-dages gratis prøveperiode",
+      "tryDemo": "Prøv demo",
+      "viewPricing": "Se priser"
+    },
+    "features": {
+      "title": "Komplet overvågning af Bitcoin-formue",
+      "subtitle": "Transaktionssporing, saldovarsler og sikker watch-only overvågning",
+      "notifications": {
+        "title": "Øjeblikkelige Bitcoin-transaktionsvarsler",
+        "description": "Bitcoin-walletvarsler i realtid via e-mail, SMS og push-beskeder leveret direkte til din enhed"
+      },
+      "balanceAlerts": {
+        "title": "Intelligent saldovarslingssystem",
+        "description": "Tilpassede saldogrænser med varsler for wallet-tømninger, store indbetalinger eller når specifikke beløb nås. Gå aldrig glip af kritiske saldoændringer."
+      },
+      "security": {
+        "title": "Sikker watch-only Bitcoin-overvågning",
+        "description": "Watch-only Bitcoin-walletadgang ved hjælp af XPUBs eller descriptors - vi rører aldrig dine private nøgler"
+      },
+      "sync": {
+        "title": "Real-time Bitcoin Wallet Sync",
+        "description": "Bitcoin-wallet synkroniseringsintervaller fra 10 minutter ned til 2 minutter baseret på din abonnementsplan"
+      }
+    },
+    "balanceAlerts": {
+      "title": "Gå aldrig glip af kritiske saldoændringer",
+      "description": "Indstil tilpassede saldogrænser for at overvåge dine samlede wallet-beholdninger. Få besked, når din saldo når bestemte niveauer. Perfekt til overvågning af cold storage, detektering af wallet-tømning eller sporing af vigtige saldomilepæle.",
+      "above": {
+        "title": "Varsler over grænseværdi",
+        "description": "Få besked, når din samlede saldo stiger over en bestemt grænse. Overvåg, hvornår dine beholdninger når vigtige milepæle."
+      },
+      "below": {
+        "title": "Varsler under grænseværdi",
+        "description": "Få besked, når din samlede saldo falder under en bestemt grænse. Indstil advarsler om lav saldo for dine beholdninger."
+      },
+      "drain": {
+        "title": "Detektering af wallet-tømning",
+        "description": "Få besked, når din samlede saldo er lig med et bestemt beløb, som f.eks. nul ved wallet-tømninger. Kritisk sikkerhedsovervågning."
+      },
+      "example": {
+        "title": "Din Bitcoin Wallet",
+        "currentBalance": "0,05 BTC",
+        "aboveThreshold": "Over 0,1 BTC",
+        "belowThreshold": "Under 0,01 BTC",
+        "equalsZero": "Lig med 0 BTC",
+        "active": "AKTIV",
+        "deliveryNote": "Alle varsler leveres via e-mail, SMS & push-beskeder"
+      }
+    },
+    "pricing": {
+      "title": "Enkel, gennemskuelig prissætning",
+      "subtitle": "Vælg den plan, der passer til dine behov",
+      "trialNote": "Cloud-planer inkluderer en 30-dages gratis prøveperiode - Intet kreditkort påkrævet"
+    },
+    "faq": {
+      "title": "Ofte stillede spørgsmål",
+      "contactUs": "Kontakt os her",
+      "items": {
+        "whatIsCanary": {
+          "question": "Hvad er Canary Bitcoin wallet-overvågning?",
+          "answer": "Canary er en professionel Bitcoin-wallet overvågnings- og notifikationstjeneste, der holder øje med dine Bitcoin-wallets ved hjælp af XPUBs eller descriptors og sender øjeblikkelige varsler for alle transaktioner via e-mail, SMS og push-beskeder. Perfekt til overvågning af cold storage, hardware wallets og watch-only Bitcoin-adresser."
+        },
+        "howDoesItWork": {
+          "question": "Hvordan fungerer Bitcoin-wallet overvågning uden private nøgler?",
+          "answer": "Canary bruger din wallets XPUB (extended public key) eller descriptor til watch-only Bitcoin-overvågning. Dette giver os skrivebeskyttet adgang til at spore dine Bitcoin-adresser og detektere transaktioner. Vi har aldrig adgang til dine private nøgler og kan ikke flytte dine Bitcoin - hvilket sikrer fuldstændig sikkerhed for din cold storage overvågning."
+        },
+        "whatIsXpub": {
+          "question": "Hvad er XPUB-overvågning?",
+          "answer": "XPUB-overvågning giver dig mulighed for at spore alle adresser i din Bitcoin-wallet uden at afsløre private nøgler. Ved at levere din wallets XPUB eller descriptor kan Canary overvåge ubegrænsede adresser, detektere transaktioner i enhver dybde (selv 200+ adresser dybt) og give dig øjeblikkelig besked, når Bitcoin flyttes."
+        },
+        "coldStorage": {
+          "question": "Kan jeg overvåge Bitcoin cold storage wallets?",
+          "answer": "Ja! Canary er perfekt til Bitcoin cold storage overvågning. Uanset om du bruger hardware wallets som Ledger eller Trezor, papir-wallets eller enhver anden cold storage løsning, skal du blot angive din XPUB eller descriptor for sikker watch-only overvågning med øjeblikkelige notifikationer."
+        },
+        "notificationSpeed": {
+          "question": "Hvor hurtige er Bitcoin-transaktionsvarsler?",
+          "answer": "Med vores Team-plan får du Bitcoin-transaktionsvarsler næsten i realtid med synkroniseringsintervaller så hurtigt som 2 minutter på mainnet. De fleste varsler ankommer inden for få sekunder efter transaktionsdetektering. Personlige planer synkroniserer hvert 10. minut, hvilket stadig sikrer rettidige varsler for dine Bitcoin-wallets."
+        },
+        "walletTypes": {
+          "question": "Hvilke typer Bitcoin-wallets understøttes?",
+          "answer": "Canary understøtter alle større Bitcoin-wallettyper, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR) adresser. Vi registrerer automatisk din wallet-type fra XPUB'en, eller du kan angive den manuelt. Multi-signature og hardware wallet-overvågning er fuldt understøttet."
+        },
+        "whyCanary": {
+          "question": "Hvorfor hedder det Canary?",
+          "answer": "Ligesom en kanariefugl i en kulmine giver tidlig advarsel, fungerer Canary som din Bitcoin-wallets tidlige varslingssystem. Når dine Bitcoin er i cold storage, tjekker du dem sjældent. Canary overvåger 24/7 og advarer dig øjeblikkeligt, når dine Bitcoin flytter sig, hvilket giver ro i sindet for langsigtede holdere."
+        },
+        "noBlockchain": {
+          "question": "Kan jeg spore Bitcoin uden at downloade blockchainen?",
+          "answer": "Ja! Canary forbinder til professionelle Electrum-servere for at overvåge Bitcoin-blockchainen for dig. Ingen grund til at køre en fuld node eller downloade blockchainen - bare angiv din XPUB og begynd at modtage øjeblikkelige notifikationer for al Bitcoin-wallet aktivitet."
+        },
+        "balanceAlerts": {
+          "question": "Hvordan fungerer Bitcoin-saldovarsler?",
+          "answer": "Canarys saldovarslingssystem lader dig indstille tilpassede grænser for at overvåge din samlede wallet-saldo. Opret varsler for når din saldo går over et bestemt beløb, under en grænse (advarsel om lav saldo) eller er lig med nul (detektering af wallet-tømning). Perfekt til sporing af cold storage uden manuel kontrol."
+        },
+        "alertTypes": {
+          "question": "Hvilke typer saldovarsler er tilgængelige?",
+          "answer": "Du kan oprette tre typer saldovarsler: 'Over'-varsler udløses, når din samlede saldo overstiger en grænse (overvåg når beholdninger når milepæle), 'Under'-varsler advarer, når den samlede saldo falder under et beløb (advarsler om lav saldo), og 'Lig med'-varsler registrerer nøjagtige saldobeløb som wallet-tømninger (saldo = 0) eller specifikke mål."
+        },
+        "multipleWallets": {
+          "question": "Kan jeg overvåge flere Bitcoin-wallets med forskellige saldogrænser?",
+          "answer": "Ja! Hver Bitcoin-wallet kan have sit eget sæt af tilpassede saldovarsler. Med vores Team-plan kan du overvåge op til 5 wallets, hver med unikke saldogrænser. Perfekt til Onkel Jims, der overvåger familie-Bitcoin-beholdninger, eller virksomheder, der sporer flere wallets med forskellige varslingskrav."
+        },
+        "contact": {
+          "question": "Hvordan kan jeg kontakte jer?",
+          "answer": "Vi vil meget gerne høre fra dig! Du kan kontakte os via vores kontaktformular for spørgsmål, feedback eller supportanmodninger. Vi svarer typisk inden for 24 timer."
+        }
+      }
+    },
+    "cta": {
+      "title": "Start komplet Bitcoin-overvågning i dag",
+      "description": "Transaktionsvarsler, saldoovervågning og ro i sindet for din Bitcoin-formue"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Velkommen tilbage",
+      "subtitle": "Log ind på din Canary-konto",
+      "passwordPlaceholder": "Indtast din adgangskode",
+      "submit": "Log ind",
+      "submitting": "Logger ind...",
+      "noAccount": "Har du ikke en konto? Tilmeld dig",
+      "forgotPassword": "Glemt din adgangskode?",
+      "devMode": "Udviklertilstand",
+      "loginFailed": "Login mislykkedes"
+    },
+    "signUp": {
+      "title": "Start din 30-dages gratis prøveperiode",
+      "subtitle": "30 dage gratis, derefter fortsæt med planen efter dit valg",
+      "nameLabel": "Navn",
+      "namePlaceholder": "Indtast dit navn",
+      "passwordPlaceholder": "Indtast en stærk adgangskode",
+      "passwordHint": "Adgangskoden skal være på mindst 6 tegn",
+      "marketingConsent": "Jeg vil gerne modtage lejlighedsvise e-mails om opdateringer til tjenesten",
+      "submit": "Opret konto",
+      "submitting": "Opretter konto...",
+      "hasAccount": "Har du allerede en konto? Log ind",
+      "signInInstead": "Log ind i stedet",
+      "registrationFailed": "Registrering mislykkedes"
+    },
+    "signUpSuccess": {
+      "title": "Tjek din e-mail",
+      "description": "Vi har sendt et bekræftelseslink til din e-mailadresse. Klik venligst på linket for at bekræfte din konto.",
+      "didntReceive": "Modtog du ikke e-mailen?",
+      "checkSpam": "Tjek din spam-mappe",
+      "resend": "Gensend bekræftelses-e-mail"
+    },
+    "forgotPassword": {
+      "title": "Glemt din adgangskode?",
+      "subtitle": "Indtast din e-mail, så sender vi dig et nulstillingslink",
+      "submit": "Send nulstillingslink",
+      "successTitle": "Tjek din e-mail",
+      "successMessage": "Hvis der findes en konto med den e-mail, modtager du et link til nulstilling af adgangskode."
+    },
+    "resetPassword": {
+      "title": "Nulstil din adgangskode",
+      "subtitle": "Indtast din nye adgangskode nedenfor",
+      "passwordLabel": "Ny adgangskode",
+      "passwordPlaceholder": "Indtast din nye adgangskode",
+      "confirmLabel": "Bekræft adgangskode",
+      "confirmPlaceholder": "Bekræft din nye adgangskode",
+      "submit": "Nulstil adgangskode",
+      "submitting": "Nulstiller...",
+      "passwordMismatch": "Adgangskoderne stemmer ikke overens",
+      "successTitle": "Adgangskode nulstillet",
+      "successMessage": "Din adgangskode er blevet nulstillet. Du kan nu logge ind.",
+      "invalidToken": "Ugyldigt eller udløbet nulstillingslink"
+    },
+    "verifyEmail": {
+      "verifying": "Verificerer din e-mail...",
+      "successTitle": "E-mail verificeret",
+      "successMessage": "Din e-mail er blevet verificeret. Du kan nu logge ind.",
+      "errorTitle": "Verifikation mislykkedes",
+      "invalidToken": "Ugyldigt eller udløbet bekræftelseslink",
+      "signIn": "Log ind"
+    }
+  },
+  "settings": {
+    "title": "Indstillinger",
+    "display": {
+      "title": "Visningsindstillinger",
+      "description": "Tilpas hvordan Bitcoin-værdier vises i dine wallets",
+      "currencyLabel": "Fiat-valuta",
+      "currencyPlaceholder": "Vælg en valuta",
+      "currencyNote": "Valutakurser opdateres hvert 10. minut fra CoinGecko"
+    },
+    "currencies": {
+      "USD": "Amerikansk Dollar",
+      "EUR": "Euro",
+      "GBP": "Britisk Pund",
+      "CAD": "Canadisk Dollar",
+      "AUD": "Australsk Dollar",
+      "CHF": "Schweizisk Franc",
+      "JPY": "Japansk Yen",
+      "CNY": "Kinesisk Yuan",
+      "INR": "Indisk Rupee",
+      "KRW": "Sydkoreansk Won",
+      "RUB": "Russisk Rubel",
+      "BRL": "Brasiliansk Real",
+      "MXN": "Mexicansk Peso",
+      "SGD": "Singaporeansk Dollar",
+      "HKD": "Hongkong Dollar",
+      "NOK": "Norsk Krone",
+      "SEK": "Svensk Krone",
+      "DKK": "Dansk Krone",
+      "PLN": "Polsk Złoty",
+      "THB": "Thailandsk Baht",
+      "IDR": "Indonesisk Rupiah",
+      "HUF": "Ungarsk Forint",
+      "CZK": "Tjekkisk Koruna",
+      "ILS": "Israelsk Shekel",
+      "CLP": "Chilensk Peso",
+      "PHP": "Filippinsk Peso",
+      "AED": "UAE Dirham",
+      "TRY": "Tyrkisk Lira",
+      "ZAR": "Sydafrikansk Rand",
+      "TWD": "Taiwansk Dollar",
+      "NZD": "Newzealandsk Dollar",
+      "ARS": "Argentinsk Peso",
+      "SAR": "Saudiarabisk Riyal",
+      "PKR": "Pakistansk Rupee",
+      "MYR": "Malaysisk Ringgit",
+      "NGN": "Nigeriansk Naira",
+      "VND": "Vietnamesisk Dong",
+      "UAH": "Ukrainsk Hryvnia",
+      "GEL": "Georgisk Lari",
+      "BDT": "Bangladeshisk Taka",
+      "VEF": "Venezuelansk Bolívar",
+      "LKR": "Srilankansk Rupee",
+      "BHD": "Bahrainsk Dinar",
+      "BMD": "Bermudansk Dollar",
+      "KWD": "Kuwaitisk Dinar",
+      "MMK": "Myanmarsk Kyat"
+    },
+    "language": {
+      "title": "Sprog",
+      "description": "Vælg dit foretrukne sprog til grænsefladen",
+      "label": "Sprog"
+    },
+    "ntfy": {
+      "title": "Push-notifikationer",
+      "description": "Konfigurer din ntfy-server til push-notifikationer",
+      "serverLabel": "ntfy Server URL",
+      "serverPlaceholder": "https://ntfy.sh",
+      "serverNoteBefore": "Lad stå tomt for at bruge den offentlige ntfy.sh server. Du kan ",
+      "selfHostLink": "selv-hoste ntfy",
+      "serverNoteAfter": " for fuldstændig privatliv.",
+      "auth": {
+        "title": "Godkendelse",
+        "configured": {
+          "token": "Adgangstoken konfigureret",
+          "credentials": "Brugernavn/adgangskode konfigureret ({username})",
+          "none": "Ingen godkendelse konfigureret"
+        },
+        "type": {
+          "none": "Ingen godkendelse",
+          "token": "Adgangstoken",
+          "basic": "Brugernavn & Adgangskode"
+        },
+        "tokenLabel": "Adgangstoken",
+        "tokenPlaceholder": "tk_...",
+        "usernameLabel": "Brugernavn",
+        "usernamePlaceholder": "Brugernavn",
+        "passwordLabel": "Adgangskode",
+        "passwordPlaceholder": "Adgangskode",
+        "saveAuth": "Gem godkendelse",
+        "tokenRequired": "Adgangstoken er påkrævet",
+        "credentialsRequired": "Både brugernavn og adgangskode er påkrævet",
+        "authSaved": "Godkendelse gemt!"
+      }
+    }
+  },
+  "wallets": {
+    "title": "Mine Wallets",
+    "summary": "Sporer {count} {count, plural, one {wallet} other {wallets}} med en samlet saldo på {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "Klar til at starte din prøveperiode",
+        "titleWithName": "Klar til at starte din prøveperiode, {name}?",
+        "description": "Tilføj din første wallet for at aktivere din <highlight>30-dages Team-prøveperiode</highlight>. Du får øjeblikkelig adgang til alle funktioner, herunder real-time synkronisering, ubegrænsede notifikationer og prioriteret support.",
+        "whatYouGet": "Hvad du får:",
+        "features": {
+          "wallets": "5 wallets med 2-minutters synkronisering",
+          "contacts": "5 kontakter pr. wallet",
+          "emailSms": "E-mail & SMS notifikationer",
+          "push": "Push-notifikationer via ntfy"
+        },
+        "button": "Tilføj din første wallet & start prøveperiode",
+        "note": "Prøveperioden starter, når du tilføjer din wallet"
+      },
+      "simple": {
+        "title": "Tilføj din første wallet",
+        "description": "Tilføj en wallet-descriptor for at begynde at overvåge dine Bitcoin-transaktioner.",
+        "button": "Tilføj Wallet"
+      }
+    },
+    "connectionLost": {
+      "title": "Backend-forbindelse mistet",
+      "description": "Kunne ikke oprette forbindelse til backend-tjenesten. Viser cachede data.",
+      "lastUpdated": "Sidst opdateret: {time}"
+    },
+    "empty": {
+      "title": "Ingen Wallets",
+      "description": "Ingen wallets fundet. Brug knappen \"Tilføj Wallet\" i overskriften for at komme i gang.",
+      "addFirst": "Tilføj din første wallet"
+    },
+    "error": {
+      "title": "Fejl",
+      "loadFailed": "Kunne ikke indlæse wallets: {error}"
+    },
+    "card": {
+      "syncing": "Synkroniserer...",
+      "inactive": "Inaktiv",
+      "inactiveExpired": "Dit abonnement er udløbet - wallet vil ikke synkronisere automatisk",
+      "inactiveTierLimit": "Denne wallet overskrider grænserne for dit abonnementsniveau og vil ikke synkronisere automatisk",
+      "balance": "Saldo",
+      "lastActivity": "Seneste aktivitet: {date}",
+      "noRecentActivity": "Ingen nylig aktivitet"
+    },
+    "add": {
+      "title": "Tilføj Wallet",
+      "nameLabel": "Wallet Navn",
+      "namePlaceholder": "Min Bitcoin Wallet",
+      "descriptorLabel": "Wallet Descriptor eller XPUB",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorHint": "Indtast din wallets output descriptor eller XPUB. Vi registrerer automatisk script-typen.",
+      "advancedSettings": "Avancerede indstillinger",
+      "scriptType": {
+        "label": "Script-type",
+        "selectPlaceholder": "Vælg script-type",
+        "autoPlaceholder": "Automatisk registrering",
+        "auto": "Automatisk registrering (anbefales)",
+        "p2wpkh": "Native SegWit (bc1...)",
+        "p2wpkhFresh": "Native SegWit (bc1...) - Mest almindelig",
+        "p2sh": "Nested SegWit (3...)",
+        "p2shFresh": "Nested SegWit (3...) - Legacy kompatibilitet",
+        "p2pkh": "Legacy (1...)",
+        "p2pkhFresh": "Legacy (1...) - Ældste",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - Moderne",
+        "detectedHint": "Script-type registreret fra descriptor og kan ikke ændres",
+        "requiredHint": "Script-type er påkrævet for nye XPUB-wallets"
+      },
+      "stopGap": {
+        "label": "Stop Gap",
+        "default": "Standard (20 på hinanden følgende ubrugte)",
+        "extended": "Udvidet (250 på hinanden følgende ubrugte)",
+        "deep": "Dyb (500 på hinanden følgende ubrugte)",
+        "deeper": "Dybere (750 på hinanden følgende ubrugte)",
+        "maximum": "Maksimum (1000 på hinanden følgende ubrugte)",
+        "hint": "Antal på hinanden følgende ubrugte adresser, der skal tjekkes før stop. Øg, hvis din wallet har adresser brugt ved tilfældige høje indeks (f.eks. BTCPay Server)",
+        "requiresScriptType": "Brugerdefineret stop gap kræver valg af en specifik script-type"
+      },
+      "freshWallet": {
+        "label": "Ny wallet (ingen transaktionshistorik)",
+        "hint": "Spring dyb scanning over for wallets uden tidligere transaktioner"
+      },
+      "submit": "Tilføj Wallet",
+      "submitting": "Tilføjer...",
+      "success": "Wallet tilføjet korrekt",
+      "error": "Kunne ikke tilføje wallet",
+      "validation": {
+        "nameRequired": "Wallet-navn er påkrævet",
+        "descriptorRequired": "Output descriptor eller extended public key er påkrævet",
+        "scriptTypeRequired": "Script-type er påkrævet for nye XPUB-wallets"
+      },
+      "wizard": {
+        "chooseWallet": "Hvilken wallet bruger du? Vi viser dig, hvordan du eksporterer din output descriptor eller XPUB.",
+        "keysStaySafe": "Canary har kun brug for dette til at overvåge dine transaktioner. Dine private nøgler forbliver sikre i din wallet.",
+        "tryBaconWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary fungerer.",
+        "useBaconWallet": "Brug Bacon Wallet",
+        "haveDescriptor": "Jeg har allerede min output descriptor eller XPUB",
+        "exportSteps": "Følg disse trin for at eksportere din descriptor fra {walletName}",
+        "pasteXpub": "Indsæt din XPUB nedenfor.",
+        "pasteDescriptor": "Indsæt din output descriptor eller XPUB nedenfor.",
+        "baconPrefilled": "Vi har udfyldt Bacon eksempel-wallet for dig. Klik blot på Tilføj Wallet for at fortsætte.",
+        "enterDetails": "Indtast detaljer",
+        "walletType": {
+          "software": "software",
+          "hardware": "hardware"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "Desktop-wallet til Bitcoin med fuld descriptor-understøttelse",
+          "steps": [
+            "Åbn din wallet i Sparrow",
+            "Gå til fanen Indstillinger",
+            "Klik på \"Show\" ud for Output Descriptor",
+            "Kopier hele descriptor-strengen (starter med wpkh, wsh eller tr)"
+          ]
+        },
+        "bluewallet": {
+          "description": "Mobil Bitcoin-wallet til iOS og Android",
+          "steps": [
+            "Åbn din wallet i BlueWallet",
+            "Tryk på menuen med de tre prikker (⋯) øverst til højre",
+            "Vælg \"Export/Backup\"",
+            "Tryk på \"Export Wallet\"",
+            "Kopier XPUB-strengen (starter med xpub, ypub eller zpub)"
+          ]
+        },
+        "electrum": {
+          "description": "Letvægts desktop Bitcoin-wallet",
+          "steps": [
+            "Åbn din wallet i Electrum",
+            "Gå til menuen Wallet → Information",
+            "Find sektionen \"Master Public Key\"",
+            "Kopier zpub, ypub eller xpub strengen"
+          ]
+        },
+        "coldcard": {
+          "description": "Air-gapped hardware wallet",
+          "steps": [
+            "Tænd din ColdCard og indtast din PIN",
+            "Gå til Advanced/Tools → Export Wallet",
+            "Vælg \"Generic JSON\" format",
+            "Eksporter til dit SD-kort",
+            "Åbn JSON-filen på din computer",
+            "Kopier descriptor eller xpub fra filen"
+          ]
+        },
+        "ledger": {
+          "description": "Populær hardware wallet",
+          "steps": [
+            "Tilslut din Ledger-enhed og lås den op",
+            "Åbn Bitcoin-appen på din Ledger",
+            "Åbn Ledger Wallet-appen på din computer",
+            "Gå til din Bitcoin-konto → klik på svensknøgle-ikonet",
+            "Klik på \"Advanced logs\"",
+            "Kopier xpub-strengen fra logfilerne"
+          ]
+        },
+        "trezor": {
+          "description": "Open-source hardware wallet",
+          "steps": [
+            "Tilslut din Trezor og gå til Trezor Suite",
+            "Åbn din Bitcoin-konto",
+            "Klik på kontonavnet for at åbne indstillinger",
+            "Klik på \"Show public key (XPUB)\"",
+            "Bekræft på din Trezor-enhed",
+            "Kopier XPUB-strengen"
+          ]
+        }
+      },
+      "limitReached": {
+        "title": "Wallet-grænse nået",
+        "description": "Du har nået din {tier} plangrænse på {count} {count, plural, one {wallet} other {wallets}}. Opgrader for at tilføje flere wallets."
+      },
+      "checkoutError": "Kunne ikke starte betaling. Prøv venligst igen."
+    },
+    "detail": {
+      "balance": "Saldo",
+      "transactions": "Transaktioner",
+      "contacts": "Kontakter",
+      "balanceAlerts": "Saldovarsler",
+      "noTransactions": "Ingen transaktioner endnu",
+      "pendingSync": "Wallet synkroniserer...",
+      "lastSync": "Sidst synkroniseret",
+      "syncStatus": {
+        "pending": "Synkroniserer",
+        "ready": "Synkroniseret"
+      },
+      "notFound": {
+        "title": "Wallet ikke fundet",
+        "description": "Wallet med checksum #{checksum} kunne ikke findes."
+      },
+      "syncing": {
+        "title": "Wallet synkroniserer stadig",
+        "description": "{name} synkroniserer stadig og scanner efter historiske transaktioner. Denne proces kan tage et par minutter for wallets med transaktionshistorik.",
+        "returnPrompt": "Vend venligst tilbage til wallet-siden og vent på, at synkroniseringen er færdig."
+      },
+      "inactive": {
+        "title": "Wallet inaktiv",
+        "descriptionExpired": "Dit abonnement er udløbet - wallet vil ikke synkronisere automatisk.",
+        "descriptionTierLimit": "Denne wallet overskrider grænserne for dit abonnementsniveau og vil ikke synkronisere automatisk.",
+        "outdatedWarning": "Transaktionshistorik og saldo vist kan være forældet.",
+        "upgradePlan": "Opgrader plan"
+      }
+    },
+    "delete": {
+      "title": "Slet Wallet",
+      "description": "Er du sikker på, at du vil slette denne wallet? Denne handling kan ikke fortrydes."
+    },
+    "edit": {
+      "title": "Rediger Wallet",
+      "nameLabel": "Wallet Navn",
+      "submit": "Gem ændringer"
+    }
+  },
+  "contacts": {
+    "title": "Kontakter",
+    "empty": {
+      "title": "Ingen kontakter endnu",
+      "description": "Tilføj kontakter for at modtage notifikationer om denne wallet",
+      "list": "Ingen kontakter tilføjet endnu"
+    },
+    "inactive": {
+      "badge": "Inaktiv",
+      "expired": "Dit abonnement er udløbet - kontakt vil ikke modtage notifikationer",
+      "tierLimit": "Denne kontakt overskrider grænserne for dit abonnementsniveau og vil ikke modtage notifikationer"
+    },
+    "add": {
+      "title": "Tilføj ny kontakt",
+      "description": "Opret en ny kontakt for at modtage Bitcoin-transaktionsvarsler.",
+      "nameLabel": "Navn",
+      "namePlaceholder": "Kontaktnavn",
+      "languageLabel": "Sprog",
+      "methodTitle": "Notifikationsmetoder",
+      "providers": {
+        "ntfy": "ntfy.sh Notifikationer",
+        "twilio": "SMS Notifikationer",
+        "email": "E-mail Notifikationer"
+      },
+      "ntfy": {
+        "topicHint": "Emne genereres automatisk baseret på kontaktnavn"
+      },
+      "sms": {
+        "phoneHint": "Inkluder landekode"
+      },
+      "email": {
+        "emailHint": "Indtast gyldig e-mailadresse"
+      },
+      "submit": "Opret kontakt",
+      "submitting": "Behandler..."
+    },
+    "edit": {
+      "title": "Rediger kontakt",
+      "description": "Opdater kontaktoplysningerne og notifikationsmetoderne.",
+      "submit": "Opdater kontakt"
+    },
+    "delete": {
+      "title": "Slet kontakt",
+      "description": "Er du sikker på, at du vil slette denne kontakt? De vil ikke længere modtage notifikationer."
+    },
+    "verification": {
+      "codeLabel": "Verifikationskode",
+      "codePlaceholder": "Indtast 6-cifret kode",
+      "sendCode": "Send verifikationskode",
+      "sendingCode": "Sender...",
+      "verify": "Verificer",
+      "verifying": "Verificerer...",
+      "resend": "Send igen",
+      "codeSentTo": "Kode sendt til {target}",
+      "expiresIn": "Udløber om {time}",
+      "expired": "Verifikationskode udløbet. Prøv venligst igen.",
+      "expiredRequest": "Verifikationskode udløbet. Anmod venligst om en ny kode.",
+      "invalid": "Ugyldig verifikationskode. Prøv venligst igen.",
+      "smsVerified": "SMS verificeret korrekt",
+      "emailVerified": "E-mail verificeret korrekt",
+      "smsRequired": "Telefonnummer er påkrævet for SMS-verifikation",
+      "emailRequired": "E-mailadresse er påkrævet for e-mail-verifikation",
+      "enterCode": "Indtast venligst verifikationskoden",
+      "verifySmsFirst": "Bekræft venligst SMS-koden, før du gemmer kontakten",
+      "verifyNewSms": "Bekræft venligst det nye SMS-telefonnummer, før du gemmer kontakten",
+      "verifyEmailFirst": "Bekræft venligst e-mail-koden, før du gemmer kontakten",
+      "verifyNewEmail": "Bekræft venligst den nye e-mailadresse, før du gemmer kontakten"
+    },
+    "errors": {
+      "nameRequired": "Kontaktnavn er påkrævet"
+    },
+    "languages": {
+      "da": "Dansk",
+      "en": "Engelsk",
+      "no": "Norsk",
+      "es": "Spansk",
+      "pt": "Portugisisk",
+      "de": "Tysk",
+      "fr": "Fransk",
+      "ja": "Japansk",
+      "sv": "Svensk"
+    }
+  },
+  "balanceAlerts": {
+    "title": "Saldovarsler",
+    "empty": {
+      "title": "Ingen saldovarsler",
+      "description": "Opsæt varsler for at få besked, når din wallet-saldo når bestemte grænser",
+      "list": "Ingen varsler indstillet"
+    },
+    "lastFired": "Sidst udløst {date}",
+    "deleteAlert": "Slet varsel",
+    "add": {
+      "title": "Opret nyt varsel",
+      "typeLabel": "Varselstype",
+      "types": {
+        "above": "Over",
+        "below": "Under",
+        "equals": "Lig med"
+      },
+      "typeDescriptions": {
+        "above": "Varsel når saldo går over dette beløb",
+        "below": "Varsel når saldo går under dette beløb",
+        "equals": "Varsel når saldo er lig med dette beløb (f.eks. wallet-tømning)"
+      },
+      "currencyLabel": "Valutatype",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Fiat-valuta ({currency})",
+      "bitcoinAmount": "Bitcoin-beløb",
+      "amount": "Beløb ({currency})",
+      "enterAmountBtc": "Indtast beløb i BTC",
+      "enterAmount": "Indtast beløb i {currency}",
+      "thresholdLabel": "Grænseværdi",
+      "thresholdPlaceholder": "0.1",
+      "btc": "BTC",
+      "submit": "Opret",
+      "submitting": "Opretter..."
+    },
+    "edit": {
+      "title": "Rediger saldovarsel"
+    },
+    "delete": {
+      "title": "Slet varsel",
+      "description": "Er du sikker på, at du vil slette dette saldovarsel?"
+    },
+    "status": {
+      "active": "Aktiv",
+      "triggered": "Udløst",
+      "reactivate": "Genaktiver"
+    },
+    "errors": {
+      "invalidBtcAmount": "Indtast venligst et gyldigt Bitcoin-beløb",
+      "invalidPositiveAmount": "Indtast venligst et gyldigt positivt beløb",
+      "negativeAmount": "Beløb kan ikke være negativt",
+      "belowZero": "Kan ikke oprette varsel for \"under 0\" - saldo kan ikke gå under nul",
+      "duplicateAlert": "Et varsel med denne type og beløb findes allerede",
+      "createFailed": "Kunne ikke oprette saldovarsel",
+      "deleteFailed": "Kunne ikke slette varsel"
+    }
+  },
+  "transactions": {
+    "title": "Transaktioner",
+    "titleWithWallet": "Transaktioner - {walletName}",
+    "loading": "Indlæser transaktioner...",
+    "empty": "Ingen transaktioner endnu",
+    "emptyForWallet": "Ingen transaktioner fundet for den valgte wallet.",
+    "count": "{count} {count, plural, one {transaktion} other {transaktioner}}",
+    "types": {
+      "receive": "Modtaget",
+      "send": "Sendt",
+      "receiving": "Modtager",
+      "sending": "Sender"
+    },
+    "status": {
+      "pending": "Afventer",
+      "confirmed": "Bekræftet",
+      "dropped": "Droppet",
+      "replaced": "Erstattet"
+    },
+    "details": {
+      "txid": "Transaktions-ID",
+      "amount": "Beløb",
+      "fee": "Gebyr",
+      "date": "Dato",
+      "confirmations": "Bekræftelser",
+      "block": "Blok",
+      "address": "Adresse",
+      "replacedBy": "Erstattet af",
+      "replacedAt": "Erstattet den"
+    },
+    "tableHeaders": {
+      "dateTime": "Dato/Tid",
+      "wallet": "Wallet",
+      "transaction": "Transaktion",
+      "amount": "Beløb",
+      "details": "Detaljer"
+    },
+    "tooltips": {
+      "cpfp": "CPFP transaktion",
+      "rbfReplaced": "Erstattet af RBF",
+      "notificationsFailed": "Nogle notifikationer fejlede",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Barn af {txid}",
+      "replacedByTx": "Erstattet af transaktion: {txid}",
+      "viewOnMempool": "Se {txid} på Mempool Space"
+    },
+    "timeline": {
+      "pending": "AFVENTER",
+      "confirmed": "BEKRÆFTET"
+    },
+    "notifications": {
+      "sentAt": "Sendt kl.",
+      "statusLabel": "Status",
+      "errorLabel": "Fejl",
+      "unknownTime": "Ukendt tid",
+      "unknownTarget": "Ukendt mål"
+    },
+    "error": "Fejl: {error}",
+    "rbf": "RBF",
+    "cpfp": "CPFP",
+    "replacement": "Erstatning",
+    "walletLabel": "Wallet: {name}"
+  },
+  "billing": {
+    "title": "Abonnement",
+    "currentPlan": "Nuværende plan",
+    "status": {
+      "active": "Aktiv",
+      "trialing": "Prøveperiode",
+      "canceled": "Annulleret",
+      "expired": "Udløbet"
+    },
+    "trial": {
+      "daysLeft": "{days} dage tilbage",
+      "endsOn": "Prøveperiode slutter den {date}"
+    },
+    "manage": "Administrer fakturering",
+    "upgrade": "Opgrader",
+    "subscribe": "Abonner",
+    "plans": {
+      "personal": {
+        "name": "Personlig",
+        "description": "For individuelle Bitcoin-holdere",
+        "features": {
+          "wallets": "1 wallet",
+          "contacts": "1 kontakt pr. wallet",
+          "sync": "10-minutters synkronisering",
+          "notifications": "Alle notifikationstyper"
+        }
+      },
+      "team": {
+        "name": "Team",
+        "description": "For Onkel Jims & familieværger",
+        "features": {
+          "wallets": "5 wallets",
+          "contacts": "5 kontakter pr. wallet",
+          "sync": "2-minutters synkronisering",
+          "notifications": "Alle notifikationstyper"
+        }
+      },
+      "selfHosted": {
+        "name": "Self-hosted",
+        "description": "Kør på din egen infrastruktur",
+        "features": {
+          "wallets": "Ubegrænsede wallets",
+          "contacts": "Ubegrænsede kontakter",
+          "sync": "Tilpassede synkroniseringsintervaller",
+          "notifications": "ntfy push-notifikationer"
+        }
+      }
+    },
+    "features": {
+      "wallets": {
+        "label": "Bitcoin wallets",
+        "selfhosted": "Ubegrænsede wallets",
+        "personal": "1 wallet",
+        "team": "5 wallets"
+      },
+      "contacts": {
+        "label": "Kontakter pr. wallet",
+        "selfhosted": "Ubegrænsede kontakter",
+        "personal": "1 kontakt",
+        "team": "5 kontakter pr. wallet"
+      },
+      "sync": {
+        "label": "Synkroniseringsinterval",
+        "selfhosted": "Konfigurerbar synkroniseringstid",
+        "personal": "10 minutters synkroniseringstid",
+        "team": "2 minutters synkroniseringstid"
+      },
+      "trial": "30-dages gratis prøveperiode",
+      "email": "E-mail notifikationer",
+      "sms": "SMS notifikationer",
+      "push": "Push-notifikationer",
+      "balanceAlerts": "Tilpassede saldovarsler",
+      "analysis": "Transaktionsanalyse (RBF/CPFP)",
+      "ownNode": "Din egen Bitcoin-node",
+      "privacy": "Fuldstændig privatliv & kontrol",
+      "noSubscription": "Ingen abonnementsgebyrer"
+    },
+    "perMonth": "/måned",
+    "perYear": "/år",
+    "saveYearly": "Spar {percent}% årligt",
+    "popular": "POPULÆR",
+    "currentPlanBadge": "NUVÆRENDE PLAN",
+    "trialPlanBadge": "PRØVEPERIODE PLAN",
+    "freeToSelfHost": "Gratis at self-hoste",
+    "plusTaxes": "Plus gældende skatter",
+    "changePlan": "Skift plan",
+    "subscribeTo": "Abonner på {plan}",
+    "upgradeTo": "Opgrader til {plan}",
+    "startTrial": "Start 30-dages gratis prøveperiode",
+    "loadingPricing": "Indlæser priser...",
+    "errorTitle": "Kunne ikke indlæse priser",
+    "errorDescription": "Opdater venligst siden eller prøv igen senere.",
+    "selfHosted": {
+      "description": "Foretrækker du at self-hoste? Canary er gratis at køre på din egen infrastruktur med push-notifikationer via ntfy.",
+      "installUmbrel": "Installer på Umbrel",
+      "viewGithub": "Se på GitHub"
+    }
+  },
+  "subscriptionPage": {
+    "title": "Abonnement",
+    "selfHosted": {
+      "description": "Abonnementsfakturering er ikke tilgængelig i self-hosted tilstand."
+    },
+    "loading": "Indlæser faktureringsoplysninger...",
+    "notSignedIn": {
+      "message": "Du skal være logget ind for at administrere dit abonnement.",
+      "signIn": "Log ind"
+    },
+    "manageBilling": "Administrer fakturering",
+    "currentPlan": {
+      "title": "Nuværende plan",
+      "description": "Dit aktive abonnement og forbrug"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Abonnementsgrænse overskredet",
+        "description": "Du har {walletCount} wallets, men din {tierName} plan tillader kun {maxWallets}. Overskydende wallets vil ikke synkronisere automatisk, og nogle kontakter kan være inaktive.",
+        "upgrade": "Opgrader plan"
+      },
+      "pending": {
+        "title": "Prøveperiode ikke startet",
+        "description": "Din 30-dages Team-prøveperiode begynder, når du tilføjer din første wallet. Ingen synkronisering er aktiv indtil da.",
+        "addWallet": "Tilføj din første wallet"
+      },
+      "cancelled": {
+        "title": "Abonnement annulleret",
+        "description": "Dit abonnement er blevet annulleret. Du har adgang indtil {date} ({daysRemaining} dage tilbage).",
+        "reactivate": "Genaktiver abonnement"
+      },
+      "expired": {
+        "title": "Abonnement udløbet",
+        "description": "Dit abonnement er udløbet. Wallet-synkronisering er stoppet fuldstændigt, men dine data er bevaret.",
+        "reactivate": "Genaktiver abonnement"
+      },
+      "pastDue": {
+        "title": "Betaling mislykkedes - Synkronisering stoppet",
+        "description": "Din seneste betaling mislykkedes, og wallet-synkronisering er stoppet øjeblikkeligt. Opdater din betalingsmetode for at genoptage tjenesten.",
+        "updatePayment": "Opdater betalingsmetode"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Prøveperiode: {days} dage tilbage",
+      "accessDaysLeft": "Adgang indtil: {days} dage tilbage"
+    },
+    "buttons": {
+      "subscribe": "Abonner",
+      "reactivate": "Genaktiver"
+    },
+    "usage": {
+      "wallets": "Wallets",
+      "overLimit": "(over grænsen)",
+      "walletsInactive": "Nogle wallets er inaktive",
+      "syncInterval": "Synkroniseringsinterval",
+      "features": "Funktioner",
+      "featuresList": "SMS, Push, E-mail, Transaktionsanalyse"
+    },
+    "errors": {
+      "portalFailed": "Kunne ikke åbne faktureringsadministration. Prøv venligst igen."
+    }
+  },
+  "upgrade": {
+    "title": "Opgrader din plan",
+    "choosePlan": "Vælg din plan",
+    "trialDescription": "Abonner i dag for at sikre, at dine wallet-notifikationer fortsætter uafbrudt, når din prøveperiode slutter. Hold dine Bitcoin sikre med kontinuerlig overvågning.",
+    "limitReachedDescription": "Du har nået din {limitType} grænse på {limit} på {tierName} planen. Sammenlign planer og opgrader for at tilføje mere.",
+    "currentUsage": "Nuværende forbrug: {count} / {limit}",
+    "walletLimit": {
+      "title": "Wallet-grænse nået",
+      "description": "Du har nået det maksimale antal wallets for din plan. Opgrader for at tilføje flere wallets."
+    },
+    "contactLimit": {
+      "title": "Kontaktgrænse nået",
+      "description": "Du har nået det maksimale antal kontakter for denne wallet. Opgrader for at tilføje flere kontakter."
+    }
+  },
+  "errors": {
+    "generic": "Noget gik galt. Prøv venligst igen.",
+    "network": "Netværksfejl. Tjek venligst din forbindelse.",
+    "unauthorized": "Log venligst ind for at fortsætte.",
+    "notFound": "Ikke fundet.",
+    "serverError": "Serverfejl. Prøv venligst igen senere.",
+    "validation": "Tjek venligst dit input og prøv igen."
+  },
+  "footer": {
+    "logoAlt": "Canary Logo",
+    "appName": "Canary",
+    "blockInfo": "Blok {height}"
+  },
+  "demoBanner": {
+    "title": "Demotilstand",
+    "description": "Du får vist en skrivebeskyttet demo-wallet. Alle funktioner er kun til visning.",
+    "signUp": "Tilmeld dig for at oprette din egen wallet",
+    "dismiss": "Luk banner"
+  }
+}

@@ -4,8 +4,33 @@ import Image from "next/image"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Loader2, Github } from "lucide-react"
-import { allFeatures, getTierDisplayName, getTierDescription } from "@/lib/pricing-data"
+import { allFeatures } from "@/lib/pricing-data"
 import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
+import { useTranslations } from "next-intl"
+
+// Map tier slug to translation key (handles selfhosted -> selfHosted)
+function getTierTranslationKey(tier: string): string {
+  return tier === 'selfhosted' ? 'selfHosted' : tier
+}
+
+// Map feature ID to translation key
+function getFeatureTranslationKey(featureId: string): string {
+  const mapping: Record<string, string> = {
+    'wallets': 'wallets',
+    'contacts': 'contacts',
+    'sync': 'sync',
+    'trial': 'trial',
+    'email': 'email',
+    'sms': 'sms',
+    'push': 'push',
+    'balance-alerts': 'balanceAlerts',
+    'analysis': 'analysis',
+    'own-node': 'ownNode',
+    'privacy': 'privacy',
+    'subscription': 'noSubscription'
+  }
+  return mapping[featureId] || featureId
+}
 
 interface PlanComparisonProps {
   currentTier: string
@@ -37,6 +62,7 @@ export function PlanComparison({
   hasPaidSubscription = false
 }: PlanComparisonProps) {
   const { pricing, loading, error } = usePricing()
+  const t = useTranslations('billing')
 
   // Add self-hosted tier manually (not from Stripe) - only for public landing page
   const selfHostedTier = {
@@ -65,7 +91,7 @@ export function PlanComparison({
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">Loading pricing...</span>
+        <span className="ml-2 text-muted-foreground">{t('loadingPricing')}</span>
       </div>
     )
   }
@@ -74,8 +100,8 @@ export function PlanComparison({
   if (error || !pricing) {
     return (
       <div className="text-center py-12 bg-red-50 border border-red-200 rounded-lg">
-        <p className="text-red-700 font-semibold mb-2">Unable to load pricing</p>
-        <p className="text-red-600 text-sm">Please refresh the page or try again later.</p>
+        <p className="text-red-700 font-semibold mb-2">{t('errorTitle')}</p>
+        <p className="text-red-600 text-sm">{t('errorDescription')}</p>
       </div>
     )
   }
@@ -134,6 +160,8 @@ function PlanComparisonContent({
   loadingTier,
   hasPaidSubscription
 }: PlanComparisonContentProps) {
+  const t = useTranslations('billing')
+
   // Separate paid tiers from self-hosted for different layout
   const paidTiers = tiersToShow.filter(tier => tier.tier !== 'selfhosted')
   const selfHostedTier = tiersToShow.find(tier => tier.tier === 'selfhosted')
@@ -167,43 +195,43 @@ function PlanComparisonContent({
             {tier.tier === 'pro' && !isCurrentTier && (
               <div className="absolute -top-3 left-4">
                 <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full font-semibold">
-                  POPULAR
+                  {t('popular')}
                 </span>
               </div>
             )}
             {isCurrentTier && !isTrialUser && (
               <div className="absolute -top-3 left-4">
                 <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
-                  CURRENT PLAN
+                  {t('currentPlanBadge')}
                 </span>
               </div>
             )}
             {isCurrentTier && isTrialUser && (
               <div className="absolute -top-3 left-4">
                 <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
-                  TRIAL PLAN
+                  {t('trialPlanBadge')}
                 </span>
               </div>
             )}
             
             <CardHeader>
-              <CardTitle className="text-lg">{getTierDisplayName(tier.tier)}</CardTitle>
-              <CardDescription className="text-sm">{tier.description || getTierDescription(tier.tier)}</CardDescription>
+              <CardTitle className="text-lg">{t(`plans.${getTierTranslationKey(tier.tier)}.name`)}</CardTitle>
+              <CardDescription className="text-sm">{t(`plans.${getTierTranslationKey(tier.tier)}.description`)}</CardDescription>
               {showPricing && tier.tier === 'selfhosted' && (
                 <div className="mt-3">
-                  <span className="text-2xl font-bold text-green-600">Free to Self-host</span>
+                  <span className="text-2xl font-bold text-green-600">{t('freeToSelfHost')}</span>
                 </div>
               )}
               {showPricing && monthlyPrice && tier.tier !== 'selfhosted' && (
                 <div className="mt-3">
                   <span className="text-2xl font-bold">{formatPrice(monthlyPrice.amount, monthlyPrice.currency)}</span>
-                  <span className="text-muted-foreground text-sm">/month</span>
+                  <span className="text-muted-foreground text-sm">{t('perMonth')}</span>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Plus applicable taxes
+                    {t('plusTaxes')}
                   </div>
                   {yearlyPrice && (
                     <div className="text-xs text-green-600 font-medium mt-1">
-                      Save {Math.round(((monthlyPrice.amount * 12 - yearlyPrice.amount) / (monthlyPrice.amount * 12)) * 100)}% with yearly billing
+                      {t('saveYearly', { percent: Math.round(((monthlyPrice.amount * 12 - yearlyPrice.amount) / (monthlyPrice.amount * 12)) * 100) })}
                     </div>
                   )}
                 </div>
@@ -216,17 +244,28 @@ function PlanComparisonContent({
                   const tierKey = tier.tier as 'selfhosted' | 'personal' | 'team'
                   const value = feature[tierKey]
                   const isUnique = feature.unique?.[tierKey as keyof typeof feature.unique] || false
+                  const featureKey = getFeatureTranslationKey(feature.id)
 
                   // Skip features that are false or undefined for this tier
                   if (value === false || value === undefined) {
                     return null
                   }
 
+                  // Get the translated feature text
+                  let featureText: string
+                  if (typeof value === 'string') {
+                    // Features with tier-specific values (wallets, contacts, sync)
+                    featureText = t(`features.${featureKey}.${tierKey}`)
+                  } else {
+                    // Boolean features (trial, email, sms, push, etc.)
+                    featureText = t(`features.${featureKey}`)
+                  }
+
                   return (
                     <li key={feature.id} className={`flex items-start text-sm ${isUnique && tier.tier !== 'personal' ? 'font-medium' : ''}`}>
                       <CheckCircle2 className={`h-4 w-4 mr-2 flex-shrink-0 mt-0.5 ${isUnique && tier.tier !== 'personal' ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span>
-                        {typeof value === 'string' ? value : feature.label}
+                        {featureText}
                       </span>
                     </li>
                   )
@@ -247,7 +286,7 @@ function PlanComparisonContent({
                   disabled={isLoadingThisTier}
                 >
                   {isLoadingThisTier && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {hasPaidSubscription ? 'Change Plan' : (isTrialUser ? `Subscribe to ${getTierDisplayName(tier.tier)}` : `Upgrade to ${getTierDisplayName(tier.tier)}`)}
+                  {hasPaidSubscription ? t('changePlan') : (isTrialUser ? t('subscribeTo', { plan: t(`plans.${getTierTranslationKey(tier.tier)}.name`) }) : t('upgradeTo', { plan: t(`plans.${getTierTranslationKey(tier.tier)}.name`) }))}
                 </Button>
               </CardFooter>
             )}
@@ -261,7 +300,7 @@ function PlanComparisonContent({
         <div className="text-center mt-8">
           <Button size="lg" asChild>
             <a href="/sign-up">
-              Start 30-Day Free Trial
+              {t('startTrial')}
             </a>
           </Button>
         </div>
@@ -272,7 +311,7 @@ function PlanComparisonContent({
         <div className="max-w-3xl mx-auto mt-12 pt-8 border-t">
           <div className="text-center space-y-3">
             <p className="text-muted-foreground">
-              Prefer to self-host? Canary is free to run on your own infrastructure with push notifications via ntfy.
+              {t('selfHosted.description')}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
               <a
@@ -288,7 +327,7 @@ function PlanComparisonContent({
                   height={16}
                   className="opacity-60"
                 />
-                Install on Umbrel
+                {t('selfHosted.installUmbrel')}
               </a>
               <span className="text-muted-foreground/40">•</span>
               <a
@@ -298,7 +337,7 @@ function PlanComparisonContent({
                 className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Github className="h-4 w-4" />
-                View on GitHub
+                {t('selfHosted.viewGithub')}
               </a>
             </div>
           </div>

@@ -112,3 +112,9 @@ pub struct CreateCustomerPortalRequest {
     /// Return URL after customer portal session
     pub return_url: String,
 }
+
+#[derive(Deserialize, Serialize)]
+pub struct DemoLoginRequest {
+    /// Browser locale for language preference (e.g., "no-NO", "en-US")
+    pub browser_locale: Option<String>,
+}

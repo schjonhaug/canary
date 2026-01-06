@@ -7,16 +7,22 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Globe, Bell } from "lucide-react"
+import { Globe, Bell, Languages } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { SUPPORTED_CURRENCIES } from "@/lib/currencies"
+import { locales, localeNames, type Locale } from "@/i18n/config"
+import { getStoredLocale, setStoredLocale } from "@/lib/locale"
+import { useTranslations } from "next-intl"
 
 export default function SettingsPage() {
   const router = useRouter()
+  const t = useTranslations('settings')
+  const tCommon = useTranslations('common')
   const { isAuthenticated, isLoading: authLoading, isCloudMode, user } = useAuth()
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD')
+  const [currentLocale, setCurrentLocale] = useState<Locale>('en')
   const [ntfyServerUrl, setNtfyServerUrl] = useState<string>('')
   const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>('')
   const [isUpdating, setIsUpdating] = useState(false)
@@ -77,6 +83,28 @@ export default function SettingsPage() {
       fetchPreferences()
     }
   }, [isAuthenticated])
+
+  // Initialize locale from cookie
+  useEffect(() => {
+    setCurrentLocale(getStoredLocale())
+  }, [])
+
+  const handleLanguageChange = async (locale: Locale) => {
+    setStoredLocale(locale)
+    setCurrentLocale(locale)
+
+    // Sync to backend for authenticated users
+    if (isAuthenticated) {
+      try {
+        await api.updateUserPreferences({ preferred_language: locale })
+      } catch (error) {
+        console.error('Failed to sync language preference:', error)
+      }
+    }
+
+    // Refresh to apply new locale
+    router.refresh()
+  }
 
   const handleCurrencyChange = async (currency: string) => {
     setSelectedCurrency(currency)
@@ -181,7 +209,7 @@ export default function SettingsPage() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto" />
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">{tCommon('loading')}</p>
         </div>
       </div>
     )
@@ -195,7 +223,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       {/* Page Title */}
-      <h2 className="text-2xl font-semibold">Settings</h2>
+      <h2 className="text-2xl font-semibold">{t('title')}</h2>
 
       <div className="max-w-4xl space-y-6">
         {/* Display Preferences */}
@@ -203,30 +231,30 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5" />
-              Display Preferences
+              {t('display.title')}
             </CardTitle>
             <CardDescription>
-              Customize how Bitcoin values are displayed in your wallets
+              {t('display.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="currency">Fiat Currency</Label>
+                <Label htmlFor="currency">{t('display.currencyLabel')}</Label>
                 <Select
                   value={selectedCurrency}
                   onValueChange={handleCurrencyChange}
                   disabled={isUpdating || (isCloudMode && user?.is_demo)}
                 >
                   <SelectTrigger id="currency" className="w-full">
-                    <SelectValue placeholder="Select a currency" />
+                    <SelectValue placeholder={t('display.currencyPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {SUPPORTED_CURRENCIES.map((currency) => (
                       <SelectItem key={currency.code} value={currency.code}>
                         <span className="flex items-center gap-2">
                           <span className="font-mono text-sm">{currency.code}</span>
-                          <span>{currency.name}</span>
+                          <span>{t(`currencies.${currency.code}`)}</span>
                           <span className="text-muted-foreground">({currency.symbol})</span>
                         </span>
                       </SelectItem>
@@ -234,8 +262,44 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Exchange rates are updated every 10 minutes from CoinGecko
+                  {t('display.currencyNote')}
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Language Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Languages className="h-5 w-5" />
+              {t('language.title')}
+            </CardTitle>
+            <CardDescription>
+              {t('language.description')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="language">{t('language.label')}</Label>
+                <Select
+                  value={currentLocale}
+                  onValueChange={(value) => handleLanguageChange(value as Locale)}
+                  disabled={isCloudMode && user?.is_demo}
+                >
+                  <SelectTrigger id="language" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...locales].sort((a, b) => localeNames[a].localeCompare(localeNames[b])).map((locale) => (
+                      <SelectItem key={locale} value={locale}>
+                        {localeNames[locale]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardContent>
@@ -247,22 +311,22 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5" />
-                Push Notifications
+                {t('ntfy.title')}
               </CardTitle>
               <CardDescription>
-                Configure your ntfy server for push notifications
+                {t('ntfy.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 {/* Server URL */}
                 <div>
-                  <Label htmlFor="ntfy-server">ntfy Server URL</Label>
+                  <Label htmlFor="ntfy-server">{t('ntfy.serverLabel')}</Label>
                   <div className="flex gap-2 mt-1">
                     <Input
                       id="ntfy-server"
                       type="url"
-                      placeholder="https://ntfy.sh"
+                      placeholder={t('ntfy.serverPlaceholder')}
                       value={ntfyServerUrl}
                       onChange={(e) => {
                         setNtfyServerUrl(e.target.value)
@@ -276,39 +340,39 @@ export default function SettingsPage() {
                       onClick={handleNtfyServerSave}
                       disabled={isUpdatingNtfy || !hasNtfyChanges}
                     >
-                      {isUpdatingNtfy ? 'Saving...' : 'Save'}
+                      {isUpdatingNtfy ? tCommon('saving') : tCommon('save')}
                     </Button>
                   </div>
                   {ntfyError && (
                     <p className="text-sm text-red-500 mt-1">{ntfyError}</p>
                   )}
                   {ntfySuccess && (
-                    <p className="text-sm text-green-500 mt-1">Saved successfully!</p>
+                    <p className="text-sm text-green-500 mt-1">{tCommon('savedSuccessfully')}</p>
                   )}
                   <p className="text-sm text-muted-foreground mt-2">
-                    Leave empty to use the public ntfy.sh server. You can{' '}
+                    {t('ntfy.serverNoteBefore')}
                     <a
                       href="https://ntfy.sh/docs/install/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"
                     >
-                      self-host ntfy
-                    </a>{' '}
-                    for complete privacy.
+                      {t('ntfy.selfHostLink')}
+                    </a>
+                    {t('ntfy.serverNoteAfter')}
                   </p>
                 </div>
 
                 {/* Authentication - only show if custom server URL is set */}
                 {ntfyServerUrl && ntfyServerUrl !== 'https://ntfy.sh' && (
                   <div className="border-t pt-4">
-                    <Label>Authentication</Label>
+                    <Label>{t('ntfy.auth.title')}</Label>
                     <p className="text-sm text-muted-foreground mb-3">
                       {userPreferences?.ntfy_has_access_token
-                        ? 'Access token configured'
+                        ? t('ntfy.auth.configured.token')
                         : userPreferences?.ntfy_has_credentials
-                          ? `Username/password configured (${userPreferences.ntfy_username})`
-                          : 'No authentication configured'}
+                          ? t('ntfy.auth.configured.credentials', { username: userPreferences.ntfy_username ?? '' })
+                          : t('ntfy.auth.configured.none')}
                     </p>
 
                     <div className="space-y-3">
@@ -322,22 +386,22 @@ export default function SettingsPage() {
                         disabled={isUpdatingNtfyAuth}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select authentication method" />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">No authentication</SelectItem>
-                          <SelectItem value="token">Access Token</SelectItem>
-                          <SelectItem value="basic">Username &amp; Password</SelectItem>
+                          <SelectItem value="none">{t('ntfy.auth.type.none')}</SelectItem>
+                          <SelectItem value="token">{t('ntfy.auth.type.token')}</SelectItem>
+                          <SelectItem value="basic">{t('ntfy.auth.type.basic')}</SelectItem>
                         </SelectContent>
                       </Select>
 
                       {ntfyAuthType === 'token' && (
                         <div>
-                          <Label htmlFor="ntfy-token">Access Token</Label>
+                          <Label htmlFor="ntfy-token">{t('ntfy.auth.tokenLabel')}</Label>
                           <Input
                             id="ntfy-token"
                             type="password"
-                            placeholder={userPreferences?.ntfy_has_access_token ? '••••••••' : 'tk_...'}
+                            placeholder={userPreferences?.ntfy_has_access_token ? '••••••••' : t('ntfy.auth.tokenPlaceholder')}
                             value={ntfyAccessToken}
                             onChange={(e) => {
                               setNtfyAccessToken(e.target.value)
@@ -352,11 +416,11 @@ export default function SettingsPage() {
                       {ntfyAuthType === 'basic' && (
                         <>
                           <div>
-                            <Label htmlFor="ntfy-username">Username</Label>
+                            <Label htmlFor="ntfy-username">{t('ntfy.auth.usernameLabel')}</Label>
                             <Input
                               id="ntfy-username"
                               type="text"
-                              placeholder="Username"
+                              placeholder={t('ntfy.auth.usernamePlaceholder')}
                               value={ntfyUsername}
                               onChange={(e) => {
                                 setNtfyUsername(e.target.value)
@@ -367,11 +431,11 @@ export default function SettingsPage() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="ntfy-password">Password</Label>
+                            <Label htmlFor="ntfy-password">{t('ntfy.auth.passwordLabel')}</Label>
                             <Input
                               id="ntfy-password"
                               type="password"
-                              placeholder={userPreferences?.ntfy_has_credentials ? '••••••••' : 'Password'}
+                              placeholder={userPreferences?.ntfy_has_credentials ? '••••••••' : t('ntfy.auth.passwordPlaceholder')}
                               value={ntfyPassword}
                               onChange={(e) => {
                                 setNtfyPassword(e.target.value)
@@ -389,14 +453,14 @@ export default function SettingsPage() {
                         disabled={isUpdatingNtfyAuth}
                         className="w-full"
                       >
-                        {isUpdatingNtfyAuth ? 'Saving...' : 'Save Authentication'}
+                        {isUpdatingNtfyAuth ? tCommon('saving') : t('ntfy.auth.saveAuth')}
                       </Button>
 
                       {ntfyAuthError && (
                         <p className="text-sm text-red-500">{ntfyAuthError}</p>
                       )}
                       {ntfyAuthSuccess && (
-                        <p className="text-sm text-green-500">Authentication saved!</p>
+                        <p className="text-sm text-green-500">{t('ntfy.auth.authSaved')}</p>
                       )}
                     </div>
                   </div>

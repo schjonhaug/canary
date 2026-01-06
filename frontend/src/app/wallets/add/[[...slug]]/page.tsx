@@ -18,6 +18,7 @@ import { PlanComparison } from "@/components/plan-comparison"
 import { walletGuides, type WalletGuide } from "@/lib/wallet-guides"
 import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { Wallet } from "@/types"
+import { useTranslations } from "next-intl"
 
 type WizardStep = 'choose' | 'instructions' | 'form'
 
@@ -26,6 +27,9 @@ interface BreadcrumbProps {
   selectedWallet: WalletGuide | null
   step: WizardStep
   onNavigateToChoose: () => void
+  t: (key: string, params?: Record<string, string>) => string
+  tNav: (key: string) => string
+  getGuideSteps: (walletId: string) => string[]
 }
 
 // Props for the Choose step
@@ -61,25 +65,29 @@ function Breadcrumb({
   selectedWallet,
   step,
   onNavigateToChoose,
+  t,
+  tNav,
 }: {
   selectedWallet: WalletGuide | null
   step: WizardStep
   onNavigateToChoose: () => void
+  t: (key: string) => string
+  tNav: (key: string) => string
 }) {
   return (
     <nav className="flex items-center text-2xl text-muted-foreground flex-wrap">
       <Link href="/wallets" className="hover:text-foreground font-semibold">
-        Wallets
+        {tNav('wallets')}
       </Link>
       <span className="mx-2">/</span>
       {step === 'choose' ? (
-        <span className="text-foreground font-semibold">Add Wallet</span>
+        <span className="text-foreground font-semibold">{tNav('addWallet')}</span>
       ) : (
         <button
           onClick={onNavigateToChoose}
           className="hover:text-foreground font-semibold"
         >
-          Add Wallet
+          {tNav('addWallet')}
         </button>
       )}
       {step === 'instructions' && selectedWallet && (
@@ -91,7 +99,7 @@ function Breadcrumb({
       {step === 'form' && (
         <>
           <span className="mx-2">/</span>
-          <span className="text-foreground font-semibold">Enter Details</span>
+          <span className="text-foreground font-semibold">{t('add.wizard.enterDetails')}</span>
         </>
       )}
     </nav>
@@ -107,6 +115,7 @@ function ChooseStep({
   onSkipToForm,
   onSelectSampleWallet,
 }: ChooseStepProps) {
+  const { t } = breadcrumbProps
   return (
     <div className="space-y-6">
       <Breadcrumb {...breadcrumbProps} />
@@ -114,10 +123,10 @@ function ChooseStep({
       <div className="max-w-3xl mx-auto space-y-8">
         <div className="text-center space-y-2">
           <p className="text-muted-foreground text-lg">
-            Which wallet do you use? We&apos;ll show you how to export your output descriptor or XPUB.
+            {t('add.wizard.chooseWallet')}
           </p>
           <p className="text-muted-foreground text-sm">
-            Canary only needs this to monitor your transactions. Your private keys stay safe in your wallet.
+            {t('add.wizard.keysStaySafe')}
           </p>
         </div>
 
@@ -126,7 +135,7 @@ function ChooseStep({
           <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
             <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0" />
             <p className="text-sm text-amber-700 dark:text-amber-300 flex-1">
-              New here? Try with a sample wallet first to see how Canary works.
+              {t('add.wizard.tryBaconWallet')}
             </p>
             <Button
               variant="outline"
@@ -134,7 +143,7 @@ function ChooseStep({
               onClick={onSelectSampleWallet}
               className="shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
             >
-              Use Bacon Wallet
+              {t('add.wizard.useBaconWallet')}
             </Button>
           </div>
         )}
@@ -158,7 +167,7 @@ function ChooseStep({
               </div>
               <div>
                 <div className="font-medium">{wallet.name}</div>
-                <div className="text-xs text-muted-foreground capitalize">{wallet.type}</div>
+                <div className="text-xs text-muted-foreground capitalize">{t(`add.wizard.walletType.${wallet.type}`)}</div>
               </div>
             </button>
           ))}
@@ -170,7 +179,7 @@ function ChooseStep({
             onClick={onSkipToForm}
             className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1 text-sm"
           >
-            I already have my output descriptor or XPUB
+            {t('add.wizard.haveDescriptor')}
             <ChevronRight size={16} />
           </button>
         </div>
@@ -186,6 +195,7 @@ function InstructionsStep({
   isFirstWallet,
   onWalletCreated,
 }: InstructionsStepProps) {
+  const { t } = breadcrumbProps
   return (
     <div className="space-y-6">
       <Breadcrumb {...breadcrumbProps} />
@@ -193,11 +203,11 @@ function InstructionsStep({
       <div className="max-w-3xl mx-auto space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Follow these steps to export your descriptor from {selectedWallet.name}</CardTitle>
+            <CardTitle className="text-lg">{t('add.wizard.exportSteps', { walletName: selectedWallet.name })}</CardTitle>
           </CardHeader>
           <CardContent>
             <ol className="space-y-3">
-              {selectedWallet.steps.map((stepText, index) => (
+              {breadcrumbProps.getGuideSteps(selectedWallet.id).map((stepText, index) => (
                 <li key={index} className="flex gap-3">
                   <span className="shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center">
                     {index + 1}
@@ -212,7 +222,7 @@ function InstructionsStep({
         {/* Form section */}
         <div className="text-center space-y-2">
           <p className="text-muted-foreground">
-            Paste your {selectedWallet.outputType === 'xpub' ? 'XPUB' : 'output descriptor or XPUB'} below.
+            {selectedWallet.outputType === 'xpub' ? t('add.wizard.pasteXpub') : t('add.wizard.pasteDescriptor')}
           </p>
         </div>
 
@@ -239,6 +249,7 @@ function FormStep({
   baconWallet,
   onWalletCreated,
 }: FormStepProps) {
+  const { t } = breadcrumbProps
   return (
     <div className="space-y-6">
       <Breadcrumb {...breadcrumbProps} />
@@ -247,8 +258,8 @@ function FormStep({
         <div className="text-center space-y-2">
           <p className="text-muted-foreground">
             {isBaconWallet
-              ? "We've prefilled the Bacon sample wallet for you. Just click Add Wallet to continue."
-              : `Paste your ${selectedWallet?.outputType === 'xpub' ? 'XPUB' : 'output descriptor or XPUB'} below.`
+              ? t('add.wizard.baconPrefilled')
+              : (selectedWallet?.outputType === 'xpub' ? t('add.wizard.pasteXpub') : t('add.wizard.pasteDescriptor'))
             }
           </p>
         </div>
@@ -280,6 +291,8 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const { blockHeader } = useBlockHeader()
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [upgradingTier, setUpgradingTier] = useState<string | null>(null)
+  const t = useTranslations('wallets')
+  const tNav = useTranslations('nav')
 
   // Derive wallet count and limit status from context
   const walletCount = wallets.length
@@ -369,7 +382,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
       window.location.href = url
     } catch (error) {
       console.error('Failed to create checkout session:', error)
-      alert('Failed to start checkout. Please try again.')
+      alert(t('add.checkoutError'))
     } finally {
       setIsUpgrading(false)
       setUpgradingTier(null)
@@ -386,7 +399,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
         {/* Breadcrumb skeleton */}
         <nav className="flex items-center text-2xl text-muted-foreground">
           <Link href="/wallets" className="hover:text-foreground font-semibold">
-            Wallets
+            {tNav('wallets')}
           </Link>
           <span className="mx-2">/</span>
           <Skeleton className="h-8 w-32" />
@@ -409,17 +422,18 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
           selectedWallet={null}
           step="choose"
           onNavigateToChoose={handleNavigateToChoose}
+          t={t}
+          tNav={tNav}
         />
 
         <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-400">
               <AlertTriangle className="h-5 w-5" />
-              Wallet Limit Reached
+              {t('add.limitReached.title')}
             </CardTitle>
             <CardDescription className="text-amber-700 dark:text-amber-500">
-              You&apos;ve reached your {getTierDisplayName(currentTier)} plan limit of {walletLimit} wallet{walletLimit !== 1 ? 's' : ''}.
-              Upgrade to add more wallets.
+              {t('add.limitReached.description', { tier: getTierDisplayName(currentTier), count: walletLimit })}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -438,11 +452,30 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     )
   }
 
+  // Helper to get translated guide steps
+  const getGuideSteps = (walletId: string): string[] => {
+    // Use t.raw to get the array of steps from translations
+    // Falls back to the original steps from wallet-guides if translation not found
+    try {
+      const steps = (t as unknown as { raw: (key: string) => unknown }).raw(`add.guides.${walletId}.steps`)
+      if (Array.isArray(steps)) {
+        return steps as string[]
+      }
+    } catch {
+      // Translation not found, fall back to original
+    }
+    const guide = walletGuides.find(w => w.id === walletId)
+    return guide?.steps || []
+  }
+
   // Shared breadcrumb props for all steps
   const breadcrumbProps: BreadcrumbProps = {
     selectedWallet,
     step,
     onNavigateToChoose: handleNavigateToChoose,
+    t,
+    tNav,
+    getGuideSteps,
   }
 
   // Step 1: Choose your wallet

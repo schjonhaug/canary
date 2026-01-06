@@ -1,0 +1,969 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "deleting": "Suppression...",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "submit": "Envoyer",
+    "verify": "Vérifier",
+    "verifying": "Vérification...",
+    "send": "Envoyer",
+    "sending": "Envoi...",
+    "retry": "Réessayer",
+    "yes": "Oui",
+    "no": "Non",
+    "or": "ou",
+    "and": "et",
+    "active": "ACTIF",
+    "inactive": "INACTIF",
+    "pending": "En attente",
+    "confirmed": "Confirmé",
+    "failed": "Échoué",
+    "success": "Succès",
+    "error": "Erreur",
+    "warning": "Avertissement",
+    "info": "Info",
+    "savedSuccessfully": "Enregistré avec succès !",
+    "connectingToNetwork": "Connexion au réseau...",
+    "emailPlaceholder": "votre@email.com",
+    "emailLabel": "E-mail",
+    "passwordLabel": "Mot de passe",
+    "name": "Nom",
+    "new": "Nouveau",
+    "backToWallets": "Retour aux Portefeuilles",
+    "backToSignIn": "Retour à la connexion",
+    "selfHostedMode": "Mode Auto-hébergé"
+  },
+  "nav": {
+    "signIn": "Se connecter",
+    "signOut": "Se déconnecter",
+    "settings": "Paramètres",
+    "wallets": "Portefeuilles",
+    "addWallet": "Ajouter un portefeuille",
+    "alreadyUser": "Déjà inscrit ? Se connecter",
+    "contact": "Contact",
+    "subscription": "Abonnement"
+  },
+  "contactPage": {
+    "title": "Contact",
+    "selfHosted": {
+      "description": "Le formulaire de contact n'est pas disponible en mode auto-hébergé."
+    },
+    "form": {
+      "title": "Contactez-nous",
+      "description": "Vous avez une question ou un commentaire ? Nous serions ravis de vous entendre.",
+      "messageLabel": "Message",
+      "messagePlaceholder": "Comment pouvons-nous vous aider ?",
+      "characterCount": "{count}/{max} caractères",
+      "submit": "Envoyer le message"
+    },
+    "validation": {
+      "emailRequired": "L'email est requis",
+      "emailInvalid": "Veuillez entrer une adresse email valide",
+      "emailTooLong": "L'email doit contenir moins de {max} caractères",
+      "messageRequired": "Le message est requis",
+      "messageTooShort": "Le message doit contenir au moins {min} caractères",
+      "messageTooLong": "Le message doit contenir moins de {max} caractères"
+    },
+    "errors": {
+      "sendFailed": "Échec de l'envoi du message"
+    }
+  },
+  "landing": {
+    "hero": {
+      "title": "Surveillance Complète de Bitcoin",
+      "description": "Surveillance professionnelle de Bitcoin avec alertes de transactions et notifications intelligentes de solde. Définissez des seuils personnalisés, surveillez les vidages de portefeuille, suivez toutes les transactions - le tout avec une sécurité en lecture seule.",
+      "startTrial": "Commencer l'essai gratuit de 30 jours",
+      "tryDemo": "Essayer la démo",
+      "viewPricing": "Voir les tarifs"
+    },
+    "features": {
+      "title": "Surveillance Complète de Bitcoin",
+      "subtitle": "Suivi des transactions, alertes de solde et surveillance sécurisée en lecture seule",
+      "notifications": {
+        "title": "Notifications instantanées de transactions Bitcoin",
+        "description": "Alertes de portefeuille Bitcoin en temps réel par email, SMS et notifications push directement sur votre appareil"
+      },
+      "balanceAlerts": {
+        "title": "Système intelligent d'alertes de solde",
+        "description": "Seuils de solde personnalisés avec alertes pour les vidages de portefeuille, les gros dépôts ou les montants spécifiques. Ne manquez jamais les changements critiques de solde."
+      },
+      "security": {
+        "title": "Surveillance Bitcoin sécurisée en lecture seule",
+        "description": "Accès en lecture seule aux portefeuilles Bitcoin utilisant XPUBs ou descripteurs - nous ne touchons jamais vos clés privées"
+      },
+      "sync": {
+        "title": "Synchronisation en temps réel du portefeuille Bitcoin",
+        "description": "Intervalles de synchronisation de portefeuille Bitcoin de 10 minutes à 2 minutes selon votre plan d'abonnement"
+      }
+    },
+    "balanceAlerts": {
+      "title": "Ne manquez jamais les changements critiques de solde",
+      "description": "Définissez des seuils de solde personnalisés pour surveiller vos avoirs totaux. Recevez des alertes lorsque votre solde atteint des niveaux spécifiques. Parfait pour la surveillance du stockage à froid, la détection de vidage de portefeuille ou le suivi des jalons importants de solde.",
+      "above": {
+        "title": "Alertes de seuil supérieur",
+        "description": "Recevez une notification lorsque votre solde total dépasse un seuil défini. Surveillez quand vos avoirs atteignent des jalons importants."
+      },
+      "below": {
+        "title": "Alertes de seuil inférieur",
+        "description": "Recevez une notification lorsque votre solde total tombe en dessous d'un seuil défini. Configurez des avertissements de solde bas pour vos avoirs."
+      },
+      "drain": {
+        "title": "Détection de vidage de portefeuille",
+        "description": "Recevez une notification lorsque votre solde total est égal à un montant spécifique, comme zéro pour les vidages de portefeuille. Surveillance de sécurité critique."
+      },
+      "example": {
+        "title": "Votre portefeuille Bitcoin",
+        "currentBalance": "0,05 BTC",
+        "aboveThreshold": "Au-dessus de 0,1 BTC",
+        "belowThreshold": "En dessous de 0,01 BTC",
+        "equalsZero": "Égal à 0 BTC",
+        "active": "ACTIF",
+        "deliveryNote": "Toutes les alertes livrées par email, SMS et notifications push"
+      }
+    },
+    "pricing": {
+      "title": "Tarification simple et transparente",
+      "subtitle": "Choisissez le plan qui correspond à vos besoins",
+      "trialNote": "Les plans cloud incluent un essai gratuit de 30 jours - Aucune carte de crédit requise"
+    },
+    "faq": {
+      "title": "Questions fréquemment posées",
+      "contactUs": "Contactez-nous ici",
+      "items": {
+        "whatIsCanary": {
+          "question": "Qu'est-ce que la surveillance de portefeuille Bitcoin Canary ?",
+          "answer": "Canary est un service professionnel de surveillance et de notification de portefeuilles Bitcoin qui surveille vos portefeuilles Bitcoin à l'aide de XPUBs ou de descripteurs et envoie des alertes instantanées pour toutes les transactions par email, SMS et notifications push. Parfait pour surveiller le stockage à froid, les portefeuilles matériels et les adresses Bitcoin en lecture seule."
+        },
+        "howDoesItWork": {
+          "question": "Comment fonctionne la surveillance de portefeuille Bitcoin sans clés privées ?",
+          "answer": "Canary utilise le XPUB (clé publique étendue) ou le descripteur de votre portefeuille pour une surveillance Bitcoin en lecture seule. Cela nous donne un accès en lecture seule pour suivre vos adresses Bitcoin et détecter les transactions. Nous n'avons jamais accès à vos clés privées et ne pouvons pas déplacer votre Bitcoin - garantissant une sécurité complète pour la surveillance de votre stockage à froid."
+        },
+        "whatIsXpub": {
+          "question": "Qu'est-ce que la surveillance de portefeuille XPUB ?",
+          "answer": "La surveillance XPUB vous permet de suivre toutes les adresses de votre portefeuille Bitcoin sans exposer les clés privées. En fournissant l'XPUB ou le descripteur de votre portefeuille, Canary peut surveiller des adresses illimitées, détecter des transactions à n'importe quelle profondeur (même plus de 200 adresses), et vous alerter instantanément lorsque le Bitcoin bouge."
+        },
+        "coldStorage": {
+          "question": "Puis-je surveiller les portefeuilles Bitcoin de stockage à froid ?",
+          "answer": "Oui ! Canary est parfait pour la surveillance du stockage à froid Bitcoin. Que vous utilisiez des portefeuilles matériels comme Ledger ou Trezor, des portefeuilles papier ou toute autre solution de stockage à froid, fournissez simplement votre XPUB ou descripteur pour une surveillance sécurisée en lecture seule avec des notifications instantanées."
+        },
+        "notificationSpeed": {
+          "question": "Quelle est la rapidité des notifications de transaction Bitcoin ?",
+          "answer": "Avec notre plan Team, vous obtenez des notifications de transaction Bitcoin en temps quasi réel avec des intervalles de synchronisation aussi rapides que 2 minutes sur mainnet. La plupart des notifications arrivent en quelques secondes après la détection de la transaction. Les plans Personnel se synchronisent toutes les 10 minutes, garantissant toujours des alertes opportunes pour vos portefeuilles Bitcoin."
+        },
+        "walletTypes": {
+          "question": "Quels types de portefeuilles Bitcoin sont pris en charge ?",
+          "answer": "Canary prend en charge tous les principaux types de portefeuilles Bitcoin, y compris Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) et les adresses Taproot (P2TR). Nous détectons automatiquement le type de votre portefeuille à partir de l'XPUB ou vous pouvez le spécifier manuellement. La surveillance multi-signature et des portefeuilles matériels est entièrement prise en charge."
+        },
+        "whyCanary": {
+          "question": "Pourquoi s'appelle-t-il Canary ?",
+          "answer": "Comme un canari dans une mine de charbon fournissant un avertissement précoce, Canary agit comme le système d'alerte précoce de votre portefeuille Bitcoin. Lorsque votre Bitcoin est en stockage à froid, vous le vérifiez rarement. Canary surveille 24h/24 et 7j/7 et vous alerte instantanément lorsque votre Bitcoin bouge, offrant la tranquillité d'esprit aux détenteurs à long terme."
+        },
+        "noBlockchain": {
+          "question": "Puis-je suivre Bitcoin sans télécharger la blockchain ?",
+          "answer": "Oui ! Canary se connecte à des serveurs Electrum professionnels pour surveiller la blockchain Bitcoin pour vous. Pas besoin d'exécuter un nœud complet ou de télécharger la blockchain - fournissez simplement votre XPUB et commencez à recevoir des notifications instantanées pour toute l'activité de votre portefeuille Bitcoin."
+        },
+        "balanceAlerts": {
+          "question": "Comment fonctionnent les alertes de solde Bitcoin ?",
+          "answer": "Le système d'alerte de solde de Canary vous permet de définir des seuils personnalisés pour surveiller le solde total de votre portefeuille. Créez des alertes pour quand votre solde dépasse un certain montant, passe en dessous d'un seuil (avertissement de solde bas), ou est égal à zéro (détection de vidage de portefeuille). Parfait pour suivre le stockage à froid sans vérification manuelle."
+        },
+        "alertTypes": {
+          "question": "Quels types d'alertes de solde sont disponibles ?",
+          "answer": "Vous pouvez créer trois types d'alertes de solde: Les alertes 'Au-dessus' se déclenchent lorsque votre solde total dépasse un seuil (surveillez quand les avoirs atteignent des jalons), les alertes 'En dessous' avertissent lorsque le solde total tombe sous un montant (avertissements de solde bas), et les alertes 'Égal' détectent des montants de solde exacts comme les vidages de portefeuille (solde = 0) ou des cibles spécifiques."
+        },
+        "multipleWallets": {
+          "question": "Puis-je surveiller plusieurs portefeuilles Bitcoin avec différents seuils de solde ?",
+          "answer": "Oui ! Chaque portefeuille Bitcoin peut avoir son propre ensemble d'alertes de solde personnalisées. Avec notre plan Team, vous pouvez surveiller jusqu'à 5 portefeuilles, chacun avec des seuils de solde uniques. Parfait pour les Uncle Jims surveillant les avoirs Bitcoin de la famille ou les entreprises suivant plusieurs portefeuilles de trésorerie avec différentes exigences d'alerte."
+        },
+        "contact": {
+          "question": "Comment puis-je vous contacter ?",
+          "answer": "Nous serions ravis d'avoir de vos nouvelles ! Vous pouvez nous joindre via notre formulaire de contact pour toute question, commentaire ou demande d'assistance. Nous répondons généralement dans les 24 heures."
+        }
+      }
+    },
+    "cta": {
+      "title": "Commencez la surveillance complète de Bitcoin aujourd'hui",
+      "description": "Alertes de transactions, surveillance de solde et tranquillité d'esprit pour votre patrimoine Bitcoin"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Bienvenue",
+      "subtitle": "Connectez-vous à votre compte Canary",
+      "passwordPlaceholder": "Entrez votre mot de passe",
+      "submit": "Se connecter",
+      "submitting": "Connexion...",
+      "noAccount": "Pas de compte ? Inscrivez-vous",
+      "forgotPassword": "Mot de passe oublié ?",
+      "devMode": "Mode développement",
+      "loginFailed": "Échec de la connexion"
+    },
+    "signUp": {
+      "title": "Commencez votre essai gratuit de 30 jours",
+      "subtitle": "30 jours gratuits, puis continuez avec le plan de votre choix",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Entrez votre nom",
+      "passwordPlaceholder": "Entrez un mot de passe sécurisé",
+      "passwordHint": "Le mot de passe doit contenir au moins 6 caractères",
+      "marketingConsent": "Je souhaite recevoir occasionnellement des emails sur les mises à jour du service",
+      "submit": "Créer un compte",
+      "submitting": "Création du compte...",
+      "hasAccount": "Déjà un compte ? Connectez-vous",
+      "signInInstead": "Se connecter à la place",
+      "registrationFailed": "Échec de l'inscription"
+    },
+    "signUpSuccess": {
+      "title": "Vérifiez votre email",
+      "description": "Nous avons envoyé un lien de vérification à votre adresse email. Veuillez cliquer sur le lien pour vérifier votre compte.",
+      "didntReceive": "Vous n'avez pas reçu l'email ?",
+      "checkSpam": "Vérifiez votre dossier spam",
+      "resend": "Renvoyer l'email de vérification"
+    },
+    "forgotPassword": {
+      "title": "Mot de passe oublié ?",
+      "subtitle": "Entrez votre email et nous vous enverrons un lien de réinitialisation",
+      "submit": "Envoyer le lien de réinitialisation",
+      "successTitle": "Vérifiez votre email",
+      "successMessage": "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation du mot de passe."
+    },
+    "resetPassword": {
+      "title": "Réinitialiser votre mot de passe",
+      "subtitle": "Entrez votre nouveau mot de passe ci-dessous",
+      "passwordLabel": "Nouveau mot de passe",
+      "passwordPlaceholder": "Entrez votre nouveau mot de passe",
+      "confirmLabel": "Confirmer le mot de passe",
+      "confirmPlaceholder": "Confirmez votre nouveau mot de passe",
+      "submit": "Réinitialiser le mot de passe",
+      "submitting": "Réinitialisation...",
+      "passwordMismatch": "Les mots de passe ne correspondent pas",
+      "successTitle": "Mot de passe réinitialisé",
+      "successMessage": "Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter.",
+      "invalidToken": "Lien de réinitialisation invalide ou expiré"
+    },
+    "verifyEmail": {
+      "verifying": "Vérification de votre email...",
+      "successTitle": "Email vérifié",
+      "successMessage": "Votre email a été vérifié. Vous pouvez maintenant vous connecter.",
+      "errorTitle": "Échec de la vérification",
+      "invalidToken": "Lien de vérification invalide ou expiré",
+      "signIn": "Se connecter"
+    }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "display": {
+      "title": "Préférences d'affichage",
+      "description": "Personnalisez l'affichage des valeurs Bitcoin dans vos portefeuilles",
+      "currencyLabel": "Devise fiat",
+      "currencyPlaceholder": "Sélectionnez une devise",
+      "currencyNote": "Les taux de change sont mis à jour toutes les 10 minutes depuis CoinGecko"
+    },
+    "language": {
+      "title": "Langue",
+      "description": "Choisissez votre langue préférée pour l'interface",
+      "label": "Langue"
+    },
+    "ntfy": {
+      "title": "Notifications push",
+      "description": "Configurez votre serveur ntfy pour les notifications push",
+      "serverLabel": "URL du serveur ntfy",
+      "serverPlaceholder": "https://ntfy.sh",
+      "serverNoteBefore": "Laissez vide pour utiliser le serveur public ntfy.sh. Vous pouvez ",
+      "selfHostLink": "auto-héberger ntfy",
+      "serverNoteAfter": " pour une confidentialité complète.",
+      "auth": {
+        "title": "Authentification",
+        "configured": {
+          "token": "Token d'accès configuré",
+          "credentials": "Nom d'utilisateur/mot de passe configuré ({username})",
+          "none": "Aucune authentification configurée"
+        },
+        "type": {
+          "none": "Aucune authentification",
+          "token": "Token d'accès",
+          "basic": "Nom d'utilisateur et mot de passe"
+        },
+        "tokenLabel": "Token d'accès",
+        "tokenPlaceholder": "tk_...",
+        "usernameLabel": "Nom d'utilisateur",
+        "usernamePlaceholder": "Nom d'utilisateur",
+        "passwordLabel": "Mot de passe",
+        "passwordPlaceholder": "Mot de passe",
+        "saveAuth": "Enregistrer l'authentification",
+        "tokenRequired": "Le token d'accès est requis",
+        "credentialsRequired": "Le nom d'utilisateur et le mot de passe sont requis",
+        "authSaved": "Authentification enregistrée !"
+      }
+    },
+    "currencies": {
+      "USD": "Dollar américain",
+      "EUR": "Euro",
+      "GBP": "Livre sterling",
+      "CAD": "Dollar canadien",
+      "AUD": "Dollar australien",
+      "CHF": "Franc suisse",
+      "JPY": "Yen japonais",
+      "CNY": "Yuan chinois",
+      "INR": "Roupie indienne",
+      "KRW": "Won sud-coréen",
+      "RUB": "Rouble russe",
+      "BRL": "Réal brésilien",
+      "MXN": "Peso mexicain",
+      "SGD": "Dollar de Singapour",
+      "HKD": "Dollar de Hong Kong",
+      "NOK": "Couronne norvégienne",
+      "SEK": "Couronne suédoise",
+      "DKK": "Couronne danoise",
+      "PLN": "Złoty polonais",
+      "THB": "Baht thaïlandais",
+      "IDR": "Roupie indonésienne",
+      "HUF": "Forint hongrois",
+      "CZK": "Couronne tchèque",
+      "ILS": "Shekel israélien",
+      "CLP": "Peso chilien",
+      "PHP": "Peso philippin",
+      "AED": "Dirham des ÉAU",
+      "TRY": "Livre turque",
+      "ZAR": "Rand sud-africain",
+      "TWD": "Dollar taïwanais",
+      "NZD": "Dollar néo-zélandais",
+      "ARS": "Peso argentin",
+      "SAR": "Riyal saoudien",
+      "PKR": "Roupie pakistanaise",
+      "MYR": "Ringgit malaisien",
+      "NGN": "Naira nigérian",
+      "VND": "Dong vietnamien",
+      "UAH": "Hryvnia ukrainienne",
+      "GEL": "Lari géorgien",
+      "BDT": "Taka bangladais",
+      "VEF": "Bolívar vénézuélien",
+      "LKR": "Roupie sri-lankaise",
+      "BHD": "Dinar bahreïni",
+      "BMD": "Dollar bermudien",
+      "KWD": "Dinar koweïtien",
+      "MMK": "Kyat birman"
+    }
+  },
+  "wallets": {
+    "title": "Mes portefeuilles",
+    "summary": "Suivi de {count} {count, plural, one {portefeuille} other {portefeuilles}} avec un solde total de {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "Prêt à commencer votre essai",
+        "titleWithName": "Prêt à commencer votre essai, {name} ?",
+        "description": "Ajoutez votre premier portefeuille pour activer votre <highlight>essai de 30 jours du plan Team</highlight>. Vous obtiendrez un accès instantané à toutes les fonctionnalités, y compris la synchronisation en temps réel, les notifications illimitées et le support prioritaire.",
+        "whatYouGet": "Ce que vous obtiendrez :",
+        "features": {
+          "wallets": "5 portefeuilles avec sync de 2 minutes",
+          "contacts": "5 contacts par portefeuille",
+          "emailSms": "Notifications par email et SMS",
+          "push": "Notifications push via ntfy"
+        },
+        "button": "Ajouter votre premier portefeuille et commencer l'essai",
+        "note": "L'essai commence lorsque vous ajoutez votre portefeuille"
+      },
+      "simple": {
+        "title": "Ajouter votre premier portefeuille",
+        "description": "Ajoutez un descripteur de portefeuille pour commencer à surveiller vos transactions Bitcoin.",
+        "button": "Ajouter un portefeuille"
+      }
+    },
+    "connectionLost": {
+      "title": "Connexion au backend perdue",
+      "description": "Impossible de se connecter au service backend. Affichage des données en cache.",
+      "lastUpdated": "Dernière mise à jour : {time}"
+    },
+    "empty": {
+      "title": "Aucun portefeuille",
+      "description": "Aucun portefeuille trouvé. Utilisez le bouton \"Ajouter un portefeuille\" pour commencer.",
+      "addFirst": "Ajouter votre premier portefeuille"
+    },
+    "error": {
+      "title": "Erreur",
+      "loadFailed": "Échec du chargement des portefeuilles : {error}"
+    },
+    "card": {
+      "syncing": "Synchronisation...",
+      "inactive": "Inactif",
+      "inactiveExpired": "Votre abonnement a expiré - le portefeuille ne se synchronisera pas automatiquement",
+      "inactiveTierLimit": "Ce portefeuille dépasse les limites de votre abonnement et ne se synchronisera pas automatiquement",
+      "balance": "Solde",
+      "lastActivity": "Dernière activité : {date}",
+      "noRecentActivity": "Aucune activité récente"
+    },
+    "add": {
+      "title": "Ajouter un portefeuille",
+      "nameLabel": "Nom du portefeuille",
+      "namePlaceholder": "Mon portefeuille Bitcoin",
+      "descriptorLabel": "Descripteur de portefeuille ou XPUB",
+      "descriptorPlaceholder": "wpkh([empreinte/84'/0'/0']xpub.../0/*)",
+      "descriptorHint": "Entrez le descripteur de sortie de votre portefeuille ou XPUB. Nous détecterons automatiquement le type de script.",
+      "advancedSettings": "Paramètres avancés",
+      "scriptType": {
+        "label": "Type de script",
+        "selectPlaceholder": "Sélectionner le type de script",
+        "autoPlaceholder": "Détection automatique",
+        "auto": "Détection automatique (recommandé)",
+        "p2wpkh": "SegWit natif (bc1...)",
+        "p2wpkhFresh": "SegWit natif (bc1...) - Le plus courant",
+        "p2sh": "SegWit imbriqué (3...)",
+        "p2shFresh": "SegWit imbriqué (3...) - Compatibilité legacy",
+        "p2pkh": "Legacy (1...)",
+        "p2pkhFresh": "Legacy (1...) - Le plus ancien",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - Moderne",
+        "detectedHint": "Type de script détecté depuis le descripteur et ne peut pas être modifié",
+        "requiredHint": "Le type de script est requis pour les nouveaux portefeuilles XPUB"
+      },
+      "stopGap": {
+        "label": "Stop Gap",
+        "default": "Par défaut (20 consécutives inutilisées)",
+        "extended": "Étendu (250 consécutives inutilisées)",
+        "deep": "Profond (500 consécutives inutilisées)",
+        "deeper": "Plus profond (750 consécutives inutilisées)",
+        "maximum": "Maximum (1000 consécutives inutilisées)",
+        "hint": "Nombre d'adresses consécutives inutilisées à vérifier avant de s'arrêter. Augmentez si votre portefeuille utilise des adresses à des indices élevés aléatoires (ex. BTCPay Server)",
+        "requiresScriptType": "Un stop gap personnalisé nécessite de sélectionner un type de script spécifique"
+      },
+      "freshWallet": {
+        "label": "Nouveau portefeuille (pas d'historique de transactions)",
+        "hint": "Ignorer l'analyse approfondie pour les portefeuilles sans transactions précédentes"
+      },
+      "submit": "Ajouter le portefeuille",
+      "submitting": "Ajout...",
+      "success": "Portefeuille ajouté avec succès",
+      "error": "Échec de l'ajout du portefeuille",
+      "validation": {
+        "nameRequired": "Le nom du portefeuille est requis",
+        "descriptorRequired": "Le descripteur de sortie ou la clé publique étendue est requis",
+        "scriptTypeRequired": "Le type de script est requis pour les nouveaux portefeuilles XPUB"
+      },
+      "wizard": {
+        "chooseWallet": "Quel portefeuille utilisez-vous ? Nous vous montrerons comment exporter votre descripteur de sortie ou XPUB.",
+        "keysStaySafe": "Canary n'a besoin de cela que pour surveiller vos transactions. Vos clés privées restent en sécurité dans votre portefeuille.",
+        "tryBaconWallet": "Nouveau ici ? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary.",
+        "useBaconWallet": "Utiliser le portefeuille Bacon",
+        "haveDescriptor": "J'ai déjà mon descripteur de sortie ou XPUB",
+        "exportSteps": "Suivez ces étapes pour exporter votre descripteur depuis {walletName}",
+        "pasteXpub": "Collez votre XPUB ci-dessous.",
+        "pasteDescriptor": "Collez votre descripteur de sortie ou XPUB ci-dessous.",
+        "baconPrefilled": "Nous avons prérempli le portefeuille exemple Bacon pour vous. Cliquez simplement sur Ajouter le portefeuille pour continuer.",
+        "enterDetails": "Entrer les détails",
+        "walletType": {
+          "software": "logiciel",
+          "hardware": "matériel"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "Portefeuille de bureau pour Bitcoin avec support complet des descripteurs",
+          "steps": [
+            "Ouvrez votre portefeuille dans Sparrow",
+            "Allez dans l'onglet Settings",
+            "Cliquez sur \"Show\" à côté de Output Descriptor",
+            "Copiez la chaîne complète du descripteur (commence par wpkh, wsh ou tr)"
+          ]
+        },
+        "bluewallet": {
+          "description": "Portefeuille Bitcoin mobile pour iOS et Android",
+          "steps": [
+            "Ouvrez votre portefeuille dans BlueWallet",
+            "Appuyez sur le menu trois points (⋯) en haut à droite",
+            "Sélectionnez \"Export/Backup\"",
+            "Appuyez sur \"Export Wallet\"",
+            "Copiez la chaîne XPUB (commence par xpub, ypub ou zpub)"
+          ]
+        },
+        "electrum": {
+          "description": "Portefeuille Bitcoin de bureau léger",
+          "steps": [
+            "Ouvrez votre portefeuille dans Electrum",
+            "Allez dans le menu Wallet → Information",
+            "Trouvez la section \"Master Public Key\"",
+            "Copiez la chaîne zpub, ypub ou xpub"
+          ]
+        },
+        "coldcard": {
+          "description": "Portefeuille matériel air-gapped",
+          "steps": [
+            "Allumez votre ColdCard et entrez votre PIN",
+            "Allez dans Advanced/Tools → Export Wallet",
+            "Sélectionnez le format \"Generic JSON\"",
+            "Exportez vers votre carte SD",
+            "Ouvrez le fichier JSON sur votre ordinateur",
+            "Copiez le descripteur ou xpub du fichier"
+          ]
+        },
+        "ledger": {
+          "description": "Portefeuille matériel populaire",
+          "steps": [
+            "Connectez votre appareil Ledger et déverrouillez-le",
+            "Ouvrez l'application Bitcoin sur votre Ledger",
+            "Ouvrez l'application Ledger Wallet sur votre ordinateur",
+            "Allez dans votre compte Bitcoin → cliquez sur l'icône clé",
+            "Cliquez sur \"Advanced logs\"",
+            "Copiez la chaîne xpub depuis les logs"
+          ]
+        },
+        "trezor": {
+          "description": "Portefeuille matériel open-source",
+          "steps": [
+            "Connectez votre Trezor et ouvrez Trezor Suite",
+            "Ouvrez votre compte Bitcoin",
+            "Cliquez sur le nom du compte pour ouvrir les paramètres",
+            "Cliquez sur \"Show public key (XPUB)\"",
+            "Confirmez sur votre appareil Trezor",
+            "Copiez la chaîne XPUB"
+          ]
+        }
+      },
+      "limitReached": {
+        "title": "Limite de portefeuilles atteinte",
+        "description": "Vous avez atteint la limite de {count} {count, plural, one {portefeuille} other {portefeuilles}} de votre plan {tier}. Mettez à niveau pour ajouter plus de portefeuilles."
+      },
+      "checkoutError": "Échec du démarrage du paiement. Veuillez réessayer."
+    },
+    "detail": {
+      "balance": "Solde",
+      "transactions": "Transactions",
+      "contacts": "Contacts",
+      "balanceAlerts": "Alertes de solde",
+      "noTransactions": "Pas encore de transactions",
+      "pendingSync": "Le portefeuille se synchronise...",
+      "lastSync": "Dernière synchronisation",
+      "syncStatus": {
+        "pending": "Synchronisation",
+        "ready": "Synchronisé"
+      },
+      "notFound": {
+        "title": "Portefeuille introuvable",
+        "description": "Le portefeuille avec la somme de contrôle #{checksum} n'a pas été trouvé."
+      },
+      "syncing": {
+        "title": "Portefeuille en cours de synchronisation",
+        "description": "{name} est encore en cours de synchronisation et d'analyse des transactions historiques. Ce processus peut prendre quelques minutes pour les portefeuilles avec un historique de transactions.",
+        "returnPrompt": "Veuillez retourner à la page des portefeuilles et attendre que la synchronisation soit terminée."
+      },
+      "inactive": {
+        "title": "Portefeuille inactif",
+        "descriptionExpired": "Votre abonnement a expiré - le portefeuille ne se synchronisera pas automatiquement.",
+        "descriptionTierLimit": "Ce portefeuille dépasse les limites de votre niveau d'abonnement et ne se synchronisera pas automatiquement.",
+        "outdatedWarning": "L'historique des transactions et le solde affichés peuvent être obsolètes.",
+        "upgradePlan": "Mettre à niveau"
+      }
+    },
+    "delete": {
+      "title": "Supprimer le portefeuille",
+      "description": "Êtes-vous sûr de vouloir supprimer ce portefeuille ? Cette action ne peut pas être annulée."
+    },
+    "edit": {
+      "title": "Modifier le portefeuille",
+      "nameLabel": "Nom du portefeuille",
+      "submit": "Enregistrer les modifications"
+    }
+  },
+  "contacts": {
+    "title": "Contacts",
+    "empty": {
+      "title": "Pas encore de contacts",
+      "description": "Ajoutez des contacts pour recevoir des notifications sur ce portefeuille",
+      "list": "Aucun contact ajouté"
+    },
+    "inactive": {
+      "badge": "Inactif",
+      "expired": "Votre abonnement a expiré - le contact ne recevra pas de notifications",
+      "tierLimit": "Ce contact dépasse les limites de votre niveau d'abonnement et ne recevra pas de notifications"
+    },
+    "add": {
+      "title": "Ajouter un nouveau contact",
+      "description": "Configurez un nouveau contact pour recevoir les notifications de transactions Bitcoin.",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Nom du contact",
+      "languageLabel": "Langue",
+      "methodTitle": "Méthodes de notification",
+      "providers": {
+        "ntfy": "Notifications ntfy.sh",
+        "twilio": "Notifications SMS",
+        "email": "Notifications par e-mail"
+      },
+      "ntfy": {
+        "topicHint": "Le sujet sera généré automatiquement en fonction du nom du contact"
+      },
+      "sms": {
+        "phoneHint": "Inclure l'indicatif du pays"
+      },
+      "email": {
+        "emailHint": "Entrez une adresse email valide"
+      },
+      "submit": "Créer le contact",
+      "submitting": "Traitement..."
+    },
+    "edit": {
+      "title": "Modifier le contact",
+      "description": "Mettez à jour les informations du contact et les méthodes de notification.",
+      "submit": "Mettre à jour le contact"
+    },
+    "delete": {
+      "title": "Supprimer le contact",
+      "description": "Êtes-vous sûr de vouloir supprimer ce contact ? Il ne recevra plus de notifications."
+    },
+    "verification": {
+      "codeLabel": "Code de vérification",
+      "codePlaceholder": "Entrez le code à 6 chiffres",
+      "sendCode": "Envoyer le code de vérification",
+      "sendingCode": "Envoi...",
+      "verify": "Vérifier",
+      "verifying": "Vérification...",
+      "resend": "Renvoyer",
+      "codeSentTo": "Code envoyé à {target}",
+      "expiresIn": "Expire dans {time}",
+      "expired": "Le code de vérification a expiré. Veuillez réessayer.",
+      "expiredRequest": "Le code de vérification a expiré. Veuillez demander un nouveau code.",
+      "invalid": "Code de vérification invalide. Veuillez réessayer.",
+      "smsVerified": "SMS vérifié avec succès",
+      "emailVerified": "Email vérifié avec succès",
+      "smsRequired": "Le numéro de téléphone est requis pour la vérification par SMS",
+      "emailRequired": "L'adresse email est requise pour la vérification par email",
+      "enterCode": "Veuillez entrer le code de vérification",
+      "verifySmsFirst": "Veuillez vérifier le code SMS avant d'enregistrer le contact",
+      "verifyNewSms": "Veuillez vérifier le nouveau numéro de téléphone avant d'enregistrer le contact",
+      "verifyEmailFirst": "Veuillez vérifier le code email avant d'enregistrer le contact",
+      "verifyNewEmail": "Veuillez vérifier la nouvelle adresse email avant d'enregistrer le contact"
+    },
+    "errors": {
+      "nameRequired": "Le nom du contact est obligatoire"
+    },
+    "languages": {
+      "en": "Anglais",
+      "no": "Norvégien",
+      "es": "Espagnol",
+      "pt": "Portugais",
+      "de": "Allemand",
+      "fr": "Français",
+      "ja": "Japonais",
+      "da": "Danois",
+      "sv": "Suédois"
+    }
+  },
+  "balanceAlerts": {
+    "title": "Alertes de solde",
+    "empty": {
+      "title": "Pas d'alertes de solde",
+      "description": "Configurez des alertes pour être notifié lorsque le solde de votre portefeuille atteint certains seuils",
+      "list": "Aucune alerte configurée"
+    },
+    "lastFired": "Dernière activation {date}",
+    "deleteAlert": "Supprimer l'alerte",
+    "add": {
+      "title": "Créer une nouvelle alerte",
+      "typeLabel": "Type d'alerte",
+      "types": {
+        "above": "Au-dessus de",
+        "below": "En dessous de",
+        "equals": "Égal à"
+      },
+      "typeDescriptions": {
+        "above": "Alerter lorsque le solde dépasse ce montant",
+        "below": "Alerter lorsque le solde passe en dessous de ce montant",
+        "equals": "Alerter lorsque le solde est égal à ce montant (ex. portefeuille vide)"
+      },
+      "currencyLabel": "Type de devise",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Devise fiat ({currency})",
+      "bitcoinAmount": "Montant en Bitcoin",
+      "amount": "Montant ({currency})",
+      "enterAmountBtc": "Entrez le montant en BTC",
+      "enterAmount": "Entrez le montant en {currency}",
+      "thresholdLabel": "Seuil",
+      "thresholdPlaceholder": "0,1",
+      "btc": "BTC",
+      "submit": "Créer",
+      "submitting": "Création..."
+    },
+    "edit": {
+      "title": "Modifier l'alerte de solde"
+    },
+    "delete": {
+      "title": "Supprimer l'alerte",
+      "description": "Êtes-vous sûr de vouloir supprimer cette alerte de solde ?"
+    },
+    "status": {
+      "active": "Active",
+      "triggered": "Déclenchée",
+      "reactivate": "Réactiver"
+    },
+    "errors": {
+      "invalidBtcAmount": "Veuillez entrer un montant Bitcoin valide",
+      "invalidPositiveAmount": "Veuillez entrer un montant positif valide",
+      "negativeAmount": "Le montant ne peut pas être négatif",
+      "belowZero": "Impossible de créer une alerte pour 'en dessous de 0' - le solde ne peut pas être négatif",
+      "duplicateAlert": "Une alerte avec ce type et ce montant existe déjà",
+      "createFailed": "Échec de la création de l'alerte de solde",
+      "deleteFailed": "Échec de la suppression de l'alerte"
+    }
+  },
+  "transactions": {
+    "title": "Transactions",
+    "titleWithWallet": "Transactions - {walletName}",
+    "loading": "Chargement des transactions...",
+    "empty": "Pas encore de transactions",
+    "emptyForWallet": "Aucune transaction trouvée pour le portefeuille sélectionné.",
+    "count": "{count} {count, plural, one {transaction} other {transactions}}",
+    "types": {
+      "receive": "Reçu",
+      "send": "Envoyé",
+      "receiving": "Réception",
+      "sending": "Envoi"
+    },
+    "status": {
+      "pending": "En attente",
+      "confirmed": "Confirmé",
+      "dropped": "Abandonné",
+      "replaced": "Remplacé"
+    },
+    "details": {
+      "txid": "ID de transaction",
+      "amount": "Montant",
+      "fee": "Frais",
+      "date": "Date",
+      "confirmations": "Confirmations",
+      "block": "Bloc",
+      "address": "Adresse",
+      "replacedBy": "Remplacé par",
+      "replacedAt": "Remplacé le"
+    },
+    "tableHeaders": {
+      "dateTime": "Date/Heure",
+      "wallet": "Portefeuille",
+      "transaction": "Transaction",
+      "amount": "Montant",
+      "details": "Détails"
+    },
+    "tooltips": {
+      "cpfp": "Transaction CPFP",
+      "rbfReplaced": "Remplacé par RBF",
+      "notificationsFailed": "Certaines notifications ont échoué",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Enfant de {txid}",
+      "replacedByTx": "Remplacé par transaction : {txid}",
+      "viewOnMempool": "Voir {txid} sur Mempool Space"
+    },
+    "timeline": {
+      "pending": "EN ATTENTE",
+      "confirmed": "CONFIRMÉ"
+    },
+    "notifications": {
+      "sentAt": "Envoyé",
+      "statusLabel": "Statut",
+      "errorLabel": "Erreur",
+      "unknownTime": "Heure inconnue",
+      "unknownTarget": "Cible inconnue"
+    },
+    "error": "Erreur : {error}",
+    "rbf": "RBF",
+    "cpfp": "CPFP",
+    "replacement": "Remplacement",
+    "walletLabel": "Portefeuille : {name}"
+  },
+  "billing": {
+    "title": "Abonnement",
+    "currentPlan": "Plan actuel",
+    "status": {
+      "active": "Actif",
+      "trialing": "Essai",
+      "canceled": "Annulé",
+      "expired": "Expiré"
+    },
+    "trial": {
+      "daysLeft": "{days} jours restants",
+      "endsOn": "L'essai se termine le {date}"
+    },
+    "manage": "Gérer la facturation",
+    "upgrade": "Mettre à niveau",
+    "subscribe": "S'abonner",
+    "plans": {
+      "personal": {
+        "name": "Personnel",
+        "description": "Pour les détenteurs individuels de Bitcoin",
+        "features": {
+          "wallets": "1 portefeuille",
+          "contacts": "1 contact par portefeuille",
+          "sync": "Synchronisation toutes les 10 minutes",
+          "notifications": "Tous les types de notifications"
+        }
+      },
+      "team": {
+        "name": "Équipe",
+        "description": "Pour les gardiens familiaux",
+        "features": {
+          "wallets": "5 portefeuilles",
+          "contacts": "5 contacts par portefeuille",
+          "sync": "Synchronisation toutes les 2 minutes",
+          "notifications": "Tous les types de notifications"
+        }
+      },
+      "selfHosted": {
+        "name": "Auto-hébergé",
+        "description": "Exécutez sur votre propre infrastructure",
+        "features": {
+          "wallets": "Portefeuilles illimités",
+          "contacts": "Contacts illimités",
+          "sync": "Intervalles de synchronisation personnalisés",
+          "notifications": "Notifications push ntfy"
+        }
+      }
+    },
+    "features": {
+      "wallets": {
+        "label": "Portefeuilles Bitcoin",
+        "selfhosted": "Portefeuilles illimités",
+        "personal": "1 portefeuille",
+        "team": "5 portefeuilles"
+      },
+      "contacts": {
+        "label": "Contacts par portefeuille",
+        "selfhosted": "Contacts illimités",
+        "personal": "1 contact",
+        "team": "5 contacts par portefeuille"
+      },
+      "sync": {
+        "label": "Intervalle de synchronisation",
+        "selfhosted": "Temps de synchronisation configurable",
+        "personal": "Synchronisation toutes les 10 minutes",
+        "team": "Synchronisation toutes les 2 minutes"
+      },
+      "trial": "Essai gratuit de 30 jours",
+      "email": "Notifications par email",
+      "sms": "Notifications par SMS",
+      "push": "Notifications push",
+      "balanceAlerts": "Alertes de solde personnalisées",
+      "analysis": "Analyse des transactions (RBF/CPFP)",
+      "ownNode": "Votre propre nœud Bitcoin",
+      "privacy": "Confidentialité et contrôle total",
+      "noSubscription": "Pas de frais d'abonnement"
+    },
+    "perMonth": "/mois",
+    "perYear": "/an",
+    "saveYearly": "Économisez {percent}% par an",
+    "popular": "POPULAIRE",
+    "currentPlanBadge": "PLAN ACTUEL",
+    "trialPlanBadge": "PLAN D'ESSAI",
+    "freeToSelfHost": "Gratuit en auto-hébergement",
+    "plusTaxes": "Plus taxes applicables",
+    "changePlan": "Changer de plan",
+    "subscribeTo": "S'abonner à {plan}",
+    "upgradeTo": "Passer à {plan}",
+    "startTrial": "Démarrer l'essai gratuit de 30 jours",
+    "loadingPricing": "Chargement des tarifs...",
+    "errorTitle": "Impossible de charger les tarifs",
+    "errorDescription": "Veuillez rafraîchir la page ou réessayer plus tard.",
+    "selfHosted": {
+      "description": "Vous préférez l'auto-hébergement ? Canary est gratuit sur votre propre infrastructure avec notifications push via ntfy.",
+      "installUmbrel": "Installer sur Umbrel",
+      "viewGithub": "Voir sur GitHub"
+    }
+  },
+  "subscriptionPage": {
+    "title": "Abonnement",
+    "selfHosted": {
+      "description": "La facturation d'abonnement n'est pas disponible en mode auto-hébergé."
+    },
+    "loading": "Chargement des informations de facturation...",
+    "notSignedIn": {
+      "message": "Vous devez être connecté pour gérer votre abonnement.",
+      "signIn": "Se connecter"
+    },
+    "manageBilling": "Gérer la facturation",
+    "currentPlan": {
+      "title": "Plan actuel",
+      "description": "Votre abonnement actif et utilisation"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Limite d'abonnement dépassée",
+        "description": "Vous avez {walletCount} portefeuilles mais votre plan {tierName} n'en autorise que {maxWallets}. Les portefeuilles excédentaires ne se synchroniseront pas automatiquement et certains contacts peuvent être inactifs.",
+        "upgrade": "Mettre à niveau le plan"
+      },
+      "pending": {
+        "title": "Essai non démarré",
+        "description": "Votre essai Team de 30 jours commencera lorsque vous ajouterez votre premier portefeuille. Aucune synchronisation n'est active jusque-là.",
+        "addWallet": "Ajouter votre premier portefeuille"
+      },
+      "cancelled": {
+        "title": "Abonnement annulé",
+        "description": "Votre abonnement a été annulé. Vous avez accès jusqu'au {date} ({daysRemaining} jours restants).",
+        "reactivate": "Réactiver l'abonnement"
+      },
+      "expired": {
+        "title": "Abonnement expiré",
+        "description": "Votre abonnement a expiré. La synchronisation des portefeuilles est complètement arrêtée, mais vos données sont préservées.",
+        "reactivate": "Réactiver l'abonnement"
+      },
+      "pastDue": {
+        "title": "Paiement échoué - Synchronisation arrêtée",
+        "description": "Votre dernier paiement a échoué et la synchronisation des portefeuilles a été arrêtée immédiatement. Mettez à jour votre méthode de paiement pour reprendre le service.",
+        "updatePayment": "Mettre à jour le moyen de paiement"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Essai : {days} jours restants",
+      "accessDaysLeft": "Accès jusqu'au : {days} jours restants"
+    },
+    "buttons": {
+      "subscribe": "S'abonner",
+      "reactivate": "Réactiver"
+    },
+    "usage": {
+      "wallets": "Portefeuilles",
+      "overLimit": "(au-dessus de la limite)",
+      "walletsInactive": "Certains portefeuilles sont inactifs",
+      "syncInterval": "Intervalle de synchronisation",
+      "features": "Fonctionnalités",
+      "featuresList": "SMS, Push, E-mail, Analyse des transactions"
+    },
+    "errors": {
+      "portalFailed": "Impossible d'ouvrir la gestion de facturation. Veuillez réessayer."
+    }
+  },
+  "upgrade": {
+    "title": "Mettre à niveau votre plan",
+    "choosePlan": "Choisissez votre plan",
+    "trialDescription": "Abonnez-vous aujourd'hui pour vous assurer que les notifications de votre portefeuille continuent sans interruption à la fin de votre essai. Gardez votre Bitcoin en sécurité avec une surveillance continue.",
+    "limitReachedDescription": "Vous avez atteint votre limite de {limitType} de {limit} sur le plan {tierName}. Comparez les plans et mettez à niveau pour en ajouter plus.",
+    "currentUsage": "Utilisation actuelle : {count} / {limit}",
+    "walletLimit": {
+      "title": "Limite de portefeuilles atteinte",
+      "description": "Vous avez atteint le nombre maximum de portefeuilles pour votre plan. Mettez à niveau pour ajouter plus de portefeuilles."
+    },
+    "contactLimit": {
+      "title": "Limite de contacts atteinte",
+      "description": "Vous avez atteint le nombre maximum de contacts pour ce portefeuille. Mettez à niveau pour ajouter plus de contacts."
+    }
+  },
+  "errors": {
+    "generic": "Quelque chose s'est mal passé. Veuillez réessayer.",
+    "network": "Erreur réseau. Veuillez vérifier votre connexion.",
+    "unauthorized": "Veuillez vous connecter pour continuer.",
+    "notFound": "Non trouvé.",
+    "serverError": "Erreur serveur. Veuillez réessayer plus tard.",
+    "validation": "Veuillez vérifier votre saisie et réessayer."
+  },
+  "footer": {
+    "logoAlt": "Logo Canary",
+    "appName": "Canary",
+    "blockInfo": "Bloc {height}"
+  },
+  "demoBanner": {
+    "title": "Mode Démo",
+    "description": "Vous visualisez un portefeuille démo en lecture seule. Toutes les fonctionnalités sont en lecture seule.",
+    "signUp": "Inscrivez-vous pour créer votre propre portefeuille",
+    "dismiss": "Fermer la bannière"
+  }
+}

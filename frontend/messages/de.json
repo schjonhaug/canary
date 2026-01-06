@@ -1,0 +1,969 @@
+{
+  "common": {
+    "loading": "Laden...",
+    "save": "Speichern",
+    "saving": "Speichert...",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "deleting": "Löscht...",
+    "edit": "Bearbeiten",
+    "add": "Hinzufügen",
+    "close": "Schließen",
+    "confirm": "Bestätigen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "submit": "Absenden",
+    "verify": "Verifizieren",
+    "verifying": "Verifiziert...",
+    "send": "Senden",
+    "sending": "Sendet...",
+    "retry": "Erneut versuchen",
+    "yes": "Ja",
+    "no": "Nein",
+    "or": "oder",
+    "and": "und",
+    "active": "AKTIV",
+    "inactive": "INAKTIV",
+    "pending": "Ausstehend",
+    "confirmed": "Bestätigt",
+    "failed": "Fehlgeschlagen",
+    "success": "Erfolg",
+    "error": "Fehler",
+    "warning": "Warnung",
+    "info": "Info",
+    "savedSuccessfully": "Erfolgreich gespeichert!",
+    "connectingToNetwork": "Verbinde mit Netzwerk...",
+    "emailPlaceholder": "ihre@email.de",
+    "emailLabel": "E-Mail",
+    "passwordLabel": "Passwort",
+    "name": "Name",
+    "new": "Neu",
+    "backToWallets": "Zurück zu Wallets",
+    "backToSignIn": "Zurück zur Anmeldung",
+    "selfHostedMode": "Selbst gehosteter Modus"
+  },
+  "nav": {
+    "signIn": "Anmelden",
+    "signOut": "Abmelden",
+    "settings": "Einstellungen",
+    "wallets": "Wallets",
+    "addWallet": "Wallet hinzufügen",
+    "alreadyUser": "Bereits registriert? Anmelden",
+    "contact": "Kontakt",
+    "subscription": "Abonnement"
+  },
+  "contactPage": {
+    "title": "Kontakt",
+    "selfHosted": {
+      "description": "Das Kontaktformular ist im selbst gehosteten Modus nicht verfügbar."
+    },
+    "form": {
+      "title": "Kontaktieren Sie uns",
+      "description": "Haben Sie eine Frage oder Feedback? Wir würden gerne von Ihnen hören.",
+      "messageLabel": "Nachricht",
+      "messagePlaceholder": "Wie können wir Ihnen helfen?",
+      "characterCount": "{count}/{max} Zeichen",
+      "submit": "Nachricht senden"
+    },
+    "validation": {
+      "emailRequired": "E-Mail ist erforderlich",
+      "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+      "emailTooLong": "E-Mail muss weniger als {max} Zeichen haben",
+      "messageRequired": "Nachricht ist erforderlich",
+      "messageTooShort": "Nachricht muss mindestens {min} Zeichen haben",
+      "messageTooLong": "Nachricht muss weniger als {max} Zeichen haben"
+    },
+    "errors": {
+      "sendFailed": "Nachricht konnte nicht gesendet werden"
+    }
+  },
+  "landing": {
+    "hero": {
+      "title": "Vollständige Bitcoin-Überwachung",
+      "description": "Professionelles Bitcoin-Monitoring mit Transaktionswarnungen und intelligenten Saldo-Benachrichtigungen. Legen Sie benutzerdefinierte Schwellenwerte fest, überwachen Sie Wallet-Entleerungen, verfolgen Sie alle Transaktionen - alles mit Watch-Only-Sicherheit.",
+      "startTrial": "30-Tage-Testversion starten",
+      "tryDemo": "Demo testen",
+      "viewPricing": "Preise ansehen"
+    },
+    "features": {
+      "title": "Vollständige Bitcoin-Überwachung",
+      "subtitle": "Transaktionsverfolgung, Saldo-Warnungen und sicheres Watch-Only-Monitoring",
+      "notifications": {
+        "title": "Sofortige Bitcoin-Transaktionsbenachrichtigungen",
+        "description": "Echtzeit-Bitcoin-Wallet-Benachrichtigungen per E-Mail, SMS und Push-Benachrichtigungen direkt auf Ihr Gerät"
+      },
+      "balanceAlerts": {
+        "title": "Intelligentes Saldo-Warnsystem",
+        "description": "Benutzerdefinierte Saldo-Schwellenwerte mit Warnungen für Wallet-Entleerungen, große Einzahlungen oder bestimmte Beträge. Verpassen Sie nie kritische Saldo-Änderungen."
+      },
+      "security": {
+        "title": "Sichere Watch-Only Bitcoin-Überwachung",
+        "description": "Watch-Only-Zugriff auf Bitcoin-Wallets mit XPUBs oder Descriptors - wir berühren nie Ihre privaten Schlüssel"
+      },
+      "sync": {
+        "title": "Echtzeit-Bitcoin-Wallet-Synchronisation",
+        "description": "Bitcoin-Wallet-Synchronisationsintervalle von 10 Minuten bis zu 2 Minuten je nach Abonnement"
+      }
+    },
+    "balanceAlerts": {
+      "title": "Verpassen Sie nie kritische Saldo-Änderungen",
+      "description": "Legen Sie benutzerdefinierte Saldo-Schwellenwerte fest, um Ihre Gesamtbestände zu überwachen. Erhalten Sie Warnungen, wenn Ihr Saldo bestimmte Werte erreicht. Perfekt für Cold-Storage-Überwachung, Wallet-Entleerungserkennung oder Verfolgung wichtiger Saldo-Meilensteine.",
+      "above": {
+        "title": "Warnungen bei Überschreitung",
+        "description": "Benachrichtigung erhalten, wenn Ihr Gesamtsaldo einen festgelegten Schwellenwert überschreitet. Überwachen Sie, wenn Ihre Bestände wichtige Meilensteine erreichen."
+      },
+      "below": {
+        "title": "Warnungen bei Unterschreitung",
+        "description": "Benachrichtigung erhalten, wenn Ihr Gesamtsaldo unter einen festgelegten Schwellenwert fällt. Richten Sie Niedrigsaldo-Warnungen für Ihre Bestände ein."
+      },
+      "drain": {
+        "title": "Wallet-Entleerungserkennung",
+        "description": "Benachrichtigung erhalten, wenn Ihr Gesamtsaldo einem bestimmten Betrag entspricht, wie null bei Wallet-Entleerungen. Kritische Sicherheitsüberwachung."
+      },
+      "example": {
+        "title": "Ihre Bitcoin-Wallet",
+        "currentBalance": "0,05 BTC",
+        "aboveThreshold": "Über 0,1 BTC",
+        "belowThreshold": "Unter 0,01 BTC",
+        "equalsZero": "Gleich 0 BTC",
+        "active": "AKTIV",
+        "deliveryNote": "Alle Warnungen per E-Mail, SMS und Push-Benachrichtigungen"
+      }
+    },
+    "pricing": {
+      "title": "Einfache, transparente Preise",
+      "subtitle": "Wählen Sie den Plan, der zu Ihren Bedürfnissen passt",
+      "trialNote": "Cloud-Pläne beinhalten eine 30-tägige kostenlose Testversion - Keine Kreditkarte erforderlich"
+    },
+    "faq": {
+      "title": "Häufig gestellte Fragen",
+      "contactUs": "Kontaktieren Sie uns hier",
+      "items": {
+        "whatIsCanary": {
+          "question": "Was ist Bitcoin-Wallet-Überwachung von Canary?",
+          "answer": "Canary ist ein professioneller Bitcoin-Wallet-Überwachungs- und Benachrichtigungsdienst, der Ihre Bitcoin-Wallets mittels XPUBs oder Deskriptoren überwacht und sofortige Benachrichtigungen für alle Transaktionen per E-Mail, SMS und Push-Benachrichtigungen sendet. Perfekt für die Überwachung von Cold Storage, Hardware-Wallets und Bitcoin-Adressen im Nur-Lese-Modus."
+        },
+        "howDoesItWork": {
+          "question": "Wie funktioniert Bitcoin-Wallet-Überwachung ohne private Schlüssel?",
+          "answer": "Canary verwendet den XPUB (erweiterten öffentlichen Schlüssel) oder Deskriptor Ihrer Wallet für Nur-Lese-Bitcoin-Überwachung. Dies gibt uns Nur-Lese-Zugriff, um Ihre Bitcoin-Adressen zu verfolgen und Transaktionen zu erkennen. Wir haben niemals Zugriff auf Ihre privaten Schlüssel und können Ihr Bitcoin nicht bewegen - was vollständige Sicherheit für Ihre Cold-Storage-Überwachung gewährleistet."
+        },
+        "whatIsXpub": {
+          "question": "Was ist XPUB-Wallet-Überwachung?",
+          "answer": "XPUB-Überwachung ermöglicht es Ihnen, alle Adressen in Ihrer Bitcoin-Wallet zu verfolgen, ohne private Schlüssel preiszugeben. Indem Sie den XPUB oder Deskriptor Ihrer Wallet angeben, kann Canary unbegrenzte Adressen überwachen, Transaktionen in jeder Tiefe erkennen (sogar 200+ Adressen tief) und Sie sofort benachrichtigen, wenn sich Bitcoin bewegt."
+        },
+        "coldStorage": {
+          "question": "Kann ich Bitcoin-Cold-Storage-Wallets überwachen?",
+          "answer": "Ja! Canary ist perfekt für Bitcoin-Cold-Storage-Überwachung. Egal ob Sie Hardware-Wallets wie Ledger oder Trezor, Paper-Wallets oder andere Cold-Storage-Lösungen verwenden - geben Sie einfach Ihren XPUB oder Deskriptor an für sichere Nur-Lese-Überwachung mit sofortigen Benachrichtigungen."
+        },
+        "notificationSpeed": {
+          "question": "Wie schnell sind Bitcoin-Transaktionsbenachrichtigungen?",
+          "answer": "Mit unserem Team-Plan erhalten Sie nahezu Echtzeit-Bitcoin-Transaktionsbenachrichtigungen mit Synchronisierungsintervallen von nur 2 Minuten im Mainnet. Die meisten Benachrichtigungen kommen innerhalb von Sekunden nach der Transaktionserkennung an. Personal-Pläne synchronisieren alle 10 Minuten und gewährleisten dennoch rechtzeitige Benachrichtigungen für Ihre Bitcoin-Wallets."
+        },
+        "walletTypes": {
+          "question": "Welche Bitcoin-Wallet-Typen werden unterstützt?",
+          "answer": "Canary unterstützt alle wichtigen Bitcoin-Wallet-Typen einschließlich Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) und Taproot (P2TR) Adressen. Wir erkennen automatisch Ihren Wallet-Typ aus dem XPUB oder Sie können ihn manuell angeben. Multi-Signatur- und Hardware-Wallet-Überwachung werden vollständig unterstützt."
+        },
+        "whyCanary": {
+          "question": "Warum heißt es Canary?",
+          "answer": "Wie ein Kanarienvogel in einer Kohlenmine, der Frühwarnung bietet, fungiert Canary als Frühwarnsystem Ihrer Bitcoin-Wallet. Wenn Ihr Bitcoin in Cold Storage liegt, prüfen Sie es selten. Canary überwacht 24/7 und benachrichtigt Sie sofort, wenn sich Ihr Bitcoin bewegt, was Ruhe für Langzeithalter bietet."
+        },
+        "noBlockchain": {
+          "question": "Kann ich Bitcoin verfolgen, ohne die Blockchain herunterzuladen?",
+          "answer": "Ja! Canary verbindet sich mit professionellen Electrum-Servern, um die Bitcoin-Blockchain für Sie zu überwachen. Kein Bedarf, einen vollständigen Knoten zu betreiben oder die Blockchain herunterzuladen - geben Sie einfach Ihren XPUB an und beginnen Sie, sofortige Benachrichtigungen für alle Bitcoin-Wallet-Aktivitäten zu erhalten."
+        },
+        "balanceAlerts": {
+          "question": "Wie funktionieren Bitcoin-Saldowarnungen?",
+          "answer": "Das Saldowarnungssystem von Canary lässt Sie benutzerdefinierte Schwellenwerte setzen, um Ihren gesamten Wallet-Saldo zu überwachen. Erstellen Sie Warnungen, wenn Ihr Saldo einen bestimmten Betrag überschreitet, unter einen Schwellenwert fällt (Warnung bei niedrigem Saldo) oder null ist (Wallet-Leerungs-Erkennung). Perfekt für die Verfolgung von Cold Storage ohne manuelle Überprüfung."
+        },
+        "alertTypes": {
+          "question": "Welche Arten von Saldowarnungen sind verfügbar?",
+          "answer": "Sie können drei Arten von Saldowarnungen erstellen: 'Über'-Warnungen werden ausgelöst, wenn Ihr Gesamtsaldo einen Schwellenwert überschreitet (überwachen Sie, wenn Bestände Meilensteine erreichen), 'Unter'-Warnungen warnen, wenn der Gesamtsaldo unter einen Betrag fällt (Warnungen bei niedrigem Saldo), und 'Gleich'-Warnungen erkennen exakte Saldobeträge wie Wallet-Leerungen (Saldo = 0) oder spezifische Ziele."
+        },
+        "multipleWallets": {
+          "question": "Kann ich mehrere Bitcoin-Wallets mit unterschiedlichen Saldoschwellenwerten überwachen?",
+          "answer": "Ja! Jede Bitcoin-Wallet kann ihr eigenes Set an benutzerdefinierten Saldowarnungen haben. Mit unserem Team-Plan können Sie bis zu 5 Wallets überwachen, jede mit einzigartigen Saldoschwellenwerten. Perfekt für Uncle Jims, die Bitcoin-Bestände von Familien überwachen, oder Unternehmen, die mehrere Treasury-Wallets mit unterschiedlichen Warnanforderungen verfolgen."
+        },
+        "contact": {
+          "question": "Wie kann ich Sie kontaktieren?",
+          "answer": "Wir würden gerne von Ihnen hören! Sie können uns über unser Kontaktformular für alle Fragen, Feedback oder Support-Anfragen erreichen. Wir antworten normalerweise innerhalb von 24 Stunden."
+        }
+      }
+    },
+    "cta": {
+      "title": "Starten Sie heute mit vollständiger Bitcoin-Überwachung",
+      "description": "Transaktionswarnungen, Saldo-Überwachung und Sicherheit für Ihr Bitcoin-Vermögen"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Willkommen zurück",
+      "subtitle": "Melden Sie sich bei Ihrem Canary-Konto an",
+      "passwordPlaceholder": "Passwort eingeben",
+      "submit": "Anmelden",
+      "submitting": "Meldet an...",
+      "noAccount": "Kein Konto? Registrieren",
+      "forgotPassword": "Passwort vergessen?",
+      "devMode": "Entwicklungsmodus",
+      "loginFailed": "Anmeldung fehlgeschlagen"
+    },
+    "signUp": {
+      "title": "Starten Sie Ihre 30-tägige kostenlose Testversion",
+      "subtitle": "30 Tage kostenlos, dann mit dem Plan Ihrer Wahl fortfahren",
+      "nameLabel": "Name",
+      "namePlaceholder": "Ihren Namen eingeben",
+      "passwordPlaceholder": "Sicheres Passwort eingeben",
+      "passwordHint": "Das Passwort muss mindestens 6 Zeichen lang sein",
+      "marketingConsent": "Ich möchte gelegentlich E-Mails über Service-Updates erhalten",
+      "submit": "Konto erstellen",
+      "submitting": "Erstellt Konto...",
+      "hasAccount": "Bereits ein Konto? Anmelden",
+      "signInInstead": "Stattdessen anmelden",
+      "registrationFailed": "Registrierung fehlgeschlagen"
+    },
+    "signUpSuccess": {
+      "title": "Prüfen Sie Ihre E-Mail",
+      "description": "Wir haben einen Bestätigungslink an Ihre E-Mail-Adresse gesendet. Bitte klicken Sie auf den Link, um Ihr Konto zu verifizieren.",
+      "didntReceive": "E-Mail nicht erhalten?",
+      "checkSpam": "Prüfen Sie Ihren Spam-Ordner",
+      "resend": "Bestätigungsmail erneut senden"
+    },
+    "forgotPassword": {
+      "title": "Passwort vergessen?",
+      "subtitle": "Geben Sie Ihre E-Mail ein und wir senden Ihnen einen Zurücksetzungslink",
+      "submit": "Zurücksetzungslink senden",
+      "successTitle": "Prüfen Sie Ihre E-Mail",
+      "successMessage": "Falls ein Konto mit dieser E-Mail existiert, erhalten Sie einen Link zur Passwortzurücksetzung."
+    },
+    "resetPassword": {
+      "title": "Passwort zurücksetzen",
+      "subtitle": "Geben Sie Ihr neues Passwort ein",
+      "passwordLabel": "Neues Passwort",
+      "passwordPlaceholder": "Neues Passwort eingeben",
+      "confirmLabel": "Passwort bestätigen",
+      "confirmPlaceholder": "Neues Passwort bestätigen",
+      "submit": "Passwort zurücksetzen",
+      "submitting": "Setzt zurück...",
+      "passwordMismatch": "Passwörter stimmen nicht überein",
+      "successTitle": "Passwort zurückgesetzt",
+      "successMessage": "Ihr Passwort wurde zurückgesetzt. Sie können sich jetzt anmelden.",
+      "invalidToken": "Ungültiger oder abgelaufener Zurücksetzungslink"
+    },
+    "verifyEmail": {
+      "verifying": "Verifiziere Ihre E-Mail...",
+      "successTitle": "E-Mail verifiziert",
+      "successMessage": "Ihre E-Mail wurde verifiziert. Sie können sich jetzt anmelden.",
+      "errorTitle": "Verifizierung fehlgeschlagen",
+      "invalidToken": "Ungültiger oder abgelaufener Verifizierungslink",
+      "signIn": "Anmelden"
+    }
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "display": {
+      "title": "Anzeigeeinstellungen",
+      "description": "Passen Sie an, wie Bitcoin-Werte in Ihren Wallets angezeigt werden",
+      "currencyLabel": "Fiat-Währung",
+      "currencyPlaceholder": "Währung auswählen",
+      "currencyNote": "Wechselkurse werden alle 10 Minuten von CoinGecko aktualisiert"
+    },
+    "language": {
+      "title": "Sprache",
+      "description": "Wählen Sie Ihre bevorzugte Sprache für die Oberfläche",
+      "label": "Sprache"
+    },
+    "ntfy": {
+      "title": "Push-Benachrichtigungen",
+      "description": "Konfigurieren Sie Ihren ntfy-Server für Push-Benachrichtigungen",
+      "serverLabel": "ntfy Server-URL",
+      "serverPlaceholder": "https://ntfy.sh",
+      "serverNoteBefore": "Leer lassen, um den öffentlichen ntfy.sh-Server zu verwenden. Sie können ",
+      "selfHostLink": "ntfy selbst hosten",
+      "serverNoteAfter": " für vollständige Privatsphäre.",
+      "auth": {
+        "title": "Authentifizierung",
+        "configured": {
+          "token": "Zugriffstoken konfiguriert",
+          "credentials": "Benutzername/Passwort konfiguriert ({username})",
+          "none": "Keine Authentifizierung konfiguriert"
+        },
+        "type": {
+          "none": "Keine Authentifizierung",
+          "token": "Zugriffstoken",
+          "basic": "Benutzername & Passwort"
+        },
+        "tokenLabel": "Zugriffstoken",
+        "tokenPlaceholder": "tk_...",
+        "usernameLabel": "Benutzername",
+        "usernamePlaceholder": "Benutzername",
+        "passwordLabel": "Passwort",
+        "passwordPlaceholder": "Passwort",
+        "saveAuth": "Authentifizierung speichern",
+        "tokenRequired": "Zugriffstoken ist erforderlich",
+        "credentialsRequired": "Benutzername und Passwort sind erforderlich",
+        "authSaved": "Authentifizierung gespeichert!"
+      }
+    },
+    "currencies": {
+      "USD": "US-Dollar",
+      "EUR": "Euro",
+      "GBP": "Britisches Pfund",
+      "CAD": "Kanadischer Dollar",
+      "AUD": "Australischer Dollar",
+      "CHF": "Schweizer Franken",
+      "JPY": "Japanischer Yen",
+      "CNY": "Chinesischer Yuan",
+      "INR": "Indische Rupie",
+      "KRW": "Südkoreanischer Won",
+      "RUB": "Russischer Rubel",
+      "BRL": "Brasilianischer Real",
+      "MXN": "Mexikanischer Peso",
+      "SGD": "Singapur-Dollar",
+      "HKD": "Hongkong-Dollar",
+      "NOK": "Norwegische Krone",
+      "SEK": "Schwedische Krone",
+      "DKK": "Dänische Krone",
+      "PLN": "Polnischer Złoty",
+      "THB": "Thailändischer Baht",
+      "IDR": "Indonesische Rupiah",
+      "HUF": "Ungarischer Forint",
+      "CZK": "Tschechische Krone",
+      "ILS": "Israelischer Schekel",
+      "CLP": "Chilenischer Peso",
+      "PHP": "Philippinischer Peso",
+      "AED": "VAE-Dirham",
+      "TRY": "Türkische Lira",
+      "ZAR": "Südafrikanischer Rand",
+      "TWD": "Neuer Taiwan-Dollar",
+      "NZD": "Neuseeland-Dollar",
+      "ARS": "Argentinischer Peso",
+      "SAR": "Saudi-Riyal",
+      "PKR": "Pakistanische Rupie",
+      "MYR": "Malaysischer Ringgit",
+      "NGN": "Nigerianische Naira",
+      "VND": "Vietnamesischer Dong",
+      "UAH": "Ukrainische Hrywnja",
+      "GEL": "Georgischer Lari",
+      "BDT": "Bangladeschischer Taka",
+      "VEF": "Venezolanischer Bolívar",
+      "LKR": "Sri-Lanka-Rupie",
+      "BHD": "Bahrain-Dinar",
+      "BMD": "Bermuda-Dollar",
+      "KWD": "Kuwait-Dinar",
+      "MMK": "Myanmarischer Kyat"
+    }
+  },
+  "wallets": {
+    "title": "Meine Wallets",
+    "summary": "Verfolge {count} {count, plural, one {Wallet} other {Wallets}} mit einem Gesamtguthaben von {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "Bereit für Ihre Testversion",
+        "titleWithName": "Bereit für Ihre Testversion, {name}?",
+        "description": "Fügen Sie Ihre erste Wallet hinzu, um Ihre <highlight>30-tägige Team-Testversion</highlight> zu aktivieren. Sie erhalten sofortigen Zugriff auf alle Funktionen, einschließlich Echtzeit-Synchronisation, unbegrenzte Benachrichtigungen und Prioritäts-Support.",
+        "whatYouGet": "Was Sie erhalten:",
+        "features": {
+          "wallets": "5 Wallets mit 2-Minuten-Sync",
+          "contacts": "5 Kontakte pro Wallet",
+          "emailSms": "E-Mail- und SMS-Benachrichtigungen",
+          "push": "Push-Benachrichtigungen via ntfy"
+        },
+        "button": "Erste Wallet hinzufügen und Testversion starten",
+        "note": "Die Testversion beginnt, wenn Sie Ihre Wallet hinzufügen"
+      },
+      "simple": {
+        "title": "Erste Wallet hinzufügen",
+        "description": "Fügen Sie einen Wallet-Descriptor hinzu, um Ihre Bitcoin-Transaktionen zu überwachen.",
+        "button": "Wallet hinzufügen"
+      }
+    },
+    "connectionLost": {
+      "title": "Backend-Verbindung verloren",
+      "description": "Verbindung zum Backend-Dienst nicht möglich. Zeige zwischengespeicherte Daten.",
+      "lastUpdated": "Zuletzt aktualisiert: {time}"
+    },
+    "empty": {
+      "title": "Keine Wallets",
+      "description": "Keine Wallets gefunden. Verwenden Sie den Button \"Wallet hinzufügen\" um zu beginnen.",
+      "addFirst": "Erste Wallet hinzufügen"
+    },
+    "error": {
+      "title": "Fehler",
+      "loadFailed": "Wallets konnten nicht geladen werden: {error}"
+    },
+    "card": {
+      "syncing": "Synchronisiere...",
+      "inactive": "Inaktiv",
+      "inactiveExpired": "Ihr Abonnement ist abgelaufen - Wallet wird nicht automatisch synchronisiert",
+      "inactiveTierLimit": "Diese Wallet überschreitet Ihre Abonnementgrenzen und wird nicht automatisch synchronisiert",
+      "balance": "Guthaben",
+      "lastActivity": "Letzte Aktivität: {date}",
+      "noRecentActivity": "Keine aktuelle Aktivität"
+    },
+    "add": {
+      "title": "Wallet hinzufügen",
+      "nameLabel": "Wallet-Name",
+      "namePlaceholder": "Meine Bitcoin-Wallet",
+      "descriptorLabel": "Wallet-Descriptor oder XPUB",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorHint": "Geben Sie den Output-Descriptor Ihrer Wallet oder XPUB ein. Wir erkennen den Script-Typ automatisch.",
+      "advancedSettings": "Erweiterte Einstellungen",
+      "scriptType": {
+        "label": "Script-Typ",
+        "selectPlaceholder": "Script-Typ auswählen",
+        "autoPlaceholder": "Automatisch erkennen",
+        "auto": "Automatisch erkennen (empfohlen)",
+        "p2wpkh": "Native SegWit (bc1...)",
+        "p2wpkhFresh": "Native SegWit (bc1...) - Am häufigsten",
+        "p2sh": "Nested SegWit (3...)",
+        "p2shFresh": "Nested SegWit (3...) - Legacy-Kompatibilität",
+        "p2pkh": "Legacy (1...)",
+        "p2pkhFresh": "Legacy (1...) - Älteste",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - Modern",
+        "detectedHint": "Script-Typ aus Descriptor erkannt und kann nicht geändert werden",
+        "requiredHint": "Script-Typ ist für neue XPUB-Wallets erforderlich"
+      },
+      "stopGap": {
+        "label": "Stop Gap",
+        "default": "Standard (20 aufeinanderfolgende unbenutzte)",
+        "extended": "Erweitert (250 aufeinanderfolgende unbenutzte)",
+        "deep": "Tief (500 aufeinanderfolgende unbenutzte)",
+        "deeper": "Tiefer (750 aufeinanderfolgende unbenutzte)",
+        "maximum": "Maximum (1000 aufeinanderfolgende unbenutzte)",
+        "hint": "Anzahl der aufeinanderfolgenden unbenutzten Adressen, die vor dem Stoppen überprüft werden. Erhöhen Sie, wenn Ihre Wallet Adressen an zufälligen hohen Indizes verwendet (z.B. BTCPay Server)",
+        "requiresScriptType": "Benutzerdefinierter Stop Gap erfordert die Auswahl eines bestimmten Script-Typs"
+      },
+      "freshWallet": {
+        "label": "Neue Wallet (keine Transaktionshistorie)",
+        "hint": "Tiefenscan für Wallets ohne frühere Transaktionen überspringen"
+      },
+      "submit": "Wallet hinzufügen",
+      "submitting": "Fügt hinzu...",
+      "success": "Wallet erfolgreich hinzugefügt",
+      "error": "Wallet konnte nicht hinzugefügt werden",
+      "validation": {
+        "nameRequired": "Wallet-Name ist erforderlich",
+        "descriptorRequired": "Output-Descriptor oder erweiterter öffentlicher Schlüssel ist erforderlich",
+        "scriptTypeRequired": "Script-Typ ist für neue XPUB-Wallets erforderlich"
+      },
+      "wizard": {
+        "chooseWallet": "Welche Wallet verwenden Sie? Wir zeigen Ihnen, wie Sie Ihren Output-Descriptor oder XPUB exportieren.",
+        "keysStaySafe": "Canary braucht dies nur, um Ihre Transaktionen zu überwachen. Ihre privaten Schlüssel bleiben sicher in Ihrer Wallet.",
+        "tryBaconWallet": "Neu hier? Probieren Sie zuerst eine Beispiel-Wallet aus, um zu sehen, wie Canary funktioniert.",
+        "useBaconWallet": "Bacon-Wallet verwenden",
+        "haveDescriptor": "Ich habe bereits meinen Output-Descriptor oder XPUB",
+        "exportSteps": "Befolgen Sie diese Schritte, um Ihren Descriptor aus {walletName} zu exportieren",
+        "pasteXpub": "Fügen Sie Ihren XPUB unten ein.",
+        "pasteDescriptor": "Fügen Sie Ihren Output-Descriptor oder XPUB unten ein.",
+        "baconPrefilled": "Wir haben die Bacon-Beispiel-Wallet für Sie vorausgefüllt. Klicken Sie einfach auf Wallet hinzufügen, um fortzufahren.",
+        "enterDetails": "Details eingeben",
+        "walletType": {
+          "software": "Software",
+          "hardware": "Hardware"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "Desktop-Wallet für Bitcoin mit vollständiger Descriptor-Unterstützung",
+          "steps": [
+            "Öffnen Sie Ihre Wallet in Sparrow",
+            "Gehen Sie zur Registerkarte Settings",
+            "Klicken Sie auf \"Show\" neben Output Descriptor",
+            "Kopieren Sie die gesamte Descriptor-Zeichenkette (beginnt mit wpkh, wsh oder tr)"
+          ]
+        },
+        "bluewallet": {
+          "description": "Mobile Bitcoin-Wallet für iOS und Android",
+          "steps": [
+            "Öffnen Sie Ihre Wallet in BlueWallet",
+            "Tippen Sie auf das Drei-Punkte-Menü (⋯) oben rechts",
+            "Wählen Sie \"Export/Backup\"",
+            "Tippen Sie auf \"Export Wallet\"",
+            "Kopieren Sie die XPUB-Zeichenkette (beginnt mit xpub, ypub oder zpub)"
+          ]
+        },
+        "electrum": {
+          "description": "Leichtgewichtige Desktop-Bitcoin-Wallet",
+          "steps": [
+            "Öffnen Sie Ihre Wallet in Electrum",
+            "Gehen Sie zum Menü Wallet → Information",
+            "Finden Sie den Abschnitt \"Master Public Key\"",
+            "Kopieren Sie die zpub-, ypub- oder xpub-Zeichenkette"
+          ]
+        },
+        "coldcard": {
+          "description": "Air-gapped Hardware-Wallet",
+          "steps": [
+            "Schalten Sie Ihre ColdCard ein und geben Sie Ihre PIN ein",
+            "Gehen Sie zu Advanced/Tools → Export Wallet",
+            "Wählen Sie das Format \"Generic JSON\"",
+            "Exportieren Sie auf Ihre SD-Karte",
+            "Öffnen Sie die JSON-Datei auf Ihrem Computer",
+            "Kopieren Sie den Descriptor oder xpub aus der Datei"
+          ]
+        },
+        "ledger": {
+          "description": "Beliebte Hardware-Wallet",
+          "steps": [
+            "Verbinden Sie Ihr Ledger-Gerät und entsperren Sie es",
+            "Öffnen Sie die Bitcoin-App auf Ihrem Ledger",
+            "Öffnen Sie die Ledger Wallet-App auf Ihrem Computer",
+            "Gehen Sie zu Ihrem Bitcoin-Konto → klicken Sie auf das Schraubenschlüssel-Symbol",
+            "Klicken Sie auf \"Advanced logs\"",
+            "Kopieren Sie die xpub-Zeichenkette aus den Logs"
+          ]
+        },
+        "trezor": {
+          "description": "Open-Source Hardware-Wallet",
+          "steps": [
+            "Verbinden Sie Ihren Trezor und öffnen Sie Trezor Suite",
+            "Öffnen Sie Ihr Bitcoin-Konto",
+            "Klicken Sie auf den Kontonamen, um die Einstellungen zu öffnen",
+            "Klicken Sie auf \"Show public key (XPUB)\"",
+            "Bestätigen Sie auf Ihrem Trezor-Gerät",
+            "Kopieren Sie die XPUB-Zeichenkette"
+          ]
+        }
+      },
+      "limitReached": {
+        "title": "Wallet-Limit erreicht",
+        "description": "Sie haben das Limit von {count} {count, plural, one {Wallet} other {Wallets}} Ihres {tier}-Plans erreicht. Upgraden Sie, um mehr Wallets hinzuzufügen."
+      },
+      "checkoutError": "Checkout konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
+    },
+    "detail": {
+      "balance": "Guthaben",
+      "transactions": "Transaktionen",
+      "contacts": "Kontakte",
+      "balanceAlerts": "Saldo-Warnungen",
+      "noTransactions": "Noch keine Transaktionen",
+      "pendingSync": "Wallet wird synchronisiert...",
+      "lastSync": "Zuletzt synchronisiert",
+      "syncStatus": {
+        "pending": "Synchronisiert",
+        "ready": "Synchronisiert"
+      },
+      "notFound": {
+        "title": "Wallet nicht gefunden",
+        "description": "Die Wallet mit Prüfsumme #{checksum} wurde nicht gefunden."
+      },
+      "syncing": {
+        "title": "Wallet synchronisiert noch",
+        "description": "{name} synchronisiert noch und scannt nach historischen Transaktionen. Dieser Vorgang kann bei Wallets mit Transaktionshistorie einige Minuten dauern.",
+        "returnPrompt": "Bitte kehren Sie zur Wallet-Seite zurück und warten Sie, bis die Synchronisierung abgeschlossen ist."
+      },
+      "inactive": {
+        "title": "Wallet inaktiv",
+        "descriptionExpired": "Ihr Abonnement ist abgelaufen - die Wallet wird nicht automatisch synchronisiert.",
+        "descriptionTierLimit": "Diese Wallet überschreitet Ihre Abonnement-Limits und wird nicht automatisch synchronisiert.",
+        "outdatedWarning": "Transaktionshistorie und angezeigtes Guthaben sind möglicherweise veraltet.",
+        "upgradePlan": "Plan upgraden"
+      }
+    },
+    "delete": {
+      "title": "Wallet löschen",
+      "description": "Sind Sie sicher, dass Sie diese Wallet löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+    },
+    "edit": {
+      "title": "Wallet bearbeiten",
+      "nameLabel": "Wallet-Name",
+      "submit": "Änderungen speichern"
+    }
+  },
+  "contacts": {
+    "title": "Kontakte",
+    "empty": {
+      "title": "Noch keine Kontakte",
+      "description": "Fügen Sie Kontakte hinzu, um Benachrichtigungen über diese Wallet zu erhalten",
+      "list": "Noch keine Kontakte hinzugefügt"
+    },
+    "inactive": {
+      "badge": "Inaktiv",
+      "expired": "Ihr Abonnement ist abgelaufen - Kontakt erhält keine Benachrichtigungen",
+      "tierLimit": "Dieser Kontakt überschreitet Ihre Abonnementgrenzen und erhält keine Benachrichtigungen"
+    },
+    "add": {
+      "title": "Neuen Kontakt hinzufügen",
+      "description": "Richten Sie einen neuen Kontakt ein, um Bitcoin-Transaktionsbenachrichtigungen zu erhalten.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Kontaktname",
+      "languageLabel": "Sprache",
+      "methodTitle": "Benachrichtigungsmethoden",
+      "providers": {
+        "ntfy": "ntfy.sh-Benachrichtigungen",
+        "twilio": "SMS-Benachrichtigungen",
+        "email": "E-Mail-Benachrichtigungen"
+      },
+      "ntfy": {
+        "topicHint": "Topic wird automatisch basierend auf dem Kontaktnamen generiert"
+      },
+      "sms": {
+        "phoneHint": "Ländervorwahl angeben"
+      },
+      "email": {
+        "emailHint": "Gültige E-Mail-Adresse eingeben"
+      },
+      "submit": "Kontakt erstellen",
+      "submitting": "Verarbeite..."
+    },
+    "edit": {
+      "title": "Kontakt bearbeiten",
+      "description": "Kontaktinformationen und Benachrichtigungsmethoden aktualisieren.",
+      "submit": "Kontakt aktualisieren"
+    },
+    "delete": {
+      "title": "Kontakt löschen",
+      "description": "Sind Sie sicher, dass Sie diesen Kontakt löschen möchten? Er erhält keine Benachrichtigungen mehr."
+    },
+    "verification": {
+      "codeLabel": "Bestätigungscode",
+      "codePlaceholder": "6-stelligen Code eingeben",
+      "sendCode": "Bestätigungscode senden",
+      "sendingCode": "Sende...",
+      "verify": "Verifizieren",
+      "verifying": "Verifiziere...",
+      "resend": "Erneut senden",
+      "codeSentTo": "Code gesendet an {target}",
+      "expiresIn": "Läuft ab in {time}",
+      "expired": "Bestätigungscode abgelaufen. Bitte erneut versuchen.",
+      "expiredRequest": "Bestätigungscode abgelaufen. Bitte neuen Code anfordern.",
+      "invalid": "Ungültiger Bestätigungscode. Bitte erneut versuchen.",
+      "smsVerified": "SMS erfolgreich verifiziert",
+      "emailVerified": "E-Mail erfolgreich verifiziert",
+      "smsRequired": "Telefonnummer ist für SMS-Verifizierung erforderlich",
+      "emailRequired": "E-Mail-Adresse ist für E-Mail-Verifizierung erforderlich",
+      "enterCode": "Bitte geben Sie den Bestätigungscode ein",
+      "verifySmsFirst": "Bitte verifizieren Sie den SMS-Code vor dem Speichern des Kontakts",
+      "verifyNewSms": "Bitte verifizieren Sie die neue Telefonnummer vor dem Speichern des Kontakts",
+      "verifyEmailFirst": "Bitte verifizieren Sie den E-Mail-Code vor dem Speichern des Kontakts",
+      "verifyNewEmail": "Bitte verifizieren Sie die neue E-Mail-Adresse vor dem Speichern des Kontakts"
+    },
+    "errors": {
+      "nameRequired": "Kontaktname ist erforderlich"
+    },
+    "languages": {
+      "en": "Englisch",
+      "no": "Norwegisch",
+      "es": "Spanisch",
+      "pt": "Portugiesisch",
+      "de": "Deutsch",
+      "fr": "Französisch",
+      "ja": "Japanisch",
+      "da": "Dänisch",
+      "sv": "Schwedisch"
+    }
+  },
+  "balanceAlerts": {
+    "title": "Saldo-Warnungen",
+    "empty": {
+      "title": "Keine Saldo-Warnungen",
+      "description": "Richten Sie Warnungen ein, um benachrichtigt zu werden, wenn Ihr Wallet-Saldo bestimmte Schwellenwerte erreicht",
+      "list": "Keine Warnungen eingerichtet"
+    },
+    "lastFired": "Zuletzt ausgelöst {date}",
+    "deleteAlert": "Warnung löschen",
+    "add": {
+      "title": "Neue Warnung erstellen",
+      "typeLabel": "Warnungstyp",
+      "types": {
+        "above": "Über",
+        "below": "Unter",
+        "equals": "Gleich"
+      },
+      "typeDescriptions": {
+        "above": "Warnen, wenn der Saldo diesen Betrag überschreitet",
+        "below": "Warnen, wenn der Saldo unter diesen Betrag fällt",
+        "equals": "Warnen, wenn der Saldo diesem Betrag entspricht (z.B. Wallet leer)"
+      },
+      "currencyLabel": "Währungstyp",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Fiat-Währung ({currency})",
+      "bitcoinAmount": "Bitcoin-Betrag",
+      "amount": "Betrag ({currency})",
+      "enterAmountBtc": "Betrag in BTC eingeben",
+      "enterAmount": "Betrag in {currency} eingeben",
+      "thresholdLabel": "Schwellenwert",
+      "thresholdPlaceholder": "0,1",
+      "btc": "BTC",
+      "submit": "Erstellen",
+      "submitting": "Wird erstellt..."
+    },
+    "edit": {
+      "title": "Saldo-Warnung bearbeiten"
+    },
+    "delete": {
+      "title": "Warnung löschen",
+      "description": "Sind Sie sicher, dass Sie diese Saldo-Warnung löschen möchten?"
+    },
+    "status": {
+      "active": "Aktiv",
+      "triggered": "Ausgelöst",
+      "reactivate": "Reaktivieren"
+    },
+    "errors": {
+      "invalidBtcAmount": "Bitte geben Sie einen gültigen Bitcoin-Betrag ein",
+      "invalidPositiveAmount": "Bitte geben Sie einen gültigen positiven Betrag ein",
+      "negativeAmount": "Betrag darf nicht negativ sein",
+      "belowZero": "Warnung für 'unter 0' kann nicht erstellt werden - Saldo kann nicht negativ sein",
+      "duplicateAlert": "Eine Warnung mit diesem Typ und Betrag existiert bereits",
+      "createFailed": "Saldo-Warnung konnte nicht erstellt werden",
+      "deleteFailed": "Warnung konnte nicht gelöscht werden"
+    }
+  },
+  "transactions": {
+    "title": "Transaktionen",
+    "titleWithWallet": "Transaktionen - {walletName}",
+    "loading": "Transaktionen werden geladen...",
+    "empty": "Noch keine Transaktionen",
+    "emptyForWallet": "Keine Transaktionen für die ausgewählte Wallet gefunden.",
+    "count": "{count} {count, plural, one {Transaktion} other {Transaktionen}}",
+    "types": {
+      "receive": "Empfangen",
+      "send": "Gesendet",
+      "receiving": "Empfange",
+      "sending": "Sende"
+    },
+    "status": {
+      "pending": "Ausstehend",
+      "confirmed": "Bestätigt",
+      "dropped": "Verworfen",
+      "replaced": "Ersetzt"
+    },
+    "details": {
+      "txid": "Transaktions-ID",
+      "amount": "Betrag",
+      "fee": "Gebühr",
+      "date": "Datum",
+      "confirmations": "Bestätigungen",
+      "block": "Block",
+      "address": "Adresse",
+      "replacedBy": "Ersetzt durch",
+      "replacedAt": "Ersetzt am"
+    },
+    "tableHeaders": {
+      "dateTime": "Datum/Zeit",
+      "wallet": "Wallet",
+      "transaction": "Transaktion",
+      "amount": "Betrag",
+      "details": "Details"
+    },
+    "tooltips": {
+      "cpfp": "CPFP-Transaktion",
+      "rbfReplaced": "Ersetzt durch RBF",
+      "notificationsFailed": "Einige Benachrichtigungen fehlgeschlagen",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Kind von {txid}",
+      "replacedByTx": "Ersetzt durch Transaktion: {txid}",
+      "viewOnMempool": "{txid} auf Mempool Space anzeigen"
+    },
+    "timeline": {
+      "pending": "AUSSTEHEND",
+      "confirmed": "BESTÄTIGT"
+    },
+    "notifications": {
+      "sentAt": "Gesendet",
+      "statusLabel": "Status",
+      "errorLabel": "Fehler",
+      "unknownTime": "Unbekannte Zeit",
+      "unknownTarget": "Unbekanntes Ziel"
+    },
+    "error": "Fehler: {error}",
+    "rbf": "RBF",
+    "cpfp": "CPFP",
+    "replacement": "Ersatz",
+    "walletLabel": "Wallet: {name}"
+  },
+  "billing": {
+    "title": "Abonnement",
+    "currentPlan": "Aktueller Plan",
+    "status": {
+      "active": "Aktiv",
+      "trialing": "Testversion",
+      "canceled": "Gekündigt",
+      "expired": "Abgelaufen"
+    },
+    "trial": {
+      "daysLeft": "{days} Tage übrig",
+      "endsOn": "Testversion endet am {date}"
+    },
+    "manage": "Abrechnung verwalten",
+    "upgrade": "Upgraden",
+    "subscribe": "Abonnieren",
+    "plans": {
+      "personal": {
+        "name": "Personal",
+        "description": "Für individuelle Bitcoin-Besitzer",
+        "features": {
+          "wallets": "1 Wallet",
+          "contacts": "1 Kontakt pro Wallet",
+          "sync": "10-Minuten-Synchronisation",
+          "notifications": "Alle Benachrichtigungstypen"
+        }
+      },
+      "team": {
+        "name": "Team",
+        "description": "Für Familienwächter",
+        "features": {
+          "wallets": "5 Wallets",
+          "contacts": "5 Kontakte pro Wallet",
+          "sync": "2-Minuten-Synchronisation",
+          "notifications": "Alle Benachrichtigungstypen"
+        }
+      },
+      "selfHosted": {
+        "name": "Selbst gehostet",
+        "description": "Auf eigener Infrastruktur betreiben",
+        "features": {
+          "wallets": "Unbegrenzte Wallets",
+          "contacts": "Unbegrenzte Kontakte",
+          "sync": "Benutzerdefinierte Sync-Intervalle",
+          "notifications": "ntfy Push-Benachrichtigungen"
+        }
+      }
+    },
+    "features": {
+      "wallets": {
+        "label": "Bitcoin-Wallets",
+        "selfhosted": "Unbegrenzte Wallets",
+        "personal": "1 Wallet",
+        "team": "5 Wallets"
+      },
+      "contacts": {
+        "label": "Kontakte pro Wallet",
+        "selfhosted": "Unbegrenzte Kontakte",
+        "personal": "1 Kontakt",
+        "team": "5 Kontakte pro Wallet"
+      },
+      "sync": {
+        "label": "Synchronisierungsintervall",
+        "selfhosted": "Konfigurierbare Synchronisierungszeit",
+        "personal": "10-Minuten-Synchronisation",
+        "team": "2-Minuten-Synchronisation"
+      },
+      "trial": "30 Tage kostenlos testen",
+      "email": "E-Mail-Benachrichtigungen",
+      "sms": "SMS-Benachrichtigungen",
+      "push": "Push-Benachrichtigungen",
+      "balanceAlerts": "Benutzerdefinierte Saldo-Warnungen",
+      "analysis": "Transaktionsanalyse (RBF/CPFP)",
+      "ownNode": "Ihr eigener Bitcoin-Node",
+      "privacy": "Volle Privatsphäre und Kontrolle",
+      "noSubscription": "Keine Abonnementgebühren"
+    },
+    "perMonth": "/Monat",
+    "perYear": "/Jahr",
+    "saveYearly": "{percent}% jährlich sparen",
+    "popular": "BELIEBT",
+    "currentPlanBadge": "AKTUELLER PLAN",
+    "trialPlanBadge": "TESTPLAN",
+    "freeToSelfHost": "Kostenlos selbst hosten",
+    "plusTaxes": "Zzgl. anfallende Steuern",
+    "changePlan": "Plan ändern",
+    "subscribeTo": "{plan} abonnieren",
+    "upgradeTo": "Auf {plan} upgraden",
+    "startTrial": "30-Tage-Testversion starten",
+    "loadingPricing": "Preise werden geladen...",
+    "errorTitle": "Preise konnten nicht geladen werden",
+    "errorDescription": "Bitte aktualisieren Sie die Seite oder versuchen Sie es später erneut.",
+    "selfHosted": {
+      "description": "Lieber selbst hosten? Canary ist kostenlos auf Ihrer eigenen Infrastruktur ausführbar mit Push-Benachrichtigungen über ntfy.",
+      "installUmbrel": "Auf Umbrel installieren",
+      "viewGithub": "Auf GitHub ansehen"
+    }
+  },
+  "subscriptionPage": {
+    "title": "Abonnement",
+    "selfHosted": {
+      "description": "Abonnement-Abrechnung ist im selbst gehosteten Modus nicht verfügbar."
+    },
+    "loading": "Abrechnungsinformationen werden geladen...",
+    "notSignedIn": {
+      "message": "Sie müssen angemeldet sein, um Ihr Abonnement zu verwalten.",
+      "signIn": "Anmelden"
+    },
+    "manageBilling": "Abrechnung verwalten",
+    "currentPlan": {
+      "title": "Aktueller Plan",
+      "description": "Ihr aktives Abonnement und Nutzung"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Abonnement-Limit überschritten",
+        "description": "Sie haben {walletCount} Wallets, aber Ihr {tierName}-Plan erlaubt nur {maxWallets}. Überzählige Wallets werden nicht automatisch synchronisiert und einige Kontakte könnten inaktiv sein.",
+        "upgrade": "Plan upgraden"
+      },
+      "pending": {
+        "title": "Testphase noch nicht gestartet",
+        "description": "Ihre 30-tägige Team-Testphase beginnt, wenn Sie Ihr erstes Wallet hinzufügen. Bis dahin ist keine Synchronisierung aktiv.",
+        "addWallet": "Erstes Wallet hinzufügen"
+      },
+      "cancelled": {
+        "title": "Abonnement gekündigt",
+        "description": "Ihr Abonnement wurde gekündigt. Sie haben Zugang bis {date} ({daysRemaining} Tage verbleibend).",
+        "reactivate": "Abonnement reaktivieren"
+      },
+      "expired": {
+        "title": "Abonnement abgelaufen",
+        "description": "Ihr Abonnement ist abgelaufen. Die Wallet-Synchronisierung wurde vollständig gestoppt, aber Ihre Daten sind erhalten.",
+        "reactivate": "Abonnement reaktivieren"
+      },
+      "pastDue": {
+        "title": "Zahlung fehlgeschlagen - Synchronisierung gestoppt",
+        "description": "Ihre letzte Zahlung ist fehlgeschlagen und die Wallet-Synchronisierung wurde sofort gestoppt. Aktualisieren Sie Ihre Zahlungsmethode, um den Service fortzusetzen.",
+        "updatePayment": "Zahlungsmethode aktualisieren"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Testphase: {days} Tage übrig",
+      "accessDaysLeft": "Zugang bis: {days} Tage übrig"
+    },
+    "buttons": {
+      "subscribe": "Abonnieren",
+      "reactivate": "Reaktivieren"
+    },
+    "usage": {
+      "wallets": "Wallets",
+      "overLimit": "(über Limit)",
+      "walletsInactive": "Einige Wallets sind inaktiv",
+      "syncInterval": "Sync-Intervall",
+      "features": "Funktionen",
+      "featuresList": "SMS, Push, E-Mail, Transaktionsanalyse"
+    },
+    "errors": {
+      "portalFailed": "Abrechnungsverwaltung konnte nicht geöffnet werden. Bitte versuchen Sie es erneut."
+    }
+  },
+  "upgrade": {
+    "title": "Plan upgraden",
+    "choosePlan": "Wählen Sie Ihren Plan",
+    "trialDescription": "Abonnieren Sie heute, um sicherzustellen, dass Ihre Wallet-Benachrichtigungen nach Ende Ihrer Testphase ununterbrochen weiterlaufen. Halten Sie Ihr Bitcoin mit kontinuierlicher Überwachung sicher.",
+    "limitReachedDescription": "Sie haben Ihr {limitType}-Limit von {limit} im {tierName}-Plan erreicht. Vergleichen Sie Pläne und upgraden Sie, um mehr hinzuzufügen.",
+    "currentUsage": "Aktuelle Nutzung: {count} / {limit}",
+    "walletLimit": {
+      "title": "Wallet-Limit erreicht",
+      "description": "Sie haben die maximale Anzahl an Wallets für Ihren Plan erreicht. Upgraden Sie, um mehr Wallets hinzuzufügen."
+    },
+    "contactLimit": {
+      "title": "Kontakt-Limit erreicht",
+      "description": "Sie haben die maximale Anzahl an Kontakten für diese Wallet erreicht. Upgraden Sie, um mehr Kontakte hinzuzufügen."
+    }
+  },
+  "errors": {
+    "generic": "Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.",
+    "network": "Netzwerkfehler. Bitte prüfen Sie Ihre Verbindung.",
+    "unauthorized": "Bitte melden Sie sich an, um fortzufahren.",
+    "notFound": "Nicht gefunden.",
+    "serverError": "Serverfehler. Bitte versuchen Sie es später erneut.",
+    "validation": "Bitte prüfen Sie Ihre Eingabe und versuchen Sie es erneut."
+  },
+  "footer": {
+    "logoAlt": "Canary-Logo",
+    "appName": "Canary",
+    "blockInfo": "Block {height}"
+  },
+  "demoBanner": {
+    "title": "Demo-Modus",
+    "description": "Sie sehen eine schreibgeschützte Demo-Wallet. Alle Funktionen sind nur zur Ansicht.",
+    "signUp": "Registrieren Sie sich, um Ihre eigene Wallet zu erstellen",
+    "dismiss": "Banner schließen"
+  }
+}

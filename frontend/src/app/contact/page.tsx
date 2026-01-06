@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { useAuth } from '@/contexts/auth-context'
 import { api, ApiError } from '@/lib/api'
 import { EMAIL_REGEX, EMAIL_CONSTRAINTS, MESSAGE_CONSTRAINTS } from '@/lib/constants'
@@ -15,6 +16,8 @@ import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ContactPage() {
+  const t = useTranslations('contactPage')
+  const tCommon = useTranslations('common')
   const { user, isAuthenticated, isSelfHostedMode } = useAuth()
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
@@ -32,26 +35,26 @@ export default function ContactPage() {
   // Validation (uses centralized patterns from constants.ts)
   const validateEmail = (email: string): string | null => {
     if (!email.trim()) {
-      return 'Email is required'
+      return t('validation.emailRequired')
     }
     if (!EMAIL_REGEX.test(email)) {
-      return 'Please enter a valid email address'
+      return t('validation.emailInvalid')
     }
     if (email.length > EMAIL_CONSTRAINTS.MAX_LENGTH) {
-      return `Email must be less than ${EMAIL_CONSTRAINTS.MAX_LENGTH} characters`
+      return t('validation.emailTooLong', { max: EMAIL_CONSTRAINTS.MAX_LENGTH })
     }
     return null
   }
 
   const validateMessage = (message: string): string | null => {
     if (!message.trim()) {
-      return 'Message is required'
+      return t('validation.messageRequired')
     }
     if (message.trim().length < MESSAGE_CONSTRAINTS.MIN_LENGTH) {
-      return `Message must be at least ${MESSAGE_CONSTRAINTS.MIN_LENGTH} characters`
+      return t('validation.messageTooShort', { min: MESSAGE_CONSTRAINTS.MIN_LENGTH })
     }
     if (message.length > MESSAGE_CONSTRAINTS.MAX_LENGTH) {
-      return `Message must be less than ${MESSAGE_CONSTRAINTS.MAX_LENGTH} characters`
+      return t('validation.messageTooLong', { max: MESSAGE_CONSTRAINTS.MAX_LENGTH })
     }
     return null
   }
@@ -87,7 +90,7 @@ export default function ContactPage() {
           ? err.getUserFriendlyMessage()
           : err.message)
       } else {
-        setError(err instanceof Error ? err.message : 'Failed to send message')
+        setError(err instanceof Error ? err.message : t('errors.sendFailed'))
       }
     } finally {
       setIsLoading(false)
@@ -98,18 +101,18 @@ export default function ContactPage() {
   if (isSelfHostedMode) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Contact</h2>
+        <h2 className="text-2xl font-semibold">{t('title')}</h2>
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>Self-Hosted Mode</CardTitle>
+            <CardTitle>{tCommon('selfHostedMode')}</CardTitle>
             <CardDescription>
-              Contact form is not available in self-hosted mode.
+              {t('selfHosted.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/wallets">
               <Button variant="outline" className="w-full">
-                Back to Wallets
+                {tCommon('backToWallets')}
               </Button>
             </Link>
           </CardContent>
@@ -121,15 +124,15 @@ export default function ContactPage() {
   return (
     <div className="space-y-6">
       {/* Page Title */}
-      <h2 className="text-2xl font-semibold">Contact</h2>
+      <h2 className="text-2xl font-semibold">{t('title')}</h2>
 
       <Card className="max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-xl">
-            Get in Touch
+            {t('form.title')}
           </CardTitle>
           <CardDescription>
-            Have a question or feedback? We would love to hear from you.
+            {t('form.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -145,11 +148,11 @@ export default function ContactPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{tCommon('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="your@email.com"
+                placeholder={tCommon('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -157,10 +160,10 @@ export default function ContactPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="message">Message</Label>
+              <Label htmlFor="message">{t('form.messageLabel')}</Label>
               <Textarea
                 id="message"
-                placeholder="How can we help you?"
+                placeholder={t('form.messagePlaceholder')}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 required
@@ -168,7 +171,7 @@ export default function ContactPage() {
                 className="min-h-[120px]"
               />
               <p className="text-xs text-muted-foreground">
-                {message.length}/{MESSAGE_CONSTRAINTS.MAX_LENGTH} characters
+                {t('form.characterCount', { count: message.length, max: MESSAGE_CONSTRAINTS.MAX_LENGTH })}
               </p>
             </div>
             <Button
@@ -179,10 +182,10 @@ export default function ContactPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
+                  {tCommon('sending')}
                 </>
               ) : (
-                'Send Message'
+                t('form.submit')
               )}
             </Button>
           </form>

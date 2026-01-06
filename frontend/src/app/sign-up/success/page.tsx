@@ -1,10 +1,16 @@
+'use client'
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 
 export default function SignUpSuccessPage() {
+  const t = useTranslations('auth.signUpSuccess')
+  const tCommon = useTranslations('common')
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
@@ -19,28 +25,28 @@ export default function SignUpSuccessPage() {
             />
           </div>
           <CardTitle className="text-2xl font-bold text-center">
-            Check your email
+            {t('title')}
           </CardTitle>
           <CardDescription className="text-center">
-            We&apos;ve sent you a verification link
+            {t('description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert>
             <AlertDescription>
-              Registration successful! Please check your email to verify your account before signing in.
+              {t('description')}
             </AlertDescription>
           </Alert>
-          
+
           <div className="text-center space-y-2">
             <p className="text-sm text-gray-600">
-              Didn&apos;t receive an email? Check your spam folder or contact support.
+              {t('didntReceive')} {t('checkSpam')}
             </p>
           </div>
 
           <Link href="/sign-in" className="block">
             <Button className="w-full">
-              Continue to Sign In
+              {tCommon('backToSignIn')}
             </Button>
           </Link>
         </CardContent>

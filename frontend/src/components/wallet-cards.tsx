@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount } from "@/lib/utils"
+import { useTranslations } from "next-intl"
 
 import { Wallet } from "../types"
 
@@ -19,6 +20,7 @@ interface WalletCardsProps {
 
 export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
+  const t = useTranslations('wallets')
 
   // Check if subscription is expired
   const isSubscriptionExpired = subscriptionStatus === 'expired'
@@ -107,9 +109,9 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Error</CardTitle>
+          <CardTitle>{t('error.title')}</CardTitle>
           <CardDescription className="text-destructive">
-            Failed to load wallets: {error}
+            {t('error.loadFailed', { error })}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -121,9 +123,9 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>No Wallets</CardTitle>
+            <CardTitle>{t('empty.title')}</CardTitle>
             <CardDescription>
-              No wallets found. Use the &quot;Add Wallet&quot; button in the header to get started.
+              {t('empty.description')}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -153,13 +155,13 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                   </div>
                   <Badge variant="outline" className="text-xs text-blue-600 border-blue-600 bg-blue-50 w-fit">
                     <div className="h-3 w-3 mr-1 animate-spin rounded-full border border-blue-600 border-t-transparent" />
-                    Syncing...
+                    {t('card.syncing')}
                   </Badge>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <div>
-                      <div className="text-sm text-muted-foreground">Balance</div>
+                      <div className="text-sm text-muted-foreground">{t('card.balance')}</div>
                       <div className="flex items-center gap-2">
                         <Skeleton className="h-6 w-32" />
                       </div>
@@ -193,28 +195,28 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                   {isInactive && (
                     <Badge variant="outline" className="text-xs text-orange-600 border-orange-600 bg-orange-50 w-fit">
                       <AlertTriangle className="h-3 w-3 mr-1" />
-                      Inactive
+                      {t('card.inactive')}
                     </Badge>
                   )}
                   {isInactive && (
                     <CardDescription className="text-xs text-orange-600 mt-1">
                       {isSubscriptionExpired
-                        ? "Your subscription has expired - wallet won't sync automatically"
-                        : "This wallet exceeds your subscription tier limits and won't sync automatically"}
+                        ? t('card.inactiveExpired')
+                        : t('card.inactiveTierLimit')}
                     </CardDescription>
                   )}
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <div>
-                      <div className="text-sm text-muted-foreground">Balance</div>
+                      <div className="text-sm text-muted-foreground">{t('card.balance')}</div>
                       <div className={`text-xl font-bold font-mono ${isInactive ? 'text-muted-foreground' : ''}`}>
                         {formatBitcoinAmount(wallet.balance_total || 0)}
                       </div>
                       {wallet.balance_fiat !== undefined && wallet.fiat_currency && (
                         <div className="text-sm text-muted-foreground mt-1">
-                          {new Intl.NumberFormat(undefined, { 
-                            style: 'currency', 
+                          {new Intl.NumberFormat(undefined, {
+                            style: 'currency',
                             currency: wallet.fiat_currency,
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 0
@@ -225,12 +227,12 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                       <span>
                         {wallet.last_activity
-                          ? `Last activity: ${new Date(parseInt(wallet.last_activity) * 1000).toLocaleDateString(undefined, {
+                          ? t('card.lastActivity', { date: new Date(parseInt(wallet.last_activity) * 1000).toLocaleDateString(undefined, {
                               year: '2-digit',
                               month: '2-digit',
                               day: '2-digit'
-                            })}`
-                          : "No recent activity"
+                            })})
+                          : t('card.noRecentActivity')
                         }
                       </span>
                       <div className="flex items-center gap-1">

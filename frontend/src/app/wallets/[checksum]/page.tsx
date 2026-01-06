@@ -20,6 +20,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
+import { useTranslations } from "next-intl"
 
 // Lazy load PlansModal to avoid bundling it when not needed
 const PlansModal = lazy(() => import("@/components/plans-modal").then(mod => ({ default: mod.PlansModal })))
@@ -31,6 +32,8 @@ export default function WalletDetailPage() {
   const router = useRouter()
   const checksum = params.checksum as string
   const { isAuthenticated, isLoading: authLoading, user, billingStatus, isCloudMode, isSelfHostedMode } = useAuth()
+  const t = useTranslations('wallets')
+  const tCommon = useTranslations('common')
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
@@ -104,7 +107,7 @@ export default function WalletDetailPage() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto" />
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">{tCommon('loading')}</p>
         </div>
       </div>
     )
@@ -125,7 +128,7 @@ export default function WalletDetailPage() {
               <div className="min-w-0">
                 <nav className="flex items-center text-2xl text-muted-foreground min-w-0">
                   <Link href="/wallets" className="hover:text-foreground font-semibold flex-shrink-0">
-                    Wallets
+                    {t('title')}
                   </Link>
                   <span className="mx-2 flex-shrink-0">/</span>
                   <Skeleton className="h-8 w-48" />
@@ -143,14 +146,14 @@ export default function WalletDetailPage() {
               <Card>
                 <CardContent className="space-y-6">
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground mb-2">Balance</div>
+                    <div className="text-sm font-medium text-muted-foreground mb-2">{t('detail.balance')}</div>
                     <Skeleton className="h-8 w-40" />
                     <Skeleton className="h-4 w-24 mt-1" />
                   </div>
 
                   <div className="pt-2 border-t">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-medium text-muted-foreground">Contacts</div>
+                      <div className="text-sm font-medium text-muted-foreground">{t('detail.contacts')}</div>
                     </div>
                     <Skeleton className="h-20 w-full" />
                   </div>
@@ -193,13 +196,13 @@ export default function WalletDetailPage() {
           <Link href="/wallets">
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft size={16} />
-              Back to Wallets
+              {tCommon('backToWallets')}
             </Button>
           </Link>
         </div>
-        
+
         <Alert variant="destructive">
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>{t('error.title')}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       </>
@@ -213,15 +216,15 @@ export default function WalletDetailPage() {
           <Link href="/wallets">
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft size={16} />
-              Back to Wallets
+              {tCommon('backToWallets')}
             </Button>
           </Link>
         </div>
-        
+
         <Alert>
-          <AlertTitle>Wallet Not Found</AlertTitle>
+          <AlertTitle>{t('detail.notFound.title')}</AlertTitle>
           <AlertDescription>
-            The wallet with checksum #{checksum} could not be found.
+            {t('detail.notFound.description', { checksum })}
           </AlertDescription>
         </Alert>
       </>
@@ -236,24 +239,23 @@ export default function WalletDetailPage() {
           <Link href="/wallets">
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft size={16} />
-              Back to Wallets
+              {tCommon('backToWallets')}
             </Button>
           </Link>
         </div>
-        
+
         <Alert className="border-blue-200 bg-blue-50">
           <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-blue-700">Wallet Still Syncing</AlertTitle>
+          <AlertTitle className="text-blue-700">{t('detail.syncing.title')}</AlertTitle>
           <AlertDescription className="text-blue-600">
-            <strong>{wallet.name}</strong> is still syncing and scanning for historical transactions. 
-            This process can take a few minutes for wallets with transaction history.
+            {t('detail.syncing.description', { name: wallet.name })}
             <span className="block mt-2">
-              Please return to the wallets page and wait for the syncing to complete.
+              {t('detail.syncing.returnPrompt')}
             </span>
             <div className="mt-3">
               <Link href="/wallets">
                 <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
-                  Back to Wallets
+                  {tCommon('backToWallets')}
                 </Button>
               </Link>
             </div>
@@ -269,12 +271,12 @@ export default function WalletDetailPage() {
       {(!isConnected || (error && wallet)) && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Backend Connection Lost</AlertTitle>
+          <AlertTitle>{t('connectionLost.title')}</AlertTitle>
           <AlertDescription>
-            Unable to connect to the backend service. Displaying cached data.
+            {t('connectionLost.description')}
             {lastUpdate && (
               <span className="block mt-1 text-xs">
-                Last updated: {new Date(lastUpdate * 1000).toLocaleString()}
+                {t('connectionLost.lastUpdated', { time: new Date(lastUpdate * 1000).toLocaleString() })}
               </span>
             )}
           </AlertDescription>
@@ -285,16 +287,16 @@ export default function WalletDetailPage() {
       {isCloudMode && wallet && wallet.is_active === false && (
         <Alert className="mb-6 border-orange-200 bg-orange-50">
           <AlertTriangle className="h-4 w-4 text-orange-600" />
-          <AlertTitle className="text-orange-700">Wallet Inactive</AlertTitle>
+          <AlertTitle className="text-orange-700">{t('detail.inactive.title')}</AlertTitle>
           <AlertDescription className="text-orange-600">
             {billingStatus?.subscription_status === 'expired'
-              ? "Your subscription has expired - wallet won't sync automatically."
-              : "This wallet exceeds your subscription tier limits and won't sync automatically."}{' '}
-            Transaction history and balance shown may be outdated.
+              ? t('detail.inactive.descriptionExpired')
+              : t('detail.inactive.descriptionTierLimit')}{' '}
+            {t('detail.inactive.outdatedWarning')}
             <span className="block mt-2">
               <Link href="/subscription">
                 <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
-                  Upgrade Plan
+                  {t('detail.inactive.upgradePlan')}
                 </Button>
               </Link>
             </span>
@@ -310,11 +312,11 @@ export default function WalletDetailPage() {
               <div className="min-w-0">
                 <nav className="flex items-center text-2xl text-muted-foreground min-w-0">
                   <Link href="/wallets" className="hover:text-foreground font-semibold flex-shrink-0">
-                    Wallets
+                    {t('title')}
                   </Link>
                   <span className="mx-2 flex-shrink-0">/</span>
                   <div className="text-foreground font-semibold min-w-0">
-                    <InlineWalletNameEdit 
+                    <InlineWalletNameEdit
                       walletChecksum={wallet.checksum}
                       currentName={wallet.name}
                       onNameUpdated={handleNameUpdated}
@@ -334,7 +336,7 @@ export default function WalletDetailPage() {
           <Card>
             <CardContent className="space-y-6">
               <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">Balance</div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">{t('detail.balance')}</div>
                 <div className="text-2xl font-bold font-mono">
                   {formatBitcoinAmount(wallet.balance_total || 0)}
                 </div>
@@ -352,7 +354,7 @@ export default function WalletDetailPage() {
 
               <div className="pt-2 border-t">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-medium text-muted-foreground">Contacts</div>
+                  <div className="text-sm font-medium text-muted-foreground">{t('detail.contacts')}</div>
                   {!(isCloudMode && user?.is_admin) && !user?.is_demo && (
                     <Button
                       size="sm"
@@ -361,7 +363,7 @@ export default function WalletDetailPage() {
                       className="h-6 px-2 text-xs gap-1"
                     >
                       <Plus className="h-3 w-3" />
-                      New
+                      {tCommon('new')}
                     </Button>
                   )}
                 </div>

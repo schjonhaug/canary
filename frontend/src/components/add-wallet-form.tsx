@@ -15,6 +15,7 @@ import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
 import { XPUB_REGEX, DESCRIPTOR_REGEX } from "@/lib/constants"
+import { useTranslations } from "next-intl"
 
 // Slug for the sample wallet route
 export const SAMPLE_WALLET_SLUG = 'bacon'
@@ -60,6 +61,7 @@ export function AddWalletForm({
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const modal = useModal()
   const { user } = useAuth()
+  const t = useTranslations('wallets')
 
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'cloud'
@@ -129,24 +131,24 @@ export function AddWalletForm({
     e.preventDefault()
 
     if (!name.trim()) {
-      modal.setError("Wallet name is required")
+      modal.setError(t('add.validation.nameRequired'))
       return
     }
 
     if (!descriptor.trim()) {
-      modal.setError("Output descriptor or extended public key is required")
+      modal.setError(t('add.validation.descriptorRequired'))
       return
     }
 
     // Validate script type for fresh XPUB wallets
     if (isFreshWallet && isXpubFormat(descriptor) && !scriptType) {
-      modal.setError("Script type is required for fresh XPUB wallets")
+      modal.setError(t('add.validation.scriptTypeRequired'))
       return
     }
 
     // Validate stop gap: custom stop gap requires specific script type (except for output descriptors)
     if (needsScriptTypeForStopGap(stopGap, descriptor, scriptType)) {
-      modal.setError("Custom stop gap requires selecting a specific script type (not auto)")
+      modal.setError(t('add.stopGap.requiresScriptType'))
       return
     }
 
@@ -194,11 +196,11 @@ export function AddWalletForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="wallet-name">Wallet Name</Label>
+        <Label htmlFor="wallet-name">{t('add.nameLabel')}</Label>
         <Input
           id="wallet-name"
           type="text"
-          placeholder="Enter wallet name"
+          placeholder={t('add.namePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={modal.isLoading}
@@ -207,10 +209,10 @@ export function AddWalletForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="output-descriptor">Output Descriptor or Extended Public Key</Label>
+        <Label htmlFor="output-descriptor">{t('add.descriptorLabel')}</Label>
         <Textarea
           id="output-descriptor"
-          placeholder="Enter output descriptor (wpkh(xpub.../<0;1>/*)) or extended public key (xpub/ypub/zpub...)"
+          placeholder={t('add.descriptorPlaceholder')}
           value={descriptor}
           onChange={(e) => setDescriptor(e.target.value)}
           disabled={modal.isLoading}
@@ -229,7 +231,7 @@ export function AddWalletForm({
             className="flex items-center justify-between w-full p-0 h-auto font-normal"
             disabled={modal.isLoading}
           >
-            <span className="text-sm font-medium">Advanced settings</span>
+            <span className="text-sm font-medium">{t('add.advancedSettings')}</span>
             <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAdvancedSettings ? 'rotate-180' : ''}`} />
           </Button>
         </CollapsibleTrigger>
@@ -246,68 +248,68 @@ export function AddWalletForm({
               htmlFor="fresh-wallet"
               className="text-sm font-normal cursor-pointer"
             >
-              This is a fresh wallet (no transaction history)
+              {t('add.freshWallet.label')}
             </Label>
           </div>
 
           {/* Script Type */}
           <div className="space-y-2">
-            <Label htmlFor="script-type">Script Type</Label>
+            <Label htmlFor="script-type">{t('add.scriptType.label')}</Label>
             <Select
               value={isDescriptorFormat(descriptor) ? getDescriptorScriptType(descriptor) : (scriptType || (isFreshWallet && isXpubFormat(descriptor) ? "" : "auto"))}
               onValueChange={(value) => setScriptType(value)}
               disabled={modal.isLoading || isDescriptorFormat(descriptor)}
             >
               <SelectTrigger>
-                <SelectValue placeholder={isFreshWallet && isXpubFormat(descriptor) ? "Select script type" : "Auto-detect"} />
+                <SelectValue placeholder={isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.selectPlaceholder') : t('add.scriptType.autoPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {!(isFreshWallet && isXpubFormat(descriptor)) && (
-                  <SelectItem value="auto">Auto-detect (recommended)</SelectItem>
+                  <SelectItem value="auto">{t('add.scriptType.auto')}</SelectItem>
                 )}
-                <SelectItem value="p2wpkh">Native SegWit (bc1...){isFreshWallet && isXpubFormat(descriptor) ? " - Most common" : ""}</SelectItem>
-                <SelectItem value="p2sh">Nested SegWit (3...){isFreshWallet && isXpubFormat(descriptor) ? " - Legacy compatibility" : ""}</SelectItem>
-                <SelectItem value="p2pkh">Legacy (1...){isFreshWallet && isXpubFormat(descriptor) ? " - Oldest" : ""}</SelectItem>
-                <SelectItem value="p2tr">Taproot (bc1p...){isFreshWallet && isXpubFormat(descriptor) ? " - Modern" : ""}</SelectItem>
+                <SelectItem value="p2wpkh">{isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.p2wpkhFresh') : t('add.scriptType.p2wpkh')}</SelectItem>
+                <SelectItem value="p2sh">{isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.p2shFresh') : t('add.scriptType.p2sh')}</SelectItem>
+                <SelectItem value="p2pkh">{isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.p2pkhFresh') : t('add.scriptType.p2pkh')}</SelectItem>
+                <SelectItem value="p2tr">{isFreshWallet && isXpubFormat(descriptor) ? t('add.scriptType.p2trFresh') : t('add.scriptType.p2tr')}</SelectItem>
               </SelectContent>
             </Select>
             {isDescriptorFormat(descriptor) && (
               <p className="text-xs text-muted-foreground">
-                Script type detected from descriptor and cannot be changed
+                {t('add.scriptType.detectedHint')}
               </p>
             )}
             {isFreshWallet && isXpubFormat(descriptor) && (
               <p className="text-xs text-muted-foreground">
-                Script type is required for fresh XPUB wallets
+                {t('add.scriptType.requiredHint')}
               </p>
             )}
           </div>
 
           {/* Stop Gap */}
           <div className="space-y-2">
-            <Label htmlFor="stop-gap">Stop Gap</Label>
+            <Label htmlFor="stop-gap">{t('add.stopGap.label')}</Label>
             <Select
               value={stopGap || "auto"}
               onValueChange={(value) => setStopGap(value)}
               disabled={modal.isLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Default (20 consecutive unused)" />
+                <SelectValue placeholder={t('add.stopGap.default')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Default (20 consecutive unused)</SelectItem>
-                <SelectItem value="250">Extended (250 consecutive unused)</SelectItem>
-                <SelectItem value="500">Deep (500 consecutive unused)</SelectItem>
-                <SelectItem value="750">Deeper (750 consecutive unused)</SelectItem>
-                <SelectItem value="1000">Maximum (1000 consecutive unused)</SelectItem>
+                <SelectItem value="auto">{t('add.stopGap.default')}</SelectItem>
+                <SelectItem value="250">{t('add.stopGap.extended')}</SelectItem>
+                <SelectItem value="500">{t('add.stopGap.deep')}</SelectItem>
+                <SelectItem value="750">{t('add.stopGap.deeper')}</SelectItem>
+                <SelectItem value="1000">{t('add.stopGap.maximum')}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Number of consecutive unused addresses to check before stopping. Increase if your wallet has addresses used at random high indices (e.g., BTCPay Server)
+              {t('add.stopGap.hint')}
             </p>
             {needsScriptTypeForStopGap(stopGap, descriptor, scriptType) && (
               <p className="text-xs text-red-500">
-                Custom stop gap requires selecting a specific script type
+                {t('add.stopGap.requiresScriptType')}
               </p>
             )}
           </div>
@@ -338,10 +340,10 @@ export function AddWalletForm({
           {modal.isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Adding...
+              {t('add.submitting')}
             </>
           ) : (
-            "Add Wallet"
+            t('add.submit')
           )}
         </Button>
       </div>

@@ -15,11 +15,13 @@ import {
 import { User, LogOut, ChevronDown, CreditCard, Settings, MessageSquare } from 'lucide-react'
 import { getTierDisplayName } from '@/lib/pricing-data'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 
 export function UserDropdown() {
   const { user, isCloudMode, isSelfHostedMode } = useAuth()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+  const tNav = useTranslations('nav')
 
   // In self-hosted mode or if no user, don't show anything
   if (isSelfHostedMode || !user) {
@@ -68,14 +70,14 @@ export function UserDropdown() {
             <Link href="/settings" className="block">
               <DropdownMenuItem className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
+                <span>{tNav('settings')}</span>
               </DropdownMenuItem>
             </Link>
 
             <Link href="/contact" className="block">
               <DropdownMenuItem className="cursor-pointer">
                 <MessageSquare className="mr-2 h-4 w-4" />
-                <span>Contact</span>
+                <span>{tNav('contact')}</span>
               </DropdownMenuItem>
             </Link>
 
@@ -83,7 +85,7 @@ export function UserDropdown() {
               <Link href="/subscription" className="block">
                 <DropdownMenuItem className="cursor-pointer">
                   <CreditCard className="mr-2 h-4 w-4" />
-                  <span>Subscription</span>
+                  <span>{tNav('subscription')}</span>
                 </DropdownMenuItem>
               </Link>
             )}
@@ -101,7 +103,7 @@ export function UserDropdown() {
           onClick={() => router.push('/sign-out')}
         >
           <LogOut className="mr-2 h-4 w-4" />
-          <span>Sign out</span>
+          <span>{tNav('signOut')}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

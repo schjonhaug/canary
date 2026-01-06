@@ -2,7 +2,7 @@ import { getApiBaseUrl, handleApiResponse, createNetworkError, ApiError } from '
 
 // Re-export ApiError for convenience
 export { ApiError } from './utils'
-import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest } from '../types'
+import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest, NotificationLanguage } from '../types'
 
 export interface ProviderInfo {
   name: string
@@ -112,9 +112,9 @@ class ApiClient {
   }
 
   async createContact(
-    walletChecksum: string, 
+    walletChecksum: string,
     name: string,
-    language: 'en' | 'no',
+    language: NotificationLanguage,
     notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts`, {
@@ -165,7 +165,7 @@ class ApiClient {
     walletChecksum: string,
     contactId: string,
     name: string,
-    language: 'en' | 'no',
+    language: NotificationLanguage,
     notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {
@@ -212,16 +212,20 @@ class ApiClient {
     })
   }
 
-  async login(email: string, password: string): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean } }> {
-    return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean } }>('/api/auth/login', {
+  async login(email: string, password: string): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }> {
+    return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
   }
 
-  async demoLogin(): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean } }> {
-    return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean } }>('/api/auth/demo-login', {
+  async demoLogin(): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }> {
+    // Include browser locale so demo account respects user's language
+    const browserLocale = typeof window !== 'undefined' ? navigator.language : 'en-US'
+
+    return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }>('/api/auth/demo-login', {
       method: 'POST',
+      body: JSON.stringify({ browser_locale: browserLocale }),
     })
   }
 
@@ -251,8 +255,8 @@ class ApiClient {
     })
   }
 
-  async getMe(): Promise<{ user: { id: number, email: string, name?: string, is_admin: boolean, is_demo: boolean, email_verified: boolean } }> {
-    return this.request<{ user: { id: number, email: string, name?: string, is_admin: boolean, is_demo: boolean, email_verified: boolean } }>('/api/auth/me')
+  async getMe(): Promise<{ user: { id: number, email: string, name?: string, is_admin: boolean, is_demo: boolean, email_verified: boolean, preferred_language?: string } }> {
+    return this.request<{ user: { id: number, email: string, name?: string, is_admin: boolean, is_demo: boolean, email_verified: boolean, preferred_language?: string } }>('/api/auth/me')
   }
 
   async updateUserProfile(name: string): Promise<{ user: { id: number, email: string, name?: string, is_admin: boolean, email_verified: boolean } }> {
@@ -366,6 +370,7 @@ class ApiClient {
 
   async updateUserPreferences(preferences: {
     preferred_fiat_currency?: string;
+    preferred_language?: string;
     ntfy_server_url?: string;
     ntfy_access_token?: string;
     ntfy_username?: string;

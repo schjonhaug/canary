@@ -1,0 +1,969 @@
+{
+  "common": {
+    "loading": "読み込み中...",
+    "save": "保存",
+    "saving": "保存中...",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "deleting": "削除中...",
+    "edit": "編集",
+    "add": "追加",
+    "close": "閉じる",
+    "confirm": "確認",
+    "back": "戻る",
+    "next": "次へ",
+    "submit": "送信",
+    "verify": "確認",
+    "verifying": "確認中...",
+    "send": "送信",
+    "sending": "送信中...",
+    "retry": "再試行",
+    "yes": "はい",
+    "no": "いいえ",
+    "or": "または",
+    "and": "および",
+    "active": "アクティブ",
+    "inactive": "非アクティブ",
+    "pending": "保留中",
+    "confirmed": "確認済み",
+    "failed": "失敗",
+    "success": "成功",
+    "error": "エラー",
+    "warning": "警告",
+    "info": "情報",
+    "savedSuccessfully": "正常に保存されました！",
+    "connectingToNetwork": "ネットワークに接続中...",
+    "emailPlaceholder": "your@email.com",
+    "emailLabel": "メールアドレス",
+    "passwordLabel": "パスワード",
+    "name": "名前",
+    "new": "新規",
+    "backToWallets": "ウォレットに戻る",
+    "backToSignIn": "ログインに戻る",
+    "selfHostedMode": "セルフホストモード"
+  },
+  "nav": {
+    "signIn": "ログイン",
+    "signOut": "ログアウト",
+    "settings": "設定",
+    "wallets": "ウォレット",
+    "addWallet": "ウォレットを追加",
+    "alreadyUser": "既にアカウントをお持ちですか？ログイン",
+    "contact": "お問い合わせ",
+    "subscription": "サブスクリプション"
+  },
+  "contactPage": {
+    "title": "お問い合わせ",
+    "selfHosted": {
+      "description": "セルフホストモードではお問い合わせフォームは利用できません。"
+    },
+    "form": {
+      "title": "お問い合わせ",
+      "description": "ご質問やフィードバックがありますか？お気軽にご連絡ください。",
+      "messageLabel": "メッセージ",
+      "messagePlaceholder": "どのようにお手伝いできますか？",
+      "characterCount": "{count}/{max}文字",
+      "submit": "メッセージを送信"
+    },
+    "validation": {
+      "emailRequired": "メールアドレスは必須です",
+      "emailInvalid": "有効なメールアドレスを入力してください",
+      "emailTooLong": "メールアドレスは{max}文字以内にしてください",
+      "messageRequired": "メッセージは必須です",
+      "messageTooShort": "メッセージは{min}文字以上にしてください",
+      "messageTooLong": "メッセージは{max}文字以内にしてください"
+    },
+    "errors": {
+      "sendFailed": "メッセージの送信に失敗しました"
+    }
+  },
+  "landing": {
+    "hero": {
+      "title": "完全なビットコイン監視",
+      "description": "トランザクションアラートとインテリジェントな残高通知を備えたプロフェッショナルなビットコイン監視。カスタムしきい値の設定、ウォレットの枯渇監視、すべてのトランザクションの追跡 - すべてウォッチオンリーセキュリティで。",
+      "startTrial": "30日間無料トライアルを開始",
+      "tryDemo": "デモを試す",
+      "viewPricing": "料金を見る"
+    },
+    "features": {
+      "title": "完全なビットコイン監視",
+      "subtitle": "トランザクション追跡、残高アラート、安全なウォッチオンリー監視",
+      "notifications": {
+        "title": "即時ビットコイントランザクション通知",
+        "description": "メール、SMS、プッシュ通知でリアルタイムのビットコインウォレットアラートを直接デバイスに"
+      },
+      "balanceAlerts": {
+        "title": "インテリジェント残高アラートシステム",
+        "description": "ウォレットの枯渇、大口入金、特定金額到達のアラート付きカスタム残高しきい値。重要な残高変更を見逃しません。"
+      },
+      "security": {
+        "title": "安全なウォッチオンリービットコイン監視",
+        "description": "XPUBまたはディスクリプタを使用したビットコインウォレットへのウォッチオンリーアクセス - 秘密鍵には一切触れません"
+      },
+      "sync": {
+        "title": "リアルタイムビットコインウォレット同期",
+        "description": "サブスクリプションプランに応じて10分から2分のビットコインウォレット同期間隔"
+      }
+    },
+    "balanceAlerts": {
+      "title": "重要な残高変更を見逃さない",
+      "description": "カスタム残高しきい値を設定して、総保有量を監視します。残高が特定のレベルに達したときにアラートを受け取ります。コールドストレージ監視、ウォレット枯渇検出、重要な残高マイルストーンの追跡に最適です。",
+      "above": {
+        "title": "上限しきい値アラート",
+        "description": "総残高が設定したしきい値を超えたときに通知を受け取ります。保有量が重要なマイルストーンに達したときを監視します。"
+      },
+      "below": {
+        "title": "下限しきい値アラート",
+        "description": "総残高が設定したしきい値を下回ったときに通知を受け取ります。保有量の低残高警告を設定します。"
+      },
+      "drain": {
+        "title": "ウォレット枯渇検出",
+        "description": "総残高がウォレット枯渇時のゼロなど、特定の金額と等しくなったときに通知を受け取ります。重要なセキュリティ監視。"
+      },
+      "example": {
+        "title": "あなたのビットコインウォレット",
+        "currentBalance": "0.05 BTC",
+        "aboveThreshold": "0.1 BTC以上",
+        "belowThreshold": "0.01 BTC以下",
+        "equalsZero": "0 BTCと等しい",
+        "active": "有効",
+        "deliveryNote": "すべてのアラートはメール、SMS、プッシュ通知で配信"
+      }
+    },
+    "pricing": {
+      "title": "シンプルで透明な料金",
+      "subtitle": "ニーズに合ったプランを選択",
+      "trialNote": "クラウドプランには30日間の無料トライアルが含まれます - クレジットカード不要"
+    },
+    "faq": {
+      "title": "よくある質問",
+      "contactUs": "こちらからお問い合わせください",
+      "items": {
+        "whatIsCanary": {
+          "question": "Canaryビットコインウォレット監視とは何ですか？",
+          "answer": "Canaryは、XPUBまたはディスクリプタを使用してビットコインウォレットを監視し、メール、SMS、プッシュ通知を通じてすべてのトランザクションの即時アラートを送信するプロフェッショナルなビットコインウォレット監視および通知サービスです。コールドストレージ、ハードウェアウォレット、ウォッチオンリーのビットコインアドレスの監視に最適です。"
+        },
+        "howDoesItWork": {
+          "question": "秘密鍵なしでビットコインウォレット監視はどのように機能しますか？",
+          "answer": "Canaryは、ウォッチオンリーのビットコイン監視のためにウォレットのXPUB（拡張公開鍵）またはディスクリプタを使用します。これにより、ビットコインアドレスを追跡してトランザクションを検出するための読み取り専用アクセスが得られます。秘密鍵にアクセスすることはなく、ビットコインを移動することもできません - コールドストレージ監視の完全なセキュリティを保証します。"
+        },
+        "whatIsXpub": {
+          "question": "XPUBウォレット監視とは何ですか？",
+          "answer": "XPUB監視により、秘密鍵を公開せずにビットコインウォレットのすべてのアドレスを追跡できます。ウォレットのXPUBまたはディスクリプタを提供することで、Canaryは無制限のアドレスを監視し、あらゆる深さ（200以上のアドレスの深さでも）でトランザクションを検出し、ビットコインが移動したときに即座に通知できます。"
+        },
+        "coldStorage": {
+          "question": "ビットコインコールドストレージウォレットを監視できますか？",
+          "answer": "はい！Canaryはビットコインコールドストレージ監視に最適です。LedgerやTrezorなどのハードウェアウォレット、ペーパーウォレット、その他のコールドストレージソリューションを使用している場合でも、XPUBまたはディスクリプタを提供するだけで、即時通知付きの安全なウォッチオンリー監視が可能です。"
+        },
+        "notificationSpeed": {
+          "question": "ビットコイントランザクション通知はどのくらい速いですか？",
+          "answer": "Teamプランでは、メインネットで2分という高速な同期間隔でほぼリアルタイムのビットコイントランザクション通知を受け取れます。ほとんどの通知はトランザクション検出から数秒以内に届きます。Personalプランは10分ごとに同期し、それでもビットコインウォレットのタイムリーなアラートを保証します。"
+        },
+        "walletTypes": {
+          "question": "どのビットコインウォレットタイプがサポートされていますか？",
+          "answer": "Canaryは、Native SegWit（P2WPKH）、Legacy（P2PKH）、Nested SegWit（P2SH）、Taproot（P2TR）アドレスを含むすべての主要なビットコインウォレットタイプをサポートしています。XPUBからウォレットタイプを自動検出するか、手動で指定できます。マルチシグネチャおよびハードウェアウォレット監視は完全にサポートされています。"
+        },
+        "whyCanary": {
+          "question": "なぜCanaryという名前なのですか？",
+          "answer": "炭鉱のカナリアが早期警告を提供するように、Canaryはビットコインウォレットの早期警告システムとして機能します。ビットコインがコールドストレージにあるとき、めったに確認しません。Canaryは24時間365日監視し、ビットコインが移動したときに即座に通知し、長期保有者に安心を提供します。"
+        },
+        "noBlockchain": {
+          "question": "ブロックチェーンをダウンロードせずにビットコインを追跡できますか？",
+          "answer": "はい！Canaryはプロフェッショナルなエレクトラムサーバーに接続してビットコインブロックチェーンを監視します。フルノードを実行したりブロックチェーンをダウンロードする必要はありません - XPUBを提供するだけで、すべてのビットコインウォレットアクティビティの即時通知を受け取り始めることができます。"
+        },
+        "balanceAlerts": {
+          "question": "ビットコイン残高アラートはどのように機能しますか？",
+          "answer": "Canaryの残高アラートシステムでは、ウォレットの総残高を監視するためのカスタムしきい値を設定できます。残高が特定の金額を超えたとき、しきい値を下回ったとき（低残高警告）、またはゼロに等しくなったとき（ウォレット枯渇検出）のアラートを作成できます。手動確認なしでコールドストレージを追跡するのに最適です。"
+        },
+        "alertTypes": {
+          "question": "どのような残高アラートタイプが利用可能ですか？",
+          "answer": "3種類の残高アラートを作成できます：「以上」アラートは総残高がしきい値を超えたときにトリガーされます（保有量がマイルストーンに達したときを監視）、「以下」アラートは総残高が金額を下回ったときに警告します（低残高警告）、「等しい」アラートはウォレット枯渇（残高=0）や特定のターゲットなどの正確な残高金額を検出します。"
+        },
+        "multipleWallets": {
+          "question": "異なる残高しきい値で複数のビットコインウォレットを監視できますか？",
+          "answer": "はい！各ビットコインウォレットは独自のカスタム残高アラートセットを持つことができます。Teamプランでは、それぞれ固有の残高しきい値を持つ最大5つのウォレットを監視できます。家族のビットコイン保有を監視するUncle Jimsや、異なるアラート要件を持つ複数のトレジャリーウォレットを追跡するビジネスに最適です。"
+        },
+        "contact": {
+          "question": "どのように連絡できますか？",
+          "answer": "ぜひご連絡ください！ご質問、フィードバック、サポートリクエストについては、お問い合わせフォームからご連絡いただけます。通常24時間以内に返信いたします。"
+        }
+      }
+    },
+    "cta": {
+      "title": "今日から完全なビットコイン監視を始めましょう",
+      "description": "トランザクションアラート、残高監視、ビットコイン資産の安心"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "おかえりなさい",
+      "subtitle": "Canaryアカウントにログイン",
+      "passwordPlaceholder": "パスワードを入力",
+      "submit": "ログイン",
+      "submitting": "ログイン中...",
+      "noAccount": "アカウントをお持ちでないですか？登録",
+      "forgotPassword": "パスワードをお忘れですか？",
+      "devMode": "開発モード",
+      "loginFailed": "ログイン失敗"
+    },
+    "signUp": {
+      "title": "30日間無料トライアルを開始",
+      "subtitle": "30日間無料、その後お好みのプランで継続",
+      "nameLabel": "名前",
+      "namePlaceholder": "お名前を入力",
+      "passwordPlaceholder": "安全なパスワードを入力",
+      "passwordHint": "パスワードは6文字以上である必要があります",
+      "marketingConsent": "サービス更新に関するメールを時々受け取りたい",
+      "submit": "アカウント作成",
+      "submitting": "アカウント作成中...",
+      "hasAccount": "既にアカウントをお持ちですか？ログイン",
+      "signInInstead": "代わりにログイン",
+      "registrationFailed": "登録失敗"
+    },
+    "signUpSuccess": {
+      "title": "メールを確認してください",
+      "description": "メールアドレスに確認リンクを送信しました。リンクをクリックしてアカウントを確認してください。",
+      "didntReceive": "メールが届きませんでしたか？",
+      "checkSpam": "迷惑メールフォルダを確認してください",
+      "resend": "確認メールを再送信"
+    },
+    "forgotPassword": {
+      "title": "パスワードをお忘れですか？",
+      "subtitle": "メールアドレスを入力すると、リセットリンクを送信します",
+      "submit": "リセットリンクを送信",
+      "successTitle": "メールを確認してください",
+      "successMessage": "そのメールアドレスでアカウントが存在する場合、パスワードリセットリンクが届きます。"
+    },
+    "resetPassword": {
+      "title": "パスワードをリセット",
+      "subtitle": "新しいパスワードを入力してください",
+      "passwordLabel": "新しいパスワード",
+      "passwordPlaceholder": "新しいパスワードを入力",
+      "confirmLabel": "パスワードを確認",
+      "confirmPlaceholder": "新しいパスワードを確認",
+      "submit": "パスワードをリセット",
+      "submitting": "リセット中...",
+      "passwordMismatch": "パスワードが一致しません",
+      "successTitle": "パスワードがリセットされました",
+      "successMessage": "パスワードがリセットされました。ログインできます。",
+      "invalidToken": "無効または期限切れのリセットリンク"
+    },
+    "verifyEmail": {
+      "verifying": "メールを確認中...",
+      "successTitle": "メール確認完了",
+      "successMessage": "メールが確認されました。ログインできます。",
+      "errorTitle": "確認失敗",
+      "invalidToken": "無効または期限切れの確認リンク",
+      "signIn": "ログイン"
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "display": {
+      "title": "表示設定",
+      "description": "ウォレットでのビットコイン値の表示方法をカスタマイズ",
+      "currencyLabel": "法定通貨",
+      "currencyPlaceholder": "通貨を選択",
+      "currencyNote": "為替レートはCoinGeckoから10分ごとに更新されます"
+    },
+    "language": {
+      "title": "言語",
+      "description": "インターフェースの優先言語を選択",
+      "label": "言語"
+    },
+    "ntfy": {
+      "title": "プッシュ通知",
+      "description": "プッシュ通知用のntfyサーバーを設定",
+      "serverLabel": "ntfyサーバーURL",
+      "serverPlaceholder": "https://ntfy.sh",
+      "serverNoteBefore": "空のままにすると公開ntfy.shサーバーを使用します。完全なプライバシーのために",
+      "selfHostLink": "ntfyを自己ホスト",
+      "serverNoteAfter": "できます。",
+      "auth": {
+        "title": "認証",
+        "configured": {
+          "token": "アクセストークン設定済み",
+          "credentials": "ユーザー名/パスワード設定済み ({username})",
+          "none": "認証未設定"
+        },
+        "type": {
+          "none": "認証なし",
+          "token": "アクセストークン",
+          "basic": "ユーザー名とパスワード"
+        },
+        "tokenLabel": "アクセストークン",
+        "tokenPlaceholder": "tk_...",
+        "usernameLabel": "ユーザー名",
+        "usernamePlaceholder": "ユーザー名",
+        "passwordLabel": "パスワード",
+        "passwordPlaceholder": "パスワード",
+        "saveAuth": "認証を保存",
+        "tokenRequired": "アクセストークンは必須です",
+        "credentialsRequired": "ユーザー名とパスワードの両方が必要です",
+        "authSaved": "認証が保存されました！"
+      }
+    },
+    "currencies": {
+      "USD": "米ドル",
+      "EUR": "ユーロ",
+      "GBP": "英ポンド",
+      "CAD": "カナダドル",
+      "AUD": "オーストラリアドル",
+      "CHF": "スイスフラン",
+      "JPY": "日本円",
+      "CNY": "中国人民元",
+      "INR": "インドルピー",
+      "KRW": "韓国ウォン",
+      "RUB": "ロシアルーブル",
+      "BRL": "ブラジルレアル",
+      "MXN": "メキシコペソ",
+      "SGD": "シンガポールドル",
+      "HKD": "香港ドル",
+      "NOK": "ノルウェークローネ",
+      "SEK": "スウェーデンクローナ",
+      "DKK": "デンマーククローネ",
+      "PLN": "ポーランドズウォティ",
+      "THB": "タイバーツ",
+      "IDR": "インドネシアルピア",
+      "HUF": "ハンガリーフォリント",
+      "CZK": "チェココルナ",
+      "ILS": "イスラエルシェケル",
+      "CLP": "チリペソ",
+      "PHP": "フィリピンペソ",
+      "AED": "UAEディルハム",
+      "TRY": "トルコリラ",
+      "ZAR": "南アフリカランド",
+      "TWD": "新台湾ドル",
+      "NZD": "ニュージーランドドル",
+      "ARS": "アルゼンチンペソ",
+      "SAR": "サウジアラビアリヤル",
+      "PKR": "パキスタンルピー",
+      "MYR": "マレーシアリンギット",
+      "NGN": "ナイジェリアナイラ",
+      "VND": "ベトナムドン",
+      "UAH": "ウクライナフリヴニャ",
+      "GEL": "ジョージアラリ",
+      "BDT": "バングラデシュタカ",
+      "VEF": "ベネズエラボリバル",
+      "LKR": "スリランカルピー",
+      "BHD": "バーレーンディナール",
+      "BMD": "バミューダドル",
+      "KWD": "クウェートディナール",
+      "MMK": "ミャンマーチャット"
+    }
+  },
+  "wallets": {
+    "title": "マイウォレット",
+    "summary": "合計残高{balance}の{count}個のウォレットを追跡中",
+    "onboarding": {
+      "trial": {
+        "title": "トライアルを開始する準備はできましたか",
+        "titleWithName": "トライアルを開始する準備はできましたか、{name}さん?",
+        "description": "最初のウォレットを追加して<highlight>30日間のTeamトライアル</highlight>を有効にしてください。リアルタイム同期、無制限の通知、優先サポートを含むすべての機能に即座にアクセスできます。",
+        "whatYouGet": "利用できる機能:",
+        "features": {
+          "wallets": "2分同期の5ウォレット",
+          "contacts": "ウォレットごとに5連絡先",
+          "emailSms": "メールとSMS通知",
+          "push": "ntfy経由のプッシュ通知"
+        },
+        "button": "最初のウォレットを追加してトライアルを開始",
+        "note": "ウォレットを追加するとトライアルが開始されます"
+      },
+      "simple": {
+        "title": "最初のウォレットを追加",
+        "description": "ウォレットディスクリプタを追加して、ビットコイントランザクションの監視を開始します。",
+        "button": "ウォレットを追加"
+      }
+    },
+    "connectionLost": {
+      "title": "バックエンド接続が失われました",
+      "description": "バックエンドサービスに接続できません。キャッシュされたデータを表示しています。",
+      "lastUpdated": "最終更新: {time}"
+    },
+    "empty": {
+      "title": "ウォレットなし",
+      "description": "ウォレットが見つかりません。「ウォレットを追加」ボタンを使用して開始してください。",
+      "addFirst": "最初のウォレットを追加"
+    },
+    "error": {
+      "title": "エラー",
+      "loadFailed": "ウォレットの読み込みに失敗しました: {error}"
+    },
+    "card": {
+      "syncing": "同期中...",
+      "inactive": "非アクティブ",
+      "inactiveExpired": "サブスクリプションの有効期限が切れました - ウォレットは自動同期されません",
+      "inactiveTierLimit": "このウォレットはサブスクリプションの制限を超えており、自動同期されません",
+      "balance": "残高",
+      "lastActivity": "最終活動: {date}",
+      "noRecentActivity": "最近の活動なし"
+    },
+    "add": {
+      "title": "ウォレットを追加",
+      "nameLabel": "ウォレット名",
+      "namePlaceholder": "マイビットコインウォレット",
+      "descriptorLabel": "ウォレットディスクリプタまたはXPUB",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorHint": "ウォレットの出力ディスクリプタまたはXPUBを入力してください。スクリプトタイプは自動検出されます。",
+      "advancedSettings": "詳細設定",
+      "scriptType": {
+        "label": "スクリプトタイプ",
+        "selectPlaceholder": "スクリプトタイプを選択",
+        "autoPlaceholder": "自動検出",
+        "auto": "自動検出（推奨）",
+        "p2wpkh": "ネイティブSegWit (bc1...)",
+        "p2wpkhFresh": "ネイティブSegWit (bc1...) - 最も一般的",
+        "p2sh": "ネステッドSegWit (3...)",
+        "p2shFresh": "ネステッドSegWit (3...) - レガシー互換",
+        "p2pkh": "レガシー (1...)",
+        "p2pkhFresh": "レガシー (1...) - 最も古い",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - モダン",
+        "detectedHint": "スクリプトタイプはディスクリプタから検出され、変更できません",
+        "requiredHint": "新しいXPUBウォレットにはスクリプトタイプが必要です"
+      },
+      "stopGap": {
+        "label": "ストップギャップ",
+        "default": "デフォルト（連続20個の未使用）",
+        "extended": "拡張（連続250個の未使用）",
+        "deep": "深い（連続500個の未使用）",
+        "deeper": "より深い（連続750個の未使用）",
+        "maximum": "最大（連続1000個の未使用）",
+        "hint": "停止前に確認する連続未使用アドレス数。ランダムな高インデックスでアドレスが使用されている場合（例：BTCPay Server）は増やしてください",
+        "requiresScriptType": "カスタムストップギャップには特定のスクリプトタイプの選択が必要です"
+      },
+      "freshWallet": {
+        "label": "新規ウォレット（トランザクション履歴なし）",
+        "hint": "以前のトランザクションがないウォレットのディープスキャンをスキップ"
+      },
+      "submit": "ウォレットを追加",
+      "submitting": "追加中...",
+      "success": "ウォレットが正常に追加されました",
+      "error": "ウォレットの追加に失敗しました",
+      "validation": {
+        "nameRequired": "ウォレット名は必須です",
+        "descriptorRequired": "出力ディスクリプタまたは拡張公開鍵が必要です",
+        "scriptTypeRequired": "新しいXPUBウォレットにはスクリプトタイプが必要です"
+      },
+      "wizard": {
+        "chooseWallet": "どのウォレットをお使いですか？出力ディスクリプタまたはXPUBのエクスポート方法をご案内します。",
+        "keysStaySafe": "Canaryはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
+        "tryBaconWallet": "初めてですか？まずサンプルウォレットでCanaryの動作を確認してください。",
+        "useBaconWallet": "Baconウォレットを使用",
+        "haveDescriptor": "出力ディスクリプタまたはXPUBを持っています",
+        "exportSteps": "{walletName}からディスクリプタをエクスポートするには、以下の手順に従ってください",
+        "pasteXpub": "下にXPUBを貼り付けてください。",
+        "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。",
+        "baconPrefilled": "Baconサンプルウォレットを事前入力しました。ウォレットを追加をクリックして続行してください。",
+        "enterDetails": "詳細を入力",
+        "walletType": {
+          "software": "ソフトウェア",
+          "hardware": "ハードウェア"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "ディスクリプタを完全サポートするBitcoinデスクトップウォレット",
+          "steps": [
+            "Sparrowでウォレットを開く",
+            "Settingsタブに移動",
+            "Output Descriptorの横にある「Show」をクリック",
+            "ディスクリプタ文字列全体をコピー（wpkh、wsh、またはtrで始まる）"
+          ]
+        },
+        "bluewallet": {
+          "description": "iOS/Android対応のモバイルBitcoinウォレット",
+          "steps": [
+            "BlueWalletでウォレットを開く",
+            "右上の三点メニュー（⋯）をタップ",
+            "「Export/Backup」を選択",
+            "「Export Wallet」をタップ",
+            "XPUB文字列をコピー（xpub、ypub、またはzpubで始まる）"
+          ]
+        },
+        "electrum": {
+          "description": "軽量なBitcoinデスクトップウォレット",
+          "steps": [
+            "Electrumでウォレットを開く",
+            "Walletメニュー → Informationに移動",
+            "「Master Public Key」セクションを見つける",
+            "zpub、ypub、またはxpub文字列をコピー"
+          ]
+        },
+        "coldcard": {
+          "description": "エアギャップハードウェアウォレット",
+          "steps": [
+            "ColdCardの電源を入れてPINを入力",
+            "Advanced/Tools → Export Walletに移動",
+            "「Generic JSON」形式を選択",
+            "SDカードにエクスポート",
+            "コンピュータでJSONファイルを開く",
+            "ファイルからディスクリプタまたはxpubをコピー"
+          ]
+        },
+        "ledger": {
+          "description": "人気のハードウェアウォレット",
+          "steps": [
+            "Ledgerデバイスを接続してロック解除",
+            "LedgerでBitcoinアプリを開く",
+            "コンピュータでLedger Walletアプリを開く",
+            "Bitcoinアカウントに移動 → レンチアイコンをクリック",
+            "「Advanced logs」をクリック",
+            "ログからxpub文字列をコピー"
+          ]
+        },
+        "trezor": {
+          "description": "オープンソースのハードウェアウォレット",
+          "steps": [
+            "Trezorを接続してTrezor Suiteを開く",
+            "Bitcoinアカウントを開く",
+            "アカウント名をクリックして設定を開く",
+            "「Show public key (XPUB)」をクリック",
+            "Trezorデバイスで確認",
+            "XPUB文字列をコピー"
+          ]
+        }
+      },
+      "limitReached": {
+        "title": "ウォレット数制限に達しました",
+        "description": "{tier}プランの{count}ウォレット制限に達しました。アップグレードしてウォレットを追加してください。"
+      },
+      "checkoutError": "チェックアウトの開始に失敗しました。もう一度お試しください。"
+    },
+    "detail": {
+      "balance": "残高",
+      "transactions": "トランザクション",
+      "contacts": "連絡先",
+      "balanceAlerts": "残高アラート",
+      "noTransactions": "トランザクションがありません",
+      "pendingSync": "ウォレットを同期中...",
+      "lastSync": "最終同期",
+      "syncStatus": {
+        "pending": "同期中",
+        "ready": "同期済み"
+      },
+      "notFound": {
+        "title": "ウォレットが見つかりません",
+        "description": "チェックサム#{checksum}のウォレットが見つかりませんでした。"
+      },
+      "syncing": {
+        "title": "ウォレットを同期中",
+        "description": "{name}はまだ同期中で、過去のトランザクションをスキャンしています。トランザクション履歴のあるウォレットでは、このプロセスに数分かかる場合があります。",
+        "returnPrompt": "ウォレットページに戻り、同期が完了するまでお待ちください。"
+      },
+      "inactive": {
+        "title": "ウォレット非アクティブ",
+        "descriptionExpired": "サブスクリプションの有効期限が切れました - ウォレットは自動的に同期されません。",
+        "descriptionTierLimit": "このウォレットはサブスクリプションの制限を超えており、自動的に同期されません。",
+        "outdatedWarning": "表示されているトランザクション履歴と残高は古い可能性があります。",
+        "upgradePlan": "プランをアップグレード"
+      }
+    },
+    "delete": {
+      "title": "ウォレットを削除",
+      "description": "このウォレットを削除してもよろしいですか？この操作は取り消せません。"
+    },
+    "edit": {
+      "title": "ウォレットを編集",
+      "nameLabel": "ウォレット名",
+      "submit": "変更を保存"
+    }
+  },
+  "contacts": {
+    "title": "連絡先",
+    "empty": {
+      "title": "連絡先がありません",
+      "description": "このウォレットに関する通知を受け取る連絡先を追加",
+      "list": "連絡先が追加されていません"
+    },
+    "inactive": {
+      "badge": "非アクティブ",
+      "expired": "サブスクリプションの有効期限が切れました - 連絡先は通知を受け取れません",
+      "tierLimit": "この連絡先はサブスクリプションの制限を超えており、通知を受け取れません"
+    },
+    "add": {
+      "title": "新しい連絡先を追加",
+      "description": "Bitcoinトランザクション通知を受け取る新しい連絡先を設定します。",
+      "nameLabel": "名前",
+      "namePlaceholder": "連絡先名",
+      "languageLabel": "言語",
+      "methodTitle": "通知方法",
+      "providers": {
+        "ntfy": "ntfy.sh通知",
+        "twilio": "SMS通知",
+        "email": "メール通知"
+      },
+      "ntfy": {
+        "topicHint": "トピックは連絡先名に基づいて自動生成されます"
+      },
+      "sms": {
+        "phoneHint": "国番号を含める"
+      },
+      "email": {
+        "emailHint": "有効なメールアドレスを入力"
+      },
+      "submit": "連絡先を作成",
+      "submitting": "処理中..."
+    },
+    "edit": {
+      "title": "連絡先を編集",
+      "description": "連絡先情報と通知方法を更新します。",
+      "submit": "連絡先を更新"
+    },
+    "delete": {
+      "title": "連絡先を削除",
+      "description": "この連絡先を削除してもよろしいですか？通知は届かなくなります。"
+    },
+    "verification": {
+      "codeLabel": "確認コード",
+      "codePlaceholder": "6桁のコードを入力",
+      "sendCode": "確認コードを送信",
+      "sendingCode": "送信中...",
+      "verify": "確認",
+      "verifying": "確認中...",
+      "resend": "再送信",
+      "codeSentTo": "コードを{target}に送信しました",
+      "expiresIn": "{time}で期限切れ",
+      "expired": "確認コードが期限切れです。もう一度お試しください。",
+      "expiredRequest": "確認コードが期限切れです。新しいコードをリクエストしてください。",
+      "invalid": "無効な確認コードです。もう一度お試しください。",
+      "smsVerified": "SMS認証が完了しました",
+      "emailVerified": "メール認証が完了しました",
+      "smsRequired": "SMS認証には電話番号が必要です",
+      "emailRequired": "メール認証にはメールアドレスが必要です",
+      "enterCode": "確認コードを入力してください",
+      "verifySmsFirst": "連絡先を保存する前にSMSコードを確認してください",
+      "verifyNewSms": "連絡先を保存する前に新しい電話番号を確認してください",
+      "verifyEmailFirst": "連絡先を保存する前にメールコードを確認してください",
+      "verifyNewEmail": "連絡先を保存する前に新しいメールアドレスを確認してください"
+    },
+    "errors": {
+      "nameRequired": "連絡先名は必須です"
+    },
+    "languages": {
+      "en": "英語",
+      "no": "ノルウェー語",
+      "es": "スペイン語",
+      "pt": "ポルトガル語",
+      "de": "ドイツ語",
+      "fr": "フランス語",
+      "ja": "日本語",
+      "da": "デンマーク語",
+      "sv": "スウェーデン語"
+    }
+  },
+  "balanceAlerts": {
+    "title": "残高アラート",
+    "empty": {
+      "title": "残高アラートがありません",
+      "description": "ウォレットの残高が特定のしきい値に達したときに通知を受けるアラートを設定",
+      "list": "アラートが設定されていません"
+    },
+    "lastFired": "最終発動 {date}",
+    "deleteAlert": "アラートを削除",
+    "add": {
+      "title": "新しいアラートを作成",
+      "typeLabel": "アラートタイプ",
+      "types": {
+        "above": "以上",
+        "below": "以下",
+        "equals": "等しい"
+      },
+      "typeDescriptions": {
+        "above": "残高がこの金額を超えたときにアラート",
+        "below": "残高がこの金額を下回ったときにアラート",
+        "equals": "残高がこの金額と等しくなったときにアラート（例：ウォレット枯渇）"
+      },
+      "currencyLabel": "通貨タイプ",
+      "bitcoinBtc": "ビットコイン（BTC）",
+      "fiatCurrency": "法定通貨（{currency}）",
+      "bitcoinAmount": "ビットコイン金額",
+      "amount": "金額（{currency}）",
+      "enterAmountBtc": "BTCで金額を入力",
+      "enterAmount": "{currency}で金額を入力",
+      "thresholdLabel": "しきい値",
+      "thresholdPlaceholder": "0.1",
+      "btc": "BTC",
+      "submit": "作成",
+      "submitting": "作成中..."
+    },
+    "edit": {
+      "title": "残高アラートを編集"
+    },
+    "delete": {
+      "title": "アラートを削除",
+      "description": "この残高アラートを削除してもよろしいですか？"
+    },
+    "status": {
+      "active": "アクティブ",
+      "triggered": "トリガー済み",
+      "reactivate": "再有効化"
+    },
+    "errors": {
+      "invalidBtcAmount": "有効なビットコイン金額を入力してください",
+      "invalidPositiveAmount": "有効な正の金額を入力してください",
+      "negativeAmount": "金額は負の値にできません",
+      "belowZero": "'0以下'のアラートは作成できません - 残高は負になりません",
+      "duplicateAlert": "このタイプと金額のアラートは既に存在します",
+      "createFailed": "残高アラートの作成に失敗しました",
+      "deleteFailed": "アラートの削除に失敗しました"
+    }
+  },
+  "transactions": {
+    "title": "トランザクション",
+    "titleWithWallet": "トランザクション - {walletName}",
+    "loading": "トランザクションを読み込み中...",
+    "empty": "トランザクションがありません",
+    "emptyForWallet": "選択されたウォレットのトランザクションが見つかりません。",
+    "count": "{count}件のトランザクション",
+    "types": {
+      "receive": "受信",
+      "send": "送信",
+      "receiving": "受信中",
+      "sending": "送信中"
+    },
+    "status": {
+      "pending": "保留中",
+      "confirmed": "確認済み",
+      "dropped": "ドロップ",
+      "replaced": "置換済み"
+    },
+    "details": {
+      "txid": "トランザクションID",
+      "amount": "金額",
+      "fee": "手数料",
+      "date": "日付",
+      "confirmations": "確認数",
+      "block": "ブロック",
+      "address": "アドレス",
+      "replacedBy": "置換先",
+      "replacedAt": "置換日時"
+    },
+    "tableHeaders": {
+      "dateTime": "日時",
+      "wallet": "ウォレット",
+      "transaction": "トランザクション",
+      "amount": "金額",
+      "details": "詳細"
+    },
+    "tooltips": {
+      "cpfp": "CPFPトランザクション",
+      "rbfReplaced": "RBFにより置換",
+      "notificationsFailed": "一部の通知に失敗しました",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - {txid}の子",
+      "replacedByTx": "トランザクションによる置換: {txid}",
+      "viewOnMempool": "Mempool Spaceで{txid}を表示"
+    },
+    "timeline": {
+      "pending": "保留中",
+      "confirmed": "確認済み"
+    },
+    "notifications": {
+      "sentAt": "送信日時",
+      "statusLabel": "ステータス",
+      "errorLabel": "エラー",
+      "unknownTime": "不明な時刻",
+      "unknownTarget": "不明な宛先"
+    },
+    "error": "エラー: {error}",
+    "rbf": "RBF",
+    "cpfp": "CPFP",
+    "replacement": "置換",
+    "walletLabel": "ウォレット: {name}"
+  },
+  "billing": {
+    "title": "サブスクリプション",
+    "currentPlan": "現在のプラン",
+    "status": {
+      "active": "アクティブ",
+      "trialing": "トライアル",
+      "canceled": "キャンセル済み",
+      "expired": "期限切れ"
+    },
+    "trial": {
+      "daysLeft": "残り{days}日",
+      "endsOn": "トライアルは{date}に終了"
+    },
+    "manage": "請求管理",
+    "upgrade": "アップグレード",
+    "subscribe": "登録",
+    "plans": {
+      "personal": {
+        "name": "パーソナル",
+        "description": "個人のビットコイン保有者向け",
+        "features": {
+          "wallets": "1ウォレット",
+          "contacts": "ウォレットごとに1連絡先",
+          "sync": "10分同期",
+          "notifications": "すべての通知タイプ"
+        }
+      },
+      "team": {
+        "name": "チーム",
+        "description": "家族の管理者向け",
+        "features": {
+          "wallets": "5ウォレット",
+          "contacts": "ウォレットごとに5連絡先",
+          "sync": "2分同期",
+          "notifications": "すべての通知タイプ"
+        }
+      },
+      "selfHosted": {
+        "name": "セルフホスト",
+        "description": "独自のインフラで実行",
+        "features": {
+          "wallets": "無制限ウォレット",
+          "contacts": "無制限連絡先",
+          "sync": "カスタム同期間隔",
+          "notifications": "ntfyプッシュ通知"
+        }
+      }
+    },
+    "features": {
+      "wallets": {
+        "label": "ビットコインウォレット",
+        "selfhosted": "無制限ウォレット",
+        "personal": "1ウォレット",
+        "team": "5ウォレット"
+      },
+      "contacts": {
+        "label": "ウォレットごとの連絡先",
+        "selfhosted": "無制限連絡先",
+        "personal": "1連絡先",
+        "team": "ウォレットごとに5連絡先"
+      },
+      "sync": {
+        "label": "同期間隔",
+        "selfhosted": "設定可能な同期時間",
+        "personal": "10分同期",
+        "team": "2分同期"
+      },
+      "trial": "30日間無料トライアル",
+      "email": "メール通知",
+      "sms": "SMS通知",
+      "push": "プッシュ通知",
+      "balanceAlerts": "カスタム残高アラート",
+      "analysis": "トランザクション分析 (RBF/CPFP)",
+      "ownNode": "独自のビットコインノード",
+      "privacy": "完全なプライバシーとコントロール",
+      "noSubscription": "サブスクリプション料金なし"
+    },
+    "perMonth": "/月",
+    "perYear": "/年",
+    "saveYearly": "年間{percent}%節約",
+    "popular": "人気",
+    "currentPlanBadge": "現在のプラン",
+    "trialPlanBadge": "お試しプラン",
+    "freeToSelfHost": "セルフホストは無料",
+    "plusTaxes": "税別",
+    "changePlan": "プランを変更",
+    "subscribeTo": "{plan}に登録",
+    "upgradeTo": "{plan}にアップグレード",
+    "startTrial": "30日間の無料トライアルを開始",
+    "loadingPricing": "料金を読み込み中...",
+    "errorTitle": "料金を読み込めませんでした",
+    "errorDescription": "ページを更新するか、後でもう一度お試しください。",
+    "selfHosted": {
+      "description": "セルフホストをご希望ですか？Canaryはntfy経由のプッシュ通知付きで、お客様のインフラで無料で実行できます。",
+      "installUmbrel": "Umbrelにインストール",
+      "viewGithub": "GitHubで見る"
+    }
+  },
+  "subscriptionPage": {
+    "title": "サブスクリプション",
+    "selfHosted": {
+      "description": "セルフホストモードでは、サブスクリプション課金は利用できません。"
+    },
+    "loading": "請求情報を読み込み中...",
+    "notSignedIn": {
+      "message": "サブスクリプションを管理するにはサインインが必要です。",
+      "signIn": "サインイン"
+    },
+    "manageBilling": "請求を管理",
+    "currentPlan": {
+      "title": "現在のプラン",
+      "description": "有効なサブスクリプションと使用状況"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "サブスクリプション制限を超過",
+        "description": "{walletCount}個のウォレットがありますが、{tierName}プランでは{maxWallets}個までしか許可されていません。超過したウォレットは自動的に同期されず、一部の連絡先が非アクティブになる場合があります。",
+        "upgrade": "プランをアップグレード"
+      },
+      "pending": {
+        "title": "トライアル未開始",
+        "description": "30日間のTeamトライアルは、最初のウォレットを追加すると開始されます。それまで同期は有効になりません。",
+        "addWallet": "最初のウォレットを追加"
+      },
+      "cancelled": {
+        "title": "サブスクリプションがキャンセルされました",
+        "description": "サブスクリプションがキャンセルされました。{date}まで（残り{daysRemaining}日）アクセスできます。",
+        "reactivate": "サブスクリプションを再開"
+      },
+      "expired": {
+        "title": "サブスクリプションが期限切れ",
+        "description": "サブスクリプションが期限切れになりました。ウォレットの同期は完全に停止しましたが、データは保存されています。",
+        "reactivate": "サブスクリプションを再開"
+      },
+      "pastDue": {
+        "title": "支払い失敗 - 同期停止",
+        "description": "前回の支払いが失敗し、ウォレットの同期が直ちに停止しました。サービスを再開するには、支払い方法を更新してください。",
+        "updatePayment": "支払い方法を更新"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "トライアル: 残り{days}日",
+      "accessDaysLeft": "アクセス期限: 残り{days}日"
+    },
+    "buttons": {
+      "subscribe": "登録する",
+      "reactivate": "再開する"
+    },
+    "usage": {
+      "wallets": "ウォレット",
+      "overLimit": "（制限超過）",
+      "walletsInactive": "一部のウォレットが非アクティブです",
+      "syncInterval": "同期間隔",
+      "features": "機能",
+      "featuresList": "SMS、プッシュ、メール、取引分析"
+    },
+    "errors": {
+      "portalFailed": "請求管理を開けませんでした。もう一度お試しください。"
+    }
+  },
+  "upgrade": {
+    "title": "プランをアップグレード",
+    "choosePlan": "プランを選択",
+    "trialDescription": "トライアル終了後もウォレット通知が中断なく続くよう、今すぐご登録ください。継続的な監視でビットコインを安全に保ちましょう。",
+    "limitReachedDescription": "{tierName}プランの{limitType}制限{limit}に達しました。プランを比較してアップグレードし、追加してください。",
+    "currentUsage": "現在の使用量: {count} / {limit}",
+    "walletLimit": {
+      "title": "ウォレット制限に達しました",
+      "description": "プランの最大ウォレット数に達しました。アップグレードしてウォレットを追加してください。"
+    },
+    "contactLimit": {
+      "title": "連絡先制限に達しました",
+      "description": "このウォレットの最大連絡先数に達しました。アップグレードして連絡先を追加してください。"
+    }
+  },
+  "errors": {
+    "generic": "問題が発生しました。もう一度お試しください。",
+    "network": "ネットワークエラー。接続を確認してください。",
+    "unauthorized": "続行するにはログインしてください。",
+    "notFound": "見つかりません。",
+    "serverError": "サーバーエラー。後でもう一度お試しください。",
+    "validation": "入力を確認してもう一度お試しください。"
+  },
+  "footer": {
+    "logoAlt": "Canaryロゴ",
+    "appName": "Canary",
+    "blockInfo": "ブロック {height}"
+  },
+  "demoBanner": {
+    "title": "デモモード",
+    "description": "読み取り専用のデモウォレットを表示しています。すべての機能は閲覧のみです。",
+    "signUp": "登録して自分のウォレットを作成",
+    "dismiss": "バナーを閉じる"
+  }
+}

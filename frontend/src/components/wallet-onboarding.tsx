@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Clock } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useTranslations } from "next-intl"
 
 interface User {
   name?: string
@@ -18,6 +19,7 @@ interface WalletOnboardingProps {
 export function WalletOnboarding({ user }: WalletOnboardingProps) {
   const { billingStatus, isCloudMode } = useAuth()
   const isPending = isCloudMode && billingStatus?.subscription_status === 'pending'
+  const t = useTranslations('wallets.onboarding')
 
   // If user is in pending status (cloud mode only), show trial activation message
   if (isPending) {
@@ -33,32 +35,33 @@ export function WalletOnboarding({ user }: WalletOnboardingProps) {
                 </div>
 
                 <h2 className="text-3xl font-bold">
-                  Ready to Start Your Trial{user?.name ? `, ${user.name}` : ''}?
+                  {user?.name ? t('trial.titleWithName', { name: user.name }) : t('trial.title')}
                 </h2>
 
                 <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  Add your first wallet to activate your <span className="font-semibold text-blue-600 dark:text-blue-400">30-day Team trial</span>.
-                  You&apos;ll get instant access to all features including real-time sync, unlimited notifications, and priority support.
+                  {t.rich('trial.description', {
+                    highlight: (chunks) => <span className="font-semibold text-blue-600 dark:text-blue-400">{chunks}</span>
+                  })}
                 </p>
 
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg p-6 max-w-2xl mx-auto">
-                  <h3 className="font-semibold text-lg text-blue-800 dark:text-blue-300 mb-3">What you&apos;ll get:</h3>
+                  <h3 className="font-semibold text-lg text-blue-800 dark:text-blue-300 mb-3">{t('trial.whatYouGet')}</h3>
                   <div className="grid md:grid-cols-2 gap-3 text-sm text-blue-700 dark:text-blue-400">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      5 wallets with 2-minute sync
+                      {t('trial.features.wallets')}
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      5 contacts per wallet
+                      {t('trial.features.contacts')}
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      Email & SMS notifications
+                      {t('trial.features.emailSms')}
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      Push notifications via ntfy
+                      {t('trial.features.push')}
                     </div>
                   </div>
                 </div>
@@ -71,11 +74,11 @@ export function WalletOnboarding({ user }: WalletOnboardingProps) {
                     className="bg-blue-600 hover:bg-blue-700 text-white gap-2 text-lg px-8 py-3"
                   >
                     <Plus size={20} />
-                    Add Your First Wallet & Start Trial
+                    {t('trial.button')}
                   </Button>
                 </Link>
                 <p className="text-sm text-muted-foreground mt-3">
-                  Trial starts when you add your wallet
+                  {t('trial.note')}
                 </p>
               </div>
             </div>
@@ -96,11 +99,11 @@ export function WalletOnboarding({ user }: WalletOnboardingProps) {
             </div>
 
             <h2 className="text-2xl font-bold">
-              Add Your First Wallet
+              {t('simple.title')}
             </h2>
 
             <p className="text-muted-foreground">
-              Add a wallet descriptor to start monitoring your Bitcoin transactions.
+              {t('simple.description')}
             </p>
 
             <div className="pt-4">
@@ -110,7 +113,7 @@ export function WalletOnboarding({ user }: WalletOnboardingProps) {
                   className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
                 >
                   <Plus size={20} />
-                  Add Wallet
+                  {t('simple.button')}
                 </Button>
               </Link>
             </div>

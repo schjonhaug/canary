@@ -6,6 +6,7 @@ import { Bell, Mail, MessageCircle, AlertTriangle } from "lucide-react"
 import { Contact } from "../types"
 import { ContactModal } from "./contact-modal"
 import { useAuth } from "@/contexts/auth-context"
+import { useTranslations } from "next-intl"
 
 interface WalletContactsListProps {
   walletChecksum: string
@@ -18,6 +19,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const { user, isCloudMode, billingStatus } = useAuth()
+  const t = useTranslations('contacts')
 
   // All notification methods are available for all tiers - no need to check provider type
 
@@ -76,7 +78,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                     {shouldShowInactiveState && (
                       <Badge variant="outline" className="text-xs text-orange-600 border-orange-600 bg-orange-50">
                         <AlertTriangle className="h-3 w-3 mr-1" />
-                        Inactive
+                        {t('inactive.badge')}
                       </Badge>
                     )}
                   </div>
@@ -84,8 +86,8 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                 {shouldShowInactiveState && (
                   <div className="text-xs text-orange-600 mb-1">
                     {billingStatus?.subscription_status === 'expired'
-                      ? "Your subscription has expired - contact won't receive notifications"
-                      : "This contact exceeds your subscription tier limits and won't receive notifications"}
+                      ? t('inactive.expired')
+                      : t('inactive.tierLimit')}
                   </div>
                 )}
                 <div className="space-y-1">
@@ -140,7 +142,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
         </div>
       ) : (
         <div className="text-sm text-muted-foreground text-center py-4">
-          No contacts added yet
+          {t('empty.list')}
         </div>
       )}
 

@@ -11,10 +11,12 @@ Canary is a **Bitcoin monitoring and early warning system** built in [Rust](http
 ## Key Features
 
 ### Multi-Channel Notifications
-Real-time notifications in Norwegian and English via multiple channels:
+Real-time notifications in 7 languages via multiple channels:
 - **[ntfy.sh](https://ntfy.sh)** - Push notifications (self-hostable)
 - **SMS** - Via Twilio integration
 - **Email** - Via Resend integration
+
+**Supported Languages:** English, Norwegian, Spanish, Portuguese, German, French, Japanese
 
 ### Transaction Monitoring
 - Sending and receiving bitcoin notifications

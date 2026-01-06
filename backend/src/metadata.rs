@@ -31,6 +31,52 @@ pub enum Language {
     English,
     #[serde(rename = "no")]
     Norwegian,
+    #[serde(rename = "es")]
+    Spanish,
+    #[serde(rename = "pt")]
+    Portuguese,
+    #[serde(rename = "de")]
+    German,
+    #[serde(rename = "fr")]
+    French,
+    #[serde(rename = "ja")]
+    Japanese,
+    #[serde(rename = "da")]
+    Danish,
+    #[serde(rename = "sv")]
+    Swedish,
+}
+
+impl Language {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Language::English => "en",
+            Language::Norwegian => "no",
+            Language::Spanish => "es",
+            Language::Portuguese => "pt",
+            Language::German => "de",
+            Language::French => "fr",
+            Language::Japanese => "ja",
+            Language::Danish => "da",
+            Language::Swedish => "sv",
+        }
+    }
+}
+
+impl From<&str> for Language {
+    fn from(s: &str) -> Self {
+        match s {
+            "no" => Language::Norwegian,
+            "es" => Language::Spanish,
+            "pt" => Language::Portuguese,
+            "de" => Language::German,
+            "fr" => Language::French,
+            "ja" => Language::Japanese,
+            "da" => Language::Danish,
+            "sv" => Language::Swedish,
+            _ => Language::English, // Default fallback
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -58,8 +104,8 @@ pub struct UserRecord {
 
 impl UserRecord {}
 
-/// Convert browser locale to language code for emails
-/// Returns "no" for Norwegian locales, "en" for all others
+/// Convert browser locale to language code for emails and notifications
+/// Returns language code for supported locales, "en" for all others
 pub fn locale_to_language(locale: &str) -> &'static str {
     let locale_lower = locale.to_lowercase().replace('_', "-");
     if locale_lower.starts_with("nb")
@@ -67,6 +113,20 @@ pub fn locale_to_language(locale: &str) -> &'static str {
         || locale_lower.starts_with("no")
     {
         "no"
+    } else if locale_lower.starts_with("es") {
+        "es"
+    } else if locale_lower.starts_with("pt") {
+        "pt"
+    } else if locale_lower.starts_with("de") {
+        "de"
+    } else if locale_lower.starts_with("fr") {
+        "fr"
+    } else if locale_lower.starts_with("ja") {
+        "ja"
+    } else if locale_lower.starts_with("da") {
+        "da"
+    } else if locale_lower.starts_with("sv") {
+        "sv"
     } else {
         "en"
     }
@@ -91,31 +151,12 @@ impl EventType {
     }
 }
 
-impl Language {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Language::English => "en",
-            Language::Norwegian => "no",
-        }
-    }
-}
-
 impl From<&str> for EventType {
     fn from(s: &str) -> Self {
         match s {
             "send" => EventType::Send,
             "receive" => EventType::Receive,
             _ => panic!("Invalid event type: {}", s),
-        }
-    }
-}
-
-impl From<&str> for Language {
-    fn from(s: &str) -> Self {
-        match s {
-            "en" => Language::English,
-            "no" => Language::Norwegian,
-            _ => panic!("Invalid language: {}", s),
         }
     }
 }
@@ -3193,6 +3234,26 @@ impl MetadataDb {
             conn.execute(
                 "UPDATE users SET preferred_fiat_currency = ?1 WHERE id = ?2",
                 params![currency, user_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    /// Update user's preferred language
+    pub async fn update_user_preferred_language(
+        &self,
+        user_id: &str,
+        language: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let language = language.to_string();
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET preferred_language = ?1 WHERE id = ?2",
+                params![language, user_id],
             )?;
             Ok(())
         })

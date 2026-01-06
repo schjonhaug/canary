@@ -1,0 +1,78 @@
+_version: 1
+
+# Common strings used across multiple providers
+common:
+  greeting: "Olá %{to_name},"
+  footer: "Esta notificação foi enviada por Canary"
+  wallet: "Carteira"
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ Recebido: %{amount_btc} BTC em %{wallet_name}"
+    pending: "💸 Recebendo: %{amount_btc} BTC em %{wallet_name} (não confirmado)"
+    replaced: "🔄 Substituído: %{amount_btc} BTC para %{wallet_name} (substituído por %{short_txid})"
+  send:
+    confirmed_with_amount: "✅ Enviado: %{amount_btc} BTC de %{wallet_name}"
+    confirmed_no_amount: "✅ Enviado de %{wallet_name}"
+    pending: "📤 Enviando: %{amount_btc} BTC de %{wallet_name}"
+    replaced: "🔄 Substituído: %{amount_btc} BTC de %{wallet_name} (substituído por %{short_txid})"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 Alerta de Esvaziamento: O saldo de %{wallet_name} agora é 0 BTC"
+  equals: "📊 Alerta de Saldo: O saldo de %{wallet_name} agora é %{current_display}"
+  above: "📊 Alerta de Saldo: O saldo de %{wallet_name} agora está acima de %{threshold_display} (atual: %{current_display})"
+  below: "📊 Alerta de Saldo: O saldo de %{wallet_name} agora está abaixo de %{threshold_display} (atual: %{current_display})"
+
+# Notification titles (used by email subjects and ntfy push titles)
+titles:
+  receive:
+    pending: "Recebendo Bitcoin"
+    confirmed: "Bitcoin Recebido"
+  send:
+    pending: "Enviando Bitcoin"
+    confirmed: "Bitcoin Enviado"
+  balance_alert: "Alerta de Saldo"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "Transação de Bitcoin"
+  balance_alert:
+    header: "Alerta de Saldo"
+
+# Auth email templates (email_service.rs)
+auth_email:
+  verify_email:
+    subject: "Verifique seu e-mail - Canary"
+    header: "Bem-vindo ao Canary!"
+    body: "Obrigado por criar sua conta no Canary! Para começar, verifique seu endereço de e-mail clicando no botão abaixo."
+    button: "Verificar endereço de e-mail"
+    link_fallback: "Se o botão não funcionar, você pode copiar e colar este link no seu navegador:"
+    expiry: "Este link de verificação expirará em 24 horas. Se você não criou uma conta, pode ignorar este e-mail com segurança."
+  password_reset:
+    subject: "Redefina sua senha - Canary"
+    header: "Redefina sua senha"
+    body: "Recebemos uma solicitação para redefinir a senha da sua conta Canary. Clique no botão abaixo para criar uma nova senha."
+    button: "Redefinir senha"
+    link_fallback: "Se o botão não funcionar, você pode copiar e colar este link no seu navegador:"
+    expiry: "Este link de redefinição expirará em 1 hora. Se você não solicitou uma redefinição de senha, pode ignorar este e-mail com segurança."
+  contact_otp:
+    subject: "Verifique seu e-mail - Canary"
+    header: "Verificação de e-mail necessária"
+    body: "Verifique seu endereço de e-mail para receber notificações da carteira Bitcoin. Insira o código de verificação abaixo:"
+    expiry: "Este código de verificação expirará em 10 minutos. Se você não solicitou esta verificação, pode ignorar este e-mail com segurança."
+  trial_ending:
+    subject: "Seu período de teste do Canary termina em 3 dias"
+    header: "Seu período de teste está terminando em breve"
+    body: "Seu período de teste de 30 dias do Canary Team terminará em 3 dias em %{trial_ends_at}."
+    continue_text: "Para continuar desfrutando do monitoramento ininterrupto da carteira Bitcoin com notificações automáticas, assine um de nossos planos."
+    what_happens_header: "O que acontece quando seu período de teste terminar?"
+    sync_stops: "A sincronização da carteira será interrompida"
+    notifications_stop: "As notificações serão interrompidas"
+    data_safe: "Os dados da sua carteira permanecem seguros e acessíveis"
+    button: "Ver planos de assinatura"
+    choose_plan: "Escolha o plano ideal para você:"
+    personal_plan: "Personal: 1 carteira, 1 contato, sincronização a cada 10 minutos"
+    team_plan: "Team: 5 carteiras, 5 contatos por carteira, sincronização a cada 2 minutos"

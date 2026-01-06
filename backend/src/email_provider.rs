@@ -5,6 +5,7 @@ use crate::metadata::{
 };
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
+use rust_i18n::t;
 
 pub struct EmailProvider {
     email_service: Option<EmailService>,
@@ -223,18 +224,10 @@ impl EmailProvider {
         message: &str,
         language: &Language,
     ) -> String {
-        let (header, greeting, footer) = match language {
-            Language::Norwegian => (
-                "Bitcoin-transaksjon",
-                format!("Hei {},", to_name),
-                "Dette varselet ble sendt av Canary",
-            ),
-            Language::English => (
-                "Bitcoin Transaction",
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
-            ),
-        };
+        let locale = language.as_str();
+        let header = t!("email.transaction.header", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         format!(
             r#"
@@ -272,16 +265,9 @@ impl EmailProvider {
         message: &str,
         language: &Language,
     ) -> String {
-        let (greeting, footer) = match language {
-            Language::Norwegian => (
-                format!("Hei {},", to_name),
-                "Dette varselet ble sendt av Canary",
-            ),
-            Language::English => (
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
-            ),
-        };
+        let locale = language.as_str();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         format!("{}\n\n{}\n\n{}\n\n{}", subject, greeting, message, footer)
     }
@@ -293,20 +279,11 @@ impl EmailProvider {
         message: &str,
         language: &Language,
     ) -> String {
-        let (header, wallet_label, greeting, footer) = match language {
-            Language::Norwegian => (
-                "Saldovarsel",
-                "Lommebok",
-                format!("Hei {},", to_name),
-                "Dette varselet ble sendt av Canary",
-            ),
-            Language::English => (
-                "Balance Alert",
-                "Wallet",
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
-            ),
-        };
+        let locale = language.as_str();
+        let header = t!("email.balance_alert.header", locale = locale).to_string();
+        let wallet_label = t!("common.wallet", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         let subject = format!("📊 {} - {}", header, wallet_name);
         format!(
@@ -345,20 +322,11 @@ impl EmailProvider {
         message: &str,
         language: &Language,
     ) -> String {
-        let (header, wallet_label, greeting, footer) = match language {
-            Language::Norwegian => (
-                "Saldovarsel",
-                "Lommebok",
-                format!("Hei {},", to_name),
-                "Dette varselet ble sendt av Canary",
-            ),
-            Language::English => (
-                "Balance Alert",
-                "Wallet",
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
-            ),
-        };
+        let locale = language.as_str();
+        let header = t!("email.balance_alert.header", locale = locale).to_string();
+        let wallet_label = t!("common.wallet", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         let subject = format!("📊 {} - {}", header, wallet_name);
         format!(

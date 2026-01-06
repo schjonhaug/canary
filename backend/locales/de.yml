@@ -1,0 +1,78 @@
+_version: 1
+
+# Common strings used across multiple providers
+common:
+  greeting: "Hallo %{to_name},"
+  footer: "Diese Benachrichtigung wurde von Canary gesendet"
+  wallet: "Wallet"
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ Erhalten: %{amount_btc} BTC an %{wallet_name}"
+    pending: "💸 Empfange: %{amount_btc} BTC an %{wallet_name} (unbestätigt)"
+    replaced: "🔄 Ersetzt: %{amount_btc} BTC an %{wallet_name} (ersetzt durch %{short_txid})"
+  send:
+    confirmed_with_amount: "✅ Gesendet: %{amount_btc} BTC von %{wallet_name}"
+    confirmed_no_amount: "✅ Gesendet von %{wallet_name}"
+    pending: "📤 Sende: %{amount_btc} BTC von %{wallet_name}"
+    replaced: "🔄 Ersetzt: %{amount_btc} BTC von %{wallet_name} (ersetzt durch %{short_txid})"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 Wallet leer: %{wallet_name} Guthaben ist jetzt 0 BTC"
+  equals: "📊 Saldowarnung: %{wallet_name} Guthaben ist jetzt %{current_display}"
+  above: "📊 Saldowarnung: %{wallet_name} Guthaben ist jetzt über %{threshold_display} (aktuell: %{current_display})"
+  below: "📊 Saldowarnung: %{wallet_name} Guthaben ist jetzt unter %{threshold_display} (aktuell: %{current_display})"
+
+# Notification titles (used by email subjects and ntfy push titles)
+titles:
+  receive:
+    pending: "Bitcoin empfangen"
+    confirmed: "Bitcoin erhalten"
+  send:
+    pending: "Bitcoin senden"
+    confirmed: "Bitcoin gesendet"
+  balance_alert: "Saldowarnung"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "Bitcoin-Transaktion"
+  balance_alert:
+    header: "Saldowarnung"
+
+# Auth email templates (email_service.rs)
+auth_email:
+  verify_email:
+    subject: "E-Mail bestätigen - Canary"
+    header: "Willkommen bei Canary!"
+    body: "Vielen Dank für die Erstellung Ihres Canary-Kontos! Um zu beginnen, bestätigen Sie bitte Ihre E-Mail-Adresse, indem Sie auf die Schaltfläche unten klicken."
+    button: "E-Mail-Adresse bestätigen"
+    link_fallback: "Wenn die Schaltfläche nicht funktioniert, können Sie diesen Link kopieren und in Ihren Browser einfügen:"
+    expiry: "Dieser Bestätigungslink läuft in 24 Stunden ab. Wenn Sie kein Konto erstellt haben, können Sie diese E-Mail einfach ignorieren."
+  password_reset:
+    subject: "Passwort zurücksetzen - Canary"
+    header: "Setzen Sie Ihr Passwort zurück"
+    body: "Wir haben eine Anfrage zum Zurücksetzen Ihres Passworts für Ihr Canary-Konto erhalten. Klicken Sie auf die Schaltfläche unten, um ein neues Passwort zu erstellen."
+    button: "Passwort zurücksetzen"
+    link_fallback: "Wenn die Schaltfläche nicht funktioniert, können Sie diesen Link kopieren und in Ihren Browser einfügen:"
+    expiry: "Dieser Link zum Zurücksetzen läuft in 1 Stunde ab. Wenn Sie keine Passwort-Zurücksetzung angefordert haben, können Sie diese E-Mail einfach ignorieren."
+  contact_otp:
+    subject: "E-Mail bestätigen - Canary"
+    header: "E-Mail-Bestätigung erforderlich"
+    body: "Bitte bestätigen Sie Ihre E-Mail-Adresse, um Bitcoin-Wallet-Benachrichtigungen zu erhalten. Geben Sie den untenstehenden Bestätigungscode ein:"
+    expiry: "Dieser Bestätigungscode läuft in 10 Minuten ab. Wenn Sie diese Bestätigung nicht angefordert haben, können Sie diese E-Mail einfach ignorieren."
+  trial_ending:
+    subject: "Ihre Canary-Testversion endet in 3 Tagen"
+    header: "Ihre Testversion endet bald"
+    body: "Ihre 30-tägige Canary Team-Testversion endet in 3 Tagen am %{trial_ends_at}."
+    continue_text: "Um weiterhin von der unterbrechungsfreien Bitcoin-Wallet-Überwachung mit automatischen Benachrichtigungen zu profitieren, abonnieren Sie bitte einen unserer Pläne."
+    what_happens_header: "Was passiert, wenn Ihre Testversion endet?"
+    sync_stops: "Wallet-Synchronisierung wird gestoppt"
+    notifications_stop: "Benachrichtigungen werden gestoppt"
+    data_safe: "Ihre Wallet-Daten bleiben sicher und zugänglich"
+    button: "Abonnementpläne anzeigen"
+    choose_plan: "Wählen Sie den Plan, der am besten zu Ihnen passt:"
+    personal_plan: "Personal: 1 Wallet, 1 Kontakt, 10-Minuten-Synchronisierung"
+    team_plan: "Team: 5 Wallets, 5 Kontakte pro Wallet, 2-Minuten-Synchronisierung"

@@ -124,6 +124,36 @@ pub async fn update_user_preferences(
             .unwrap_or_else(|_| "USD".to_string())
     };
 
+    // Update preferred_language if provided
+    if let Some(ref language) = request.preferred_language {
+        // Validate language is supported
+        const SUPPORTED_LANGUAGES: [&str; 9] = ["en", "no", "es", "pt", "de", "fr", "ja", "da", "sv"];
+        if !SUPPORTED_LANGUAGES.contains(&language.as_str()) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: format!("Unsupported language: {}", language),
+                }),
+            )
+                .into_response();
+        }
+
+        // Update user's preferred language
+        if let Err(e) = app_services
+            .metadata_db
+            .update_user_preferred_language(&user.user_id, language)
+            .await
+        {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to update language preference: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    }
+
     // Update ntfy_server_url if the field was provided in the request
     // Note: We check if the outer Option is Some (field was in JSON)
     // The inner value can be Some(url) to set, or could be empty string to clear

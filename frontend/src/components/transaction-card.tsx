@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { Transaction } from "../types"
 import { formatBitcoinAmount, formatTransactionAmount, formatDateTime } from "@/lib/utils"
+import { useTranslations } from "next-intl"
 
 interface TransactionCardProps {
   transaction: Transaction
@@ -26,6 +27,7 @@ interface TransactionCardProps {
 
 export function TransactionCard({ transaction, showWalletName }: TransactionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const t = useTranslations('transactions')
 
   const getUniqueProviderSummary = (notifications: typeof transaction.notification_status) => {
     if (!notifications || notifications.length === 0) return null
@@ -144,16 +146,16 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                     <span className="font-medium flex-shrink-0">{contactName}:</span>
                     <div className="flex items-center gap-1 flex-wrap">
                       {contactNotifications.map((notification, idx) => {
-                        const notificationTime = notification.created_at ? formatDateTime(notification.created_at) : 'Unknown time'
+                        const notificationTime = notification.created_at ? formatDateTime(notification.created_at) : t('notifications.unknownTime')
                         const providerType = notification.provider_type || notification.provider_name.toLowerCase()
-                        const target = notification.notification_target || 'Unknown target'
+                        const target = notification.notification_target || t('notifications.unknownTarget')
                         const hasError = notification.status !== 'sent' && notification.status !== 'delivered'
 
-                        let tooltipText = `${target}\nSent at: ${notificationTime}`
+                        let tooltipText = `${target}\n${t('notifications.sentAt')}: ${notificationTime}`
                         if (hasError) {
-                          tooltipText += `\nStatus: ${notification.status}`
+                          tooltipText += `\n${t('notifications.statusLabel')}: ${notification.status}`
                           if (notification.error_message) {
-                            tooltipText += `\nError: ${notification.error_message}`
+                            tooltipText += `\n${t('notifications.errorLabel')}: ${notification.error_message}`
                           }
                         }
 
@@ -181,7 +183,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                         )
                       })}
                       {hasErrors && (
-                        <span title="Some notifications failed">
+                        <span title={t('tooltips.notificationsFailed')}>
                           <XCircle className="h-3 w-3 text-red-500 ml-1 flex-shrink-0" />
                         </span>
                       )}
@@ -199,7 +201,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
         {pendingNotifications.length > 0 && (
           <div className="border rounded-md bg-muted/30 p-3 space-y-2">
             <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              PENDING - {formatDateTime(transaction.first_seen_at)}
+              {t('timeline.pending')} - {formatDateTime(transaction.first_seen_at)}
             </h5>
             {renderNotificationGroup(pendingNotifications, "")}
           </div>
@@ -212,7 +214,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
         {confirmedNotifications.length > 0 && (
           <div className="border rounded-md bg-muted/30 p-3 space-y-2">
             <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              CONFIRMED{transaction.confirmed_at ? ` - ${formatDateTime(transaction.confirmed_at)}` : ''}
+              {t('timeline.confirmed')}{transaction.confirmed_at ? ` - ${formatDateTime(transaction.confirmed_at)}` : ''}
             </h5>
             {renderNotificationGroup(confirmedNotifications, "")}
           </div>
@@ -239,27 +241,27 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                 {transaction.transaction_status === "replaced" ? (
                   <>
                     <XCircle className="h-3 w-3 text-orange-500 mr-1" />
-                    Replaced
+                    {t('status.replaced')}
                   </>
                 ) : transaction.block_height !== null ? (
                   <>
                     <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                    {transaction.transaction_type === "receive" ? "Received" : "Sent"}
+                    {transaction.transaction_type === "receive" ? t('types.receive') : t('types.send')}
                   </>
                 ) : (
                   <>
                     <Loader2 className="h-3 w-3 text-yellow-500 animate-spin mr-1" />
-                    {transaction.transaction_type === "receive" ? "Receiving" : "Sending"}
+                    {transaction.transaction_type === "receive" ? t('types.receiving') : t('types.sending')}
                   </>
                 )}
               </Badge>
               {transaction.parent_txid && (
-                <span title="CPFP transaction">
+                <span title={t('tooltips.cpfp')}>
                   <Baby className="h-4 w-4" />
                 </span>
               )}
               {transaction.replaced_by_txid && (
-                <span title="Replaced by RBF">
+                <span title={t('tooltips.rbfReplaced')}>
                   <ArrowRight className="h-4 w-4 text-orange-500" />
                 </span>
               )}
@@ -290,7 +292,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
           {/* Wallet Name (if multiple wallets) */}
           {showWalletName && (
             <div className="text-sm text-muted-foreground mt-1">
-              Wallet: <span className="font-medium">{transaction.wallet_name}</span>
+              {t('walletLabel', { name: transaction.wallet_name })}
             </div>
           )}
 
@@ -302,32 +304,32 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
             <div>
               <div className="space-y-1">
                 <div className="flex items-center gap-3 text-sm">
-                  <span className="font-medium min-w-[80px]">Transaction ID:</span>
+                  <span className="font-medium min-w-[80px]">{t('details.txid')}:</span>
                   <a
                     href={`https://mempool.space/tx/${transaction.txid}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-mono text-xs text-blue-600 hover:text-blue-800 underline"
-                    title={`View ${transaction.txid} on Mempool Space`}
+                    title={t('tooltips.viewOnMempool', { txid: transaction.txid })}
                   >
                     {transaction.txid.slice(0, 5)}...{transaction.txid.slice(-5)}
                   </a>
                 </div>
                 {transaction.fee_sats && (
                   <div className="flex items-center gap-3 text-sm">
-                    <span className="font-medium min-w-[80px]">Fee:</span>
+                    <span className="font-medium min-w-[80px]">{t('details.fee')}:</span>
                     <span className="font-mono text-xs">{formatTransactionAmount(transaction.fee_sats)}</span>
                   </div>
                 )}
                 {transaction.transaction_status === "replaced" && transaction.replaced_by_txid && (
                   <div className="flex items-center gap-3 text-sm">
-                    <span className="font-medium min-w-[80px]">Replaced by:</span>
+                    <span className="font-medium min-w-[80px]">{t('details.replacedBy')}:</span>
                     <a
                       href={`https://mempool.space/tx/${transaction.replaced_by_txid}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-xs text-orange-600 hover:text-orange-800 underline"
-                      title={`View ${transaction.replaced_by_txid} on Mempool Space`}
+                      title={t('tooltips.viewOnMempool', { txid: transaction.replaced_by_txid })}
                     >
                       {transaction.replaced_by_txid.slice(0, 5)}...{transaction.replaced_by_txid.slice(-5)}
                     </a>
@@ -335,7 +337,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                 )}
                 {transaction.replaced_at && (
                   <div className="flex items-center gap-3 text-sm">
-                    <span className="font-medium min-w-[80px]">Replaced at:</span>
+                    <span className="font-medium min-w-[80px]">{t('details.replacedAt')}:</span>
                     <span className="text-xs">{formatDateTime(transaction.replaced_at)}</span>
                   </div>
                 )}
@@ -347,13 +349,13 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
               <div className="space-y-2">
                 <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase">
                   <span className="font-semibold">
-                    PENDING - {formatDateTime(transaction.first_seen_at)}
+                    {t('timeline.pending')} - {formatDateTime(transaction.first_seen_at)}
                   </span>
                   {transaction.confirmed_at && (
                     <>
                       <ArrowRight className="h-3 w-3" />
                       <span className="font-semibold">
-                        CONFIRMED - {formatDateTime(transaction.confirmed_at)}
+                        {t('timeline.confirmed')} - {formatDateTime(transaction.confirmed_at)}
                       </span>
                     </>
                   )}

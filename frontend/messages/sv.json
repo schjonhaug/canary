@@ -1,0 +1,970 @@
+{
+  "common": {
+    "loading": "Laddar...",
+    "save": "Spara",
+    "saving": "Sparar...",
+    "cancel": "Avbryt",
+    "delete": "Ta bort",
+    "deleting": "Tar bort...",
+    "edit": "Redigera",
+    "add": "Lägg till",
+    "close": "Stäng",
+    "confirm": "Bekräfta",
+    "back": "Tillbaka",
+    "next": "Nästa",
+    "submit": "Skicka",
+    "verify": "Verifiera",
+    "verifying": "Verifierar...",
+    "send": "Skicka",
+    "sending": "Skickar...",
+    "retry": "Försök igen",
+    "yes": "Ja",
+    "no": "Nej",
+    "or": "eller",
+    "and": "och",
+    "active": "AKTIV",
+    "inactive": "INAKTIV",
+    "pending": "Väntar",
+    "confirmed": "Bekräftad",
+    "failed": "Misslyckades",
+    "success": "Klart",
+    "error": "Fel",
+    "warning": "Varning",
+    "info": "Info",
+    "savedSuccessfully": "Sparades framgångsrikt!",
+    "connectingToNetwork": "Ansluter till nätverk...",
+    "emailPlaceholder": "din@email.com",
+    "emailLabel": "E-post",
+    "passwordLabel": "Lösenord",
+    "name": "Namn",
+    "new": "Ny",
+    "backToWallets": "Tillbaka till plånböcker",
+    "backToSignIn": "Tillbaka till inloggning",
+    "selfHostedMode": "Självvärdläge"
+  },
+  "nav": {
+    "signIn": "Logga in",
+    "signOut": "Logga ut",
+    "settings": "Inställningar",
+    "wallets": "Plånböcker",
+    "addWallet": "Lägg till plånbok",
+    "alreadyUser": "Redan användare? Logga in",
+    "contact": "Kontakt",
+    "subscription": "Prenumeration"
+  },
+  "contactPage": {
+    "title": "Kontakt",
+    "selfHosted": {
+      "description": "Kontaktformulär är inte tillgängligt i självvärdläge."
+    },
+    "form": {
+      "title": "Hör av dig",
+      "description": "Har du en fråga eller feedback? Vi vill gärna höra från dig.",
+      "messageLabel": "Meddelande",
+      "messagePlaceholder": "Hur kan vi hjälpa dig?",
+      "characterCount": "{count}/{max} tecken",
+      "submit": "Skicka meddelande"
+    },
+    "validation": {
+      "emailRequired": "E-post krävs",
+      "emailInvalid": "Ange en giltig e-postadress",
+      "emailTooLong": "E-postadressen får inte vara längre än {max} tecken",
+      "messageRequired": "Meddelande krävs",
+      "messageTooShort": "Meddelandet måste vara minst {min} tecken",
+      "messageTooLong": "Meddelandet får inte vara längre än {max} tecken"
+    },
+    "errors": {
+      "sendFailed": "Misslyckades att skicka meddelande"
+    }
+  },
+  "landing": {
+    "hero": {
+      "title": "Komplett övervakning av Bitcointillgångar",
+      "description": "Professionell Bitcoinövervakning med transaktionslarm och intelligenta saldonotiser. Ställ in anpassade saldotrösklar, övervaka plånbokstömningar, spåra alla transaktioner – allt med watch-only säkerhet.",
+      "startTrial": "Starta 30 dagars gratis provperiod",
+      "tryDemo": "Prova demot",
+      "viewPricing": "Se priser"
+    },
+    "features": {
+      "title": "Komplett övervakning av Bitcointillgångar",
+      "subtitle": "Transaktionsspårning, saldolarm och säker watch-only övervakning",
+      "notifications": {
+        "title": "Omedelbara notiser om Bitcointransaktioner",
+        "description": "Realtidslarm för Bitcoinplånböcker via e-post, SMS och push-notiser levererade direkt till din enhet"
+      },
+      "balanceAlerts": {
+        "title": "Intelligent system för saldolarm",
+        "description": "Anpassade saldotrösklar med larm för plånbokstömningar, stora insättningar eller när specifika belopp nås. Missa aldrig kritiska saldoförändringar."
+      },
+      "security": {
+        "title": "Säker watch-only Bitcoinövervakning",
+        "description": "Watch-only åtkomst till Bitcoinplånböcker med XPUBs eller descriptorer – vi rör aldrig dina privata nycklar"
+      },
+      "sync": {
+        "title": "Realtidssynkronisering av Bitcoinplånböcker",
+        "description": "Synkroniseringsintervaller för Bitcoinplånböcker från 10 minuter ner till 2 minuter beroende på din prenumerationsplan"
+      }
+    },
+    "balanceAlerts": {
+      "title": "Missa aldrig kritiska saldoförändringar",
+      "description": "Ställ in anpassade saldotrösklar för att övervaka dina totala tillgångar i plånboken. Få larm när ditt saldo når specifika nivåer. Perfekt för övervakning av cold storage, upptäckt av plånbokstömning eller spårning av viktiga saldomilstolpar.",
+      "above": {
+        "title": "Larm vid saldo över tröskelvärde",
+        "description": "Få notiser när ditt totala saldo stiger över ett inställt tröskelvärde. Övervaka när dina tillgångar når viktiga milstolpar."
+      },
+      "below": {
+        "title": "Larm vid saldo under tröskelvärde",
+        "description": "Få notiser när ditt totala saldo sjunker under ett inställt tröskelvärde. Ställ in varningar för lågt saldo för dina tillgångar."
+      },
+      "drain": {
+        "title": "Upptäckt av plånbokstömning",
+        "description": "Få notiser när ditt totala saldo motsvarar ett specifikt belopp, till exempel noll vid plånbokstömningar. Kritisk säkerhetsövervakning."
+      },
+      "example": {
+        "title": "Din Bitcoinplånbok",
+        "currentBalance": "0,05 BTC",
+        "aboveThreshold": "Över 0,1 BTC",
+        "belowThreshold": "Under 0,01 BTC",
+        "equalsZero": "Lika med 0 BTC",
+        "active": "AKTIV",
+        "deliveryNote": "Alla varningar levereras via e-post, SMS och push-notiser"
+      }
+    },
+    "pricing": {
+      "title": "Enkel och transparent prissättning",
+      "subtitle": "Välj planen som passar dina behov",
+      "trialNote": "Molnplaner inkluderar en 30 dagars gratis provperiod – Inget kreditkort krävs"
+    },
+    "faq": {
+      "title": "Vanliga frågor",
+      "contactUs": "Kontakta oss här",
+      "items": {
+        "whatIsCanary": {
+          "question": "Vad är Canary bitcoin-plånboksbevakning?",
+          "answer": "Canary är en professionell tjänst för bitcoin-plånboksbevakning och aviseringar som bevakar dina bitcoin-plånböcker med hjälp av XPUB:ar eller deskriptorer och skickar omedelbara varningar för alla transaktioner via e-post, SMS och push-notiser. Perfekt för bevakning av cold storage, hårdvaruplånböcker och watch-only bitcoin-adresser."
+        },
+        "howDoesItWork": {
+          "question": "Hur fungerar bitcoin-plånboksbevakning utan privata nycklar?",
+          "answer": "Canary använder din plånboks XPUB (utökad publik nyckel) eller deskriptor för watch-only-bevakning av bitcoin. Detta ger oss skrivskyddad åtkomst för att spåra dina bitcoin-adresser och upptäcka transaktioner. Vi har aldrig tillgång till dina privata nycklar och kan inte flytta dina bitcoin – vilket säkerställer fullständig säkerhet för din cold storage-bevakning."
+        },
+        "whatIsXpub": {
+          "question": "Vad är XPUB-plånboksbevakning?",
+          "answer": "XPUB-bevakning gör att du kan spåra alla adresser i din bitcoin-plånbok utan att exponera privata nycklar. Genom att ange din plånboks XPUB eller deskriptor kan Canary bevaka obegränsat antal adresser, upptäcka transaktioner på vilket djup som helst (även 200+ adresser djupt) och varna dig omedelbart när bitcoin flyttas."
+        },
+        "coldStorage": {
+          "question": "Kan jag bevaka bitcoin-plånböcker i cold storage?",
+          "answer": "Ja! Canary är perfekt för bevakning av bitcoin i cold storage. Oavsett om du använder hårdvaruplånböcker som Ledger eller Trezor, pappersplånböcker eller någon annan cold storage-lösning, behöver du bara ange din XPUB eller deskriptor för säker watch-only-bevakning med omedelbara aviseringar."
+        },
+        "notificationSpeed": {
+          "question": "Hur snabba är aviseringarna för bitcoin-transaktioner?",
+          "answer": "Med vår Team-plan får du aviseringar om bitcoin-transaktioner i nästan realtid med synkroniseringsintervall så snabba som 2 minuter på mainnet. De flesta aviseringar anländer inom några sekunder efter att transaktionen upptäckts. Personliga planer synkroniseras var tionde minut, vilket fortfarande säkerställer varningar i rätt tid för dina bitcoin-plånböcker."
+        },
+        "walletTypes": {
+          "question": "Vilka typer av bitcoin-plånböcker stöds?",
+          "answer": "Canary stöder alla större typer av bitcoin-plånböcker, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) och Taproot (P2TR). Vi känner automatiskt av din plånbokstyp från din XPUB, eller så kan du ange den manuellt. Bevakning av multisig- och hårdvaruplånböcker stöds fullt ut."
+        },
+        "whyCanary": {
+          "question": "Varför heter det Canary?",
+          "answer": "Precis som en kanariefågel i en kolgruva som ger en tidig varning, fungerar Canary som din bitcoin-plånboks tidiga varningssystem. När dina bitcoin ligger i cold storage kontrollerar du dem sällan. Canary bevakar dygnet runt och varnar dig omedelbart när dina bitcoin flyttas, vilket ger sinnesro för långsiktiga ägare."
+        },
+        "noBlockchain": {
+          "question": "Kan jag spåra bitcoin utan att ladda ner blockkedjan?",
+          "answer": "Ja! Canary ansluter till professionella Electrum-servrar för att bevaka bitcoin-blockkedjan åt dig. Du behöver inte köra en egen nod eller ladda ner blockkedjan – ange bara din XPUB och börja ta emot omedelbara aviseringar för all aktivitet i din bitcoin-plånbok."
+        },
+        "balanceAlerts": {
+          "question": "Hur fungerar saldovarningar för bitcoin?",
+          "answer": "Canarys system för saldovarningar låter dig ställa in anpassade tröskelvärden för att bevaka ditt totala plånbokssaldo. Skapa varningar för när ditt saldo går över ett visst belopp, under ett tröskelvärde (varning för lågt saldo) eller blir noll (upptäckt av tömd plånbok). Perfekt för att spåra cold storage utan manuell kontroll."
+        },
+        "alertTypes": {
+          "question": "Vilka typer av saldovarningar finns tillgängliga?",
+          "answer": "Du kan skapa tre typer av saldovarningar: 'Över'-varningar utlöses när ditt totala saldo överstiger ett tröskelvärde (bevaka när innehav når milstolpar), 'Under'-varningar varnar när det totala saldot sjunker under ett belopp (varningar för lågt saldo), och 'Lika med'-varningar upptäcker exakta saldobelopp som tömda plånböcker (saldo = 0) eller specifika mål."
+        },
+        "multipleWallets": {
+          "question": "Kan jag bevaka flera bitcoin-plånböcker med olika saldotrösklar?",
+          "answer": "Ja! Varje bitcoin-plånbok kan ha sin egen uppsättning anpassade saldovarningar. Med vår Team-plan kan du bevaka upp till 5 plånböcker, var och en med unika saldotrösklar. Perfekt för 'Uncle Jims' som bevakar familjens bitcoin-innehav eller företag som spårar flera treasury-plånböcker med olika varningskrav."
+        },
+        "contact": {
+          "question": "Hur kan jag kontakta er?",
+          "answer": "Vi vill gärna höra från dig! Du kan nå oss via vårt kontaktformulär för frågor, feedback eller supportärenden. Vi svarar vanligtvis inom 24 timmar."
+        }
+      }
+    },
+    "cta": {
+      "title": "Börja med komplett Bitcoinövervakning idag",
+      "description": "Transaktionslarm, saldoövervakning och sinnesro för din Bitcoin-förmögenhet"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Välkommen tillbaka",
+      "subtitle": "Logga in på ditt Canary-konto",
+      "passwordPlaceholder": "Ange ditt lösenord",
+      "submit": "Logga in",
+      "submitting": "Loggar in...",
+      "noAccount": "Har du inget konto? Registrera dig",
+      "forgotPassword": "Glömt ditt lösenord?",
+      "devMode": "Utvecklingsläge",
+      "loginFailed": "Inloggningen misslyckades"
+    },
+    "signUp": {
+      "title": "Starta din 30-dagars gratis provperiod",
+      "subtitle": "30 dagar gratis, fortsätt sedan med valfri plan",
+      "nameLabel": "Namn",
+      "namePlaceholder": "Ange ditt namn",
+      "passwordPlaceholder": "Ange ett starkt lösenord",
+      "passwordHint": "Lösenordet måste vara minst 6 tecken långt",
+      "marketingConsent": "Jag vill få e-postmeddelanden då och då om uppdateringar av tjänsten",
+      "submit": "Skapa konto",
+      "submitting": "Skapar konto...",
+      "hasAccount": "Har du redan ett konto? Logga in",
+      "signInInstead": "Logga in istället",
+      "registrationFailed": "Registreringen misslyckades"
+    },
+    "signUpSuccess": {
+      "title": "Kontrollera din e-post",
+      "description": "Vi har skickat en verifieringslänk till din e-postadress. Klicka på länken för att verifiera ditt konto.",
+      "didntReceive": "Fick du inget e-postmeddelande?",
+      "checkSpam": "Kontrollera din skräppost",
+      "resend": "Skicka verifieringsmeddelandet igen"
+    },
+    "forgotPassword": {
+      "title": "Glömt ditt lösenord?",
+      "subtitle": "Ange din e-postadress så skickar vi en återställningslänk",
+      "submit": "Skicka återställningslänk",
+      "successTitle": "Kontrollera din e-post",
+      "successMessage": "Om ett konto finns med den e-postadressen kommer du att få en länk för lösenordsåterställning."
+    },
+    "resetPassword": {
+      "title": "Återställ ditt lösenord",
+      "subtitle": "Ange ditt nya lösenord nedan",
+      "passwordLabel": "Nytt lösenord",
+      "passwordPlaceholder": "Ange ditt nya lösenord",
+      "confirmLabel": "Bekräfta lösenord",
+      "confirmPlaceholder": "Bekräfta ditt nya lösenord",
+      "submit": "Återställ lösenord",
+      "submitting": "Återställer...",
+      "passwordMismatch": "Lösenorden stämmer inte överens",
+      "successTitle": "Lösenordet har återställts",
+      "successMessage": "Ditt lösenord har återställts. Du kan nu logga in.",
+      "invalidToken": "Ogiltig eller utgången återställningslänk"
+    },
+    "verifyEmail": {
+      "verifying": "Verifierar din e-postadress...",
+      "successTitle": "E-postadressen har verifierats",
+      "successMessage": "Din e-postadress har verifierats. Du kan nu logga in.",
+      "errorTitle": "Verifieringen misslyckades",
+      "invalidToken": "Ogiltig eller utgången verifieringslänk",
+      "signIn": "Logga in"
+    }
+  },
+  "settings": {
+    "title": "Inställningar",
+    "display": {
+      "title": "Visningsinställningar",
+      "description": "Anpassa hur Bitcoin-värden visas i dina plånböcker",
+      "currencyLabel": "Fiat-valuta",
+      "currencyPlaceholder": "Välj en valuta",
+      "currencyNote": "Växelkurser uppdateras var 10:e minut från CoinGecko"
+    },
+    "currencies": {
+      "USD": "Amerikansk dollar",
+      "EUR": "Euro",
+      "GBP": "Brittiskt pund",
+      "CAD": "Kanadensisk dollar",
+      "AUD": "Australisk dollar",
+      "CHF": "Schweizisk franc",
+      "JPY": "Japansk yen",
+      "CNY": "Kinesisk yuan",
+      "INR": "Indisk rupie",
+      "KRW": "Sydkoreansk won",
+      "RUB": "Rysk rubel",
+      "BRL": "Brasiliansk real",
+      "MXN": "Mexikansk peso",
+      "SGD": "Singaporiansk dollar",
+      "HKD": "Hongkongdollar",
+      "NOK": "Norsk krona",
+      "SEK": "Svensk krona",
+      "DKK": "Dansk krona",
+      "PLN": "Polsk złoty",
+      "THB": "Thailändsk baht",
+      "IDR": "Indonesisk rupiah",
+      "HUF": "Ungersk forint",
+      "CZK": "Tjeckisk koruna",
+      "ILS": "Israelisk shekel",
+      "CLP": "Chilensk peso",
+      "PHP": "Filippinsk peso",
+      "AED": "Förenade Arabemiratens dirham",
+      "TRY": "Turkisk lira",
+      "ZAR": "Sydafrikansk rand",
+      "TWD": "Taiwanesisk dollar",
+      "NZD": "Nyzeeländsk dollar",
+      "ARS": "Argentinsk peso",
+      "SAR": "Saudisk riyal",
+      "PKR": "Pakistansk rupie",
+      "MYR": "Malaysisk ringgit",
+      "NGN": "Nigeriansk naira",
+      "VND": "Vietnamesisk dong",
+      "UAH": "Ukrainsk hryvnia",
+      "GEL": "Georgisk lari",
+      "BDT": "Bangladeshisk taka",
+      "VEF": "Venezuelansk bolívar",
+      "LKR": "Srilankansk rupie",
+      "BHD": "Bahrainsk dinar",
+      "BMD": "Bermudisk dollar",
+      "KWD": "Kuwaitisk dinar",
+      "MMK": "Burmesisk kyat"
+    },
+    "language": {
+      "title": "Språk",
+      "description": "Välj ditt föredragna språk för gränssnittet",
+      "label": "Språk"
+    },
+    "ntfy": {
+      "title": "Push-notiser",
+      "description": "Konfigurera din ntfy-server för push-notiser",
+      "serverLabel": "URL för ntfy-server",
+      "serverPlaceholder": "https://ntfy.sh",
+      "serverNoteBefore": "Lämna tomt för att använda den publika ntfy.sh-servern. Du kan ",
+      "selfHostLink": "självvärda ntfy",
+      "serverNoteAfter": " för fullständig integritet.",
+      "auth": {
+        "title": "Autentisering",
+        "configured": {
+          "token": "Åtkomsttoken konfigurerad",
+          "credentials": "Användarnamn/lösenord konfigurerat ({username})",
+          "none": "Ingen autentisering konfigurerad"
+        },
+        "type": {
+          "none": "Ingen autentisering",
+          "token": "Åtkomsttoken",
+          "basic": "Användarnamn & lösenord"
+        },
+        "tokenLabel": "Åtkomsttoken",
+        "tokenPlaceholder": "tk_...",
+        "usernameLabel": "Användarnamn",
+        "usernamePlaceholder": "Användarnamn",
+        "passwordLabel": "Lösenord",
+        "passwordPlaceholder": "Lösenord",
+        "saveAuth": "Spara autentisering",
+        "tokenRequired": "Åtkomsttoken krävs",
+        "credentialsRequired": "Både användarnamn och lösenord krävs",
+        "authSaved": "Autentiseringen sparad!"
+      }
+    }
+  },
+  "wallets": {
+    "title": "Mina plånböcker",
+    "summary": "Bevakar {count} {count, plural, one {plånbok} other {plånböcker}} med ett totalt saldo på {balance}",
+    "onboarding": {
+      "trial": {
+        "title": "Redo att starta din testperiod",
+        "titleWithName": "Redo att starta din testperiod, {name}?",
+        "description": "Lägg till din första plånbok för att aktivera din <highlight>30-dagars Team-testperiod</highlight>. Du får omedelbar tillgång till alla funktioner, inklusive realtidssynkronisering, obegränsade aviseringar och prioriterad support.",
+        "whatYouGet": "Det här får du:",
+        "features": {
+          "wallets": "5 plånböcker med 2-minuters synkronisering",
+          "contacts": "5 kontakter per plånbok",
+          "emailSms": "E-post- och SMS-aviseringar",
+          "push": "Push-aviseringar via ntfy"
+        },
+        "button": "Lägg till din första plånbok & starta testperioden",
+        "note": "Testperioden startar när du lägger till din plånbok"
+      },
+      "simple": {
+        "title": "Lägg till din första plånbok",
+        "description": "Lägg till en plånboksdescriptor för att börja bevaka dina Bitcoin-transaktioner.",
+        "button": "Lägg till plånbok"
+      }
+    },
+    "connectionLost": {
+      "title": "Anslutning till backend förlorad",
+      "description": "Kunde inte ansluta till backend-tjänsten. Visar cachad data.",
+      "lastUpdated": "Senast uppdaterad: {time}"
+    },
+    "empty": {
+      "title": "Inga plånböcker",
+      "description": "Inga plånböcker hittades. Använd knappen \"Lägg till plånbok\" i sidhuvudet för att komma igång.",
+      "addFirst": "Lägg till din första plånbok"
+    },
+    "error": {
+      "title": "Fel",
+      "loadFailed": "Misslyckades med att ladda plånböcker: {error}"
+    },
+    "card": {
+      "syncing": "Synkroniserar...",
+      "inactive": "Inaktiv",
+      "inactiveExpired": "Din prenumeration har gått ut - plånboken kommer inte att synkroniseras automatiskt",
+      "inactiveTierLimit": "Denna plånbok överskrider gränserna för din prenumerationsnivå och kommer inte att synkroniseras automatiskt",
+      "balance": "Saldo",
+      "lastActivity": "Senaste aktivitet: {date}",
+      "noRecentActivity": "Ingen senaste aktivitet"
+    },
+    "add": {
+      "title": "Lägg till plånbok",
+      "nameLabel": "Namn på plånbok",
+      "namePlaceholder": "Min Bitcoin-plånbok",
+      "descriptorLabel": "Wallet Descriptor eller XPUB",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorHint": "Ange din plånboks output descriptor eller XPUB. Vi kommer automatiskt att upptäcka skripttypen.",
+      "advancedSettings": "Avancerade inställningar",
+      "scriptType": {
+        "label": "Skripttyp",
+        "selectPlaceholder": "Välj skripttyp",
+        "autoPlaceholder": "Upptäck automatiskt",
+        "auto": "Upptäck automatiskt (rekommenderas)",
+        "p2wpkh": "Native SegWit (bc1...)",
+        "p2wpkhFresh": "Native SegWit (bc1...) - Vanligast",
+        "p2sh": "Nested SegWit (3...)",
+        "p2shFresh": "Nested SegWit (3...) - Legacy-kompatibilitet",
+        "p2pkh": "Legacy (1...)",
+        "p2pkhFresh": "Legacy (1...) - Äldst",
+        "p2tr": "Taproot (bc1p...)",
+        "p2trFresh": "Taproot (bc1p...) - Modern",
+        "detectedHint": "Skripttyp upptäckt från descriptor och kan inte ändras",
+        "requiredHint": "Skripttyp krävs för nya XPUB-plånböcker"
+      },
+      "stopGap": {
+        "label": "Stop Gap",
+        "default": "Standard (20 oanvända i följd)",
+        "extended": "Utökad (250 oanvända i följd)",
+        "deep": "Djup (500 oanvända i följd)",
+        "deeper": "Djupare (750 oanvända i följd)",
+        "maximum": "Maximum (1000 oanvända i följd)",
+        "hint": "Antal oanvända adresser i följd att kontrollera innan man slutar. Öka om din plånbok har adresser som används vid slumpmässiga höga index (t.ex. BTCPay Server)",
+        "requiresScriptType": "Anpassad stop gap kräver val av en specifik skripttyp"
+      },
+      "freshWallet": {
+        "label": "Ny plånbok (ingen transaktionshistorik)",
+        "hint": "Hoppa över djupskanning för plånböcker utan tidigare transaktioner"
+      },
+      "submit": "Lägg till plånbok",
+      "submitting": "Lägger till...",
+      "success": "Plånboken har lagts till",
+      "error": "Misslyckades med att lägga till plånboken",
+      "validation": {
+        "nameRequired": "Namn på plånboken krävs",
+        "descriptorRequired": "Output descriptor eller utökad publik nyckel krävs",
+        "scriptTypeRequired": "Skripttyp krävs för nya XPUB-plånböcker"
+      },
+      "wizard": {
+        "chooseWallet": "Vilken plånbok använder du? Vi visar dig hur du exporterar din utdata-deskriptor eller XPUB.",
+        "keysStaySafe": "Canary behöver bara detta för att övervaka dina transaktioner. Dina privata nycklar förblir säkra i din plånbok.",
+        "tryBaconWallet": "Ny här? Prova med en exempelplånbok först för att se hur Canary fungerar.",
+        "useBaconWallet": "Använd Bacon Wallet",
+        "haveDescriptor": "Jag har redan min utdata-deskriptor eller XPUB",
+        "exportSteps": "Följ dessa steg för att exportera din deskriptor från {walletName}",
+        "pasteXpub": "Klistra in din XPUB nedan.",
+        "pasteDescriptor": "Klistra in din utdata-deskriptor eller XPUB nedan.",
+        "baconPrefilled": "Vi har fyllt i Bacon-exempelplånboken åt dig. Klicka bara på Lägg till plånbok för att fortsätta.",
+        "enterDetails": "Ange detaljer",
+        "walletType": {
+          "software": "mjukvara",
+          "hardware": "hårdvara"
+        }
+      },
+      "guides": {
+        "sparrow": {
+          "description": "Skrivbordsplånbok för Bitcoin med fullt stöd för deskriptorer",
+          "steps": [
+            "Öppna din plånbok i Sparrow",
+            "Gå till fliken Inställningar (Settings)",
+            "Klicka på \"Show\" bredvid Output Descriptor",
+            "Kopiera hela deskriptorsträngen (börjar med wpkh, wsh eller tr)"
+          ]
+        },
+        "bluewallet": {
+          "description": "Mobil Bitcoin-plånbok för iOS och Android",
+          "steps": [
+            "Öppna din plånbok i BlueWallet",
+            "Tryck på menyn med tre prickar uppe till höger",
+            "Välj \"Export/Backup\"",
+            "Tryck på \"Export Wallet\"",
+            "Kopiera XPUB-strängen (börjar med xpub, ypub eller zpub)"
+          ]
+        },
+        "electrum": {
+          "description": "Lättviktig skrivbordsplånbok för Bitcoin",
+          "steps": [
+            "Öppna din plånbok i Electrum",
+            "Gå till menyn Wallet och sedan Information",
+            "Hitta sektionen \"Master Public Key\"",
+            "Kopiera zpub-, ypub- eller xpub-strängen"
+          ]
+        },
+        "coldcard": {
+          "description": "Luftgapad hårdvaruplånbok",
+          "steps": [
+            "Starta din ColdCard och ange din PIN-kod",
+            "Gå till Advanced/Tools och sedan Export Wallet",
+            "Välj formatet \"Generic JSON\"",
+            "Exportera till ditt SD-kort",
+            "Öppna JSON-filen på din dator",
+            "Kopiera deskriptorn eller xpub från filen"
+          ]
+        },
+        "ledger": {
+          "description": "Populär hårdvaruplånbok",
+          "steps": [
+            "Anslut din Ledger-enhet och lås upp den",
+            "Öppna Bitcoin-appen på din Ledger",
+            "Öppna Ledger Wallet-appen på din dator",
+            "Gå till ditt Bitcoin-konto och klicka sedan på skiftnyckelikonen",
+            "Klicka på \"Advanced logs\"",
+            "Kopiera xpub-strängen från loggarna"
+          ]
+        },
+        "trezor": {
+          "description": "Hårdvaruplånbok med öppen källkod",
+          "steps": [
+            "Anslut din Trezor och gå till Trezor Suite",
+            "Öppna ditt Bitcoin-konto",
+            "Klicka på kontonamnet för att öppna inställningar",
+            "Klicka på \"Show public key (XPUB)\"",
+            "Bekräfta på din Trezor-enhet",
+            "Kopiera XPUB-strängen"
+          ]
+        }
+      },
+      "limitReached": {
+        "title": "Gränsen för plånböcker har nåtts",
+        "description": "Du har nått gränsen för din {tier}-plan på {count} {count, plural, one {plånbok} other {plånböcker}}. Uppgradera för att lägga till fler plånböcker."
+      },
+      "checkoutError": "Misslyckades med att starta kassan. Försök igen."
+    },
+    "detail": {
+      "balance": "Saldo",
+      "transactions": "Transaktioner",
+      "contacts": "Kontakter",
+      "balanceAlerts": "Saldovarningar",
+      "noTransactions": "Inga transaktioner än",
+      "pendingSync": "Plånboken synkroniseras...",
+      "lastSync": "Senast synkad",
+      "syncStatus": {
+        "pending": "Synkroniserar",
+        "ready": "Synkad"
+      },
+      "notFound": {
+        "title": "Plånboken hittades inte",
+        "description": "Plånboken med kontrollsumma #{checksum} kunde inte hittas."
+      },
+      "syncing": {
+        "title": "Plånboken synkroniseras fortfarande",
+        "description": "{name} synkroniseras fortfarande och skannar efter historiska transaktioner. Denna process kan ta några minuter för plånböcker med transaktionshistorik.",
+        "returnPrompt": "Gå tillbaka till plånbokssidan och vänta på att synkroniseringen blir klar."
+      },
+      "inactive": {
+        "title": "Plånboken är inaktiv",
+        "descriptionExpired": "Ditt abonnemang har gått ut - plånboken kommer inte att synkroniseras automatiskt.",
+        "descriptionTierLimit": "Denna plånbok överskrider gränserna för din abonnemangsnivå och kommer inte att synkroniseras automatiskt.",
+        "outdatedWarning": "Transaktionshistorik och saldo som visas kan vara inaktuella.",
+        "upgradePlan": "Uppgradera plan"
+      }
+    },
+    "delete": {
+      "title": "Ta bort plånbok",
+      "description": "Är du säker på att du vill ta bort den här plånboken? Denna åtgärd kan inte ångras."
+    },
+    "edit": {
+      "title": "Redigera plånbok",
+      "nameLabel": "Namn på plånbok",
+      "submit": "Spara ändringar"
+    }
+  },
+  "contacts": {
+    "title": "Kontakter",
+    "empty": {
+      "title": "Inga kontakter än",
+      "description": "Lägg till kontakter för att få aviseringar om denna plånbok",
+      "list": "Inga kontakter tillagda än"
+    },
+    "inactive": {
+      "badge": "Inaktiv",
+      "expired": "Ditt abonnemang har gått ut - kontakten kommer inte att få aviseringar",
+      "tierLimit": "Denna kontakt överskrider gränserna för din abonnemangsnivå och kommer inte att få aviseringar"
+    },
+    "add": {
+      "title": "Lägg till ny kontakt",
+      "description": "Skapa en ny kontakt för att få aviseringar om Bitcoin-transaktioner.",
+      "nameLabel": "Namn",
+      "namePlaceholder": "Kontaktnamn",
+      "languageLabel": "Språk",
+      "methodTitle": "Aviseringsmetoder",
+      "providers": {
+        "ntfy": "ntfy.sh-aviseringar",
+        "twilio": "SMS-aviseringar",
+        "email": "E-postaviseringar"
+      },
+      "ntfy": {
+        "topicHint": "Ämne kommer att genereras automatiskt baserat på kontaktnamn"
+      },
+      "sms": {
+        "phoneHint": "Inkludera landskod"
+      },
+      "email": {
+        "emailHint": "Ange en giltig e-postadress"
+      },
+      "submit": "Skapa kontakt",
+      "submitting": "Bearbetar..."
+    },
+    "edit": {
+      "title": "Redigera kontakt",
+      "description": "Uppdatera kontaktinformation och aviseringsmetoder.",
+      "submit": "Uppdatera kontakt"
+    },
+    "delete": {
+      "title": "Radera kontakt",
+      "description": "Är du säker på att du vill radera denna kontakt? De kommer inte längre att få aviseringar.",
+      "confirm": "Ja, radera kontakt"
+    },
+    "verification": {
+      "codeLabel": "Verifieringskod",
+      "codePlaceholder": "Ange 6-siffrig kod",
+      "sendCode": "Skicka verifieringskod",
+      "sendingCode": "Skickar...",
+      "verify": "Verifiera",
+      "verifying": "Verifierar...",
+      "resend": "Skicka igen",
+      "codeSentTo": "Kod skickad till {target}",
+      "expiresIn": "Går ut om {time}",
+      "expired": "Verifieringskoden har gått ut. Försök igen.",
+      "expiredRequest": "Verifieringskoden har gått ut. Begär en ny kod.",
+      "invalid": "Ogiltig verifieringskod. Försök igen.",
+      "smsVerified": "SMS verifierades framgångsrikt",
+      "emailVerified": "E-post verifierades framgångsrikt",
+      "smsRequired": "Telefonnummer krävs för SMS-verifiering",
+      "emailRequired": "E-postadress krävs för e-postverifiering",
+      "enterCode": "Vänligen ange verifieringskoden",
+      "verifySmsFirst": "Vänligen verifiera SMS-koden innan du sparar kontakten",
+      "verifyNewSms": "Vänligen verifiera det nya SMS-telefonnumret innan du sparar kontakten",
+      "verifyEmailFirst": "Vänligen verifiera e-postkoden innan du sparar kontakten",
+      "verifyNewEmail": "Vänligen verifiera den nya e-postadressen innan du sparar kontakten"
+    },
+    "errors": {
+      "nameRequired": "Kontaktnamn krävs"
+    },
+    "languages": {
+      "en": "Engelska",
+      "no": "Norska",
+      "es": "Spanska",
+      "pt": "Portugisiska",
+      "de": "Tyska",
+      "fr": "Franska",
+      "ja": "Japanska",
+      "da": "Danska",
+      "sv": "Svenska"
+    }
+  },
+  "balanceAlerts": {
+    "title": "Saldovarningar",
+    "empty": {
+      "title": "Inga saldovarningar",
+      "description": "Ställ in varningar för att bli meddelad när ditt plånbokssaldo når vissa gränsvärden",
+      "list": "Inga varningar inställda"
+    },
+    "lastFired": "Senast utlöst {date}",
+    "deleteAlert": "Ta bort varning",
+    "add": {
+      "title": "Skapa ny varning",
+      "typeLabel": "Varningstyp",
+      "types": {
+        "above": "Över",
+        "below": "Under",
+        "equals": "Lika med"
+      },
+      "typeDescriptions": {
+        "above": "Varna när saldot går över detta belopp",
+        "below": "Varna när saldot går under detta belopp",
+        "equals": "Varna när saldot är lika med detta belopp (t.ex. vid tömning av plånbok)"
+      },
+      "currencyLabel": "Valutatyp",
+      "bitcoinBtc": "Bitcoin (BTC)",
+      "fiatCurrency": "Fiatvaluta ({currency})",
+      "bitcoinAmount": "Bitcoin-belopp",
+      "amount": "Belopp ({currency})",
+      "enterAmountBtc": "Ange belopp i BTC",
+      "enterAmount": "Ange belopp i {currency}",
+      "thresholdLabel": "Gränsvärde",
+      "thresholdPlaceholder": "0.1",
+      "btc": "BTC",
+      "submit": "Skapa",
+      "submitting": "Skapar..."
+    },
+    "edit": {
+      "title": "Redigera saldovarning"
+    },
+    "delete": {
+      "title": "Ta bort varning",
+      "description": "Är du säker på att du vill ta bort denna saldovarning?"
+    },
+    "status": {
+      "active": "Aktiv",
+      "triggered": "Utlöst",
+      "reactivate": "Reaktivera"
+    },
+    "errors": {
+      "invalidBtcAmount": "Ange ett giltigt Bitcoin-belopp",
+      "invalidPositiveAmount": "Ange ett giltigt positivt belopp",
+      "negativeAmount": "Beloppet kan inte vara negativt",
+      "belowZero": "Kan inte skapa varning för \"under 0\" - saldot kan inte gå under noll",
+      "duplicateAlert": "En varning med denna typ och detta belopp finns redan",
+      "createFailed": "Misslyckades med att skapa saldovarning",
+      "deleteFailed": "Misslyckades med att ta bort varning"
+    }
+  },
+  "transactions": {
+    "title": "Transaktioner",
+    "titleWithWallet": "Transaktioner - {walletName}",
+    "loading": "Laddar transaktioner...",
+    "empty": "Inga transaktioner ännu",
+    "emptyForWallet": "Inga transaktioner hittades för den valda plånboken.",
+    "count": "{count} {count, plural, one {transaktion} other {transaktioner}}",
+    "types": {
+      "receive": "Mottaget",
+      "send": "Skickat",
+      "receiving": "Tar emot",
+      "sending": "Skickar"
+    },
+    "status": {
+      "pending": "Väntar",
+      "confirmed": "Bekräftad",
+      "dropped": "Borttagen",
+      "replaced": "Ersatt"
+    },
+    "details": {
+      "txid": "Transaktions-ID",
+      "amount": "Belopp",
+      "fee": "Avgift",
+      "date": "Datum",
+      "confirmations": "Bekräftelser",
+      "block": "Block",
+      "address": "Adress",
+      "replacedBy": "Ersatt av",
+      "replacedAt": "Ersatt vid"
+    },
+    "tableHeaders": {
+      "dateTime": "Datum/Tid",
+      "wallet": "Plånbok",
+      "transaction": "Transaktion",
+      "amount": "Belopp",
+      "details": "Detaljer"
+    },
+    "tooltips": {
+      "cpfp": "CPFP-transaktion",
+      "rbfReplaced": "Ersatt av RBF",
+      "notificationsFailed": "Vissa aviseringar misslyckades",
+      "cpfpChild": "Child-Pays-For-Parent (CPFP) - Barn till {txid}",
+      "replacedByTx": "Ersatt av transaktion: {txid}",
+      "viewOnMempool": "Visa {txid} på Mempool Space"
+    },
+    "timeline": {
+      "pending": "VÄNTAR",
+      "confirmed": "BEKRÄFTAD"
+    },
+    "notifications": {
+      "sentAt": "Skickat vid",
+      "statusLabel": "Status",
+      "errorLabel": "Fel",
+      "unknownTime": "Okänd tid",
+      "unknownTarget": "Okänt mål"
+    },
+    "error": "Fel: {error}",
+    "rbf": "RBF",
+    "cpfp": "CPFP",
+    "replacement": "Ersättning",
+    "walletLabel": "Plånbok: {name}"
+  },
+  "billing": {
+    "title": "Prenumeration",
+    "currentPlan": "Nuvarande plan",
+    "status": {
+      "active": "Aktiv",
+      "trialing": "Testperiod",
+      "canceled": "Avbruten",
+      "expired": "Utgången"
+    },
+    "trial": {
+      "daysLeft": "{days} dagar kvar",
+      "endsOn": "Testperioden slutar den {date}"
+    },
+    "manage": "Hantera fakturering",
+    "upgrade": "Uppgradera",
+    "subscribe": "Prenumerera",
+    "plans": {
+      "personal": {
+        "name": "Personlig",
+        "description": "För enskilda Bitcoin-innehavare",
+        "features": {
+          "wallets": "1 plånbok",
+          "contacts": "1 kontakt per plånbok",
+          "sync": "10 minuters synkronisering",
+          "notifications": "Alla aviseringstyper"
+        }
+      },
+      "team": {
+        "name": "Team",
+        "description": "För Uncle Jims & familjeförvaltare",
+        "features": {
+          "wallets": "5 plånböcker",
+          "contacts": "5 kontakter per plånbok",
+          "sync": "2 minuters synkronisering",
+          "notifications": "Alla aviseringstyper"
+        }
+      },
+      "selfHosted": {
+        "name": "Självvärdad",
+        "description": "Kör på din egen infrastruktur",
+        "features": {
+          "wallets": "Obegränsat antal plånböcker",
+          "contacts": "Obegränsat antal kontakter",
+          "sync": "Anpassade synkroniseringsintervall",
+          "notifications": "ntfy-push-aviseringar"
+        }
+      }
+    },
+    "features": {
+      "wallets": {
+        "label": "Bitcoin-plånböcker",
+        "selfhosted": "Obegränsat antal plånböcker",
+        "personal": "1 plånbok",
+        "team": "5 plånböcker"
+      },
+      "contacts": {
+        "label": "Kontakter per plånbok",
+        "selfhosted": "Obegränsat antal kontakter",
+        "personal": "1 kontakt",
+        "team": "5 kontakter per plånbok"
+      },
+      "sync": {
+        "label": "Synkroniseringsintervall",
+        "selfhosted": "Konfigurerbar synkroniseringstid",
+        "personal": "10 minuters synkroniseringstid",
+        "team": "2 minuters synkroniseringstid"
+      },
+      "trial": "30 dagars gratis testperiod",
+      "email": "E-postaviseringar",
+      "sms": "SMS-aviseringar",
+      "push": "Push-aviseringar",
+      "balanceAlerts": "Anpassade saldoaviseringar",
+      "analysis": "Transaktionsanalys (RBF/CPFP)",
+      "ownNode": "Din egen Bitcoin-nod",
+      "privacy": "Fullständig integritet & kontroll",
+      "noSubscription": "Inga prenumerationsavgifter"
+    },
+    "perMonth": "/månad",
+    "perYear": "/år",
+    "saveYearly": "Spara {percent}% årligen",
+    "popular": "POPULÄR",
+    "currentPlanBadge": "NUVARANDE PLAN",
+    "trialPlanBadge": "TESTPERIODSPLAN",
+    "freeToSelfHost": "Gratis att självvärda",
+    "plusTaxes": "Plus tillämpliga skatter",
+    "changePlan": "Ändra plan",
+    "subscribeTo": "Prenumerera på {plan}",
+    "upgradeTo": "Uppgradera till {plan}",
+    "startTrial": "Starta 30 dagars gratis testperiod",
+    "loadingPricing": "Laddar priser...",
+    "errorTitle": "Det gick inte att ladda priser",
+    "errorDescription": "Uppdatera sidan eller försök igen senare.",
+    "selfHosted": {
+      "description": "Föredrar du att självvärda? Canary är gratis att köra på din egen infrastruktur med push-aviseringar via ntfy.",
+      "installUmbrel": "Installera på Umbrel",
+      "viewGithub": "Visa på GitHub"
+    }
+  },
+  "subscriptionPage": {
+    "title": "Prenumeration",
+    "selfHosted": {
+      "description": "Prenumerationsfakturering är inte tillgänglig i självhostat läge."
+    },
+    "loading": "Laddar faktureringsinformation...",
+    "notSignedIn": {
+      "message": "Du måste vara inloggad för att hantera din prenumeration.",
+      "signIn": "Logga in"
+    },
+    "manageBilling": "Hantera fakturering",
+    "currentPlan": {
+      "title": "Nuvarande plan",
+      "description": "Din aktiva prenumeration och användning"
+    },
+    "alerts": {
+      "limitExceeded": {
+        "title": "Prenumerationsgräns överskriden",
+        "description": "Du har {walletCount} plånböcker men din {tierName}-plan tillåter endast {maxWallets}. Överskjutande plånböcker synkroniseras inte automatiskt och vissa kontakter kan vara inaktiva.",
+        "upgrade": "Uppgradera plan"
+      },
+      "pending": {
+        "title": "Provperiod inte startad",
+        "description": "Din 30-dagars Team-provperiod börjar när du lägger till din första plånbok. Ingen synkronisering är aktiv förrän dess.",
+        "addWallet": "Lägg till din första plånbok"
+      },
+      "cancelled": {
+        "title": "Prenumeration avslutad",
+        "description": "Din prenumeration har avslutats. Du har tillgång till {date} ({daysRemaining} dagar kvar).",
+        "reactivate": "Reaktivera prenumeration"
+      },
+      "expired": {
+        "title": "Prenumeration utgått",
+        "description": "Din prenumeration har gått ut. Synkronisering av plånböcker har stoppats helt, men din data är bevarad.",
+        "reactivate": "Reaktivera prenumeration"
+      },
+      "pastDue": {
+        "title": "Betalning misslyckades - Synkronisering stoppad",
+        "description": "Din senaste betalning misslyckades och synkronisering av plånböcker har stoppats omedelbart. Uppdatera din betalningsmetod för att återuppta tjänsten.",
+        "updatePayment": "Uppdatera betalningsmetod"
+      }
+    },
+    "badges": {
+      "trialDaysLeft": "Provperiod: {days} dagar kvar",
+      "accessDaysLeft": "Tillgång till: {days} dagar kvar"
+    },
+    "buttons": {
+      "subscribe": "Prenumerera",
+      "reactivate": "Reaktivera"
+    },
+    "usage": {
+      "wallets": "Plånböcker",
+      "overLimit": "(över gränsen)",
+      "walletsInactive": "Vissa plånböcker är inaktiva",
+      "syncInterval": "Synkroniseringsintervall",
+      "features": "Funktioner",
+      "featuresList": "SMS, Push, E-post, Transaktionsanalys"
+    },
+    "errors": {
+      "portalFailed": "Misslyckades med att öppna faktureringshantering. Försök igen."
+    }
+  },
+  "upgrade": {
+    "title": "Uppgradera din plan",
+    "choosePlan": "Välj din plan",
+    "trialDescription": "Prenumerera idag för att säkerställa att dina plånboksaviseringar fortsätter oavbrutet när din provperiod tar slut. Håll din Bitcoin säker med kontinuerlig övervakning.",
+    "limitReachedDescription": "Du har nått din {limitType}-gräns på {limit} i {tierName}-planen. Jämför planer och uppgradera för att lägga till fler.",
+    "currentUsage": "Nuvarande användning: {count} / {limit}",
+    "walletLimit": {
+      "title": "Plånboksgräns nådd",
+      "description": "Du har nått det maximala antalet plånböcker för din plan. Uppgradera för att lägga till fler plånböcker."
+    },
+    "contactLimit": {
+      "title": "Kontaktgräns nådd",
+      "description": "Du har nått det maximala antalet kontakter för denna plånbok. Uppgradera för att lägga till fler kontakter."
+    }
+  },
+  "errors": {
+    "generic": "Något gick fel. Försök igen.",
+    "network": "Nätverksfel. Kontrollera din anslutning.",
+    "unauthorized": "Vänligen logga in för att fortsätta.",
+    "notFound": "Hittades inte.",
+    "serverError": "Serverfel. Försök igen senare.",
+    "validation": "Kontrollera din inmatning och försök igen."
+  },
+  "footer": {
+    "logoAlt": "Canary-logotyp",
+    "appName": "Canary",
+    "blockInfo": "Block {height}"
+  },
+  "demoBanner": {
+    "title": "Demoläge",
+    "description": "Du tittar på en skrivskyddad demoplånbok. Alla funktioner är endast för visning.",
+    "signUp": "Registrera dig för att skapa din egen plånbok",
+    "dismiss": "Stäng banner"
+  }
+}

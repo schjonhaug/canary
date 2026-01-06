@@ -11,8 +11,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 
 export default function SignUpPage() {
+  const t = useTranslations('auth.signUp')
+  const tCommon = useTranslations('common')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -39,7 +42,7 @@ export default function SignUpPage() {
       // Redirect to success page immediately
       router.push('/sign-up/success')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      setError(err instanceof Error ? err.message : t('registrationFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -64,10 +67,10 @@ export default function SignUpPage() {
             />
           </div>
           <CardTitle className="text-2xl font-bold text-center">
-            Start your 30-day free trial
+            {t('title')}
           </CardTitle>
           <CardDescription className="text-center">
-            30 days free, then continue with the plan of your choice
+            {t('subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -79,7 +82,7 @@ export default function SignUpPage() {
                   <>
                     {" "}
                     <Link href="/sign-in" className="underline font-medium hover:no-underline">
-                      Sign in instead
+                      {t('signInInstead')}
                     </Link>
                   </>
                 )}
@@ -89,11 +92,11 @@ export default function SignUpPage() {
 
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">{t('nameLabel')}</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Enter your name"
+                placeholder={t('namePlaceholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -101,11 +104,11 @@ export default function SignUpPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{tCommon('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="your@email.com"
+                placeholder={tCommon('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -113,18 +116,18 @@ export default function SignUpPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{tCommon('passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter a strong password"
+                placeholder={t('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
                 minLength={6}
               />
-              <p className="text-sm text-gray-500">Password must be at least 6 characters long</p>
+              <p className="text-sm text-gray-500">{t('passwordHint')}</p>
             </div>
             <div className="flex items-start space-x-2">
               <input
@@ -135,25 +138,25 @@ export default function SignUpPage() {
                 disabled={isLoading}
                 className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <Label 
-                htmlFor="marketing" 
+              <Label
+                htmlFor="marketing"
                 className="text-sm text-gray-600 cursor-pointer select-none"
               >
-                I&apos;d like to receive occasional emails about updates to the service
+                {t('marketingConsent')}
               </Label>
             </div>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full"
               disabled={isLoading || !email || !password || !name}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating account...
+                  {t('submitting')}
                 </>
               ) : (
-                'Create account'
+                t('submit')
               )}
             </Button>
             <Link href="/sign-in">
@@ -163,7 +166,7 @@ export default function SignUpPage() {
                 className="w-full"
                 disabled={isLoading}
               >
-                Already have an account? Sign in
+                {t('hasAccount')}
               </Button>
             </Link>
           </form>
