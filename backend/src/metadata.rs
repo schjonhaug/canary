@@ -41,6 +41,8 @@ pub enum Language {
     French,
     #[serde(rename = "ja")]
     Japanese,
+    #[serde(rename = "da")]
+    Danish,
 }
 
 impl Language {
@@ -53,6 +55,7 @@ impl Language {
             Language::German => "de",
             Language::French => "fr",
             Language::Japanese => "ja",
+            Language::Danish => "da",
         }
     }
 }
@@ -66,6 +69,7 @@ impl From<&str> for Language {
             "de" => Language::German,
             "fr" => Language::French,
             "ja" => Language::Japanese,
+            "da" => Language::Danish,
             _ => Language::English, // Default fallback
         }
     }
@@ -115,6 +119,8 @@ pub fn locale_to_language(locale: &str) -> &'static str {
         "fr"
     } else if locale_lower.starts_with("ja") {
         "ja"
+    } else if locale_lower.starts_with("da") {
+        "da"
     } else {
         "en"
     }

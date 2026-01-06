@@ -1,0 +1,43 @@
+_version: 1
+
+# Common strings used across multiple providers
+common:
+  greeting: "Hej %{to_name},"
+  footer: "Denne notifikation blev sendt af Canary"
+  wallet: "Wallet"
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ Modtaget: %{amount_btc} BTC til %{wallet_name}"
+    pending: "💸 Modtager: %{amount_btc} BTC til %{wallet_name} (ubekræftet)"
+    replaced: "🔄 Erstattet: %{amount_btc} BTC til %{wallet_name} (erstattet af %{short_txid})"
+  send:
+    confirmed_with_amount: "✅ Sendt: %{amount_btc} BTC fra %{wallet_name}"
+    confirmed_no_amount: "✅ Sendt fra %{wallet_name}"
+    pending: "📤 Sender: %{amount_btc} BTC fra %{wallet_name}"
+    replaced: "🔄 Erstattet: %{amount_btc} BTC fra %{wallet_name} (erstattet af %{short_txid})"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 Advarsel om tømt wallet: %{wallet_name} saldo er nu 0 BTC"
+  equals: "📊 Saldo-alarm: %{wallet_name} saldo er nu %{current_display}"
+  above: "📊 Saldo-alarm: %{wallet_name} saldo er nu over %{threshold_display} (nuværende: %{current_display})"
+  below: "📊 Saldo-alarm: %{wallet_name} saldo er nu under %{threshold_display} (nuværende: %{current_display})"
+
+# Notification titles (used by email subjects and ntfy push titles)
+titles:
+  receive:
+    pending: "Modtager Bitcoin"
+    confirmed: "Bitcoin modtaget"
+  send:
+    pending: "Sender Bitcoin"
+    confirmed: "Bitcoin sendt"
+  balance_alert: "Saldo-alarm"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "Bitcoin transaktion"
+  balance_alert:
+    header: "Saldo-alarm"
