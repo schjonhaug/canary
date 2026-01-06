@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::time::interval;
+use unic_langid::LanguageIdentifier;
 
 use crate::metadata::MetadataDb;
 
@@ -86,32 +87,43 @@ impl ExchangeRateService {
     }
 
     /// Map browser locale to appropriate fiat currency
+    ///
+    /// Handles various locale formats:
+    /// - Simple: "en", "fr", "de"
+    /// - With region: "en-US", "fr-FR", "de-DE"
+    /// - With underscore: "en_US", "de_DE"
+    /// - With encoding: "de_DE.UTF-8", "en_US.UTF-8"
+    /// - With script: "zh-Hant-TW", "zh-Hans-CN"
+    /// - With quality: "fr;q=0.8", "en-US;q=0.9"
     pub fn locale_to_currency(locale: &str) -> &'static str {
         // Strip quality value if present: "fr;q=0.8" -> "fr"
         let locale_clean = locale.split(';').next().unwrap_or(locale);
 
-        // Normalize locale: convert underscores to hyphens, lowercase
-        let normalized = locale_clean.to_lowercase().replace('_', "-");
+        // Strip encoding suffix if present: "de_DE.UTF-8" -> "de_DE"
+        let locale_no_encoding = locale_clean.split('.').next().unwrap_or(locale_clean);
 
-        // Split into parts: "fr-FR" -> ["fr", "FR"], "fr" -> ["fr"]
-        let parts: Vec<&str> = normalized.split('-').collect();
+        // Normalize underscore to hyphen for unic-langid: "de_DE" -> "de-DE"
+        let normalized = locale_no_encoding.replace('_', "-");
 
-        let country_code = if parts.len() >= 2 {
-            // Has country code: use it directly (uppercase)
-            parts[1].to_uppercase()
-        } else {
-            // Bare language code: map to default country
-            match Self::language_to_default_country(parts[0]) {
-                Some(code) => code.to_string(),
-                None => return "USD",
+        // Parse with unic-langid (handles script tags like zh-Hant-TW correctly)
+        if let Ok(lang_id) = normalized.parse::<LanguageIdentifier>() {
+            // Try region first if available
+            if let Some(region) = lang_id.region {
+                if let Ok(country) = Country::from_str(&region.to_string()) {
+                    return Self::country_to_currency(country);
+                }
             }
-        };
 
-        // Try to parse country code and get currency
-        match Country::from_str(&country_code) {
-            Ok(country) => Self::country_to_currency(country),
-            Err(_) => "USD",
+            // Fall back to language -> default country mapping
+            let lang_str = lang_id.language.to_string();
+            if let Some(country_code) = Self::language_to_default_country(&lang_str) {
+                if let Ok(country) = Country::from_str(country_code) {
+                    return Self::country_to_currency(country);
+                }
+            }
         }
+
+        "USD"
     }
 
     /// Fetch exchange rates from CoinGecko API
@@ -173,5 +185,85 @@ impl ExchangeRateService {
         eprintln!("Exchange rates refreshed successfully");
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_locale_to_currency_simple_language() {
+        // Simple language codes should map to default country's currency
+        assert_eq!(ExchangeRateService::locale_to_currency("en"), "USD");
+        assert_eq!(ExchangeRateService::locale_to_currency("de"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("fr"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("ja"), "JPY");
+        assert_eq!(ExchangeRateService::locale_to_currency("no"), "NOK");
+        assert_eq!(ExchangeRateService::locale_to_currency("sv"), "SEK");
+        assert_eq!(ExchangeRateService::locale_to_currency("da"), "DKK");
+    }
+
+    #[test]
+    fn test_locale_to_currency_with_region() {
+        // Language with region should use region's currency
+        assert_eq!(ExchangeRateService::locale_to_currency("en-US"), "USD");
+        assert_eq!(ExchangeRateService::locale_to_currency("en-GB"), "GBP");
+        assert_eq!(ExchangeRateService::locale_to_currency("de-DE"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("de-AT"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("fr-FR"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("fr-CA"), "CAD");
+        assert_eq!(ExchangeRateService::locale_to_currency("pt-BR"), "BRL");
+        assert_eq!(ExchangeRateService::locale_to_currency("pt-PT"), "EUR");
+    }
+
+    #[test]
+    fn test_locale_to_currency_with_underscore() {
+        // Underscore separator should work the same as hyphen
+        assert_eq!(ExchangeRateService::locale_to_currency("en_US"), "USD");
+        assert_eq!(ExchangeRateService::locale_to_currency("de_DE"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("fr_FR"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("no_NO"), "NOK");
+    }
+
+    #[test]
+    fn test_locale_to_currency_with_encoding() {
+        // Encoding suffixes like .UTF-8 should be stripped
+        assert_eq!(ExchangeRateService::locale_to_currency("de_DE.UTF-8"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("en_US.UTF-8"), "USD");
+        assert_eq!(ExchangeRateService::locale_to_currency("fr_FR.ISO-8859-1"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("ja_JP.UTF-8"), "JPY");
+    }
+
+    #[test]
+    fn test_locale_to_currency_with_script() {
+        // Script tags should be handled correctly (zh-Hant-TW -> TW -> TWD)
+        assert_eq!(ExchangeRateService::locale_to_currency("zh-Hant-TW"), "TWD");
+        assert_eq!(ExchangeRateService::locale_to_currency("zh-Hans-CN"), "CNY");
+        assert_eq!(ExchangeRateService::locale_to_currency("sr-Latn-RS"), "RSD");
+    }
+
+    #[test]
+    fn test_locale_to_currency_with_quality() {
+        // Quality values should be stripped
+        assert_eq!(ExchangeRateService::locale_to_currency("fr;q=0.8"), "EUR");
+        assert_eq!(ExchangeRateService::locale_to_currency("en-US;q=0.9"), "USD");
+        assert_eq!(ExchangeRateService::locale_to_currency("de-DE;q=0.7"), "EUR");
+    }
+
+    #[test]
+    fn test_locale_to_currency_unknown_falls_back_to_usd() {
+        // Unknown locales should fall back to USD
+        assert_eq!(ExchangeRateService::locale_to_currency("xx"), "USD");
+        assert_eq!(ExchangeRateService::locale_to_currency(""), "USD");
+        assert_eq!(ExchangeRateService::locale_to_currency("invalid-locale"), "USD");
+    }
+
+    #[test]
+    fn test_locale_to_currency_case_insensitive() {
+        // Should handle different cases
+        assert_eq!(ExchangeRateService::locale_to_currency("EN-US"), "USD");
+        assert_eq!(ExchangeRateService::locale_to_currency("en-us"), "USD");
+        assert_eq!(ExchangeRateService::locale_to_currency("DE-de"), "EUR");
     }
 }
