@@ -41,3 +41,38 @@ email:
     header: "Transaction Bitcoin"
   balance_alert:
     header: "Alerte de Solde"
+
+# Auth email templates (email_service.rs)
+auth_email:
+  verify_email:
+    subject: "Vérifiez votre adresse e-mail - Canary"
+    header: "Bienvenue sur Canary !"
+    body: "Merci d'avoir créé votre compte Canary ! Pour commencer, veuillez vérifier votre adresse e-mail en cliquant sur le bouton ci-dessous."
+    button: "Vérifier l'adresse e-mail"
+    link_fallback: "Si le bouton ne fonctionne pas, vous pouvez copier et coller ce lien dans votre navigateur :"
+    expiry: "Ce lien de vérification expirera dans 24 heures. Si vous n'avez pas créé de compte, vous pouvez ignorer cet e-mail en toute sécurité."
+  password_reset:
+    subject: "Réinitialisez votre mot de passe - Canary"
+    header: "Réinitialisez votre mot de passe"
+    body: "Nous avons reçu une demande de réinitialisation de votre mot de passe pour votre compte Canary. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe."
+    button: "Réinitialiser le mot de passe"
+    link_fallback: "Si le bouton ne fonctionne pas, vous pouvez copier et coller ce lien dans votre navigateur :"
+    expiry: "Ce lien de réinitialisation expirera dans 1 heure. Si vous n'avez pas demandé de réinitialisation de mot de passe, vous pouvez ignorer cet e-mail en toute sécurité."
+  contact_otp:
+    subject: "Vérifiez votre adresse e-mail - Canary"
+    header: "Vérification de l'adresse e-mail requise"
+    body: "Veuillez vérifier votre adresse e-mail pour recevoir les notifications du portefeuille Bitcoin. Saisissez le code de vérification ci-dessous :"
+    expiry: "Ce code de vérification expirera dans 10 minutes. Si vous n'avez pas demandé cette vérification, vous pouvez ignorer cet e-mail en toute sécurité."
+  trial_ending:
+    subject: "Votre période d'essai Canary se termine dans 3 jours"
+    header: "Votre période d'essai se termine bientôt"
+    body: "Votre essai de 30 jours de Canary Team se terminera dans 3 jours, le %{trial_ends_at}."
+    continue_text: "Pour continuer à profiter d'une surveillance ininterrompue de votre portefeuille Bitcoin avec des notifications automatiques, veuillez vous abonner à l'un de nos forfaits."
+    what_happens_header: "Que se passe-t-il à la fin de votre période d'essai ?"
+    sync_stops: "La synchronisation du portefeuille s'arrêtera"
+    notifications_stop: "Les notifications s'arrêteront"
+    data_safe: "Les données de votre portefeuille restent sécurisées et accessibles"
+    button: "Voir les forfaits d'abonnement"
+    choose_plan: "Choisissez le forfait qui vous convient :"
+    personal_plan: "Personnel : 1 portefeuille, 1 contact, synchronisation toutes les 10 minutes"
+    team_plan: "Équipe : 5 portefeuilles, 5 contacts par portefeuille, synchronisation toutes les 2 minutes"

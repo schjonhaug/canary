@@ -3,6 +3,7 @@ use anyhow::{anyhow, Result};
 use rand::Rng;
 use resend_rs::types::{ContactData, CreateEmailBaseOptions};
 use resend_rs::Resend;
+use rust_i18n::t;
 
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
@@ -61,35 +62,16 @@ impl EmailService {
             self.config.frontend_url, verification_token
         );
 
-        // Detect Norwegian language
-        let is_norwegian = language.to_lowercase().starts_with("no")
-            || language.to_lowercase().starts_with("nb")
-            || language.to_lowercase().starts_with("nn");
-
-        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) =
-            if is_norwegian {
-                (
-                "Bekreft e-postadressen din - Canary",
-                "Velkommen til Canary!",
-                format!("Hei {},", to_name),
-                "Takk for at du opprettet en Canary-konto! For å komme i gang, bekreft e-postadressen din ved å klikke på knappen nedenfor.",
-                "Bekreft e-postadresse",
-                "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren:",
-                "Denne bekreftelseslenken utløper om 24 timer. Hvis du ikke opprettet en konto, kan du trygt ignorere denne e-posten.",
-                "Dette varselet ble sendt av Canary",
-            )
-            } else {
-                (
-                "Verify Your Email - Canary",
-                "Welcome to Canary!",
-                format!("Hi {},", to_name),
-                "Thank you for creating your Canary account! To get started, please verify your email address by clicking the button below.",
-                "Verify Email Address",
-                "If the button doesn't work, you can copy and paste this link into your browser:",
-                "This verification link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.",
-                "This notification was sent by Canary",
-            )
-            };
+        // Get translations using rust-i18n
+        let locale = language;
+        let subject = t!("auth_email.verify_email.subject", locale = locale).to_string();
+        let header = t!("auth_email.verify_email.header", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let body_text = t!("auth_email.verify_email.body", locale = locale).to_string();
+        let button_text = t!("auth_email.verify_email.button", locale = locale).to_string();
+        let link_fallback = t!("auth_email.verify_email.link_fallback", locale = locale).to_string();
+        let expiry_text = t!("auth_email.verify_email.expiry", locale = locale).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         let html_body = format!(
             r#"
@@ -170,7 +152,7 @@ impl EmailService {
             footer = footer
         );
 
-        self.send_email(to_email, to_name, subject, &html_body, &text_body)
+        self.send_email(to_email, to_name, &subject, &html_body, &text_body)
             .await
     }
 
@@ -186,35 +168,16 @@ impl EmailService {
             self.config.frontend_url, reset_token
         );
 
-        // Detect Norwegian language
-        let is_norwegian = language.to_lowercase().starts_with("no")
-            || language.to_lowercase().starts_with("nb")
-            || language.to_lowercase().starts_with("nn");
-
-        let (subject, header, greeting, body_text, button_text, link_fallback, expiry_text, footer) =
-            if is_norwegian {
-                (
-                "Tilbakestill passordet ditt - Canary",
-                "Tilbakestill passordet ditt",
-                format!("Hei {},", to_name),
-                "Vi mottok en forespørsel om å tilbakestille passordet for Canary-kontoen din. Klikk på knappen nedenfor for å opprette et nytt passord.",
-                "Tilbakestill passord",
-                "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren:",
-                "Denne tilbakestillingslenken utløper om 1 time. Hvis du ikke ba om å tilbakestille passordet, kan du trygt ignorere denne e-posten.",
-                "Dette varselet ble sendt av Canary",
-            )
-            } else {
-                (
-                "Reset Your Password - Canary",
-                "Reset Your Password",
-                format!("Hi {},", to_name),
-                "We received a request to reset your password for your Canary account. Click the button below to create a new password.",
-                "Reset Password",
-                "If the button doesn't work, you can copy and paste this link into your browser:",
-                "This reset link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.",
-                "This notification was sent by Canary",
-            )
-            };
+        // Get translations using rust-i18n
+        let locale = language;
+        let subject = t!("auth_email.password_reset.subject", locale = locale).to_string();
+        let header = t!("auth_email.password_reset.header", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let body_text = t!("auth_email.password_reset.body", locale = locale).to_string();
+        let button_text = t!("auth_email.password_reset.button", locale = locale).to_string();
+        let link_fallback = t!("auth_email.password_reset.link_fallback", locale = locale).to_string();
+        let expiry_text = t!("auth_email.password_reset.expiry", locale = locale).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         let html_body = format!(
             r#"
@@ -295,7 +258,7 @@ impl EmailService {
             footer = footer
         );
 
-        self.send_email(to_email, to_name, subject, &html_body, &text_body)
+        self.send_email(to_email, to_name, &subject, &html_body, &text_body)
             .await
     }
 
@@ -313,30 +276,14 @@ impl EmailService {
         otp_code: &str,
         language: &str,
     ) -> Result<()> {
-        // Detect Norwegian language
-        let is_norwegian = language.to_lowercase().starts_with("no")
-            || language.to_lowercase().starts_with("nb")
-            || language.to_lowercase() == "norwegian";
-
-        let (subject, header, greeting, body_text, expiry_text, footer) = if is_norwegian {
-            (
-                "Bekreft e-postadressen din - Canary",
-                "E-postbekreftelse kreves",
-                format!("Hei {},", to_name),
-                "Bekreft e-postadressen din for å motta varsler fra Bitcoin-lommeboken. Skriv inn bekreftelseskoden nedenfor:",
-                "Denne bekreftelseskoden utløper om 10 minutter. Hvis du ikke ba om denne bekreftelsen, kan du trygt ignorere denne e-posten.",
-                "Dette varselet ble sendt av Canary",
-            )
-        } else {
-            (
-                "Verify Your Email - Canary",
-                "Email Verification Required",
-                format!("Hi {},", to_name),
-                "Please verify your email address to receive Bitcoin wallet notifications. Enter the verification code below:",
-                "This verification code will expire in 10 minutes. If you didn't request this verification, you can safely ignore this email.",
-                "This notification was sent by Canary",
-            )
-        };
+        // Get translations using rust-i18n
+        let locale = language;
+        let subject = t!("auth_email.contact_otp.subject", locale = locale).to_string();
+        let header = t!("auth_email.contact_otp.header", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let body_text = t!("auth_email.contact_otp.body", locale = locale).to_string();
+        let expiry_text = t!("auth_email.contact_otp.expiry", locale = locale).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         let html_body = format!(
             r#"
@@ -410,7 +357,7 @@ Your verification code is: {otp_code}
             footer = footer
         );
 
-        self.send_email(to_email, to_name, subject, &html_body, &text_body)
+        self.send_email(to_email, to_name, &subject, &html_body, &text_body)
             .await
     }
 
@@ -423,79 +370,24 @@ Your verification code is: {otp_code}
     ) -> Result<()> {
         let billing_url = format!("{}/billing", self.config.frontend_url);
 
-        // Detect Norwegian language
-        let is_norwegian = language.to_lowercase().starts_with("no")
-            || language.to_lowercase().starts_with("nb")
-            || language.to_lowercase().starts_with("nn");
-
-        let (
-            subject,
-            header,
-            greeting,
-            body_text,
-            what_happens_header,
-            sync_stops,
-            notifications_stop,
-            data_safe,
-            button_text,
-            choose_plan,
-            personal_plan,
-            team_plan,
-            footer,
-        ) = if is_norwegian {
-            (
-                "Canary-prøveperioden din utløper om 3 dager",
-                "Prøveperioden din utløper snart",
-                format!("Hei {},", to_name),
-                format!("Din 30-dagers Canary Team-prøveperiode utløper om 3 dager, den <strong>{}</strong>.", trial_ends_at),
-                "Hva skjer når prøveperioden utløper?",
-                "Lommeboksynkronisering stopper",
-                "Varsler stopper",
-                "Lommebokdataene dine forblir trygge og tilgjengelige",
-                "Se abonnementsplaner",
-                "Velg planen som passer for deg:",
-                "Personal: 1 lommebok, 1 kontakt, 10 minutters synkronisering",
-                "Team: 5 lommebøker, 5 kontakter per lommebok, 2 minutters synkronisering",
-                "Dette varselet ble sendt av Canary",
-            )
-        } else {
-            (
-                "Your Canary trial ends in 3 days",
-                "Your Trial is Ending Soon",
-                format!("Hi {},", to_name),
-                format!(
-                    "Your 30-day Canary Team trial will end in 3 days on <strong>{}</strong>.",
-                    trial_ends_at
-                ),
-                "What happens when your trial ends?",
-                "Wallet syncing will stop",
-                "Notifications will stop",
-                "Your wallet data remains safe and accessible",
-                "View Subscription Plans",
-                "Choose the plan that's right for you:",
-                "Personal: 1 wallet, 1 contact, 10-minute sync",
-                "Team: 5 wallets, 5 contacts per wallet, 2-minute sync",
-                "This notification was sent by Canary",
-            )
-        };
-
-        let body_text_plain = if is_norwegian {
-            format!(
-                "Din 30-dagers Canary Team-prøveperiode utløper om 3 dager, den {}.",
-                trial_ends_at
-            )
-        } else {
-            format!(
-                "Your 30-day Canary Team trial will end in 3 days on {}.",
-                trial_ends_at
-            )
-        };
-
-        let continue_text = if is_norwegian {
-            "For å fortsette å nyte uavbrutt overvåking av Bitcoin-lommeboken med automatiske varsler, vennligst abonner på en av planene våre."
-        } else {
-            "To continue enjoying uninterrupted Bitcoin wallet monitoring with automatic notifications, please subscribe to one of our plans."
-        };
+        // Get translations using rust-i18n
+        let locale = language;
+        let subject = t!("auth_email.trial_ending.subject", locale = locale).to_string();
+        let header = t!("auth_email.trial_ending.header", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        // Body has a placeholder for trial_ends_at - wrap in <strong> for HTML
+        let body_text = t!("auth_email.trial_ending.body", locale = locale, trial_ends_at = format!("<strong>{}</strong>", trial_ends_at)).to_string();
+        let body_text_plain = t!("auth_email.trial_ending.body", locale = locale, trial_ends_at = trial_ends_at).to_string();
+        let continue_text = t!("auth_email.trial_ending.continue_text", locale = locale).to_string();
+        let what_happens_header = t!("auth_email.trial_ending.what_happens_header", locale = locale).to_string();
+        let sync_stops = t!("auth_email.trial_ending.sync_stops", locale = locale).to_string();
+        let notifications_stop = t!("auth_email.trial_ending.notifications_stop", locale = locale).to_string();
+        let data_safe = t!("auth_email.trial_ending.data_safe", locale = locale).to_string();
+        let button_text = t!("auth_email.trial_ending.button", locale = locale).to_string();
+        let choose_plan = t!("auth_email.trial_ending.choose_plan", locale = locale).to_string();
+        let personal_plan = t!("auth_email.trial_ending.personal_plan", locale = locale).to_string();
+        let team_plan = t!("auth_email.trial_ending.team_plan", locale = locale).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         let html_body = format!(
             r#"
@@ -608,7 +500,7 @@ Your verification code is: {otp_code}
             footer = footer
         );
 
-        self.send_email(to_email, to_name, subject, &html_body, &text_body)
+        self.send_email(to_email, to_name, &subject, &html_body, &text_body)
             .await
     }
 

@@ -41,3 +41,38 @@ email:
     header: "Bitcoin-transaktion"
   balance_alert:
     header: "Saldovarning"
+
+# Auth email templates (email_service.rs)
+auth_email:
+  verify_email:
+    subject: "Verifiera din e-post - Canary"
+    header: "Välkommen till Canary!"
+    body: "Tack för att du skapade ditt Canary-konto! För att komma igång, vänligen verifiera din e-postadress genom att klicka på knappen nedan."
+    button: "Verifiera e-postadress"
+    link_fallback: "Om knappen inte fungerar kan du kopiera och klistra in denna länk i din webbläsare:"
+    expiry: "Denna verifieringslänk upphör att gälla om 24 timmar. Om du inte har skapat ett konto kan du bortse från detta e-postmeddelande."
+  password_reset:
+    subject: "Återställ ditt lösenord - Canary"
+    header: "Återställ ditt lösenord"
+    body: "Vi har tagit emot en begäran om att återställa lösenordet för ditt Canary-konto. Klicka på knappen nedan för att skapa ett nytt lösenord."
+    button: "Återställ lösenord"
+    link_fallback: "Om knappen inte fungerar kan du kopiera och klistra in denna länk i din webbläsare:"
+    expiry: "Denna återställningslänk upphör att gälla om 1 timme. Om du inte har begärt en lösenordsåterställning kan du bortse från detta e-postmeddelande."
+  contact_otp:
+    subject: "Verifiera din e-post - Canary"
+    header: "E-postverifiering krävs"
+    body: "Vänligen verifiera din e-postadress för att ta emot aviseringar om Bitcoin-plånböcker. Ange verifieringskoden nedan:"
+    expiry: "Denna verifieringskod upphör att gälla om 10 minuter. Om du inte har begärt denna verifiering kan du bortse från detta e-postmeddelande."
+  trial_ending:
+    subject: "Din testperiod för Canary går ut om 3 dagar"
+    header: "Din testperiod tar snart slut"
+    body: "Din 30-dagars testperiod för Canary Team går ut om 3 dagar, den %{trial_ends_at}."
+    continue_text: "För att fortsätta använda oavbruten bevakning av Bitcoin-plånböcker med automatiska aviseringar, vänligen prenumerera på en av våra planer."
+    what_happens_header: "Vad händer när din testperiod går ut?"
+    sync_stops: "Plånbokssynkroniseringen stoppas"
+    notifications_stop: "Aviseringarna stoppas"
+    data_safe: "Din plånboksdata förblir säker och tillgänglig"
+    button: "Visa prenumerationsplaner"
+    choose_plan: "Välj den plan som passar dig bäst:"
+    personal_plan: "Personal: 1 plånbok, 1 kontakt, 10-minuters synkronisering"
+    team_plan: "Team: 5 plånböcker, 5 kontakter per plånbok, 2-minuters synkronisering"

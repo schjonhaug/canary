@@ -41,3 +41,38 @@ email:
     header: "Bitcoin-transaksjon"
   balance_alert:
     header: "Saldovarsel"
+
+# Auth email templates (email_service.rs)
+auth_email:
+  verify_email:
+    subject: "Bekreft e-postadressen din - Canary"
+    header: "Velkommen til Canary!"
+    body: "Takk for at du opprettet din Canary-konto! For å komme i gang må du bekrefte e-postadressen din ved å klikke på knappen nedenfor."
+    button: "Bekreft e-postadresse"
+    link_fallback: "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren din:"
+    expiry: "Denne bekreftelseslenken utløper om 24 timer. Hvis du ikke har opprettet en konto, kan du trygt ignorere denne e-posten."
+  password_reset:
+    subject: "Tilbakestill passordet ditt - Canary"
+    header: "Tilbakestill passordet ditt"
+    body: "Vi har mottatt en forespørsel om å tilbakestille passordet for din Canary-konto. Klikk på knappen nedenfor for å lage et nytt passord."
+    button: "Tilbakestill passord"
+    link_fallback: "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren din:"
+    expiry: "Denne lenken for tilbakestilling utløper om 1 time. Hvis du ikke har bedt om å tilbakestille passordet, kan du trygt ignorere denne e-posten."
+  contact_otp:
+    subject: "Bekreft e-postadressen din - Canary"
+    header: "E-postbekreftelse kreves"
+    body: "Vennligst bekreft e-postadressen din for å motta varsler for Bitcoin-lommebøker. Skriv inn bekreftelseskoden nedenfor:"
+    expiry: "Denne bekreftelseskoden utløper om 10 minutter. Hvis du ikke har bedt om denne bekreftelsen, kan du trygt ignorere denne e-posten."
+  trial_ending:
+    subject: "Ditt Canary-prøveabonnement utløper om 3 dager"
+    header: "Prøveperioden din avsluttes snart"
+    body: "Din 30-dagers Canary Team-prøveperiode utløper om 3 dager den %{trial_ends_at}."
+    continue_text: "For å fortsette å nyte uavbrutt overvåking av Bitcoin-lommebøker med automatiske varsler, vennligst abonner på en av våre planer."
+    what_happens_header: "Hva skjer når prøveperioden utløper?"
+    sync_stops: "Synkronisering av lommebøker vil stoppe"
+    notifications_stop: "Varsler vil stoppe"
+    data_safe: "Dine lommebokdata forblir trygge og tilgjengelige"
+    button: "Se abonnementsplaner"
+    choose_plan: "Velg planen som passer for deg:"
+    personal_plan: "Personlig: 1 lommebok, 1 kontakt, 10-minutters synkronisering"
+    team_plan: "Team: 5 lommebøker, 5 kontakter per lommebok, 2-minutters synkronisering"
