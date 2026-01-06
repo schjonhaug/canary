@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow, Locale } from 'date-fns';
 import { useLocale } from 'next-intl';
-import { enUS, nb, es, pt, de, fr, ja } from 'date-fns/locale';
+import { enUS, nb, es, pt, de, fr, ja, da } from 'date-fns/locale';
 
 const localeMap: Record<string, Locale> = {
   en: enUS,
@@ -11,6 +11,7 @@ const localeMap: Record<string, Locale> = {
   de: de,
   fr: fr,
   ja: ja,
+  da: da,
 };
 
 export function useRelativeTime(timestamp: number | undefined, updateInterval = 60000) {
