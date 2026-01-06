@@ -23,6 +23,10 @@ function mapBrowserLocale(acceptLanguage: string | null): Locale {
       return 'fr'
     case 'ja':
       return 'ja'
+    case 'da':
+      return 'da'
+    case 'sv':
+      return 'sv'
     default:
       return 'en'
   }
