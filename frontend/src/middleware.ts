@@ -1,34 +1,32 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import Negotiator from 'negotiator'
+import { match } from '@formatjs/intl-localematcher'
 import { locales, defaultLocale, type Locale } from './i18n/config'
 
-function mapBrowserLocale(acceptLanguage: string | null): Locale {
+// Extended locales including Norwegian variants for matching
+const matcherLocales = ['en', 'no', 'nb', 'nn', 'es', 'pt', 'de', 'fr', 'ja', 'da', 'sv']
+
+function detectLocale(acceptLanguage: string | null): Locale {
   if (!acceptLanguage) return defaultLocale
 
-  // Get the preferred language from Accept-Language header
-  const preferred = acceptLanguage.split(',')[0].split('-')[0].toLowerCase()
+  try {
+    // Use Negotiator to parse Accept-Language header
+    const negotiator = new Negotiator({ headers: { 'accept-language': acceptLanguage } })
+    const languages = negotiator.languages()
 
-  switch (preferred) {
-    case 'nb':
-    case 'nn':
-    case 'no':
-      return 'no'
-    case 'es':
-      return 'es'
-    case 'pt':
-      return 'pt'
-    case 'de':
-      return 'de'
-    case 'fr':
-      return 'fr'
-    case 'ja':
-      return 'ja'
-    case 'da':
-      return 'da'
-    case 'sv':
-      return 'sv'
-    default:
-      return 'en'
+    // Use intl-localematcher to find best match
+    const matched = match(languages, matcherLocales, defaultLocale)
+
+    // Map Norwegian variants to 'no'
+    if (matched === 'nb' || matched === 'nn') return 'no'
+
+    // Verify it's one of our supported locales
+    if (locales.includes(matched as Locale)) return matched as Locale
+
+    return defaultLocale
+  } catch {
+    return defaultLocale
   }
 }
 
@@ -42,7 +40,7 @@ export function middleware(request: NextRequest) {
 
   // Detect from Accept-Language header
   const acceptLanguage = request.headers.get('accept-language')
-  const detectedLocale = mapBrowserLocale(acceptLanguage)
+  const detectedLocale = detectLocale(acceptLanguage)
 
   // Set the locale cookie for future requests
   const response = NextResponse.next()
