@@ -35,7 +35,12 @@
     "connectingToNetwork": "ネットワークに接続中...",
     "emailPlaceholder": "your@email.com",
     "emailLabel": "メールアドレス",
-    "passwordLabel": "パスワード"
+    "passwordLabel": "パスワード",
+    "name": "名前",
+    "new": "新規",
+    "backToWallets": "ウォレットに戻る",
+    "backToSignIn": "ログインに戻る",
+    "selfHostedMode": "セルフホストモード"
   },
   "nav": {
     "signIn": "ログイン",
@@ -50,20 +55,15 @@
   "contactPage": {
     "title": "お問い合わせ",
     "selfHosted": {
-      "title": "セルフホストモード",
-      "description": "セルフホストモードではお問い合わせフォームは利用できません。",
-      "backToWallets": "ウォレットに戻る"
+      "description": "セルフホストモードではお問い合わせフォームは利用できません。"
     },
     "form": {
       "title": "お問い合わせ",
       "description": "ご質問やフィードバックがありますか？お気軽にご連絡ください。",
-      "emailLabel": "メールアドレス",
-      "emailPlaceholder": "your@email.com",
       "messageLabel": "メッセージ",
       "messagePlaceholder": "どのようにお手伝いできますか？",
       "characterCount": "{count}/{max}文字",
-      "submit": "メッセージを送信",
-      "submitting": "送信中..."
+      "submit": "メッセージを送信"
     },
     "validation": {
       "emailRequired": "メールアドレスは必須です",
@@ -198,9 +198,6 @@
     "signIn": {
       "title": "おかえりなさい",
       "subtitle": "Canaryアカウントにログイン",
-      "emailLabel": "メール",
-      "emailPlaceholder": "your@email.com",
-      "passwordLabel": "パスワード",
       "passwordPlaceholder": "パスワードを入力",
       "submit": "ログイン",
       "submitting": "ログイン中...",
@@ -214,9 +211,6 @@
       "subtitle": "30日間無料、その後お好みのプランで継続",
       "nameLabel": "名前",
       "namePlaceholder": "お名前を入力",
-      "emailLabel": "メール",
-      "emailPlaceholder": "your@email.com",
-      "passwordLabel": "パスワード",
       "passwordPlaceholder": "安全なパスワードを入力",
       "passwordHint": "パスワードは6文字以上である必要があります",
       "marketingConsent": "サービス更新に関するメールを時々受け取りたい",
@@ -231,17 +225,12 @@
       "description": "メールアドレスに確認リンクを送信しました。リンクをクリックしてアカウントを確認してください。",
       "didntReceive": "メールが届きませんでしたか？",
       "checkSpam": "迷惑メールフォルダを確認してください",
-      "resend": "確認メールを再送信",
-      "backToSignIn": "ログインに戻る"
+      "resend": "確認メールを再送信"
     },
     "forgotPassword": {
       "title": "パスワードをお忘れですか？",
       "subtitle": "メールアドレスを入力すると、リセットリンクを送信します",
-      "emailLabel": "メール",
-      "emailPlaceholder": "your@email.com",
       "submit": "リセットリンクを送信",
-      "submitting": "送信中...",
-      "backToSignIn": "ログインに戻る",
       "successTitle": "メールを確認してください",
       "successMessage": "そのメールアドレスでアカウントが存在する場合、パスワードリセットリンクが届きます。"
     },
@@ -554,8 +543,6 @@
         "pending": "同期中",
         "ready": "同期済み"
       },
-      "backToWallets": "ウォレットに戻る",
-      "new": "新規",
       "notFound": {
         "title": "ウォレットが見つかりません",
         "description": "チェックサム#{checksum}のウォレットが見つかりませんでした。"
@@ -575,9 +562,7 @@
     },
     "delete": {
       "title": "ウォレットを削除",
-      "description": "このウォレットを削除してもよろしいですか？この操作は取り消せません。",
-      "confirm": "削除",
-      "cancel": "キャンセル"
+      "description": "このウォレットを削除してもよろしいですか？この操作は取り消せません。"
     },
     "edit": {
       "title": "ウォレットを編集",
@@ -628,9 +613,7 @@
     },
     "delete": {
       "title": "連絡先を削除",
-      "description": "この連絡先を削除してもよろしいですか？通知は届かなくなります。",
-      "confirm": "削除",
-      "cancel": "キャンセル"
+      "description": "この連絡先を削除してもよろしいですか？通知は届かなくなります。"
     },
     "verification": {
       "codeLabel": "確認コード",
@@ -670,7 +653,6 @@
   },
   "balanceAlerts": {
     "title": "残高アラート",
-    "new": "新規",
     "empty": {
       "title": "残高アラートがありません",
       "description": "ウォレットの残高が特定のしきい値に達したときに通知を受けるアラートを設定",
@@ -701,7 +683,6 @@
       "thresholdLabel": "しきい値",
       "thresholdPlaceholder": "0.1",
       "btc": "BTC",
-      "cancel": "キャンセル",
       "submit": "作成",
       "submitting": "作成中..."
     },
@@ -710,9 +691,7 @@
     },
     "delete": {
       "title": "アラートを削除",
-      "description": "この残高アラートを削除してもよろしいですか？",
-      "confirm": "削除",
-      "cancel": "キャンセル"
+      "description": "この残高アラートを削除してもよろしいですか？"
     },
     "status": {
       "active": "アクティブ",
@@ -892,9 +871,7 @@
   "subscriptionPage": {
     "title": "サブスクリプション",
     "selfHosted": {
-      "title": "セルフホストモード",
-      "description": "セルフホストモードでは、サブスクリプション課金は利用できません。",
-      "backToWallets": "ウォレットに戻る"
+      "description": "セルフホストモードでは、サブスクリプション課金は利用できません。"
     },
     "loading": "請求情報を読み込み中...",
     "notSignedIn": {

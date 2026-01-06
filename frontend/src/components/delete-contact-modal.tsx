@@ -87,7 +87,7 @@ export function DeleteContactModal({
             onClick={handleDelete}
             disabled={isDeleting}
           >
-            {isDeleting ? tCommon('deleting') : t('delete.confirm')}
+            {isDeleting ? tCommon('deleting') : tCommon('delete')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 
 export default function SignUpSuccessPage() {
   const t = useTranslations('auth.signUpSuccess')
+  const tCommon = useTranslations('common')
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -45,7 +46,7 @@ export default function SignUpSuccessPage() {
 
           <Link href="/sign-in" className="block">
             <Button className="w-full">
-              {t('backToSignIn')}
+              {tCommon('backToSignIn')}
             </Button>
           </Link>
         </CardContent>

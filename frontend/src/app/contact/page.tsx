@@ -17,6 +17,7 @@ import Link from 'next/link'
 
 export default function ContactPage() {
   const t = useTranslations('contactPage')
+  const tCommon = useTranslations('common')
   const { user, isAuthenticated, isSelfHostedMode } = useAuth()
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
@@ -103,7 +104,7 @@ export default function ContactPage() {
         <h2 className="text-2xl font-semibold">{t('title')}</h2>
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>{t('selfHosted.title')}</CardTitle>
+            <CardTitle>{tCommon('selfHostedMode')}</CardTitle>
             <CardDescription>
               {t('selfHosted.description')}
             </CardDescription>
@@ -111,7 +112,7 @@ export default function ContactPage() {
           <CardContent>
             <Link href="/wallets">
               <Button variant="outline" className="w-full">
-                {t('selfHosted.backToWallets')}
+                {tCommon('backToWallets')}
               </Button>
             </Link>
           </CardContent>
@@ -147,11 +148,11 @@ export default function ContactPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">{t('form.emailLabel')}</Label>
+              <Label htmlFor="email">{tCommon('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder={t('form.emailPlaceholder')}
+                placeholder={tCommon('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -181,7 +182,7 @@ export default function ContactPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('form.submitting')}
+                  {tCommon('sending')}
                 </>
               ) : (
                 t('form.submit')

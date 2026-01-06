@@ -35,7 +35,12 @@
     "connectingToNetwork": "Conectando à rede...",
     "emailPlaceholder": "seu@email.com",
     "emailLabel": "E-mail",
-    "passwordLabel": "Senha"
+    "passwordLabel": "Senha",
+    "name": "Nome",
+    "new": "Novo",
+    "backToWallets": "Voltar para Carteiras",
+    "backToSignIn": "Voltar para entrar",
+    "selfHostedMode": "Modo Auto-hospedado"
   },
   "nav": {
     "signIn": "Entrar",
@@ -50,20 +55,15 @@
   "contactPage": {
     "title": "Contato",
     "selfHosted": {
-      "title": "Modo Auto-hospedado",
-      "description": "O formulário de contato não está disponível no modo auto-hospedado.",
-      "backToWallets": "Voltar para Carteiras"
+      "description": "O formulário de contato não está disponível no modo auto-hospedado."
     },
     "form": {
       "title": "Entre em Contato",
       "description": "Tem alguma pergunta ou feedback? Adoraríamos ouvir de você.",
-      "emailLabel": "Email",
-      "emailPlaceholder": "seu@email.com",
       "messageLabel": "Mensagem",
       "messagePlaceholder": "Como podemos ajudar?",
       "characterCount": "{count}/{max} caracteres",
-      "submit": "Enviar Mensagem",
-      "submitting": "Enviando..."
+      "submit": "Enviar Mensagem"
     },
     "validation": {
       "emailRequired": "Email é obrigatório",
@@ -198,9 +198,6 @@
     "signIn": {
       "title": "Bem-vindo de volta",
       "subtitle": "Entre na sua conta Canary",
-      "emailLabel": "Email",
-      "emailPlaceholder": "seu@email.com",
-      "passwordLabel": "Senha",
       "passwordPlaceholder": "Digite sua senha",
       "submit": "Entrar",
       "submitting": "Entrando...",
@@ -214,9 +211,6 @@
       "subtitle": "30 dias grátis, depois continue com o plano de sua escolha",
       "nameLabel": "Nome",
       "namePlaceholder": "Digite seu nome",
-      "emailLabel": "Email",
-      "emailPlaceholder": "seu@email.com",
-      "passwordLabel": "Senha",
       "passwordPlaceholder": "Digite uma senha forte",
       "passwordHint": "A senha deve ter pelo menos 6 caracteres",
       "marketingConsent": "Gostaria de receber emails ocasionais sobre atualizações do serviço",
@@ -231,17 +225,12 @@
       "description": "Enviamos um link de verificação para seu endereço de email. Por favor clique no link para verificar sua conta.",
       "didntReceive": "Não recebeu o email?",
       "checkSpam": "Verifique sua pasta de spam",
-      "resend": "Reenviar email de verificação",
-      "backToSignIn": "Voltar para login"
+      "resend": "Reenviar email de verificação"
     },
     "forgotPassword": {
       "title": "Esqueceu sua senha?",
       "subtitle": "Digite seu email e enviaremos um link de redefinição",
-      "emailLabel": "Email",
-      "emailPlaceholder": "seu@email.com",
       "submit": "Enviar link de redefinição",
-      "submitting": "Enviando...",
-      "backToSignIn": "Voltar para login",
       "successTitle": "Verifique seu email",
       "successMessage": "Se existir uma conta com esse email, você receberá um link de redefinição de senha."
     },
@@ -554,8 +543,6 @@
         "pending": "Sincronizando",
         "ready": "Sincronizado"
       },
-      "backToWallets": "Voltar para carteiras",
-      "new": "Novo",
       "notFound": {
         "title": "Carteira não encontrada",
         "description": "A carteira com checksum #{checksum} não foi encontrada."
@@ -575,9 +562,7 @@
     },
     "delete": {
       "title": "Excluir Carteira",
-      "description": "Tem certeza de que deseja excluir esta carteira? Esta ação não pode ser desfeita.",
-      "confirm": "Excluir",
-      "cancel": "Cancelar"
+      "description": "Tem certeza de que deseja excluir esta carteira? Esta ação não pode ser desfeita."
     },
     "edit": {
       "title": "Editar Carteira",
@@ -628,9 +613,7 @@
     },
     "delete": {
       "title": "Excluir contato",
-      "description": "Tem certeza de que deseja excluir este contato? Ele não receberá mais notificações.",
-      "confirm": "Excluir",
-      "cancel": "Cancelar"
+      "description": "Tem certeza de que deseja excluir este contato? Ele não receberá mais notificações."
     },
     "verification": {
       "codeLabel": "Código de verificação",
@@ -670,7 +653,6 @@
   },
   "balanceAlerts": {
     "title": "Alertas de Saldo",
-    "new": "Novo",
     "empty": {
       "title": "Sem alertas de saldo",
       "description": "Configure alertas para ser notificado quando o saldo da sua carteira atingir certos limites",
@@ -701,7 +683,6 @@
       "thresholdLabel": "Limite",
       "thresholdPlaceholder": "0.1",
       "btc": "BTC",
-      "cancel": "Cancelar",
       "submit": "Criar",
       "submitting": "Criando..."
     },
@@ -710,9 +691,7 @@
     },
     "delete": {
       "title": "Excluir Alerta",
-      "description": "Tem certeza de que deseja excluir este alerta de saldo?",
-      "confirm": "Excluir",
-      "cancel": "Cancelar"
+      "description": "Tem certeza de que deseja excluir este alerta de saldo?"
     },
     "status": {
       "active": "Ativo",
@@ -892,9 +871,7 @@
   "subscriptionPage": {
     "title": "Assinatura",
     "selfHosted": {
-      "title": "Modo auto-hospedado",
-      "description": "A cobrança de assinatura não está disponível no modo auto-hospedado.",
-      "backToWallets": "Voltar às carteiras"
+      "description": "A cobrança de assinatura não está disponível no modo auto-hospedado."
     },
     "loading": "Carregando informações de cobrança...",
     "notSignedIn": {

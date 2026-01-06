@@ -16,6 +16,7 @@ import { useTranslations } from 'next-intl'
 
 export default function ForgotPasswordPage() {
   const t = useTranslations('auth.forgotPassword')
+  const tCommon = useTranslations('common')
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -76,7 +77,7 @@ export default function ForgotPasswordPage() {
             </Alert>
             <Link href="/sign-in">
               <Button className="w-full">
-                {t('backToSignIn')}
+                {tCommon('backToSignIn')}
               </Button>
             </Link>
           </CardContent>
@@ -114,11 +115,11 @@ export default function ForgotPasswordPage() {
 
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">{t('emailLabel')}</Label>
+              <Label htmlFor="email">{tCommon('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder={t('emailPlaceholder')}
+                placeholder={tCommon('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -133,7 +134,7 @@ export default function ForgotPasswordPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('submitting')}
+                  {tCommon('sending')}
                 </>
               ) : (
                 t('submit')
@@ -146,7 +147,7 @@ export default function ForgotPasswordPage() {
                 className="w-full"
                 disabled={isLoading}
               >
-                {t('backToSignIn')}
+                {tCommon('backToSignIn')}
               </Button>
             </Link>
           </form>

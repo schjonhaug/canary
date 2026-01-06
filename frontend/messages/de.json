@@ -35,7 +35,12 @@
     "connectingToNetwork": "Verbinde mit Netzwerk...",
     "emailPlaceholder": "ihre@email.de",
     "emailLabel": "E-Mail",
-    "passwordLabel": "Passwort"
+    "passwordLabel": "Passwort",
+    "name": "Name",
+    "new": "Neu",
+    "backToWallets": "Zurück zu Wallets",
+    "backToSignIn": "Zurück zur Anmeldung",
+    "selfHostedMode": "Selbst gehosteter Modus"
   },
   "nav": {
     "signIn": "Anmelden",
@@ -50,20 +55,15 @@
   "contactPage": {
     "title": "Kontakt",
     "selfHosted": {
-      "title": "Selbst gehosteter Modus",
-      "description": "Das Kontaktformular ist im selbst gehosteten Modus nicht verfügbar.",
-      "backToWallets": "Zurück zu Wallets"
+      "description": "Das Kontaktformular ist im selbst gehosteten Modus nicht verfügbar."
     },
     "form": {
       "title": "Kontaktieren Sie uns",
       "description": "Haben Sie eine Frage oder Feedback? Wir würden gerne von Ihnen hören.",
-      "emailLabel": "E-Mail",
-      "emailPlaceholder": "ihre@email.de",
       "messageLabel": "Nachricht",
       "messagePlaceholder": "Wie können wir Ihnen helfen?",
       "characterCount": "{count}/{max} Zeichen",
-      "submit": "Nachricht senden",
-      "submitting": "Wird gesendet..."
+      "submit": "Nachricht senden"
     },
     "validation": {
       "emailRequired": "E-Mail ist erforderlich",
@@ -198,9 +198,6 @@
     "signIn": {
       "title": "Willkommen zurück",
       "subtitle": "Melden Sie sich bei Ihrem Canary-Konto an",
-      "emailLabel": "E-Mail",
-      "emailPlaceholder": "ihre@email.de",
-      "passwordLabel": "Passwort",
       "passwordPlaceholder": "Passwort eingeben",
       "submit": "Anmelden",
       "submitting": "Meldet an...",
@@ -214,9 +211,6 @@
       "subtitle": "30 Tage kostenlos, dann mit dem Plan Ihrer Wahl fortfahren",
       "nameLabel": "Name",
       "namePlaceholder": "Ihren Namen eingeben",
-      "emailLabel": "E-Mail",
-      "emailPlaceholder": "ihre@email.de",
-      "passwordLabel": "Passwort",
       "passwordPlaceholder": "Sicheres Passwort eingeben",
       "passwordHint": "Das Passwort muss mindestens 6 Zeichen lang sein",
       "marketingConsent": "Ich möchte gelegentlich E-Mails über Service-Updates erhalten",
@@ -231,17 +225,12 @@
       "description": "Wir haben einen Bestätigungslink an Ihre E-Mail-Adresse gesendet. Bitte klicken Sie auf den Link, um Ihr Konto zu verifizieren.",
       "didntReceive": "E-Mail nicht erhalten?",
       "checkSpam": "Prüfen Sie Ihren Spam-Ordner",
-      "resend": "Bestätigungsmail erneut senden",
-      "backToSignIn": "Zurück zur Anmeldung"
+      "resend": "Bestätigungsmail erneut senden"
     },
     "forgotPassword": {
       "title": "Passwort vergessen?",
       "subtitle": "Geben Sie Ihre E-Mail ein und wir senden Ihnen einen Zurücksetzungslink",
-      "emailLabel": "E-Mail",
-      "emailPlaceholder": "ihre@email.de",
       "submit": "Zurücksetzungslink senden",
-      "submitting": "Sendet...",
-      "backToSignIn": "Zurück zur Anmeldung",
       "successTitle": "Prüfen Sie Ihre E-Mail",
       "successMessage": "Falls ein Konto mit dieser E-Mail existiert, erhalten Sie einen Link zur Passwortzurücksetzung."
     },
@@ -554,8 +543,6 @@
         "pending": "Synchronisiert",
         "ready": "Synchronisiert"
       },
-      "backToWallets": "Zurück zu Wallets",
-      "new": "Neu",
       "notFound": {
         "title": "Wallet nicht gefunden",
         "description": "Die Wallet mit Prüfsumme #{checksum} wurde nicht gefunden."
@@ -575,9 +562,7 @@
     },
     "delete": {
       "title": "Wallet löschen",
-      "description": "Sind Sie sicher, dass Sie diese Wallet löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
-      "confirm": "Löschen",
-      "cancel": "Abbrechen"
+      "description": "Sind Sie sicher, dass Sie diese Wallet löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
     },
     "edit": {
       "title": "Wallet bearbeiten",
@@ -628,9 +613,7 @@
     },
     "delete": {
       "title": "Kontakt löschen",
-      "description": "Sind Sie sicher, dass Sie diesen Kontakt löschen möchten? Er erhält keine Benachrichtigungen mehr.",
-      "confirm": "Löschen",
-      "cancel": "Abbrechen"
+      "description": "Sind Sie sicher, dass Sie diesen Kontakt löschen möchten? Er erhält keine Benachrichtigungen mehr."
     },
     "verification": {
       "codeLabel": "Bestätigungscode",
@@ -670,7 +653,6 @@
   },
   "balanceAlerts": {
     "title": "Saldo-Warnungen",
-    "new": "Neu",
     "empty": {
       "title": "Keine Saldo-Warnungen",
       "description": "Richten Sie Warnungen ein, um benachrichtigt zu werden, wenn Ihr Wallet-Saldo bestimmte Schwellenwerte erreicht",
@@ -701,7 +683,6 @@
       "thresholdLabel": "Schwellenwert",
       "thresholdPlaceholder": "0,1",
       "btc": "BTC",
-      "cancel": "Abbrechen",
       "submit": "Erstellen",
       "submitting": "Wird erstellt..."
     },
@@ -710,9 +691,7 @@
     },
     "delete": {
       "title": "Warnung löschen",
-      "description": "Sind Sie sicher, dass Sie diese Saldo-Warnung löschen möchten?",
-      "confirm": "Löschen",
-      "cancel": "Abbrechen"
+      "description": "Sind Sie sicher, dass Sie diese Saldo-Warnung löschen möchten?"
     },
     "status": {
       "active": "Aktiv",
@@ -892,9 +871,7 @@
   "subscriptionPage": {
     "title": "Abonnement",
     "selfHosted": {
-      "title": "Selbst gehosteter Modus",
-      "description": "Abonnement-Abrechnung ist im selbst gehosteten Modus nicht verfügbar.",
-      "backToWallets": "Zurück zu Wallets"
+      "description": "Abonnement-Abrechnung ist im selbst gehosteten Modus nicht verfügbar."
     },
     "loading": "Abrechnungsinformationen werden geladen...",
     "notSignedIn": {

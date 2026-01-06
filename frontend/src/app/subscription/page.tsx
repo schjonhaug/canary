@@ -14,6 +14,7 @@ import Link from "next/link"
 export default function SubscriptionPage() {
   const t = useTranslations('subscriptionPage')
   const tBilling = useTranslations('billing')
+  const tCommon = useTranslations('common')
   const { user, billingStatus, isLoading, refreshBillingStatus, isSelfHostedMode } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
@@ -48,7 +49,7 @@ export default function SubscriptionPage() {
         <h2 className="text-2xl font-semibold">{t('title')}</h2>
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>{t('selfHosted.title')}</CardTitle>
+            <CardTitle>{tCommon('selfHostedMode')}</CardTitle>
             <CardDescription>
               {t('selfHosted.description')}
             </CardDescription>
@@ -56,7 +57,7 @@ export default function SubscriptionPage() {
           <CardContent>
             <Link href="/wallets">
               <Button variant="outline" className="w-full">
-                {t('selfHosted.backToWallets')}
+                {tCommon('backToWallets')}
               </Button>
             </Link>
           </CardContent>
