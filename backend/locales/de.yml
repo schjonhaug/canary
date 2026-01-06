@@ -1,5 +1,11 @@
 _version: 1
 
+# Common strings used across multiple providers
+common:
+  greeting: "Hallo %{to_name},"
+  footer: "Diese Benachrichtigung wurde von Canary gesendet"
+  wallet: "Wallet"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   receive:
@@ -19,8 +25,8 @@ balance_alert:
   above: "📊 Saldowarnung: %{wallet_name} Guthaben ist jetzt über %{threshold_display} (aktuell: %{current_display})"
   below: "📊 Saldowarnung: %{wallet_name} Guthaben ist jetzt unter %{threshold_display} (aktuell: %{current_display})"
 
-# Email subject lines (message_formatter.rs)
-subject:
+# Notification titles (used by email subjects and ntfy push titles)
+titles:
   receive:
     pending: "Bitcoin empfangen"
     confirmed: "Bitcoin erhalten"
@@ -33,20 +39,5 @@ subject:
 email:
   transaction:
     header: "Bitcoin-Transaktion"
-    greeting: "Hallo %{to_name},"
-    footer: "Diese Benachrichtigung wurde von Canary gesendet"
   balance_alert:
     header: "Saldowarnung"
-    wallet_label: "Wallet"
-    greeting: "Hallo %{to_name},"
-    footer: "Diese Benachrichtigung wurde von Canary gesendet"
-
-# Push notification titles (ntfy_provider.rs)
-ntfy:
-  receive:
-    pending: "Bitcoin empfangen - %{wallet_name}"
-    confirmed: "Bitcoin erhalten - %{wallet_name}"
-  send:
-    pending: "Bitcoin senden - %{wallet_name}"
-    confirmed: "Bitcoin gesendet - %{wallet_name}"
-  balance_alert: "Saldowarnung - %{wallet_name}"

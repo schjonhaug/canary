@@ -226,8 +226,8 @@ impl EmailProvider {
     ) -> String {
         let locale = language.as_str();
         let header = t!("email.transaction.header", locale = locale).to_string();
-        let greeting = t!("email.transaction.greeting", locale = locale, to_name = to_name).to_string();
-        let footer = t!("email.transaction.footer", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         format!(
             r#"
@@ -266,8 +266,8 @@ impl EmailProvider {
         language: &Language,
     ) -> String {
         let locale = language.as_str();
-        let greeting = t!("email.transaction.greeting", locale = locale, to_name = to_name).to_string();
-        let footer = t!("email.transaction.footer", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         format!("{}\n\n{}\n\n{}\n\n{}", subject, greeting, message, footer)
     }
@@ -281,9 +281,9 @@ impl EmailProvider {
     ) -> String {
         let locale = language.as_str();
         let header = t!("email.balance_alert.header", locale = locale).to_string();
-        let wallet_label = t!("email.balance_alert.wallet_label", locale = locale).to_string();
-        let greeting = t!("email.balance_alert.greeting", locale = locale, to_name = to_name).to_string();
-        let footer = t!("email.balance_alert.footer", locale = locale).to_string();
+        let wallet_label = t!("common.wallet", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         let subject = format!("📊 {} - {}", header, wallet_name);
         format!(
@@ -324,9 +324,9 @@ impl EmailProvider {
     ) -> String {
         let locale = language.as_str();
         let header = t!("email.balance_alert.header", locale = locale).to_string();
-        let wallet_label = t!("email.balance_alert.wallet_label", locale = locale).to_string();
-        let greeting = t!("email.balance_alert.greeting", locale = locale, to_name = to_name).to_string();
-        let footer = t!("email.balance_alert.footer", locale = locale).to_string();
+        let wallet_label = t!("common.wallet", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
 
         let subject = format!("📊 {} - {}", header, wallet_name);
         format!(

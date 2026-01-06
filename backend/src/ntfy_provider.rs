@@ -91,27 +91,19 @@ impl NotificationProvider for NtfyProvider {
 
                 // Create localized title for push notification
                 let locale = contact.language.as_str();
-                let localized_title = match notification {
+                let title_key = match notification {
                     TransactionNotification::Pending(tx) => match tx.transaction_type {
-                        EventType::Receive => {
-                            t!("ntfy.receive.pending", locale = locale, wallet_name = wallet_name).to_string()
-                        }
-                        EventType::Send => {
-                            t!("ntfy.send.pending", locale = locale, wallet_name = wallet_name).to_string()
-                        }
+                        EventType::Receive => "titles.receive.pending",
+                        EventType::Send => "titles.send.pending",
                     },
                     TransactionNotification::Confirmed(tx) => match tx.transaction_type {
-                        EventType::Receive => {
-                            t!("ntfy.receive.confirmed", locale = locale, wallet_name = wallet_name).to_string()
-                        }
-                        EventType::Send => {
-                            t!("ntfy.send.confirmed", locale = locale, wallet_name = wallet_name).to_string()
-                        }
+                        EventType::Receive => "titles.receive.confirmed",
+                        EventType::Send => "titles.send.confirmed",
                     },
-                    TransactionNotification::BalanceAlert(_) => {
-                        t!("ntfy.balance_alert", locale = locale, wallet_name = wallet_name).to_string()
-                    }
+                    TransactionNotification::BalanceAlert(_) => "titles.balance_alert",
                 };
+                let localized_title =
+                    format!("{} - {}", t!(title_key, locale = locale), wallet_name);
 
                 // Build the request with optional authentication
                 let mut request = self

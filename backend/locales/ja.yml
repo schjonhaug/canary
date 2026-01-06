@@ -1,5 +1,11 @@
 _version: 1
 
+# Common strings used across multiple providers
+common:
+  greeting: "%{to_name} 様,"
+  footer: "この通知はCanaryから送信されました"
+  wallet: "ウォレット"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   receive:
@@ -19,8 +25,8 @@ balance_alert:
   above: "📊 残高アラート: %{wallet_name} の残高が %{threshold_display} を超えました (現在: %{current_display})"
   below: "📊 残高アラート: %{wallet_name} の残高が %{threshold_display} を下回りました (現在: %{current_display})"
 
-# Email subject lines (message_formatter.rs)
-subject:
+# Notification titles (used by email subjects and ntfy push titles)
+titles:
   receive:
     pending: "ビットコイン受取中"
     confirmed: "ビットコイン受取完了"
@@ -33,20 +39,5 @@ subject:
 email:
   transaction:
     header: "ビットコイン取引"
-    greeting: "%{to_name} 様,"
-    footer: "この通知はCanaryから送信されました"
   balance_alert:
     header: "残高アラート"
-    wallet_label: "ウォレット"
-    greeting: "%{to_name} 様,"
-    footer: "この通知はCanaryから送信されました"
-
-# Push notification titles (ntfy_provider.rs)
-ntfy:
-  receive:
-    pending: "ビットコイン受取中 - %{wallet_name}"
-    confirmed: "ビットコイン受取完了 - %{wallet_name}"
-  send:
-    pending: "ビットコイン送信中 - %{wallet_name}"
-    confirmed: "ビットコイン送信完了 - %{wallet_name}"
-  balance_alert: "残高アラート - %{wallet_name}"
