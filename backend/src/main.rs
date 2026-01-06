@@ -1,3 +1,10 @@
+#[macro_use]
+extern crate rust_i18n;
+
+// Initialize i18n with locale files from ./locales directory
+// Fallback to English if translation is missing
+i18n!("locales", fallback = "en");
+
 mod admin_notifications;
 mod api;
 mod auth;

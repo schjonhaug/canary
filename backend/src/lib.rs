@@ -1,6 +1,13 @@
 // Canary Backend Library
 // Core Bitcoin wallet functionality
 
+#[macro_use]
+extern crate rust_i18n;
+
+// Initialize i18n with locale files from ./locales directory
+// Fallback to English if translation is missing
+i18n!("locales", fallback = "en");
+
 pub mod admin_notifications;
 pub mod api;
 pub mod auth;

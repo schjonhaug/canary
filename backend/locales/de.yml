@@ -1,0 +1,52 @@
+_version: 1
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ Erhalten: %{amount_btc} BTC an %{wallet_name}"
+    pending: "💸 Empfange: %{amount_btc} BTC an %{wallet_name} (unbestatigt)"
+    replaced: "🔄 Ersetzt: %{amount_btc} BTC an %{wallet_name} (ersetzt durch %{short_txid})"
+  send:
+    confirmed_with_amount: "✅ Gesendet: %{amount_btc} BTC von %{wallet_name}"
+    confirmed_no_amount: "✅ Gesendet von %{wallet_name}"
+    pending: "📤 Sende: %{amount_btc} BTC von %{wallet_name}"
+    replaced: "🔄 Ersetzt: %{amount_btc} BTC von %{wallet_name} (ersetzt durch %{short_txid})"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 Wallet leer: %{wallet_name} Guthaben ist jetzt 0 BTC"
+  equals: "📊 Kontostandwarnung: %{wallet_name} Guthaben ist jetzt %{current_display}"
+  above: "📊 Kontostandwarnung: %{wallet_name} Guthaben ist jetzt uber %{threshold_display} (aktuell: %{current_display})"
+  below: "📊 Kontostandwarnung: %{wallet_name} Guthaben ist jetzt unter %{threshold_display} (aktuell: %{current_display})"
+
+# Email subject lines (message_formatter.rs)
+subject:
+  receive:
+    pending: "Bitcoin empfangen"
+    confirmed: "Bitcoin erhalten"
+  send:
+    pending: "Bitcoin senden"
+    confirmed: "Bitcoin gesendet"
+  balance_alert: "Kontostandwarnung"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "Bitcoin-Transaktion"
+    greeting: "Hallo %{to_name},"
+    footer: "Diese Benachrichtigung wurde von Canary gesendet"
+  balance_alert:
+    header: "Kontostandwarnung"
+    wallet_label: "Wallet"
+    greeting: "Hallo %{to_name},"
+    footer: "Diese Benachrichtigung wurde von Canary gesendet"
+
+# Push notification titles (ntfy_provider.rs)
+ntfy:
+  receive:
+    pending: "Bitcoin empfangen - %{wallet_name}"
+    confirmed: "Bitcoin erhalten - %{wallet_name}"
+  send:
+    pending: "Bitcoin senden - %{wallet_name}"
+    confirmed: "Bitcoin gesendet - %{wallet_name}"
+  balance_alert: "Kontostandwarnung - %{wallet_name}"

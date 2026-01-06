@@ -1,0 +1,52 @@
+_version: 1
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ Mottatt: %{amount_btc} BTC til %{wallet_name}"
+    pending: "💸 Mottar: %{amount_btc} BTC til %{wallet_name} (ubekreftet)"
+    replaced: "🔄 Erstattet: %{amount_btc} BTC til %{wallet_name} (erstattet av %{short_txid})"
+  send:
+    confirmed_with_amount: "✅ Sendt: %{amount_btc} BTC fra %{wallet_name}"
+    confirmed_no_amount: "✅ Sendt fra %{wallet_name}"
+    pending: "📤 Sender: %{amount_btc} BTC fra %{wallet_name}"
+    replaced: "🔄 Erstattet: %{amount_btc} BTC fra %{wallet_name} (erstattet av %{short_txid})"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 Lommebok tømt: %{wallet_name} saldo er nå 0 BTC"
+  equals: "📊 Saldovarsel: %{wallet_name} saldo er nå %{current_display}"
+  above: "📊 Saldovarsel: %{wallet_name} saldo er nå over %{threshold_display} (nåværende: %{current_display})"
+  below: "📊 Saldovarsel: %{wallet_name} saldo er nå under %{threshold_display} (nåværende: %{current_display})"
+
+# Email subject lines (message_formatter.rs)
+subject:
+  receive:
+    pending: "Mottar Bitcoin"
+    confirmed: "Bitcoin mottatt"
+  send:
+    pending: "Sender Bitcoin"
+    confirmed: "Bitcoin sendt"
+  balance_alert: "Saldovarsel"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "Bitcoin-transaksjon"
+    greeting: "Hei %{to_name},"
+    footer: "Dette varselet ble sendt av Canary"
+  balance_alert:
+    header: "Saldovarsel"
+    wallet_label: "Lommebok"
+    greeting: "Hei %{to_name},"
+    footer: "Dette varselet ble sendt av Canary"
+
+# Push notification titles (ntfy_provider.rs)
+ntfy:
+  receive:
+    pending: "Mottar Bitcoin - %{wallet_name}"
+    confirmed: "Bitcoin mottatt - %{wallet_name}"
+  send:
+    pending: "Sender Bitcoin - %{wallet_name}"
+    confirmed: "Bitcoin sendt - %{wallet_name}"
+  balance_alert: "Saldovarsel - %{wallet_name}"
