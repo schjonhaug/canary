@@ -23,7 +23,7 @@ impl MessageFormatter {
 
         // Format integer part with locale-specific thousands separators
         let formatted_integer = match language {
-            Language::Norwegian | Language::German | Language::French | Language::Spanish | Language::Portuguese | Language::Danish => {
+            Language::Norwegian | Language::German | Language::French | Language::Spanish | Language::Portuguese | Language::Danish | Language::Swedish => {
                 // These languages use space as thousands separator
                 // Replace non-breaking space with regular space
                 integer_value
@@ -38,7 +38,7 @@ impl MessageFormatter {
 
         // Combine with decimal separator based on language
         match language {
-            Language::Norwegian | Language::German | Language::French | Language::Spanish | Language::Portuguese | Language::Danish => {
+            Language::Norwegian | Language::German | Language::French | Language::Spanish | Language::Portuguese | Language::Danish | Language::Swedish => {
                 format!("{},{}", formatted_integer, decimal_part)
             }
             Language::English | Language::Japanese => {
@@ -56,7 +56,7 @@ impl MessageFormatter {
 
         // Format integer part with locale-specific thousands separators
         let formatted_integer = match language {
-            Language::Norwegian | Language::German | Language::French | Language::Spanish | Language::Portuguese | Language::Danish => {
+            Language::Norwegian | Language::German | Language::French | Language::Spanish | Language::Portuguese | Language::Danish | Language::Swedish => {
                 // These languages use space as thousands separator
                 integer_part
                     .to_formatted_string(&Locale::nb)
@@ -70,7 +70,7 @@ impl MessageFormatter {
 
         // Combine with decimal separator based on language
         let formatted_amount = match language {
-            Language::Norwegian | Language::German | Language::French | Language::Spanish | Language::Portuguese | Language::Danish => {
+            Language::Norwegian | Language::German | Language::French | Language::Spanish | Language::Portuguese | Language::Danish | Language::Swedish => {
                 format!("{},{:02}", formatted_integer, decimal_part)
             }
             Language::English | Language::Japanese => {

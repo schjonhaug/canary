@@ -1,5 +1,5 @@
--- Migration 017: Expand language support from 2 to 7 languages
--- Adds support for: English (en), Norwegian (no), Spanish (es), Portuguese (pt), German (de), French (fr), Japanese (ja)
+-- Migration 017: Expand language support from 2 to 9 languages
+-- Adds support for: English (en), Norwegian (no), Spanish (es), Portuguese (pt), German (de), French (fr), Japanese (ja), Danish (da), Swedish (sv)
 
 -- SQLite doesn't support ALTER TABLE to modify CHECK constraints
 -- We need to recreate the tables with updated constraints
@@ -10,7 +10,7 @@ CREATE TABLE contacts_new (
     id TEXT PRIMARY KEY,
     wallet_checksum TEXT NOT NULL,
     name TEXT NOT NULL,
-    language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no', 'es', 'pt', 'de', 'fr', 'ja')),
+    language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no', 'es', 'pt', 'de', 'fr', 'ja', 'da', 'sv')),
     is_active BOOLEAN DEFAULT true,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (wallet_checksum) REFERENCES wallets(checksum) ON DELETE CASCADE
@@ -35,7 +35,7 @@ CREATE TABLE pending_contact_verifications_new (
     provider_type TEXT NOT NULL CHECK (provider_type IN ('sms', 'email')),
     notification_target TEXT NOT NULL,
     contact_name TEXT NOT NULL,
-    language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no', 'es', 'pt', 'de', 'fr', 'ja')),
+    language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'no', 'es', 'pt', 'de', 'fr', 'ja', 'da', 'sv')),
     verification_code TEXT,
     expires_at DATETIME NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

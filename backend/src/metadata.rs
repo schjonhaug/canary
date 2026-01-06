@@ -125,6 +125,8 @@ pub fn locale_to_language(locale: &str) -> &'static str {
         "ja"
     } else if locale_lower.starts_with("da") {
         "da"
+    } else if locale_lower.starts_with("sv") {
+        "sv"
     } else {
         "en"
     }
