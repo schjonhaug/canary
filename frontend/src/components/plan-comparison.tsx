@@ -321,13 +321,29 @@ function PlanComparisonContent({
                 className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Image
-                  src="/images/umbrel.svg"
+                  src="/images/nodes/umbrel.svg"
                   alt="Umbrel"
                   width={16}
                   height={16}
                   className="opacity-60"
                 />
                 {t('selfHosted.installUmbrel')}
+              </a>
+              <span className="text-muted-foreground/40">•</span>
+              <a
+                href="https://marketplace.start9.com/canary?api=community-registry.start9.com&name=Community%20Registry"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Image
+                  src="/images/nodes/start9.svg"
+                  alt="Start9"
+                  width={16}
+                  height={16}
+                  className="opacity-60"
+                />
+                {t('selfHosted.installStart9')}
               </a>
               <span className="text-muted-foreground/40">•</span>
               <a

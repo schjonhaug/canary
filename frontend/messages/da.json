@@ -867,7 +867,8 @@
     "selfHosted": {
       "description": "Foretrækker du at self-hoste? Canary er gratis at køre på din egen infrastruktur med push-notifikationer via ntfy.",
       "installUmbrel": "Installer på Umbrel",
-      "viewGithub": "Se på GitHub"
+      "installStart9": "Installer på Start9",
+      "viewGithub": "Se koden på GitHub"
     }
   },
   "subscriptionPage": {

@@ -867,7 +867,8 @@
     "selfHosted": {
       "description": "Prefere auto-hospedar? Canary é grátis para executar em sua própria infraestrutura com notificações push via ntfy.",
       "installUmbrel": "Instalar no Umbrel",
-      "viewGithub": "Ver no GitHub"
+      "installStart9": "Instalar no Start9",
+      "viewGithub": "Ver o código no GitHub"
     }
   },
   "subscriptionPage": {
