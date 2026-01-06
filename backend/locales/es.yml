@@ -37,7 +37,7 @@ email:
     footer: "Esta notificacion fue enviada por Canary"
   balance_alert:
     header: "Alerta de Saldo"
-    wallet_label: "Cartera"
+    wallet_label: "Billetera"
     greeting: "Hola %{to_name},"
     footer: "Esta notificacion fue enviada por Canary"
 

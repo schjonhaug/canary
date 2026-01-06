@@ -4,20 +4,20 @@ _version: 1
 transaction:
   receive:
     confirmed: "✅ Recebido: %{amount_btc} BTC em %{wallet_name}"
-    pending: "💸 Recebendo: %{amount_btc} BTC em %{wallet_name} (nao confirmado)"
-    replaced: "🔄 Substituido: %{amount_btc} BTC para %{wallet_name} (substituido por %{short_txid})"
+    pending: "💸 Recebendo: %{amount_btc} BTC em %{wallet_name} (não confirmado)"
+    replaced: "🔄 Substituído: %{amount_btc} BTC para %{wallet_name} (substituído por %{short_txid})"
   send:
     confirmed_with_amount: "✅ Enviado: %{amount_btc} BTC de %{wallet_name}"
     confirmed_no_amount: "✅ Enviado de %{wallet_name}"
     pending: "📤 Enviando: %{amount_btc} BTC de %{wallet_name}"
-    replaced: "🔄 Substituido: %{amount_btc} BTC de %{wallet_name} (substituido por %{short_txid})"
+    replaced: "🔄 Substituído: %{amount_btc} BTC de %{wallet_name} (substituído por %{short_txid})"
 
 # Balance alert messages (message_formatter.rs)
 balance_alert:
-  drain: "🚨 Alerta de Esvaziamento: O saldo de %{wallet_name} agora e 0 BTC"
-  equals: "📊 Alerta de Saldo: O saldo de %{wallet_name} agora e %{current_display}"
-  above: "📊 Alerta de Saldo: O saldo de %{wallet_name} agora esta acima de %{threshold_display} (atual: %{current_display})"
-  below: "📊 Alerta de Saldo: O saldo de %{wallet_name} agora esta abaixo de %{threshold_display} (atual: %{current_display})"
+  drain: "🚨 Alerta de Esvaziamento: O saldo de %{wallet_name} agora é 0 BTC"
+  equals: "📊 Alerta de Saldo: O saldo de %{wallet_name} agora é %{current_display}"
+  above: "📊 Alerta de Saldo: O saldo de %{wallet_name} agora está acima de %{threshold_display} (atual: %{current_display})"
+  below: "📊 Alerta de Saldo: O saldo de %{wallet_name} agora está abaixo de %{threshold_display} (atual: %{current_display})"
 
 # Email subject lines (message_formatter.rs)
 subject:
@@ -32,14 +32,14 @@ subject:
 # Email template content (email_provider.rs)
 email:
   transaction:
-    header: "Transacao de Bitcoin"
-    greeting: "Ola %{to_name},"
-    footer: "Esta notificacao foi enviada por Canary"
+    header: "Transação de Bitcoin"
+    greeting: "Olá %{to_name},"
+    footer: "Esta notificação foi enviada por Canary"
   balance_alert:
     header: "Alerta de Saldo"
     wallet_label: "Carteira"
-    greeting: "Ola %{to_name},"
-    footer: "Esta notificacao foi enviada por Canary"
+    greeting: "Olá %{to_name},"
+    footer: "Esta notificação foi enviada por Canary"
 
 # Push notification titles (ntfy_provider.rs)
 ntfy:
