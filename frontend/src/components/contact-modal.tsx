@@ -1000,7 +1000,7 @@ export function ContactModal({
               onClick={() => setIsDeleteModalOpen(true)}
               disabled={isSubmitting}
             >
-              {t('delete.confirm')}
+              {tCommon('delete')}
             </Button>
           )}
           <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges)}>
