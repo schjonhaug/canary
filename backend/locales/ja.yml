@@ -1,0 +1,52 @@
+_version: 1
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ 受取完了: %{amount_btc} BTC を %{wallet_name} へ"
+    pending: "💸 受取中: %{amount_btc} BTC を %{wallet_name} へ (未確認)"
+    replaced: "🔄 置換: %{amount_btc} BTC を %{wallet_name} へ (%{short_txid} に置換)"
+  send:
+    confirmed_with_amount: "✅ 送信完了: %{amount_btc} BTC を %{wallet_name} から"
+    confirmed_no_amount: "✅ %{wallet_name} から送信完了"
+    pending: "📤 送信中: %{amount_btc} BTC を %{wallet_name} から"
+    replaced: "🔄 置換: %{amount_btc} BTC を %{wallet_name} から (%{short_txid} に置換)"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 ウォレット残高ゼロ: %{wallet_name} の残高は 0 BTC になりました"
+  equals: "📊 残高アラート: %{wallet_name} の残高は %{current_display} になりました"
+  above: "📊 残高アラート: %{wallet_name} の残高が %{threshold_display} を超えました (現在: %{current_display})"
+  below: "📊 残高アラート: %{wallet_name} の残高が %{threshold_display} を下回りました (現在: %{current_display})"
+
+# Email subject lines (message_formatter.rs)
+subject:
+  receive:
+    pending: "ビットコイン受取中"
+    confirmed: "ビットコイン受取完了"
+  send:
+    pending: "ビットコイン送信中"
+    confirmed: "ビットコイン送信完了"
+  balance_alert: "残高アラート"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "ビットコイン取引"
+    greeting: "%{to_name} 様,"
+    footer: "この通知はCanaryから送信されました"
+  balance_alert:
+    header: "残高アラート"
+    wallet_label: "ウォレット"
+    greeting: "%{to_name} 様,"
+    footer: "この通知はCanaryから送信されました"
+
+# Push notification titles (ntfy_provider.rs)
+ntfy:
+  receive:
+    pending: "ビットコイン受取中 - %{wallet_name}"
+    confirmed: "ビットコイン受取完了 - %{wallet_name}"
+  send:
+    pending: "ビットコイン送信中 - %{wallet_name}"
+    confirmed: "ビットコイン送信完了 - %{wallet_name}"
+  balance_alert: "残高アラート - %{wallet_name}"

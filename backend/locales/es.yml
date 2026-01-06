@@ -1,0 +1,52 @@
+_version: 1
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ Recibido: %{amount_btc} BTC en %{wallet_name}"
+    pending: "💸 Recibiendo: %{amount_btc} BTC en %{wallet_name} (sin confirmar)"
+    replaced: "🔄 Reemplazado: %{amount_btc} BTC a %{wallet_name} (reemplazado por %{short_txid})"
+  send:
+    confirmed_with_amount: "✅ Enviado: %{amount_btc} BTC desde %{wallet_name}"
+    confirmed_no_amount: "✅ Enviado desde %{wallet_name}"
+    pending: "📤 Enviando: %{amount_btc} BTC desde %{wallet_name}"
+    replaced: "🔄 Reemplazado: %{amount_btc} BTC desde %{wallet_name} (reemplazado por %{short_txid})"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 Alerta de Vaciado: El saldo de %{wallet_name} es ahora 0 BTC"
+  equals: "📊 Alerta de Saldo: El saldo de %{wallet_name} es ahora %{current_display}"
+  above: "📊 Alerta de Saldo: El saldo de %{wallet_name} esta ahora por encima de %{threshold_display} (actual: %{current_display})"
+  below: "📊 Alerta de Saldo: El saldo de %{wallet_name} esta ahora por debajo de %{threshold_display} (actual: %{current_display})"
+
+# Email subject lines (message_formatter.rs)
+subject:
+  receive:
+    pending: "Recibiendo Bitcoin"
+    confirmed: "Bitcoin Recibido"
+  send:
+    pending: "Enviando Bitcoin"
+    confirmed: "Bitcoin Enviado"
+  balance_alert: "Alerta de Saldo"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "Transaccion de Bitcoin"
+    greeting: "Hola %{to_name},"
+    footer: "Esta notificacion fue enviada por Canary"
+  balance_alert:
+    header: "Alerta de Saldo"
+    wallet_label: "Cartera"
+    greeting: "Hola %{to_name},"
+    footer: "Esta notificacion fue enviada por Canary"
+
+# Push notification titles (ntfy_provider.rs)
+ntfy:
+  receive:
+    pending: "Recibiendo Bitcoin - %{wallet_name}"
+    confirmed: "Bitcoin Recibido - %{wallet_name}"
+  send:
+    pending: "Enviando Bitcoin - %{wallet_name}"
+    confirmed: "Bitcoin Enviado - %{wallet_name}"
+  balance_alert: "Alerta de Saldo - %{wallet_name}"

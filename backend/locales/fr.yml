@@ -1,0 +1,52 @@
+_version: 1
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ Recu: %{amount_btc} BTC sur %{wallet_name}"
+    pending: "💸 Reception: %{amount_btc} BTC sur %{wallet_name} (non confirme)"
+    replaced: "🔄 Remplace: %{amount_btc} BTC vers %{wallet_name} (remplace par %{short_txid})"
+  send:
+    confirmed_with_amount: "✅ Envoye: %{amount_btc} BTC de %{wallet_name}"
+    confirmed_no_amount: "✅ Envoye de %{wallet_name}"
+    pending: "📤 Envoi: %{amount_btc} BTC de %{wallet_name}"
+    replaced: "🔄 Remplace: %{amount_btc} BTC de %{wallet_name} (remplace par %{short_txid})"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 Portefeuille vide: Le solde de %{wallet_name} est maintenant 0 BTC"
+  equals: "📊 Alerte de Solde: Le solde de %{wallet_name} est maintenant %{current_display}"
+  above: "📊 Alerte de Solde: Le solde de %{wallet_name} est maintenant au-dessus de %{threshold_display} (actuel: %{current_display})"
+  below: "📊 Alerte de Solde: Le solde de %{wallet_name} est maintenant en dessous de %{threshold_display} (actuel: %{current_display})"
+
+# Email subject lines (message_formatter.rs)
+subject:
+  receive:
+    pending: "Reception de Bitcoin"
+    confirmed: "Bitcoin Recu"
+  send:
+    pending: "Envoi de Bitcoin"
+    confirmed: "Bitcoin Envoye"
+  balance_alert: "Alerte de Solde"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "Transaction Bitcoin"
+    greeting: "Bonjour %{to_name},"
+    footer: "Cette notification a ete envoyee par Canary"
+  balance_alert:
+    header: "Alerte de Solde"
+    wallet_label: "Portefeuille"
+    greeting: "Bonjour %{to_name},"
+    footer: "Cette notification a ete envoyee par Canary"
+
+# Push notification titles (ntfy_provider.rs)
+ntfy:
+  receive:
+    pending: "Reception de Bitcoin - %{wallet_name}"
+    confirmed: "Bitcoin Recu - %{wallet_name}"
+  send:
+    pending: "Envoi de Bitcoin - %{wallet_name}"
+    confirmed: "Bitcoin Envoye - %{wallet_name}"
+  balance_alert: "Alerte de Solde - %{wallet_name}"

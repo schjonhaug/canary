@@ -5,6 +5,7 @@ use crate::metadata::{
 };
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
+use rust_i18n::t;
 
 pub struct EmailProvider {
     email_service: Option<EmailService>,
@@ -223,43 +224,10 @@ impl EmailProvider {
         message: &str,
         language: &Language,
     ) -> String {
-        let (header, greeting, footer) = match language {
-            Language::English => (
-                "Bitcoin Transaction",
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
-            ),
-            Language::Norwegian => (
-                "Bitcoin-transaksjon",
-                format!("Hei {},", to_name),
-                "Dette varselet ble sendt av Canary",
-            ),
-            Language::Spanish => (
-                "Transaccion de Bitcoin",
-                format!("Hola {},", to_name),
-                "Esta notificacion fue enviada por Canary",
-            ),
-            Language::Portuguese => (
-                "Transacao de Bitcoin",
-                format!("Ola {},", to_name),
-                "Esta notificacao foi enviada por Canary",
-            ),
-            Language::German => (
-                "Bitcoin-Transaktion",
-                format!("Hallo {},", to_name),
-                "Diese Benachrichtigung wurde von Canary gesendet",
-            ),
-            Language::French => (
-                "Transaction Bitcoin",
-                format!("Bonjour {},", to_name),
-                "Cette notification a ete envoyee par Canary",
-            ),
-            Language::Japanese => (
-                "ビットコイン取引",
-                format!("{} 様,", to_name),
-                "この通知はCanaryから送信されました",
-            ),
-        };
+        let locale = language.as_str();
+        let header = t!("email.transaction.header", locale = locale).to_string();
+        let greeting = t!("email.transaction.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("email.transaction.footer", locale = locale).to_string();
 
         format!(
             r#"
@@ -297,36 +265,9 @@ impl EmailProvider {
         message: &str,
         language: &Language,
     ) -> String {
-        let (greeting, footer) = match language {
-            Language::English => (
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
-            ),
-            Language::Norwegian => (
-                format!("Hei {},", to_name),
-                "Dette varselet ble sendt av Canary",
-            ),
-            Language::Spanish => (
-                format!("Hola {},", to_name),
-                "Esta notificacion fue enviada por Canary",
-            ),
-            Language::Portuguese => (
-                format!("Ola {},", to_name),
-                "Esta notificacao foi enviada por Canary",
-            ),
-            Language::German => (
-                format!("Hallo {},", to_name),
-                "Diese Benachrichtigung wurde von Canary gesendet",
-            ),
-            Language::French => (
-                format!("Bonjour {},", to_name),
-                "Cette notification a ete envoyee par Canary",
-            ),
-            Language::Japanese => (
-                format!("{} 様,", to_name),
-                "この通知はCanaryから送信されました",
-            ),
-        };
+        let locale = language.as_str();
+        let greeting = t!("email.transaction.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("email.transaction.footer", locale = locale).to_string();
 
         format!("{}\n\n{}\n\n{}\n\n{}", subject, greeting, message, footer)
     }
@@ -338,50 +279,11 @@ impl EmailProvider {
         message: &str,
         language: &Language,
     ) -> String {
-        let (header, wallet_label, greeting, footer) = match language {
-            Language::English => (
-                "Balance Alert",
-                "Wallet",
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
-            ),
-            Language::Norwegian => (
-                "Saldovarsel",
-                "Lommebok",
-                format!("Hei {},", to_name),
-                "Dette varselet ble sendt av Canary",
-            ),
-            Language::Spanish => (
-                "Alerta de Saldo",
-                "Cartera",
-                format!("Hola {},", to_name),
-                "Esta notificacion fue enviada por Canary",
-            ),
-            Language::Portuguese => (
-                "Alerta de Saldo",
-                "Carteira",
-                format!("Ola {},", to_name),
-                "Esta notificacao foi enviada por Canary",
-            ),
-            Language::German => (
-                "Kontostandwarnung",
-                "Wallet",
-                format!("Hallo {},", to_name),
-                "Diese Benachrichtigung wurde von Canary gesendet",
-            ),
-            Language::French => (
-                "Alerte de Solde",
-                "Portefeuille",
-                format!("Bonjour {},", to_name),
-                "Cette notification a ete envoyee par Canary",
-            ),
-            Language::Japanese => (
-                "残高アラート",
-                "ウォレット",
-                format!("{} 様,", to_name),
-                "この通知はCanaryから送信されました",
-            ),
-        };
+        let locale = language.as_str();
+        let header = t!("email.balance_alert.header", locale = locale).to_string();
+        let wallet_label = t!("email.balance_alert.wallet_label", locale = locale).to_string();
+        let greeting = t!("email.balance_alert.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("email.balance_alert.footer", locale = locale).to_string();
 
         let subject = format!("📊 {} - {}", header, wallet_name);
         format!(
@@ -420,50 +322,11 @@ impl EmailProvider {
         message: &str,
         language: &Language,
     ) -> String {
-        let (header, wallet_label, greeting, footer) = match language {
-            Language::English => (
-                "Balance Alert",
-                "Wallet",
-                format!("Hi {},", to_name),
-                "This notification was sent by Canary",
-            ),
-            Language::Norwegian => (
-                "Saldovarsel",
-                "Lommebok",
-                format!("Hei {},", to_name),
-                "Dette varselet ble sendt av Canary",
-            ),
-            Language::Spanish => (
-                "Alerta de Saldo",
-                "Cartera",
-                format!("Hola {},", to_name),
-                "Esta notificacion fue enviada por Canary",
-            ),
-            Language::Portuguese => (
-                "Alerta de Saldo",
-                "Carteira",
-                format!("Ola {},", to_name),
-                "Esta notificacao foi enviada por Canary",
-            ),
-            Language::German => (
-                "Kontostandwarnung",
-                "Wallet",
-                format!("Hallo {},", to_name),
-                "Diese Benachrichtigung wurde von Canary gesendet",
-            ),
-            Language::French => (
-                "Alerte de Solde",
-                "Portefeuille",
-                format!("Bonjour {},", to_name),
-                "Cette notification a ete envoyee par Canary",
-            ),
-            Language::Japanese => (
-                "残高アラート",
-                "ウォレット",
-                format!("{} 様,", to_name),
-                "この通知はCanaryから送信されました",
-            ),
-        };
+        let locale = language.as_str();
+        let header = t!("email.balance_alert.header", locale = locale).to_string();
+        let wallet_label = t!("email.balance_alert.wallet_label", locale = locale).to_string();
+        let greeting = t!("email.balance_alert.greeting", locale = locale, to_name = to_name).to_string();
+        let footer = t!("email.balance_alert.footer", locale = locale).to_string();
 
         let subject = format!("📊 {} - {}", header, wallet_name);
         format!(

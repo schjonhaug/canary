@@ -1,10 +1,12 @@
 use crate::metadata::{EventType, Language, TransactionNotification};
 use num_format::{Locale, ToFormattedString};
+use rust_i18n::t;
 
 pub struct MessageFormatter;
 
 impl MessageFormatter {
     /// Format Bitcoin amount based on language preference
+    /// Note: This stays in Rust as it handles locale-specific number formatting
     pub fn format_btc_amount(amount_sats: i64, language: &Language) -> String {
         let btc_amount = amount_sats as f64 / 100_000_000.0;
 
@@ -46,6 +48,7 @@ impl MessageFormatter {
     }
 
     /// Format fiat amount based on language preference
+    /// Note: This stays in Rust as it handles locale-specific number formatting
     pub fn format_fiat_amount(amount: f64, currency: &str, language: &Language) -> String {
         // Format with 2 decimal places for fiat
         let integer_part = amount.floor() as i64;
@@ -105,63 +108,27 @@ impl MessageFormatter {
         wallet_name: &str,
         language: &Language,
     ) -> String {
+        let locale = language.as_str();
+
         match notification {
             TransactionNotification::Pending(tx) => {
-                let (subject_text, emoji) = match tx.transaction_type {
-                    EventType::Receive => match language {
-                        Language::English => ("Receiving Bitcoin", "💸"),
-                        Language::Norwegian => ("Mottar Bitcoin", "💸"),
-                        Language::Spanish => ("Recibiendo Bitcoin", "💸"),
-                        Language::Portuguese => ("Recebendo Bitcoin", "💸"),
-                        Language::German => ("Bitcoin empfangen", "💸"),
-                        Language::French => ("Reception de Bitcoin", "💸"),
-                        Language::Japanese => ("ビットコイン受取中", "💸"),
-                    },
-                    EventType::Send => match language {
-                        Language::English => ("Sending Bitcoin", "📤"),
-                        Language::Norwegian => ("Sender Bitcoin", "📤"),
-                        Language::Spanish => ("Enviando Bitcoin", "📤"),
-                        Language::Portuguese => ("Enviando Bitcoin", "📤"),
-                        Language::German => ("Bitcoin senden", "📤"),
-                        Language::French => ("Envoi de Bitcoin", "📤"),
-                        Language::Japanese => ("ビットコイン送信中", "📤"),
-                    },
+                let (subject_key, emoji) = match tx.transaction_type {
+                    EventType::Receive => ("subject.receive.pending", "💸"),
+                    EventType::Send => ("subject.send.pending", "📤"),
                 };
+                let subject_text = t!(subject_key, locale = locale).to_string();
                 format!("{} {} - {}", emoji, subject_text, wallet_name)
             }
             TransactionNotification::Confirmed(tx) => {
-                let (subject_text, emoji) = match tx.transaction_type {
-                    EventType::Receive => match language {
-                        Language::English => ("Bitcoin Received", "✅"),
-                        Language::Norwegian => ("Bitcoin mottatt", "✅"),
-                        Language::Spanish => ("Bitcoin Recibido", "✅"),
-                        Language::Portuguese => ("Bitcoin Recebido", "✅"),
-                        Language::German => ("Bitcoin erhalten", "✅"),
-                        Language::French => ("Bitcoin Recu", "✅"),
-                        Language::Japanese => ("ビットコイン受取完了", "✅"),
-                    },
-                    EventType::Send => match language {
-                        Language::English => ("Bitcoin Sent", "✅"),
-                        Language::Norwegian => ("Bitcoin sendt", "✅"),
-                        Language::Spanish => ("Bitcoin Enviado", "✅"),
-                        Language::Portuguese => ("Bitcoin Enviado", "✅"),
-                        Language::German => ("Bitcoin gesendet", "✅"),
-                        Language::French => ("Bitcoin Envoye", "✅"),
-                        Language::Japanese => ("ビットコイン送信完了", "✅"),
-                    },
+                let (subject_key, emoji) = match tx.transaction_type {
+                    EventType::Receive => ("subject.receive.confirmed", "✅"),
+                    EventType::Send => ("subject.send.confirmed", "✅"),
                 };
+                let subject_text = t!(subject_key, locale = locale).to_string();
                 format!("{} {} - {}", emoji, subject_text, wallet_name)
             }
             TransactionNotification::BalanceAlert(_) => {
-                let subject_text = match language {
-                    Language::English => "Balance Alert",
-                    Language::Norwegian => "Saldovarsel",
-                    Language::Spanish => "Alerta de Saldo",
-                    Language::Portuguese => "Alerta de Saldo",
-                    Language::German => "Kontostandwarnung",
-                    Language::French => "Alerte de Solde",
-                    Language::Japanese => "残高アラート",
-                };
+                let subject_text = t!("subject.balance_alert", locale = locale).to_string();
                 format!("📊 {} - {}", subject_text, wallet_name)
             }
         }
@@ -173,6 +140,8 @@ impl MessageFormatter {
         wallet_name: &str,
         language: &Language,
     ) -> String {
+        let locale = language.as_str();
+
         // Check if this is a fiat threshold alert
         let threshold_display = if let (Some(ref currency), Some(fiat_amount), Some(rate)) = (
             &alert.threshold_currency,
@@ -214,45 +183,17 @@ impl MessageFormatter {
             crate::metadata::BalanceAlertType::Equals => {
                 if alert.threshold_sats == 0 {
                     // Special wallet drain alert
-                    match language {
-                        Language::English => format!("🚨 Wallet Drain Alert: {} balance is now 0 BTC", wallet_name),
-                        Language::Norwegian => format!("🚨 Lommebok tømt: {} saldo er nå 0 BTC", wallet_name),
-                        Language::Spanish => format!("🚨 Alerta de Vaciado: El saldo de {} es ahora 0 BTC", wallet_name),
-                        Language::Portuguese => format!("🚨 Alerta de Esvaziamento: O saldo de {} agora e 0 BTC", wallet_name),
-                        Language::German => format!("🚨 Wallet leer: {} Guthaben ist jetzt 0 BTC", wallet_name),
-                        Language::French => format!("🚨 Portefeuille vide: Le solde de {} est maintenant 0 BTC", wallet_name),
-                        Language::Japanese => format!("🚨 ウォレット残高ゼロ: {} の残高は 0 BTC になりました", wallet_name),
-                    }
+                    t!("balance_alert.drain", locale = locale, wallet_name = wallet_name).to_string()
                 } else {
-                    match language {
-                        Language::English => format!("📊 Balance Alert: {} balance is now {}", wallet_name, current_display),
-                        Language::Norwegian => format!("📊 Saldovarsel: {} saldo er nå {}", wallet_name, current_display),
-                        Language::Spanish => format!("📊 Alerta de Saldo: El saldo de {} es ahora {}", wallet_name, current_display),
-                        Language::Portuguese => format!("📊 Alerta de Saldo: O saldo de {} agora e {}", wallet_name, current_display),
-                        Language::German => format!("📊 Kontostandwarnung: {} Guthaben ist jetzt {}", wallet_name, current_display),
-                        Language::French => format!("📊 Alerte de Solde: Le solde de {} est maintenant {}", wallet_name, current_display),
-                        Language::Japanese => format!("📊 残高アラート: {} の残高は {} になりました", wallet_name, current_display),
-                    }
+                    t!("balance_alert.equals", locale = locale, wallet_name = wallet_name, current_display = current_display).to_string()
                 }
             }
-            crate::metadata::BalanceAlertType::Above => match language {
-                Language::English => format!("📊 Balance Alert: {} balance is now above {} (current: {})", wallet_name, threshold_display, current_display),
-                Language::Norwegian => format!("📊 Saldovarsel: {} saldo er nå over {} (nåværende: {})", wallet_name, threshold_display, current_display),
-                Language::Spanish => format!("📊 Alerta de Saldo: El saldo de {} esta ahora por encima de {} (actual: {})", wallet_name, threshold_display, current_display),
-                Language::Portuguese => format!("📊 Alerta de Saldo: O saldo de {} agora esta acima de {} (atual: {})", wallet_name, threshold_display, current_display),
-                Language::German => format!("📊 Kontostandwarnung: {} Guthaben ist jetzt uber {} (aktuell: {})", wallet_name, threshold_display, current_display),
-                Language::French => format!("📊 Alerte de Solde: Le solde de {} est maintenant au-dessus de {} (actuel: {})", wallet_name, threshold_display, current_display),
-                Language::Japanese => format!("📊 残高アラート: {} の残高が {} を超えました (現在: {})", wallet_name, threshold_display, current_display),
-            },
-            crate::metadata::BalanceAlertType::Below => match language {
-                Language::English => format!("📊 Balance Alert: {} balance is now below {} (current: {})", wallet_name, threshold_display, current_display),
-                Language::Norwegian => format!("📊 Saldovarsel: {} saldo er nå under {} (nåværende: {})", wallet_name, threshold_display, current_display),
-                Language::Spanish => format!("📊 Alerta de Saldo: El saldo de {} esta ahora por debajo de {} (actual: {})", wallet_name, threshold_display, current_display),
-                Language::Portuguese => format!("📊 Alerta de Saldo: O saldo de {} agora esta abaixo de {} (atual: {})", wallet_name, threshold_display, current_display),
-                Language::German => format!("📊 Kontostandwarnung: {} Guthaben ist jetzt unter {} (aktuell: {})", wallet_name, threshold_display, current_display),
-                Language::French => format!("📊 Alerte de Solde: Le solde de {} est maintenant en dessous de {} (actuel: {})", wallet_name, threshold_display, current_display),
-                Language::Japanese => format!("📊 残高アラート: {} の残高が {} を下回りました (現在: {})", wallet_name, threshold_display, current_display),
-            },
+            crate::metadata::BalanceAlertType::Above => {
+                t!("balance_alert.above", locale = locale, wallet_name = wallet_name, threshold_display = threshold_display, current_display = current_display).to_string()
+            }
+            crate::metadata::BalanceAlertType::Below => {
+                t!("balance_alert.below", locale = locale, wallet_name = wallet_name, threshold_display = threshold_display, current_display = current_display).to_string()
+            }
         }
     }
 
@@ -263,6 +204,7 @@ impl MessageFormatter {
         language: &Language,
         is_confirmed: bool,
     ) -> String {
+        let locale = language.as_str();
         let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
 
         // No balance display in notifications for privacy reasons
@@ -270,49 +212,17 @@ impl MessageFormatter {
             EventType::Send => {
                 if is_confirmed {
                     if transaction.amount_sats > 0 {
-                        match language {
-                            Language::English => format!("✅ Sent: {} BTC from {}", amount_btc, wallet_name),
-                            Language::Norwegian => format!("✅ Sendt: {} BTC fra {}", amount_btc, wallet_name),
-                            Language::Spanish => format!("✅ Enviado: {} BTC desde {}", amount_btc, wallet_name),
-                            Language::Portuguese => format!("✅ Enviado: {} BTC de {}", amount_btc, wallet_name),
-                            Language::German => format!("✅ Gesendet: {} BTC von {}", amount_btc, wallet_name),
-                            Language::French => format!("✅ Envoye: {} BTC de {}", amount_btc, wallet_name),
-                            Language::Japanese => format!("✅ 送信完了: {} BTC を {} から", amount_btc, wallet_name),
-                        }
+                        t!("transaction.send.confirmed_with_amount", locale = locale, amount_btc = amount_btc, wallet_name = wallet_name).to_string()
                     } else {
-                        match language {
-                            Language::English => format!("✅ Sent from {}", wallet_name),
-                            Language::Norwegian => format!("✅ Sendt fra {}", wallet_name),
-                            Language::Spanish => format!("✅ Enviado desde {}", wallet_name),
-                            Language::Portuguese => format!("✅ Enviado de {}", wallet_name),
-                            Language::German => format!("✅ Gesendet von {}", wallet_name),
-                            Language::French => format!("✅ Envoye de {}", wallet_name),
-                            Language::Japanese => format!("✅ {} から送信完了", wallet_name),
-                        }
+                        t!("transaction.send.confirmed_no_amount", locale = locale, wallet_name = wallet_name).to_string()
                     }
                 } else if transaction.transaction_status == "replaced" {
                     // RBF replacement notification
                     let replaced_by = transaction.replaced_by_txid.as_deref().unwrap_or("unknown");
                     let short_txid = &replaced_by[..8.min(replaced_by.len())];
-                    match language {
-                        Language::English => format!("🔄 Replaced: {} BTC from {} (replaced by {})", amount_btc, wallet_name, short_txid),
-                        Language::Norwegian => format!("🔄 Erstattet: {} BTC fra {} (erstattet av {})", amount_btc, wallet_name, short_txid),
-                        Language::Spanish => format!("🔄 Reemplazado: {} BTC desde {} (reemplazado por {})", amount_btc, wallet_name, short_txid),
-                        Language::Portuguese => format!("🔄 Substituido: {} BTC de {} (substituido por {})", amount_btc, wallet_name, short_txid),
-                        Language::German => format!("🔄 Ersetzt: {} BTC von {} (ersetzt durch {})", amount_btc, wallet_name, short_txid),
-                        Language::French => format!("🔄 Remplace: {} BTC de {} (remplace par {})", amount_btc, wallet_name, short_txid),
-                        Language::Japanese => format!("🔄 置換: {} BTC を {} から ({} に置換)", amount_btc, wallet_name, short_txid),
-                    }
+                    t!("transaction.send.replaced", locale = locale, amount_btc = amount_btc, wallet_name = wallet_name, short_txid = short_txid).to_string()
                 } else {
-                    match language {
-                        Language::English => format!("📤 Sending: {} BTC from {}", amount_btc, wallet_name),
-                        Language::Norwegian => format!("📤 Sender: {} BTC fra {}", amount_btc, wallet_name),
-                        Language::Spanish => format!("📤 Enviando: {} BTC desde {}", amount_btc, wallet_name),
-                        Language::Portuguese => format!("📤 Enviando: {} BTC de {}", amount_btc, wallet_name),
-                        Language::German => format!("📤 Sende: {} BTC von {}", amount_btc, wallet_name),
-                        Language::French => format!("📤 Envoi: {} BTC de {}", amount_btc, wallet_name),
-                        Language::Japanese => format!("📤 送信中: {} BTC を {} から", amount_btc, wallet_name),
-                    }
+                    t!("transaction.send.pending", locale = locale, amount_btc = amount_btc, wallet_name = wallet_name).to_string()
                 }
             }
             EventType::Receive => {
@@ -320,35 +230,11 @@ impl MessageFormatter {
                     // RBF replacement notification for receive transaction
                     let replaced_by = transaction.replaced_by_txid.as_deref().unwrap_or("unknown");
                     let short_txid = &replaced_by[..8.min(replaced_by.len())];
-                    match language {
-                        Language::English => format!("🔄 Replaced: {} BTC to {} (replaced by {})", amount_btc, wallet_name, short_txid),
-                        Language::Norwegian => format!("🔄 Erstattet: {} BTC til {} (erstattet av {})", amount_btc, wallet_name, short_txid),
-                        Language::Spanish => format!("🔄 Reemplazado: {} BTC a {} (reemplazado por {})", amount_btc, wallet_name, short_txid),
-                        Language::Portuguese => format!("🔄 Substituido: {} BTC para {} (substituido por {})", amount_btc, wallet_name, short_txid),
-                        Language::German => format!("🔄 Ersetzt: {} BTC an {} (ersetzt durch {})", amount_btc, wallet_name, short_txid),
-                        Language::French => format!("🔄 Remplace: {} BTC vers {} (remplace par {})", amount_btc, wallet_name, short_txid),
-                        Language::Japanese => format!("🔄 置換: {} BTC を {} へ ({} に置換)", amount_btc, wallet_name, short_txid),
-                    }
+                    t!("transaction.receive.replaced", locale = locale, amount_btc = amount_btc, wallet_name = wallet_name, short_txid = short_txid).to_string()
                 } else if is_confirmed {
-                    match language {
-                        Language::English => format!("✅ Received: {} BTC to {}", amount_btc, wallet_name),
-                        Language::Norwegian => format!("✅ Mottatt: {} BTC til {}", amount_btc, wallet_name),
-                        Language::Spanish => format!("✅ Recibido: {} BTC en {}", amount_btc, wallet_name),
-                        Language::Portuguese => format!("✅ Recebido: {} BTC em {}", amount_btc, wallet_name),
-                        Language::German => format!("✅ Erhalten: {} BTC an {}", amount_btc, wallet_name),
-                        Language::French => format!("✅ Recu: {} BTC sur {}", amount_btc, wallet_name),
-                        Language::Japanese => format!("✅ 受取完了: {} BTC を {} へ", amount_btc, wallet_name),
-                    }
+                    t!("transaction.receive.confirmed", locale = locale, amount_btc = amount_btc, wallet_name = wallet_name).to_string()
                 } else {
-                    match language {
-                        Language::English => format!("💸 Receiving: {} BTC to {} (unconfirmed)", amount_btc, wallet_name),
-                        Language::Norwegian => format!("💸 Mottar: {} BTC til {} (ubekreftet)", amount_btc, wallet_name),
-                        Language::Spanish => format!("💸 Recibiendo: {} BTC en {} (sin confirmar)", amount_btc, wallet_name),
-                        Language::Portuguese => format!("💸 Recebendo: {} BTC em {} (nao confirmado)", amount_btc, wallet_name),
-                        Language::German => format!("💸 Empfange: {} BTC an {} (unbestatigt)", amount_btc, wallet_name),
-                        Language::French => format!("💸 Reception: {} BTC sur {} (non confirme)", amount_btc, wallet_name),
-                        Language::Japanese => format!("💸 受取中: {} BTC を {} へ (未確認)", amount_btc, wallet_name),
-                    }
+                    t!("transaction.receive.pending", locale = locale, amount_btc = amount_btc, wallet_name = wallet_name).to_string()
                 }
             }
         }

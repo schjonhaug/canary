@@ -1,0 +1,52 @@
+_version: 1
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ Received: %{amount_btc} BTC to %{wallet_name}"
+    pending: "💸 Receiving: %{amount_btc} BTC to %{wallet_name} (unconfirmed)"
+    replaced: "🔄 Replaced: %{amount_btc} BTC to %{wallet_name} (replaced by %{short_txid})"
+  send:
+    confirmed_with_amount: "✅ Sent: %{amount_btc} BTC from %{wallet_name}"
+    confirmed_no_amount: "✅ Sent from %{wallet_name}"
+    pending: "📤 Sending: %{amount_btc} BTC from %{wallet_name}"
+    replaced: "🔄 Replaced: %{amount_btc} BTC from %{wallet_name} (replaced by %{short_txid})"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 Wallet Drain Alert: %{wallet_name} balance is now 0 BTC"
+  equals: "📊 Balance Alert: %{wallet_name} balance is now %{current_display}"
+  above: "📊 Balance Alert: %{wallet_name} balance is now above %{threshold_display} (current: %{current_display})"
+  below: "📊 Balance Alert: %{wallet_name} balance is now below %{threshold_display} (current: %{current_display})"
+
+# Email subject lines (message_formatter.rs)
+subject:
+  receive:
+    pending: "Receiving Bitcoin"
+    confirmed: "Bitcoin Received"
+  send:
+    pending: "Sending Bitcoin"
+    confirmed: "Bitcoin Sent"
+  balance_alert: "Balance Alert"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "Bitcoin Transaction"
+    greeting: "Hi %{to_name},"
+    footer: "This notification was sent by Canary"
+  balance_alert:
+    header: "Balance Alert"
+    wallet_label: "Wallet"
+    greeting: "Hi %{to_name},"
+    footer: "This notification was sent by Canary"
+
+# Push notification titles (ntfy_provider.rs)
+ntfy:
+  receive:
+    pending: "Receiving Bitcoin - %{wallet_name}"
+    confirmed: "Bitcoin Received - %{wallet_name}"
+  send:
+    pending: "Sending Bitcoin - %{wallet_name}"
+    confirmed: "Bitcoin Sent - %{wallet_name}"
+  balance_alert: "Balance Alert - %{wallet_name}"
