@@ -293,7 +293,7 @@ export default function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {locales.map((locale) => (
+                    {[...locales].sort((a, b) => localeNames[a].localeCompare(localeNames[b])).map((locale) => (
                       <SelectItem key={locale} value={locale}>
                         {localeNames[locale]}
                       </SelectItem>
