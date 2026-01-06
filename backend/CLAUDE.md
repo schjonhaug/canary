@@ -36,10 +36,10 @@ cargo fmt && cargo clippy
 
 ### Frontend (Next.js)
 ```bash
-cd frontend && npm run dev     # http://localhost:3001
-npm run build
-npm run lint
-npm test
+cd frontend && pnpm dev        # http://localhost:3001
+pnpm build
+pnpm lint
+pnpm test
 ```
 
 ### Local Development Scripts
@@ -225,8 +225,8 @@ cargo test balance_alerts_system_tests -- --test-threads=1 --nocapture
 cargo test test_balance_alert_below_threshold --test balance_alert_scenarios -- --ignored --nocapture
 ```
 
-### Frontend  
-- Jest with React Testing Library: `npm test`
+### Frontend
+- Jest with React Testing Library: `pnpm test`
 - Component tests focus on subscription limits, modals, contact management
 - Mock API responses for integration testing
 

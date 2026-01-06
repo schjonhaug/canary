@@ -71,7 +71,7 @@ cd scripts && docker-compose up -d
 cd backend && cargo run
 
 # Start frontend
-cd frontend && npm run dev
+cd frontend && pnpm dev
 ```
 
 ## Development & Testing
@@ -85,7 +85,7 @@ The frontend displays the git version and commit hash in the footer. To generate
 cd frontend && node scripts/generate-build-info.js
 
 # Then start the dev server
-npm run dev
+pnpm dev
 ```
 
 The footer will display in format: `v0.13.0 • 5e66fe3` (tag and commit) or just the commit hash if no tag exists.

@@ -89,7 +89,7 @@ cd ../scripts
 ```bash
 # Start frontend (in another terminal)
 cd ../frontend
-npm run dev
+pnpm dev
 ```
 
 ### Testing Scenarios

@@ -10,20 +10,20 @@ This is the frontend application for Canary, a Bitcoin wallet management service
 ### Frontend Development
 ```bash
 # Development server (runs on port 3001)
-npm run dev
+pnpm dev
 
 # Build for production
-npm run build
+pnpm build
 
 # Start production server
-npm start
+pnpm start
 
 # Linting
-npm run lint
+pnpm lint
 
 # Testing
-npm test              # Run all tests once
-npm run test:watch    # Run tests in watch mode
+pnpm test             # Run all tests once
+pnpm test:watch       # Run tests in watch mode
 ```
 
 ## Architecture Overview
@@ -114,13 +114,13 @@ src/
 ### Running Specific Tests
 ```bash
 # Run specific test file
-npm test -- contact-modal.test.tsx
+pnpm test contact-modal.test.tsx
 
 # Run tests matching pattern
-npm test -- --testNamePattern="subscription limits"
+pnpm test --testNamePattern="subscription limits"
 
 # Run tests in watch mode for specific file
-npm test -- --watch contact-modal.test.tsx
+pnpm test --watch contact-modal.test.tsx
 ```
 
 ## Environment Configuration

@@ -43,11 +43,11 @@ cd backend && cargo fmt && cargo clippy
 
 ### Frontend (Next.js)
 ```bash
-cd frontend && npm run dev     # http://localhost:3001
-cd frontend && npm run build
-cd frontend && npm run lint
-cd frontend && npm test        # Run all tests
-cd frontend && npm run test:watch  # Run tests in watch mode
+cd frontend && pnpm dev        # http://localhost:3001
+cd frontend && pnpm build
+cd frontend && pnpm lint
+cd frontend && pnpm test       # Run all tests
+cd frontend && pnpm test:watch # Run tests in watch mode
 ```
 
 ### Local Development Scripts
