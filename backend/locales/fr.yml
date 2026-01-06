@@ -3,14 +3,14 @@ _version: 1
 # Transaction notification messages (message_formatter.rs)
 transaction:
   receive:
-    confirmed: "✅ Recu: %{amount_btc} BTC sur %{wallet_name}"
-    pending: "💸 Reception: %{amount_btc} BTC sur %{wallet_name} (non confirme)"
-    replaced: "🔄 Remplace: %{amount_btc} BTC vers %{wallet_name} (remplace par %{short_txid})"
+    confirmed: "✅ Reçu: %{amount_btc} BTC sur %{wallet_name}"
+    pending: "💸 Réception: %{amount_btc} BTC sur %{wallet_name} (non confirmé)"
+    replaced: "🔄 Remplacé: %{amount_btc} BTC vers %{wallet_name} (remplacé par %{short_txid})"
   send:
-    confirmed_with_amount: "✅ Envoye: %{amount_btc} BTC de %{wallet_name}"
-    confirmed_no_amount: "✅ Envoye de %{wallet_name}"
+    confirmed_with_amount: "✅ Envoyé: %{amount_btc} BTC de %{wallet_name}"
+    confirmed_no_amount: "✅ Envoyé de %{wallet_name}"
     pending: "📤 Envoi: %{amount_btc} BTC de %{wallet_name}"
-    replaced: "🔄 Remplace: %{amount_btc} BTC de %{wallet_name} (remplace par %{short_txid})"
+    replaced: "🔄 Remplacé: %{amount_btc} BTC de %{wallet_name} (remplacé par %{short_txid})"
 
 # Balance alert messages (message_formatter.rs)
 balance_alert:
@@ -22,11 +22,11 @@ balance_alert:
 # Email subject lines (message_formatter.rs)
 subject:
   receive:
-    pending: "Reception de Bitcoin"
-    confirmed: "Bitcoin Recu"
+    pending: "Réception de Bitcoin"
+    confirmed: "Bitcoin Reçu"
   send:
     pending: "Envoi de Bitcoin"
-    confirmed: "Bitcoin Envoye"
+    confirmed: "Bitcoin Envoyé"
   balance_alert: "Alerte de Solde"
 
 # Email template content (email_provider.rs)
@@ -34,19 +34,19 @@ email:
   transaction:
     header: "Transaction Bitcoin"
     greeting: "Bonjour %{to_name},"
-    footer: "Cette notification a ete envoyee par Canary"
+    footer: "Cette notification a été envoyée par Canary"
   balance_alert:
     header: "Alerte de Solde"
     wallet_label: "Portefeuille"
     greeting: "Bonjour %{to_name},"
-    footer: "Cette notification a ete envoyee par Canary"
+    footer: "Cette notification a été envoyée par Canary"
 
 # Push notification titles (ntfy_provider.rs)
 ntfy:
   receive:
-    pending: "Reception de Bitcoin - %{wallet_name}"
-    confirmed: "Bitcoin Recu - %{wallet_name}"
+    pending: "Réception de Bitcoin - %{wallet_name}"
+    confirmed: "Bitcoin Reçu - %{wallet_name}"
   send:
     pending: "Envoi de Bitcoin - %{wallet_name}"
-    confirmed: "Bitcoin Envoye - %{wallet_name}"
+    confirmed: "Bitcoin Envoyé - %{wallet_name}"
   balance_alert: "Alerte de Solde - %{wallet_name}"

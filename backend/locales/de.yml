@@ -4,7 +4,7 @@ _version: 1
 transaction:
   receive:
     confirmed: "✅ Erhalten: %{amount_btc} BTC an %{wallet_name}"
-    pending: "💸 Empfange: %{amount_btc} BTC an %{wallet_name} (unbestatigt)"
+    pending: "💸 Empfange: %{amount_btc} BTC an %{wallet_name} (unbestätigt)"
     replaced: "🔄 Ersetzt: %{amount_btc} BTC an %{wallet_name} (ersetzt durch %{short_txid})"
   send:
     confirmed_with_amount: "✅ Gesendet: %{amount_btc} BTC von %{wallet_name}"
@@ -15,9 +15,9 @@ transaction:
 # Balance alert messages (message_formatter.rs)
 balance_alert:
   drain: "🚨 Wallet leer: %{wallet_name} Guthaben ist jetzt 0 BTC"
-  equals: "📊 Kontostandwarnung: %{wallet_name} Guthaben ist jetzt %{current_display}"
-  above: "📊 Kontostandwarnung: %{wallet_name} Guthaben ist jetzt uber %{threshold_display} (aktuell: %{current_display})"
-  below: "📊 Kontostandwarnung: %{wallet_name} Guthaben ist jetzt unter %{threshold_display} (aktuell: %{current_display})"
+  equals: "📊 Saldowarnung: %{wallet_name} Guthaben ist jetzt %{current_display}"
+  above: "📊 Saldowarnung: %{wallet_name} Guthaben ist jetzt über %{threshold_display} (aktuell: %{current_display})"
+  below: "📊 Saldowarnung: %{wallet_name} Guthaben ist jetzt unter %{threshold_display} (aktuell: %{current_display})"
 
 # Email subject lines (message_formatter.rs)
 subject:
@@ -27,7 +27,7 @@ subject:
   send:
     pending: "Bitcoin senden"
     confirmed: "Bitcoin gesendet"
-  balance_alert: "Kontostandwarnung"
+  balance_alert: "Saldowarnung"
 
 # Email template content (email_provider.rs)
 email:
@@ -36,7 +36,7 @@ email:
     greeting: "Hallo %{to_name},"
     footer: "Diese Benachrichtigung wurde von Canary gesendet"
   balance_alert:
-    header: "Kontostandwarnung"
+    header: "Saldowarnung"
     wallet_label: "Wallet"
     greeting: "Hallo %{to_name},"
     footer: "Diese Benachrichtigung wurde von Canary gesendet"
@@ -49,4 +49,4 @@ ntfy:
   send:
     pending: "Bitcoin senden - %{wallet_name}"
     confirmed: "Bitcoin gesendet - %{wallet_name}"
-  balance_alert: "Kontostandwarnung - %{wallet_name}"
+  balance_alert: "Saldowarnung - %{wallet_name}"
