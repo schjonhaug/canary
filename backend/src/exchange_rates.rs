@@ -1,7 +1,9 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use iso_currency::{Country, Currency};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::time::interval;
 
@@ -36,82 +38,76 @@ impl ExchangeRateService {
         Self { metadata_db }
     }
 
+    /// Map a bare language code to its default country code
+    /// Only needed for languages without a country in the locale
+    fn language_to_default_country(lang: &str) -> Option<&'static str> {
+        match lang {
+            "en" => Some("US"),
+            "fr" => Some("FR"),
+            "de" => Some("DE"),
+            "es" => Some("ES"),
+            "pt" => Some("PT"),
+            "it" => Some("IT"),
+            "nl" => Some("NL"),
+            "ja" => Some("JP"),
+            "ko" => Some("KR"),
+            "zh" => Some("CN"),
+            "ru" => Some("RU"),
+            "ar" => Some("SA"),
+            "he" => Some("IL"),
+            "tr" => Some("TR"),
+            "pl" => Some("PL"),
+            "cs" => Some("CZ"),
+            "hu" => Some("HU"),
+            "el" => Some("GR"),
+            "fi" => Some("FI"),
+            "sv" => Some("SE"),
+            "da" => Some("DK"),
+            "no" | "nb" | "nn" => Some("NO"),
+            "th" => Some("TH"),
+            "vi" => Some("VN"),
+            "id" => Some("ID"),
+            "ms" => Some("MY"),
+            "hi" => Some("IN"),
+            "uk" => Some("UA"),
+            "af" => Some("ZA"),
+            _ => None,
+        }
+    }
+
+    /// Get currency code from a Country using iso_currency
+    fn country_to_currency(country: Country) -> &'static str {
+        let currencies = Currency::from_country(country);
+        if let Some(currency) = currencies.first() {
+            currency.code()
+        } else {
+            "USD"
+        }
+    }
+
     /// Map browser locale to appropriate fiat currency
     pub fn locale_to_currency(locale: &str) -> &'static str {
-        // Normalize locale format: convert underscores to hyphens (e.g., "no_NO" -> "no-no")
-        let locale_lower = locale.to_lowercase().replace('_', "-");
+        // Normalize locale: convert underscores to hyphens, lowercase
+        let normalized = locale.to_lowercase().replace('_', "-");
 
-        // Direct locale mappings
-        match locale_lower.as_str() {
-            // Americas
-            l if l.starts_with("en-us") => "USD",
-            l if l.starts_with("en-ca") || l.starts_with("fr-ca") => "CAD",
-            l if l.starts_with("es-mx") => "MXN",
-            l if l.starts_with("pt-br") => "BRL",
-            l if l.starts_with("es-ar") => "ARS",
-            l if l.starts_with("es-cl") => "CLP",
+        // Split into parts: "fr-FR" -> ["fr", "FR"], "fr" -> ["fr"]
+        let parts: Vec<&str> = normalized.split('-').collect();
 
-            // Europe
-            l if l.starts_with("en-gb") => "GBP",
-            l if l.starts_with("de-ch") => "CHF",
-            l if l.starts_with("fr-ch") => "CHF",
-            l if l.starts_with("it-ch") => "CHF",
-            l if l.starts_with("nb-no") || l.starts_with("nn-no") || l.starts_with("no-") || l == "no" || l == "nb" || l == "nn" => "NOK",
-            l if l.starts_with("sv-se") || l == "sv" => "SEK",
-            l if l.starts_with("da-dk") || l == "da" => "DKK",
-            l if l.starts_with("cs-cz") => "CZK",
-            l if l.starts_with("hu-hu") => "HUF",
-            l if l.starts_with("pl-pl") => "PLN",
-            l if l.starts_with("ru-ru") => "RUB",
-            l if l.starts_with("uk-ua") => "UAH",
-            l if l.starts_with("tr-tr") => "TRY",
+        let country_code = if parts.len() >= 2 {
+            // Has country code: use it directly (uppercase)
+            parts[1].to_uppercase()
+        } else {
+            // Bare language code: map to default country
+            match Self::language_to_default_country(parts[0]) {
+                Some(code) => code.to_string(),
+                None => return "USD",
+            }
+        };
 
-            // Eurozone countries
-            l if l.starts_with("de-de") || l.starts_with("de-at") => "EUR",
-            l if l.starts_with("fr-fr") || l.starts_with("fr-be") => "EUR",
-            l if l.starts_with("es-es") => "EUR",
-            l if l.starts_with("it-it") => "EUR",
-            l if l.starts_with("nl-nl") || l.starts_with("nl-be") => "EUR",
-            l if l.starts_with("pt-pt") => "EUR",
-            l if l.starts_with("el-gr") => "EUR",
-            l if l.starts_with("fi-fi") => "EUR",
-
-            // Asia-Pacific
-            l if l.starts_with("zh-cn") => "CNY",
-            l if l.starts_with("zh-tw") => "TWD",
-            l if l.starts_with("zh-hk") => "HKD",
-            l if l.starts_with("zh-sg") => "SGD",
-            l if l.starts_with("ja-jp") => "JPY",
-            l if l.starts_with("ko-kr") => "KRW",
-            l if l.starts_with("en-in") || l.starts_with("hi-in") => "INR",
-            l if l.starts_with("en-au") => "AUD",
-            l if l.starts_with("en-nz") => "NZD",
-            l if l.starts_with("en-sg") => "SGD",
-            l if l.starts_with("en-hk") => "HKD",
-            l if l.starts_with("th-th") => "THB",
-            l if l.starts_with("vi-vn") => "VND",
-            l if l.starts_with("id-id") => "IDR",
-            l if l.starts_with("ms-my") => "MYR",
-            l if l.starts_with("en-ph") || l.starts_with("fil-ph") => "PHP",
-            l if l.starts_with("ur-pk") || l.starts_with("en-pk") => "PKR",
-            l if l.starts_with("bn-bd") || l.starts_with("en-bd") => "BDT",
-            l if l.starts_with("si-lk") || l.starts_with("en-lk") => "LKR",
-            l if l.starts_with("my-mm") => "MMK",
-
-            // Middle East
-            l if l.starts_with("ar-sa") => "SAR",
-            l if l.starts_with("ar-ae") => "AED",
-            l if l.starts_with("ar-kw") => "KWD",
-            l if l.starts_with("ar-bh") => "BHD",
-            l if l.starts_with("he-il") => "ILS",
-            l if l.starts_with("ka-ge") => "GEL",
-
-            // Africa
-            l if l.starts_with("en-za") || l.starts_with("af-za") => "ZAR",
-            l if l.starts_with("en-ng") => "NGN",
-
-            // Default to USD for unknown locales
-            _ => "USD",
+        // Try to parse country code and get currency
+        match Country::from_str(&country_code) {
+            Ok(country) => Self::country_to_currency(country),
+            Err(_) => "USD",
         }
     }
 
