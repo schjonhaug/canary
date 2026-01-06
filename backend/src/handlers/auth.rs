@@ -7,7 +7,7 @@ use crate::config::AppConfig;
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::extractors::AuthenticatedUser;
-use crate::models::{ContactFormRequest, ContactFormResponse, ErrorResponse};
+use crate::models::{ContactFormRequest, ContactFormResponse, DemoLoginRequest, ErrorResponse};
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
@@ -441,6 +441,7 @@ pub async fn login(
 pub async fn demo_login(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    Json(request): Json<DemoLoginRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
 
@@ -458,7 +459,7 @@ pub async fn demo_login(
     let demo_email = "demo@canarybitcoin.com";
 
     // Get demo user from database
-    let user_record = match app_services.metadata_db.get_user_by_email(demo_email).await {
+    let mut user_record = match app_services.metadata_db.get_user_by_email(demo_email).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             return (
@@ -490,6 +491,43 @@ pub async fn demo_login(
             }),
         )
             .into_response();
+    }
+
+    // Update demo user's language and currency based on browser locale
+    if let Some(browser_locale) = &request.browser_locale {
+        // Update language
+        let preferred_language = crate::metadata::locale_to_language(browser_locale);
+        if user_record.preferred_language.as_deref() != Some(preferred_language) {
+            if let Err(e) = app_services
+                .metadata_db
+                .update_user_preferred_language(&user_record.id, preferred_language)
+                .await
+            {
+                eprintln!(
+                    "Failed to update demo user language to {}: {:?}",
+                    preferred_language, e
+                );
+            } else {
+                user_record.preferred_language = Some(preferred_language.to_string());
+            }
+        }
+
+        // Update currency
+        let preferred_currency = exchange_rates::ExchangeRateService::locale_to_currency(browser_locale);
+        if user_record.preferred_fiat_currency.as_deref() != Some(preferred_currency) {
+            if let Err(e) = app_services
+                .metadata_db
+                .update_user_preferred_currency(&user_record.id, preferred_currency)
+                .await
+            {
+                eprintln!(
+                    "Failed to update demo user currency to {}: {:?}",
+                    preferred_currency, e
+                );
+            } else {
+                user_record.preferred_fiat_currency = Some(preferred_currency.to_string());
+            }
+        }
     }
 
     // Generate JWT token for demo user
