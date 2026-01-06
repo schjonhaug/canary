@@ -41,3 +41,38 @@ email:
     header: "Bitcoin Transaction"
   balance_alert:
     header: "Balance Alert"
+
+# Auth email templates (email_service.rs)
+auth_email:
+  verify_email:
+    subject: "Verify Your Email - Canary"
+    header: "Welcome to Canary!"
+    body: "Thank you for creating your Canary account! To get started, please verify your email address by clicking the button below."
+    button: "Verify Email Address"
+    link_fallback: "If the button doesn't work, you can copy and paste this link into your browser:"
+    expiry: "This verification link will expire in 24 hours. If you didn't create an account, you can safely ignore this email."
+  password_reset:
+    subject: "Reset Your Password - Canary"
+    header: "Reset Your Password"
+    body: "We received a request to reset your password for your Canary account. Click the button below to create a new password."
+    button: "Reset Password"
+    link_fallback: "If the button doesn't work, you can copy and paste this link into your browser:"
+    expiry: "This reset link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email."
+  contact_otp:
+    subject: "Verify Your Email - Canary"
+    header: "Email Verification Required"
+    body: "Please verify your email address to receive Bitcoin wallet notifications. Enter the verification code below:"
+    expiry: "This verification code will expire in 10 minutes. If you didn't request this verification, you can safely ignore this email."
+  trial_ending:
+    subject: "Your Canary trial ends in 3 days"
+    header: "Your Trial is Ending Soon"
+    body: "Your 30-day Canary Team trial will end in 3 days on %{trial_ends_at}."
+    continue_text: "To continue enjoying uninterrupted Bitcoin wallet monitoring with automatic notifications, please subscribe to one of our plans."
+    what_happens_header: "What happens when your trial ends?"
+    sync_stops: "Wallet syncing will stop"
+    notifications_stop: "Notifications will stop"
+    data_safe: "Your wallet data remains safe and accessible"
+    button: "View Subscription Plans"
+    choose_plan: "Choose the plan that's right for you:"
+    personal_plan: "Personal: 1 wallet, 1 contact, 10-minute sync"
+    team_plan: "Team: 5 wallets, 5 contacts per wallet, 2-minute sync"

@@ -41,3 +41,38 @@ email:
     header: "Bitcoin transaktion"
   balance_alert:
     header: "Saldo-alarm"
+
+# Auth email templates (email_service.rs)
+auth_email:
+  verify_email:
+    subject: "Bekræft din e-mail - Canary"
+    header: "Velkommen til Canary!"
+    body: "Tak fordi du oprettede din Canary-konto! For at komme i gang skal du bekræfte din e-mailadresse ved at klikke på knappen nedenfor."
+    button: "Bekræft e-mailadresse"
+    link_fallback: "Hvis knappen ikke virker, kan du kopiere og indsætte dette link i din browser:"
+    expiry: "Dette bekræftelseslink udløber om 24 timer. Hvis du ikke har oprettet en konto, kan du roligt ignorere denne e-mail."
+  password_reset:
+    subject: "Nulstil din adgangskode - Canary"
+    header: "Nulstil din adgangskode"
+    body: "Vi har modtaget en anmodning om at nulstille adgangskoden til din Canary-konto. Klik på knappen nedenfor for at oprette en ny adgangskode."
+    button: "Nulstil adgangskode"
+    link_fallback: "Hvis knappen ikke virker, kan du kopiere og indsætte dette link i din browser:"
+    expiry: "Dette nulstillelseslink udløber om 1 time. Hvis du ikke har anmodet om en nulstilling af din adgangskode, kan du roligt ignorere denne e-mail."
+  contact_otp:
+    subject: "Bekræft din e-mail - Canary"
+    header: "Bekræftelse af e-mail påkrævet"
+    body: "Bekræft venligst din e-mailadresse for at modtage meddelelser om din Bitcoin-wallet. Indtast bekræftelseskoden nedenfor:"
+    expiry: "Denne bekræftelseskode udløber om 10 minutter. Hvis du ikke har anmodet om denne bekræftelse, kan du roligt ignorere denne e-mail."
+  trial_ending:
+    subject: "Din Canary-prøveperiode slutter om 3 dage"
+    header: "Din prøveperiode slutter snart"
+    body: "Din 30-dages Canary Team-prøveperiode slutter om 3 dage den %{trial_ends_at}."
+    continue_text: "For at fortsætte med uafbrudt overvågning af din Bitcoin-wallet med automatiske meddelelser, beder vi dig abonnere på en af vores planer."
+    what_happens_header: "Hvad sker der, når din prøveperiode slutter?"
+    sync_stops: "Wallet-synkronisering stopper"
+    notifications_stop: "Meddelelser stopper"
+    data_safe: "Dine wallet-data forbliver sikre og tilgængelige"
+    button: "Se abonnementsplaner"
+    choose_plan: "Vælg den plan, der passer til dig:"
+    personal_plan: "Personlig: 1 wallet, 1 kontakt, 10-minutters synkronisering"
+    team_plan: "Team: 5 wallets, 5 kontakter pr. wallet, 2-minutters synkronisering"
