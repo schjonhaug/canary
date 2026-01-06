@@ -220,8 +220,12 @@ class ApiClient {
   }
 
   async demoLogin(): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }> {
+    // Include browser locale so demo account respects user's language
+    const browserLocale = typeof window !== 'undefined' ? navigator.language : 'en-US'
+
     return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }>('/api/auth/demo-login', {
       method: 'POST',
+      body: JSON.stringify({ browser_locale: browserLocale }),
     })
   }
 
