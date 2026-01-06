@@ -1,0 +1,43 @@
+_version: 1
+
+# Common strings used across multiple providers
+common:
+  greeting: "Hej %{to_name},"
+  footer: "Denna avisering skickades av Canary"
+  wallet: "Plånbok"
+
+# Transaction notification messages (message_formatter.rs)
+transaction:
+  receive:
+    confirmed: "✅ Mottaget: %{amount_btc} BTC till %{wallet_name}"
+    pending: "💸 Tar emot: %{amount_btc} BTC till %{wallet_name} (obekräftad)"
+    replaced: "🔄 Ersatt: %{amount_btc} BTC till %{wallet_name} (ersatt av %{short_txid})"
+  send:
+    confirmed_with_amount: "✅ Skickat: %{amount_btc} BTC från %{wallet_name}"
+    confirmed_no_amount: "✅ Skickat från %{wallet_name}"
+    pending: "📤 Skickar: %{amount_btc} BTC från %{wallet_name}"
+    replaced: "🔄 Ersatt: %{amount_btc} BTC från %{wallet_name} (ersatt av %{short_txid})"
+
+# Balance alert messages (message_formatter.rs)
+balance_alert:
+  drain: "🚨 Varning för tömd plånbok: %{wallet_name} saldo är nu 0 BTC"
+  equals: "📊 Saldovarning: %{wallet_name} saldo är nu %{current_display}"
+  above: "📊 Saldovarning: %{wallet_name} saldo är nu över %{threshold_display} (nuvarande: %{current_display})"
+  below: "📊 Saldovarning: %{wallet_name} saldo är nu under %{threshold_display} (nuvarande: %{current_display})"
+
+# Notification titles (used by email subjects and ntfy push titles)
+titles:
+  receive:
+    pending: "Tar emot Bitcoin"
+    confirmed: "Bitcoin mottaget"
+  send:
+    pending: "Skickar Bitcoin"
+    confirmed: "Bitcoin skickat"
+  balance_alert: "Saldovarning"
+
+# Email template content (email_provider.rs)
+email:
+  transaction:
+    header: "Bitcoin-transaktion"
+  balance_alert:
+    header: "Saldovarning"

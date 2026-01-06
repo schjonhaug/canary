@@ -1,4 +1,4 @@
-export const locales = ['en', 'no', 'es', 'pt', 'de', 'fr', 'ja', 'da'] as const
+export const locales = ['en', 'no', 'es', 'pt', 'de', 'fr', 'ja', 'da', 'sv'] as const
 export type Locale = (typeof locales)[number]
 export const defaultLocale: Locale = 'en'
 
@@ -11,6 +11,7 @@ export const localeNames: Record<Locale, string> = {
   fr: 'Français',
   ja: '日本語',
   da: 'Dansk',
+  sv: 'Svenska',
 }
 
 // Map browser locale codes to our supported locales
@@ -34,6 +35,8 @@ export function mapBrowserLocale(browserLocale: string): Locale {
       return 'ja'
     case 'da':
       return 'da'
+    case 'sv':
+      return 'sv'
     default:
       return 'en'
   }

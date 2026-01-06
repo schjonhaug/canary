@@ -43,6 +43,8 @@ pub enum Language {
     Japanese,
     #[serde(rename = "da")]
     Danish,
+    #[serde(rename = "sv")]
+    Swedish,
 }
 
 impl Language {
@@ -56,6 +58,7 @@ impl Language {
             Language::French => "fr",
             Language::Japanese => "ja",
             Language::Danish => "da",
+            Language::Swedish => "sv",
         }
     }
 }
@@ -70,6 +73,7 @@ impl From<&str> for Language {
             "fr" => Language::French,
             "ja" => Language::Japanese,
             "da" => Language::Danish,
+            "sv" => Language::Swedish,
             _ => Language::English, // Default fallback
         }
     }
