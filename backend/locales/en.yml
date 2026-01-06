@@ -1,5 +1,11 @@
 _version: 1
 
+# Common strings used across multiple providers
+common:
+  greeting: "Hi %{to_name},"
+  footer: "This notification was sent by Canary"
+  wallet: "Wallet"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   receive:
@@ -19,8 +25,8 @@ balance_alert:
   above: "📊 Balance Alert: %{wallet_name} balance is now above %{threshold_display} (current: %{current_display})"
   below: "📊 Balance Alert: %{wallet_name} balance is now below %{threshold_display} (current: %{current_display})"
 
-# Email subject lines (message_formatter.rs)
-subject:
+# Notification titles (used by email subjects and ntfy push titles)
+titles:
   receive:
     pending: "Receiving Bitcoin"
     confirmed: "Bitcoin Received"
@@ -33,20 +39,5 @@ subject:
 email:
   transaction:
     header: "Bitcoin Transaction"
-    greeting: "Hi %{to_name},"
-    footer: "This notification was sent by Canary"
   balance_alert:
     header: "Balance Alert"
-    wallet_label: "Wallet"
-    greeting: "Hi %{to_name},"
-    footer: "This notification was sent by Canary"
-
-# Push notification titles (ntfy_provider.rs)
-ntfy:
-  receive:
-    pending: "Receiving Bitcoin - %{wallet_name}"
-    confirmed: "Bitcoin Received - %{wallet_name}"
-  send:
-    pending: "Sending Bitcoin - %{wallet_name}"
-    confirmed: "Bitcoin Sent - %{wallet_name}"
-  balance_alert: "Balance Alert - %{wallet_name}"

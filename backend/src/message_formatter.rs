@@ -112,24 +112,24 @@ impl MessageFormatter {
 
         match notification {
             TransactionNotification::Pending(tx) => {
-                let (subject_key, emoji) = match tx.transaction_type {
-                    EventType::Receive => ("subject.receive.pending", "💸"),
-                    EventType::Send => ("subject.send.pending", "📤"),
+                let (title_key, emoji) = match tx.transaction_type {
+                    EventType::Receive => ("titles.receive.pending", "💸"),
+                    EventType::Send => ("titles.send.pending", "📤"),
                 };
-                let subject_text = t!(subject_key, locale = locale).to_string();
-                format!("{} {} - {}", emoji, subject_text, wallet_name)
+                let title_text = t!(title_key, locale = locale).to_string();
+                format!("{} {} - {}", emoji, title_text, wallet_name)
             }
             TransactionNotification::Confirmed(tx) => {
-                let (subject_key, emoji) = match tx.transaction_type {
-                    EventType::Receive => ("subject.receive.confirmed", "✅"),
-                    EventType::Send => ("subject.send.confirmed", "✅"),
+                let (title_key, emoji) = match tx.transaction_type {
+                    EventType::Receive => ("titles.receive.confirmed", "✅"),
+                    EventType::Send => ("titles.send.confirmed", "✅"),
                 };
-                let subject_text = t!(subject_key, locale = locale).to_string();
-                format!("{} {} - {}", emoji, subject_text, wallet_name)
+                let title_text = t!(title_key, locale = locale).to_string();
+                format!("{} {} - {}", emoji, title_text, wallet_name)
             }
             TransactionNotification::BalanceAlert(_) => {
-                let subject_text = t!("subject.balance_alert", locale = locale).to_string();
-                format!("📊 {} - {}", subject_text, wallet_name)
+                let title_text = t!("titles.balance_alert", locale = locale).to_string();
+                format!("📊 {} - {}", title_text, wallet_name)
             }
         }
     }
