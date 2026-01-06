@@ -11,7 +11,7 @@
     "close": "Fechar",
     "confirm": "Confirmar",
     "back": "Voltar",
-    "next": "Proximo",
+    "next": "Próximo",
     "submit": "Enviar",
     "verify": "Verificar",
     "verifying": "Verificando...",
@@ -19,7 +19,7 @@
     "sending": "Enviando...",
     "retry": "Tentar novamente",
     "yes": "Sim",
-    "no": "Nao",
+    "no": "Não",
     "or": "ou",
     "and": "e",
     "active": "ATIVO",
@@ -32,7 +32,7 @@
     "warning": "Aviso",
     "info": "Info",
     "savedSuccessfully": "Salvo com sucesso!",
-    "connectingToNetwork": "Conectando a rede...",
+    "connectingToNetwork": "Conectando à rede...",
     "emailPlaceholder": "seu@email.com",
     "emailLabel": "E-mail",
     "passwordLabel": "Senha"
@@ -40,10 +40,10 @@
   "nav": {
     "signIn": "Entrar",
     "signOut": "Sair",
-    "settings": "Configuracoes",
+    "settings": "Configurações",
     "wallets": "Carteiras",
     "addWallet": "Adicionar Carteira",
-    "alreadyUser": "Ja tem conta? Entre",
+    "alreadyUser": "Já tem conta? Entre",
     "contact": "Contato",
     "subscription": "Assinatura"
   },
@@ -51,12 +51,12 @@
     "title": "Contato",
     "selfHosted": {
       "title": "Modo Auto-hospedado",
-      "description": "O formulario de contato nao esta disponivel no modo auto-hospedado.",
+      "description": "O formulário de contato não está disponível no modo auto-hospedado.",
       "backToWallets": "Voltar para Carteiras"
     },
     "form": {
       "title": "Entre em Contato",
-      "description": "Tem alguma pergunta ou feedback? Adorariamos ouvir de voce.",
+      "description": "Tem alguma pergunta ou feedback? Adoraríamos ouvir de você.",
       "emailLabel": "Email",
       "emailPlaceholder": "seu@email.com",
       "messageLabel": "Mensagem",
@@ -66,10 +66,10 @@
       "submitting": "Enviando..."
     },
     "validation": {
-      "emailRequired": "Email e obrigatorio",
-      "emailInvalid": "Por favor insira um email valido",
+      "emailRequired": "Email é obrigatório",
+      "emailInvalid": "Por favor insira um email válido",
       "emailTooLong": "Email deve ter menos de {max} caracteres",
-      "messageRequired": "Mensagem e obrigatoria",
+      "messageRequired": "Mensagem é obrigatória",
       "messageTooShort": "Mensagem deve ter pelo menos {min} caracteres",
       "messageTooLong": "Mensagem deve ter menos de {max} caracteres"
     },
@@ -80,45 +80,45 @@
   "landing": {
     "hero": {
       "title": "Monitoramento Completo de Bitcoin",
-      "description": "Monitoramento profissional de Bitcoin com alertas de transacoes e notificacoes inteligentes de saldo. Defina limites personalizados, monitore esvaziamentos de carteira, rastreie todas as transacoes - tudo com seguranca somente leitura.",
-      "startTrial": "Comece o Teste Gratis de 30 Dias",
+      "description": "Monitoramento profissional de Bitcoin com alertas de transações e notificações inteligentes de saldo. Defina limites personalizados, monitore esvaziamentos de carteira, rastreie todas as transações - tudo com segurança somente leitura.",
+      "startTrial": "Comece o Teste Grátis de 30 Dias",
       "tryDemo": "Testar Demo",
-      "viewPricing": "Ver Precos"
+      "viewPricing": "Ver Preços"
     },
     "features": {
       "title": "Monitoramento Completo de Bitcoin",
-      "subtitle": "Rastreamento de transacoes, alertas de saldo e monitoramento seguro somente leitura",
+      "subtitle": "Rastreamento de transações, alertas de saldo e monitoramento seguro somente leitura",
       "notifications": {
-        "title": "Notificacoes Instantaneas de Transacoes Bitcoin",
-        "description": "Alertas de carteira Bitcoin em tempo real via email, SMS e notificacoes push diretamente no seu dispositivo"
+        "title": "Notificações Instantâneas de Transações Bitcoin",
+        "description": "Alertas de carteira Bitcoin em tempo real via email, SMS e notificações push diretamente no seu dispositivo"
       },
       "balanceAlerts": {
         "title": "Sistema Inteligente de Alertas de Saldo",
-        "description": "Limites de saldo personalizados com alertas para esvaziamentos de carteira, depositos grandes ou valores especificos. Nunca perca mudancas criticas de saldo."
+        "description": "Limites de saldo personalizados com alertas para esvaziamentos de carteira, depósitos grandes ou valores específicos. Nunca perca mudanças críticas de saldo."
       },
       "security": {
         "title": "Monitoramento Seguro de Bitcoin Somente Leitura",
         "description": "Acesso somente leitura a carteiras Bitcoin usando XPUBs ou descritores - nunca tocamos suas chaves privadas"
       },
       "sync": {
-        "title": "Sincronizacao em Tempo Real de Carteira Bitcoin",
-        "description": "Intervalos de sincronizacao de carteira Bitcoin de 10 minutos ate 2 minutos baseado no seu plano de assinatura"
+        "title": "Sincronização em Tempo Real de Carteira Bitcoin",
+        "description": "Intervalos de sincronização de carteira Bitcoin de 10 minutos até 2 minutos baseado no seu plano de assinatura"
       }
     },
     "balanceAlerts": {
-      "title": "Nunca Perca Mudancas Criticas de Saldo",
-      "description": "Defina limites de saldo personalizados para monitorar seus holdings totais. Receba alertas quando seu saldo atingir niveis especificos. Perfeito para monitoramento de cold storage, deteccao de esvaziamento de carteira ou rastreamento de marcos importantes de saldo.",
+      "title": "Nunca Perca Mudanças Críticas de Saldo",
+      "description": "Defina limites de saldo personalizados para monitorar seus holdings totais. Receba alertas quando seu saldo atingir níveis específicos. Perfeito para monitoramento de cold storage, detecção de esvaziamento de carteira ou rastreamento de marcos importantes de saldo.",
       "above": {
         "title": "Alertas de Limite Superior",
-        "description": "Receba notificacoes quando seu saldo total subir acima de um limite definido. Monitore quando seus holdings atingirem marcos importantes."
+        "description": "Receba notificações quando seu saldo total subir acima de um limite definido. Monitore quando seus holdings atingirem marcos importantes."
       },
       "below": {
         "title": "Alertas de Limite Inferior",
-        "description": "Receba notificacoes quando seu saldo total cair abaixo de um limite definido. Configure avisos de saldo baixo para seus holdings."
+        "description": "Receba notificações quando seu saldo total cair abaixo de um limite definido. Configure avisos de saldo baixo para seus holdings."
       },
       "drain": {
-        "title": "Deteccao de Esvaziamento de Carteira",
-        "description": "Receba notificacoes quando seu saldo total for igual a um valor especifico, como zero para esvaziamentos de carteira. Monitoramento de seguranca critico."
+        "title": "Detecção de Esvaziamento de Carteira",
+        "description": "Receba notificações quando seu saldo total for igual a um valor específico, como zero para esvaziamentos de carteira. Monitoramento de segurança crítico."
       },
       "example": {
         "title": "Sua Carteira Bitcoin",
@@ -127,71 +127,71 @@
         "belowThreshold": "Abaixo de 0,01 BTC",
         "equalsZero": "Igual a 0 BTC",
         "active": "ATIVO",
-        "deliveryNote": "Todos os alertas entregues via email, SMS e notificacoes push"
+        "deliveryNote": "Todos os alertas entregues via email, SMS e notificações push"
       }
     },
     "pricing": {
-      "title": "Precos Simples e Transparentes",
-      "subtitle": "Escolha o plano que se adapta as suas necessidades",
-      "trialNote": "Planos na nuvem incluem teste gratuito de 30 dias - Nao e necessario cartao de credito"
+      "title": "Preços Simples e Transparentes",
+      "subtitle": "Escolha o plano que se adapta às suas necessidades",
+      "trialNote": "Planos na nuvem incluem teste gratuito de 30 dias - Não é necessário cartão de crédito"
     },
     "faq": {
       "title": "Perguntas Frequentes",
       "contactUs": "Entre em contato aqui",
       "items": {
         "whatIsCanary": {
-          "question": "O que e o monitoramento de carteiras Bitcoin do Canary?",
-          "answer": "Canary e um servico profissional de monitoramento e notificacao de carteiras Bitcoin que vigia suas carteiras usando XPUBs ou descritores e envia alertas instantaneos para todas as transacoes via email, SMS e notificacoes push. Perfeito para monitorar armazenamento frio, carteiras de hardware e enderecos Bitcoin somente leitura."
+          "question": "O que é o monitoramento de carteiras Bitcoin do Canary?",
+          "answer": "Canary é um serviço profissional de monitoramento e notificação de carteiras Bitcoin que vigia suas carteiras usando XPUBs ou descritores e envia alertas instantâneos para todas as transações via email, SMS e notificações push. Perfeito para monitorar armazenamento frio, carteiras de hardware e endereços Bitcoin somente leitura."
         },
         "howDoesItWork": {
           "question": "Como funciona o monitoramento de carteiras Bitcoin sem chaves privadas?",
-          "answer": "Canary usa o XPUB (chave publica estendida) ou descritor da sua carteira para monitoramento Bitcoin somente leitura. Isso nos da acesso somente leitura para rastrear seus enderecos Bitcoin e detectar transacoes. Nunca temos acesso as suas chaves privadas e nao podemos mover seu Bitcoin - garantindo seguranca completa para seu monitoramento de armazenamento frio."
+          "answer": "Canary usa o XPUB (chave pública estendida) ou descritor da sua carteira para monitoramento Bitcoin somente leitura. Isso nos dá acesso somente leitura para rastrear seus endereços Bitcoin e detectar transações. Nunca temos acesso às suas chaves privadas e não podemos mover seu Bitcoin - garantindo segurança completa para seu monitoramento de armazenamento frio."
         },
         "whatIsXpub": {
-          "question": "O que e monitoramento de carteira XPUB?",
-          "answer": "O monitoramento XPUB permite rastrear todos os enderecos na sua carteira Bitcoin sem expor chaves privadas. Ao fornecer o XPUB ou descritor da sua carteira, o Canary pode monitorar enderecos ilimitados, detectar transacoes em qualquer profundidade (mesmo 200+ enderecos de profundidade), e alertar voce instantaneamente quando Bitcoin se move."
+          "question": "O que é monitoramento de carteira XPUB?",
+          "answer": "O monitoramento XPUB permite rastrear todos os endereços na sua carteira Bitcoin sem expor chaves privadas. Ao fornecer o XPUB ou descritor da sua carteira, o Canary pode monitorar endereços ilimitados, detectar transações em qualquer profundidade (mesmo 200+ endereços de profundidade), e alertar você instantaneamente quando Bitcoin se move."
         },
         "coldStorage": {
           "question": "Posso monitorar carteiras de armazenamento frio de Bitcoin?",
-          "answer": "Sim! Canary e perfeito para monitoramento de armazenamento frio de Bitcoin. Seja usando carteiras de hardware como Ledger ou Trezor, carteiras de papel ou outras solucoes de armazenamento frio, basta fornecer seu XPUB ou descritor para monitoramento seguro somente leitura com notificacoes instantaneas."
+          "answer": "Sim! Canary é perfeito para monitoramento de armazenamento frio de Bitcoin. Seja usando carteiras de hardware como Ledger ou Trezor, carteiras de papel ou outras soluções de armazenamento frio, basta fornecer seu XPUB ou descritor para monitoramento seguro somente leitura com notificações instantâneas."
         },
         "notificationSpeed": {
-          "question": "Quao rapidas sao as notificacoes de transacoes Bitcoin?",
-          "answer": "Com nosso plano Team, voce obtem notificacoes de transacoes Bitcoin quase em tempo real com intervalos de sincronizacao tao rapidos quanto 2 minutos na mainnet. A maioria das notificacoes chega em segundos apos a deteccao da transacao. Planos Personal sincronizam a cada 10 minutos, ainda garantindo alertas oportunos para suas carteiras Bitcoin."
+          "question": "Quão rápidas são as notificações de transações Bitcoin?",
+          "answer": "Com nosso plano Team, você obtém notificações de transações Bitcoin quase em tempo real com intervalos de sincronização tão rápidos quanto 2 minutos na mainnet. A maioria das notificações chega em segundos após a detecção da transação. Planos Personal sincronizam a cada 10 minutos, ainda garantindo alertas oportunos para suas carteiras Bitcoin."
         },
         "walletTypes": {
-          "question": "Quais tipos de carteiras Bitcoin sao suportados?",
-          "answer": "Canary suporta todos os principais tipos de carteiras Bitcoin incluindo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) e enderecos Taproot (P2TR). Detectamos automaticamente o tipo da sua carteira a partir do XPUB ou voce pode especificar manualmente. Monitoramento de multi-assinatura e carteiras de hardware sao totalmente suportados."
+          "question": "Quais tipos de carteiras Bitcoin são suportados?",
+          "answer": "Canary suporta todos os principais tipos de carteiras Bitcoin incluindo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) e endereços Taproot (P2TR). Detectamos automaticamente o tipo da sua carteira a partir do XPUB ou você pode especificar manualmente. Monitoramento de multi-assinatura e carteiras de hardware são totalmente suportados."
         },
         "whyCanary": {
           "question": "Por que se chama Canary?",
-          "answer": "Como um canario em uma mina de carvao fornecendo alerta antecipado, o Canary atua como o sistema de alerta antecipado da sua carteira Bitcoin. Quando seu Bitcoin esta em armazenamento frio, voce raramente o verifica. O Canary monitora 24/7 e alerta voce instantaneamente quando seu Bitcoin se move, proporcionando tranquilidade para detentores de longo prazo."
+          "answer": "Como um canário em uma mina de carvão fornecendo alerta antecipado, o Canary atua como o sistema de alerta antecipado da sua carteira Bitcoin. Quando seu Bitcoin está em armazenamento frio, você raramente o verifica. O Canary monitora 24/7 e alerta você instantaneamente quando seu Bitcoin se move, proporcionando tranquilidade para detentores de longo prazo."
         },
         "noBlockchain": {
           "question": "Posso rastrear Bitcoin sem baixar a blockchain?",
-          "answer": "Sim! Canary se conecta a servidores Electrum profissionais para monitorar a blockchain do Bitcoin para voce. Nao precisa executar um no completo ou baixar a blockchain - basta fornecer seu XPUB e comecar a receber notificacoes instantaneas para toda a atividade da sua carteira Bitcoin."
+          "answer": "Sim! Canary se conecta a servidores Electrum profissionais para monitorar a blockchain do Bitcoin para você. Não precisa executar um nó completo ou baixar a blockchain - basta fornecer seu XPUB e começar a receber notificações instantâneas para toda a atividade da sua carteira Bitcoin."
         },
         "balanceAlerts": {
           "question": "Como funcionam os alertas de saldo de Bitcoin?",
-          "answer": "O sistema de alertas de saldo do Canary permite definir limites personalizados para monitorar o saldo total da sua carteira. Crie alertas para quando seu saldo ultrapassar uma certa quantia, ficar abaixo de um limite (aviso de saldo baixo), ou for igual a zero (deteccao de esvaziamento de carteira). Perfeito para rastrear armazenamento frio sem verificacao manual."
+          "answer": "O sistema de alertas de saldo do Canary permite definir limites personalizados para monitorar o saldo total da sua carteira. Crie alertas para quando seu saldo ultrapassar uma certa quantia, ficar abaixo de um limite (aviso de saldo baixo), ou for igual a zero (detecção de esvaziamento de carteira). Perfeito para rastrear armazenamento frio sem verificação manual."
         },
         "alertTypes": {
-          "question": "Quais tipos de alertas de saldo estao disponiveis?",
-          "answer": "Voce pode criar tres tipos de alertas de saldo: alertas 'Acima' sao acionados quando seu saldo total excede um limite (monitore quando seus ativos atingem marcos), alertas 'Abaixo' avisam quando o saldo total cai abaixo de uma quantia (avisos de saldo baixo), e alertas 'Igual' detectam quantias exatas de saldo como esvaziamentos de carteira (saldo = 0) ou alvos especificos."
+          "question": "Quais tipos de alertas de saldo estão disponíveis?",
+          "answer": "Você pode criar três tipos de alertas de saldo: alertas 'Acima' são acionados quando seu saldo total excede um limite (monitore quando seus ativos atingem marcos), alertas 'Abaixo' avisam quando o saldo total cai abaixo de uma quantia (avisos de saldo baixo), e alertas 'Igual' detectam quantias exatas de saldo como esvaziamentos de carteira (saldo = 0) ou alvos específicos."
         },
         "multipleWallets": {
-          "question": "Posso monitorar multiplas carteiras Bitcoin com diferentes limites de saldo?",
-          "answer": "Sim! Cada carteira Bitcoin pode ter seu proprio conjunto de alertas de saldo personalizados. Com nosso plano Team, voce pode monitorar ate 5 carteiras, cada uma com limites de saldo unicos. Perfeito para Uncle Jims monitorando ativos familiares de Bitcoin ou empresas rastreando multiplas carteiras de tesouraria com diferentes requisitos de alerta."
+          "question": "Posso monitorar múltiplas carteiras Bitcoin com diferentes limites de saldo?",
+          "answer": "Sim! Cada carteira Bitcoin pode ter seu próprio conjunto de alertas de saldo personalizados. Com nosso plano Team, você pode monitorar até 5 carteiras, cada uma com limites de saldo únicos. Perfeito para Uncle Jims monitorando ativos familiares de Bitcoin ou empresas rastreando múltiplas carteiras de tesouraria com diferentes requisitos de alerta."
         },
         "contact": {
           "question": "Como posso entrar em contato?",
-          "answer": "Adorariamos ouvir de voce! Voce pode nos contatar atraves do nosso formulario de contato para quaisquer perguntas, feedback ou solicitacoes de suporte. Normalmente respondemos dentro de 24 horas."
+          "answer": "Adoraríamos ouvir de você! Você pode nos contatar através do nosso formulário de contato para quaisquer perguntas, feedback ou solicitações de suporte. Normalmente respondemos dentro de 24 horas."
         }
       }
     },
     "cta": {
       "title": "Comece o Monitoramento Completo de Bitcoin Hoje",
-      "description": "Alertas de transacoes, monitoramento de saldo e tranquilidade para seu patrimonio em Bitcoin"
+      "description": "Alertas de transações, monitoramento de saldo e tranquilidade para seu patrimônio em Bitcoin"
     }
   },
   "auth": {
@@ -204,14 +204,14 @@
       "passwordPlaceholder": "Digite sua senha",
       "submit": "Entrar",
       "submitting": "Entrando...",
-      "noAccount": "Nao tem conta? Cadastre-se",
+      "noAccount": "Não tem conta? Cadastre-se",
       "forgotPassword": "Esqueceu sua senha?",
       "devMode": "Modo Desenvolvimento",
       "loginFailed": "Falha no login"
     },
     "signUp": {
       "title": "Comece seu teste gratuito de 30 dias",
-      "subtitle": "30 dias gratis, depois continue com o plano de sua escolha",
+      "subtitle": "30 dias grátis, depois continue com o plano de sua escolha",
       "nameLabel": "Nome",
       "namePlaceholder": "Digite seu nome",
       "emailLabel": "Email",
@@ -219,31 +219,31 @@
       "passwordLabel": "Senha",
       "passwordPlaceholder": "Digite uma senha forte",
       "passwordHint": "A senha deve ter pelo menos 6 caracteres",
-      "marketingConsent": "Gostaria de receber emails ocasionais sobre atualizacoes do servico",
+      "marketingConsent": "Gostaria de receber emails ocasionais sobre atualizações do serviço",
       "submit": "Criar conta",
       "submitting": "Criando conta...",
-      "hasAccount": "Ja tem conta? Entre",
+      "hasAccount": "Já tem conta? Entre",
       "signInInstead": "Entrar em vez disso",
       "registrationFailed": "Falha no cadastro"
     },
     "signUpSuccess": {
       "title": "Verifique seu email",
-      "description": "Enviamos um link de verificacao para seu endereco de email. Por favor clique no link para verificar sua conta.",
-      "didntReceive": "Nao recebeu o email?",
+      "description": "Enviamos um link de verificação para seu endereço de email. Por favor clique no link para verificar sua conta.",
+      "didntReceive": "Não recebeu o email?",
       "checkSpam": "Verifique sua pasta de spam",
-      "resend": "Reenviar email de verificacao",
+      "resend": "Reenviar email de verificação",
       "backToSignIn": "Voltar para login"
     },
     "forgotPassword": {
       "title": "Esqueceu sua senha?",
-      "subtitle": "Digite seu email e enviaremos um link de redefinicao",
+      "subtitle": "Digite seu email e enviaremos um link de redefinição",
       "emailLabel": "Email",
       "emailPlaceholder": "seu@email.com",
-      "submit": "Enviar link de redefinicao",
+      "submit": "Enviar link de redefinição",
       "submitting": "Enviando...",
       "backToSignIn": "Voltar para login",
       "successTitle": "Verifique seu email",
-      "successMessage": "Se existir uma conta com esse email, voce recebera um link de redefinicao de senha."
+      "successMessage": "Se existir uma conta com esse email, você receberá um link de redefinição de senha."
     },
     "resetPassword": {
       "title": "Redefina sua senha",
@@ -254,28 +254,28 @@
       "confirmPlaceholder": "Confirme sua nova senha",
       "submit": "Redefinir senha",
       "submitting": "Redefinindo...",
-      "passwordMismatch": "As senhas nao coincidem",
+      "passwordMismatch": "As senhas não coincidem",
       "successTitle": "Senha redefinida",
-      "successMessage": "Sua senha foi redefinida. Agora voce pode entrar.",
-      "invalidToken": "Link de redefinicao invalido ou expirado"
+      "successMessage": "Sua senha foi redefinida. Agora você pode entrar.",
+      "invalidToken": "Link de redefinição inválido ou expirado"
     },
     "verifyEmail": {
       "verifying": "Verificando seu email...",
       "successTitle": "Email verificado",
-      "successMessage": "Seu email foi verificado. Agora voce pode entrar.",
-      "errorTitle": "Verificacao falhou",
-      "invalidToken": "Link de verificacao invalido ou expirado",
+      "successMessage": "Seu email foi verificado. Agora você pode entrar.",
+      "errorTitle": "Verificação falhou",
+      "invalidToken": "Link de verificação inválido ou expirado",
       "signIn": "Entrar"
     }
   },
   "settings": {
-    "title": "Configuracoes",
+    "title": "Configurações",
     "display": {
-      "title": "Preferencias de Exibicao",
-      "description": "Personalize como os valores de Bitcoin sao exibidos em suas carteiras",
+      "title": "Preferências de Exibição",
+      "description": "Personalize como os valores de Bitcoin são exibidos em suas carteiras",
       "currencyLabel": "Moeda Fiat",
       "currencyPlaceholder": "Selecione uma moeda",
-      "currencyNote": "As taxas de cambio sao atualizadas a cada 10 minutos do CoinGecko"
+      "currencyNote": "As taxas de câmbio são atualizadas a cada 10 minutos do CoinGecko"
     },
     "language": {
       "title": "Idioma",
@@ -283,35 +283,35 @@
       "label": "Idioma"
     },
     "ntfy": {
-      "title": "Notificacoes Push",
-      "description": "Configure seu servidor ntfy para notificacoes push",
+      "title": "Notificações Push",
+      "description": "Configure seu servidor ntfy para notificações push",
       "serverLabel": "URL do Servidor ntfy",
       "serverPlaceholder": "https://ntfy.sh",
       "serverNoteBefore": "Deixe vazio para usar o servidor público ntfy.sh. Você pode ",
       "selfHostLink": "auto-hospedar ntfy",
       "serverNoteAfter": " para privacidade completa.",
       "auth": {
-        "title": "Autenticacao",
+        "title": "Autenticação",
         "configured": {
           "token": "Token de acesso configurado",
-          "credentials": "Usuario/senha configurado ({username})",
-          "none": "Sem autenticacao configurada"
+          "credentials": "Usuário/senha configurado ({username})",
+          "none": "Sem autenticação configurada"
         },
         "type": {
-          "none": "Sem autenticacao",
+          "none": "Sem autenticação",
           "token": "Token de Acesso",
-          "basic": "Usuario e Senha"
+          "basic": "Usuário e Senha"
         },
         "tokenLabel": "Token de Acesso",
         "tokenPlaceholder": "tk_...",
-        "usernameLabel": "Usuario",
-        "usernamePlaceholder": "Usuario",
+        "usernameLabel": "Usuário",
+        "usernamePlaceholder": "Usuário",
         "passwordLabel": "Senha",
         "passwordPlaceholder": "Senha",
-        "saveAuth": "Salvar Autenticacao",
-        "tokenRequired": "O token de acesso e obrigatorio",
-        "credentialsRequired": "Usuario e senha sao obrigatorios",
-        "authSaved": "Autenticacao salva!"
+        "saveAuth": "Salvar Autenticação",
+        "tokenRequired": "O token de acesso é obrigatório",
+        "credentialsRequired": "Usuário e senha são obrigatórios",
+        "authSaved": "Autenticação salva!"
       }
     },
     "currencies": {
@@ -394,7 +394,7 @@
     },
     "empty": {
       "title": "Sem Carteiras",
-      "description": "Nenhuma carteira encontrada. Use o botao \"Adicionar Carteira\" para comecar.",
+      "description": "Nenhuma carteira encontrada. Use o botão \"Adicionar Carteira\" para começar.",
       "addFirst": "Adicionar Sua Primeira Carteira"
     },
     "error": {
@@ -404,10 +404,10 @@
     "card": {
       "syncing": "Sincronizando...",
       "inactive": "Inativa",
-      "inactiveExpired": "Sua assinatura expirou - a carteira nao sincronizara automaticamente",
-      "inactiveTierLimit": "Esta carteira excede os limites do seu plano e nao sincronizara automaticamente",
+      "inactiveExpired": "Sua assinatura expirou - a carteira não sincronizará automaticamente",
+      "inactiveTierLimit": "Esta carteira excede os limites do seu plano e não sincronizará automaticamente",
       "balance": "Saldo",
-      "lastActivity": "Ultima atividade: {date}",
+      "lastActivity": "Última atividade: {date}",
       "noRecentActivity": "Sem atividade recente"
     },
     "add": {
@@ -416,8 +416,8 @@
       "namePlaceholder": "Minha Carteira Bitcoin",
       "descriptorLabel": "Descritor de Carteira ou XPUB",
       "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
-      "descriptorHint": "Digite o descritor de saida da sua carteira ou XPUB. Detectaremos automaticamente o tipo de script.",
-      "advancedSettings": "Configuracoes Avancadas",
+      "descriptorHint": "Digite o descritor de saída da sua carteira ou XPUB. Detectaremos automaticamente o tipo de script.",
+      "advancedSettings": "Configurações Avançadas",
       "scriptType": {
         "label": "Tipo de Script",
         "selectPlaceholder": "Selecionar tipo de script",
@@ -445,8 +445,8 @@
         "requiresScriptType": "Stop gap personalizado requer selecionar um tipo de script específico"
       },
       "freshWallet": {
-        "label": "Carteira nova (sem historico de transacoes)",
-        "hint": "Pular varredura profunda para carteiras sem transacoes anteriores"
+        "label": "Carteira nova (sem histórico de transações)",
+        "hint": "Pular varredura profunda para carteiras sem transações anteriores"
       },
       "submit": "Adicionar Carteira",
       "submitting": "Adicionando...",
@@ -544,12 +544,12 @@
     },
     "detail": {
       "balance": "Saldo",
-      "transactions": "Transacoes",
+      "transactions": "Transações",
       "contacts": "Contatos",
       "balanceAlerts": "Alertas de Saldo",
-      "noTransactions": "Sem transacoes ainda",
-      "pendingSync": "A carteira esta sincronizando...",
-      "lastSync": "Ultima sincronizacao",
+      "noTransactions": "Sem transações ainda",
+      "pendingSync": "A carteira está sincronizando...",
+      "lastSync": "Última sincronização",
       "syncStatus": {
         "pending": "Sincronizando",
         "ready": "Sincronizado"
@@ -557,32 +557,32 @@
       "backToWallets": "Voltar para carteiras",
       "new": "Novo",
       "notFound": {
-        "title": "Carteira nao encontrada",
-        "description": "A carteira com checksum #{checksum} nao foi encontrada."
+        "title": "Carteira não encontrada",
+        "description": "A carteira com checksum #{checksum} não foi encontrada."
       },
       "syncing": {
         "title": "Carteira ainda sincronizando",
-        "description": "{name} ainda esta sincronizando e verificando transacoes historicas. Este processo pode levar alguns minutos para carteiras com historico de transacoes.",
-        "returnPrompt": "Por favor retorne a pagina de carteiras e aguarde a sincronizacao ser concluida."
+        "description": "{name} ainda está sincronizando e verificando transações históricas. Este processo pode levar alguns minutos para carteiras com histórico de transações.",
+        "returnPrompt": "Por favor retorne à página de carteiras e aguarde a sincronização ser concluída."
       },
       "inactive": {
         "title": "Carteira inativa",
-        "descriptionExpired": "Sua assinatura expirou - a carteira nao sincronizara automaticamente.",
-        "descriptionTierLimit": "Esta carteira excede os limites do seu nivel de assinatura e nao sincronizara automaticamente.",
-        "outdatedWarning": "O historico de transacoes e o saldo exibidos podem estar desatualizados.",
+        "descriptionExpired": "Sua assinatura expirou - a carteira não sincronizará automaticamente.",
+        "descriptionTierLimit": "Esta carteira excede os limites do seu nível de assinatura e não sincronizará automaticamente.",
+        "outdatedWarning": "O histórico de transações e o saldo exibidos podem estar desatualizados.",
         "upgradePlan": "Atualizar plano"
       }
     },
     "delete": {
       "title": "Excluir Carteira",
-      "description": "Tem certeza de que deseja excluir esta carteira? Esta acao nao pode ser desfeita.",
+      "description": "Tem certeza de que deseja excluir esta carteira? Esta ação não pode ser desfeita.",
       "confirm": "Excluir",
       "cancel": "Cancelar"
     },
     "edit": {
       "title": "Editar Carteira",
       "nameLabel": "Nome da Carteira",
-      "submit": "Salvar Alteracoes"
+      "submit": "Salvar Alterações"
     }
   },
   "contacts": {
@@ -676,7 +676,7 @@
       "description": "Configure alertas para ser notificado quando o saldo da sua carteira atingir certos limites",
       "list": "Nenhum alerta configurado"
     },
-    "lastFired": "Ultima ativacao {date}",
+    "lastFired": "Última ativação {date}",
     "deleteAlert": "Excluir alerta",
     "add": {
       "title": "Criar Novo Alerta",
@@ -720,22 +720,22 @@
       "reactivate": "Reativar"
     },
     "errors": {
-      "invalidBtcAmount": "Por favor insira um valor valido de Bitcoin",
-      "invalidPositiveAmount": "Por favor insira um valor positivo valido",
-      "negativeAmount": "O valor nao pode ser negativo",
-      "belowZero": "Nao e possivel criar alerta para 'abaixo de 0' - o saldo nao pode ser negativo",
-      "duplicateAlert": "Ja existe um alerta com este tipo e valor",
+      "invalidBtcAmount": "Por favor insira um valor válido de Bitcoin",
+      "invalidPositiveAmount": "Por favor insira um valor positivo válido",
+      "negativeAmount": "O valor não pode ser negativo",
+      "belowZero": "Não é possível criar alerta para 'abaixo de 0' - o saldo não pode ser negativo",
+      "duplicateAlert": "Já existe um alerta com este tipo e valor",
       "createFailed": "Falha ao criar alerta de saldo",
       "deleteFailed": "Falha ao excluir alerta"
     }
   },
   "transactions": {
-    "title": "Transacoes",
-    "titleWithWallet": "Transacoes - {walletName}",
-    "loading": "Carregando transacoes...",
-    "empty": "Sem transacoes ainda",
-    "emptyForWallet": "Nenhuma transacao encontrada para a carteira selecionada.",
-    "count": "{count} {count, plural, one {transacao} other {transacoes}}",
+    "title": "Transações",
+    "titleWithWallet": "Transações - {walletName}",
+    "loading": "Carregando transações...",
+    "empty": "Sem transações ainda",
+    "emptyForWallet": "Nenhuma transação encontrada para a carteira selecionada.",
+    "count": "{count} {count, plural, one {transação} other {transações}}",
     "types": {
       "receive": "Recebido",
       "send": "Enviado",
@@ -746,32 +746,32 @@
       "pending": "Pendente",
       "confirmed": "Confirmado",
       "dropped": "Descartado",
-      "replaced": "Substituido"
+      "replaced": "Substituído"
     },
     "details": {
-      "txid": "ID da Transacao",
+      "txid": "ID da Transação",
       "amount": "Valor",
       "fee": "Taxa",
       "date": "Data",
-      "confirmations": "Confirmacoes",
+      "confirmations": "Confirmações",
       "block": "Bloco",
-      "address": "Endereco",
-      "replacedBy": "Substituido por",
-      "replacedAt": "Substituido em"
+      "address": "Endereço",
+      "replacedBy": "Substituído por",
+      "replacedAt": "Substituído em"
     },
     "tableHeaders": {
       "dateTime": "Data/Hora",
       "wallet": "Carteira",
-      "transaction": "Transacao",
+      "transaction": "Transação",
       "amount": "Valor",
       "details": "Detalhes"
     },
     "tooltips": {
-      "cpfp": "Transacao CPFP",
-      "rbfReplaced": "Substituido por RBF",
-      "notificationsFailed": "Algumas notificacoes falharam",
+      "cpfp": "Transação CPFP",
+      "rbfReplaced": "Substituído por RBF",
+      "notificationsFailed": "Algumas notificações falharam",
       "cpfpChild": "Child-Pays-For-Parent (CPFP) - Filho de {txid}",
-      "replacedByTx": "Substituido por transacao: {txid}",
+      "replacedByTx": "Substituído por transação: {txid}",
       "viewOnMempool": "Ver {txid} no Mempool Space"
     },
     "timeline": {
@@ -788,7 +788,7 @@
     "error": "Erro: {error}",
     "rbf": "RBF",
     "cpfp": "CPFP",
-    "replacement": "Substituicao",
+    "replacement": "Substituição",
     "walletLabel": "Carteira: {name}"
   },
   "billing": {
@@ -804,7 +804,7 @@
       "daysLeft": "{days} dias restantes",
       "endsOn": "O teste termina em {date}"
     },
-    "manage": "Gerenciar Cobranca",
+    "manage": "Gerenciar Cobrança",
     "upgrade": "Atualizar",
     "subscribe": "Assinar",
     "plans": {
@@ -814,28 +814,28 @@
         "features": {
           "wallets": "1 carteira",
           "contacts": "1 contato por carteira",
-          "sync": "Sincronizacao a cada 10 minutos",
-          "notifications": "Todos os tipos de notificacao"
+          "sync": "Sincronização a cada 10 minutos",
+          "notifications": "Todos os tipos de notificação"
         }
       },
       "team": {
         "name": "Equipe",
-        "description": "Para guardioes familiares",
+        "description": "Para guardiões familiares",
         "features": {
           "wallets": "5 carteiras",
           "contacts": "5 contatos por carteira",
-          "sync": "Sincronizacao a cada 2 minutos",
-          "notifications": "Todos os tipos de notificacao"
+          "sync": "Sincronização a cada 2 minutos",
+          "notifications": "Todos os tipos de notificação"
         }
       },
       "selfHosted": {
         "name": "Auto-hospedado",
-        "description": "Execute em sua propria infraestrutura",
+        "description": "Execute em sua própria infraestrutura",
         "features": {
           "wallets": "Carteiras ilimitadas",
           "contacts": "Contatos ilimitados",
-          "sync": "Intervalos de sincronizacao personalizados",
-          "notifications": "Notificacoes push ntfy"
+          "sync": "Intervalos de sincronização personalizados",
+          "notifications": "Notificações push ntfy"
         }
       }
     },
@@ -853,38 +853,38 @@
         "team": "5 contatos por carteira"
       },
       "sync": {
-        "label": "Intervalo de sincronizacao",
-        "selfhosted": "Tempo de sincronizacao configuravel",
-        "personal": "Sincronizacao a cada 10 minutos",
-        "team": "Sincronizacao a cada 2 minutos"
+        "label": "Intervalo de sincronização",
+        "selfhosted": "Tempo de sincronização configurável",
+        "personal": "Sincronização a cada 10 minutos",
+        "team": "Sincronização a cada 2 minutos"
       },
       "trial": "Teste gratuito de 30 dias",
-      "email": "Notificacoes por email",
-      "sms": "Notificacoes por SMS",
-      "push": "Notificacoes push",
+      "email": "Notificações por email",
+      "sms": "Notificações por SMS",
+      "push": "Notificações push",
       "balanceAlerts": "Alertas de saldo personalizados",
-      "analysis": "Analise de transacoes (RBF/CPFP)",
-      "ownNode": "Seu proprio node Bitcoin",
+      "analysis": "Análise de transações (RBF/CPFP)",
+      "ownNode": "Seu próprio node Bitcoin",
       "privacy": "Privacidade e controle total",
       "noSubscription": "Sem taxas de assinatura"
     },
-    "perMonth": "/mes",
+    "perMonth": "/mês",
     "perYear": "/ano",
     "saveYearly": "Economize {percent}% anual",
     "popular": "POPULAR",
     "currentPlanBadge": "PLANO ATUAL",
     "trialPlanBadge": "PLANO DE TESTE",
-    "freeToSelfHost": "Gratis para auto-hospedar",
-    "plusTaxes": "Mais impostos aplicaveis",
+    "freeToSelfHost": "Grátis para auto-hospedar",
+    "plusTaxes": "Mais impostos aplicáveis",
     "changePlan": "Mudar plano",
     "subscribeTo": "Assinar {plan}",
     "upgradeTo": "Atualizar para {plan}",
     "startTrial": "Iniciar teste gratuito de 30 dias",
-    "loadingPricing": "Carregando precos...",
-    "errorTitle": "Nao foi possivel carregar precos",
-    "errorDescription": "Por favor atualize a pagina ou tente novamente mais tarde.",
+    "loadingPricing": "Carregando preços...",
+    "errorTitle": "Não foi possível carregar preços",
+    "errorDescription": "Por favor atualize a página ou tente novamente mais tarde.",
     "selfHosted": {
-      "description": "Prefere auto-hospedar? Canary e gratis para executar em sua propria infraestrutura com notificacoes push via ntfy.",
+      "description": "Prefere auto-hospedar? Canary é grátis para executar em sua própria infraestrutura com notificações push via ntfy.",
       "installUmbrel": "Instalar no Umbrel",
       "viewGithub": "Ver no GitHub"
     }
@@ -956,23 +956,23 @@
   "upgrade": {
     "title": "Atualize Seu Plano",
     "choosePlan": "Escolha Seu Plano",
-    "trialDescription": "Assine hoje para garantir que as notificacoes da sua carteira continuem ininterruptas quando seu periodo de teste terminar. Mantenha seu Bitcoin seguro com monitoramento continuo.",
-    "limitReachedDescription": "Voce atingiu seu limite de {limitType} de {limit} no plano {tierName}. Compare planos e atualize para adicionar mais.",
+    "trialDescription": "Assine hoje para garantir que as notificações da sua carteira continuem ininterruptas quando seu período de teste terminar. Mantenha seu Bitcoin seguro com monitoramento contínuo.",
+    "limitReachedDescription": "Você atingiu seu limite de {limitType} de {limit} no plano {tierName}. Compare planos e atualize para adicionar mais.",
     "currentUsage": "Uso atual: {count} / {limit}",
     "walletLimit": {
       "title": "Limite de Carteiras Atingido",
-      "description": "Voce atingiu o numero maximo de carteiras para seu plano. Atualize para adicionar mais carteiras."
+      "description": "Você atingiu o número máximo de carteiras para seu plano. Atualize para adicionar mais carteiras."
     },
     "contactLimit": {
       "title": "Limite de Contatos Atingido",
-      "description": "Voce atingiu o numero maximo de contatos para esta carteira. Atualize para adicionar mais contatos."
+      "description": "Você atingiu o número máximo de contatos para esta carteira. Atualize para adicionar mais contatos."
     }
   },
   "errors": {
     "generic": "Algo deu errado. Por favor tente novamente.",
-    "network": "Erro de rede. Por favor verifique sua conexao.",
+    "network": "Erro de rede. Por favor verifique sua conexão.",
     "unauthorized": "Por favor entre para continuar.",
-    "notFound": "Nao encontrado.",
+    "notFound": "Não encontrado.",
     "serverError": "Erro do servidor. Por favor tente mais tarde.",
     "validation": "Por favor verifique sua entrada e tente novamente."
   },
@@ -983,8 +983,8 @@
   },
   "demoBanner": {
     "title": "Modo Demo",
-    "description": "Voce esta visualizando uma carteira demo somente leitura. Todos os recursos sao apenas para visualizacao.",
-    "signUp": "Cadastre-se para criar sua propria carteira",
+    "description": "Você está visualizando uma carteira demo somente leitura. Todos os recursos são apenas para visualização.",
+    "signUp": "Cadastre-se para criar sua própria carteira",
     "dismiss": "Fechar banner"
   }
 }

@@ -10,7 +10,7 @@
     "add": "Agregar",
     "close": "Cerrar",
     "confirm": "Confirmar",
-    "back": "Atras",
+    "back": "Atrás",
     "next": "Siguiente",
     "submit": "Enviar",
     "verify": "Verificar",
@@ -18,7 +18,7 @@
     "send": "Enviar",
     "sending": "Enviando...",
     "retry": "Reintentar",
-    "yes": "Si",
+    "yes": "Sí",
     "no": "No",
     "or": "o",
     "and": "y",
@@ -27,31 +27,61 @@
     "pending": "Pendiente",
     "confirmed": "Confirmado",
     "failed": "Fallido",
-    "success": "Exito",
+    "success": "Éxito",
     "error": "Error",
     "warning": "Advertencia",
     "info": "Info",
-    "savedSuccessfully": "Guardado exitosamente!",
+    "savedSuccessfully": "¡Guardado exitosamente!",
     "connectingToNetwork": "Conectando a la red...",
     "emailPlaceholder": "tu@email.com",
     "emailLabel": "Correo electrónico",
     "passwordLabel": "Contraseña"
   },
   "nav": {
-    "signIn": "Iniciar sesion",
-    "signOut": "Cerrar sesion",
-    "settings": "Configuracion",
+    "signIn": "Iniciar sesión",
+    "signOut": "Cerrar sesión",
+    "settings": "Configuración",
     "wallets": "Billeteras",
     "addWallet": "Agregar Billetera",
-    "alreadyUser": "Ya tienes cuenta? Inicia sesion",
+    "alreadyUser": "¿Ya tienes cuenta? Inicia sesión",
     "contact": "Contacto",
-    "subscription": "Suscripcion"
+    "subscription": "Suscripción"
+  },
+  "contactPage": {
+    "title": "Contacto",
+    "selfHosted": {
+      "title": "Modo Auto-alojado",
+      "description": "El formulario de contacto no está disponible en modo auto-alojado.",
+      "backToWallets": "Volver a Billeteras"
+    },
+    "form": {
+      "title": "Contáctanos",
+      "description": "¿Tienes una pregunta o comentario? Nos encantaría saber de ti.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "tu@email.com",
+      "messageLabel": "Mensaje",
+      "messagePlaceholder": "¿Cómo podemos ayudarte?",
+      "characterCount": "{count}/{max} caracteres",
+      "submit": "Enviar Mensaje",
+      "submitting": "Enviando..."
+    },
+    "validation": {
+      "emailRequired": "El email es obligatorio",
+      "emailInvalid": "Por favor ingresa una dirección de email válida",
+      "emailTooLong": "El email debe tener menos de {max} caracteres",
+      "messageRequired": "El mensaje es obligatorio",
+      "messageTooShort": "El mensaje debe tener al menos {min} caracteres",
+      "messageTooLong": "El mensaje debe tener menos de {max} caracteres"
+    },
+    "errors": {
+      "sendFailed": "Error al enviar el mensaje"
+    }
   },
   "landing": {
     "hero": {
       "title": "Monitoreo Completo de Bitcoin",
       "description": "Monitoreo profesional de Bitcoin con alertas de transacciones y notificaciones inteligentes de saldo. Establece umbrales personalizados, monitorea vaciados de billetera, rastrea todas las transacciones - todo con seguridad de solo lectura.",
-      "startTrial": "Comienza Prueba Gratis de 30 Dias",
+      "startTrial": "Comienza Prueba Gratis de 30 Días",
       "tryDemo": "Probar Demo",
       "viewPricing": "Ver Precios"
     },
@@ -59,25 +89,25 @@
       "title": "Monitoreo Completo de Bitcoin",
       "subtitle": "Seguimiento de transacciones, alertas de saldo y monitoreo seguro de solo lectura",
       "notifications": {
-        "title": "Notificaciones Instantaneas de Transacciones Bitcoin",
-        "description": "Alertas de billetera Bitcoin en tiempo real via email, SMS y notificaciones push directamente a tu dispositivo"
+        "title": "Notificaciones Instantáneas de Transacciones Bitcoin",
+        "description": "Alertas de billetera Bitcoin en tiempo real vía email, SMS y notificaciones push directamente a tu dispositivo"
       },
       "balanceAlerts": {
         "title": "Sistema Inteligente de Alertas de Saldo",
-        "description": "Umbrales de saldo personalizados con alertas para vaciados de billetera, depositos grandes o alcanzar cantidades especificas. Nunca pierdas cambios criticos de saldo."
+        "description": "Umbrales de saldo personalizados con alertas para vaciados de billetera, depósitos grandes o alcanzar cantidades específicas. Nunca pierdas cambios críticos de saldo."
       },
       "security": {
         "title": "Monitoreo Seguro de Bitcoin Solo Lectura",
         "description": "Acceso de solo lectura a billeteras Bitcoin usando XPUBs o descriptores - nunca tocamos tus claves privadas"
       },
       "sync": {
-        "title": "Sincronizacion en Tiempo Real de Billetera Bitcoin",
-        "description": "Intervalos de sincronizacion de billetera Bitcoin desde 10 minutos hasta 2 minutos segun tu plan de suscripcion"
+        "title": "Sincronización en Tiempo Real de Billetera Bitcoin",
+        "description": "Intervalos de sincronización de billetera Bitcoin desde 10 minutos hasta 2 minutos según tu plan de suscripción"
       }
     },
     "balanceAlerts": {
-      "title": "Nunca Pierdas Cambios Criticos de Saldo",
-      "description": "Establece umbrales de saldo personalizados para monitorear tus holdings totales. Recibe alertas cuando tu saldo alcance niveles especificos. Perfecto para monitoreo de almacenamiento frio, deteccion de vaciado de billetera o seguimiento de hitos importantes de saldo.",
+      "title": "Nunca Pierdas Cambios Críticos de Saldo",
+      "description": "Establece umbrales de saldo personalizados para monitorear tus holdings totales. Recibe alertas cuando tu saldo alcance niveles específicos. Perfecto para monitoreo de almacenamiento frío, detección de vaciado de billetera o seguimiento de hitos importantes de saldo.",
       "above": {
         "title": "Alertas de Umbral Superior",
         "description": "Recibe notificaciones cuando tu saldo total suba por encima de un umbral establecido. Monitorea cuando tus holdings alcancen hitos importantes."
@@ -87,8 +117,8 @@
         "description": "Recibe notificaciones cuando tu saldo total baje por debajo de un umbral establecido. Configura advertencias de saldo bajo para tus holdings."
       },
       "drain": {
-        "title": "Deteccion de Vaciado de Billetera",
-        "description": "Recibe notificaciones cuando tu saldo total sea igual a una cantidad especifica, como cero para vaciados de billetera. Monitoreo de seguridad critico."
+        "title": "Detección de Vaciado de Billetera",
+        "description": "Recibe notificaciones cuando tu saldo total sea igual a una cantidad específica, como cero para vaciados de billetera. Monitoreo de seguridad crítico."
       },
       "example": {
         "title": "Tu Billetera Bitcoin",
@@ -97,65 +127,65 @@
         "belowThreshold": "Por debajo de 0,01 BTC",
         "equalsZero": "Igual a 0 BTC",
         "active": "ACTIVO",
-        "deliveryNote": "Todas las alertas entregadas via email, SMS y notificaciones push"
+        "deliveryNote": "Todas las alertas entregadas vía email, SMS y notificaciones push"
       }
     },
     "pricing": {
       "title": "Precios Simples y Transparentes",
       "subtitle": "Elige el plan que se adapte a tus necesidades",
-      "trialNote": "Los planes en la nube incluyen una prueba gratuita de 30 dias - No se requiere tarjeta de credito"
+      "trialNote": "Los planes en la nube incluyen una prueba gratuita de 30 días - No se requiere tarjeta de crédito"
     },
     "faq": {
       "title": "Preguntas Frecuentes",
-      "contactUs": "Contactanos aqui",
+      "contactUs": "Contáctanos aquí",
       "items": {
         "whatIsCanary": {
-          "question": "Que es el monitoreo de billeteras Bitcoin de Canary?",
-          "answer": "Canary es un servicio profesional de monitoreo y notificacion de billeteras Bitcoin que vigila tus billeteras usando XPUBs o descriptores y envia alertas instantaneas para todas las transacciones via email, SMS y notificaciones push. Perfecto para monitorear almacenamiento frio, billeteras de hardware y direcciones Bitcoin de solo lectura."
+          "question": "¿Qué es el monitoreo de billeteras Bitcoin de Canary?",
+          "answer": "Canary es un servicio profesional de monitoreo y notificación de billeteras Bitcoin que vigila tus billeteras usando XPUBs o descriptores y envía alertas instantáneas para todas las transacciones vía email, SMS y notificaciones push. Perfecto para monitorear almacenamiento frío, billeteras de hardware y direcciones Bitcoin de solo lectura."
         },
         "howDoesItWork": {
-          "question": "Como funciona el monitoreo de billeteras Bitcoin sin claves privadas?",
-          "answer": "Canary usa el XPUB (clave publica extendida) o descriptor de tu billetera para monitoreo Bitcoin de solo lectura. Esto nos da acceso de solo lectura para rastrear tus direcciones Bitcoin y detectar transacciones. Nunca tenemos acceso a tus claves privadas y no podemos mover tu Bitcoin - asegurando seguridad completa para tu monitoreo de almacenamiento frio."
+          "question": "¿Cómo funciona el monitoreo de billeteras Bitcoin sin claves privadas?",
+          "answer": "Canary usa el XPUB (clave pública extendida) o descriptor de tu billetera para monitoreo Bitcoin de solo lectura. Esto nos da acceso de solo lectura para rastrear tus direcciones Bitcoin y detectar transacciones. Nunca tenemos acceso a tus claves privadas y no podemos mover tu Bitcoin - asegurando seguridad completa para tu monitoreo de almacenamiento frío."
         },
         "whatIsXpub": {
-          "question": "Que es el monitoreo de billetera XPUB?",
-          "answer": "El monitoreo XPUB te permite rastrear todas las direcciones en tu billetera Bitcoin sin exponer claves privadas. Al proporcionar el XPUB o descriptor de tu billetera, Canary puede monitorear direcciones ilimitadas, detectar transacciones a cualquier profundidad (incluso 200+ direcciones de profundidad), y alertarte instantaneamente cuando Bitcoin se mueve."
+          "question": "¿Qué es el monitoreo de billetera XPUB?",
+          "answer": "El monitoreo XPUB te permite rastrear todas las direcciones en tu billetera Bitcoin sin exponer claves privadas. Al proporcionar el XPUB o descriptor de tu billetera, Canary puede monitorear direcciones ilimitadas, detectar transacciones a cualquier profundidad (incluso 200+ direcciones de profundidad), y alertarte instantáneamente cuando Bitcoin se mueve."
         },
         "coldStorage": {
-          "question": "Puedo monitorear billeteras de almacenamiento frio de Bitcoin?",
-          "answer": "Si! Canary es perfecto para monitoreo de almacenamiento frio de Bitcoin. Ya sea que uses billeteras de hardware como Ledger o Trezor, billeteras de papel u otras soluciones de almacenamiento frio, simplemente proporciona tu XPUB o descriptor para monitoreo seguro de solo lectura con notificaciones instantaneas."
+          "question": "¿Puedo monitorear billeteras de almacenamiento frío de Bitcoin?",
+          "answer": "¡Sí! Canary es perfecto para monitoreo de almacenamiento frío de Bitcoin. Ya sea que uses billeteras de hardware como Ledger o Trezor, billeteras de papel u otras soluciones de almacenamiento frío, simplemente proporciona tu XPUB o descriptor para monitoreo seguro de solo lectura con notificaciones instantáneas."
         },
         "notificationSpeed": {
-          "question": "Que tan rapidas son las notificaciones de transacciones Bitcoin?",
-          "answer": "Con nuestro plan Team, obtienes notificaciones de transacciones Bitcoin casi en tiempo real con intervalos de sincronizacion tan rapidos como 2 minutos en mainnet. La mayoria de las notificaciones llegan en segundos despues de la deteccion de la transaccion. Los planes Personal sincronizan cada 10 minutos, aun asegurando alertas oportunas para tus billeteras Bitcoin."
+          "question": "¿Qué tan rápidas son las notificaciones de transacciones Bitcoin?",
+          "answer": "Con nuestro plan Team, obtienes notificaciones de transacciones Bitcoin casi en tiempo real con intervalos de sincronización tan rápidos como 2 minutos en mainnet. La mayoría de las notificaciones llegan en segundos después de la detección de la transacción. Los planes Personal sincronizan cada 10 minutos, aún asegurando alertas oportunas para tus billeteras Bitcoin."
         },
         "walletTypes": {
-          "question": "Que tipos de billeteras Bitcoin son compatibles?",
-          "answer": "Canary soporta todos los tipos principales de billeteras Bitcoin incluyendo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) y direcciones Taproot (P2TR). Detectamos automaticamente el tipo de tu billetera desde el XPUB o puedes especificarlo manualmente. El monitoreo de multi-firma y billeteras de hardware esta totalmente soportado."
+          "question": "¿Qué tipos de billeteras Bitcoin son compatibles?",
+          "answer": "Canary soporta todos los tipos principales de billeteras Bitcoin incluyendo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) y direcciones Taproot (P2TR). Detectamos automáticamente el tipo de tu billetera desde el XPUB o puedes especificarlo manualmente. El monitoreo de multi-firma y billeteras de hardware está totalmente soportado."
         },
         "whyCanary": {
-          "question": "Por que se llama Canary?",
-          "answer": "Como un canario en una mina de carbon proporcionando alerta temprana, Canary actua como el sistema de alerta temprana de tu billetera Bitcoin. Cuando tu Bitcoin esta en almacenamiento frio, raramente lo verificas. Canary monitorea 24/7 y te alerta instantaneamente cuando tu Bitcoin se mueve, proporcionando tranquilidad para los tenedores a largo plazo."
+          "question": "¿Por qué se llama Canary?",
+          "answer": "Como un canario en una mina de carbón proporcionando alerta temprana, Canary actúa como el sistema de alerta temprana de tu billetera Bitcoin. Cuando tu Bitcoin está en almacenamiento frío, raramente lo verificas. Canary monitorea 24/7 y te alerta instantáneamente cuando tu Bitcoin se mueve, proporcionando tranquilidad para los tenedores a largo plazo."
         },
         "noBlockchain": {
-          "question": "Puedo rastrear Bitcoin sin descargar la blockchain?",
-          "answer": "Si! Canary se conecta a servidores Electrum profesionales para monitorear la blockchain de Bitcoin por ti. No necesitas ejecutar un nodo completo ni descargar la blockchain - solo proporciona tu XPUB y comienza a recibir notificaciones instantaneas para toda la actividad de tu billetera Bitcoin."
+          "question": "¿Puedo rastrear Bitcoin sin descargar la blockchain?",
+          "answer": "¡Sí! Canary se conecta a servidores Electrum profesionales para monitorear la blockchain de Bitcoin por ti. No necesitas ejecutar un nodo completo ni descargar la blockchain - solo proporciona tu XPUB y comienza a recibir notificaciones instantáneas para toda la actividad de tu billetera Bitcoin."
         },
         "balanceAlerts": {
-          "question": "Como funcionan las alertas de saldo de Bitcoin?",
-          "answer": "El sistema de alertas de saldo de Canary te permite establecer umbrales personalizados para monitorear el saldo total de tu billetera. Crea alertas para cuando tu saldo suba por encima de cierta cantidad, baje de un umbral (advertencia de saldo bajo), o sea igual a cero (deteccion de vaciado de billetera). Perfecto para rastrear almacenamiento frio sin verificacion manual."
+          "question": "¿Cómo funcionan las alertas de saldo de Bitcoin?",
+          "answer": "El sistema de alertas de saldo de Canary te permite establecer umbrales personalizados para monitorear el saldo total de tu billetera. Crea alertas para cuando tu saldo suba por encima de cierta cantidad, baje de un umbral (advertencia de saldo bajo), o sea igual a cero (detección de vaciado de billetera). Perfecto para rastrear almacenamiento frío sin verificación manual."
         },
         "alertTypes": {
-          "question": "Que tipos de alertas de saldo estan disponibles?",
-          "answer": "Puedes crear tres tipos de alertas de saldo: alertas 'Por encima' se activan cuando tu saldo total excede un umbral (monitorea cuando las tenencias alcanzan hitos), alertas 'Por debajo' advierten cuando el saldo total cae bajo una cantidad (advertencias de saldo bajo), y alertas 'Igual a' detectan cantidades exactas de saldo como vaciados de billetera (saldo = 0) u objetivos especificos."
+          "question": "¿Qué tipos de alertas de saldo están disponibles?",
+          "answer": "Puedes crear tres tipos de alertas de saldo: alertas 'Por encima' se activan cuando tu saldo total excede un umbral (monitorea cuando las tenencias alcanzan hitos), alertas 'Por debajo' advierten cuando el saldo total cae bajo una cantidad (advertencias de saldo bajo), y alertas 'Igual a' detectan cantidades exactas de saldo como vaciados de billetera (saldo = 0) u objetivos específicos."
         },
         "multipleWallets": {
-          "question": "Puedo monitorear multiples billeteras Bitcoin con diferentes umbrales de saldo?",
-          "answer": "Si! Cada billetera Bitcoin puede tener su propio conjunto de alertas de saldo personalizadas. Con nuestro plan Team, puedes monitorear hasta 5 billeteras, cada una con umbrales de saldo unicos. Perfecto para Uncle Jims monitoreando tenencias familiares de Bitcoin o empresas rastreando multiples billeteras de tesoreria con diferentes requisitos de alerta."
+          "question": "¿Puedo monitorear múltiples billeteras Bitcoin con diferentes umbrales de saldo?",
+          "answer": "¡Sí! Cada billetera Bitcoin puede tener su propio conjunto de alertas de saldo personalizadas. Con nuestro plan Team, puedes monitorear hasta 5 billeteras, cada una con umbrales de saldo únicos. Perfecto para Uncle Jims monitoreando tenencias familiares de Bitcoin o empresas rastreando múltiples billeteras de tesorería con diferentes requisitos de alerta."
         },
         "contact": {
-          "question": "Como puedo contactarlos?",
-          "answer": "Nos encantaria saber de ti! Puedes contactarnos a traves de nuestro formulario de contacto para cualquier pregunta, comentario o solicitud de soporte. Normalmente respondemos dentro de 24 horas."
+          "question": "¿Cómo puedo contactarlos?",
+          "answer": "¡Nos encantaría saber de ti! Puedes contactarnos a través de nuestro formulario de contacto para cualquier pregunta, comentario o solicitud de soporte. Normalmente respondemos dentro de 24 horas."
         }
       }
     },
@@ -167,82 +197,82 @@
   "auth": {
     "signIn": {
       "title": "Bienvenido de nuevo",
-      "subtitle": "Inicia sesion en tu cuenta de Canary",
+      "subtitle": "Inicia sesión en tu cuenta de Canary",
       "emailLabel": "Email",
       "emailPlaceholder": "tu@email.com",
-      "passwordLabel": "Contrasena",
-      "passwordPlaceholder": "Ingresa tu contrasena",
-      "submit": "Iniciar sesion",
-      "submitting": "Iniciando sesion...",
-      "noAccount": "No tienes cuenta? Registrate",
-      "forgotPassword": "Olvidaste tu contrasena?",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Ingresa tu contraseña",
+      "submit": "Iniciar sesión",
+      "submitting": "Iniciando sesión...",
+      "noAccount": "¿No tienes cuenta? Regístrate",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
       "devMode": "Modo Desarrollo",
-      "loginFailed": "Error al iniciar sesion"
+      "loginFailed": "Error al iniciar sesión"
     },
     "signUp": {
-      "title": "Comienza tu prueba gratuita de 30 dias",
-      "subtitle": "30 dias gratis, luego continua con el plan de tu eleccion",
+      "title": "Comienza tu prueba gratuita de 30 días",
+      "subtitle": "30 días gratis, luego continúa con el plan de tu elección",
       "nameLabel": "Nombre",
       "namePlaceholder": "Ingresa tu nombre",
       "emailLabel": "Email",
       "emailPlaceholder": "tu@email.com",
-      "passwordLabel": "Contrasena",
-      "passwordPlaceholder": "Ingresa una contrasena segura",
-      "passwordHint": "La contrasena debe tener al menos 6 caracteres",
-      "marketingConsent": "Me gustaria recibir emails ocasionales sobre actualizaciones del servicio",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Ingresa una contraseña segura",
+      "passwordHint": "La contraseña debe tener al menos 6 caracteres",
+      "marketingConsent": "Me gustaría recibir emails ocasionales sobre actualizaciones del servicio",
       "submit": "Crear cuenta",
       "submitting": "Creando cuenta...",
-      "hasAccount": "Ya tienes cuenta? Inicia sesion",
-      "signInInstead": "Iniciar sesion en su lugar",
+      "hasAccount": "¿Ya tienes cuenta? Inicia sesión",
+      "signInInstead": "Iniciar sesión en su lugar",
       "registrationFailed": "Error en el registro"
     },
     "signUpSuccess": {
       "title": "Revisa tu email",
-      "description": "Hemos enviado un enlace de verificacion a tu direccion de email. Por favor haz clic en el enlace para verificar tu cuenta.",
-      "didntReceive": "No recibiste el email?",
+      "description": "Hemos enviado un enlace de verificación a tu dirección de email. Por favor haz clic en el enlace para verificar tu cuenta.",
+      "didntReceive": "¿No recibiste el email?",
       "checkSpam": "Revisa tu carpeta de spam",
-      "resend": "Reenviar email de verificacion",
-      "backToSignIn": "Volver a iniciar sesion"
+      "resend": "Reenviar email de verificación",
+      "backToSignIn": "Volver a iniciar sesión"
     },
     "forgotPassword": {
-      "title": "Olvidaste tu contrasena?",
+      "title": "¿Olvidaste tu contraseña?",
       "subtitle": "Ingresa tu email y te enviaremos un enlace de restablecimiento",
       "emailLabel": "Email",
       "emailPlaceholder": "tu@email.com",
       "submit": "Enviar enlace de restablecimiento",
       "submitting": "Enviando...",
-      "backToSignIn": "Volver a iniciar sesion",
+      "backToSignIn": "Volver a iniciar sesión",
       "successTitle": "Revisa tu email",
-      "successMessage": "Si existe una cuenta con ese email, recibiras un enlace de restablecimiento de contrasena."
+      "successMessage": "Si existe una cuenta con ese email, recibirás un enlace de restablecimiento de contraseña."
     },
     "resetPassword": {
-      "title": "Restablece tu contrasena",
-      "subtitle": "Ingresa tu nueva contrasena abajo",
-      "passwordLabel": "Nueva contrasena",
-      "passwordPlaceholder": "Ingresa tu nueva contrasena",
-      "confirmLabel": "Confirmar contrasena",
-      "confirmPlaceholder": "Confirma tu nueva contrasena",
-      "submit": "Restablecer contrasena",
+      "title": "Restablece tu contraseña",
+      "subtitle": "Ingresa tu nueva contraseña abajo",
+      "passwordLabel": "Nueva contraseña",
+      "passwordPlaceholder": "Ingresa tu nueva contraseña",
+      "confirmLabel": "Confirmar contraseña",
+      "confirmPlaceholder": "Confirma tu nueva contraseña",
+      "submit": "Restablecer contraseña",
       "submitting": "Restableciendo...",
-      "passwordMismatch": "Las contrasenas no coinciden",
-      "successTitle": "Contrasena restablecida",
-      "successMessage": "Tu contrasena ha sido restablecida. Ahora puedes iniciar sesion.",
-      "invalidToken": "Enlace de restablecimiento invalido o expirado"
+      "passwordMismatch": "Las contraseñas no coinciden",
+      "successTitle": "Contraseña restablecida",
+      "successMessage": "Tu contraseña ha sido restablecida. Ahora puedes iniciar sesión.",
+      "invalidToken": "Enlace de restablecimiento inválido o expirado"
     },
     "verifyEmail": {
       "verifying": "Verificando tu email...",
       "successTitle": "Email verificado",
-      "successMessage": "Tu email ha sido verificado. Ahora puedes iniciar sesion.",
-      "errorTitle": "Verificacion fallida",
-      "invalidToken": "Enlace de verificacion invalido o expirado",
-      "signIn": "Iniciar sesion"
+      "successMessage": "Tu email ha sido verificado. Ahora puedes iniciar sesión.",
+      "errorTitle": "Verificación fallida",
+      "invalidToken": "Enlace de verificación inválido o expirado",
+      "signIn": "Iniciar sesión"
     }
   },
   "settings": {
-    "title": "Configuracion",
+    "title": "Configuración",
     "display": {
-      "title": "Preferencias de Visualizacion",
-      "description": "Personaliza como se muestran los valores de Bitcoin en tus billeteras",
+      "title": "Preferencias de Visualización",
+      "description": "Personaliza cómo se muestran los valores de Bitcoin en tus billeteras",
       "currencyLabel": "Moneda Fiat",
       "currencyPlaceholder": "Selecciona una moneda",
       "currencyNote": "Las tasas de cambio se actualizan cada 10 minutos desde CoinGecko"
@@ -261,27 +291,27 @@
       "selfHostLink": "auto-alojar ntfy",
       "serverNoteAfter": " para completa privacidad.",
       "auth": {
-        "title": "Autenticacion",
+        "title": "Autenticación",
         "configured": {
           "token": "Token de acceso configurado",
-          "credentials": "Usuario/contrasena configurado ({username})",
-          "none": "Sin autenticacion configurada"
+          "credentials": "Usuario/contraseña configurado ({username})",
+          "none": "Sin autenticación configurada"
         },
         "type": {
-          "none": "Sin autenticacion",
+          "none": "Sin autenticación",
           "token": "Token de Acceso",
-          "basic": "Usuario y Contrasena"
+          "basic": "Usuario y Contraseña"
         },
         "tokenLabel": "Token de Acceso",
         "tokenPlaceholder": "tk_...",
         "usernameLabel": "Usuario",
         "usernamePlaceholder": "Usuario",
-        "passwordLabel": "Contrasena",
-        "passwordPlaceholder": "Contrasena",
-        "saveAuth": "Guardar Autenticacion",
+        "passwordLabel": "Contraseña",
+        "passwordPlaceholder": "Contraseña",
+        "saveAuth": "Guardar Autenticación",
         "tokenRequired": "El token de acceso es requerido",
-        "credentialsRequired": "Se requieren usuario y contrasena",
-        "authSaved": "Autenticacion guardada!"
+        "credentialsRequired": "Se requieren usuario y contraseña",
+        "authSaved": "Autenticación guardada!"
       }
     },
     "currencies": {
@@ -338,7 +368,7 @@
     "summary": "Rastreando {count} {count, plural, one {billetera} other {billeteras}} con un saldo total de {balance}",
     "onboarding": {
       "trial": {
-        "title": "¿Listo para comenzar tu prueba",
+        "title": "¿Listo para comenzar tu prueba?",
         "titleWithName": "¿Listo para comenzar tu prueba, {name}?",
         "description": "Agrega tu primera billetera para activar tu <highlight>prueba de 30 días del plan Team</highlight>. Obtendrás acceso instantáneo a todas las funciones, incluyendo sincronización en tiempo real, notificaciones ilimitadas y soporte prioritario.",
         "whatYouGet": "Lo que obtendrás:",
@@ -346,7 +376,7 @@
           "wallets": "5 billeteras con sincronización de 2 minutos",
           "contacts": "5 contactos por billetera",
           "emailSms": "Notificaciones por email y SMS",
-          "push": "Notificaciones push via ntfy"
+          "push": "Notificaciones push vía ntfy"
         },
         "button": "Agregar tu primera billetera e iniciar prueba",
         "note": "La prueba comienza cuando agregas tu billetera"
@@ -364,7 +394,7 @@
     },
     "empty": {
       "title": "Sin Billeteras",
-      "description": "No se encontraron billeteras. Usa el boton \"Agregar Billetera\" para comenzar.",
+      "description": "No se encontraron billeteras. Usa el botón \"Agregar Billetera\" para comenzar.",
       "addFirst": "Agregar Tu Primera Billetera"
     },
     "error": {
@@ -374,10 +404,10 @@
     "card": {
       "syncing": "Sincronizando...",
       "inactive": "Inactiva",
-      "inactiveExpired": "Tu suscripcion ha expirado - la billetera no se sincronizara automaticamente",
-      "inactiveTierLimit": "Esta billetera excede los limites de tu plan y no se sincronizara automaticamente",
+      "inactiveExpired": "Tu suscripción ha expirado - la billetera no se sincronizará automáticamente",
+      "inactiveTierLimit": "Esta billetera excede los límites de tu plan y no se sincronizará automáticamente",
       "balance": "Saldo",
-      "lastActivity": "Ultima actividad: {date}",
+      "lastActivity": "Última actividad: {date}",
       "noRecentActivity": "Sin actividad reciente"
     },
     "add": {
@@ -386,8 +416,8 @@
       "namePlaceholder": "Mi Billetera Bitcoin",
       "descriptorLabel": "Descriptor de Billetera o XPUB",
       "descriptorPlaceholder": "wpkh([huella/84'/0'/0']xpub.../0/*)",
-      "descriptorHint": "Ingresa el descriptor de salida de tu billetera o XPUB. Detectaremos automaticamente el tipo de script.",
-      "advancedSettings": "Configuracion Avanzada",
+      "descriptorHint": "Ingresa el descriptor de salida de tu billetera o XPUB. Detectaremos automáticamente el tipo de script.",
+      "advancedSettings": "Configuración Avanzada",
       "scriptType": {
         "label": "Tipo de Script",
         "selectPlaceholder": "Seleccionar tipo de script",
@@ -517,9 +547,9 @@
       "transactions": "Transacciones",
       "contacts": "Contactos",
       "balanceAlerts": "Alertas de Saldo",
-      "noTransactions": "Sin transacciones aun",
-      "pendingSync": "La billetera esta sincronizando...",
-      "lastSync": "Ultima sincronizacion",
+      "noTransactions": "Sin transacciones aún",
+      "pendingSync": "La billetera está sincronizando...",
+      "lastSync": "Última sincronización",
       "syncStatus": {
         "pending": "Sincronizando",
         "ready": "Sincronizado"
@@ -531,21 +561,21 @@
         "description": "No se pudo encontrar la billetera con checksum #{checksum}."
       },
       "syncing": {
-        "title": "Billetera aun sincronizando",
-        "description": "{name} aun esta sincronizando y escaneando transacciones historicas. Este proceso puede tomar unos minutos para billeteras con historial de transacciones.",
-        "returnPrompt": "Por favor regrese a la pagina de billeteras y espere a que la sincronizacion se complete."
+        "title": "Billetera aún sincronizando",
+        "description": "{name} aún está sincronizando y escaneando transacciones históricas. Este proceso puede tomar unos minutos para billeteras con historial de transacciones.",
+        "returnPrompt": "Por favor regrese a la página de billeteras y espere a que la sincronización se complete."
       },
       "inactive": {
         "title": "Billetera inactiva",
-        "descriptionExpired": "Tu suscripcion ha expirado - la billetera no se sincronizara automaticamente.",
-        "descriptionTierLimit": "Esta billetera excede los limites de tu nivel de suscripcion y no se sincronizara automaticamente.",
+        "descriptionExpired": "Tu suscripción ha expirado - la billetera no se sincronizará automáticamente.",
+        "descriptionTierLimit": "Esta billetera excede los límites de tu nivel de suscripción y no se sincronizará automáticamente.",
         "outdatedWarning": "El historial de transacciones y el saldo mostrado pueden estar desactualizados.",
         "upgradePlan": "Mejorar plan"
       }
     },
     "delete": {
       "title": "Eliminar Billetera",
-      "description": "Estas seguro de que deseas eliminar esta billetera? Esta accion no se puede deshacer.",
+      "description": "¿Estás seguro de que deseas eliminar esta billetera? Esta acción no se puede deshacer.",
       "confirm": "Eliminar",
       "cancel": "Cancelar"
     },
@@ -646,7 +676,7 @@
       "description": "Configura alertas para ser notificado cuando el saldo de tu billetera alcance ciertos umbrales",
       "list": "Sin alertas configuradas"
     },
-    "lastFired": "Ultima activacion {date}",
+    "lastFired": "Última activación {date}",
     "deleteAlert": "Eliminar alerta",
     "add": {
       "title": "Crear Nueva Alerta",
@@ -680,7 +710,7 @@
     },
     "delete": {
       "title": "Eliminar Alerta",
-      "description": "Estas seguro de que deseas eliminar esta alerta de saldo?",
+      "description": "¿Estás seguro de que deseas eliminar esta alerta de saldo?",
       "confirm": "Eliminar",
       "cancel": "Cancelar"
     },
@@ -690,8 +720,8 @@
       "reactivate": "Reactivar"
     },
     "errors": {
-      "invalidBtcAmount": "Por favor ingrese una cantidad valida de Bitcoin",
-      "invalidPositiveAmount": "Por favor ingrese una cantidad positiva valida",
+      "invalidBtcAmount": "Por favor ingrese una cantidad válida de Bitcoin",
+      "invalidPositiveAmount": "Por favor ingrese una cantidad positiva válida",
       "negativeAmount": "La cantidad no puede ser negativa",
       "belowZero": "No se puede crear alerta para 'por debajo de 0' - el saldo no puede ser negativo",
       "duplicateAlert": "Ya existe una alerta con este tipo y cantidad",
@@ -703,9 +733,9 @@
     "title": "Transacciones",
     "titleWithWallet": "Transacciones - {walletName}",
     "loading": "Cargando transacciones...",
-    "empty": "Sin transacciones aun",
+    "empty": "Sin transacciones aún",
     "emptyForWallet": "No se encontraron transacciones para la billetera seleccionada.",
-    "count": "{count} {count, plural, one {transaccion} other {transacciones}}",
+    "count": "{count} {count, plural, one {transacción} other {transacciones}}",
     "types": {
       "receive": "Recibido",
       "send": "Enviado",
@@ -719,29 +749,29 @@
       "replaced": "Reemplazado"
     },
     "details": {
-      "txid": "ID de Transaccion",
+      "txid": "ID de Transacción",
       "amount": "Cantidad",
-      "fee": "Comision",
+      "fee": "Comisión",
       "date": "Fecha",
       "confirmations": "Confirmaciones",
       "block": "Bloque",
-      "address": "Direccion",
+      "address": "Dirección",
       "replacedBy": "Reemplazado por",
       "replacedAt": "Reemplazado en"
     },
     "tableHeaders": {
       "dateTime": "Fecha/Hora",
       "wallet": "Billetera",
-      "transaction": "Transaccion",
+      "transaction": "Transacción",
       "amount": "Cantidad",
       "details": "Detalles"
     },
     "tooltips": {
-      "cpfp": "Transaccion CPFP",
+      "cpfp": "Transacción CPFP",
       "rbfReplaced": "Reemplazado por RBF",
       "notificationsFailed": "Algunas notificaciones fallaron",
       "cpfpChild": "Child-Pays-For-Parent (CPFP) - Hijo de {txid}",
-      "replacedByTx": "Reemplazado por transaccion: {txid}",
+      "replacedByTx": "Reemplazado por transacción: {txid}",
       "viewOnMempool": "Ver {txid} en Mempool Space"
     },
     "timeline": {
@@ -762,7 +792,7 @@
     "walletLabel": "Billetera: {name}"
   },
   "billing": {
-    "title": "Suscripcion",
+    "title": "Suscripción",
     "currentPlan": "Plan Actual",
     "status": {
       "active": "Activo",
@@ -771,10 +801,10 @@
       "expired": "Expirado"
     },
     "trial": {
-      "daysLeft": "{days} dias restantes",
+      "daysLeft": "{days} días restantes",
       "endsOn": "La prueba termina el {date}"
     },
-    "manage": "Gestionar Facturacion",
+    "manage": "Gestionar Facturación",
     "upgrade": "Mejorar",
     "subscribe": "Suscribirse",
     "plans": {
@@ -784,8 +814,8 @@
         "features": {
           "wallets": "1 billetera",
           "contacts": "1 contacto por billetera",
-          "sync": "Sincronizacion cada 10 minutos",
-          "notifications": "Todos los tipos de notificacion"
+          "sync": "Sincronización cada 10 minutos",
+          "notifications": "Todos los tipos de notificación"
         }
       },
       "team": {
@@ -794,8 +824,8 @@
         "features": {
           "wallets": "5 billeteras",
           "contacts": "5 contactos por billetera",
-          "sync": "Sincronizacion cada 2 minutos",
-          "notifications": "Todos los tipos de notificacion"
+          "sync": "Sincronización cada 2 minutos",
+          "notifications": "Todos los tipos de notificación"
         }
       },
       "selfHosted": {
@@ -804,7 +834,7 @@
         "features": {
           "wallets": "Billeteras ilimitadas",
           "contacts": "Contactos ilimitados",
-          "sync": "Intervalos de sincronizacion personalizados",
+          "sync": "Intervalos de sincronización personalizados",
           "notifications": "Notificaciones push ntfy"
         }
       }
@@ -823,36 +853,36 @@
         "team": "5 contactos por billetera"
       },
       "sync": {
-        "label": "Intervalo de sincronizacion",
-        "selfhosted": "Tiempo de sincronizacion configurable",
-        "personal": "Sincronizacion cada 10 minutos",
-        "team": "Sincronizacion cada 2 minutos"
+        "label": "Intervalo de sincronización",
+        "selfhosted": "Tiempo de sincronización configurable",
+        "personal": "Sincronización cada 10 minutos",
+        "team": "Sincronización cada 2 minutos"
       },
-      "trial": "Prueba gratuita de 30 dias",
+      "trial": "Prueba gratuita de 30 días",
       "email": "Notificaciones por email",
       "sms": "Notificaciones por SMS",
       "push": "Notificaciones push",
       "balanceAlerts": "Alertas de saldo personalizadas",
-      "analysis": "Analisis de transacciones (RBF/CPFP)",
+      "analysis": "Análisis de transacciones (RBF/CPFP)",
       "ownNode": "Tu propio nodo Bitcoin",
       "privacy": "Privacidad y control total",
-      "noSubscription": "Sin tarifas de suscripcion"
+      "noSubscription": "Sin tarifas de suscripción"
     },
     "perMonth": "/mes",
-    "perYear": "/ano",
+    "perYear": "/año",
     "saveYearly": "Ahorra {percent}% anual",
     "popular": "POPULAR",
     "currentPlanBadge": "PLAN ACTUAL",
     "trialPlanBadge": "PLAN DE PRUEBA",
     "freeToSelfHost": "Gratis para autoalojar",
-    "plusTaxes": "Mas impuestos aplicables",
+    "plusTaxes": "Más impuestos aplicables",
     "changePlan": "Cambiar plan",
     "subscribeTo": "Suscribirse a {plan}",
     "upgradeTo": "Mejorar a {plan}",
-    "startTrial": "Iniciar prueba gratuita de 30 dias",
+    "startTrial": "Iniciar prueba gratuita de 30 días",
     "loadingPricing": "Cargando precios...",
     "errorTitle": "No se pudo cargar los precios",
-    "errorDescription": "Por favor actualice la pagina o intente de nuevo mas tarde.",
+    "errorDescription": "Por favor actualice la página o intente de nuevo más tarde.",
     "selfHosted": {
       "description": "Prefiere autoalojar? Canary es gratis para ejecutar en su propia infraestructura con notificaciones push via ntfy.",
       "installUmbrel": "Instalar en Umbrel",
@@ -926,24 +956,24 @@
   "upgrade": {
     "title": "Mejora Tu Plan",
     "choosePlan": "Elige Tu Plan",
-    "trialDescription": "Suscribete hoy para asegurar que las notificaciones de tu billetera continuen sin interrupcion cuando termine tu prueba. Mantén tu Bitcoin seguro con monitoreo continuo.",
-    "limitReachedDescription": "Has alcanzado tu limite de {limitType} de {limit} en el plan {tierName}. Compara planes y mejora para agregar mas.",
+    "trialDescription": "Suscríbete hoy para asegurar que las notificaciones de tu billetera continúen sin interrupción cuando termine tu prueba. Mantén tu Bitcoin seguro con monitoreo continuo.",
+    "limitReachedDescription": "Has alcanzado tu límite de {limitType} de {limit} en el plan {tierName}. Compara planes y mejora para agregar más.",
     "currentUsage": "Uso actual: {count} / {limit}",
     "walletLimit": {
-      "title": "Limite de Billeteras Alcanzado",
-      "description": "Has alcanzado el numero maximo de billeteras para tu plan. Mejora para agregar mas billeteras."
+      "title": "Límite de Billeteras Alcanzado",
+      "description": "Has alcanzado el número máximo de billeteras para tu plan. Mejora para agregar más billeteras."
     },
     "contactLimit": {
-      "title": "Limite de Contactos Alcanzado",
-      "description": "Has alcanzado el numero maximo de contactos para esta billetera. Mejora para agregar mas contactos."
+      "title": "Límite de Contactos Alcanzado",
+      "description": "Has alcanzado el número máximo de contactos para esta billetera. Mejora para agregar más contactos."
     }
   },
   "errors": {
-    "generic": "Algo salio mal. Por favor intenta de nuevo.",
-    "network": "Error de red. Por favor verifica tu conexion.",
-    "unauthorized": "Por favor inicia sesion para continuar.",
+    "generic": "Algo salió mal. Por favor intenta de nuevo.",
+    "network": "Error de red. Por favor verifica tu conexión.",
+    "unauthorized": "Por favor inicia sesión para continuar.",
     "notFound": "No encontrado.",
-    "serverError": "Error del servidor. Por favor intenta mas tarde.",
+    "serverError": "Error del servidor. Por favor intenta más tarde.",
     "validation": "Por favor verifica tu entrada e intenta de nuevo."
   },
   "footer": {
@@ -951,40 +981,10 @@
     "appName": "Canary",
     "blockInfo": "Bloque {height}"
   },
-  "contactPage": {
-    "title": "Contacto",
-    "selfHosted": {
-      "title": "Modo Auto-alojado",
-      "description": "El formulario de contacto no esta disponible en modo auto-alojado.",
-      "backToWallets": "Volver a Billeteras"
-    },
-    "form": {
-      "title": "Contactanos",
-      "description": "Tienes una pregunta o comentario? Nos encantaria saber de ti.",
-      "emailLabel": "Email",
-      "emailPlaceholder": "tu@email.com",
-      "messageLabel": "Mensaje",
-      "messagePlaceholder": "Como podemos ayudarte?",
-      "characterCount": "{count}/{max} caracteres",
-      "submit": "Enviar Mensaje",
-      "submitting": "Enviando..."
-    },
-    "validation": {
-      "emailRequired": "El email es obligatorio",
-      "emailInvalid": "Por favor ingresa una direccion de email valida",
-      "emailTooLong": "El email debe tener menos de {max} caracteres",
-      "messageRequired": "El mensaje es obligatorio",
-      "messageTooShort": "El mensaje debe tener al menos {min} caracteres",
-      "messageTooLong": "El mensaje debe tener menos de {max} caracteres"
-    },
-    "errors": {
-      "sendFailed": "Error al enviar el mensaje"
-    }
-  },
   "demoBanner": {
     "title": "Modo Demo",
-    "description": "Estas viendo una billetera demo de solo lectura. Todas las funciones son solo para visualizacion.",
-    "signUp": "Registrate para crear tu propia billetera",
+    "description": "Estás viendo una billetera demo de solo lectura. Todas las funciones son solo para visualización.",
+    "signUp": "Regístrate para crear tu propia billetera",
     "dismiss": "Cerrar banner"
   }
 }
