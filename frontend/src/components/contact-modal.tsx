@@ -19,8 +19,8 @@ import { DeleteContactModal } from "./delete-contact-modal"
 import { useTranslations } from "next-intl"
 
 // Notification languages supported by backend (for contact notifications)
-// Must match backend Language enum: English, Norwegian, Spanish, Portuguese, German, French, Japanese
-const NOTIFICATION_LANGUAGE_VALUES = ['en', 'no', 'es', 'pt', 'de', 'fr', 'ja'] as const
+// Must match backend Language enum: English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish
+const NOTIFICATION_LANGUAGE_VALUES = ['en', 'no', 'es', 'pt', 'de', 'fr', 'ja', 'da', 'sv'] as const
 
 interface ContactModalProps {
   isOpen: boolean
