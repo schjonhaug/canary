@@ -15,6 +15,7 @@ import { useTranslations } from 'next-intl'
 
 export default function SignInPage() {
   const t = useTranslations('auth.signIn')
+  const tCommon = useTranslations('common')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -124,11 +125,11 @@ export default function SignInPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">{t('emailLabel')}</Label>
+              <Label htmlFor="email">{tCommon('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder={t('emailPlaceholder')}
+                placeholder={tCommon('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -136,7 +137,7 @@ export default function SignInPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t('passwordLabel')}</Label>
+              <Label htmlFor="password">{tCommon('passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"

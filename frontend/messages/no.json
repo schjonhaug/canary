@@ -35,7 +35,12 @@
     "connectingToNetwork": "Kobler til nettverk...",
     "emailPlaceholder": "din@epost.no",
     "emailLabel": "E-post",
-    "passwordLabel": "Passord"
+    "passwordLabel": "Passord",
+    "name": "Navn",
+    "new": "Ny",
+    "backToWallets": "Tilbake til lommebøker",
+    "backToSignIn": "Tilbake til innlogging",
+    "selfHostedMode": "Selvhostet modus"
   },
   "nav": {
     "signIn": "Logg inn",
@@ -50,20 +55,15 @@
   "contactPage": {
     "title": "Kontakt",
     "selfHosted": {
-      "title": "Selvhostet modus",
-      "description": "Kontaktskjema er ikke tilgjengelig i selvhostet modus.",
-      "backToWallets": "Tilbake til lommebøker"
+      "description": "Kontaktskjema er ikke tilgjengelig i selvhostet modus."
     },
     "form": {
       "title": "Ta kontakt",
       "description": "Har du et spørsmål eller tilbakemelding? Vi vil gjerne høre fra deg.",
-      "emailLabel": "E-post",
-      "emailPlaceholder": "din@epost.no",
       "messageLabel": "Melding",
       "messagePlaceholder": "Hvordan kan vi hjelpe deg?",
       "characterCount": "{count}/{max} tegn",
-      "submit": "Send melding",
-      "submitting": "Sender..."
+      "submit": "Send melding"
     },
     "validation": {
       "emailRequired": "E-post er påkrevd",
@@ -198,9 +198,6 @@
     "signIn": {
       "title": "Velkommen tilbake",
       "subtitle": "Logg inn på din Canary-konto",
-      "emailLabel": "E-post",
-      "emailPlaceholder": "din@epost.no",
-      "passwordLabel": "Passord",
       "passwordPlaceholder": "Skriv inn passordet ditt",
       "submit": "Logg inn",
       "submitting": "Logger inn...",
@@ -214,9 +211,6 @@
       "subtitle": "30 dager gratis, fortsett deretter med planen du velger",
       "nameLabel": "Navn",
       "namePlaceholder": "Skriv inn navnet ditt",
-      "emailLabel": "E-post",
-      "emailPlaceholder": "din@epost.no",
-      "passwordLabel": "Passord",
       "passwordPlaceholder": "Velg et sterkt passord",
       "passwordHint": "Passordet må være minst 6 tegn",
       "marketingConsent": "Jeg vil gjerne motta e-poster om oppdateringer til tjenesten",
@@ -231,17 +225,12 @@
       "description": "Vi har sendt en verifiseringslenke til e-postadressen din. Klikk på lenken for å verifisere kontoen din.",
       "didntReceive": "Mottok du ikke e-posten?",
       "checkSpam": "Sjekk spam-mappen",
-      "resend": "Send verifiseringsmelding på nytt",
-      "backToSignIn": "Tilbake til innlogging"
+      "resend": "Send verifiseringsmelding på nytt"
     },
     "forgotPassword": {
       "title": "Glemt passordet?",
       "subtitle": "Skriv inn e-postadressen din så sender vi deg en tilbakestillingslenke",
-      "emailLabel": "E-post",
-      "emailPlaceholder": "din@epost.no",
       "submit": "Send tilbakestillingslenke",
-      "submitting": "Sender...",
-      "backToSignIn": "Tilbake til innlogging",
       "successTitle": "Sjekk e-posten din",
       "successMessage": "Hvis det finnes en konto med den e-postadressen, vil du motta en tilbakestillingslenke."
     },
@@ -554,8 +543,6 @@
         "pending": "Synkroniserer",
         "ready": "Synkronisert"
       },
-      "backToWallets": "Tilbake til lommebøker",
-      "new": "Ny",
       "notFound": {
         "title": "Lommebok ikke funnet",
         "description": "Lommeboken med kontrollsum #{checksum} ble ikke funnet."
@@ -575,9 +562,7 @@
     },
     "delete": {
       "title": "Slett lommebok",
-      "description": "Er du sikker på at du vil slette denne lommeboken? Denne handlingen kan ikke angres.",
-      "confirm": "Slett",
-      "cancel": "Avbryt"
+      "description": "Er du sikker på at du vil slette denne lommeboken? Denne handlingen kan ikke angres."
     },
     "edit": {
       "title": "Rediger lommebok",
@@ -628,9 +613,7 @@
     },
     "delete": {
       "title": "Slett kontakt",
-      "description": "Er du sikker på at du vil slette denne kontakten? De vil ikke lenger motta varsler.",
-      "confirm": "Slett",
-      "cancel": "Avbryt"
+      "description": "Er du sikker på at du vil slette denne kontakten? De vil ikke lenger motta varsler."
     },
     "verification": {
       "codeLabel": "Verifiseringskode",
@@ -670,7 +653,6 @@
   },
   "balanceAlerts": {
     "title": "Saldovarsler",
-    "new": "Ny",
     "empty": {
       "title": "Ingen saldovarsler",
       "description": "Sett opp varsler for å bli varslet når lommeboksaldoen din når bestemte terskler",
@@ -701,7 +683,6 @@
       "thresholdLabel": "Terskel",
       "thresholdPlaceholder": "0.1",
       "btc": "BTC",
-      "cancel": "Avbryt",
       "submit": "Opprett",
       "submitting": "Oppretter..."
     },
@@ -710,9 +691,7 @@
     },
     "delete": {
       "title": "Slett varsel",
-      "description": "Er du sikker på at du vil slette dette saldovarselet?",
-      "confirm": "Slett",
-      "cancel": "Avbryt"
+      "description": "Er du sikker på at du vil slette dette saldovarselet?"
     },
     "status": {
       "active": "Aktiv",
@@ -892,9 +871,7 @@
   "subscriptionPage": {
     "title": "Abonnement",
     "selfHosted": {
-      "title": "Selvhostet modus",
-      "description": "Abonnementsfakturering er ikke tilgjengelig i selvhostet modus.",
-      "backToWallets": "Tilbake til lommebøker"
+      "description": "Abonnementsfakturering er ikke tilgjengelig i selvhostet modus."
     },
     "loading": "Laster faktureringsinformasjon...",
     "notSignedIn": {

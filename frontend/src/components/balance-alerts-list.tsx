@@ -58,6 +58,7 @@ export function BalanceAlertsList({
 }: BalanceAlertsListProps) {
   const { user, isCloudMode } = useAuth()
   const t = useTranslations('balanceAlerts')
+  const tCommon = useTranslations('common')
 
   // Use local state for optimistic updates
   const [localAlerts, setLocalAlerts] = useState<BalanceAlert[]>(balanceAlerts)
@@ -236,7 +237,7 @@ export function BalanceAlertsList({
               className="h-6 px-2 text-xs gap-1"
             >
               <Plus className="h-3 w-3" />
-              {t('new')}
+              {tCommon('new')}
             </Button>
           )}
         </div>
@@ -390,7 +391,7 @@ export function BalanceAlertsList({
               disabled={isSubmitting}
               className="h-7 px-2 text-xs"
             >
-              {t('add.cancel')}
+              {tCommon('cancel')}
             </Button>
             <Button
               size="sm"

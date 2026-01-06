@@ -35,7 +35,12 @@
     "connectingToNetwork": "Conectando a la red...",
     "emailPlaceholder": "tu@email.com",
     "emailLabel": "Correo electrónico",
-    "passwordLabel": "Contraseña"
+    "passwordLabel": "Contraseña",
+    "name": "Nombre",
+    "new": "Nuevo",
+    "backToWallets": "Volver a Billeteras",
+    "backToSignIn": "Volver a iniciar sesión",
+    "selfHostedMode": "Modo Auto-alojado"
   },
   "nav": {
     "signIn": "Iniciar sesión",
@@ -50,20 +55,15 @@
   "contactPage": {
     "title": "Contacto",
     "selfHosted": {
-      "title": "Modo Auto-alojado",
-      "description": "El formulario de contacto no está disponible en modo auto-alojado.",
-      "backToWallets": "Volver a Billeteras"
+      "description": "El formulario de contacto no está disponible en modo auto-alojado."
     },
     "form": {
       "title": "Contáctanos",
       "description": "¿Tienes una pregunta o comentario? Nos encantaría saber de ti.",
-      "emailLabel": "Email",
-      "emailPlaceholder": "tu@email.com",
       "messageLabel": "Mensaje",
       "messagePlaceholder": "¿Cómo podemos ayudarte?",
       "characterCount": "{count}/{max} caracteres",
-      "submit": "Enviar Mensaje",
-      "submitting": "Enviando..."
+      "submit": "Enviar Mensaje"
     },
     "validation": {
       "emailRequired": "El email es obligatorio",
@@ -198,9 +198,6 @@
     "signIn": {
       "title": "Bienvenido de nuevo",
       "subtitle": "Inicia sesión en tu cuenta de Canary",
-      "emailLabel": "Email",
-      "emailPlaceholder": "tu@email.com",
-      "passwordLabel": "Contraseña",
       "passwordPlaceholder": "Ingresa tu contraseña",
       "submit": "Iniciar sesión",
       "submitting": "Iniciando sesión...",
@@ -214,9 +211,6 @@
       "subtitle": "30 días gratis, luego continúa con el plan de tu elección",
       "nameLabel": "Nombre",
       "namePlaceholder": "Ingresa tu nombre",
-      "emailLabel": "Email",
-      "emailPlaceholder": "tu@email.com",
-      "passwordLabel": "Contraseña",
       "passwordPlaceholder": "Ingresa una contraseña segura",
       "passwordHint": "La contraseña debe tener al menos 6 caracteres",
       "marketingConsent": "Me gustaría recibir emails ocasionales sobre actualizaciones del servicio",
@@ -231,17 +225,12 @@
       "description": "Hemos enviado un enlace de verificación a tu dirección de email. Por favor haz clic en el enlace para verificar tu cuenta.",
       "didntReceive": "¿No recibiste el email?",
       "checkSpam": "Revisa tu carpeta de spam",
-      "resend": "Reenviar email de verificación",
-      "backToSignIn": "Volver a iniciar sesión"
+      "resend": "Reenviar email de verificación"
     },
     "forgotPassword": {
       "title": "¿Olvidaste tu contraseña?",
       "subtitle": "Ingresa tu email y te enviaremos un enlace de restablecimiento",
-      "emailLabel": "Email",
-      "emailPlaceholder": "tu@email.com",
       "submit": "Enviar enlace de restablecimiento",
-      "submitting": "Enviando...",
-      "backToSignIn": "Volver a iniciar sesión",
       "successTitle": "Revisa tu email",
       "successMessage": "Si existe una cuenta con ese email, recibirás un enlace de restablecimiento de contraseña."
     },
@@ -554,8 +543,6 @@
         "pending": "Sincronizando",
         "ready": "Sincronizado"
       },
-      "backToWallets": "Volver a billeteras",
-      "new": "Nuevo",
       "notFound": {
         "title": "Billetera no encontrada",
         "description": "No se pudo encontrar la billetera con checksum #{checksum}."
@@ -575,9 +562,7 @@
     },
     "delete": {
       "title": "Eliminar Billetera",
-      "description": "¿Estás seguro de que deseas eliminar esta billetera? Esta acción no se puede deshacer.",
-      "confirm": "Eliminar",
-      "cancel": "Cancelar"
+      "description": "¿Estás seguro de que deseas eliminar esta billetera? Esta acción no se puede deshacer."
     },
     "edit": {
       "title": "Editar Billetera",
@@ -628,9 +613,7 @@
     },
     "delete": {
       "title": "Eliminar contacto",
-      "description": "¿Estás seguro de que deseas eliminar este contacto? Ya no recibirá notificaciones.",
-      "confirm": "Eliminar",
-      "cancel": "Cancelar"
+      "description": "¿Estás seguro de que deseas eliminar este contacto? Ya no recibirá notificaciones."
     },
     "verification": {
       "codeLabel": "Código de verificación",
@@ -670,7 +653,6 @@
   },
   "balanceAlerts": {
     "title": "Alertas de Saldo",
-    "new": "Nueva",
     "empty": {
       "title": "Sin alertas de saldo",
       "description": "Configura alertas para ser notificado cuando el saldo de tu billetera alcance ciertos umbrales",
@@ -701,7 +683,6 @@
       "thresholdLabel": "Umbral",
       "thresholdPlaceholder": "0.1",
       "btc": "BTC",
-      "cancel": "Cancelar",
       "submit": "Crear",
       "submitting": "Creando..."
     },
@@ -710,9 +691,7 @@
     },
     "delete": {
       "title": "Eliminar Alerta",
-      "description": "¿Estás seguro de que deseas eliminar esta alerta de saldo?",
-      "confirm": "Eliminar",
-      "cancel": "Cancelar"
+      "description": "¿Estás seguro de que deseas eliminar esta alerta de saldo?"
     },
     "status": {
       "active": "Activa",
@@ -892,9 +871,7 @@
   "subscriptionPage": {
     "title": "Suscripción",
     "selfHosted": {
-      "title": "Modo autoalojado",
-      "description": "La facturación de suscripción no está disponible en modo autoalojado.",
-      "backToWallets": "Volver a billeteras"
+      "description": "La facturación de suscripción no está disponible en modo autoalojado."
     },
     "loading": "Cargando información de facturación...",
     "notSignedIn": {

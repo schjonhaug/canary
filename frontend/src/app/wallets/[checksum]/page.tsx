@@ -196,7 +196,7 @@ export default function WalletDetailPage() {
           <Link href="/wallets">
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft size={16} />
-              {t('detail.backToWallets')}
+              {tCommon('backToWallets')}
             </Button>
           </Link>
         </div>
@@ -216,7 +216,7 @@ export default function WalletDetailPage() {
           <Link href="/wallets">
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft size={16} />
-              {t('detail.backToWallets')}
+              {tCommon('backToWallets')}
             </Button>
           </Link>
         </div>
@@ -239,7 +239,7 @@ export default function WalletDetailPage() {
           <Link href="/wallets">
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft size={16} />
-              {t('detail.backToWallets')}
+              {tCommon('backToWallets')}
             </Button>
           </Link>
         </div>
@@ -255,7 +255,7 @@ export default function WalletDetailPage() {
             <div className="mt-3">
               <Link href="/wallets">
                 <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
-                  {t('detail.backToWallets')}
+                  {tCommon('backToWallets')}
                 </Button>
               </Link>
             </div>
@@ -363,7 +363,7 @@ export default function WalletDetailPage() {
                       className="h-6 px-2 text-xs gap-1"
                     >
                       <Plus className="h-3 w-3" />
-                      {t('detail.new')}
+                      {tCommon('new')}
                     </Button>
                   )}
                 </div>

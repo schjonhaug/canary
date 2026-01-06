@@ -35,7 +35,12 @@
     "connectingToNetwork": "Connexion au réseau...",
     "emailPlaceholder": "votre@email.com",
     "emailLabel": "E-mail",
-    "passwordLabel": "Mot de passe"
+    "passwordLabel": "Mot de passe",
+    "name": "Nom",
+    "new": "Nouveau",
+    "backToWallets": "Retour aux Portefeuilles",
+    "backToSignIn": "Retour à la connexion",
+    "selfHostedMode": "Mode Auto-hébergé"
   },
   "nav": {
     "signIn": "Se connecter",
@@ -50,20 +55,15 @@
   "contactPage": {
     "title": "Contact",
     "selfHosted": {
-      "title": "Mode Auto-hébergé",
-      "description": "Le formulaire de contact n'est pas disponible en mode auto-hébergé.",
-      "backToWallets": "Retour aux Portefeuilles"
+      "description": "Le formulaire de contact n'est pas disponible en mode auto-hébergé."
     },
     "form": {
       "title": "Contactez-nous",
       "description": "Vous avez une question ou un commentaire ? Nous serions ravis de vous entendre.",
-      "emailLabel": "Email",
-      "emailPlaceholder": "votre@email.fr",
       "messageLabel": "Message",
       "messagePlaceholder": "Comment pouvons-nous vous aider ?",
       "characterCount": "{count}/{max} caractères",
-      "submit": "Envoyer le message",
-      "submitting": "Envoi en cours..."
+      "submit": "Envoyer le message"
     },
     "validation": {
       "emailRequired": "L'email est requis",
@@ -198,9 +198,6 @@
     "signIn": {
       "title": "Bienvenue",
       "subtitle": "Connectez-vous à votre compte Canary",
-      "emailLabel": "Email",
-      "emailPlaceholder": "votre@email.com",
-      "passwordLabel": "Mot de passe",
       "passwordPlaceholder": "Entrez votre mot de passe",
       "submit": "Se connecter",
       "submitting": "Connexion...",
@@ -214,9 +211,6 @@
       "subtitle": "30 jours gratuits, puis continuez avec le plan de votre choix",
       "nameLabel": "Nom",
       "namePlaceholder": "Entrez votre nom",
-      "emailLabel": "Email",
-      "emailPlaceholder": "votre@email.com",
-      "passwordLabel": "Mot de passe",
       "passwordPlaceholder": "Entrez un mot de passe sécurisé",
       "passwordHint": "Le mot de passe doit contenir au moins 6 caractères",
       "marketingConsent": "Je souhaite recevoir occasionnellement des emails sur les mises à jour du service",
@@ -231,17 +225,12 @@
       "description": "Nous avons envoyé un lien de vérification à votre adresse email. Veuillez cliquer sur le lien pour vérifier votre compte.",
       "didntReceive": "Vous n'avez pas reçu l'email ?",
       "checkSpam": "Vérifiez votre dossier spam",
-      "resend": "Renvoyer l'email de vérification",
-      "backToSignIn": "Retour à la connexion"
+      "resend": "Renvoyer l'email de vérification"
     },
     "forgotPassword": {
       "title": "Mot de passe oublié ?",
       "subtitle": "Entrez votre email et nous vous enverrons un lien de réinitialisation",
-      "emailLabel": "Email",
-      "emailPlaceholder": "votre@email.com",
       "submit": "Envoyer le lien de réinitialisation",
-      "submitting": "Envoi...",
-      "backToSignIn": "Retour à la connexion",
       "successTitle": "Vérifiez votre email",
       "successMessage": "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation du mot de passe."
     },
@@ -554,8 +543,6 @@
         "pending": "Synchronisation",
         "ready": "Synchronisé"
       },
-      "backToWallets": "Retour aux portefeuilles",
-      "new": "Nouveau",
       "notFound": {
         "title": "Portefeuille introuvable",
         "description": "Le portefeuille avec la somme de contrôle #{checksum} n'a pas été trouvé."
@@ -575,9 +562,7 @@
     },
     "delete": {
       "title": "Supprimer le portefeuille",
-      "description": "Êtes-vous sûr de vouloir supprimer ce portefeuille ? Cette action ne peut pas être annulée.",
-      "confirm": "Supprimer",
-      "cancel": "Annuler"
+      "description": "Êtes-vous sûr de vouloir supprimer ce portefeuille ? Cette action ne peut pas être annulée."
     },
     "edit": {
       "title": "Modifier le portefeuille",
@@ -628,9 +613,7 @@
     },
     "delete": {
       "title": "Supprimer le contact",
-      "description": "Êtes-vous sûr de vouloir supprimer ce contact ? Il ne recevra plus de notifications.",
-      "confirm": "Supprimer",
-      "cancel": "Annuler"
+      "description": "Êtes-vous sûr de vouloir supprimer ce contact ? Il ne recevra plus de notifications."
     },
     "verification": {
       "codeLabel": "Code de vérification",
@@ -670,7 +653,6 @@
   },
   "balanceAlerts": {
     "title": "Alertes de solde",
-    "new": "Nouvelle",
     "empty": {
       "title": "Pas d'alertes de solde",
       "description": "Configurez des alertes pour être notifié lorsque le solde de votre portefeuille atteint certains seuils",
@@ -701,7 +683,6 @@
       "thresholdLabel": "Seuil",
       "thresholdPlaceholder": "0,1",
       "btc": "BTC",
-      "cancel": "Annuler",
       "submit": "Créer",
       "submitting": "Création..."
     },
@@ -710,9 +691,7 @@
     },
     "delete": {
       "title": "Supprimer l'alerte",
-      "description": "Êtes-vous sûr de vouloir supprimer cette alerte de solde ?",
-      "confirm": "Supprimer",
-      "cancel": "Annuler"
+      "description": "Êtes-vous sûr de vouloir supprimer cette alerte de solde ?"
     },
     "status": {
       "active": "Active",
@@ -892,9 +871,7 @@
   "subscriptionPage": {
     "title": "Abonnement",
     "selfHosted": {
-      "title": "Mode auto-hébergé",
-      "description": "La facturation d'abonnement n'est pas disponible en mode auto-hébergé.",
-      "backToWallets": "Retour aux portefeuilles"
+      "description": "La facturation d'abonnement n'est pas disponible en mode auto-hébergé."
     },
     "loading": "Chargement des informations de facturation...",
     "notSignedIn": {

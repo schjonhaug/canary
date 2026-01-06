@@ -15,6 +15,7 @@ import { useTranslations } from 'next-intl'
 
 export default function SignUpPage() {
   const t = useTranslations('auth.signUp')
+  const tCommon = useTranslations('common')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -103,11 +104,11 @@ export default function SignUpPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">{t('emailLabel')}</Label>
+              <Label htmlFor="email">{tCommon('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder={t('emailPlaceholder')}
+                placeholder={tCommon('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -115,7 +116,7 @@ export default function SignUpPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t('passwordLabel')}</Label>
+              <Label htmlFor="password">{tCommon('passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"
