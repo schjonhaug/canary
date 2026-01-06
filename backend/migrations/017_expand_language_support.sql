@@ -4,6 +4,10 @@
 -- SQLite doesn't support ALTER TABLE to modify CHECK constraints
 -- We need to recreate the tables with updated constraints
 
+-- IMPORTANT: Disable foreign keys to prevent CASCADE DELETE when dropping contacts table
+-- (contact_notification_methods has ON DELETE CASCADE referencing contacts)
+PRAGMA foreign_keys = OFF;
+
 -- Step 1: Recreate contacts table with expanded language constraint
 DROP TABLE IF EXISTS contacts_new;
 CREATE TABLE contacts_new (
@@ -55,3 +59,6 @@ ALTER TABLE pending_contact_verifications_new RENAME TO pending_contact_verifica
 CREATE INDEX idx_pending_verifications_wallet ON pending_contact_verifications(wallet_checksum);
 CREATE INDEX idx_pending_verifications_expires ON pending_contact_verifications(expires_at);
 CREATE INDEX idx_pending_verifications_lookup ON pending_contact_verifications(wallet_checksum, notification_target, verified_at);
+
+-- Re-enable foreign keys
+PRAGMA foreign_keys = ON;
