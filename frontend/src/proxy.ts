@@ -35,7 +35,7 @@ function detectLocale(acceptLanguage: string | null): Locale {
   }
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const localeCookie = request.cookies.get('locale')?.value
 
   // Already has a valid locale preference
