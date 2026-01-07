@@ -613,7 +613,7 @@
     },
     "delete": {
       "title": "連絡先を削除",
-      "description": "この連絡先を削除してもよろしいですか？<strong>{name}</strong>には通知が届かなくなります。"
+      "description": "この連絡先を削除してもよろしいですか？<bold>{name}</bold>には通知が届かなくなります。"
     },
     "verification": {
       "codeLabel": "確認コード",

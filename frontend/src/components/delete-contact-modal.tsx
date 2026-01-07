@@ -66,7 +66,7 @@ export function DeleteContactModal({
           <DialogDescription>
             {t.rich('delete.description', {
               name: contact?.name ?? '',
-              strong: (chunks) => <strong>{chunks}</strong>
+              bold: (chunks) => <strong>{chunks}</strong>
             })}
           </DialogDescription>
         </DialogHeader>

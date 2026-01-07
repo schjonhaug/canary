@@ -613,7 +613,7 @@
     },
     "delete": {
       "title": "Excluir contato",
-      "description": "Tem certeza de que deseja excluir este contato? <strong>{name}</strong> não receberá mais notificações."
+      "description": "Tem certeza de que deseja excluir este contato? <bold>{name}</bold> não receberá mais notificações."
     },
     "verification": {
       "codeLabel": "Código de verificação",
