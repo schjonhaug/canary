@@ -15,7 +15,7 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
 // Mock next-intl with actual translations
 jest.mock('next-intl', () => {
   // Load translations inside the mock factory
-  const translations = require('./messages/en.json')
+  const translations = require('./messages/en-US.json')
 
   // Helper to get nested value from object using dot notation
   function getNestedValue(obj, path) {
@@ -27,7 +27,8 @@ jest.mock('next-intl', () => {
   return {
     useTranslations: (namespace) => {
       const namespaceData = namespace ? getNestedValue(translations, namespace) : translations
-      return (key, params) => {
+
+      const t = (key, params) => {
         // Get the value from the namespace
         let value = getNestedValue(namespaceData, key)
 
@@ -50,8 +51,43 @@ jest.mock('next-intl', () => {
 
         return value
       }
+
+      // Add rich method for rich text formatting (returns plain text for tests)
+      t.rich = (key, params) => {
+        let value = getNestedValue(namespaceData, key)
+        if (value === undefined) {
+          value = getNestedValue(translations, `${namespace}.${key}`)
+        }
+        if (value === undefined) {
+          return namespace ? `${namespace}.${key}` : key
+        }
+        // Handle parameter substitution (simple version - just substitute values)
+        if (params && typeof value === 'string') {
+          Object.entries(params).forEach(([k, v]) => {
+            if (typeof v === 'function') {
+              // For rich text handlers, extract the content from XML-like tags
+              const tagRegex = new RegExp(`<${k}>([^<]*)</${k}>`, 'g')
+              value = value.replace(tagRegex, (match, content) => v(content))
+            } else {
+              value = value.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+            }
+          })
+        }
+        return value
+      }
+
+      // Add raw method for getting arrays
+      t.raw = (key) => {
+        let value = getNestedValue(namespaceData, key)
+        if (value === undefined) {
+          value = getNestedValue(translations, `${namespace}.${key}`)
+        }
+        return value
+      }
+
+      return t
     },
-    useLocale: () => 'en',
+    useLocale: () => 'en-US',
     useMessages: () => translations,
     useFormatter: () => ({
       number: (value) => String(value),

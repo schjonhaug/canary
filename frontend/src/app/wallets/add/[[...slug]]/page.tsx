@@ -345,9 +345,11 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || 'personal'
   const limitReached = isCloudMode && !isSelfHostedMode && hasReachedWalletLimit(walletCount, currentTier)
 
-  const handleWalletCreated = (wallet: Wallet) => {
+  const handleWalletCreated = async (wallet: Wallet) => {
     // Add wallet to context immediately so it appears in the list
     addWallet?.(wallet)
+    // Refresh billing status to get updated subscription_status (pending → trialing)
+    await refreshBillingStatus()
     router.push('/wallets')
   }
 
