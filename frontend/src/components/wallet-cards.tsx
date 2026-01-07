@@ -4,7 +4,7 @@ import { useEffect, useState, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Users, AlertTriangle } from "lucide-react"
+import { Users, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount } from "@/lib/utils"
 import { useTranslations } from "next-intl"
@@ -142,10 +142,10 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
           const isInactive = wallet.is_active === false
           const isSyncing = wallet.status === 'pending'
           
-          // If wallet is syncing, render non-clickable card with skeleton content
+          // If wallet is syncing, render non-clickable card with spinner
           if (isSyncing) {
             return (
-              <Card key={wallet.checksum} className="transition-all duration-200 border-blue-200 bg-blue-50/30">
+              <Card key={wallet.checksum} className="transition-all duration-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2 min-w-0">
                     <WalletIcon wallet={wallet} />
@@ -153,26 +153,11 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                       {wallet.name}
                     </CardTitle>
                   </div>
-                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-600 bg-blue-50 w-fit">
-                    <div className="h-3 w-3 mr-1 animate-spin rounded-full border border-blue-600 border-t-transparent" />
-                    {t('card.syncing')}
-                  </Badge>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    <div>
-                      <div className="text-sm text-muted-foreground">{t('card.balance')}</div>
-                      <div className="flex items-center gap-2">
-                        <Skeleton className="h-6 w-32" />
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center text-xs text-muted-foreground">
-                      <Skeleton className="h-3 w-24" />
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        <span>{wallet.contact_count || 0}</span>
-                      </div>
-                    </div>
+                  <div className="flex flex-col items-center justify-center pt-2 pb-6">
+                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground mt-3">{t('card.syncing')}</span>
                   </div>
                 </CardContent>
               </Card>
