@@ -83,9 +83,14 @@ export function ContactModal({
   const [smsVerified, setSmsVerified] = useState(false)
   const [showSmsVerificationSuccess, setShowSmsVerificationSuccess] = useState(false)
   const [originalPhoneNumber, setOriginalPhoneNumber] = useState<string | null>(null)
-  const [hasChanges, setHasChanges] = useState(false)
+  const [originalName, setOriginalName] = useState<string | null>(null)
+  const [originalNtfyTopic, setOriginalNtfyTopic] = useState<string | null>(null)
+  const [originalNtfyEnabled, setOriginalNtfyEnabled] = useState<boolean>(false)
+  const [originalSmsEnabled, setOriginalSmsEnabled] = useState<boolean>(false)
+  const [originalEmailEnabled, setOriginalEmailEnabled] = useState<boolean>(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   const isEditMode = !!editContact
 
@@ -102,9 +107,23 @@ export function ContactModal({
     (phoneNumberChanged || (!isEditMode && !smsVerified) || (isEditMode && originalPhoneNumber === null && !smsVerified))) : false
   
   // Check if email verification is required
-  const emailVerificationRequired = isOpen ? (enabledProviders['email'] && 
+  const emailVerificationRequired = isOpen ? (enabledProviders['email'] &&
     (emailAddressChanged || (!isEditMode && !emailVerified) || (isEditMode && originalEmailAddress === null && !emailVerified))) : false
-  
+
+  // Compute hasChanges by comparing current values to original values
+  // In edit mode, if originalName is null, the initialization effect hasn't run yet
+  const hasChanges = isOpen && isEditMode ? (
+    originalName === null ? false : (
+      name.trim() !== originalName ||
+      ntfyTopic !== (originalNtfyTopic || '') ||
+      (enabledProviders['ntfy'] || false) !== originalNtfyEnabled ||
+      (enabledProviders['twilio'] || false) !== originalSmsEnabled ||
+      (enabledProviders['email'] || false) !== originalEmailEnabled ||
+      (providerValues['twilio']?.trim() || '') !== (originalPhoneNumber || '') ||
+      (providerValues['email']?.trim() || '') !== (originalEmailAddress || '')
+    )
+  ) : true  // Always allow submit for new contacts
+
 
   // Clear timer on unmount
   useEffect(() => {
@@ -176,7 +195,11 @@ export function ContactModal({
       setShowEmailVerificationSuccess(false)
       setOriginalPhoneNumber(null)
       setOriginalEmailAddress(null)
-      setHasChanges(false)
+      setOriginalName(null)
+      setOriginalNtfyTopic(null)
+      setOriginalNtfyEnabled(false)
+      setOriginalSmsEnabled(false)
+      setOriginalEmailEnabled(false)
       setIsDeleteModalOpen(false)
       setNtfyTopic("")
       setUserEditedNtfyTopic(false)
@@ -188,6 +211,7 @@ export function ContactModal({
       if (editContact) {
         // Populate form with existing contact data
         setName(editContact.name)
+        setOriginalName(editContact.name)
 
         // Set up providers based on existing notification methods
         const newEnabledProviders: Record<string, boolean> = {}
@@ -199,18 +223,22 @@ export function ContactModal({
             newEnabledProviders['twilio'] = true
             newProviderValues['twilio'] = phoneNumber
             setOriginalPhoneNumber(phoneNumber)
+            setOriginalSmsEnabled(true)
             setSmsVerified(true) // SMS already exists on contact, so it's verified
           } else if (method.provider_type === 'ntfy') {
             newEnabledProviders['ntfy'] = true
             // Pre-populate ntfy topic from existing notification method
             const existingTopic = method.notification_target
             setNtfyTopic(existingTopic)
+            setOriginalNtfyTopic(existingTopic)
+            setOriginalNtfyEnabled(true)
             setUserEditedNtfyTopic(true) // Mark as edited so it doesn't auto-update
           } else if (method.provider_type === 'email') {
             const emailAddress = method.display_target || method.notification_target
             newEnabledProviders['email'] = true
             newProviderValues['email'] = emailAddress
             setOriginalEmailAddress(emailAddress)
+            setOriginalEmailEnabled(true)
             setEmailVerified(true) // Email already exists on contact, so it's verified
           }
         })
@@ -248,8 +276,18 @@ export function ContactModal({
     setShowEmailVerificationSuccess(false)
     setOriginalPhoneNumber(null)
     setOriginalEmailAddress(null)
-    setHasChanges(false)
+    setOriginalName(null)
+    setOriginalNtfyTopic(null)
+    setOriginalNtfyEnabled(false)
+    setOriginalSmsEnabled(false)
+    setOriginalEmailEnabled(false)
     setIsDeleteModalOpen(false)
+    // Reset form values
+    setName("")
+    setNtfyTopic("")
+    setUserEditedNtfyTopic(false)
+    setEnabledProviders({})
+    setProviderValues({})
     if (timerRef.current) {
       clearInterval(timerRef.current)
     }
@@ -632,7 +670,18 @@ export function ContactModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onOpenAutoFocus={(e) => {
+          // Only auto-focus name input when creating new contact, not when editing
+          if (isEditMode) {
+            e.preventDefault()
+          } else {
+            // Focus name input for new contacts
+            nameInputRef.current?.focus()
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {isEditMode ? t('edit.title') : t('add.title')}
@@ -657,12 +706,12 @@ export function ContactModal({
               onChange={(e) => {
                 const newName = e.target.value
                 setName(newName)
-                setHasChanges(true)
                 // Auto-update ntfy topic when name changes (if user hasn't manually edited it)
                 if (enabledProviders['ntfy'] && !userEditedNtfyTopic) {
                   setNtfyTopic(generateDefaultNtfyTopic(newName, walletChecksum))
                 }
               }}
+              ref={nameInputRef}
               placeholder={t('add.namePlaceholder')}
               disabled={isSubmitting}
             />
@@ -682,7 +731,6 @@ export function ContactModal({
                           ...prev,
                           [provider.name]: e.target.checked
                         }))
-                        setHasChanges(true)
                         // Generate default ntfy topic when ntfy is enabled and no topic set
                         if (provider.name === 'ntfy' && e.target.checked && !ntfyTopic && !userEditedNtfyTopic) {
                           setNtfyTopic(generateDefaultNtfyTopic(name, walletChecksum))
@@ -712,7 +760,6 @@ export function ContactModal({
                                   ...prev,
                                   [provider.name]: e.target.value
                                 }))
-                                setHasChanges(true)
                                 // Clear phone number error when user starts typing
                                 if (phoneNumberError) {
                                   setPhoneNumberError(null)
@@ -853,7 +900,6 @@ export function ContactModal({
                                   ...prev,
                                   [provider.name]: e.target.value
                                 }))
-                                setHasChanges(true)
                                 // Clear email errors when user starts typing
                                 if (emailVerificationError) {
                                   setEmailVerificationError(null)
@@ -999,7 +1045,6 @@ export function ContactModal({
                               onChange={(e) => {
                                 setNtfyTopic(e.target.value)
                                 setUserEditedNtfyTopic(true)
-                                setHasChanges(true)
                               }}
                               placeholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
                               disabled={isSubmitting}
