@@ -90,7 +90,7 @@ canary/
 │   ├── system_tests/         # End-to-end Docker-based tests
 │   └── tasks/                # Development tasks and documentation
 ├── frontend/        # Next.js app with React components
-│   ├── messages/       # i18n translation files (en.json, no.json, es.json, pt.json, de.json, fr.json, ja.json, da.json, sv.json)
+│   ├── messages/       # i18n translation files (en-US.json, nb.json, es-419.json, pt-BR.json, de-DE.json, fr-FR.json, ja.json, da.json, sv.json)
 │   ├── src/
 │   │   ├── app/        # Next.js 13+ app directory (pages, layouts, API routes)
 │   │   ├── components/ # UI components (plan-comparison.tsx, plans-modal.tsx, contact-modal.tsx)
@@ -230,30 +230,43 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Atomic Updates**: Database transactions prevent data loss during modifications
 
 ### Internationalization (i18n)
-- **9 Supported Languages**: English (default), Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish
+- **9 Supported Languages**: English (US), Norwegian (Bokmål), Spanish (Latin America), Portuguese (Brazil), German, French, Japanese, Danish, Swedish
 - **Frontend**: next-intl library with JSON translation files in `frontend/messages/{locale}.json`
-- **Backend**: Notification messages translated in `message_formatter.rs`, `email_provider.rs`, `ntfy_provider.rs`
+- **Backend**: Notification messages translated via rust-i18n in `backend/locales/{locale}.yml`
 - **Language Selection**: User preference stored in database and cookie, configurable in Settings page
-- **Browser Detection**: Auto-detects browser locale on first visit, falls back to English
+- **Browser Detection**: Auto-detects browser locale on first visit, falls back to English (US)
 - **Localized Dates**: date-fns locales for relative time formatting (e.g., "hace 5 horas" in Spanish)
 - **Translation Pattern**: Components use `useTranslations('namespace')` hook from next-intl
+
+**Locale Code Choices:**
+| Code | Language | Rationale |
+|------|----------|-----------|
+| `en-US` | English (US) | American English spelling and date formats |
+| `nb` | Norwegian (Bokmål) | Bokmål is the most common written standard (~85% of Norwegians) |
+| `es-419` | Spanish (Latin America) | UN M.49 code for Latin America; uses "ustedes" form, Latin American vocabulary |
+| `pt-BR` | Portuguese (Brazil) | Brazilian Portuguese; different spelling and vocabulary from European Portuguese |
+| `de-DE` | German | Standard German (Germany) |
+| `fr-FR` | French | Standard French (France) |
+| `ja` | Japanese | No regional variants needed |
+| `da` | Danish | No regional variants needed |
+| `sv` | Swedish | No regional variants needed |
 
 **Frontend Translation Structure:**
 ```
 frontend/messages/
-├── en.json    # English (source/default)
-├── no.json    # Norwegian
-├── es.json    # Spanish
-├── pt.json    # Portuguese
-├── de.json    # German
-├── fr.json    # French
-├── ja.json    # Japanese
-├── da.json    # Danish
-└── sv.json    # Swedish
+├── en-US.json  # English US (source/default)
+├── nb.json     # Norwegian Bokmål
+├── es-419.json # Spanish (Latin America)
+├── pt-BR.json  # Portuguese (Brazil)
+├── de-DE.json  # German
+├── fr-FR.json  # French
+├── ja.json     # Japanese
+├── da.json     # Danish
+└── sv.json     # Swedish
 ```
 
 **Adding New Translations:**
-1. Add keys to `frontend/messages/en.json` first
+1. Add keys to `frontend/messages/en-US.json` first
 2. Copy to all other locale files with translated values
 3. Use in components: `const t = useTranslations('namespace'); t('key')`
 4. For variables: `t('greeting', { name: 'John' })` with `"greeting": "Hello, {name}"`

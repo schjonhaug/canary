@@ -642,17 +642,6 @@
     "errors": {
       "nameRequired": "Kontaktnamn krävs",
       "ntfyTopicRequired": "ntfy-ämne krävs"
-    },
-    "languages": {
-      "en": "Engelska",
-      "no": "Norska",
-      "es": "Spanska",
-      "pt": "Portugisiska",
-      "de": "Tyska",
-      "fr": "Franska",
-      "ja": "Japanska",
-      "da": "Danska",
-      "sv": "Svenska"
     }
   },
   "balanceAlerts": {

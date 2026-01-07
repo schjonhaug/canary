@@ -641,17 +641,6 @@
     "errors": {
       "nameRequired": "連絡先名は必須です",
       "ntfyTopicRequired": "ntfyトピックは必須です"
-    },
-    "languages": {
-      "en": "英語",
-      "no": "ノルウェー語",
-      "es": "スペイン語",
-      "pt": "ポルトガル語",
-      "de": "ドイツ語",
-      "fr": "フランス語",
-      "ja": "日本語",
-      "da": "デンマーク語",
-      "sv": "スウェーデン語"
     }
   },
   "balanceAlerts": {

@@ -66,9 +66,9 @@ class ApiClient {
     stopGap?: string;
   }): Promise<Wallet> {
     // Send raw browser language - backend will map to supported languages
-    const browserLanguage = typeof window !== 'undefined' 
+    const browserLanguage = typeof window !== 'undefined'
       ? navigator.language
-      : 'en'
+      : 'en-US'
     
     const response = await this.request<{ message: string; wallet: Wallet }>('/api/wallets', {
       method: 'POST',

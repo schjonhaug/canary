@@ -641,17 +641,6 @@
     "errors": {
       "nameRequired": "Kontaktnavn er påkrevd",
       "ntfyTopicRequired": "ntfy-emne er påkrevd"
-    },
-    "languages": {
-      "en": "Engelsk",
-      "no": "Norsk",
-      "es": "Spansk",
-      "pt": "Portugisisk",
-      "de": "Tysk",
-      "fr": "Fransk",
-      "ja": "Japansk",
-      "da": "Dansk",
-      "sv": "Svensk"
     }
   },
   "balanceAlerts": {

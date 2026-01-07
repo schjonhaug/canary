@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow, Locale } from 'date-fns';
 import { useLocale } from 'next-intl';
-import { enUS, nb, es, pt, de, fr, ja, da, sv } from 'date-fns/locale';
+import { enUS, nb, es, ptBR, de, fr, ja, da, sv } from 'date-fns/locale';
 
 const localeMap: Record<string, Locale> = {
-  en: enUS,
-  no: nb,
-  es: es,
-  pt: pt,
-  de: de,
-  fr: fr,
+  'en-US': enUS,
+  nb: nb,
+  'es-419': es,
+  'pt-BR': ptBR,
+  'de-DE': de,
+  'fr-FR': fr,
   ja: ja,
   da: da,
   sv: sv,
