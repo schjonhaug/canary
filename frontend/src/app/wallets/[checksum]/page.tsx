@@ -85,11 +85,8 @@ export default function WalletDetailPage() {
     refresh()
   }
 
-  const handleNameUpdated = (newName: string) => {
-    // Immediately update local state for responsive UI
-    if (wallet) {
-      wallet.name = newName
-    }
+  const handleNameUpdated = (_newName: string) => {
+    // Name was updated on backend by child component, refresh to get new data
     handleWalletUpdated()
   }
 
