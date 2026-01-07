@@ -6,6 +6,24 @@ import { Transaction } from "../types"
 import { formatTransactionAmount, formatDateTime } from "@/lib/utils"
 import { useTranslations } from "next-intl"
 
+interface ProviderIconProps {
+  providerType: string
+  className?: string
+}
+
+function ProviderIcon({ providerType, className }: ProviderIconProps) {
+  switch (providerType) {
+    case 'email':
+      return <Mail className={className} />
+    case 'sms':
+    case 'twilio':
+      return <MessageCircle className={className} />
+    case 'ntfy':
+    default:
+      return <Bell className={className} />
+  }
+}
+
 interface TransactionDetailsProps {
   transaction: Transaction
   isExpanded: boolean
@@ -57,18 +75,7 @@ export function TransactionDetails({ transaction, isExpanded }: TransactionDetai
                     title={tooltipText}
                     className={hasError ? "cursor-help" : ""}
                   >
-                    {(() => {
-                      switch (providerType) {
-                        case 'email':
-                          return <Mail className={iconClass} />
-                        case 'sms':
-                        case 'twilio':
-                          return <MessageCircle className={iconClass} />
-                        case 'ntfy':
-                        default:
-                          return <Bell className={iconClass} />
-                      }
-                    })()}
+                    <ProviderIcon providerType={providerType} className={iconClass} />
                   </span>
                 )
               })}

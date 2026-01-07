@@ -5,6 +5,10 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "next-intl"
 
+// Time threshold (in seconds) before resend is allowed
+// With 10-minute (600s) verification expiry, allowing resend after 1 minute means checking for > 540s remaining
+const RESEND_COOLDOWN_THRESHOLD = 540
+
 interface EmailProviderFieldsProps {
   emailAddress: string
   onEmailAddressChange: (email: string) => void
@@ -138,7 +142,7 @@ export function EmailProviderFields({
             <button
               type="button"
               onClick={onResendCode}
-              disabled={isSending || timeRemaining > 540}
+              disabled={isSending || timeRemaining > RESEND_COOLDOWN_THRESHOLD}
               className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 underline"
             >
               {t('verification.resend')}
