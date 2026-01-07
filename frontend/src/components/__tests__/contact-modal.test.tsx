@@ -3,6 +3,11 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ContactModal } from '../contact-modal'
 
+// Mock the usePhonePlaceholder hook to return a consistent value
+jest.mock('../../hooks/usePhonePlaceholder', () => ({
+  usePhonePlaceholder: () => '+1 234 567 8900',
+}))
+
 // Mock the api module but keep ApiError from the real module
 jest.mock('../../lib/api', () => {
   const actual = jest.requireActual('../../lib/api')
@@ -184,7 +189,7 @@ describe('ContactModal', () => {
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
 
       // Phone input should appear
-      const phoneInput = screen.getByPlaceholderText('+1234567890')
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.type(phoneInput, '+4712345678')
 
       // Verification button should appear
@@ -205,7 +210,7 @@ describe('ContactModal', () => {
       await user.type(screen.getByLabelText('Name'), 'SMS Contact')
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
 
-      const phoneInput = screen.getByPlaceholderText('+1234567890')
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.type(phoneInput, '+4712345678')
 
       // Send verification
@@ -239,7 +244,7 @@ describe('ContactModal', () => {
       await user.type(screen.getByLabelText('Name'), 'SMS Contact')
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
 
-      const phoneInput = screen.getByPlaceholderText('+1234567890')
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.type(phoneInput, '+4712345678')
 
       // Send and verify
@@ -285,7 +290,7 @@ describe('ContactModal', () => {
       await user.type(screen.getByLabelText('Name'), 'SMS Contact')
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
 
-      const phoneInput = screen.getByPlaceholderText('+1234567890')
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.type(phoneInput, '+4712345678')
 
       await user.click(screen.getByText('Send Verification Code'))
@@ -317,7 +322,7 @@ describe('ContactModal', () => {
       await user.type(screen.getByLabelText('Name'), 'SMS Contact')
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
 
-      const phoneInput = screen.getByPlaceholderText('+1234567890')
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.type(phoneInput, '+4712345678')
 
       // Try to submit without verifying
@@ -437,7 +442,7 @@ describe('ContactModal', () => {
 
       // SMS should be checked and phone number filled
       expect(screen.getByRole('checkbox', { name: /SMS Notifications/ })).toBeChecked()
-      const phoneInput = screen.getByPlaceholderText('+1234567890') as HTMLInputElement
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900') as HTMLInputElement
       expect(phoneInput.value).toBe('+4799999999')
 
       // Should show as already verified (no verification button)
@@ -456,7 +461,7 @@ describe('ContactModal', () => {
       })
 
       // Change phone number
-      const phoneInput = screen.getByPlaceholderText('+1234567890')
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.clear(phoneInput)
       await user.type(phoneInput, '+4788888888')
 
@@ -475,7 +480,7 @@ describe('ContactModal', () => {
         expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       })
 
-      const phoneInput = screen.getByPlaceholderText('+1234567890')
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       
       // Change phone number
       await user.clear(phoneInput)
@@ -508,7 +513,7 @@ describe('ContactModal', () => {
       await user.click(screen.getByRole('checkbox', { name: /Email Notifications/ }))
 
       // Verify all provider sections are visible
-      expect(screen.getByPlaceholderText('+1234567890')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('+1 234 567 8900')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('your@email.com')).toBeInTheDocument()
       expect(screen.getAllByText('Send Verification Code')).toHaveLength(2) // SMS and Email verification buttons
     })
@@ -550,7 +555,7 @@ describe('ContactModal', () => {
       await user.type(screen.getByLabelText('Name'), 'SMS Contact')
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
 
-      const phoneInput = screen.getByPlaceholderText('+1234567890')
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.type(phoneInput, 'invalid')
       await user.click(screen.getByText('Send Verification Code'))
 
@@ -589,7 +594,7 @@ describe('ContactModal', () => {
       // Set up some state
       await user.type(screen.getByLabelText('Name'), 'Test')
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
-      const phoneInput = screen.getByPlaceholderText('+1234567890')
+      const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.type(phoneInput, '+4712345678')
 
       // Close modal

@@ -17,6 +17,7 @@ import { api, ProviderInfo, ApiError } from "../lib/api"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
 import { useTranslations } from "next-intl"
+import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
 
 // Helper to sanitize name for ntfy topic
 function sanitizeForNtfyTopic(name: string): string {
@@ -54,6 +55,7 @@ export function ContactModal({
 }: ContactModalProps) {
   const t = useTranslations('contacts')
   const tCommon = useTranslations('common')
+  const phonePlaceholder = usePhonePlaceholder()
   const [name, setName] = useState("")
   const [ntfyTopic, setNtfyTopic] = useState("")
   const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
@@ -787,7 +789,7 @@ export function ContactModal({
                                   }
                                 }
                               }}
-                              placeholder="+1234567890"
+                              placeholder={phonePlaceholder}
                               disabled={isSubmitting || isSendingVerification}
                               className={phoneNumberError ? 'border-red-500 focus:border-red-500' : ''}
                             />
