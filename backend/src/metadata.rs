@@ -185,7 +185,6 @@ pub struct Contact {
     pub id: Option<String>, // UUIDv4
     pub wallet_checksum: String,
     pub name: String,
-    pub language: Language,
     pub notification_methods: Vec<NotificationMethod>,
     pub created_at: String,
     pub is_active: bool,
@@ -1384,12 +1383,10 @@ impl MetadataDb {
         &self,
         wallet_checksum: &str,
         name: &str,
-        language: &Language,
         notification_methods: Vec<(ProviderType, String)>,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let name = name.to_string();
-        let language = *language;
         let checksum = wallet_checksum.to_string();
 
         spawn_blocking(move || -> Result<String> {
@@ -1399,8 +1396,8 @@ impl MetadataDb {
             // Insert contact with UUID
             let contact_id = Uuid::new_v4().to_string();
             tx.execute(
-                "INSERT INTO contacts (id, wallet_checksum, name, language) VALUES (?1, ?2, ?3, ?4)",
-                params![&contact_id, checksum, &name, language.as_str()],
+                "INSERT INTO contacts (id, wallet_checksum, name) VALUES (?1, ?2, ?3)",
+                params![&contact_id, checksum, &name],
             )?;
 
             // Insert notification methods
@@ -1437,23 +1434,21 @@ impl MetadataDb {
             let conn = pool.get()?;
 
             // Get ALL contacts ordered by created_at ASC (oldest first) for limits enforcement
-            let query = "SELECT id, wallet_checksum, name, language, created_at, is_active
+            let query = "SELECT id, wallet_checksum, name, created_at, is_active
                          FROM contacts
                          WHERE wallet_checksum = ?1 ORDER BY created_at ASC";
             let mut stmt = conn.prepare(query)?;
 
             let contact_iter = stmt.query_map(params![checksum], |row| {
-                let language_str: String = row.get(3)?;
                 Ok((
                     row.get::<_, String>(0)?, // id as UUIDv4
                     Contact {
                         id: Some(row.get(0)?),
                         wallet_checksum: row.get(1)?,
                         name: row.get(2)?,
-                        language: Language::from(language_str.as_str()),
                         notification_methods: Vec::new(), // Will be populated below
-                        created_at: row.get(4)?,
-                        is_active: row.get::<_, i64>(5).unwrap_or(1) != 0, // SQLite stores bool as int
+                        created_at: row.get(3)?,
+                        is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
                     },
                 ))
             })?;
@@ -1507,28 +1502,26 @@ impl MetadataDb {
 
             // Get contacts for the wallet (active only or all based on parameter)
             let query = if include_inactive {
-                "SELECT id, wallet_checksum, name, language, created_at, is_active
+                "SELECT id, wallet_checksum, name, created_at, is_active
                  FROM contacts
                  WHERE wallet_checksum = ?1 ORDER BY name, created_at"
             } else {
-                "SELECT id, wallet_checksum, name, language, created_at, 1 as is_active
+                "SELECT id, wallet_checksum, name, created_at, 1 as is_active
                  FROM contacts
                  WHERE wallet_checksum = ?1 AND is_active = 1 ORDER BY name, created_at"
             };
             let mut stmt = conn.prepare(query)?;
 
             let contact_iter = stmt.query_map(params![checksum], |row| {
-                let language_str: String = row.get(3)?;
                 Ok((
                     row.get::<_, String>(0)?, // id as UUIDv4
                     Contact {
                         id: Some(row.get(0)?),
                         wallet_checksum: row.get(1)?,
                         name: row.get(2)?,
-                        language: Language::from(language_str.as_str()),
                         notification_methods: Vec::new(), // Will be populated below
-                        created_at: row.get(4)?,
-                        is_active: row.get::<_, i64>(5).unwrap_or(1) != 0, // SQLite stores bool as int
+                        created_at: row.get(3)?,
+                        is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
                     },
                 ))
             })?;
@@ -1636,20 +1629,18 @@ impl MetadataDb {
             let conn = pool.get()?;
 
             // Get the contact
-            let query = "SELECT id, wallet_checksum, name, language, created_at, is_active
+            let query = "SELECT id, wallet_checksum, name, created_at, is_active
                          FROM contacts
                          WHERE id = ?1 AND wallet_checksum = ?2";
             let mut stmt = conn.prepare(query)?;
             let contact_result = stmt.query_row(params![contact_id, checksum], |row| {
-                let language_str: String = row.get(3)?;
                 Ok(Contact {
                     id: Some(row.get(0)?),
                     wallet_checksum: row.get(1)?,
                     name: row.get(2)?,
-                    language: Language::from(language_str.as_str()),
                     notification_methods: Vec::new(), // Will be populated below
-                    created_at: row.get(4)?,
-                    is_active: row.get::<_, i64>(5).unwrap_or(1) != 0, // SQLite stores bool as int
+                    created_at: row.get(3)?,
+                    is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
                 })
             });
 
@@ -2863,7 +2854,6 @@ impl MetadataDb {
         provider_type: &str,
         notification_target: &str,
         contact_name: &str,
-        language: &str,
         verification_code: Option<&str>,
     ) -> Result<i64> {
         let pool = self.pool.clone();
@@ -2871,7 +2861,6 @@ impl MetadataDb {
         let provider_type = provider_type.to_string();
         let notification_target = notification_target.to_string();
         let contact_name = contact_name.to_string();
-        let language = language.to_string();
         let verification_code = verification_code.map(|s| s.to_string());
 
         spawn_blocking(move || {
@@ -2880,14 +2869,13 @@ impl MetadataDb {
 
             conn.execute(
                 "INSERT INTO pending_contact_verifications
-                 (wallet_checksum, provider_type, notification_target, contact_name, language, verification_code, expires_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                 (wallet_checksum, provider_type, notification_target, contact_name, verification_code, expires_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![
                     &wallet_checksum,
                     &provider_type,
                     &notification_target,
                     &contact_name,
-                    &language,
                     &verification_code,
                     expires_at.to_rfc3339()
                 ],
@@ -2900,7 +2888,7 @@ impl MetadataDb {
         &self,
         wallet_checksum: &str,
         notification_target: &str,
-    ) -> Result<Option<(i64, String, String, Option<String>)>> {
+    ) -> Result<Option<(i64, String, Option<String>)>> {
         let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
         let notification_target = notification_target.to_string();
@@ -2908,7 +2896,7 @@ impl MetadataDb {
         spawn_blocking(move || {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, contact_name, language, verification_code
+                "SELECT id, contact_name, verification_code
                  FROM pending_contact_verifications
                  WHERE wallet_checksum = ?1
                  AND notification_target = ?2
@@ -2919,7 +2907,7 @@ impl MetadataDb {
 
             let result = stmt
                 .query_row(params![&wallet_checksum, &notification_target], |row| {
-                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?))
                 })
                 .optional()?;
 
@@ -3047,14 +3035,12 @@ impl MetadataDb {
         contact_id: &str,
         wallet_checksum: &str,
         name: &str,
-        language: &Language,
         new_methods: Vec<(ProviderType, String)>,
     ) -> Result<()> {
         let pool = self.pool.clone();
         let contact_id = contact_id.to_string();
         let checksum = wallet_checksum.to_string();
         let contact_name = name.to_string();
-        let lang = *language;
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -3065,8 +3051,8 @@ impl MetadataDb {
             match (|| -> Result<()> {
                 // Update contact basics
                 conn.execute(
-                    "UPDATE contacts SET name = ?1, language = ?2 WHERE id = ?3 AND wallet_checksum = ?4",
-                    params![contact_name, lang.as_str(), contact_id, checksum],
+                    "UPDATE contacts SET name = ?1 WHERE id = ?2 AND wallet_checksum = ?3",
+                    params![contact_name, contact_id, checksum],
                 )?;
 
                 // Check if contact was updated (exists and belongs to wallet)
@@ -3236,6 +3222,22 @@ impl MetadataDb {
                 params![currency, user_id],
             )?;
             Ok(())
+        })
+        .await?
+    }
+
+    /// Get user's preferred language for notifications
+    pub async fn get_user_preferred_language(&self, user_id: &str) -> Result<Language> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        spawn_blocking(move || -> Result<Language> {
+            let conn = pool.get()?;
+            let language: Option<String> = conn
+                .prepare("SELECT preferred_language FROM users WHERE id = ?1")?
+                .query_row(params![user_id], |row| row.get(0))
+                .optional()?
+                .flatten();
+            Ok(language.map(|l| Language::from(l.as_str())).unwrap_or(Language::English))
         })
         .await?
     }

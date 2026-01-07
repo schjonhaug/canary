@@ -2,6 +2,9 @@ use crate::metadata::{
     Contact, EventType, Language, NotificationMethod, ProviderType, Transaction,
     TransactionNotification,
 };
+
+// Test language constant for all tests
+const TEST_LANGUAGE: Language = Language::English;
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use crate::ntfy_provider::NtfyProvider;
 use crate::twilio_provider::TwilioProvider;
@@ -30,12 +33,11 @@ fn create_test_transaction(
     }
 }
 
-fn create_test_contact(name: &str, language: Language) -> Contact {
+fn create_test_contact(name: &str) -> Contact {
     Contact {
         id: Some("550e8400-e29b-41d4-a716-446655440001".to_string()),
         wallet_checksum: "test_wallet".to_string(),
         name: name.to_string(),
-        language,
         notification_methods: vec![],
         created_at: "2023-01-01 12:00:00".to_string(),
         is_active: true,
@@ -79,12 +81,12 @@ async fn test_ntfy_send_notification() {
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 
-    let mut contact = create_test_contact("Test User", Language::English);
+    let mut contact = create_test_contact("Test User");
     contact.notification_methods =
         vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
 
     let results = provider
-        .send_notification(&notification, "Test Wallet", &[contact])
+        .send_notification(&notification, "Test Wallet", &[contact], &TEST_LANGUAGE)
         .await;
 
     assert_eq!(results.len(), 1);
@@ -100,14 +102,15 @@ async fn test_ntfy_filters_only_ntfy_methods() {
     let event = create_test_transaction(EventType::Send, 50_000_000, false);
     let notification = TransactionNotification::Pending(event);
 
-    let mut contact = create_test_contact("Test User", Language::Norwegian);
+    let mut contact = create_test_contact("Test User");
     contact.notification_methods = vec![
         create_notification_method(ProviderType::Ntfy, "my-topic"),
         create_notification_method(ProviderType::Sms, "+4712345678"),
     ];
 
+    let norwegian = Language::Norwegian;
     let results = provider
-        .send_notification(&notification, "Test Wallet", &[contact])
+        .send_notification(&notification, "Test Wallet", &[contact], &norwegian)
         .await;
 
     // Should only process the ntfy method
@@ -161,14 +164,14 @@ async fn test_twilio_send_notification() {
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 
-    let mut contact = create_test_contact("Test User", Language::English);
+    let mut contact = create_test_contact("Test User");
     contact.notification_methods = vec![create_notification_method(
         ProviderType::Sms,
         "+15551234567",
     )];
 
     let results = provider
-        .send_notification(&notification, "Test Wallet", &[contact])
+        .send_notification(&notification, "Test Wallet", &[contact], &TEST_LANGUAGE)
         .await;
 
     assert_eq!(results.len(), 1);
@@ -192,14 +195,15 @@ async fn test_twilio_filters_only_sms_methods() {
     let event = create_test_transaction(EventType::Send, 50_000_000, false);
     let notification = TransactionNotification::Pending(event);
 
-    let mut contact = create_test_contact("Test User", Language::Norwegian);
+    let mut contact = create_test_contact("Test User");
     contact.notification_methods = vec![
         create_notification_method(ProviderType::Ntfy, "my-topic"),
         create_notification_method(ProviderType::Sms, "+4712345678"),
     ];
 
+    let norwegian = Language::Norwegian;
     let results = provider
-        .send_notification(&notification, "Test Wallet", &[contact])
+        .send_notification(&notification, "Test Wallet", &[contact], &norwegian)
         .await;
 
     // Should only process the SMS method
@@ -228,6 +232,7 @@ impl NotificationProvider for MockProvider {
         _notification: &TransactionNotification,
         _wallet_name: &str,
         contacts: &[Contact],
+        _user_language: &Language,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         contacts
             .iter()
@@ -289,19 +294,19 @@ async fn test_notification_manager() {
     // Send notifications
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
-    let mut contact = create_test_contact("Test User", Language::English);
+    let mut contact = create_test_contact("Test User");
     contact.notification_methods =
         vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
 
     let results = manager
-        .send_notifications("success", &notification, "Test Wallet", &[contact.clone()])
+        .send_notifications("success", &notification, "Test Wallet", &[contact.clone()], &TEST_LANGUAGE)
         .await
         .unwrap();
     assert_eq!(results.len(), 1);
     assert!(results[0].1.success);
 
     let results = manager
-        .send_notifications("failure", &notification, "Test Wallet", &[contact])
+        .send_notifications("failure", &notification, "Test Wallet", &[contact], &TEST_LANGUAGE)
         .await
         .unwrap();
     assert_eq!(results.len(), 1);
@@ -316,10 +321,10 @@ async fn test_notification_manager_unknown_provider() {
     let manager = NotificationManager::new();
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
-    let contact = create_test_contact("Test User", Language::English);
+    let contact = create_test_contact("Test User");
 
     let result = manager
-        .send_notifications("unknown", &notification, "Test Wallet", &[contact])
+        .send_notifications("unknown", &notification, "Test Wallet", &[contact], &TEST_LANGUAGE)
         .await;
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not found"));

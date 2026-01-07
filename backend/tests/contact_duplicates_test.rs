@@ -1,6 +1,6 @@
 use canary::{
     config::{AppConfig, NetworkConfig, OperatingMode},
-    metadata::{Language, MetadataDb, ProviderType},
+    metadata::{MetadataDb, ProviderType},
 };
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -48,12 +48,7 @@ async fn test_duplicate_email_prevention() {
     // First, create a contact with an email
     let contact1_methods = vec![(ProviderType::Email, "john@example.com".to_string())];
     let contact1_id = metadata_db
-        .insert_contact_with_notification_methods(
-            &wallet_checksum,
-            "John",
-            &Language::English,
-            contact1_methods,
-        )
+        .insert_contact_with_notification_methods(&wallet_checksum, "John", contact1_methods)
         .await
         .unwrap();
 
@@ -171,12 +166,7 @@ async fn test_duplicate_phone_prevention() {
     // First, create a contact with a phone number
     let contact1_methods = vec![(ProviderType::Sms, "+4712345678".to_string())];
     let contact1_id = metadata_db
-        .insert_contact_with_notification_methods(
-            &wallet_checksum,
-            "Alice",
-            &Language::English,
-            contact1_methods,
-        )
+        .insert_contact_with_notification_methods(&wallet_checksum, "Alice", contact1_methods)
         .await
         .unwrap();
 
@@ -282,12 +272,7 @@ async fn test_ntfy_topics_excluded_from_duplicate_check() {
     // Create contact with ntfy topic
     let contact1_methods = vec![(ProviderType::Ntfy, "some-topic".to_string())];
     metadata_db
-        .insert_contact_with_notification_methods(
-            &wallet_checksum,
-            "Bob",
-            &Language::English,
-            contact1_methods,
-        )
+        .insert_contact_with_notification_methods(&wallet_checksum, "Bob", contact1_methods)
         .await
         .unwrap();
 
@@ -350,12 +335,7 @@ async fn test_mixed_provider_types_allowed() {
     // Create contact with email
     let contact1_methods = vec![(ProviderType::Email, "+123456789".to_string())]; // Phone number as email (weird but allowed)
     metadata_db
-        .insert_contact_with_notification_methods(
-            &wallet_checksum,
-            "Contact 1",
-            &Language::English,
-            contact1_methods,
-        )
+        .insert_contact_with_notification_methods(&wallet_checksum, "Contact 1", contact1_methods)
         .await
         .unwrap();
 
@@ -421,7 +401,6 @@ async fn test_verification_endpoint_rejects_duplicates() {
         .insert_contact_with_notification_methods(
             &wallet_checksum,
             "Existing Contact",
-            &Language::English,
             contact1_methods,
         )
         .await

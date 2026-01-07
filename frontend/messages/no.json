@@ -587,7 +587,6 @@
       "description": "Sett opp en ny kontakt for å motta Bitcoin-transaksjonsvarsler.",
       "nameLabel": "Navn",
       "namePlaceholder": "Kontaktnavn",
-      "languageLabel": "Språk",
       "methodTitle": "Varslingsmetoder",
       "providers": {
         "ntfy": "ntfy.sh-varsler",
@@ -595,7 +594,8 @@
         "email": "E-postvarsler"
       },
       "ntfy": {
-        "topicHint": "Emne genereres automatisk basert på kontaktnavn"
+        "topicLabel": "ntfy-emne",
+        "topicHint": "Abonner på dette emnet på ntfy.sh for å motta varsler"
       },
       "sms": {
         "phoneHint": "Inkluder landskode"
@@ -639,7 +639,8 @@
       "verifyNewEmail": "Verifiser den nye e-postadressen før du lagrer kontakten"
     },
     "errors": {
-      "nameRequired": "Kontaktnavn er påkrevd"
+      "nameRequired": "Kontaktnavn er påkrevd",
+      "ntfyTopicRequired": "ntfy-emne er påkrevd"
     },
     "languages": {
       "en": "Engelsk",

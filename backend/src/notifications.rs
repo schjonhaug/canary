@@ -1,4 +1,4 @@
-use crate::metadata::{Contact, NotificationMethod, TransactionNotification};
+use crate::metadata::{Contact, Language, NotificationMethod, TransactionNotification};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,7 @@ pub trait NotificationProvider: Send + Sync {
         notification: &TransactionNotification,
         wallet_name: &str,
         contacts: &[Contact],
+        user_language: &Language,
     ) -> Vec<(NotificationMethod, NotificationResult, String)>;
 
     fn provider_info(&self) -> ProviderInfo;
@@ -61,11 +62,12 @@ impl NotificationManager {
         notification: &TransactionNotification,
         wallet_name: &str,
         contacts: &[Contact],
+        user_language: &Language,
     ) -> Result<Vec<(NotificationMethod, NotificationResult, String)>> {
         match self.providers.get(provider_name) {
             Some(provider) => {
                 let results = provider
-                    .send_notification(notification, wallet_name, contacts)
+                    .send_notification(notification, wallet_name, contacts, user_language)
                     .await;
                 Ok(results)
             }

@@ -340,13 +340,12 @@ async fn main() -> anyhow::Result<()> {
                             );
 
                             // Add "Canary" contact with email notification
-                            use metadata::{Language, ProviderType};
+                            use metadata::ProviderType;
                             match app_services
                                 .metadata_db
                                 .insert_contact_with_notification_methods(
                                     &wallet_metadata.checksum,
                                     "Canary",
-                                    &Language::English,
                                     vec![(
                                         ProviderType::Email,
                                         "contact@canarybitcoin.com".to_string(),
@@ -802,6 +801,13 @@ async fn main() -> anyhow::Result<()> {
                             .ok()
                             .flatten();
 
+                        // Look up user's preferred language for notifications
+                        let user_language = notification_wallet_manager
+                            .metadata_db
+                            .get_user_preferred_language(&wallet_info.user_id)
+                            .await
+                            .unwrap_or(crate::metadata::Language::English);
+
                         // Generate message content once (same for all providers)
                         let mut message_content = String::new();
                         let mut provider_counts = std::collections::HashMap::new();
@@ -838,7 +844,7 @@ async fn main() -> anyhow::Result<()> {
                                 let ntfy_provider = NtfyProvider::with_auth(ntfy_server, ntfy_auth);
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
-                                    .send_notification(&notification, &wallet_info.name, &contacts)
+                                    .send_notification(&notification, &wallet_info.name, &contacts, &user_language)
                                     .await)
                             } else {
                                 manager
@@ -847,6 +853,7 @@ async fn main() -> anyhow::Result<()> {
                                         &notification,
                                         &wallet_info.name,
                                         &contacts,
+                                        &user_language,
                                     )
                                     .await
                             };

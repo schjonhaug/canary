@@ -37,6 +37,7 @@ impl NotificationProvider for EmailProvider {
         notification: &TransactionNotification,
         wallet_name: &str,
         contacts: &[Contact],
+        user_language: &Language,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
@@ -52,7 +53,7 @@ impl NotificationProvider for EmailProvider {
                     let message = MessageFormatter::create_localized_message(
                         notification,
                         wallet_name,
-                        &contact.language,
+                        user_language,
                     );
                     results.push((
                         method.clone(),
@@ -82,14 +83,14 @@ impl NotificationProvider for EmailProvider {
                 let message = MessageFormatter::create_localized_message(
                     notification,
                     wallet_name,
-                    &contact.language,
+                    user_language,
                 );
 
                 // Build email subject and body based on notification type
                 let subject = MessageFormatter::create_localized_email_subject(
                     notification,
                     wallet_name,
-                    &contact.language,
+                    user_language,
                 );
 
                 let (html_body, text_body) = match notification {
@@ -105,14 +106,14 @@ impl NotificationProvider for EmailProvider {
                             emoji,
                             &contact.name,
                             &message,
-                            &contact.language,
+                            user_language,
                         );
 
                         let text_body = Self::build_transaction_text(
                             &subject,
                             &contact.name,
                             &message,
-                            &contact.language,
+                            user_language,
                         );
 
                         (html_body, text_body)
@@ -122,13 +123,13 @@ impl NotificationProvider for EmailProvider {
                             wallet_name,
                             &contact.name,
                             &message,
-                            &contact.language,
+                            user_language,
                         );
                         let text_body = Self::build_balance_alert_text(
                             wallet_name,
                             &contact.name,
                             &message,
-                            &contact.language,
+                            user_language,
                         );
                         (html_body, text_body)
                     }

@@ -4,7 +4,7 @@ use crate::admin_notifications::AdminNotifications;
 use crate::api::AppServicesState;
 use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::metadata::{Language, ProviderType, WalletDetailResponse};
+use crate::metadata::{ProviderType, WalletDetailResponse};
 use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
 };
@@ -210,43 +210,16 @@ pub async fn create_wallet_non_blocking(
         Ok(wallet_metadata) => {
             // Check if cloud mode - if so, auto-add user as contact
             if config.is_cloud_mode() {
-                // Log the received language from frontend
-                eprintln!(
-                    "Received preferred_language from frontend: {:?}",
-                    payload.preferred_language
-                );
-
                 // Get user info for contact creation (NON-BLOCKING)
                 let metadata_db = app_services.metadata_db.clone();
                 let user_id = user.user_id.clone();
                 let wallet_checksum = wallet_metadata.checksum.clone();
-                let preferred_language = payload.preferred_language.clone();
 
                 // Spawn async task to create contact (don't block wallet creation if this fails)
                 tokio::spawn(async move {
                     // Get user details from database (no mutex needed)
                     match metadata_db.get_user_by_id(&user_id).await {
                         Ok(Some(user_record)) => {
-                            // Map browser language to supported languages
-                            let language = match preferred_language.as_deref() {
-                                Some(lang)
-                                    if lang.starts_with("no")
-                                        || lang.starts_with("nb")
-                                        || lang.starts_with("nn") =>
-                                {
-                                    eprintln!("Mapping language '{}' to Norwegian", lang);
-                                    Language::Norwegian
-                                }
-                                Some(lang) => {
-                                    eprintln!("Mapping language '{}' to English (default)", lang);
-                                    Language::English
-                                }
-                                None => {
-                                    eprintln!("No language provided, defaulting to English");
-                                    Language::English
-                                }
-                            };
-
                             // Use user's name or fallback to "Me"
                             let contact_name = user_record.name.as_deref().unwrap_or("Me");
 
@@ -258,7 +231,6 @@ pub async fn create_wallet_non_blocking(
                                 .insert_contact_with_notification_methods(
                                     &wallet_checksum,
                                     contact_name,
-                                    &language,
                                     notification_methods,
                                 )
                                 .await

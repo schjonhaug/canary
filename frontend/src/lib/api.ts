@@ -2,7 +2,7 @@ import { getApiBaseUrl, handleApiResponse, createNetworkError, ApiError } from '
 
 // Re-export ApiError for convenience
 export { ApiError } from './utils'
-import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest, NotificationLanguage } from '../types'
+import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest } from '../types'
 
 export interface ProviderInfo {
   name: string
@@ -114,14 +114,12 @@ class ApiClient {
   async createContact(
     walletChecksum: string,
     name: string,
-    language: NotificationLanguage,
     notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts`, {
       method: 'POST',
       body: JSON.stringify({
         name,
-        language,
         notification_methods: notificationMethods,
       }),
     })
@@ -130,7 +128,6 @@ class ApiClient {
   async sendContactVerification(
     walletChecksum: string,
     name: string,
-    language: string,
     phoneNumber?: string,
     emailAddress?: string
   ): Promise<{ message: string; auto_verified?: boolean }> {
@@ -138,7 +135,6 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({
         name,
-        language,
         phone_number: phoneNumber,
         email_address: emailAddress,
       }),
@@ -165,14 +161,12 @@ class ApiClient {
     walletChecksum: string,
     contactId: string,
     name: string,
-    language: NotificationLanguage,
     notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {
       method: 'PUT',
       body: JSON.stringify({
         name,
-        language,
         notification_methods: notificationMethods,
       }),
     })

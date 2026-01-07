@@ -18,9 +18,24 @@ import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
 import { useTranslations } from "next-intl"
 
-// Notification languages supported by backend (for contact notifications)
-// Must match backend Language enum: English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish
-const NOTIFICATION_LANGUAGE_VALUES = ['en', 'no', 'es', 'pt', 'de', 'fr', 'ja', 'da', 'sv'] as const
+// Helper to sanitize name for ntfy topic
+function sanitizeForNtfyTopic(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 30) // Leave room for checksum suffix
+}
+
+// Generate default ntfy topic from name and wallet checksum
+function generateDefaultNtfyTopic(name: string, walletChecksum: string): string {
+  const sanitizedName = sanitizeForNtfyTopic(name)
+  if (!sanitizedName) {
+    return walletChecksum.substring(0, 8)
+  }
+  return `${sanitizedName}-${walletChecksum.substring(0, 8)}`
+}
 
 interface ContactModalProps {
   isOpen: boolean
@@ -40,7 +55,8 @@ export function ContactModal({
   const t = useTranslations('contacts')
   const tCommon = useTranslations('common')
   const [name, setName] = useState("")
-  const [language, setLanguage] = useState<typeof NOTIFICATION_LANGUAGE_VALUES[number]>('en')
+  const [ntfyTopic, setNtfyTopic] = useState("")
+  const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
   const [providers, setProviders] = useState<ProviderInfo[]>([])
   const [enabledProviders, setEnabledProviders] = useState<Record<string, boolean>>({})
   const [providerValues, setProviderValues] = useState<Record<string, string>>({})
@@ -162,20 +178,21 @@ export function ContactModal({
       setOriginalEmailAddress(null)
       setHasChanges(false)
       setIsDeleteModalOpen(false)
-      
+      setNtfyTopic("")
+      setUserEditedNtfyTopic(false)
+
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
-      
+
       if (editContact) {
         // Populate form with existing contact data
         setName(editContact.name)
-        setLanguage(editContact.language)
-        
+
         // Set up providers based on existing notification methods
         const newEnabledProviders: Record<string, boolean> = {}
         const newProviderValues: Record<string, string> = {}
-        
+
         editContact.notification_methods.forEach(method => {
           if (method.provider_type === 'sms') {
             const phoneNumber = method.display_target || method.notification_target
@@ -185,6 +202,10 @@ export function ContactModal({
             setSmsVerified(true) // SMS already exists on contact, so it's verified
           } else if (method.provider_type === 'ntfy') {
             newEnabledProviders['ntfy'] = true
+            // Pre-populate ntfy topic from existing notification method
+            const existingTopic = method.notification_target
+            setNtfyTopic(existingTopic)
+            setUserEditedNtfyTopic(true) // Mark as edited so it doesn't auto-update
           } else if (method.provider_type === 'email') {
             const emailAddress = method.display_target || method.notification_target
             newEnabledProviders['email'] = true
@@ -193,13 +214,12 @@ export function ContactModal({
             setEmailVerified(true) // Email already exists on contact, so it's verified
           }
         })
-        
+
         setEnabledProviders(newEnabledProviders)
         setProviderValues(newProviderValues)
       } else {
         // Reset form for new contact
         setName("")
-        setLanguage('en')
         setEnabledProviders({})
         setProviderValues({})
       }
@@ -250,11 +270,10 @@ export function ContactModal({
       await api.sendContactVerification(
         walletChecksum,
         name.trim() || `Contact-${phoneNumber.slice(-4)}`,
-        language,
         phoneNumber,
         undefined // emailAddress
       )
-      
+
       setSmsVerificationPhone(phoneNumber)
       setSmsVerificationSent(true)
       setSmsVerificationCode("")
@@ -358,11 +377,10 @@ export function ContactModal({
       const result = await api.sendContactVerification(
         walletChecksum,
         name.trim() || `Contact-${emailAddress.split('@')[0]}`,
-        language,
         undefined, // phoneNumber
         emailAddress
       )
-      
+
       // Check if email was auto-verified (user's own email)
       if (result.auto_verified) {
         setEmailVerified(true)
@@ -469,6 +487,12 @@ export function ContactModal({
     const hasSms = enabledProviders['twilio'] && providerValues['twilio']?.trim()
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
 
+    // Validate ntfy topic if ntfy is enabled
+    if (hasNtfy && !ntfyTopic.trim()) {
+      setError(t('errors.ntfyTopicRequired'))
+      return
+    }
+
     // Check if SMS verification is required but not completed
     if (smsVerificationRequired && !smsVerified) {
       if (phoneNumberChanged) {
@@ -496,32 +520,31 @@ export function ContactModal({
       // If verification requirements are met
       if ((!hasSms || (hasSms && smsVerified)) && (!hasEmail || (hasEmail && emailVerified))) {
         const notificationMethods: { provider_type: 'sms' | 'ntfy' | 'email'; notification_target: string }[] = []
-        
+
         if (hasNtfy) {
-          notificationMethods.push({ provider_type: 'ntfy', notification_target: '' })
+          notificationMethods.push({ provider_type: 'ntfy', notification_target: ntfyTopic.trim() })
         }
-        
+
         if (hasEmail && emailVerified) {
-          notificationMethods.push({ 
-            provider_type: 'email', 
-            notification_target: emailVerificationAddress || providerValues['email'].trim() 
+          notificationMethods.push({
+            provider_type: 'email',
+            notification_target: emailVerificationAddress || providerValues['email'].trim()
           })
         }
-        
+
         if (hasSms && smsVerified) {
-          notificationMethods.push({ 
-            provider_type: 'sms', 
+          notificationMethods.push({
+            provider_type: 'sms',
             notification_target: smsVerificationPhone || providerValues['twilio'].trim()
           })
         }
-        
+
         if (isEditMode && editContact) {
           // Use PUT for updates - atomic transaction
           await api.updateContact(
             walletChecksum,
             editContact.id,
             name.trim(),
-            language,
             notificationMethods
           )
         } else {
@@ -529,7 +552,6 @@ export function ContactModal({
           await api.createContact(
             walletChecksum,
             name.trim(),
-            language,
             notificationMethods
           )
         }
@@ -580,18 +602,17 @@ export function ContactModal({
 
   const handleResendCode = async () => {
     if (!smsVerificationPhone) return
-    
+
     setIsSendingVerification(true)
     setError(null)
-    
+
     try {
       await api.sendContactVerification(
         walletChecksum,
         name.trim(),
-        language,
         smsVerificationPhone
       )
-      
+
       setSmsVerificationCode("")
       startTimer()
       setError(null)
@@ -634,32 +655,17 @@ export function ContactModal({
               id="contact-name"
               value={name}
               onChange={(e) => {
-                setName(e.target.value)
+                const newName = e.target.value
+                setName(newName)
                 setHasChanges(true)
+                // Auto-update ntfy topic when name changes (if user hasn't manually edited it)
+                if (enabledProviders['ntfy'] && !userEditedNtfyTopic) {
+                  setNtfyTopic(generateDefaultNtfyTopic(newName, walletChecksum))
+                }
               }}
               placeholder={t('add.namePlaceholder')}
               disabled={isSubmitting}
             />
-          </div>
-
-          <div>
-            <Label htmlFor="contact-language">{t('add.languageLabel')}</Label>
-            <select
-              id="contact-language"
-              value={language}
-              onChange={(e) => {
-                setLanguage(e.target.value as typeof NOTIFICATION_LANGUAGE_VALUES[number])
-                setHasChanges(true)
-              }}
-              disabled={isSubmitting}
-              className="w-full h-10 border border-input bg-background px-3 py-2 rounded-md text-sm"
-            >
-              {NOTIFICATION_LANGUAGE_VALUES.map((langValue) => (
-                <option key={langValue} value={langValue}>
-                  {t(`languages.${langValue}`)}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div>
@@ -677,6 +683,10 @@ export function ContactModal({
                           [provider.name]: e.target.checked
                         }))
                         setHasChanges(true)
+                        // Generate default ntfy topic when ntfy is enabled and no topic set
+                        if (provider.name === 'ntfy' && e.target.checked && !ntfyTopic && !userEditedNtfyTopic) {
+                          setNtfyTopic(generateDefaultNtfyTopic(name, walletChecksum))
+                        }
                       }}
                       disabled={isSubmitting}
                       className="mt-1"
@@ -980,9 +990,25 @@ export function ContactModal({
                         </div>
                       )}
                       {enabledProviders[provider.name] && provider.name === 'ntfy' && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {t('add.ntfy.topicHint')}
-                        </p>
+                        <div className="mt-2 space-y-2">
+                          <div>
+                            <Label htmlFor="ntfy-topic">{t('add.ntfy.topicLabel')}</Label>
+                            <Input
+                              id="ntfy-topic"
+                              value={ntfyTopic}
+                              onChange={(e) => {
+                                setNtfyTopic(e.target.value)
+                                setUserEditedNtfyTopic(true)
+                                setHasChanges(true)
+                              }}
+                              placeholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
+                              disabled={isSubmitting}
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {t('add.ntfy.topicHint')}
+                            </p>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </label>

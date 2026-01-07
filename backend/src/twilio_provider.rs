@@ -1,5 +1,5 @@
 use crate::message_formatter::MessageFormatter;
-use crate::metadata::{Contact, NotificationMethod, ProviderType, TransactionNotification};
+use crate::metadata::{Contact, Language, NotificationMethod, ProviderType, TransactionNotification};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine as _};
@@ -144,6 +144,7 @@ impl NotificationProvider for TwilioProvider {
         notification: &TransactionNotification,
         wallet_name: &str,
         contacts: &[Contact],
+        user_language: &Language,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
@@ -159,7 +160,7 @@ impl NotificationProvider for TwilioProvider {
                 let message = MessageFormatter::create_localized_message(
                     notification,
                     wallet_name,
-                    &contact.language,
+                    user_language,
                 );
                 let result = self.send_sms(&method.notification_target, &message).await;
                 results.push((method.clone(), result, message));
