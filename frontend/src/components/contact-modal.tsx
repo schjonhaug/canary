@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef } from "react"
-import { 
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -16,8 +16,11 @@ import { Bell, MessageCircle, Mail } from "lucide-react"
 import { api, ProviderInfo, ApiError } from "../lib/api"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
+import { SmsProviderFields, EmailProviderFields, NtfyProviderFields } from "./contact-modal/index"
 import { useTranslations } from "next-intl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
+import { useSmsVerification } from "@/hooks/useSmsVerification"
+import { useEmailVerification } from "@/hooks/useEmailVerification"
 
 // Helper to sanitize name for ntfy topic
 function sanitizeForNtfyTopic(name: string): string {
@@ -64,53 +67,48 @@ export function ContactModal({
   const [providerValues, setProviderValues] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [smsVerificationError, setSmsVerificationError] = useState<string | null>(null)
-  const [phoneNumberError, setPhoneNumberError] = useState<string | null>(null)
-  const [emailVerificationError, setEmailVerificationError] = useState<string | null>(null)
-  const [emailAddressError, setEmailAddressError] = useState<string | null>(null)
-  const [emailVerificationSent, setEmailVerificationSent] = useState(false)
-  const [emailVerificationCode, setEmailVerificationCode] = useState("")
-  const [emailVerificationAddress, setEmailVerificationAddress] = useState<string | null>(null)
-  const [emailVerified, setEmailVerified] = useState(false)
-  const [showEmailVerificationSuccess, setShowEmailVerificationSuccess] = useState(false)
-  const [originalEmailAddress, setOriginalEmailAddress] = useState<string | null>(null)
-  const [isSendingEmailVerification, setIsSendingEmailVerification] = useState(false)
-  const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false)
-  const [smsVerificationSent, setSmsVerificationSent] = useState(false)
-  const [smsVerificationCode, setSmsVerificationCode] = useState("")
-  const [smsVerificationPhone, setSmsVerificationPhone] = useState<string | null>(null)
-  const [timeRemaining, setTimeRemaining] = useState<number>(0)
-  const [isSendingVerification, setIsSendingVerification] = useState(false)
-  const [isVerifyingCode, setIsVerifyingCode] = useState(false)
-  const [smsVerified, setSmsVerified] = useState(false)
-  const [showSmsVerificationSuccess, setShowSmsVerificationSuccess] = useState(false)
   const [originalPhoneNumber, setOriginalPhoneNumber] = useState<string | null>(null)
+  const [originalEmailAddress, setOriginalEmailAddress] = useState<string | null>(null)
   const [originalName, setOriginalName] = useState<string | null>(null)
   const [originalNtfyTopic, setOriginalNtfyTopic] = useState<string | null>(null)
   const [originalNtfyEnabled, setOriginalNtfyEnabled] = useState<boolean>(false)
   const [originalSmsEnabled, setOriginalSmsEnabled] = useState<boolean>(false)
   const [originalEmailEnabled, setOriginalEmailEnabled] = useState<boolean>(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   const isEditMode = !!editContact
 
+  // Use verification hooks for SMS and email
+  const smsVerification = useSmsVerification({
+    walletChecksum,
+    contactName: name,
+    originalPhoneNumber,
+    onError: setError
+  })
+
+  const emailVerification = useEmailVerification({
+    walletChecksum,
+    contactName: name,
+    originalEmailAddress,
+    onError: setError
+  })
+
   // Only calculate when modal is open to avoid unnecessary computation
-  const phoneNumberChanged = isOpen ? (originalPhoneNumber !== null && 
+  const phoneNumberChanged = isOpen ? (originalPhoneNumber !== null &&
     providerValues['twilio']?.trim() !== originalPhoneNumber) : false
 
   // Only calculate when modal is open to avoid unnecessary computation
-  const emailAddressChanged = isOpen ? (originalEmailAddress !== null && 
+  const emailAddressChanged = isOpen ? (originalEmailAddress !== null &&
     providerValues['email']?.trim() !== originalEmailAddress) : false
 
   // Check if SMS verification is required
-  const smsVerificationRequired = isOpen ? (enabledProviders['twilio'] && 
-    (phoneNumberChanged || (!isEditMode && !smsVerified) || (isEditMode && originalPhoneNumber === null && !smsVerified))) : false
-  
+  const smsVerificationRequired = isOpen ? (enabledProviders['twilio'] &&
+    (phoneNumberChanged || (!isEditMode && !smsVerification.isVerified) || (isEditMode && originalPhoneNumber === null && !smsVerification.isVerified))) : false
+
   // Check if email verification is required
   const emailVerificationRequired = isOpen ? (enabledProviders['email'] &&
-    (emailAddressChanged || (!isEditMode && !emailVerified) || (isEditMode && originalEmailAddress === null && !emailVerified))) : false
+    (emailAddressChanged || (!isEditMode && !emailVerification.isVerified) || (isEditMode && originalEmailAddress === null && !emailVerification.isVerified))) : false
 
   // Compute hasChanges by comparing current values to original values
   // In edit mode, if originalName is null, the initialization effect hasn't run yet
@@ -125,45 +123,6 @@ export function ContactModal({
       (providerValues['email']?.trim() || '') !== (originalEmailAddress || '')
     )
   ) : true  // Always allow submit for new contacts
-
-
-  // Clear timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-      }
-    }
-  }, [])
-
-  // Start countdown timer
-  const startTimer = useCallback(() => {
-    setTimeRemaining(600) // 10 minutes in seconds
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
-    timerRef.current = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          if (timerRef.current) {
-            clearInterval(timerRef.current)
-          }
-          // Auto-cancel verification when expired
-          setSmsVerificationSent(false)
-          setError(t('verification.expired'))
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }, [])
-
-  // Format time remaining as MM:SS
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
 
   // Fetch available providers
   const fetchProviders = useCallback(async () => {
@@ -180,21 +139,6 @@ export function ContactModal({
     if (isOpen) {
       // Force clear all state first
       setError(null)
-      setSmsVerificationError(null)
-      setPhoneNumberError(null)
-      setEmailVerificationError(null)
-      setEmailAddressError(null)
-      setSmsVerificationSent(false)
-      setSmsVerificationCode("")
-      setSmsVerificationPhone(null)
-      setEmailVerificationSent(false)
-      setEmailVerificationCode("")
-      setEmailVerificationAddress(null)
-      setTimeRemaining(0)
-      setSmsVerified(false)
-      setShowSmsVerificationSuccess(false)
-      setEmailVerified(false)
-      setShowEmailVerificationSuccess(false)
       setOriginalPhoneNumber(null)
       setOriginalEmailAddress(null)
       setOriginalName(null)
@@ -206,9 +150,9 @@ export function ContactModal({
       setNtfyTopic("")
       setUserEditedNtfyTopic(false)
 
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-      }
+      // Reset verification hooks
+      smsVerification.reset()
+      emailVerification.reset()
 
       if (editContact) {
         // Populate form with existing contact data
@@ -226,7 +170,7 @@ export function ContactModal({
             newProviderValues['twilio'] = phoneNumber
             setOriginalPhoneNumber(phoneNumber)
             setOriginalSmsEnabled(true)
-            setSmsVerified(true) // SMS already exists on contact, so it's verified
+            smsVerification.setVerified(true) // SMS already exists on contact, so it's verified
           } else if (method.provider_type === 'ntfy') {
             newEnabledProviders['ntfy'] = true
             // Pre-populate ntfy topic from existing notification method
@@ -241,7 +185,7 @@ export function ContactModal({
             newProviderValues['email'] = emailAddress
             setOriginalEmailAddress(emailAddress)
             setOriginalEmailEnabled(true)
-            setEmailVerified(true) // Email already exists on contact, so it's verified
+            emailVerification.setVerified(true) // Email already exists on contact, so it's verified
           }
         })
 
@@ -258,24 +202,11 @@ export function ContactModal({
         fetchProviders()
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, editContact, fetchProviders, providers.length])
 
   const handleClose = () => {
     setError(null)
-    setSmsVerificationError(null)
-    setPhoneNumberError(null)
-    setEmailVerificationError(null)
-    setSmsVerificationSent(false)
-    setSmsVerificationCode("")
-    setSmsVerificationPhone(null)
-    setEmailVerificationSent(false)
-    setEmailVerificationCode("")
-    setEmailVerificationAddress(null)
-    setTimeRemaining(0)
-    setSmsVerified(false)
-    setShowSmsVerificationSuccess(false)
-    setEmailVerified(false)
-    setShowEmailVerificationSuccess(false)
     setOriginalPhoneNumber(null)
     setOriginalEmailAddress(null)
     setOriginalName(null)
@@ -290,230 +221,34 @@ export function ContactModal({
     setUserEditedNtfyTopic(false)
     setEnabledProviders({})
     setProviderValues({})
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
+    // Reset verification hooks
+    smsVerification.reset()
+    emailVerification.reset()
     onClose()
   }
 
-  const handleSendSmsVerification = async () => {
+  // SMS verification handlers - delegate to hook
+  const handleSendSmsVerification = () => {
     const phoneNumber = providerValues['twilio']?.trim()
-    if (!phoneNumber) {
-      setError(t('verification.smsRequired'))
-      return
-    }
-
-    setIsSendingVerification(true)
-    setError(null)
-
-    try {
-      await api.sendContactVerification(
-        walletChecksum,
-        name.trim() || `Contact-${phoneNumber.slice(-4)}`,
-        phoneNumber,
-        undefined // emailAddress
-      )
-
-      setSmsVerificationPhone(phoneNumber)
-      setSmsVerificationSent(true)
-      setSmsVerificationCode("")
-      setError(null)
-      startTimer()
-    } catch (err) {
-      let errorMessage: string
-      if (err instanceof ApiError) {
-        // Use user-friendly message for network/server errors
-        errorMessage = err.isNetworkError() || err.isServerError()
-          ? err.getUserFriendlyMessage()
-          : err.message
-      } else {
-        errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
-      }
-
-      if (errorMessage.toLowerCase().includes("phone") || errorMessage.toLowerCase().includes("number")) {
-        setPhoneNumberError(errorMessage)
-      } else {
-        setError(errorMessage)
-      }
-    } finally {
-      setIsSendingVerification(false)
+    if (phoneNumber) {
+      smsVerification.sendVerification(phoneNumber)
     }
   }
 
-  const handleVerifySmsCode = async () => {
-    if (!smsVerificationCode.trim() || !smsVerificationPhone) {
-      setError(t('verification.enterCode'))
-      return
-    }
-
-    setIsVerifyingCode(true)
-    setError(null)
-
-    try {
-      // Use the new unified verify endpoint
-      const result = await api.verifyContact(
-        walletChecksum,
-        smsVerificationCode.trim(),
-        smsVerificationPhone,
-        undefined // emailAddress
-      )
-      
-      if (result.valid) {
-        setSmsVerified(true)
-        setShowSmsVerificationSuccess(true) // Only show success for fresh verification
-        setError(null)
-        setSmsVerificationError(null)
-        
-        // Clear the timer since verification is complete
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-        }
-        setTimeRemaining(0)
-      } else {
-        setSmsVerificationError(result.message || "Invalid verification code")
-        setSmsVerificationCode("")
-      }
-    } catch (err) {
-      let errorMessage: string
-      if (err instanceof ApiError) {
-        // Use user-friendly message for network/server errors
-        errorMessage = err.isNetworkError() || err.isServerError()
-          ? err.getUserFriendlyMessage()
-          : err.message
-      } else {
-        errorMessage = err instanceof Error ? err.message : "Invalid verification code"
-      }
-
-      if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
-        setSmsVerificationError(t('verification.expiredRequest'))
-        setSmsVerificationSent(false)
-        setSmsVerified(false)
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-        }
-      } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setSmsVerificationError(t('verification.invalid'))
-        setSmsVerificationCode("") // Clear the input
-      } else {
-        setSmsVerificationError(errorMessage)
-      }
-    } finally {
-      setIsVerifyingCode(false)
-    }
+  const handleVerifySmsCode = () => {
+    smsVerification.verifyCode()
   }
 
-  const handleSendEmailVerification = async () => {
+  // Email verification handlers - delegate to hook
+  const handleSendEmailVerification = () => {
     const emailAddress = providerValues['email']?.trim()
-    if (!emailAddress) {
-      setEmailAddressError(t('verification.emailRequired'))
-      return
-    }
-
-    setIsSendingEmailVerification(true)
-    setEmailVerificationError(null)
-    setEmailAddressError(null)
-
-    try {
-      const result = await api.sendContactVerification(
-        walletChecksum,
-        name.trim() || `Contact-${emailAddress.split('@')[0]}`,
-        undefined, // phoneNumber
-        emailAddress
-      )
-
-      // Check if email was auto-verified (user's own email)
-      if (result.auto_verified) {
-        setEmailVerified(true)
-        setShowEmailVerificationSuccess(true)
-        setError(null)
-      } else {
-        setEmailVerificationAddress(emailAddress)
-        setEmailVerificationSent(true)
-        setEmailVerificationCode("")
-        setError(null)
-        startTimer()
-      }
-    } catch (err) {
-      let errorMessage: string
-      if (err instanceof ApiError) {
-        // Use user-friendly message for network/server errors
-        errorMessage = err.isNetworkError() || err.isServerError()
-          ? err.getUserFriendlyMessage()
-          : err.message
-      } else {
-        errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
-      }
-
-      if (errorMessage.toLowerCase().includes("email") || errorMessage.toLowerCase().includes("address")) {
-        setEmailAddressError(errorMessage)
-      } else {
-        setError(errorMessage)
-      }
-    } finally {
-      setIsSendingEmailVerification(false)
+    if (emailAddress) {
+      emailVerification.sendVerification(emailAddress)
     }
   }
 
-  const handleVerifyEmailCode = async () => {
-    if (!emailVerificationCode.trim() || !emailVerificationAddress) {
-      setEmailVerificationError(t('verification.enterCode'))
-      return
-    }
-
-    setIsVerifyingEmailCode(true)
-    setEmailVerificationError(null)
-
-    try {
-      const result = await api.verifyContact(
-        walletChecksum,
-        emailVerificationCode.trim(),
-        undefined, // phoneNumber
-        emailVerificationAddress
-      )
-      
-      if (result.valid) {
-        setEmailVerified(true)
-        setShowEmailVerificationSuccess(true)
-        setError(null)
-        setEmailVerificationError(null)
-      setEmailAddressError(null)
-        
-        // Clear the timer since verification is complete
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-        }
-        setTimeRemaining(0)
-      } else {
-        setEmailVerificationError(result.message || "Invalid verification code")
-        setEmailVerificationCode("")
-      }
-    } catch (err) {
-      let errorMessage: string
-      if (err instanceof ApiError) {
-        // Use user-friendly message for network/server errors
-        errorMessage = err.isNetworkError() || err.isServerError()
-          ? err.getUserFriendlyMessage()
-          : err.message
-      } else {
-        errorMessage = err instanceof Error ? err.message : "Invalid verification code"
-      }
-
-      if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
-        setEmailVerificationError(t('verification.expiredRequest'))
-        setEmailVerificationSent(false)
-        setEmailVerified(false)
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-        }
-      } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setEmailVerificationError(t('verification.invalid'))
-        setEmailVerificationCode("")
-      } else {
-        setEmailVerificationError(errorMessage)
-      }
-    } finally {
-      setIsVerifyingEmailCode(false)
-    }
+  const handleVerifyEmailCode = () => {
+    emailVerification.verifyCode()
   }
 
   const handleSubmit = async () => {
@@ -534,7 +269,7 @@ export function ContactModal({
     }
 
     // Check if SMS verification is required but not completed
-    if (smsVerificationRequired && !smsVerified) {
+    if (smsVerificationRequired && !smsVerification.isVerified) {
       if (phoneNumberChanged) {
         setError(t('verification.verifyNewSms'))
       } else {
@@ -544,7 +279,7 @@ export function ContactModal({
     }
 
     // Check if email verification is required but not completed
-    if (emailVerificationRequired && !emailVerified) {
+    if (emailVerificationRequired && !emailVerification.isVerified) {
       if (emailAddressChanged) {
         setError(t('verification.verifyNewEmail'))
       } else {
@@ -558,24 +293,24 @@ export function ContactModal({
 
     try {
       // If verification requirements are met
-      if ((!hasSms || (hasSms && smsVerified)) && (!hasEmail || (hasEmail && emailVerified))) {
+      if ((!hasSms || (hasSms && smsVerification.isVerified)) && (!hasEmail || (hasEmail && emailVerification.isVerified))) {
         const notificationMethods: { provider_type: 'sms' | 'ntfy' | 'email'; notification_target: string }[] = []
 
         if (hasNtfy) {
           notificationMethods.push({ provider_type: 'ntfy', notification_target: ntfyTopic.trim() })
         }
 
-        if (hasEmail && emailVerified) {
+        if (hasEmail && emailVerification.isVerified) {
           notificationMethods.push({
             provider_type: 'email',
-            notification_target: emailVerificationAddress || providerValues['email'].trim()
+            notification_target: emailVerification.verificationAddress || providerValues['email'].trim()
           })
         }
 
-        if (hasSms && smsVerified) {
+        if (hasSms && smsVerification.isVerified) {
           notificationMethods.push({
             provider_type: 'sms',
-            notification_target: smsVerificationPhone || providerValues['twilio'].trim()
+            notification_target: smsVerification.verificationPhone || providerValues['twilio'].trim()
           })
         }
 
@@ -612,16 +347,13 @@ export function ContactModal({
         errorMessage = err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'create'} contact`
       }
 
-      // Provide more specific error messages for SMS verification
+      // Provide more specific error messages for verification issues
       if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
         setError(t('verification.expiredRequest'))
-        setSmsVerificationSent(false)
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-        }
+        smsVerification.reset()
+        emailVerification.reset()
       } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
         setError(t('verification.invalid'))
-        setSmsVerificationCode("") // Clear the input
       } else {
         setError(errorMessage)
       }
@@ -632,7 +364,7 @@ export function ContactModal({
 
   const handleDeleteContact = async () => {
     if (!editContact) return
-    
+
     await api.deleteContact(walletChecksum, editContact.id)
     handleClose()
     if (onContactSaved) {
@@ -640,34 +372,13 @@ export function ContactModal({
     }
   }
 
-  const handleResendCode = async () => {
-    if (!smsVerificationPhone) return
+  // Resend handlers - delegate to hooks
+  const handleResendSmsCode = () => {
+    smsVerification.resendCode()
+  }
 
-    setIsSendingVerification(true)
-    setError(null)
-
-    try {
-      await api.sendContactVerification(
-        walletChecksum,
-        name.trim(),
-        smsVerificationPhone
-      )
-
-      setSmsVerificationCode("")
-      startTimer()
-      setError(null)
-    } catch (err) {
-      if (err instanceof ApiError) {
-        // Use user-friendly message for network/server errors
-        setError(err.isNetworkError() || err.isServerError()
-          ? err.getUserFriendlyMessage()
-          : err.message)
-      } else {
-        setError(err instanceof Error ? err.message : "Failed to resend code")
-      }
-    } finally {
-      setIsSendingVerification(false)
-    }
+  const handleResendEmailCode = () => {
+    emailVerification.resendCode()
   }
 
   return (
@@ -753,309 +464,94 @@ export function ContactModal({
                         <span className="font-medium">{t(`add.providers.${provider.name}`)}</span>
                       </div>
                       {enabledProviders[provider.name] && provider.name === 'twilio' && (
-                        <div className="mt-2 space-y-3">
-                          <div>
-                            <Input
-                              value={providerValues[provider.name] || ''}
-                              onChange={(e) => {
-                                setProviderValues(prev => ({
-                                  ...prev,
-                                  [provider.name]: e.target.value
-                                }))
-                                // Clear phone number error when user starts typing
-                                if (phoneNumberError) {
-                                  setPhoneNumberError(null)
-                                }
-                                // Reset verification state when phone number changes from original
-                                const newPhoneNumber = e.target.value.trim()
-                                if (originalPhoneNumber !== null && newPhoneNumber !== originalPhoneNumber) {
-                                  setSmsVerificationSent(false)
-                                  setSmsVerificationCode("")
-                                  setSmsVerificationPhone(null)
-                                  setSmsVerified(false)
-                                  setTimeRemaining(0)
-                                  if (timerRef.current) {
-                                    clearInterval(timerRef.current)
-                                  }
-                                } else if (originalPhoneNumber !== null && newPhoneNumber === originalPhoneNumber) {
-                                  // Phone number reverted to original, mark as verified
-                                  setSmsVerified(true)
-                                  setSmsVerificationSent(false)
-                                  setSmsVerificationCode("")
-                                  setSmsVerificationPhone(null)
-                                  setTimeRemaining(0)
-                                  if (timerRef.current) {
-                                    clearInterval(timerRef.current)
-                                  }
-                                }
-                              }}
-                              placeholder={phonePlaceholder}
-                              disabled={isSubmitting || isSendingVerification}
-                              className={phoneNumberError ? 'border-red-500 focus:border-red-500' : ''}
-                            />
-                            {/* Phone number error under the input */}
-                            {phoneNumberError && (
-                              <div className="text-sm text-red-600 mt-1">
-                                {phoneNumberError}
-                              </div>
-                            )}
-                            {(!providerValues[provider.name] || !smsVerified) && !phoneNumberError && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {t('add.sms.phoneHint')}
-                              </p>
-                            )}
-                          </div>
-                          
-                          {/* Send Verification Button - only show when verification is required */}
-                          {(smsVerificationRequired && !smsVerificationSent) && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleSendSmsVerification}
-                              disabled={isSendingVerification || isSubmitting || !providerValues['twilio']?.trim()}
-                              className="w-full"
-                            >
-                              {isSendingVerification ? t('verification.sendingCode') : t('verification.sendCode')}
-                            </Button>
-                          )}
-
-                          {/* OTP Input Field */}
-                          {smsVerificationSent && !smsVerified && (
-                            <div className="space-y-3">
-                              <div>
-                                <Label htmlFor="sms-verification-code">{t('verification.codeLabel')}</Label>
-                                <div className="flex gap-2">
-                                  <Input
-                                    id="sms-verification-code"
-                                    value={smsVerificationCode}
-                                    onChange={(e) => {
-                                      setSmsVerificationCode(e.target.value)
-                                      // Clear SMS verification error when user starts typing
-                                      if (smsVerificationError) {
-                                        setSmsVerificationError(null)
-                                      }
-                                    }}
-                                    placeholder={t('verification.codePlaceholder')}
-                                    disabled={isSubmitting || isVerifyingCode}
-                                    maxLength={6}
-                                    autoComplete="one-time-code"
-                                    autoCorrect="off"
-                                    autoCapitalize="off"
-                                    spellCheck="false"
-                                    inputMode="numeric"
-                                    className={`flex-1 ${smsVerificationError ? 'border-red-500 focus:border-red-500' : ''}`}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={handleVerifySmsCode}
-                                    disabled={!smsVerificationCode.trim() || isVerifyingCode || isSubmitting}
-                                  >
-                                    {isVerifyingCode ? t('verification.verifying') : t('verification.verify')}
-                                  </Button>
-                                </div>
-                                {/* SMS verification error under the input */}
-                                {smsVerificationError && (
-                                  <div className="text-sm text-red-600 mt-1">
-                                    {smsVerificationError}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex justify-between items-center text-xs text-muted-foreground">
-                                <span>
-                                  {t('verification.codeSentTo', { target: smsVerificationPhone || '' })}
-                                  {timeRemaining > 0 && (
-                                    <span className="block">{t('verification.expiresIn', { time: formatTime(timeRemaining) })}</span>
-                                  )}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={handleResendCode}
-                                  disabled={isSendingVerification || timeRemaining > 540} // Allow resend after 1 minute
-                                  className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 underline"
-                                >
-                                  {t('verification.resend')}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Verification Success - only show after fresh verification */}
-                          {showSmsVerificationSuccess && (
-                            <div className="flex items-center gap-2 text-green-600 text-sm">
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              {t('verification.smsVerified')}
-                            </div>
-                          )}
-                        </div>
+                        <SmsProviderFields
+                          phoneNumber={providerValues[provider.name] || ''}
+                          onPhoneNumberChange={(value) => {
+                            setProviderValues(prev => ({
+                              ...prev,
+                              [provider.name]: value
+                            }))
+                            smsVerification.clearPhoneError()
+                            const newPhoneNumber = value.trim()
+                            if (originalPhoneNumber !== null && newPhoneNumber !== originalPhoneNumber) {
+                              smsVerification.resetForPhoneChange(newPhoneNumber)
+                            } else if (originalPhoneNumber !== null && newPhoneNumber === originalPhoneNumber) {
+                              smsVerification.revertToOriginal()
+                            }
+                          }}
+                          phonePlaceholder={phonePlaceholder}
+                          phoneError={smsVerification.phoneError}
+                          disabled={isSubmitting}
+                          verificationRequired={smsVerificationRequired}
+                          verificationSent={smsVerification.verificationSent}
+                          verificationCode={smsVerification.verificationCode}
+                          onVerificationCodeChange={(code) => {
+                            smsVerification.setVerificationCode(code)
+                            smsVerification.clearVerificationError()
+                          }}
+                          verificationPhone={smsVerification.verificationPhone}
+                          verificationError={smsVerification.verificationError}
+                          isVerified={smsVerification.isVerified}
+                          showSuccess={smsVerification.showSuccess}
+                          isSending={smsVerification.isSending}
+                          isVerifying={smsVerification.isVerifying}
+                          timeRemaining={smsVerification.timeRemaining}
+                          formatTime={smsVerification.formatTime}
+                          onSendVerification={handleSendSmsVerification}
+                          onVerifyCode={handleVerifySmsCode}
+                          onResendCode={handleResendSmsCode}
+                        />
                       )}
                       {enabledProviders[provider.name] && provider.name === 'email' && (
-                        <div className="mt-2 space-y-3">
-                          <div>
-                            <Input
-                              value={providerValues[provider.name] || ''}
-                              onChange={(e) => {
-                                setProviderValues(prev => ({
-                                  ...prev,
-                                  [provider.name]: e.target.value
-                                }))
-                                // Clear email errors when user starts typing
-                                if (emailVerificationError) {
-                                  setEmailVerificationError(null)
-                                }
-                                if (emailAddressError) {
-                                  setEmailAddressError(null)
-                                }
-                                // Reset verification state when email address changes from original
-                                const newEmailAddress = e.target.value.trim()
-                                if (originalEmailAddress !== null && newEmailAddress !== originalEmailAddress) {
-                                  setEmailVerificationSent(false)
-                                  setEmailVerificationCode("")
-                                  setEmailVerificationAddress(null)
-                                  setEmailVerified(false)
-                                  setTimeRemaining(0)
-                                  if (timerRef.current) {
-                                    clearInterval(timerRef.current)
-                                  }
-                                } else if (originalEmailAddress !== null && newEmailAddress === originalEmailAddress) {
-                                  // Email address reverted to original, mark as verified
-                                  setEmailVerified(true)
-                                  setEmailVerificationSent(false)
-                                  setEmailVerificationCode("")
-                                  setEmailVerificationAddress(null)
-                                  setTimeRemaining(0)
-                                  if (timerRef.current) {
-                                    clearInterval(timerRef.current)
-                                  }
-                                }
-                              }}
-                              placeholder={tCommon('emailPlaceholder')}
-                              disabled={isSubmitting || isSendingEmailVerification}
-                              type="email"
-                              className={emailAddressError ? 'border-red-500 focus:border-red-500' : ''}
-                            />
-                            {/* Email address error under the input */}
-                            {emailAddressError && (
-                              <div className="text-sm text-red-600 mt-1">
-                                {emailAddressError}
-                              </div>
-                            )}
-                            {(!providerValues[provider.name] || !emailVerified) && !emailAddressError && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {t('add.email.emailHint')}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Send Verification Button - only show when verification is required */}
-                          {(emailVerificationRequired && !emailVerificationSent) && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleSendEmailVerification}
-                              disabled={isSendingEmailVerification || isSubmitting || !providerValues['email']?.trim()}
-                              className="w-full"
-                            >
-                              {isSendingEmailVerification ? t('verification.sendingCode') : t('verification.sendCode')}
-                            </Button>
-                          )}
-
-                          {/* OTP Input Field */}
-                          {emailVerificationSent && !emailVerified && (
-                            <div className="space-y-3">
-                              <div>
-                                <Label htmlFor="email-verification-code">{t('verification.codeLabel')}</Label>
-                                <div className="flex gap-2">
-                                  <Input
-                                    id="email-verification-code"
-                                    value={emailVerificationCode}
-                                    onChange={(e) => {
-                                      setEmailVerificationCode(e.target.value)
-                                      // Clear email verification error when user starts typing
-                                      if (emailVerificationError) {
-                                        setEmailVerificationError(null)
-                                        setEmailAddressError(null)
-                                      }
-                                    }}
-                                    placeholder={t('verification.codePlaceholder')}
-                                    disabled={isSubmitting || isVerifyingEmailCode}
-                                    maxLength={6}
-                                    autoComplete="one-time-code"
-                                    autoCorrect="off"
-                                    autoCapitalize="off"
-                                    spellCheck="false"
-                                    inputMode="numeric"
-                                    className={`flex-1 ${emailVerificationError ? 'border-red-500 focus:border-red-500' : ''}`}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={handleVerifyEmailCode}
-                                    disabled={!emailVerificationCode.trim() || isVerifyingEmailCode || isSubmitting}
-                                  >
-                                    {isVerifyingEmailCode ? t('verification.verifying') : t('verification.verify')}
-                                  </Button>
-                                </div>
-                                {/* Email verification error under the input */}
-                                {emailVerificationError && (
-                                  <div className="text-sm text-red-600 mt-1">
-                                    {emailVerificationError}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex justify-between items-center text-xs text-muted-foreground">
-                                <span>
-                                  {t('verification.codeSentTo', { target: emailVerificationAddress || '' })}
-                                  {timeRemaining > 0 && (
-                                    <span className="block">{t('verification.expiresIn', { time: formatTime(timeRemaining) })}</span>
-                                  )}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSendEmailVerification()}
-                                  disabled={isSendingEmailVerification || timeRemaining > 540} // Allow resend after 1 minute
-                                  className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 underline"
-                                >
-                                  {t('verification.resend')}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Verification Success - only show after fresh verification */}
-                          {showEmailVerificationSuccess && (
-                            <div className="flex items-center gap-2 text-green-600 text-sm">
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              {t('verification.emailVerified')}
-                            </div>
-                          )}
-                        </div>
+                        <EmailProviderFields
+                          emailAddress={providerValues[provider.name] || ''}
+                          onEmailAddressChange={(value) => {
+                            setProviderValues(prev => ({
+                              ...prev,
+                              [provider.name]: value
+                            }))
+                            emailVerification.clearVerificationError()
+                            emailVerification.clearEmailError()
+                            const newEmailAddress = value.trim()
+                            if (originalEmailAddress !== null && newEmailAddress !== originalEmailAddress) {
+                              emailVerification.resetForEmailChange(newEmailAddress)
+                            } else if (originalEmailAddress !== null && newEmailAddress === originalEmailAddress) {
+                              emailVerification.revertToOriginal()
+                            }
+                          }}
+                          emailPlaceholder={tCommon('emailPlaceholder')}
+                          emailError={emailVerification.emailError}
+                          disabled={isSubmitting}
+                          verificationRequired={emailVerificationRequired}
+                          verificationSent={emailVerification.verificationSent}
+                          verificationCode={emailVerification.verificationCode}
+                          onVerificationCodeChange={(code) => {
+                            emailVerification.setVerificationCode(code)
+                            emailVerification.clearVerificationError()
+                          }}
+                          verificationAddress={emailVerification.verificationAddress}
+                          verificationError={emailVerification.verificationError}
+                          isVerified={emailVerification.isVerified}
+                          showSuccess={emailVerification.showSuccess}
+                          isSending={emailVerification.isSending}
+                          isVerifying={emailVerification.isVerifying}
+                          timeRemaining={emailVerification.timeRemaining}
+                          formatTime={emailVerification.formatTime}
+                          onSendVerification={handleSendEmailVerification}
+                          onVerifyCode={handleVerifyEmailCode}
+                          onResendCode={handleResendEmailCode}
+                        />
                       )}
                       {enabledProviders[provider.name] && provider.name === 'ntfy' && (
-                        <div className="mt-2 space-y-2">
-                          <div>
-                            <Label htmlFor="ntfy-topic">{t('add.ntfy.topicLabel')}</Label>
-                            <Input
-                              id="ntfy-topic"
-                              value={ntfyTopic}
-                              onChange={(e) => {
-                                setNtfyTopic(e.target.value)
-                                setUserEditedNtfyTopic(true)
-                              }}
-                              placeholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
-                              disabled={isSubmitting}
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {t('add.ntfy.topicHint')}
-                            </p>
-                          </div>
-                        </div>
+                        <NtfyProviderFields
+                          topic={ntfyTopic}
+                          onTopicChange={(value) => {
+                            setNtfyTopic(value)
+                            setUserEditedNtfyTopic(true)
+                          }}
+                          defaultTopicPlaceholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
+                          disabled={isSubmitting}
+                        />
                       )}
                     </div>
                   </label>
