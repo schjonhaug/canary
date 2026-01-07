@@ -587,7 +587,6 @@
       "description": "Set up a new contact to receive Bitcoin transaction notifications.",
       "nameLabel": "Name",
       "namePlaceholder": "Contact name",
-      "languageLabel": "Language",
       "methodTitle": "Notification Methods",
       "providers": {
         "ntfy": "ntfy.sh Notifications",
@@ -595,7 +594,8 @@
         "email": "Email Notifications"
       },
       "ntfy": {
-        "topicHint": "Topic will be auto-generated based on contact name"
+        "topicLabel": "ntfy Topic",
+        "topicHint": "Subscribe to this topic at ntfy.sh to receive notifications"
       },
       "sms": {
         "phoneHint": "Include country code"
@@ -639,7 +639,8 @@
       "verifyNewEmail": "Please verify the new email address before saving the contact"
     },
     "errors": {
-      "nameRequired": "Contact name is required"
+      "nameRequired": "Contact name is required",
+      "ntfyTopicRequired": "ntfy topic is required"
     },
     "languages": {
       "en": "English",

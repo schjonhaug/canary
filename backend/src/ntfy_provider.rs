@@ -1,6 +1,6 @@
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
-    Contact, EventType, NotificationMethod, ProviderType, TransactionNotification,
+    Contact, EventType, Language, NotificationMethod, ProviderType, TransactionNotification,
 };
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
@@ -61,6 +61,7 @@ impl NotificationProvider for NtfyProvider {
         notification: &TransactionNotification,
         wallet_name: &str,
         contacts: &[Contact],
+        user_language: &Language,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
@@ -76,7 +77,7 @@ impl NotificationProvider for NtfyProvider {
                 let message = MessageFormatter::create_localized_message(
                     notification,
                     wallet_name,
-                    &contact.language,
+                    user_language,
                 );
 
                 // Extract priority for ntfy headers
@@ -90,7 +91,7 @@ impl NotificationProvider for NtfyProvider {
                 let ntfy_url = format!("{}/{}", self.server_url, topic);
 
                 // Create localized title for push notification
-                let locale = contact.language.as_str();
+                let locale = user_language.as_str();
                 let title_key = match notification {
                     TransactionNotification::Pending(tx) => match tx.transaction_type {
                         EventType::Receive => "titles.receive.pending",

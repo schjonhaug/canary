@@ -62,21 +62,11 @@ async fn test_delete_wallet_contact_authorization() {
 
     // Add contacts to each wallet using the notification methods API
     let contact1_id = db
-        .insert_contact_with_notification_methods(
-            &wallet1_checksum,
-            "Contact 1",
-            &Language::English,
-            vec![],
-        )
+        .insert_contact_with_notification_methods(&wallet1_checksum, "Contact 1", vec![])
         .await
         .unwrap();
     let contact2_id = db
-        .insert_contact_with_notification_methods(
-            &wallet2_checksum,
-            "Contact 2",
-            &Language::English,
-            vec![],
-        )
+        .insert_contact_with_notification_methods(&wallet2_checksum, "Contact 2", vec![])
         .await
         .unwrap();
 
@@ -178,12 +168,7 @@ async fn test_delete_wallet_contact_wrong_wallet() {
 
     // Add contact to wallet1
     let contact_id = db
-        .insert_contact_with_notification_methods(
-            &wallet1_checksum,
-            "Test Contact",
-            &Language::English,
-            vec![],
-        )
+        .insert_contact_with_notification_methods(&wallet1_checksum, "Test Contact", vec![])
         .await
         .unwrap();
 
@@ -207,4 +192,82 @@ async fn test_delete_wallet_contact_wrong_wallet() {
         1,
         "Contact should still exist in original wallet"
     );
+}
+
+#[tokio::test]
+async fn test_get_user_preferred_language_default() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    // Create user without preferred language
+    let user_id = db
+        .create_user(
+            "test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            false,
+            None, // preferred_currency
+            None, // preferred_language - not set
+        )
+        .await
+        .unwrap();
+
+    // Should return English as default
+    let language = db.get_user_preferred_language(&user_id).await.unwrap();
+    assert_eq!(language, Language::English, "Should default to English when no preference set");
+}
+
+#[tokio::test]
+async fn test_get_user_preferred_language_norwegian() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    // Create user with Norwegian preference
+    let user_id = db
+        .create_user(
+            "nordic@example.com",
+            "hashedpassword",
+            Some("Nordic User"),
+            false,
+            None,           // preferred_currency
+            Some("no"),     // preferred_language - Norwegian
+        )
+        .await
+        .unwrap();
+
+    // Should return Norwegian
+    let language = db.get_user_preferred_language(&user_id).await.unwrap();
+    assert_eq!(language, Language::Norwegian, "Should return Norwegian when set");
+}
+
+#[tokio::test]
+async fn test_get_user_preferred_language_japanese() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    // Create user with Japanese preference
+    let user_id = db
+        .create_user(
+            "japan@example.com",
+            "hashedpassword",
+            Some("Japanese User"),
+            false,
+            None,           // preferred_currency
+            Some("ja"),     // preferred_language - Japanese
+        )
+        .await
+        .unwrap();
+
+    // Should return Japanese
+    let language = db.get_user_preferred_language(&user_id).await.unwrap();
+    assert_eq!(language, Language::Japanese, "Should return Japanese when set");
+}
+
+#[tokio::test]
+async fn test_get_user_preferred_language_nonexistent_user() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    // Query for non-existent user should return English default
+    let language = db
+        .get_user_preferred_language("nonexistent-user-id")
+        .await
+        .unwrap();
+    assert_eq!(language, Language::English, "Should default to English for non-existent user");
 }

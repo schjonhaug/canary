@@ -587,7 +587,6 @@
       "description": "Bitcoinトランザクション通知を受け取る新しい連絡先を設定します。",
       "nameLabel": "名前",
       "namePlaceholder": "連絡先名",
-      "languageLabel": "言語",
       "methodTitle": "通知方法",
       "providers": {
         "ntfy": "ntfy.sh通知",
@@ -595,7 +594,8 @@
         "email": "メール通知"
       },
       "ntfy": {
-        "topicHint": "トピックは連絡先名に基づいて自動生成されます"
+        "topicLabel": "ntfyトピック",
+        "topicHint": "通知を受け取るには、ntfy.shでこのトピックを購読してください"
       },
       "sms": {
         "phoneHint": "国番号を含める"
@@ -639,7 +639,8 @@
       "verifyNewEmail": "連絡先を保存する前に新しいメールアドレスを確認してください"
     },
     "errors": {
-      "nameRequired": "連絡先名は必須です"
+      "nameRequired": "連絡先名は必須です",
+      "ntfyTopicRequired": "ntfyトピックは必須です"
     },
     "languages": {
       "en": "英語",

@@ -587,7 +587,6 @@
       "description": "Skapa en ny kontakt för att få aviseringar om Bitcoin-transaktioner.",
       "nameLabel": "Namn",
       "namePlaceholder": "Kontaktnamn",
-      "languageLabel": "Språk",
       "methodTitle": "Aviseringsmetoder",
       "providers": {
         "ntfy": "ntfy.sh-aviseringar",
@@ -595,7 +594,8 @@
         "email": "E-postaviseringar"
       },
       "ntfy": {
-        "topicHint": "Ämne kommer att genereras automatiskt baserat på kontaktnamn"
+        "topicLabel": "ntfy-ämne",
+        "topicHint": "Prenumerera på detta ämne på ntfy.sh för att ta emot aviseringar"
       },
       "sms": {
         "phoneHint": "Inkludera landskod"
@@ -640,7 +640,8 @@
       "verifyNewEmail": "Vänligen verifiera den nya e-postadressen innan du sparar kontakten"
     },
     "errors": {
-      "nameRequired": "Kontaktnamn krävs"
+      "nameRequired": "Kontaktnamn krävs",
+      "ntfyTopicRequired": "ntfy-ämne krävs"
     },
     "languages": {
       "en": "Engelska",

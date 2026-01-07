@@ -4,6 +4,7 @@ use crate::api::AppServicesState;
 use crate::auth::{load_twilio_config_from_env, AuthService};
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
+use crate::metadata::Language;
 use crate::models::{
     validate_phone_number, ErrorResponse, SendContactVerificationRequest, VerifyContactRequest,
     VerifyContactResponse,
@@ -26,6 +27,13 @@ pub async fn send_contact_verification(
 ) -> Response {
     let _ = config; // Used for state extraction pattern consistency
     let start_time = std::time::Instant::now();
+
+    // Get user's preferred language for verification emails
+    let user_language = app_services
+        .metadata_db
+        .get_user_preferred_language(&user.user_id)
+        .await
+        .unwrap_or(Language::English);
 
     // Check if wallet exists and user has access - no mutex blocking!
     match app_services
@@ -189,7 +197,6 @@ pub async fn send_contact_verification(
                         "email",
                         &email,
                         &request.name,
-                        &request.language,
                         None, // No code needed for auto-verification
                     )
                     .await
@@ -304,7 +311,6 @@ pub async fn send_contact_verification(
             provider_type,
             &notification_target,
             &request.name,
-            &request.language,
             stored_code,
         )
         .await
@@ -376,7 +382,7 @@ pub async fn send_contact_verification(
                 &notification_target,
                 &request.name,
                 &verification_code,
-                &request.language,
+                user_language.as_str(),
             )
             .await
     };
@@ -508,7 +514,7 @@ pub async fn verify_contact(
     };
 
     // Look up the pending verification - no mutex blocking!
-    let (verification_id, _contact_name, _language, verification_code) = match app_services
+    let (verification_id, _contact_name, verification_code) = match app_services
         .metadata_db
         .get_pending_verification(&wallet_checksum, &notification_target)
         .await

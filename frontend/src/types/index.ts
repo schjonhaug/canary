@@ -77,7 +77,6 @@ export interface Contact {
   id: string
   wallet_checksum: string
   name: string
-  language: NotificationLanguage
   notification_methods: NotificationMethod[]
   created_at: string
   is_active: boolean

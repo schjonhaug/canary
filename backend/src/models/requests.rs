@@ -1,6 +1,6 @@
 //! Request DTOs for API endpoints
 
-use crate::metadata::{BalanceAlertType, Language, ProviderType};
+use crate::metadata::{BalanceAlertType, ProviderType};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -41,8 +41,6 @@ pub struct NotificationMethodRequest {
 pub struct CreateContactWithMethodsRequest {
     /// The name of the contact person
     pub name: String,
-    /// The language preference for notifications
-    pub language: Language,
     /// List of notification methods for this contact
     pub notification_methods: Vec<NotificationMethodRequest>,
 }
@@ -51,8 +49,6 @@ pub struct CreateContactWithMethodsRequest {
 pub struct SendContactVerificationRequest {
     /// Contact name
     pub name: String,
-    /// Language for notifications
-    pub language: String,
     /// Phone number to verify (optional)
     pub phone_number: Option<String>,
     /// Email address to verify (optional)
@@ -63,8 +59,6 @@ pub struct SendContactVerificationRequest {
 pub struct UpdateContactRequest {
     /// Contact name
     pub name: String,
-    /// Contact language
-    pub language: Language,
     /// Notification methods for the contact
     pub notification_methods: Vec<NotificationMethodRequest>,
 }

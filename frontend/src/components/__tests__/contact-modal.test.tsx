@@ -41,7 +41,6 @@ const mockProviders = [
 const mockContact = {
   id: 1,
   name: 'Test Contact',
-  language: 'en' as const,
   created_at: '2024-01-01T00:00:00Z',
   notification_methods: [
     {
@@ -76,10 +75,9 @@ describe('ContactModal', () => {
       await act(async () => {
         render(<ContactModal {...defaultProps} />)
       })
-      
+
       expect(screen.getByText('Add New Contact')).toBeInTheDocument()
       expect(screen.getByLabelText('Name')).toBeInTheDocument()
-      expect(screen.getByLabelText('Language')).toBeInTheDocument()
     })
 
     it('does not render when closed', () => {
@@ -146,8 +144,7 @@ describe('ContactModal', () => {
         expect(mockApi.createContact).toHaveBeenCalledWith(
           'test-checksum',
           'Test Contact',
-          'en',
-          [{ provider_type: 'ntfy', notification_target: '' }]
+          [{ provider_type: 'ntfy', notification_target: 'test-contact-test-che' }]
         )
       })
     })
@@ -218,7 +215,6 @@ describe('ContactModal', () => {
         expect(mockApi.sendContactVerification).toHaveBeenCalledWith(
           'test-checksum',
           'SMS Contact',
-          'en',
           '+4712345678',
           undefined
         )

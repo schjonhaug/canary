@@ -3,7 +3,7 @@
 use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::metadata::{Language, ProviderType};
+use crate::metadata::ProviderType;
 use crate::models::{
     validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
     NotificationMethodRequest, UpdateContactRequest,
@@ -18,30 +18,23 @@ use axum::{
 use std::sync::Arc;
 use tracing::info;
 
-/// Generates an ntfy topic from contact name, language, and wallet descriptor
-fn generate_ntfy_topic(name: &str, language: &Language, descriptor: &str) -> String {
-    // Extract checksum from descriptor
-    let checksum = descriptor
-        .rfind('#')
-        .map(|i| &descriptor[i + 1..])
-        .unwrap_or("unknown");
-
-    // Sanitize name for topic
-    let sanitized_name = name
-        .to_lowercase()
-        .chars()
-        .map(|c| if c.is_alphanumeric() { c } else { '-' })
-        .collect::<String>()
-        .trim_matches('-')
-        .to_string();
-
-    // Combine into topic (max 64 chars)
-    let topic = format!("{}-{}-{}", sanitized_name, language.as_str(), checksum);
-    if topic.len() > 64 {
-        topic[..64].to_string()
-    } else {
-        topic
+/// Validates an ntfy topic (1-64 chars, alphanumeric and dashes)
+fn validate_ntfy_topic(topic: &str) -> Result<String, String> {
+    let topic = topic.trim();
+    if topic.is_empty() {
+        return Err("ntfy topic cannot be empty".to_string());
     }
+    if topic.len() > 64 {
+        return Err("ntfy topic must be at most 64 characters".to_string());
+    }
+    // Allow alphanumeric, dashes, and underscores
+    if !topic
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err("ntfy topic can only contain letters, numbers, dashes, and underscores".to_string());
+    }
+    Ok(topic.to_string())
 }
 
 /// Type alias for Stripe billing state
@@ -65,7 +58,7 @@ pub async fn create_wallet_contact(
     }
 
     // Direct metadata access - no mutex blocking!
-    let wallet = match app_services
+    let _wallet = match app_services
         .metadata_db
         .get_wallet_by_checksum(&wallet_checksum)
         .await
@@ -227,10 +220,17 @@ pub async fn create_wallet_contact(
             }
             ProviderType::Ntfy => {
                 // Push notifications are always allowed (ntfy is free)
-                // Auto-generate ntfy topic
-                let topic =
-                    generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
-                processed_methods.push((ProviderType::Ntfy, topic));
+                // Use user-provided topic from request
+                match validate_ntfy_topic(&method.notification_target) {
+                    Ok(topic) => processed_methods.push((ProviderType::Ntfy, topic)),
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse { error: e }),
+                        )
+                            .into_response();
+                    }
+                }
             }
             ProviderType::Email => {
                 // Basic email validation
@@ -328,7 +328,6 @@ pub async fn create_wallet_contact(
         .insert_contact_with_notification_methods(
             &wallet_checksum,
             &payload.name,
-            &payload.language,
             processed_methods,
         )
         .await;
@@ -465,7 +464,7 @@ pub async fn update_wallet_contact(
     }
 
     // Check if wallet exists and user has access
-    let wallet = match app_services
+    let _wallet = match app_services
         .metadata_db
         .get_wallet_by_checksum(&wallet_checksum)
         .await
@@ -628,10 +627,17 @@ pub async fn update_wallet_contact(
             }
             ProviderType::Ntfy => {
                 // Push notifications are always allowed (ntfy is free)
-                // Auto-generate ntfy topic
-                let topic =
-                    generate_ntfy_topic(&payload.name, &payload.language, &wallet.descriptor);
-                processed_methods.push((ProviderType::Ntfy, topic));
+                // Use user-provided topic from request
+                match validate_ntfy_topic(&method.notification_target) {
+                    Ok(topic) => processed_methods.push((ProviderType::Ntfy, topic)),
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse { error: e }),
+                        )
+                            .into_response();
+                    }
+                }
             }
             ProviderType::Email => {
                 // Basic email validation
@@ -740,7 +746,6 @@ pub async fn update_wallet_contact(
             &contact_id,
             &wallet_checksum,
             &payload.name,
-            &payload.language,
             processed_methods,
         )
         .await
