@@ -1,0 +1,113 @@
+"use client"
+
+import { ReactNode } from "react"
+import Link from "next/link"
+import { ArrowLeft, AlertCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import type { Wallet } from "@/types"
+
+interface ErrorStateParams {
+  error: string | null
+  wallet: Wallet | null
+  checksum: string
+  t: (key: string, params?: Record<string, string>) => string
+  tCommon: (key: string) => string
+}
+
+/**
+ * Returns a full-page error state component if an error condition exists,
+ * or null if the wallet is ready to display normally.
+ */
+export function getWalletDetailErrorState({
+  error,
+  wallet,
+  checksum,
+  t,
+  tCommon,
+}: ErrorStateParams): ReactNode | null {
+  // Error with no cached wallet data
+  if (error && !wallet) {
+    return (
+      <>
+        <div className="mb-6">
+          <Link href="/wallets">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft size={16} />
+              {tCommon("backToWallets")}
+            </Button>
+          </Link>
+        </div>
+
+        <Alert variant="destructive">
+          <AlertTitle>{t("error.title")}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </>
+    )
+  }
+
+  // Wallet not found
+  if (!wallet) {
+    return (
+      <>
+        <div className="mb-6">
+          <Link href="/wallets">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft size={16} />
+              {tCommon("backToWallets")}
+            </Button>
+          </Link>
+        </div>
+
+        <Alert>
+          <AlertTitle>{t("detail.notFound.title")}</AlertTitle>
+          <AlertDescription>
+            {t("detail.notFound.description", { checksum })}
+          </AlertDescription>
+        </Alert>
+      </>
+    )
+  }
+
+  // Wallet is still syncing
+  if (wallet.status === "pending") {
+    return (
+      <>
+        <div className="mb-6">
+          <Link href="/wallets">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft size={16} />
+              {tCommon("backToWallets")}
+            </Button>
+          </Link>
+        </div>
+
+        <Alert className="border-blue-200 bg-blue-50">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-blue-700">
+            {t("detail.syncing.title")}
+          </AlertTitle>
+          <AlertDescription className="text-blue-600">
+            {t("detail.syncing.description", { name: wallet.name })}
+            <span className="block mt-2">{t("detail.syncing.returnPrompt")}</span>
+            <div className="mt-3">
+              <Link href="/wallets">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                >
+                  {tCommon("backToWallets")}
+                </Button>
+              </Link>
+            </div>
+          </AlertDescription>
+        </Alert>
+      </>
+    )
+  }
+
+  // No error state - wallet is ready
+  return null
+}
