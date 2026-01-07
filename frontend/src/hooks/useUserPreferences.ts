@@ -48,6 +48,21 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   // Derived state
   const hasNtfyChanges = ntfyServerUrl !== savedNtfyUrl
 
+  // Auto-clear success messages after 3 seconds
+  useEffect(() => {
+    if (ntfySuccess) {
+      const timerId = setTimeout(() => setNtfySuccess(false), 3000)
+      return () => clearTimeout(timerId)
+    }
+  }, [ntfySuccess])
+
+  useEffect(() => {
+    if (ntfyAuthSuccess) {
+      const timerId = setTimeout(() => setNtfyAuthSuccess(false), 3000)
+      return () => clearTimeout(timerId)
+    }
+  }, [ntfyAuthSuccess])
+
   // Fetch user preferences on mount
   useEffect(() => {
     const fetchPreferences = async () => {
@@ -134,7 +149,6 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       setUserPreferences(result)
       setSavedNtfyUrl(result.ntfy_server_url || "")
       setNtfySuccess(true)
-      setTimeout(() => setNtfySuccess(false), 3000)
     } catch (error) {
       console.error("Failed to update ntfy server URL:", error)
       setNtfyError(error instanceof Error ? error.message : "Failed to save")
@@ -165,14 +179,12 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       } else if (ntfyAuthType === "token") {
         if (!ntfyAccessToken.trim()) {
           setNtfyAuthError("Access token is required")
-          setIsUpdatingNtfyAuth(false)
           return
         }
         updateData = { ntfy_access_token: ntfyAccessToken.trim() }
       } else if (ntfyAuthType === "basic") {
         if (!ntfyUsername.trim() || !ntfyPassword.trim()) {
           setNtfyAuthError("Both username and password are required")
-          setIsUpdatingNtfyAuth(false)
           return
         }
         updateData = {
@@ -189,7 +201,6 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       setNtfyPassword("")
 
       setNtfyAuthSuccess(true)
-      setTimeout(() => setNtfyAuthSuccess(false), 3000)
     } catch (error) {
       console.error("Failed to update ntfy authentication:", error)
       setNtfyAuthError(error instanceof Error ? error.message : "Failed to save")
