@@ -16,6 +16,7 @@ import { Bell, MessageCircle, Mail } from "lucide-react"
 import { api, ProviderInfo, ApiError } from "../lib/api"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
+import { SmsProviderFields, EmailProviderFields, NtfyProviderFields } from "./contact-modal/index"
 import { useTranslations } from "next-intl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
 
@@ -753,309 +754,133 @@ export function ContactModal({
                         <span className="font-medium">{t(`add.providers.${provider.name}`)}</span>
                       </div>
                       {enabledProviders[provider.name] && provider.name === 'twilio' && (
-                        <div className="mt-2 space-y-3">
-                          <div>
-                            <Input
-                              value={providerValues[provider.name] || ''}
-                              onChange={(e) => {
-                                setProviderValues(prev => ({
-                                  ...prev,
-                                  [provider.name]: e.target.value
-                                }))
-                                // Clear phone number error when user starts typing
-                                if (phoneNumberError) {
-                                  setPhoneNumberError(null)
-                                }
-                                // Reset verification state when phone number changes from original
-                                const newPhoneNumber = e.target.value.trim()
-                                if (originalPhoneNumber !== null && newPhoneNumber !== originalPhoneNumber) {
-                                  setSmsVerificationSent(false)
-                                  setSmsVerificationCode("")
-                                  setSmsVerificationPhone(null)
-                                  setSmsVerified(false)
-                                  setTimeRemaining(0)
-                                  if (timerRef.current) {
-                                    clearInterval(timerRef.current)
-                                  }
-                                } else if (originalPhoneNumber !== null && newPhoneNumber === originalPhoneNumber) {
-                                  // Phone number reverted to original, mark as verified
-                                  setSmsVerified(true)
-                                  setSmsVerificationSent(false)
-                                  setSmsVerificationCode("")
-                                  setSmsVerificationPhone(null)
-                                  setTimeRemaining(0)
-                                  if (timerRef.current) {
-                                    clearInterval(timerRef.current)
-                                  }
-                                }
-                              }}
-                              placeholder={phonePlaceholder}
-                              disabled={isSubmitting || isSendingVerification}
-                              className={phoneNumberError ? 'border-red-500 focus:border-red-500' : ''}
-                            />
-                            {/* Phone number error under the input */}
-                            {phoneNumberError && (
-                              <div className="text-sm text-red-600 mt-1">
-                                {phoneNumberError}
-                              </div>
-                            )}
-                            {(!providerValues[provider.name] || !smsVerified) && !phoneNumberError && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {t('add.sms.phoneHint')}
-                              </p>
-                            )}
-                          </div>
-                          
-                          {/* Send Verification Button - only show when verification is required */}
-                          {(smsVerificationRequired && !smsVerificationSent) && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleSendSmsVerification}
-                              disabled={isSendingVerification || isSubmitting || !providerValues['twilio']?.trim()}
-                              className="w-full"
-                            >
-                              {isSendingVerification ? t('verification.sendingCode') : t('verification.sendCode')}
-                            </Button>
-                          )}
-
-                          {/* OTP Input Field */}
-                          {smsVerificationSent && !smsVerified && (
-                            <div className="space-y-3">
-                              <div>
-                                <Label htmlFor="sms-verification-code">{t('verification.codeLabel')}</Label>
-                                <div className="flex gap-2">
-                                  <Input
-                                    id="sms-verification-code"
-                                    value={smsVerificationCode}
-                                    onChange={(e) => {
-                                      setSmsVerificationCode(e.target.value)
-                                      // Clear SMS verification error when user starts typing
-                                      if (smsVerificationError) {
-                                        setSmsVerificationError(null)
-                                      }
-                                    }}
-                                    placeholder={t('verification.codePlaceholder')}
-                                    disabled={isSubmitting || isVerifyingCode}
-                                    maxLength={6}
-                                    autoComplete="one-time-code"
-                                    autoCorrect="off"
-                                    autoCapitalize="off"
-                                    spellCheck="false"
-                                    inputMode="numeric"
-                                    className={`flex-1 ${smsVerificationError ? 'border-red-500 focus:border-red-500' : ''}`}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={handleVerifySmsCode}
-                                    disabled={!smsVerificationCode.trim() || isVerifyingCode || isSubmitting}
-                                  >
-                                    {isVerifyingCode ? t('verification.verifying') : t('verification.verify')}
-                                  </Button>
-                                </div>
-                                {/* SMS verification error under the input */}
-                                {smsVerificationError && (
-                                  <div className="text-sm text-red-600 mt-1">
-                                    {smsVerificationError}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex justify-between items-center text-xs text-muted-foreground">
-                                <span>
-                                  {t('verification.codeSentTo', { target: smsVerificationPhone || '' })}
-                                  {timeRemaining > 0 && (
-                                    <span className="block">{t('verification.expiresIn', { time: formatTime(timeRemaining) })}</span>
-                                  )}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={handleResendCode}
-                                  disabled={isSendingVerification || timeRemaining > 540} // Allow resend after 1 minute
-                                  className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 underline"
-                                >
-                                  {t('verification.resend')}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Verification Success - only show after fresh verification */}
-                          {showSmsVerificationSuccess && (
-                            <div className="flex items-center gap-2 text-green-600 text-sm">
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              {t('verification.smsVerified')}
-                            </div>
-                          )}
-                        </div>
+                        <SmsProviderFields
+                          phoneNumber={providerValues[provider.name] || ''}
+                          onPhoneNumberChange={(value) => {
+                            setProviderValues(prev => ({
+                              ...prev,
+                              [provider.name]: value
+                            }))
+                            if (phoneNumberError) {
+                              setPhoneNumberError(null)
+                            }
+                            const newPhoneNumber = value.trim()
+                            if (originalPhoneNumber !== null && newPhoneNumber !== originalPhoneNumber) {
+                              setSmsVerificationSent(false)
+                              setSmsVerificationCode("")
+                              setSmsVerificationPhone(null)
+                              setSmsVerified(false)
+                              setTimeRemaining(0)
+                              if (timerRef.current) {
+                                clearInterval(timerRef.current)
+                              }
+                            } else if (originalPhoneNumber !== null && newPhoneNumber === originalPhoneNumber) {
+                              setSmsVerified(true)
+                              setSmsVerificationSent(false)
+                              setSmsVerificationCode("")
+                              setSmsVerificationPhone(null)
+                              setTimeRemaining(0)
+                              if (timerRef.current) {
+                                clearInterval(timerRef.current)
+                              }
+                            }
+                          }}
+                          phonePlaceholder={phonePlaceholder}
+                          phoneError={phoneNumberError}
+                          disabled={isSubmitting}
+                          verificationRequired={smsVerificationRequired}
+                          verificationSent={smsVerificationSent}
+                          verificationCode={smsVerificationCode}
+                          onVerificationCodeChange={(code) => {
+                            setSmsVerificationCode(code)
+                            if (smsVerificationError) {
+                              setSmsVerificationError(null)
+                            }
+                          }}
+                          verificationPhone={smsVerificationPhone}
+                          verificationError={smsVerificationError}
+                          isVerified={smsVerified}
+                          showSuccess={showSmsVerificationSuccess}
+                          isSending={isSendingVerification}
+                          isVerifying={isVerifyingCode}
+                          timeRemaining={timeRemaining}
+                          formatTime={formatTime}
+                          onSendVerification={handleSendSmsVerification}
+                          onVerifyCode={handleVerifySmsCode}
+                          onResendCode={handleResendCode}
+                        />
                       )}
                       {enabledProviders[provider.name] && provider.name === 'email' && (
-                        <div className="mt-2 space-y-3">
-                          <div>
-                            <Input
-                              value={providerValues[provider.name] || ''}
-                              onChange={(e) => {
-                                setProviderValues(prev => ({
-                                  ...prev,
-                                  [provider.name]: e.target.value
-                                }))
-                                // Clear email errors when user starts typing
-                                if (emailVerificationError) {
-                                  setEmailVerificationError(null)
-                                }
-                                if (emailAddressError) {
-                                  setEmailAddressError(null)
-                                }
-                                // Reset verification state when email address changes from original
-                                const newEmailAddress = e.target.value.trim()
-                                if (originalEmailAddress !== null && newEmailAddress !== originalEmailAddress) {
-                                  setEmailVerificationSent(false)
-                                  setEmailVerificationCode("")
-                                  setEmailVerificationAddress(null)
-                                  setEmailVerified(false)
-                                  setTimeRemaining(0)
-                                  if (timerRef.current) {
-                                    clearInterval(timerRef.current)
-                                  }
-                                } else if (originalEmailAddress !== null && newEmailAddress === originalEmailAddress) {
-                                  // Email address reverted to original, mark as verified
-                                  setEmailVerified(true)
-                                  setEmailVerificationSent(false)
-                                  setEmailVerificationCode("")
-                                  setEmailVerificationAddress(null)
-                                  setTimeRemaining(0)
-                                  if (timerRef.current) {
-                                    clearInterval(timerRef.current)
-                                  }
-                                }
-                              }}
-                              placeholder={tCommon('emailPlaceholder')}
-                              disabled={isSubmitting || isSendingEmailVerification}
-                              type="email"
-                              className={emailAddressError ? 'border-red-500 focus:border-red-500' : ''}
-                            />
-                            {/* Email address error under the input */}
-                            {emailAddressError && (
-                              <div className="text-sm text-red-600 mt-1">
-                                {emailAddressError}
-                              </div>
-                            )}
-                            {(!providerValues[provider.name] || !emailVerified) && !emailAddressError && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {t('add.email.emailHint')}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Send Verification Button - only show when verification is required */}
-                          {(emailVerificationRequired && !emailVerificationSent) && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleSendEmailVerification}
-                              disabled={isSendingEmailVerification || isSubmitting || !providerValues['email']?.trim()}
-                              className="w-full"
-                            >
-                              {isSendingEmailVerification ? t('verification.sendingCode') : t('verification.sendCode')}
-                            </Button>
-                          )}
-
-                          {/* OTP Input Field */}
-                          {emailVerificationSent && !emailVerified && (
-                            <div className="space-y-3">
-                              <div>
-                                <Label htmlFor="email-verification-code">{t('verification.codeLabel')}</Label>
-                                <div className="flex gap-2">
-                                  <Input
-                                    id="email-verification-code"
-                                    value={emailVerificationCode}
-                                    onChange={(e) => {
-                                      setEmailVerificationCode(e.target.value)
-                                      // Clear email verification error when user starts typing
-                                      if (emailVerificationError) {
-                                        setEmailVerificationError(null)
-                                        setEmailAddressError(null)
-                                      }
-                                    }}
-                                    placeholder={t('verification.codePlaceholder')}
-                                    disabled={isSubmitting || isVerifyingEmailCode}
-                                    maxLength={6}
-                                    autoComplete="one-time-code"
-                                    autoCorrect="off"
-                                    autoCapitalize="off"
-                                    spellCheck="false"
-                                    inputMode="numeric"
-                                    className={`flex-1 ${emailVerificationError ? 'border-red-500 focus:border-red-500' : ''}`}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={handleVerifyEmailCode}
-                                    disabled={!emailVerificationCode.trim() || isVerifyingEmailCode || isSubmitting}
-                                  >
-                                    {isVerifyingEmailCode ? t('verification.verifying') : t('verification.verify')}
-                                  </Button>
-                                </div>
-                                {/* Email verification error under the input */}
-                                {emailVerificationError && (
-                                  <div className="text-sm text-red-600 mt-1">
-                                    {emailVerificationError}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex justify-between items-center text-xs text-muted-foreground">
-                                <span>
-                                  {t('verification.codeSentTo', { target: emailVerificationAddress || '' })}
-                                  {timeRemaining > 0 && (
-                                    <span className="block">{t('verification.expiresIn', { time: formatTime(timeRemaining) })}</span>
-                                  )}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSendEmailVerification()}
-                                  disabled={isSendingEmailVerification || timeRemaining > 540} // Allow resend after 1 minute
-                                  className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 underline"
-                                >
-                                  {t('verification.resend')}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Verification Success - only show after fresh verification */}
-                          {showEmailVerificationSuccess && (
-                            <div className="flex items-center gap-2 text-green-600 text-sm">
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              {t('verification.emailVerified')}
-                            </div>
-                          )}
-                        </div>
+                        <EmailProviderFields
+                          emailAddress={providerValues[provider.name] || ''}
+                          onEmailAddressChange={(value) => {
+                            setProviderValues(prev => ({
+                              ...prev,
+                              [provider.name]: value
+                            }))
+                            if (emailVerificationError) {
+                              setEmailVerificationError(null)
+                            }
+                            if (emailAddressError) {
+                              setEmailAddressError(null)
+                            }
+                            const newEmailAddress = value.trim()
+                            if (originalEmailAddress !== null && newEmailAddress !== originalEmailAddress) {
+                              setEmailVerificationSent(false)
+                              setEmailVerificationCode("")
+                              setEmailVerificationAddress(null)
+                              setEmailVerified(false)
+                              setTimeRemaining(0)
+                              if (timerRef.current) {
+                                clearInterval(timerRef.current)
+                              }
+                            } else if (originalEmailAddress !== null && newEmailAddress === originalEmailAddress) {
+                              setEmailVerified(true)
+                              setEmailVerificationSent(false)
+                              setEmailVerificationCode("")
+                              setEmailVerificationAddress(null)
+                              setTimeRemaining(0)
+                              if (timerRef.current) {
+                                clearInterval(timerRef.current)
+                              }
+                            }
+                          }}
+                          emailPlaceholder={tCommon('emailPlaceholder')}
+                          emailError={emailAddressError}
+                          disabled={isSubmitting}
+                          verificationRequired={emailVerificationRequired}
+                          verificationSent={emailVerificationSent}
+                          verificationCode={emailVerificationCode}
+                          onVerificationCodeChange={(code) => {
+                            setEmailVerificationCode(code)
+                            if (emailVerificationError) {
+                              setEmailVerificationError(null)
+                              setEmailAddressError(null)
+                            }
+                          }}
+                          verificationAddress={emailVerificationAddress}
+                          verificationError={emailVerificationError}
+                          isVerified={emailVerified}
+                          showSuccess={showEmailVerificationSuccess}
+                          isSending={isSendingEmailVerification}
+                          isVerifying={isVerifyingEmailCode}
+                          timeRemaining={timeRemaining}
+                          formatTime={formatTime}
+                          onSendVerification={handleSendEmailVerification}
+                          onVerifyCode={handleVerifyEmailCode}
+                          onResendCode={handleSendEmailVerification}
+                        />
                       )}
                       {enabledProviders[provider.name] && provider.name === 'ntfy' && (
-                        <div className="mt-2 space-y-2">
-                          <div>
-                            <Label htmlFor="ntfy-topic">{t('add.ntfy.topicLabel')}</Label>
-                            <Input
-                              id="ntfy-topic"
-                              value={ntfyTopic}
-                              onChange={(e) => {
-                                setNtfyTopic(e.target.value)
-                                setUserEditedNtfyTopic(true)
-                              }}
-                              placeholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
-                              disabled={isSubmitting}
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {t('add.ntfy.topicHint')}
-                            </p>
-                          </div>
-                        </div>
+                        <NtfyProviderFields
+                          topic={ntfyTopic}
+                          onTopicChange={(value) => {
+                            setNtfyTopic(value)
+                            setUserEditedNtfyTopic(true)
+                          }}
+                          defaultTopicPlaceholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
+                          disabled={isSubmitting}
+                        />
                       )}
                     </div>
                   </label>
