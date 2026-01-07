@@ -259,17 +259,13 @@
   },
   "settings": {
     "title": "Configurações",
-    "display": {
-      "title": "Preferências de Exibição",
-      "description": "Personalize como os valores de Bitcoin são exibidos em suas carteiras",
+    "regional": {
+      "title": "Configurações Regionais",
+      "description": "Personalize a exibição de idioma e moeda",
+      "languageLabel": "Idioma",
       "currencyLabel": "Moeda Fiat",
       "currencyPlaceholder": "Selecione uma moeda",
-      "currencyNote": "As taxas de câmbio são atualizadas a cada 10 minutos do CoinGecko"
-    },
-    "language": {
-      "title": "Idioma",
-      "description": "Escolha seu idioma preferido para a interface",
-      "label": "Idioma"
+      "currencyNote": "As taxas de câmbio são atualizadas a cada 10 minutos pelo CoinGecko"
     },
     "ntfy": {
       "title": "Notificações Push",

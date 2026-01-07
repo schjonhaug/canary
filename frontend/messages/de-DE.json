@@ -259,17 +259,13 @@
   },
   "settings": {
     "title": "Einstellungen",
-    "display": {
-      "title": "Anzeigeeinstellungen",
-      "description": "Passen Sie an, wie Bitcoin-Werte in Ihren Wallets angezeigt werden",
+    "regional": {
+      "title": "Regionale Einstellungen",
+      "description": "Sprach- und Währungsanzeige anpassen",
+      "languageLabel": "Sprache",
       "currencyLabel": "Fiat-Währung",
       "currencyPlaceholder": "Währung auswählen",
-      "currencyNote": "Wechselkurse werden alle 10 Minuten von CoinGecko aktualisiert"
-    },
-    "language": {
-      "title": "Sprache",
-      "description": "Wählen Sie Ihre bevorzugte Sprache für die Oberfläche",
-      "label": "Sprache"
+      "currencyNote": "Die Wechselkurse werden alle 10 Minuten von CoinGecko aktualisiert"
     },
     "ntfy": {
       "title": "Push-Benachrichtigungen",

@@ -259,9 +259,10 @@
   },
   "settings": {
     "title": "Settings",
-    "display": {
-      "title": "Display Preferences",
-      "description": "Customize how Bitcoin values are displayed in your wallets",
+    "regional": {
+      "title": "Regional Settings",
+      "description": "Customize language and currency display",
+      "languageLabel": "Language",
       "currencyLabel": "Fiat Currency",
       "currencyPlaceholder": "Select a currency",
       "currencyNote": "Exchange rates are updated every 10 minutes from CoinGecko"
@@ -313,11 +314,6 @@
       "BMD": "Bermudian Dollar",
       "KWD": "Kuwaiti Dinar",
       "MMK": "Myanmar Kyat"
-    },
-    "language": {
-      "title": "Language",
-      "description": "Choose your preferred language for the interface",
-      "label": "Language"
     },
     "ntfy": {
       "title": "Push Notifications",

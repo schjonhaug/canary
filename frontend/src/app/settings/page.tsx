@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Globe, Bell, Languages } from "lucide-react"
+import { Globe, Bell } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -226,28 +226,47 @@ export default function SettingsPage() {
       <h2 className="text-2xl font-semibold">{t('title')}</h2>
 
       <div className="max-w-4xl space-y-6">
-        {/* Display Preferences */}
+        {/* Regional Settings */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5" />
-              {t('display.title')}
+              {t('regional.title')}
             </CardTitle>
             <CardDescription>
-              {t('display.description')}
+              {t('regional.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="currency">{t('display.currencyLabel')}</Label>
+                <Label htmlFor="language">{t('regional.languageLabel')}</Label>
+                <Select
+                  value={currentLocale}
+                  onValueChange={(value) => handleLanguageChange(value as Locale)}
+                  disabled={isCloudMode && user?.is_demo}
+                >
+                  <SelectTrigger id="language" className="w-full max-w-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...locales].sort((a, b) => localeNames[a].localeCompare(localeNames[b])).map((locale) => (
+                      <SelectItem key={locale} value={locale}>
+                        {localeNames[locale]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="currency">{t('regional.currencyLabel')}</Label>
                 <Select
                   value={selectedCurrency}
                   onValueChange={handleCurrencyChange}
                   disabled={isUpdating || (isCloudMode && user?.is_demo)}
                 >
-                  <SelectTrigger id="currency" className="w-full">
-                    <SelectValue placeholder={t('display.currencyPlaceholder')} />
+                  <SelectTrigger id="currency" className="w-full max-w-xs">
+                    <SelectValue placeholder={t('regional.currencyPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {SUPPORTED_CURRENCIES.map((currency) => (
@@ -262,44 +281,8 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground mt-2">
-                  {t('display.currencyNote')}
+                  {t('regional.currencyNote')}
                 </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Language Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Languages className="h-5 w-5" />
-              {t('language.title')}
-            </CardTitle>
-            <CardDescription>
-              {t('language.description')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="language">{t('language.label')}</Label>
-                <Select
-                  value={currentLocale}
-                  onValueChange={(value) => handleLanguageChange(value as Locale)}
-                  disabled={isCloudMode && user?.is_demo}
-                >
-                  <SelectTrigger id="language" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[...locales].sort((a, b) => localeNames[a].localeCompare(localeNames[b])).map((locale) => (
-                      <SelectItem key={locale} value={locale}>
-                        {localeNames[locale]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </CardContent>

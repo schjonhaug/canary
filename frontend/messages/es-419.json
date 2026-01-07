@@ -259,17 +259,13 @@
   },
   "settings": {
     "title": "Configuración",
-    "display": {
-      "title": "Preferencias de Visualización",
-      "description": "Personaliza cómo se muestran los valores de Bitcoin en tus billeteras",
+    "regional": {
+      "title": "Configuración regional",
+      "description": "Personaliza el idioma y la visualización de la moneda",
+      "languageLabel": "Idioma",
       "currencyLabel": "Moneda Fiat",
       "currencyPlaceholder": "Selecciona una moneda",
       "currencyNote": "Las tasas de cambio se actualizan cada 10 minutos desde CoinGecko"
-    },
-    "language": {
-      "title": "Idioma",
-      "description": "Elige tu idioma preferido para la interfaz",
-      "label": "Idioma"
     },
     "ntfy": {
       "title": "Notificaciones Push",

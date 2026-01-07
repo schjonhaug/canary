@@ -259,9 +259,10 @@
   },
   "settings": {
     "title": "Innstillinger",
-    "display": {
-      "title": "Visningsinnstillinger",
-      "description": "Tilpass hvordan Bitcoin-verdier vises i lommebøkene dine",
+    "regional": {
+      "title": "Regionale innstillinger",
+      "description": "Tilpass visning av språk og valuta",
+      "languageLabel": "Språk",
       "currencyLabel": "Fiat-valuta",
       "currencyPlaceholder": "Velg en valuta",
       "currencyNote": "Valutakurser oppdateres hvert 10. minutt fra CoinGecko"
@@ -313,11 +314,6 @@
       "BMD": "Bermudiske dollar",
       "KWD": "Kuwaitiske dinar",
       "MMK": "Myanmarske kyat"
-    },
-    "language": {
-      "title": "Språk",
-      "description": "Velg foretrukket språk for grensesnittet",
-      "label": "Språk"
     },
     "ntfy": {
       "title": "Push-varsler",

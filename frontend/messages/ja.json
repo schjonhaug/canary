@@ -259,17 +259,13 @@
   },
   "settings": {
     "title": "設定",
-    "display": {
-      "title": "表示設定",
-      "description": "ウォレットでのビットコイン値の表示方法をカスタマイズ",
+    "regional": {
+      "title": "地域設定",
+      "description": "言語と通貨の表示をカスタマイズ",
+      "languageLabel": "言語",
       "currencyLabel": "法定通貨",
       "currencyPlaceholder": "通貨を選択",
       "currencyNote": "為替レートはCoinGeckoから10分ごとに更新されます"
-    },
-    "language": {
-      "title": "言語",
-      "description": "インターフェースの優先言語を選択",
-      "label": "言語"
     },
     "ntfy": {
       "title": "プッシュ通知",
