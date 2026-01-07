@@ -613,7 +613,7 @@
     },
     "delete": {
       "title": "Kontakt löschen",
-      "description": "Sind Sie sicher, dass Sie diesen Kontakt löschen möchten? Er erhält keine Benachrichtigungen mehr."
+      "description": "Sind Sie sicher, dass Sie diesen Kontakt löschen möchten? <bold>{name}</bold> erhält keine Benachrichtigungen mehr."
     },
     "verification": {
       "codeLabel": "Bestätigungscode",
