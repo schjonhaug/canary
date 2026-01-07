@@ -27,17 +27,17 @@ pub enum EventType {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum Language {
-    #[serde(rename = "en")]
+    #[serde(rename = "en-US")]
     English,
-    #[serde(rename = "no")]
+    #[serde(rename = "nb")]
     Norwegian,
-    #[serde(rename = "es")]
+    #[serde(rename = "es-419")]
     Spanish,
-    #[serde(rename = "pt")]
+    #[serde(rename = "pt-BR")]
     Portuguese,
-    #[serde(rename = "de")]
+    #[serde(rename = "de-DE")]
     German,
-    #[serde(rename = "fr")]
+    #[serde(rename = "fr-FR")]
     French,
     #[serde(rename = "ja")]
     Japanese,
@@ -50,12 +50,12 @@ pub enum Language {
 impl Language {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Language::English => "en",
-            Language::Norwegian => "no",
-            Language::Spanish => "es",
-            Language::Portuguese => "pt",
-            Language::German => "de",
-            Language::French => "fr",
+            Language::English => "en-US",
+            Language::Norwegian => "nb",
+            Language::Spanish => "es-419",
+            Language::Portuguese => "pt-BR",
+            Language::German => "de-DE",
+            Language::French => "fr-FR",
             Language::Japanese => "ja",
             Language::Danish => "da",
             Language::Swedish => "sv",
@@ -66,11 +66,12 @@ impl Language {
 impl From<&str> for Language {
     fn from(s: &str) -> Self {
         match s {
-            "no" => Language::Norwegian,
-            "es" => Language::Spanish,
-            "pt" => Language::Portuguese,
-            "de" => Language::German,
-            "fr" => Language::French,
+            "en-US" => Language::English,
+            "nb" => Language::Norwegian,
+            "es-419" => Language::Spanish,
+            "pt-BR" => Language::Portuguese,
+            "de-DE" => Language::German,
+            "fr-FR" => Language::French,
             "ja" => Language::Japanese,
             "da" => Language::Danish,
             "sv" => Language::Swedish,

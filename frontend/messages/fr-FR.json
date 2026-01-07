@@ -641,17 +641,6 @@
     "errors": {
       "nameRequired": "Le nom du contact est obligatoire",
       "ntfyTopicRequired": "Le sujet ntfy est requis"
-    },
-    "languages": {
-      "en": "Anglais",
-      "no": "Norvégien",
-      "es": "Espagnol",
-      "pt": "Portugais",
-      "de": "Allemand",
-      "fr": "Français",
-      "ja": "Japonais",
-      "da": "Danois",
-      "sv": "Suédois"
     }
   },
   "balanceAlerts": {

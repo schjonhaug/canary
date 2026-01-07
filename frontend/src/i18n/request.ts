@@ -5,7 +5,7 @@ import { match } from '@formatjs/intl-localematcher'
 import { defaultLocale, locales, type Locale } from './config'
 
 // Extended locales including Norwegian variants for matching
-const matcherLocales = ['en', 'no', 'nb', 'nn', 'es', 'pt', 'de', 'fr', 'ja', 'da', 'sv']
+const matcherLocales = ['en', 'en-US', 'nb', 'nn', 'no', 'es', 'es-419', 'pt', 'pt-BR', 'de', 'de-DE', 'fr', 'fr-FR', 'ja', 'da', 'sv']
 
 function detectLocale(acceptLanguage: string | null): Locale {
   if (!acceptLanguage) return defaultLocale
@@ -13,10 +13,15 @@ function detectLocale(acceptLanguage: string | null): Locale {
   try {
     const negotiator = new Negotiator({ headers: { 'accept-language': acceptLanguage } })
     const languages = negotiator.languages()
-    const matched = match(languages, matcherLocales, defaultLocale)
+    const matched = match(languages, matcherLocales, 'en')
 
-    // Map Norwegian variants to 'no'
-    if (matched === 'nb' || matched === 'nn') return 'no'
+    // Map browser locales to our supported locales
+    if (matched === 'nb' || matched === 'nn' || matched === 'no') return 'nb'
+    if (matched === 'es' || matched === 'es-419') return 'es-419'
+    if (matched === 'pt' || matched === 'pt-BR') return 'pt-BR'
+    if (matched === 'de' || matched === 'de-DE') return 'de-DE'
+    if (matched === 'fr' || matched === 'fr-FR') return 'fr-FR'
+    if (matched === 'en' || matched === 'en-US') return 'en-US'
 
     if (locales.includes(matched as Locale)) return matched as Locale
     return defaultLocale

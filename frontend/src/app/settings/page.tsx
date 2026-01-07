@@ -22,7 +22,7 @@ export default function SettingsPage() {
   const tCommon = useTranslations('common')
   const { isAuthenticated, isLoading: authLoading, isCloudMode, user } = useAuth()
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD')
-  const [currentLocale, setCurrentLocale] = useState<Locale>('en')
+  const [currentLocale, setCurrentLocale] = useState<Locale>('en-US')
   const [ntfyServerUrl, setNtfyServerUrl] = useState<string>('')
   const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>('')
   const [isUpdating, setIsUpdating] = useState(false)

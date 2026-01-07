@@ -1,14 +1,16 @@
-export const locales = ['en', 'no', 'es', 'pt', 'de', 'fr', 'ja', 'da', 'sv'] as const
+export const locales = ['en-US', 'nb', 'es-419', 'pt-BR', 'de-DE', 'fr-FR', 'ja', 'da', 'sv'] as const
 export type Locale = (typeof locales)[number]
-export const defaultLocale: Locale = 'en'
+export const defaultLocale: Locale = 'en-US'
 
+// Native language names for the language selector dropdown
+// Each language is written in its own language so users can always find it
 export const localeNames: Record<Locale, string> = {
-  en: 'English',
-  no: 'Norsk',
-  es: 'Español',
-  pt: 'Português',
-  de: 'Deutsch',
-  fr: 'Français',
+  'en-US': 'English (US)',
+  nb: 'Norsk (Bokmål)',
+  'es-419': 'Español (Latinoamérica)',
+  'pt-BR': 'Português (Brasil)',
+  'de-DE': 'Deutsch',
+  'fr-FR': 'Français',
   ja: '日本語',
   da: 'Dansk',
   sv: 'Svenska',
@@ -22,15 +24,15 @@ export function mapBrowserLocale(browserLocale: string): Locale {
     case 'nb':
     case 'nn':
     case 'no':
-      return 'no'
+      return 'nb'
     case 'es':
-      return 'es'
+      return 'es-419'
     case 'pt':
-      return 'pt'
+      return 'pt-BR'
     case 'de':
-      return 'de'
+      return 'de-DE'
     case 'fr':
-      return 'fr'
+      return 'fr-FR'
     case 'ja':
       return 'ja'
     case 'da':
@@ -38,6 +40,6 @@ export function mapBrowserLocale(browserLocale: string): Locale {
     case 'sv':
       return 'sv'
     default:
-      return 'en'
+      return 'en-US'
   }
 }

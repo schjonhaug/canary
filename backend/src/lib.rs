@@ -5,8 +5,8 @@
 extern crate rust_i18n;
 
 // Initialize i18n with locale files from ./locales directory
-// Fallback to English if translation is missing
-i18n!("locales", fallback = "en");
+// Fallback to English (US) if translation is missing
+i18n!("locales", fallback = "en-US");
 
 pub mod admin_notifications;
 pub mod api;
