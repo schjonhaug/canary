@@ -613,7 +613,7 @@
     },
     "delete": {
       "title": "Radera kontakt",
-      "description": "Är du säker på att du vill radera denna kontakt? De kommer inte längre att få aviseringar.",
+      "description": "Är du säker på att du vill radera denna kontakt? <strong>{name}</strong> kommer inte längre att få aviseringar.",
       "confirm": "Ja, radera kontakt"
     },
     "verification": {

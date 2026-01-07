@@ -613,7 +613,7 @@
     },
     "delete": {
       "title": "Slet kontakt",
-      "description": "Er du sikker på, at du vil slette denne kontakt? De vil ikke længere modtage notifikationer."
+      "description": "Er du sikker på, at du vil slette denne kontakt? <strong>{name}</strong> vil ikke længere modtage notifikationer."
     },
     "verification": {
       "codeLabel": "Verifikationskode",
