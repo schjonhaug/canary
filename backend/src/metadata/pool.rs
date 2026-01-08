@@ -5,6 +5,7 @@ use bdk_wallet::rusqlite::Connection;
 use r2d2::{CustomizeConnection, Pool};
 use r2d2_sqlite::SqliteConnectionManager;
 use std::sync::Arc;
+use tracing::{error, warn};
 
 #[derive(Debug)]
 struct ForeignKeyEnabler;
@@ -27,7 +28,7 @@ impl MetadataDb {
         // Create parent directory if it doesn't exist
         if let Some(parent) = std::path::Path::new(db_path).parent() {
             if let Err(e) = std::fs::create_dir_all(parent) {
-                eprintln!("Warning: Failed to create database directory: {}", e);
+                warn!("Failed to create database directory: {}", e);
             }
         }
 
@@ -39,7 +40,7 @@ impl MetadataDb {
         for path in &migration_paths {
             if std::path::Path::new(path).exists() {
                 if let Err(e) = migration_runner.run_migrations(path) {
-                    eprintln!("Migration error with path {}: {}", path, e);
+                    error!("Migration error with path {}: {}", path, e);
                 } else {
                     migrations_run = true;
                     break;
@@ -47,8 +48,8 @@ impl MetadataDb {
             }
         }
         if !migrations_run {
-            eprintln!(
-                "Warning: No migrations directory found in any of: {:?}",
+            warn!(
+                "No migrations directory found in any of: {:?}",
                 migration_paths
             );
         }
