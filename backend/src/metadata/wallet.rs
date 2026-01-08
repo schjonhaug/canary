@@ -1,7 +1,7 @@
 use super::pool::MetadataDb;
 use super::types::*;
 use anyhow::{anyhow, Result};
-use bdk_wallet::rusqlite::{params, ToSql};
+use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
 use tokio::task::spawn_blocking;
 
 impl MetadataDb {
@@ -71,7 +71,7 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
-            match conn.query_row(
+            conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                         (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
@@ -97,11 +97,9 @@ impl MetadataDb {
                         fiat_currency: None,
                     })
                 },
-            ) {
-                Ok(metadata) => Ok(Some(metadata)),
-                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-                Err(e) => Err(e.into()),
-            }
+            )
+            .optional()
+            .map_err(Into::into)
         })
         .await?
     }
@@ -112,7 +110,7 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<Option<WalletMetadata>> {
             let conn = pool.get()?;
-            match conn.query_row(
+            conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                         (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active
@@ -138,11 +136,9 @@ impl MetadataDb {
                         fiat_currency: None,
                     })
                 },
-            ) {
-                Ok(metadata) => Ok(Some(metadata)),
-                Err(bdk_wallet::rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-                Err(e) => Err(e.into()),
-            }
+            )
+            .optional()
+            .map_err(Into::into)
         })
         .await?
     }
@@ -273,12 +269,9 @@ impl MetadataDb {
                 })
             })?;
 
-            let mut wallets = Vec::new();
-            for wallet in wallet_iter {
-                wallets.push(wallet?);
-            }
-
-            Ok(wallets)
+            wallet_iter
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(Into::into)
         })
         .await?
     }
@@ -327,12 +320,9 @@ impl MetadataDb {
                 })
             })?;
 
-            let mut wallets = Vec::new();
-            for wallet in wallet_iter {
-                wallets.push(wallet?);
-            }
-
-            Ok(wallets)
+            wallet_iter
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(Into::into)
         })
         .await?
     }
@@ -449,12 +439,9 @@ impl MetadataDb {
                     })
                 })?;
 
-            let mut due_wallets = Vec::new();
-            for row in wallet_rows {
-                due_wallets.push(row?);
-            }
-
-            Ok(due_wallets)
+            wallet_rows
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(Into::into)
         })
         .await?
     }
@@ -707,18 +694,14 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let checksum = checksum.to_string();
 
-        tokio::task::spawn_blocking(move || {
+        spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
-
             conn.execute(
                 "UPDATE wallets SET is_active = ? WHERE checksum = ?",
                 params![is_active, checksum],
             )?;
-
-            Ok::<(), anyhow::Error>(())
+            Ok(())
         })
-        .await??;
-
-        Ok(())
+        .await?
     }
 }
