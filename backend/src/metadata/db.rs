@@ -1,90 +1,18 @@
+use super::pool::MetadataDb;
 use super::types::*;
 use crate::config::AppConfig;
 use crate::electrum::BlockHeader;
 use crate::exchange_rates;
-use crate::migrations::MigrationRunner;
 use crate::subscription::SubscriptionTier;
-use anyhow::{anyhow, Context, Result};
-use bdk_wallet::rusqlite::Connection;
+use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
 use phonenumber::PhoneNumber;
-use r2d2::{CustomizeConnection, Pool};
-use r2d2_sqlite::SqliteConnectionManager;
 use std::str::FromStr;
-use std::sync::Arc;
 use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
-#[derive(Debug)]
-struct ForeignKeyEnabler;
-
-impl CustomizeConnection<Connection, bdk_wallet::rusqlite::Error> for ForeignKeyEnabler {
-    fn on_acquire(&self, conn: &mut Connection) -> Result<(), bdk_wallet::rusqlite::Error> {
-        conn.execute_batch("PRAGMA foreign_keys = ON")
-    }
-}
-
-type DbPool = Pool<SqliteConnectionManager>;
-
-#[derive(Clone)]
-pub struct MetadataDb {
-    pool: Arc<DbPool>,
-}
-
 impl MetadataDb {
-    pub async fn new(db_path: &str, config: &AppConfig) -> Result<Self> {
-        // Create parent directory if it doesn't exist
-        if let Some(parent) = std::path::Path::new(db_path).parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                eprintln!("Warning: Failed to create database directory: {}", e);
-            }
-        }
-
-        // Run migrations first
-        let migration_runner = MigrationRunner::new(db_path)?;
-        // Try multiple migration paths (for development and production)
-        let migration_paths = ["./migrations", "../migrations", "migrations"];
-        let mut migrations_run = false;
-        for path in &migration_paths {
-            if std::path::Path::new(path).exists() {
-                if let Err(e) = migration_runner.run_migrations(path) {
-                    eprintln!("Migration error with path {}: {}", path, e);
-                } else {
-                    migrations_run = true;
-                    break;
-                }
-            }
-        }
-        if !migrations_run {
-            eprintln!(
-                "Warning: No migrations directory found in any of: {:?}",
-                migration_paths
-            );
-        }
-
-        // Get the connection back from the migration runner and close it
-        let conn = migration_runner.get_connection();
-        drop(conn);
-
-        // Create connection pool with foreign key enforcement
-        let manager = SqliteConnectionManager::file(db_path);
-        let pool = Pool::builder()
-            .max_size(16)
-            .connection_customizer(Box::new(ForeignKeyEnabler))
-            .build(manager)
-            .context("Failed to create database pool")?;
-
-        let db = MetadataDb {
-            pool: Arc::new(pool),
-        };
-
-        // Initialize user based on operating mode
-        db.initialize_user_for_mode(config).await?;
-
-        Ok(db)
-    }
-
-    async fn initialize_user_for_mode(&self, config: &AppConfig) -> Result<()> {
+    pub(super) async fn initialize_user_for_mode(&self, config: &AppConfig) -> Result<()> {
         if config.is_self_hosted_mode() {
             // Self-hosted mode: Create hardcoded self-hosted user admin
             self.ensure_self_hosted_user().await?;
@@ -2596,11 +2524,7 @@ impl MetadataDb {
                 )?;
 
                 // Check if contact was updated (exists and belongs to wallet)
-                let affected: i64 = conn.query_row(
-                    "SELECT changes()",
-                    [],
-                    |row| row.get(0),
-                )?;
+                let affected: i64 = conn.query_row("SELECT changes()", [], |row| row.get(0))?;
 
                 if affected == 0 {
                     return Err(anyhow::anyhow!("Contact not found or access denied"));
@@ -2619,7 +2543,13 @@ impl MetadataDb {
                         "INSERT INTO contact_notification_methods
                          (id, contact_id, provider_type, notification_target, wallet_checksum)
                          VALUES (?1, ?2, ?3, ?4, ?5)",
-                        params![method_id, contact_id, provider_type.as_str(), target, checksum],
+                        params![
+                            method_id,
+                            contact_id,
+                            provider_type.as_str(),
+                            target,
+                            checksum
+                        ],
                     )?;
                 }
 
@@ -2777,7 +2707,9 @@ impl MetadataDb {
                 .query_row(params![user_id], |row| row.get(0))
                 .optional()?
                 .flatten();
-            Ok(language.map(|l| Language::from(l.as_str())).unwrap_or(Language::English))
+            Ok(language
+                .map(|l| Language::from(l.as_str()))
+                .unwrap_or(Language::English))
         })
         .await?
     }

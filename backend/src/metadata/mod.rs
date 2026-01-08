@@ -1,5 +1,6 @@
 mod db;
+mod pool;
 mod types;
 
-pub use db::MetadataDb;
+pub use pool::MetadataDb;
 pub use types::*;
