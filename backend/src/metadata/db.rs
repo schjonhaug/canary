@@ -794,7 +794,8 @@ impl MetadataDb {
                 Ok(Transaction {
                     txid: row.get(0)?,
                     wallet_checksum: row.get(1)?,
-                    transaction_type: EventType::from(row.get::<_, String>(2)?.as_str()),
+                    transaction_type: EventType::try_from(row.get::<_, String>(2)?.as_str())
+                        .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                     amount_sats: row.get(3)?,
                     fee_sats: row.get(4)?,
                     block_height: row.get(5)?,
@@ -863,7 +864,8 @@ impl MetadataDb {
                     txid: row.get(0)?,
                     wallet_checksum: row.get(1)?,
                     wallet_name: row.get(2)?,
-                    transaction_type: EventType::from(row.get::<_, String>(3)?.as_str()),
+                    transaction_type: EventType::try_from(row.get::<_, String>(3)?.as_str())
+                        .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                     amount_sats: row.get(4)?,
                     fee_sats: row.get(5)?,
                     block_height: row.get(6)?,
@@ -2950,7 +2952,8 @@ impl MetadataDb {
                     id: row.get(0)?,
                     wallet_checksum: row.get(1)?,
                     threshold_sats: row.get(2)?,
-                    alert_type: BalanceAlertType::from(row.get::<_, String>(3)?.as_str()),
+                    alert_type: BalanceAlertType::try_from(row.get::<_, String>(3)?.as_str())
+                        .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                     is_active: row.get::<_, i64>(4)? != 0,
                     last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
                     created_at: row.get(6)?,
@@ -2991,7 +2994,8 @@ impl MetadataDb {
                     id: row.get(0)?,
                     wallet_checksum: row.get(1)?,
                     threshold_sats: row.get(2)?,
-                    alert_type: BalanceAlertType::from(row.get::<_, String>(3)?.as_str()),
+                    alert_type: BalanceAlertType::try_from(row.get::<_, String>(3)?.as_str())
+                        .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                     is_active: row.get::<_, i64>(4)? != 0,
                     last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
                     created_at: row.get(6)?,
@@ -3029,7 +3033,8 @@ impl MetadataDb {
                         id: row.get(0)?,
                         wallet_checksum: row.get(1)?,
                         threshold_sats: row.get(2)?,
-                        alert_type: BalanceAlertType::from(row.get::<_, String>(3)?.as_str()),
+                        alert_type: BalanceAlertType::try_from(row.get::<_, String>(3)?.as_str())
+                            .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                         is_active: row.get::<_, i64>(4)? != 0,
                         last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
                         created_at: row.get(6)?,
@@ -3139,7 +3144,8 @@ impl MetadataDb {
                     id: row.get(0)?,
                     wallet_checksum: row.get(1)?,
                     threshold_sats: row.get(2)?,
-                    alert_type: BalanceAlertType::from(row.get::<_, String>(3)?.as_str()),
+                    alert_type: BalanceAlertType::try_from(row.get::<_, String>(3)?.as_str())
+                        .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                     is_active: row.get::<_, i64>(4)? != 0,
                     last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
                     created_at: row.get(6)?,

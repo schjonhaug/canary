@@ -1,6 +1,19 @@
 use crate::subscription::SubscriptionTier;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::num::Wrapping;
+
+/// Error type for type conversion failures
+#[derive(Debug)]
+pub struct ParseError(pub String);
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for ParseError {}
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum EventType {
@@ -94,28 +107,21 @@ impl UserRecord {}
 /// Convert browser locale to language code for emails and notifications
 /// Returns language code for supported locales, "en" for all others
 pub fn locale_to_language(locale: &str) -> &'static str {
-    let locale_lower = locale.to_lowercase().replace('_', "-");
-    if locale_lower.starts_with("nb")
-        || locale_lower.starts_with("nn")
-        || locale_lower.starts_with("no")
-    {
-        "no"
-    } else if locale_lower.starts_with("es") {
-        "es"
-    } else if locale_lower.starts_with("pt") {
-        "pt"
-    } else if locale_lower.starts_with("de") {
-        "de"
-    } else if locale_lower.starts_with("fr") {
-        "fr"
-    } else if locale_lower.starts_with("ja") {
-        "ja"
-    } else if locale_lower.starts_with("da") {
-        "da"
-    } else if locale_lower.starts_with("sv") {
-        "sv"
-    } else {
-        "en"
+    let lang_code = locale
+        .split(|c| c == '-' || c == '_')
+        .next()
+        .unwrap_or("")
+        .to_lowercase();
+    match lang_code.as_str() {
+        "nb" | "nn" | "no" => "no",
+        "es" => "es",
+        "pt" => "pt",
+        "de" => "de",
+        "fr" => "fr",
+        "ja" => "ja",
+        "da" => "da",
+        "sv" => "sv",
+        _ => "en",
     }
 }
 
@@ -138,12 +144,14 @@ impl EventType {
     }
 }
 
-impl From<&str> for EventType {
-    fn from(s: &str) -> Self {
+impl TryFrom<&str> for EventType {
+    type Error = ParseError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
-            "send" => EventType::Send,
-            "receive" => EventType::Receive,
-            _ => panic!("Invalid event type: {}", s),
+            "send" => Ok(EventType::Send),
+            "receive" => Ok(EventType::Receive),
+            _ => Err(ParseError(format!("Invalid event type: {}", s))),
         }
     }
 }
@@ -271,13 +279,15 @@ impl From<&str> for ProviderType {
     }
 }
 
-impl From<&str> for BalanceAlertType {
-    fn from(s: &str) -> Self {
+impl TryFrom<&str> for BalanceAlertType {
+    type Error = ParseError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
-            "above" => BalanceAlertType::Above,
-            "below" => BalanceAlertType::Below,
-            "equals" => BalanceAlertType::Equals,
-            _ => panic!("Invalid balance alert type: {}", s),
+            "above" => Ok(BalanceAlertType::Above),
+            "below" => Ok(BalanceAlertType::Below),
+            "equals" => Ok(BalanceAlertType::Equals),
+            _ => Err(ParseError(format!("Invalid balance alert type: {}", s))),
         }
     }
 }
