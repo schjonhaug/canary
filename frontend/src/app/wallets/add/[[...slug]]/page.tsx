@@ -1,284 +1,22 @@
 "use client"
 
-import { useState, useEffect, useMemo, use } from "react"
+import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import Image from "next/image"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle, ChevronRight, Lightbulb } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useWalletsContext } from "@/contexts/wallets-context"
 import { api } from "@/lib/api"
-import { hasReachedWalletLimit, getTierDisplayName, getWalletLimit } from "@/lib/utils"
-import { AddWalletForm, SAMPLE_WALLETS, SAMPLE_WALLET_SLUG } from "@/components/add-wallet-form"
-import { PlanComparison } from "@/components/plan-comparison"
-import { walletGuides, type WalletGuide } from "@/lib/wallet-guides"
+import { hasReachedWalletLimit } from "@/lib/utils"
 import { useBlockHeader } from "@/hooks/useBlockHeader"
+import { useWalletWizard } from "@/hooks/useWalletWizard"
 import { Wallet } from "@/types"
 import { useTranslations } from "next-intl"
-
-type WizardStep = 'choose' | 'instructions' | 'form'
-
-// Props for shared breadcrumb navigation
-interface BreadcrumbProps {
-  selectedWallet: WalletGuide | null
-  step: WizardStep
-  onNavigateToChoose: () => void
-  t: (key: string, params?: Record<string, string>) => string
-  tNav: (key: string) => string
-  getGuideSteps: (walletId: string) => string[]
-}
-
-// Props for the Choose step
-interface ChooseStepProps {
-  breadcrumbProps: BreadcrumbProps
-  isSelfHostedMode: boolean
-  isFirstWallet: boolean
-  onSelectWallet: (wallet: WalletGuide) => void
-  onSkipToForm: () => void
-  onSelectSampleWallet: () => void
-}
-
-// Props for the Instructions step (now includes form)
-interface InstructionsStepProps {
-  breadcrumbProps: BreadcrumbProps
-  selectedWallet: WalletGuide
-  isFirstWallet: boolean
-  onWalletCreated: (wallet: Wallet) => void
-}
-
-// Props for the Form step
-interface FormStepProps {
-  breadcrumbProps: BreadcrumbProps
-  selectedWallet: WalletGuide | null
-  isBaconWallet: boolean
-  isFirstWallet: boolean
-  baconWallet: { name: string; descriptor: string }
-  onWalletCreated: (wallet: Wallet) => void
-}
-
-// Breadcrumb component
-function Breadcrumb({
-  selectedWallet,
-  step,
-  onNavigateToChoose,
-  t,
-  tNav,
-}: {
-  selectedWallet: WalletGuide | null
-  step: WizardStep
-  onNavigateToChoose: () => void
-  t: (key: string) => string
-  tNav: (key: string) => string
-}) {
-  return (
-    <nav className="flex items-center text-2xl text-muted-foreground flex-wrap">
-      <Link href="/wallets" className="hover:text-foreground font-semibold">
-        {tNav('wallets')}
-      </Link>
-      <span className="mx-2">/</span>
-      {step === 'choose' ? (
-        <span className="text-foreground font-semibold">{tNav('addWallet')}</span>
-      ) : (
-        <button
-          onClick={onNavigateToChoose}
-          className="hover:text-foreground font-semibold"
-        >
-          {tNav('addWallet')}
-        </button>
-      )}
-      {step === 'instructions' && selectedWallet && (
-        <>
-          <span className="mx-2">/</span>
-          <span className="text-foreground font-semibold">{selectedWallet.name}</span>
-        </>
-      )}
-      {step === 'form' && (
-        <>
-          <span className="mx-2">/</span>
-          <span className="text-foreground font-semibold">{t('add.wizard.enterDetails')}</span>
-        </>
-      )}
-    </nav>
-  )
-}
-
-// Step 1: Choose your wallet
-function ChooseStep({
-  breadcrumbProps,
-  isSelfHostedMode,
-  isFirstWallet,
-  onSelectWallet,
-  onSkipToForm,
-  onSelectSampleWallet,
-}: ChooseStepProps) {
-  const { t } = breadcrumbProps
-  return (
-    <div className="space-y-6">
-      <Breadcrumb {...breadcrumbProps} />
-
-      <div className="max-w-3xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <p className="text-muted-foreground text-lg">
-            {t('add.wizard.chooseWallet')}
-          </p>
-          <p className="text-muted-foreground text-sm">
-            {t('add.wizard.keysStaySafe')}
-          </p>
-        </div>
-
-        {/* Bacon sample wallet for self-hosted first wallet */}
-        {isSelfHostedMode && isFirstWallet && (
-          <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0" />
-            <p className="text-sm text-amber-700 dark:text-amber-300 flex-1">
-              {t('add.wizard.tryBaconWallet')}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onSelectSampleWallet}
-              className="shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
-            >
-              {t('add.wizard.useBaconWallet')}
-            </Button>
-          </div>
-        )}
-
-        {/* Wallet grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {walletGuides.map((wallet) => (
-            <button
-              key={wallet.id}
-              onClick={() => onSelectWallet(wallet)}
-              className="flex flex-col items-center gap-3 p-6 rounded-xl border hover:bg-accent/5 hover:border-accent transition-all text-center group"
-            >
-              <div className="w-16 h-16 flex items-center justify-center">
-                <Image
-                  src={wallet.logoSmall}
-                  alt={wallet.name}
-                  width={48}
-                  height={48}
-                  className="object-contain"
-                />
-              </div>
-              <div>
-                <div className="font-medium">{wallet.name}</div>
-                <div className="text-xs text-muted-foreground capitalize">{t(`add.wizard.walletType.${wallet.type}`)}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Skip to form option */}
-        <div className="text-center pt-4 border-t">
-          <button
-            onClick={onSkipToForm}
-            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1 text-sm"
-          >
-            {t('add.wizard.haveDescriptor')}
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Step 2: Show instructions for selected wallet with form below
-function InstructionsStep({
-  breadcrumbProps,
-  selectedWallet,
-  isFirstWallet,
-  onWalletCreated,
-}: InstructionsStepProps) {
-  const { t } = breadcrumbProps
-  return (
-    <div className="space-y-6">
-      <Breadcrumb {...breadcrumbProps} />
-
-      <div className="max-w-3xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('add.wizard.exportSteps', { walletName: selectedWallet.name })}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-3">
-              {breadcrumbProps.getGuideSteps(selectedWallet.id).map((stepText, index) => (
-                <li key={index} className="flex gap-3">
-                  <span className="shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center">
-                    {index + 1}
-                  </span>
-                  <span className="pt-0.5">{stepText}</span>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
-
-        {/* Form section */}
-        <div className="text-center space-y-2">
-          <p className="text-muted-foreground">
-            {selectedWallet.outputType === 'xpub' ? t('add.wizard.pasteXpub') : t('add.wizard.pasteDescriptor')}
-          </p>
-        </div>
-
-        <Card>
-          <CardContent className="pt-6">
-            <AddWalletForm
-              isFirstWallet={isFirstWallet}
-              onWalletCreated={onWalletCreated}
-              autoFocusDescriptor={false}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-}
-
-// Step 3: Form (either directly or after instructions)
-function FormStep({
-  breadcrumbProps,
-  selectedWallet,
-  isBaconWallet,
-  isFirstWallet,
-  baconWallet,
-  onWalletCreated,
-}: FormStepProps) {
-  const { t } = breadcrumbProps
-  return (
-    <div className="space-y-6">
-      <Breadcrumb {...breadcrumbProps} />
-
-      <div className="max-w-xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <p className="text-muted-foreground">
-            {isBaconWallet
-              ? t('add.wizard.baconPrefilled')
-              : (selectedWallet?.outputType === 'xpub' ? t('add.wizard.pasteXpub') : t('add.wizard.pasteDescriptor'))
-            }
-          </p>
-        </div>
-
-        <Card>
-          <CardContent className="pt-6">
-            <AddWalletForm
-              isFirstWallet={isFirstWallet}
-              onWalletCreated={onWalletCreated}
-              autoFocusDescriptor={false}
-              initialName={isBaconWallet ? baconWallet.name : undefined}
-              initialDescriptor={isBaconWallet ? baconWallet.descriptor : undefined}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-}
+import { WizardBreadcrumb } from "@/components/wallet-wizard/wizard-breadcrumb"
+import { WalletTypeSelector } from "@/components/wallet-wizard/wallet-type-selector"
+import { WalletInstructions } from "@/components/wallet-wizard/wallet-instructions"
+import { WalletFormStep } from "@/components/wallet-wizard/wallet-form-step"
+import { UpgradePrompt } from "@/components/upgrade-prompt"
 
 interface PageProps {
   params: Promise<{ slug?: string[] }>
@@ -294,45 +32,24 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const t = useTranslations('wallets')
   const tNav = useTranslations('nav')
 
-  // Derive wallet count and limit status from context
-  const walletCount = wallets.length
-
   // Get network for Bacon wallet
   const network = blockHeader?.network ?? 'mainnet'
-  const baconWallet = SAMPLE_WALLETS[network]
 
-  // Check if we're using the Bacon sample wallet
-  const isBaconWallet = slug?.[0] === SAMPLE_WALLET_SLUG
+  // Use wallet wizard hook for step management
+  const {
+    step,
+    selectedWallet,
+    isBaconWallet,
+    baconWallet,
+    handleNavigateToChoose,
+    handleSelectWallet,
+    handleSkipToForm,
+    handleSelectSampleWallet,
+    getGuideSteps,
+  } = useWalletWizard({ slug, network })
 
-  // Derive wizard state from URL path segments
-  // /wallets/add → choose
-  // /wallets/add/sparrow → instructions + form for sparrow
-  // /wallets/add/form → form without wallet context (skipped instructions)
-  // /wallets/add/bacon → form with Bacon wallet prefilled
-  const selectedWallet = useMemo(() => {
-    if (!slug || slug.length === 0) return null
-    if (slug[0] === 'form' || slug[0] === SAMPLE_WALLET_SLUG) return null
-    return walletGuides.find(w => w.id === slug[0]) || null
-  }, [slug])
-
-  const step: WizardStep = useMemo(() => {
-    if (!slug || slug.length === 0) return 'choose'
-    if (slug[0] === 'form' || slug[0] === SAMPLE_WALLET_SLUG) return 'form'
-    if (selectedWallet) return 'instructions'
-    return 'choose'
-  }, [slug, selectedWallet])
-
-  // Redirect invalid wallet IDs to clean choose URL
-  // Also redirect legacy /wallets/add/{wallet-id}/form URLs to /wallets/add/{wallet-id}
-  useEffect(() => {
-    if (slug && slug.length > 0 && slug[0] !== 'form' && slug[0] !== SAMPLE_WALLET_SLUG && !selectedWallet) {
-      router.replace('/wallets/add')
-    }
-    // Redirect legacy /wallets/add/{wallet-id}/form to /wallets/add/{wallet-id}
-    if (slug && slug.length >= 2 && slug[1] === 'form' && selectedWallet) {
-      router.replace(`/wallets/add/${selectedWallet.id}`)
-    }
-  }, [slug, selectedWallet, router])
+  // Derive wallet count and limit status from context
+  const walletCount = wallets.length
 
   // Redirect to sign-in if not authenticated in cloud mode
   useEffect(() => {
@@ -346,23 +63,9 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const limitReached = isCloudMode && !isSelfHostedMode && hasReachedWalletLimit(walletCount, currentTier)
 
   const handleWalletCreated = async (wallet: Wallet) => {
-    // Add wallet to context immediately so it appears in the list
     addWallet?.(wallet)
-    // Refresh billing status to get updated subscription_status (pending → trialing)
     await refreshBillingStatus()
     router.push('/wallets')
-  }
-
-  const handleNavigateToChoose = () => {
-    router.push('/wallets/add')
-  }
-
-  const handleSelectWallet = (wallet: WalletGuide) => {
-    router.push(`/wallets/add/${wallet.id}`)
-  }
-
-  const handleSkipToForm = () => {
-    router.push('/wallets/add/form')
   }
 
   const handleUpgrade = async (targetTier: string, isYearly: boolean = false) => {
@@ -398,7 +101,6 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   if (authLoading || isLoadingWallets) {
     return (
       <div className="space-y-6">
-        {/* Breadcrumb skeleton */}
         <nav className="flex items-center text-2xl text-muted-foreground">
           <Link href="/wallets" className="hover:text-foreground font-semibold">
             {tNav('wallets')}
@@ -417,35 +119,19 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
 
   // Upgrade prompt if limit reached
   if (limitReached && isCloudMode) {
-    const walletLimit = getWalletLimit(currentTier)
     return (
       <div className="space-y-6">
-        <Breadcrumb
+        <WizardBreadcrumb
           selectedWallet={null}
           step="choose"
           onNavigateToChoose={handleNavigateToChoose}
           t={t}
           tNav={tNav}
         />
-
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-400">
-              <AlertTriangle className="h-5 w-5" />
-              {t('add.limitReached.title')}
-            </CardTitle>
-            <CardDescription className="text-amber-700 dark:text-amber-500">
-              {t('add.limitReached.description', { tier: getTierDisplayName(currentTier), count: walletLimit })}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        <PlanComparison
+        <UpgradePrompt
+          limitType="wallets"
           currentTier={currentTier}
           onUpgrade={handleUpgrade}
-          highlightUpgrades={true}
-          showPricing={true}
-          isModal={false}
           isLoading={isUpgrading}
           loadingTier={upgradingTier}
           hasPaidSubscription={hasPaidSubscription}
@@ -454,42 +140,25 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     )
   }
 
-  // Helper to get translated guide steps
-  const getGuideSteps = (walletId: string): string[] => {
-    // Use t.raw to get the array of steps from translations
-    // Falls back to the original steps from wallet-guides if translation not found
-    try {
-      const steps = (t as unknown as { raw: (key: string) => unknown }).raw(`add.guides.${walletId}.steps`)
-      if (Array.isArray(steps)) {
-        return steps as string[]
-      }
-    } catch {
-      // Translation not found, fall back to original
-    }
-    const guide = walletGuides.find(w => w.id === walletId)
-    return guide?.steps || []
-  }
-
-  // Shared breadcrumb props for all steps
-  const breadcrumbProps: BreadcrumbProps = {
-    selectedWallet,
-    step,
-    onNavigateToChoose: handleNavigateToChoose,
-    t,
-    tNav,
-    getGuideSteps,
+  // Helper function that wraps getGuideSteps with the translation function
+  const getTranslatedGuideSteps = (walletId: string): string[] => {
+    return getGuideSteps(walletId, t as unknown as { raw: (key: string) => unknown })
   }
 
   // Step 1: Choose your wallet
   if (step === 'choose') {
     return (
-      <ChooseStep
-        breadcrumbProps={breadcrumbProps}
+      <WalletTypeSelector
+        selectedWallet={selectedWallet}
+        step={step}
+        onNavigateToChoose={handleNavigateToChoose}
         isSelfHostedMode={isSelfHostedMode}
         isFirstWallet={isFirstWallet}
         onSelectWallet={handleSelectWallet}
         onSkipToForm={handleSkipToForm}
-        onSelectSampleWallet={() => router.push(`/wallets/add/${SAMPLE_WALLET_SLUG}`)}
+        onSelectSampleWallet={handleSelectSampleWallet}
+        t={t}
+        tNav={tNav}
       />
     )
   }
@@ -497,24 +166,31 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   // Step 2: Show instructions for selected wallet (with form included)
   if (step === 'instructions' && selectedWallet) {
     return (
-      <InstructionsStep
-        breadcrumbProps={breadcrumbProps}
+      <WalletInstructions
         selectedWallet={selectedWallet}
+        step={step}
+        onNavigateToChoose={handleNavigateToChoose}
         isFirstWallet={isFirstWallet}
         onWalletCreated={handleWalletCreated}
+        getGuideSteps={getTranslatedGuideSteps}
+        t={t}
+        tNav={tNav}
       />
     )
   }
 
   // Step 3: Form (either directly or after instructions)
   return (
-    <FormStep
-      breadcrumbProps={breadcrumbProps}
+    <WalletFormStep
       selectedWallet={selectedWallet}
+      step={step}
+      onNavigateToChoose={handleNavigateToChoose}
       isBaconWallet={isBaconWallet}
       isFirstWallet={isFirstWallet}
       baconWallet={baconWallet}
       onWalletCreated={handleWalletCreated}
+      t={t}
+      tNav={tNav}
     />
   )
 }
