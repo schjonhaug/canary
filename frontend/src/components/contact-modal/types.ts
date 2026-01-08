@@ -79,23 +79,30 @@ export function extractProviderDataFromContact(
   }
 
   contact.notification_methods.forEach(method => {
-    if (method.provider_type === 'sms') {
-      const phoneNumber = method.display_target || method.notification_target
-      enabledProviders['twilio'] = true
-      providerValues['twilio'] = phoneNumber
-      originalState.phoneNumber = phoneNumber
-      originalState.smsEnabled = true
-    } else if (method.provider_type === 'ntfy') {
-      enabledProviders['ntfy'] = true
-      ntfyTopic = method.notification_target
-      originalState.ntfyTopic = ntfyTopic
-      originalState.ntfyEnabled = true
-    } else if (method.provider_type === 'email') {
-      const emailAddress = method.display_target || method.notification_target
-      enabledProviders['email'] = true
-      providerValues['email'] = emailAddress
-      originalState.emailAddress = emailAddress
-      originalState.emailEnabled = true
+    switch (method.provider_type) {
+      case 'sms': {
+        const phoneNumber = method.display_target || method.notification_target
+        enabledProviders['twilio'] = true
+        providerValues['twilio'] = phoneNumber
+        originalState.phoneNumber = phoneNumber
+        originalState.smsEnabled = true
+        break
+      }
+      case 'ntfy': {
+        enabledProviders['ntfy'] = true
+        ntfyTopic = method.notification_target
+        originalState.ntfyTopic = ntfyTopic
+        originalState.ntfyEnabled = true
+        break
+      }
+      case 'email': {
+        const emailAddress = method.display_target || method.notification_target
+        enabledProviders['email'] = true
+        providerValues['email'] = emailAddress
+        originalState.emailAddress = emailAddress
+        originalState.emailEnabled = true
+        break
+      }
     }
   })
 
