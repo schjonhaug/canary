@@ -228,7 +228,7 @@ async fn test_get_user_preferred_language_norwegian() {
             Some("Nordic User"),
             false,
             None,           // preferred_currency
-            Some("no"),     // preferred_language - Norwegian
+            Some("nb"),     // preferred_language - Norwegian (Bokmål)
         )
         .await
         .unwrap();
