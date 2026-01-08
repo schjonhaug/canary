@@ -21,6 +21,8 @@ import { useTranslations } from "next-intl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
 import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { useEmailVerification } from "@/hooks/useEmailVerification"
+import { useOriginalContactState } from "@/hooks/useOriginalContactState"
+import { useContactChangeDetection } from "@/hooks/useContactChangeDetection"
 
 // Helper to sanitize name for ntfy topic
 function sanitizeForNtfyTopic(name: string): string {
@@ -67,14 +69,10 @@ export function ContactModal({
   const [providerValues, setProviderValues] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [originalPhoneNumber, setOriginalPhoneNumber] = useState<string | null>(null)
-  const [originalEmailAddress, setOriginalEmailAddress] = useState<string | null>(null)
-  const [originalName, setOriginalName] = useState<string | null>(null)
-  const [originalNtfyTopic, setOriginalNtfyTopic] = useState<string | null>(null)
-  const [originalNtfyEnabled, setOriginalNtfyEnabled] = useState<boolean>(false)
-  const [originalSmsEnabled, setOriginalSmsEnabled] = useState<boolean>(false)
-  const [originalEmailEnabled, setOriginalEmailEnabled] = useState<boolean>(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+
+  // Consolidated original state management
+  const { originalState, initializeFromContact, reset: resetOriginalState } = useOriginalContactState()
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   const isEditMode = !!editContact
@@ -83,46 +81,35 @@ export function ContactModal({
   const smsVerification = useSmsVerification({
     walletChecksum,
     contactName: name,
-    originalPhoneNumber,
+    originalPhoneNumber: originalState.phoneNumber,
     onError: setError
   })
 
   const emailVerification = useEmailVerification({
     walletChecksum,
     contactName: name,
-    originalEmailAddress,
+    originalEmailAddress: originalState.emailAddress,
     onError: setError
   })
 
-  // Only calculate when modal is open to avoid unnecessary computation
-  const phoneNumberChanged = isOpen ? (originalPhoneNumber !== null &&
-    providerValues['twilio']?.trim() !== originalPhoneNumber) : false
-
-  // Only calculate when modal is open to avoid unnecessary computation
-  const emailAddressChanged = isOpen ? (originalEmailAddress !== null &&
-    providerValues['email']?.trim() !== originalEmailAddress) : false
-
-  // Check if SMS verification is required
-  const smsVerificationRequired = isOpen ? (enabledProviders['twilio'] &&
-    (phoneNumberChanged || (!isEditMode && !smsVerification.isVerified) || (isEditMode && originalPhoneNumber === null && !smsVerification.isVerified))) : false
-
-  // Check if email verification is required
-  const emailVerificationRequired = isOpen ? (enabledProviders['email'] &&
-    (emailAddressChanged || (!isEditMode && !emailVerification.isVerified) || (isEditMode && originalEmailAddress === null && !emailVerification.isVerified))) : false
-
-  // Compute hasChanges by comparing current values to original values
-  // In edit mode, if originalName is null, the initialization effect hasn't run yet
-  const hasChanges = isOpen && isEditMode ? (
-    originalName === null ? false : (
-      name.trim() !== originalName ||
-      ntfyTopic !== (originalNtfyTopic || '') ||
-      (enabledProviders['ntfy'] || false) !== originalNtfyEnabled ||
-      (enabledProviders['twilio'] || false) !== originalSmsEnabled ||
-      (enabledProviders['email'] || false) !== originalEmailEnabled ||
-      (providerValues['twilio']?.trim() || '') !== (originalPhoneNumber || '') ||
-      (providerValues['email']?.trim() || '') !== (originalEmailAddress || '')
-    )
-  ) : true  // Always allow submit for new contacts
+  // Consolidated change detection using custom hook
+  const {
+    phoneNumberChanged,
+    emailAddressChanged,
+    smsVerificationRequired,
+    emailVerificationRequired,
+    hasChanges,
+  } = useContactChangeDetection({
+    isOpen,
+    isEditMode,
+    originalState,
+    currentName: name,
+    currentNtfyTopic: ntfyTopic,
+    enabledProviders,
+    providerValues,
+    smsVerified: smsVerification.isVerified,
+    emailVerified: emailVerification.isVerified,
+  })
 
   // Fetch available providers
   const fetchProviders = useCallback(async () => {
@@ -137,60 +124,38 @@ export function ContactModal({
   // Initialize form data when modal opens
   useEffect(() => {
     if (isOpen) {
-      // Force clear all state first
+      // Reset all state first
       setError(null)
-      setOriginalPhoneNumber(null)
-      setOriginalEmailAddress(null)
-      setOriginalName(null)
-      setOriginalNtfyTopic(null)
-      setOriginalNtfyEnabled(false)
-      setOriginalSmsEnabled(false)
-      setOriginalEmailEnabled(false)
       setIsDeleteModalOpen(false)
       setNtfyTopic("")
       setUserEditedNtfyTopic(false)
+      resetOriginalState()
 
       // Reset verification hooks
       smsVerification.reset()
       emailVerification.reset()
 
       if (editContact) {
-        // Populate form with existing contact data
+        // Populate form with existing contact data using consolidated helper
         setName(editContact.name)
-        setOriginalName(editContact.name)
+        const { enabledProviders: newEnabled, providerValues: newValues, ntfyTopic: existingTopic } =
+          initializeFromContact(editContact)
 
-        // Set up providers based on existing notification methods
-        const newEnabledProviders: Record<string, boolean> = {}
-        const newProviderValues: Record<string, string> = {}
+        setEnabledProviders(newEnabled)
+        setProviderValues(newValues)
 
-        editContact.notification_methods.forEach(method => {
-          if (method.provider_type === 'sms') {
-            const phoneNumber = method.display_target || method.notification_target
-            newEnabledProviders['twilio'] = true
-            newProviderValues['twilio'] = phoneNumber
-            setOriginalPhoneNumber(phoneNumber)
-            setOriginalSmsEnabled(true)
-            smsVerification.setVerified(true) // SMS already exists on contact, so it's verified
-          } else if (method.provider_type === 'ntfy') {
-            newEnabledProviders['ntfy'] = true
-            // Pre-populate ntfy topic from existing notification method
-            const existingTopic = method.notification_target
-            setNtfyTopic(existingTopic)
-            setOriginalNtfyTopic(existingTopic)
-            setOriginalNtfyEnabled(true)
-            setUserEditedNtfyTopic(true) // Mark as edited so it doesn't auto-update
-          } else if (method.provider_type === 'email') {
-            const emailAddress = method.display_target || method.notification_target
-            newEnabledProviders['email'] = true
-            newProviderValues['email'] = emailAddress
-            setOriginalEmailAddress(emailAddress)
-            setOriginalEmailEnabled(true)
-            emailVerification.setVerified(true) // Email already exists on contact, so it's verified
-          }
-        })
+        if (existingTopic) {
+          setNtfyTopic(existingTopic)
+          setUserEditedNtfyTopic(true) // Mark as edited so it doesn't auto-update
+        }
 
-        setEnabledProviders(newEnabledProviders)
-        setProviderValues(newProviderValues)
+        // Set verification status for existing providers
+        if (newEnabled['twilio']) {
+          smsVerification.setVerified(true)
+        }
+        if (newEnabled['email']) {
+          emailVerification.setVerified(true)
+        }
       } else {
         // Reset form for new contact
         setName("")
@@ -207,14 +172,8 @@ export function ContactModal({
 
   const handleClose = () => {
     setError(null)
-    setOriginalPhoneNumber(null)
-    setOriginalEmailAddress(null)
-    setOriginalName(null)
-    setOriginalNtfyTopic(null)
-    setOriginalNtfyEnabled(false)
-    setOriginalSmsEnabled(false)
-    setOriginalEmailEnabled(false)
     setIsDeleteModalOpen(false)
+    resetOriginalState()
     // Reset form values
     setName("")
     setNtfyTopic("")
@@ -473,9 +432,9 @@ export function ContactModal({
                             }))
                             smsVerification.clearPhoneError()
                             const newPhoneNumber = value.trim()
-                            if (originalPhoneNumber !== null && newPhoneNumber !== originalPhoneNumber) {
+                            if (originalState.phoneNumber !== null && newPhoneNumber !== originalState.phoneNumber) {
                               smsVerification.resetForPhoneChange(newPhoneNumber)
-                            } else if (originalPhoneNumber !== null && newPhoneNumber === originalPhoneNumber) {
+                            } else if (originalState.phoneNumber !== null && newPhoneNumber === originalState.phoneNumber) {
                               smsVerification.revertToOriginal()
                             }
                           }}
@@ -513,9 +472,9 @@ export function ContactModal({
                             emailVerification.clearVerificationError()
                             emailVerification.clearEmailError()
                             const newEmailAddress = value.trim()
-                            if (originalEmailAddress !== null && newEmailAddress !== originalEmailAddress) {
+                            if (originalState.emailAddress !== null && newEmailAddress !== originalState.emailAddress) {
                               emailVerification.resetForEmailChange(newEmailAddress)
-                            } else if (originalEmailAddress !== null && newEmailAddress === originalEmailAddress) {
+                            } else if (originalState.emailAddress !== null && newEmailAddress === originalState.emailAddress) {
                               emailVerification.revertToOriginal()
                             }
                           }}
