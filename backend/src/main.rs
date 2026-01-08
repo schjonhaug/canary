@@ -49,6 +49,9 @@ use wallet::WalletManager;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Load .env file early so CANARY_FILE_LOGGING is available before logging init
+    let _ = dotenvy::dotenv();
+
     // Create env filter for log levels
     let env_filter = EnvFilter::from_default_env().add_directive("canary=info".parse()?);
 
