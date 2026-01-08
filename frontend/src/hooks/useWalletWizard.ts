@@ -7,6 +7,7 @@ import type { WizardStep } from "@/components/wallet-wizard/wizard-breadcrumb"
 interface UseWalletWizardOptions {
   slug?: string[]
   network: string
+  t: { raw: (key: string) => unknown }
 }
 
 interface UseWalletWizardReturn {
@@ -18,10 +19,10 @@ interface UseWalletWizardReturn {
   handleSelectWallet: (wallet: WalletGuide) => void
   handleSkipToForm: () => void
   handleSelectSampleWallet: () => void
-  getGuideSteps: (walletId: string, t: { raw: (key: string) => unknown }) => string[]
+  getGuideSteps: (walletId: string) => string[]
 }
 
-export function useWalletWizard({ slug, network }: UseWalletWizardOptions): UseWalletWizardReturn {
+export function useWalletWizard({ slug, network, t }: UseWalletWizardOptions): UseWalletWizardReturn {
   const router = useRouter()
 
   // Get bacon wallet for current network
@@ -75,7 +76,7 @@ export function useWalletWizard({ slug, network }: UseWalletWizardOptions): UseW
   }, [router])
 
   // Helper to get translated guide steps
-  const getGuideSteps = useCallback((walletId: string, t: { raw: (key: string) => unknown }): string[] => {
+  const getGuideSteps = useCallback((walletId: string): string[] => {
     try {
       const steps = t.raw(`add.guides.${walletId}.steps`)
       if (Array.isArray(steps)) {
@@ -86,7 +87,7 @@ export function useWalletWizard({ slug, network }: UseWalletWizardOptions): UseW
     }
     const guide = walletGuides.find(w => w.id === walletId)
     return guide?.steps || []
-  }, [])
+  }, [t])
 
   return {
     step,

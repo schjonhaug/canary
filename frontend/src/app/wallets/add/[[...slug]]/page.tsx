@@ -46,7 +46,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     handleSkipToForm,
     handleSelectSampleWallet,
     getGuideSteps,
-  } = useWalletWizard({ slug, network })
+  } = useWalletWizard({ slug, network, t: t as unknown as { raw: (key: string) => unknown } })
 
   // Derive wallet count and limit status from context
   const walletCount = wallets.length
@@ -140,11 +140,6 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     )
   }
 
-  // Helper function that wraps getGuideSteps with the translation function
-  const getTranslatedGuideSteps = (walletId: string): string[] => {
-    return getGuideSteps(walletId, t as unknown as { raw: (key: string) => unknown })
-  }
-
   // Step 1: Choose your wallet
   if (step === 'choose') {
     return (
@@ -172,7 +167,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
         onNavigateToChoose={handleNavigateToChoose}
         isFirstWallet={isFirstWallet}
         onWalletCreated={handleWalletCreated}
-        getGuideSteps={getTranslatedGuideSteps}
+        getGuideSteps={getGuideSteps}
         t={t}
         tNav={tNav}
       />
