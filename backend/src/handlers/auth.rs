@@ -370,11 +370,18 @@ pub async fn login(
             )
                 .into_response();
         }
+        Ok(None) => {
+            // Lockout has expired - reset the failed login counter
+            // This prevents immediate re-locking on the next failed attempt
+            let _ = app_services
+                .metadata_db
+                .reset_failed_login_count(&request.email)
+                .await;
+        }
         Err(e) => {
             tracing::error!("Failed to check account lockout: {}", e);
             // Continue with login attempt if lockout check fails
         }
-        _ => {}
     }
 
     // Check if user exists - no mutex blocking!
