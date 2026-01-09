@@ -2,7 +2,7 @@ name: Gemini Code Review
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, reopened]
 
 jobs:
   gemini-review:
