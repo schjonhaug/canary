@@ -233,11 +233,12 @@ pub async fn register(
     // Send verification email for non-dev accounts
     if !is_dev_email {
         let token = auth_service.generate_verification_token();
+        let token_hash = AuthService::hash_token(&token);
 
-        // Store verification token - no mutex blocking!
+        // Store verification token (hashed for security) - no mutex blocking!
         if let Err(e) = app_services
             .metadata_db
-            .create_email_verification_token(&user_id, &token)
+            .create_email_verification_token(&user_id, &token_hash)
             .await
         {
             return (
@@ -642,8 +643,15 @@ pub async fn verify_email(
 ) -> Response {
     let start_time = std::time::Instant::now();
 
+    // Hash the incoming token for verification (tokens are stored hashed)
+    let token_hash = AuthService::hash_token(&token);
+
     // Direct metadata access - no mutex blocking!
-    let result = match app_services.metadata_db.verify_email_token(&token).await {
+    let result = match app_services
+        .metadata_db
+        .verify_email_token(&token_hash)
+        .await
+    {
         Ok(Some(_user_id)) => Json(serde_json::json!({
             "message": "Email verified successfully. You can now log in."
         }))
