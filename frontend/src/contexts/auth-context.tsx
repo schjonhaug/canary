@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { ApiError } from '@/lib/utils'
 import { setStoredLocale, clearStoredLocale } from '@/lib/locale'
 import { type Locale, locales } from '@/i18n/config'
 
@@ -96,8 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncLocaleFromUser(userData)
     } catch (error) {
       console.error('Failed to fetch user:', error)
-      // Only clear auth on 401 Unauthorized - other errors might be temporary
-      if (error instanceof Error && error.message.includes('401')) {
+      // Clear auth on 401/403 authentication errors - token is invalid or expired
+      if (error instanceof ApiError && error.isAuthError()) {
         console.log('Token appears invalid, logging out')
         localStorage.removeItem('auth_token')
         setToken(null)
