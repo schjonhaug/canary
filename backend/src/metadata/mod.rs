@@ -1,6 +1,7 @@
 mod contact;
 mod db;
 mod pool;
+mod transaction;
 mod types;
 mod user;
 mod wallet;
