@@ -692,14 +692,14 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn verify_password_reset_token(&self, token: &str) -> Result<Option<i64>> {
+    pub async fn verify_password_reset_token(&self, token: &str) -> Result<Option<String>> {
         let pool = self.pool.clone();
         let token = token.to_string();
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-        spawn_blocking(move || -> Result<Option<i64>> {
+        spawn_blocking(move || -> Result<Option<String>> {
             let conn = pool.get()?;
-            let user_id: Option<i64> = conn
+            let user_id: Option<String> = conn
                 .prepare("SELECT user_id FROM password_reset_tokens WHERE token = ?1 AND expires_at > ?2")?
                 .query_row(params![&token, &current_time], |row| row.get(0))
                 .ok();
@@ -707,8 +707,9 @@ impl MetadataDb {
         }).await?
     }
 
-    pub async fn update_user_password(&self, user_id: i64, password_hash: &str) -> Result<()> {
+    pub async fn update_user_password(&self, user_id: &str, password_hash: &str) -> Result<()> {
         let pool = self.pool.clone();
+        let user_id = user_id.to_string();
         let password_hash = password_hash.to_string();
 
         spawn_blocking(move || -> Result<()> {
@@ -718,13 +719,13 @@ impl MetadataDb {
             // Update password
             tx.execute(
                 "UPDATE users SET password_hash = ?1 WHERE id = ?2",
-                params![&password_hash, user_id],
+                params![&password_hash, &user_id],
             )?;
 
             // Delete all password reset tokens for this user
             tx.execute(
                 "DELETE FROM password_reset_tokens WHERE user_id = ?1",
-                params![user_id],
+                params![&user_id],
             )?;
 
             tx.commit()?;

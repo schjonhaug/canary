@@ -719,11 +719,12 @@ pub async fn forgot_password(
 
     let auth_service = AuthService::new(jwt_secret, email_service);
     let token = auth_service.generate_verification_token();
+    let token_hash = AuthService::hash_token(&token);
 
-    // Store password reset token - no mutex blocking!
+    // Store password reset token (hashed for security) - no mutex blocking!
     if let Err(e) = app_services
         .metadata_db
-        .create_password_reset_token(&user_record.id, &token)
+        .create_password_reset_token(&user_record.id, &token_hash)
         .await
     {
         return (
@@ -864,10 +865,13 @@ pub async fn reset_password(
             .into_response();
     }
 
+    // Hash the incoming token for verification (tokens are stored hashed)
+    let token_hash = AuthService::hash_token(&token);
+
     // Verify token and get user ID - no mutex blocking!
     let user_id = match app_services
         .metadata_db
-        .verify_password_reset_token(&token)
+        .verify_password_reset_token(&token_hash)
         .await
     {
         Ok(Some(id)) => id,
@@ -923,7 +927,7 @@ pub async fn reset_password(
     // Update password and clear reset tokens - no mutex blocking!
     if let Err(e) = app_services
         .metadata_db
-        .update_user_password(user_id, &password_hash)
+        .update_user_password(&user_id, &password_hash)
         .await
     {
         return (
