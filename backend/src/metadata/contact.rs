@@ -257,14 +257,11 @@ impl MetadataDb {
                 contacts.insert(id, contact);
             }
 
-            // Fetch all notification methods in a single query using IN clause (avoid N+1)
+            // Fetch all notification methods using IN clause (avoid N+1)
+            // Chunk IDs to avoid hitting SQL parameter limits (SQLite default is 999)
             let contact_ids: Vec<String> = contacts.keys().cloned().collect();
-            if !contact_ids.is_empty() {
-                let placeholders = contact_ids
-                    .iter()
-                    .map(|_| "?")
-                    .collect::<Vec<_>>()
-                    .join(",");
+            for ids_chunk in contact_ids.chunks(500) {
+                let placeholders = ids_chunk.iter().map(|_| "?").collect::<Vec<_>>().join(",");
                 let methods_query = format!(
                     "SELECT id, contact_id, provider_type, notification_target, created_at
                      FROM contact_notification_methods
@@ -274,7 +271,7 @@ impl MetadataDb {
 
                 let mut methods_stmt = conn.prepare(&methods_query)?;
                 let method_params: Vec<&dyn ToSql> =
-                    contact_ids.iter().map(|id| id as &dyn ToSql).collect();
+                    ids_chunk.iter().map(|id| id as &dyn ToSql).collect();
 
                 let methods_iter = methods_stmt.query_map(method_params.as_slice(), |row| {
                     let provider_str: String = row.get(2)?;
@@ -795,10 +792,19 @@ impl MetadataDb {
                 .exists(params![&phone_number])?;
 
             if exists {
-                tx.execute(
-                    "UPDATE otp_attempts SET attempt_count = attempt_count + 1, last_attempt = ?1 WHERE phone_number = ?2",
-                    params![&current_time_str, &phone_number],
-                )?;
+                // If the last attempt was not recent (outside 15-min window), reset the counter
+                // Otherwise, increment it
+                if recent_attempts > 0 {
+                    tx.execute(
+                        "UPDATE otp_attempts SET attempt_count = attempt_count + 1, last_attempt = ?1 WHERE phone_number = ?2",
+                        params![&current_time_str, &phone_number],
+                    )?;
+                } else {
+                    tx.execute(
+                        "UPDATE otp_attempts SET attempt_count = 1, last_attempt = ?1, blocked_until = NULL WHERE phone_number = ?2",
+                        params![&current_time_str, &phone_number],
+                    )?;
+                }
             } else {
                 tx.execute(
                     "INSERT INTO otp_attempts (phone_number, attempt_count, last_attempt) VALUES (?1, 1, ?2)",
