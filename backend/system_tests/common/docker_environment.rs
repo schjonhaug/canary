@@ -108,14 +108,15 @@ impl IsolatedTestEnvironment {
         // Create test database
         let db_path = temp_dir.path().join("test.db");
 
-        let test_config = AppConfig {
-            network: NetworkConfig::Regtest,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: temp_path.clone(),
-            operating_mode: OperatingMode::SelfHosted, // Self-hosted mode for simpler testing without Stripe
-            frontend_url: None,
-        };
+        let test_config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            None,
+            "127.0.0.1:3000".to_string(),
+            temp_path.clone(),
+            OperatingMode::SelfHosted, // Self-hosted mode for simpler testing without Stripe
+            None,
+            None, // No JWT secret needed for self-hosted mode
+        );
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
 
@@ -269,14 +270,15 @@ impl IsolatedTestEnvironment {
         // Create test database
         let db_path = temp_dir.path().join("test.db");
 
-        let test_config = AppConfig {
-            network: NetworkConfig::Regtest,
-            electrum_url: None,
-            bind_address: "127.0.0.1:3000".to_string(),
-            data_dir: temp_path.clone(),
-            operating_mode: OperatingMode::SelfHosted, // Self-hosted mode for simpler testing without Stripe
-            frontend_url: None,
-        };
+        let test_config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            None,
+            "127.0.0.1:3000".to_string(),
+            temp_path.clone(),
+            OperatingMode::SelfHosted, // Self-hosted mode for simpler testing without Stripe
+            None,
+            None, // No JWT secret needed for self-hosted mode
+        );
 
         let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config).await?;
 

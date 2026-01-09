@@ -401,7 +401,7 @@ impl AuthService {
     }
 }
 
-pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
+pub fn authenticate_user(auth_header: Option<&str>, jwt_secret: &str) -> Result<AuthUser> {
     // Cloud mode: validate JWT token
     let auth_header = auth_header.ok_or_else(|| anyhow!("Authorization header required"))?;
 
@@ -410,10 +410,8 @@ pub fn authenticate_user(auth_header: Option<&str>) -> Result<AuthUser> {
     }
 
     let token = &auth_header[7..];
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
 
-    let auth_service = AuthService::new(jwt_secret, None);
+    let auth_service = AuthService::new(jwt_secret.to_string(), None);
     let claims = auth_service.validate_token(token)?;
 
     Ok(AuthUser {

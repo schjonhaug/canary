@@ -50,7 +50,17 @@ where
             }))
         } else {
             // Cloud mode: authenticate using JWT
-            authenticate_user(auth_header)
+            let jwt_secret = config.get_jwt_secret().map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Configuration error: {}", e),
+                    }),
+                )
+                    .into_response()
+            })?;
+
+            authenticate_user(auth_header, jwt_secret)
                 .map(AuthenticatedUser)
                 .map_err(|_| {
                     (

@@ -26,6 +26,7 @@ use crate::auth::{
 pub async fn register(
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
+    State(config): State<Arc<AppConfig>>,
     Json(request): Json<RegisterRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -79,8 +80,18 @@ pub async fn register(
         }
     }
 
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let jwt_secret = match config.get_jwt_secret() {
+        Ok(secret) => secret.to_string(),
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
 
     // Email service not configured, will work in dev mode
     let email_service = EmailService::from_env().ok();
@@ -275,6 +286,7 @@ pub async fn register(
 /// User login endpoint
 pub async fn login(
     State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
     Json(request): Json<LoginRequest>,
 ) -> Response {
     // Check if user exists - no mutex blocking!
@@ -304,8 +316,18 @@ pub async fn login(
         }
     };
 
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let jwt_secret = match config.get_jwt_secret() {
+        Ok(secret) => secret.to_string(),
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
 
     let email_service = match EmailService::from_env() {
         Ok(service) => {
@@ -532,8 +554,18 @@ pub async fn demo_login(
     }
 
     // Generate JWT token for demo user
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let jwt_secret = match config.get_jwt_secret() {
+        Ok(secret) => secret.to_string(),
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
     let auth_service = AuthService::new(jwt_secret, None);
 
     let token = match auth_service.generate_token(
@@ -640,6 +672,7 @@ pub async fn verify_email(
 /// Forgot password endpoint
 pub async fn forgot_password(
     State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
     Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -669,8 +702,18 @@ pub async fn forgot_password(
         }
     };
 
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let jwt_secret = match config.get_jwt_secret() {
+        Ok(secret) => secret.to_string(),
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
 
     let email_service = EmailService::from_env().ok();
 
@@ -804,6 +847,7 @@ pub async fn submit_contact_form(Json(payload): Json<ContactFormRequest>) -> Res
 /// Reset password endpoint
 pub async fn reset_password(
     State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
     Path(token): Path<String>,
     Json(request): Json<ResetPasswordRequest>,
 ) -> Response {
@@ -847,8 +891,18 @@ pub async fn reset_password(
         }
     };
 
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let jwt_secret = match config.get_jwt_secret() {
+        Ok(secret) => secret.to_string(),
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
 
     let auth_service = AuthService::new(jwt_secret, None);
 

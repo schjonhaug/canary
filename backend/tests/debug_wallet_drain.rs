@@ -20,14 +20,15 @@ async fn debug_wallet_drain_detection() {
 
     // Create test database
     let db_path = temp_dir.path().join("test.db");
-    let test_config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_path.clone(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-    };
+    let test_config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_path.clone(),
+        OperatingMode::SelfHosted,
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
 
     let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &test_config)
         .await

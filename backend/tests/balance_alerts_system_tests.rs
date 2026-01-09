@@ -17,14 +17,15 @@ async fn create_test_db() -> (Arc<MetadataDb>, tempfile::TempDir) {
     let test_db_path = temp_dir.path().join("test_metadata.sqlite");
 
     // Create test config
-    let test_config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_dir.path().to_str().unwrap().to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-    };
+    let test_config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_dir.path().to_str().unwrap().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
 
     let db = Arc::new(
         MetadataDb::new(test_db_path.to_str().unwrap(), &test_config)
@@ -625,14 +626,15 @@ async fn test_fiat_alert_fires_on_exchange_rate_change() {
     assert!(alert.is_active, "Alert should be active initially");
 
     // Create sync service and config
-    let test_config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_dir.path().to_str().unwrap().to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-    };
+    let test_config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_dir.path().to_str().unwrap().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
     let sync_service = create_sync_service(&metadata_db, &test_config);
 
     // Check alerts - should NOT fire at 50k NOK
@@ -742,14 +744,15 @@ async fn test_balance_alert_threshold_crossing_detection() {
     let (_user_id, wallet_checksum) = create_test_user_and_wallet(&metadata_db).await;
 
     // Create test config
-    let test_config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: _temp_dir.path().to_str().unwrap().to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-    };
+    let test_config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        _temp_dir.path().to_str().unwrap().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
 
     let sync_service = create_sync_service(&metadata_db, &test_config);
 
