@@ -16,7 +16,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD)
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Run Gemini Code Review
         id: gemini
@@ -24,7 +33,7 @@ jobs:
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           prompt: |
-            Please review this pull request and provide feedback on:
+            Review this pull request diff and provide feedback on:
             - Code quality and best practices
             - Potential bugs or issues
             - Performance considerations
@@ -32,6 +41,11 @@ jobs:
             - Test coverage
 
             Be constructive and helpful in your feedback.
+
+            Here is the diff:
+            ```
+            ${{ steps.diff.outputs.diff }}
+            ```
 
       - name: Post Gemini feedback
         if: steps.gemini.outputs.summary != ''
