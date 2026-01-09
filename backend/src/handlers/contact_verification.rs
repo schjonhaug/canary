@@ -25,7 +25,6 @@ pub async fn send_contact_verification(
     State(config): State<Arc<AppConfig>>,
     Json(request): Json<SendContactVerificationRequest>,
 ) -> Response {
-    let _ = config; // Used for state extraction pattern consistency
     let start_time = std::time::Instant::now();
 
     // Get user's preferred language for verification emails
@@ -184,8 +183,18 @@ pub async fn send_contact_verification(
         // Check if email matches current user's account email (skip verification) - no mutex blocking!
         if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await
         {
-            let jwt_secret = std::env::var("JWT_SECRET")
-                .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+            let jwt_secret = match config.get_jwt_secret() {
+                Ok(secret) => secret.to_string(),
+                Err(e) => {
+                    return (
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        Json(ErrorResponse {
+                            error: e.to_string(),
+                        }),
+                    )
+                        .into_response();
+                }
+            };
             let auth_service = AuthService::new(jwt_secret.clone(), None);
 
             if auth_service.should_skip_email_verification(&email, &user_record.email) {
@@ -328,8 +337,18 @@ pub async fn send_contact_verification(
     }
 
     // Send verification code
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let jwt_secret = match config.get_jwt_secret() {
+        Ok(secret) => secret.to_string(),
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
 
     let result = if provider_type == "sms" {
         // SMS verification via Twilio
@@ -419,6 +438,7 @@ pub async fn verify_contact(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(wallet_checksum): Path<String>,
     State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
     Json(request): Json<VerifyContactRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -545,8 +565,18 @@ pub async fn verify_contact(
         }
     };
 
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    let jwt_secret = match config.get_jwt_secret() {
+        Ok(secret) => secret.to_string(),
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
 
     // Verify the code based on provider type
     let is_valid = if provider_type == "email" {

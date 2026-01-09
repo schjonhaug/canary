@@ -39,14 +39,15 @@ async fn create_test_app() -> (axum::Router, TempDir) {
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
 
     // Create test config with self-hosted mode (no auth required)
-    let test_config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_path.to_string(),
-        operating_mode: OperatingMode::SelfHosted, // Self-hosted = hardcoded admin user
-        frontend_url: None,
-    };
+    let test_config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_path.to_string(),
+        OperatingMode::SelfHosted, // Self-hosted = hardcoded admin user
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
 
     let (event_tx, _event_rx) =
         broadcast::channel::<canary::metadata::TransactionNotification>(100);

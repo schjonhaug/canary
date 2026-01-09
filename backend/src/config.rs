@@ -111,6 +111,8 @@ pub struct AppConfig {
     pub data_dir: String,
     pub operating_mode: OperatingMode,
     pub frontend_url: Option<String>,
+    /// JWT secret for authentication (only used in cloud mode)
+    jwt_secret: Option<String>,
 }
 
 impl AppConfig {
@@ -178,6 +180,9 @@ impl AppConfig {
         // Load frontend URL (optional in self-hosted mode, validated in cloud mode)
         let frontend_url = std::env::var("FRONTEND_URL").ok();
 
+        // Load JWT secret (only used in cloud mode)
+        let jwt_secret = std::env::var("JWT_SECRET").ok();
+
         Ok(AppConfig {
             network,
             electrum_url,
@@ -185,6 +190,7 @@ impl AppConfig {
             data_dir,
             operating_mode,
             frontend_url,
+            jwt_secret,
         })
     }
 
@@ -207,6 +213,17 @@ impl AppConfig {
     /// Returns None in self-hosted mode or if not configured
     pub fn frontend_url(&self) -> Option<&str> {
         self.frontend_url.as_deref()
+    }
+
+    /// Get JWT secret for authentication (cloud mode only).
+    /// Returns error if called in self-hosted mode or if JWT_SECRET is not configured.
+    pub fn get_jwt_secret(&self) -> Result<&str, &'static str> {
+        if self.is_self_hosted_mode() {
+            return Err("JWT authentication not available in self-hosted mode");
+        }
+        self.jwt_secret
+            .as_deref()
+            .ok_or("JWT_SECRET required for cloud mode - check your .env file")
     }
 
     /// Check if ntfy provider should be enabled
@@ -379,6 +396,28 @@ impl AppConfig {
     pub fn metadata_db_path(&self) -> String {
         format!("database/{}/metadata.sqlite", self.network_name())
     }
+
+    /// Create an AppConfig for testing purposes.
+    /// This allows external tests to construct AppConfig with all required fields.
+    pub fn new_for_test(
+        network: NetworkConfig,
+        electrum_url: Option<String>,
+        bind_address: String,
+        data_dir: String,
+        operating_mode: OperatingMode,
+        frontend_url: Option<String>,
+        jwt_secret: Option<String>,
+    ) -> Self {
+        Self {
+            network,
+            electrum_url,
+            bind_address,
+            data_dir,
+            operating_mode,
+            frontend_url,
+            jwt_secret,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -434,6 +473,7 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::Cloud, // Default for tests
             frontend_url: Some("http://localhost:3001".to_string()),
+            jwt_secret: Some("test-jwt-secret".to_string()),
         }
     }
 
@@ -445,6 +485,7 @@ mod tests {
             data_dir: data_dir.to_string(),
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
+            jwt_secret: Some("test-jwt-secret".to_string()),
         }
     }
 
@@ -456,6 +497,7 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::SelfHosted,
             frontend_url: None,
+            jwt_secret: None, // Not used in self-hosted mode
         }
     }
 
@@ -611,6 +653,7 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
+            jwt_secret: Some("test-jwt-secret".to_string()),
         };
         assert_eq!(config.electrum_url(), "ssl://custom.electrum.server:50002");
     }
@@ -645,5 +688,37 @@ mod tests {
         let self_hosted_config = test_config_self_hosted(NetworkConfig::Regtest);
         assert!(!self_hosted_config.is_cloud_mode());
         assert!(self_hosted_config.is_self_hosted_mode());
+    }
+
+    #[test]
+    fn test_get_jwt_secret_cloud_mode_with_secret() {
+        let config = test_config(NetworkConfig::Regtest);
+        assert_eq!(config.get_jwt_secret().unwrap(), "test-jwt-secret");
+    }
+
+    #[test]
+    fn test_get_jwt_secret_cloud_mode_without_secret() {
+        let config = AppConfig {
+            network: NetworkConfig::Regtest,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: "./database".to_string(),
+            operating_mode: OperatingMode::Cloud,
+            frontend_url: Some("http://localhost:3001".to_string()),
+            jwt_secret: None, // Missing JWT secret
+        };
+        assert_eq!(
+            config.get_jwt_secret().unwrap_err(),
+            "JWT_SECRET required for cloud mode - check your .env file"
+        );
+    }
+
+    #[test]
+    fn test_get_jwt_secret_self_hosted_mode() {
+        let config = test_config_self_hosted(NetworkConfig::Regtest);
+        assert_eq!(
+            config.get_jwt_secret().unwrap_err(),
+            "JWT authentication not available in self-hosted mode"
+        );
     }
 }

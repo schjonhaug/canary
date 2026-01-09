@@ -21,14 +21,15 @@ async fn create_test_app() -> axum::Router {
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
 
     // Create test config
-    let test_config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_path.to_string(),
-        operating_mode: OperatingMode::Cloud, // Stripe tests need cloud mode
-        frontend_url: Some("http://localhost:3001".to_string()),
-    };
+    let test_config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_path.to_string(),
+        OperatingMode::Cloud, // Stripe tests need cloud mode
+        Some("http://localhost:3001".to_string()),
+        Some("test-jwt-secret".to_string()),
+    );
 
     let (event_tx, _event_rx) =
         broadcast::channel::<canary::metadata::TransactionNotification>(100);

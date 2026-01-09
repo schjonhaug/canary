@@ -11,14 +11,15 @@ async fn test_duplicate_email_prevention() {
     let db_path = temp_dir.path().join("test.db");
 
     // Create metadata database
-    let config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_dir.path().to_string_lossy().to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-    };
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_dir.path().to_string_lossy().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
 
     let metadata_db = Arc::new(
         MetadataDb::new(db_path.to_str().unwrap(), &config)
@@ -129,14 +130,15 @@ async fn test_duplicate_phone_prevention() {
     let db_path = temp_dir.path().join("test.db");
 
     // Create metadata database
-    let config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_dir.path().to_string_lossy().to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-    };
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_dir.path().to_string_lossy().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
 
     let metadata_db = Arc::new(
         MetadataDb::new(db_path.to_str().unwrap(), &config)
@@ -235,14 +237,15 @@ async fn test_ntfy_topics_excluded_from_duplicate_check() {
     let db_path = temp_dir.path().join("test.db");
 
     // Create metadata database
-    let config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_dir.path().to_string_lossy().to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-    };
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_dir.path().to_string_lossy().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
 
     let metadata_db = Arc::new(
         MetadataDb::new(db_path.to_str().unwrap(), &config)
@@ -298,14 +301,15 @@ async fn test_mixed_provider_types_allowed() {
     let db_path = temp_dir.path().join("test.db");
 
     // Create metadata database
-    let config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_dir.path().to_string_lossy().to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-    };
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_dir.path().to_string_lossy().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
 
     let metadata_db = Arc::new(
         MetadataDb::new(db_path.to_str().unwrap(), &config)
@@ -361,14 +365,15 @@ async fn test_verification_endpoint_rejects_duplicates() {
     let db_path = temp_dir.path().join("test.db");
 
     // Create metadata database
-    let config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: Some("tcp://127.0.0.1:50001".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: temp_dir.path().to_string_lossy().to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-    };
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_dir.path().to_string_lossy().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None, // No JWT secret needed for self-hosted mode
+    );
 
     let metadata_db = Arc::new(
         MetadataDb::new(db_path.to_str().unwrap(), &config)
