@@ -3,6 +3,7 @@ use super::types::*;
 use anyhow::Result;
 use bdk_wallet::rusqlite::params;
 use tokio::task::spawn_blocking;
+use tracing::warn;
 
 impl MetadataDb {
     // ============================
@@ -217,7 +218,10 @@ impl MetadataDb {
                  WHERE cnm.id = ?1",
                 params![&notification_method_id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-            ).unwrap_or_else(|_| ("Unknown Contact".to_string(), "Unknown Target".to_string(), "unknown".to_string()));
+            ).unwrap_or_else(|e| {
+                warn!("Failed to get contact info for notification log: {}", e);
+                ("Unknown Contact".to_string(), "Unknown Target".to_string(), "unknown".to_string())
+            });
 
             conn.execute(
                 "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)

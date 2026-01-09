@@ -229,10 +229,22 @@ mod tests {
     #[test]
     fn test_locale_to_currency_with_encoding() {
         // Encoding suffixes like .UTF-8 should be stripped
-        assert_eq!(ExchangeRateService::locale_to_currency("de_DE.UTF-8"), "EUR");
-        assert_eq!(ExchangeRateService::locale_to_currency("en_US.UTF-8"), "USD");
-        assert_eq!(ExchangeRateService::locale_to_currency("fr_FR.ISO-8859-1"), "EUR");
-        assert_eq!(ExchangeRateService::locale_to_currency("ja_JP.UTF-8"), "JPY");
+        assert_eq!(
+            ExchangeRateService::locale_to_currency("de_DE.UTF-8"),
+            "EUR"
+        );
+        assert_eq!(
+            ExchangeRateService::locale_to_currency("en_US.UTF-8"),
+            "USD"
+        );
+        assert_eq!(
+            ExchangeRateService::locale_to_currency("fr_FR.ISO-8859-1"),
+            "EUR"
+        );
+        assert_eq!(
+            ExchangeRateService::locale_to_currency("ja_JP.UTF-8"),
+            "JPY"
+        );
     }
 
     #[test]
@@ -247,8 +259,14 @@ mod tests {
     fn test_locale_to_currency_with_quality() {
         // Quality values should be stripped
         assert_eq!(ExchangeRateService::locale_to_currency("fr;q=0.8"), "EUR");
-        assert_eq!(ExchangeRateService::locale_to_currency("en-US;q=0.9"), "USD");
-        assert_eq!(ExchangeRateService::locale_to_currency("de-DE;q=0.7"), "EUR");
+        assert_eq!(
+            ExchangeRateService::locale_to_currency("en-US;q=0.9"),
+            "USD"
+        );
+        assert_eq!(
+            ExchangeRateService::locale_to_currency("de-DE;q=0.7"),
+            "EUR"
+        );
     }
 
     #[test]
@@ -256,7 +274,10 @@ mod tests {
         // Unknown locales should fall back to USD
         assert_eq!(ExchangeRateService::locale_to_currency("xx"), "USD");
         assert_eq!(ExchangeRateService::locale_to_currency(""), "USD");
-        assert_eq!(ExchangeRateService::locale_to_currency("invalid-locale"), "USD");
+        assert_eq!(
+            ExchangeRateService::locale_to_currency("invalid-locale"),
+            "USD"
+        );
     }
 
     #[test]

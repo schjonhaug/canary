@@ -127,7 +127,9 @@ pub async fn update_user_preferences(
     // Update preferred_language if provided
     if let Some(ref language) = request.preferred_language {
         // Validate language is supported
-        const SUPPORTED_LANGUAGES: [&str; 9] = ["en-US", "nb", "es-419", "pt-BR", "de-DE", "fr-FR", "ja", "da", "sv"];
+        const SUPPORTED_LANGUAGES: [&str; 9] = [
+            "en-US", "nb", "es-419", "pt-BR", "de-DE", "fr-FR", "ja", "da", "sv",
+        ];
         if !SUPPORTED_LANGUAGES.contains(&language.as_str()) {
             return (
                 StatusCode::BAD_REQUEST,
