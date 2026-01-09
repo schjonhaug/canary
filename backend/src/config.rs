@@ -294,7 +294,7 @@ impl AppConfig {
 
         // Frontend URL is required for email links
         if std::env::var("FRONTEND_URL").is_err() {
-            missing.push("FRONTEND_URL - Required for email verification and reset links");
+            missing.push("FRONTEND_URL - Required for email links and CORS security");
         }
 
         if missing.is_empty() {
