@@ -1,3 +1,4 @@
+mod contact;
 mod db;
 mod pool;
 mod types;
