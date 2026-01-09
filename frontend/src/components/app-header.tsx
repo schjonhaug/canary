@@ -54,9 +54,10 @@ export function AppHeader({ customLogo }: AppHeaderProps) {
             <Button
               size="sm"
               className="bg-accent hover:bg-accent/90 text-accent-foreground gap-1.5 sm:gap-2"
+              aria-label={tNav('addWallet')}
             >
               <Plus size={16} />
-              <span className="hidden sm:inline">{tNav('addWallet')}</span>
+              <span className="hidden sm:inline" aria-hidden="true">{tNav('addWallet')}</span>
             </Button>
           </Link>
         )}
@@ -68,9 +69,10 @@ export function AppHeader({ customLogo }: AppHeaderProps) {
               variant="outline"
               size="sm"
               className="gap-1.5 sm:gap-2"
+              aria-label={tNav('settings')}
             >
               <Settings size={16} />
-              <span className="hidden sm:inline">{tNav('settings')}</span>
+              <span className="hidden sm:inline" aria-hidden="true">{tNav('settings')}</span>
             </Button>
           </Link>
         )}
