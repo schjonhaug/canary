@@ -63,6 +63,12 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers['authorization'] = authorization;
     }
 
+    // Forward cookies for HttpOnly auth token
+    const cookie = request.headers.get('cookie');
+    if (cookie) {
+      headers['cookie'] = cookie;
+    }
+
     // Forward Stripe webhook signature header
     const stripeSignature = request.headers.get('stripe-signature');
     if (stripeSignature) {
