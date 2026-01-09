@@ -499,7 +499,9 @@ pub async fn verify_contact(
     }
 
     // Determine what we're verifying and validate input
-    let (provider_type, notification_target) = if let Some(phone_number) = &request.phone_number {
+    let (provider_type, notification_target, is_dev_mode) = if let Some(phone_number) =
+        &request.phone_number
+    {
         // SMS verification
         let normalized_phone = match validate_phone_number(phone_number) {
             Ok(phone) => phone,
@@ -507,7 +509,9 @@ pub async fn verify_contact(
                 return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })).into_response();
             }
         };
-        ("sms", normalized_phone)
+        let is_dev_phone = cfg!(debug_assertions)
+            && ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
+        ("sms", normalized_phone, is_dev_phone)
     } else if let Some(email_address) = &request.email_address {
         // Email verification
         let email = email_address.trim().to_lowercase();
@@ -522,7 +526,9 @@ pub async fn verify_contact(
             )
                 .into_response();
         }
-        ("email", email)
+        let is_dev_email = cfg!(debug_assertions)
+            && ["test@example.com", "dev@canary.local"].contains(&email.as_str());
+        ("email", email, is_dev_email)
     } else {
         return (
             StatusCode::BAD_REQUEST,
@@ -532,6 +538,31 @@ pub async fn verify_contact(
         )
             .into_response();
     };
+
+    // Check verification rate limit (skip for dev mode) - no mutex blocking!
+    if !is_dev_mode {
+        match app_services
+            .metadata_db
+            .check_verification_rate_limit(&notification_target)
+            .await
+        {
+            Ok(true) => {} // Allowed
+            Ok(false) => {
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    Json(ErrorResponse {
+                        error: "Too many failed verification attempts. Please try again later."
+                            .to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                tracing::error!("Failed to check verification rate limit: {}", e);
+                // Continue with verification attempt if rate limit check fails
+            }
+        }
+    }
 
     // Look up the pending verification - no mutex blocking!
     let (verification_id, _contact_name, verification_code) = match app_services
@@ -627,10 +658,16 @@ pub async fn verify_contact(
     };
 
     if is_valid {
-        // Clear rate limit on successful verification - no mutex blocking!
+        // Clear OTP sending rate limit on successful verification - no mutex blocking!
         let _ = app_services
             .metadata_db
             .clear_rate_limit(&notification_target)
+            .await;
+
+        // Clear verification brute-force rate limit on successful verification
+        let _ = app_services
+            .metadata_db
+            .clear_verification_rate_limit(&notification_target)
             .await;
 
         // Mark verification as completed - no mutex blocking!
@@ -657,6 +694,14 @@ pub async fn verify_contact(
         )
             .into_response()
     } else {
+        // Record failed verification attempt for brute-force protection
+        if !is_dev_mode {
+            let _ = app_services
+                .metadata_db
+                .record_failed_verification_attempt(&notification_target)
+                .await;
+        }
+
         let elapsed = start_time.elapsed();
         info!("verify_contact completed in {:?}", elapsed);
 
