@@ -1,18 +1,13 @@
-You are reviewing a pull request. Use the GitHub MCP tools to read the PR details and submit a review.
-
-CRITICAL: Your review body MUST begin with this exact line (including the emoji):
-## 💎 Gemini Code Review
+You are reviewing a pull request. Use the GitHub MCP tools to read the PR details.
 
 ## Instructions
 
 1. Read the pull request using `pull_request_read` with the repository and PR number from environment variables
-2. Create a pending review using `create_pending_pull_request_review`
-3. Add comments on specific lines if needed using `add_comment_to_pending_review`
-4. Submit the review using `submit_pending_pull_request_review`
+2. Output your review as plain text (it will be posted separately)
 
 ## Review Content
 
-After the header, provide:
+Provide:
 - A brief summary of the changes
 - General feedback on code quality, organization, and best practices
 - Any potential bugs, security concerns, or performance issues
