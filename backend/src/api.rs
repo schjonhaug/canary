@@ -13,6 +13,7 @@ use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
 use crate::stripe_billing::StripeBilling;
 use crate::wallet::WalletCreationService;
+use axum::http::{HeaderName, HeaderValue, Method};
 use axum::{
     extract::FromRef,
     routing::{get, post, put},
@@ -225,12 +226,59 @@ impl FromRef<AppState> for ConfigState {
     }
 }
 
+/// Build CORS layer based on operating mode
+/// - Cloud mode: Restrict to configured FRONTEND_URL only
+/// - Self-hosted mode: Allow any origin (single-user local setup)
+fn build_cors_layer(config: &AppConfig) -> CorsLayer {
+    if config.is_cloud_mode() {
+        // Cloud mode: Restrict to configured FRONTEND_URL
+        let cors = CorsLayer::new()
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([
+                HeaderName::from_static("content-type"),
+                HeaderName::from_static("authorization"),
+                HeaderName::from_static("accept"),
+            ])
+            .allow_credentials(true);
+
+        if let Some(frontend_url) = config.frontend_url() {
+            let origin = match frontend_url.parse::<HeaderValue>() {
+                Ok(val) => val,
+                Err(e) => {
+                    tracing::error!(
+                        "Invalid FRONTEND_URL for CORS: {}. Error: {}",
+                        frontend_url,
+                        e
+                    );
+                    // Fallback to a restrictive origin if parsing fails
+                    "https://invalid.localhost".parse().unwrap()
+                }
+            };
+            cors.allow_origin(origin)
+        } else {
+            tracing::warn!("Cloud mode without FRONTEND_URL - using restrictive CORS");
+            cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
+        }
+    } else {
+        // Self-hosted mode: Use permissive CORS (mirrors origin, allows credentials)
+        CorsLayer::permissive()
+    }
+}
+
 pub fn create_router_with_services(
     app_services: AppServicesState,
     notification_manager: NotificationManagerState,
     stripe_billing: StripeBillingState,
     config: AppConfig,
 ) -> Router {
+    // Build CORS layer before moving config into Arc
+    let cors_layer = build_cors_layer(&config);
     let config_state = Arc::new(config);
 
     // Create unified AppState for handlers that use the AuthenticatedUser extractor
@@ -326,7 +374,5 @@ pub fn create_router_with_services(
 
     let api_routes = app_state_routes.merge(provider_routes).merge(stripe_routes);
 
-    Router::new()
-        .nest("/api", api_routes)
-        .layer(CorsLayer::permissive())
+    Router::new().nest("/api", api_routes).layer(cors_layer)
 }
