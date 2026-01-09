@@ -95,12 +95,11 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
     console.error('API Proxy Error:', error);
     console.error('Backend URL:', url.toString());
     
-    // Return more detailed error information
+    // Return error without exposing backend URL (logged server-side above)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: 'Backend request failed',
-      details: errorMessage,
-      backendUrl: url.toString()
+      details: errorMessage
     }), { 
       status: 502,
       headers: { 'Content-Type': 'application/json' }
