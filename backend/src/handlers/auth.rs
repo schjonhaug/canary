@@ -284,12 +284,99 @@ pub async fn register(
     }
 }
 
+// Rate limiting constants
+const MAX_FAILED_ATTEMPTS_PER_EMAIL: i64 = 5; // Lock account after 5 failed attempts
+const MAX_FAILED_ATTEMPTS_PER_IP: i64 = 20; // Rate limit IP after 20 failed attempts
+const RATE_LIMIT_WINDOW_MINUTES: i64 = 15; // Time window for counting attempts
+const ACCOUNT_LOCKOUT_MINUTES: i64 = 15; // How long to lock an account
+
+/// Extract client IP address from headers (supports X-Forwarded-For for proxied requests)
+fn extract_client_ip(headers: &HeaderMap) -> Option<String> {
+    // First try X-Forwarded-For (for proxied requests)
+    if let Some(forwarded_for) = headers.get("x-forwarded-for") {
+        if let Ok(value) = forwarded_for.to_str() {
+            // Take the first IP in the chain (original client)
+            if let Some(ip) = value.split(',').next() {
+                return Some(ip.trim().to_string());
+            }
+        }
+    }
+
+    // Try X-Real-IP
+    if let Some(real_ip) = headers.get("x-real-ip") {
+        if let Ok(value) = real_ip.to_str() {
+            return Some(value.trim().to_string());
+        }
+    }
+
+    None
+}
+
 /// User login endpoint
 pub async fn login(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    headers: HeaderMap,
     Json(request): Json<LoginRequest>,
 ) -> Response {
+    let client_ip = extract_client_ip(&headers);
+
+    // Check IP-based rate limiting first (before any user lookup)
+    if let Some(ref ip) = client_ip {
+        match app_services
+            .metadata_db
+            .get_failed_login_count_by_ip(ip, RATE_LIMIT_WINDOW_MINUTES)
+            .await
+        {
+            Ok(count) if count >= MAX_FAILED_ATTEMPTS_PER_IP => {
+                tracing::warn!(
+                    "IP {} rate limited: {} failed attempts in {} minutes",
+                    ip,
+                    count,
+                    RATE_LIMIT_WINDOW_MINUTES
+                );
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    Json(ErrorResponse {
+                        error: "Too many login attempts. Please try again later.".to_string(),
+                    }),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                tracing::error!("Failed to check IP rate limit: {}", e);
+                // Continue with login attempt if rate limit check fails
+            }
+            _ => {}
+        }
+    }
+
+    // Check if account is locked
+    match app_services
+        .metadata_db
+        .check_account_lockout(&request.email)
+        .await
+    {
+        Ok(Some(locked_until)) => {
+            tracing::warn!("Login attempt for locked account: {}", request.email);
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(ErrorResponse {
+                    error: format!(
+                        "Account temporarily locked due to too many failed login attempts. Try again after {}.",
+                        locked_until
+                    ),
+                }),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            tracing::error!("Failed to check account lockout: {}", e);
+            // Continue with login attempt if lockout check fails
+        }
+        _ => {}
+    }
+
     // Check if user exists - no mutex blocking!
     let user_record = match app_services
         .metadata_db
@@ -298,6 +385,12 @@ pub async fn login(
     {
         Ok(Some(user)) => user,
         Ok(None) => {
+            // Record failed attempt even for non-existent users (prevents user enumeration timing attacks)
+            let _ = app_services
+                .metadata_db
+                .record_login_attempt(&request.email, client_ip.as_deref(), false)
+                .await;
+
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
@@ -332,11 +425,11 @@ pub async fn login(
 
     let email_service = match EmailService::from_env() {
         Ok(service) => {
-            println!("✅ Email service initialized successfully");
+            tracing::debug!("Email service initialized successfully");
             Some(service)
         }
         Err(e) => {
-            eprintln!("❌ Failed to initialize email service: {}", e);
+            tracing::debug!("Email service not configured: {}", e);
             None // Email service not configured, will work in dev mode
         }
     };
@@ -367,6 +460,51 @@ pub async fn login(
     };
 
     if !password_valid {
+        // Record failed login attempt
+        let _ = app_services
+            .metadata_db
+            .record_login_attempt(&request.email, client_ip.as_deref(), false)
+            .await;
+
+        // Increment failed login counter and check if we need to lock the account
+        match app_services
+            .metadata_db
+            .increment_failed_login_count(&request.email)
+            .await
+        {
+            Ok(failed_count) if failed_count >= MAX_FAILED_ATTEMPTS_PER_EMAIL => {
+                // Lock the account
+                if let Err(e) = app_services
+                    .metadata_db
+                    .lock_account(&request.email, ACCOUNT_LOCKOUT_MINUTES)
+                    .await
+                {
+                    tracing::error!("Failed to lock account {}: {}", request.email, e);
+                } else {
+                    tracing::warn!(
+                        "Account {} locked after {} failed attempts",
+                        request.email,
+                        failed_count
+                    );
+                }
+
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    Json(ErrorResponse {
+                        error: format!(
+                            "Account temporarily locked due to too many failed login attempts. Try again in {} minutes.",
+                            ACCOUNT_LOCKOUT_MINUTES
+                        ),
+                    }),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                tracing::error!("Failed to increment failed login count: {}", e);
+            }
+            _ => {}
+        }
+
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
@@ -389,15 +527,27 @@ pub async fn login(
             .into_response();
     }
 
+    // Successful login - record it and reset failed login counter
+    let _ = app_services
+        .metadata_db
+        .record_login_attempt(&request.email, client_ip.as_deref(), true)
+        .await;
+
+    let _ = app_services
+        .metadata_db
+        .reset_failed_login_count(&request.email)
+        .await;
+
     // Update last login
     if let Err(e) = app_services
         .metadata_db
         .update_last_login(&user_record.id)
         .await
     {
-        eprintln!(
+        tracing::warn!(
             "Failed to update last login for user {}: {:?}",
-            user_record.id, e
+            user_record.id,
+            e
         );
     }
 
