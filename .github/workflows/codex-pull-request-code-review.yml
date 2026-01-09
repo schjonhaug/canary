@@ -21,15 +21,17 @@ jobs:
       - name: Pre-fetch base and head refs
         run: |
           git fetch --no-tags origin \
-            ${{ github.event.pull_request.base.ref }} \
-            +refs/pull/${{ github.event.pull_request.number }}/head
+            +refs/heads/${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }} \
+            +refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head
 
       - name: Get changed files
         id: changed_files
         run: |
+          BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
           echo "files<<EOF" >> $GITHUB_OUTPUT
-          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD
+          git diff --name-only $BASE_SHA HEAD
           echo "EOF" >> $GITHUB_OUTPUT
+          echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
 
       - name: Run Codex
         id: run_codex
@@ -43,7 +45,7 @@ jobs:
             ${{ steps.changed_files.outputs.files }}
 
             Instructions:
-            1. Use `git diff origin/${{ github.event.pull_request.base.ref }}...HEAD` to see the actual changes
+            1. Use `git diff ${{ steps.changed_files.outputs.base_sha }} HEAD` to see the actual changes
             2. Review ONLY the changed lines and their immediate context
             3. Do NOT scan or report issues in unchanged parts of the codebase
             4. Do NOT report pre-existing issues unrelated to this PR
