@@ -45,59 +45,32 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<String>> {
             let conn = pool.get()?;
 
+            // Build query dynamically to reduce code duplication
+            let mut base_query = "SELECT c.name FROM contacts c \
+                JOIN contact_notification_methods cnm ON c.id = cnm.contact_id \
+                WHERE cnm.wallet_checksum = ?1 AND cnm.provider_type = ?2"
+                .to_string();
+
             // For emails, do case-insensitive comparison
-            let existing_contact_name: Option<String> = if provider == "email" {
-                if let Some(contact_id) = exclude_id {
-                    conn.query_row(
-                        "SELECT c.name FROM contacts c
-                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
-                         WHERE cnm.wallet_checksum = ?1
-                         AND cnm.provider_type = ?2
-                         AND LOWER(cnm.notification_target) = LOWER(?3)
-                         AND c.id != ?4
-                         LIMIT 1",
-                        params![&checksum, &provider, &target, &contact_id],
-                        |row| row.get(0),
-                    )
-                    .optional()?
-                } else {
-                    conn.query_row(
-                        "SELECT c.name FROM contacts c
-                         JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
-                         WHERE cnm.wallet_checksum = ?1
-                         AND cnm.provider_type = ?2
-                         AND LOWER(cnm.notification_target) = LOWER(?3)
-                         LIMIT 1",
-                        params![&checksum, &provider, &target],
-                        |row| row.get(0),
-                    )
-                    .optional()?
-                }
-            } else if let Some(contact_id) = exclude_id {
-                // For SMS and other types, exact match
+            if provider == "email" {
+                base_query.push_str(" AND LOWER(cnm.notification_target) = LOWER(?3)");
+            } else {
+                base_query.push_str(" AND cnm.notification_target = ?3");
+            }
+
+            let existing_contact_name: Option<String> = if let Some(contact_id) = exclude_id {
+                let query = format!("{} AND c.id != ?4 LIMIT 1", base_query);
                 conn.query_row(
-                    "SELECT c.name FROM contacts c
-                     JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
-                     WHERE cnm.wallet_checksum = ?1
-                     AND cnm.provider_type = ?2
-                     AND cnm.notification_target = ?3
-                     AND c.id != ?4
-                     LIMIT 1",
+                    &query,
                     params![&checksum, &provider, &target, &contact_id],
                     |row| row.get(0),
                 )
                 .optional()?
             } else {
-                conn.query_row(
-                    "SELECT c.name FROM contacts c
-                     JOIN contact_notification_methods cnm ON c.id = cnm.contact_id
-                     WHERE cnm.wallet_checksum = ?1
-                     AND cnm.provider_type = ?2
-                     AND cnm.notification_target = ?3
-                     LIMIT 1",
-                    params![&checksum, &provider, &target],
-                    |row| row.get(0),
-                )
+                let query = format!("{} LIMIT 1", base_query);
+                conn.query_row(&query, params![&checksum, &provider, &target], |row| {
+                    row.get(0)
+                })
                 .optional()?
             };
 
@@ -284,27 +257,39 @@ impl MetadataDb {
                 contacts.insert(id, contact);
             }
 
-            // Get notification methods for each contact
-            for (contact_id, contact) in contacts.iter_mut() {
-                let methods_query = "SELECT id, provider_type, notification_target, created_at
-                                   FROM contact_notification_methods
-                                   WHERE contact_id = ?1";
-                let mut methods_stmt = conn.prepare(methods_query)?;
+            // Fetch all notification methods using IN clause (avoid N+1)
+            // Chunk IDs to avoid hitting SQL parameter limits (SQLite default is 999)
+            let contact_ids: Vec<String> = contacts.keys().cloned().collect();
+            for ids_chunk in contact_ids.chunks(500) {
+                let placeholders = ids_chunk.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let methods_query = format!(
+                    "SELECT id, contact_id, provider_type, notification_target, created_at
+                     FROM contact_notification_methods
+                     WHERE contact_id IN ({}) ORDER BY contact_id",
+                    placeholders
+                );
 
-                let methods_iter = methods_stmt.query_map(params![contact_id], |row| {
-                    let provider_str: String = row.get(1)?;
+                let mut methods_stmt = conn.prepare(&methods_query)?;
+                let method_params: Vec<&dyn ToSql> =
+                    ids_chunk.iter().map(|id| id as &dyn ToSql).collect();
+
+                let methods_iter = methods_stmt.query_map(method_params.as_slice(), |row| {
+                    let provider_str: String = row.get(2)?;
                     Ok(NotificationMethod {
                         id: Some(row.get(0)?),
-                        contact_id: contact_id.clone(),
+                        contact_id: row.get(1)?,
                         provider_type: ProviderType::from(provider_str.as_str()),
-                        notification_target: row.get(2)?,
+                        notification_target: row.get(3)?,
                         display_target: None,
-                        created_at: row.get(3)?,
+                        created_at: row.get(4)?,
                     })
                 })?;
 
                 for method_result in methods_iter {
-                    contact.notification_methods.push(method_result?);
+                    let method = method_result?;
+                    if let Some(contact) = contacts.get_mut(&method.contact_id) {
+                        contact.notification_methods.push(method);
+                    }
                 }
             }
 
@@ -556,59 +541,49 @@ impl MetadataDb {
         let contact_name = name.to_string();
 
         spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+            let mut conn = pool.get()?;
 
-            // Start transaction
-            conn.execute("BEGIN TRANSACTION", [])?;
+            // Use rusqlite's Transaction API for automatic rollback on drop
+            let tx = conn.transaction()?;
 
-            match (|| -> Result<()> {
-                // Update contact basics
-                conn.execute(
-                    "UPDATE contacts SET name = ?1 WHERE id = ?2 AND wallet_checksum = ?3",
-                    params![contact_name, contact_id, checksum],
-                )?;
+            // Update contact basics
+            tx.execute(
+                "UPDATE contacts SET name = ?1 WHERE id = ?2 AND wallet_checksum = ?3",
+                params![contact_name, contact_id, checksum],
+            )?;
 
-                // Check if contact was updated (exists and belongs to wallet)
-                let affected: i64 = conn.query_row("SELECT changes()", [], |row| row.get(0))?;
+            // Check if contact was updated (exists and belongs to wallet)
+            let affected: i64 = tx.query_row("SELECT changes()", [], |row| row.get(0))?;
 
-                if affected == 0 {
-                    return Err(anyhow::anyhow!("Contact not found or access denied"));
-                }
-
-                // Delete all old notification methods
-                conn.execute(
-                    "DELETE FROM contact_notification_methods WHERE contact_id = ?1",
-                    params![contact_id],
-                )?;
-
-                // Insert new methods
-                for (provider_type, target) in new_methods {
-                    let method_id = uuid::Uuid::new_v4().to_string();
-                    conn.execute(
-                        "INSERT INTO contact_notification_methods
-                         (id, contact_id, provider_type, notification_target, wallet_checksum)
-                         VALUES (?1, ?2, ?3, ?4, ?5)",
-                        params![
-                            method_id,
-                            contact_id,
-                            provider_type.as_str(),
-                            target,
-                            checksum
-                        ],
-                    )?;
-                }
-
-                Ok(())
-            })() {
-                Ok(()) => {
-                    conn.execute("COMMIT", [])?;
-                    Ok(())
-                }
-                Err(e) => {
-                    conn.execute("ROLLBACK", [])?;
-                    Err(e)
-                }
+            if affected == 0 {
+                return Err(anyhow::anyhow!("Contact not found or access denied"));
             }
+
+            // Delete all old notification methods
+            tx.execute(
+                "DELETE FROM contact_notification_methods WHERE contact_id = ?1",
+                params![contact_id],
+            )?;
+
+            // Insert new methods
+            for (provider_type, target) in new_methods {
+                let method_id = uuid::Uuid::new_v4().to_string();
+                tx.execute(
+                    "INSERT INTO contact_notification_methods
+                     (id, contact_id, provider_type, notification_target, wallet_checksum)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![
+                        method_id,
+                        contact_id,
+                        provider_type.as_str(),
+                        target,
+                        checksum
+                    ],
+                )?;
+            }
+
+            tx.commit()?;
+            Ok(())
         })
         .await?
     }
@@ -763,12 +738,15 @@ impl MetadataDb {
         let phone_number = phone_number.to_string();
 
         spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+            let mut conn = pool.get()?;
             let current_time = chrono::Utc::now();
             let current_time_str = current_time.format("%Y-%m-%d %H:%M:%S").to_string();
 
+            // Use transaction to prevent race conditions between reads and writes
+            let tx = conn.transaction()?;
+
             // Check if blocked
-            let blocked: Option<String> = conn
+            let blocked: Option<String> = tx
                 .prepare("SELECT blocked_until FROM otp_attempts WHERE phone_number = ?1")?
                 .query_row(params![&phone_number], |row| row.get(0))
                 .ok();
@@ -784,7 +762,7 @@ impl MetadataDb {
                 .format("%Y-%m-%d %H:%M:%S")
                 .to_string();
 
-            let recent_attempts: i32 = conn
+            let recent_attempts: i32 = tx
                 .prepare(
                     "SELECT attempt_count FROM otp_attempts WHERE phone_number = ?1 AND last_attempt > ?2",
                 )?
@@ -799,31 +777,42 @@ impl MetadataDb {
                     .format("%Y-%m-%d %H:%M:%S")
                     .to_string();
 
-                conn.execute(
+                tx.execute(
                     "UPDATE otp_attempts SET blocked_until = ?1 WHERE phone_number = ?2",
                     params![&blocked_until, &phone_number],
                 )?;
 
+                tx.commit()?;
                 return Ok(false);
             }
 
             // Update attempt count
-            let exists: bool = conn
+            let exists: bool = tx
                 .prepare("SELECT 1 FROM otp_attempts WHERE phone_number = ?1")?
                 .exists(params![&phone_number])?;
 
             if exists {
-                conn.execute(
-                    "UPDATE otp_attempts SET attempt_count = attempt_count + 1, last_attempt = ?1 WHERE phone_number = ?2",
-                    params![&current_time_str, &phone_number],
-                )?;
+                // If the last attempt was not recent (outside 15-min window), reset the counter
+                // Otherwise, increment it
+                if recent_attempts > 0 {
+                    tx.execute(
+                        "UPDATE otp_attempts SET attempt_count = attempt_count + 1, last_attempt = ?1 WHERE phone_number = ?2",
+                        params![&current_time_str, &phone_number],
+                    )?;
+                } else {
+                    tx.execute(
+                        "UPDATE otp_attempts SET attempt_count = 1, last_attempt = ?1, blocked_until = NULL WHERE phone_number = ?2",
+                        params![&current_time_str, &phone_number],
+                    )?;
+                }
             } else {
-                conn.execute(
+                tx.execute(
                     "INSERT INTO otp_attempts (phone_number, attempt_count, last_attempt) VALUES (?1, 1, ?2)",
                     params![&phone_number, &current_time_str],
                 )?;
             }
 
+            tx.commit()?;
             Ok(true)
         })
         .await?
