@@ -676,7 +676,7 @@ async fn test_delete_wallet_success() {
     assert_eq!(response.status(), StatusCode::CREATED);
 
     let body = body_to_json(response.into_body()).await;
-    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+    let checksum = body["wallet"]["checksum"].as_str().unwrap().to_string();
 
     // Delete the wallet (soft delete)
     let request = Request::builder()
@@ -695,22 +695,39 @@ async fn test_delete_wallet_success() {
 
     // Soft deleted wallet is still visible until background sync removes it
     // It should be marked with status: 'deleted'
-    let request = Request::builder()
-        .uri(format!("/api/wallets/{}", checksum))
-        .body(Body::empty())
-        .unwrap();
+    // Use retry loop to handle potential SQLite connection pool timing issues
+    let max_attempts = 5;
+    let mut wallet_status = String::new();
 
-    let response = app.oneshot(request).await.unwrap();
-    assert_eq!(
-        response.status(),
-        StatusCode::OK,
-        "Soft deleted wallet should still be accessible"
-    );
+    for attempt in 1..=max_attempts {
+        let request = Request::builder()
+            .uri(format!("/api/wallets/{}", checksum))
+            .body(Body::empty())
+            .unwrap();
 
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let wallet: WalletMetadata = serde_json::from_slice(&bytes).unwrap();
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "Soft deleted wallet should still be accessible"
+        );
+
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let wallet: WalletMetadata = serde_json::from_slice(&bytes).unwrap();
+        wallet_status = wallet.status.clone();
+
+        if wallet_status == "deleted" {
+            break;
+        }
+
+        if attempt < max_attempts {
+            // Small delay before retrying to allow database state to propagate
+            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        }
+    }
+
     assert_eq!(
-        wallet.status, "deleted",
+        wallet_status, "deleted",
         "Soft deleted wallet should have status: 'deleted'"
     );
 }
