@@ -1,3 +1,4 @@
+mod alert;
 mod contact;
 mod db;
 mod pool;
