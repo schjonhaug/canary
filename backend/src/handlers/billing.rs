@@ -378,10 +378,6 @@ pub async fn handle_stripe_webhook(
     headers: HeaderMap,
     body: String,
 ) -> Response {
-    let _start_time = std::time::Instant::now();
-    // Debug: Log all headers
-    tracing::info!("Webhook headers received: {:?}", headers);
-
     // Get Stripe signature from headers (case-insensitive lookup)
     let signature = match headers.get("stripe-signature") {
         Some(sig) => match sig.to_str() {
