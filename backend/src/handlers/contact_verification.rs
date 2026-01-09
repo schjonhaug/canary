@@ -540,6 +540,7 @@ pub async fn verify_contact(
     };
 
     // Check verification rate limit (skip for dev mode) - no mutex blocking!
+    // Fail closed: reject verification attempts if rate limit check fails
     if !is_dev_mode {
         match app_services
             .metadata_db
@@ -558,8 +559,15 @@ pub async fn verify_contact(
                     .into_response();
             }
             Err(e) => {
+                // Fail closed: reject verification attempt if rate limit check fails
                 tracing::error!("Failed to check verification rate limit: {}", e);
-                // Continue with verification attempt if rate limit check fails
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(ErrorResponse {
+                        error: "Unable to verify at this time. Please try again later.".to_string(),
+                    }),
+                )
+                    .into_response();
             }
         }
     }
