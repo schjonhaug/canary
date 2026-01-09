@@ -95,13 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncLocaleFromUser(userData)
       return true
     } catch (error) {
-      console.error('Failed to fetch user:', error)
       // Clear user state on 401/403 authentication errors - session is invalid or expired
+      // This is expected when not logged in, so don't log as error
       if (error instanceof ApiError && error.isAuthError()) {
-        console.log('Session appears invalid, clearing user state')
         setUser(null)
       } else {
-        console.log('Non-auth error, keeping user state:', error instanceof Error ? error.message : String(error))
+        // Only log unexpected errors
+        console.error('Failed to fetch user:', error)
       }
       return false
     } finally {
@@ -118,7 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(prev => prev ? { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'team' } : null)
       }
     } catch (error) {
-      console.error('Failed to fetch billing status:', error)
+      // Auth errors are expected when session expires - don't log as error
+      if (!(error instanceof ApiError && error.isAuthError())) {
+        console.error('Failed to fetch billing status:', error)
+      }
       // Don't throw - billing status is optional
     }
   }, [user])
