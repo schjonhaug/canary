@@ -19,12 +19,11 @@ jobs:
           fetch-depth: 1
 
       - name: Run Gemini Code Review
+        id: gemini
         uses: google-github-actions/run-gemini-cli@v0.1.18
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           prompt: |
-            Start your response with "## 🤖 Gemini Code Review" as a header.
-
             Please review this pull request and provide feedback on:
             - Code quality and best practices
             - Potential bugs or issues
@@ -33,3 +32,19 @@ jobs:
             - Test coverage
 
             Be constructive and helpful in your feedback.
+
+      - name: Post Gemini feedback
+        if: steps.gemini.outputs.summary != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const header = '## 🤖 Gemini Code Review\n\n';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: header + process.env.GEMINI_SUMMARY,
+            });
+        env:
+          GEMINI_SUMMARY: ${{ steps.gemini.outputs.summary }}
