@@ -27,7 +27,11 @@ const AUTH_COOKIE_NAME: &str = "auth_token";
 
 /// Build an HttpOnly, Secure, SameSite=Lax cookie for authentication
 /// The cookie expires in 7 days, matching the JWT token expiration
-/// Note: SameSite=Lax is required for cross-origin requests between different ports
+///
+/// SameSite=Lax is used because:
+/// - It allows cookies on same-site navigation (clicking links) while blocking cross-site POST
+/// - Works for same-origin deployments (frontend and backend on same domain)
+/// - For cross-origin setups, clients should use the Authorization header with the token from login response
 fn build_auth_cookie(token: &str, is_production: bool) -> String {
     let secure = if is_production { "; Secure" } else { "" };
     format!(
@@ -654,11 +658,13 @@ pub async fn login(
     };
 
     // Build response with HttpOnly cookie for secure token storage
+    // Web browsers use the HttpOnly cookie (XSS-protected)
+    // CLI/mobile clients can use the token from the response body with Authorization header
     let is_production = std::env::var("CANARY_PRODUCTION").is_ok();
     let cookie = build_auth_cookie(&token, is_production);
 
     let response_body = AuthResponse {
-        token: String::new(), // Don't expose token in response body anymore
+        token: token.clone(), // Keep token in response for CLI/mobile backward compatibility
         user: user_info,
         requires_name: None,
     };
@@ -835,11 +841,13 @@ pub async fn demo_login(
     info!("demo_login completed in {:?}", elapsed);
 
     // Build response with HttpOnly cookie for secure token storage
+    // Web browsers use the HttpOnly cookie (XSS-protected)
+    // CLI/mobile clients can use the token from the response body with Authorization header
     let is_production = std::env::var("CANARY_PRODUCTION").is_ok();
     let cookie = build_auth_cookie(&token, is_production);
 
     let response_body = AuthResponse {
-        token: String::new(), // Don't expose token in response body anymore
+        token: token.clone(), // Keep token in response for CLI/mobile backward compatibility
         user: user_info,
         requires_name: None,
     };
