@@ -10,7 +10,7 @@ use crate::extractors::AuthenticatedUser;
 use crate::models::{ContactFormRequest, ContactFormResponse, DemoLoginRequest, ErrorResponse};
 use axum::{
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
 use std::sync::Arc;
@@ -21,6 +21,50 @@ use crate::auth::{
     ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateUserRequest,
     UpdateUserResponse,
 };
+
+/// Cookie name for storing the JWT token
+const AUTH_COOKIE_NAME: &str = "auth_token";
+
+/// Build an HttpOnly, Secure, SameSite=Lax cookie for authentication
+/// The cookie expires in 7 days, matching the JWT token expiration
+/// Note: SameSite=Lax is required for cross-origin requests between different ports
+fn build_auth_cookie(token: &str, is_production: bool) -> String {
+    let secure = if is_production { "; Secure" } else { "" };
+    format!(
+        "{}={}; HttpOnly; SameSite=Lax; Path=/; Max-Age={}{}",
+        AUTH_COOKIE_NAME,
+        token,
+        7 * 24 * 60 * 60, // 7 days in seconds
+        secure
+    )
+}
+
+/// Build a cookie that clears the auth token (for logout)
+fn build_clear_auth_cookie(is_production: bool) -> String {
+    let secure = if is_production { "; Secure" } else { "" };
+    format!(
+        "{}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0{}",
+        AUTH_COOKIE_NAME, secure
+    )
+}
+
+/// Extract auth token from cookie header
+pub fn extract_token_from_cookies(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(header::COOKIE)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|cookie_str| {
+            cookie_str.split(';').find_map(|cookie| {
+                let cookie = cookie.trim();
+                if let Some(value) = cookie.strip_prefix(&format!("{}=", AUTH_COOKIE_NAME)) {
+                    if !value.is_empty() {
+                        return Some(value.to_string());
+                    }
+                }
+                None
+            })
+        })
+}
 
 /// User registration endpoint
 pub async fn register(
@@ -609,12 +653,17 @@ pub async fn login(
         preferred_language: user_record.preferred_language,
     };
 
-    Json(AuthResponse {
-        token,
+    // Build response with HttpOnly cookie for secure token storage
+    let is_production = std::env::var("CANARY_PRODUCTION").is_ok();
+    let cookie = build_auth_cookie(&token, is_production);
+
+    let response_body = AuthResponse {
+        token: String::new(), // Don't expose token in response body anymore
         user: user_info,
-        requires_name: None, // No longer used with email auth
-    })
-    .into_response()
+        requires_name: None,
+    };
+
+    ([(header::SET_COOKIE, cookie)], Json(response_body)).into_response()
 }
 
 /// Auto-login endpoint for demo account (no password required)
@@ -785,12 +834,17 @@ pub async fn demo_login(
     let elapsed = start_time.elapsed();
     info!("demo_login completed in {:?}", elapsed);
 
-    Json(AuthResponse {
-        token,
+    // Build response with HttpOnly cookie for secure token storage
+    let is_production = std::env::var("CANARY_PRODUCTION").is_ok();
+    let cookie = build_auth_cookie(&token, is_production);
+
+    let response_body = AuthResponse {
+        token: String::new(), // Don't expose token in response body anymore
         user: user_info,
         requires_name: None,
-    })
-    .into_response()
+    };
+
+    ([(header::SET_COOKIE, cookie)], Json(response_body)).into_response()
 }
 
 /// Email verification endpoint
@@ -1117,34 +1171,33 @@ pub async fn reset_password(
 pub async fn logout(State(app_services): State<AppServicesState>, headers: HeaderMap) -> Response {
     let start_time = std::time::Instant::now();
 
-    // Get the token from the Authorization header
-    let auth_header = match headers.get("authorization").and_then(|h| h.to_str().ok()) {
-        Some(header) => header,
-        None => {
+    // Try to get the token from cookie first (new secure method), then fall back to Authorization header
+    let token = if let Some(cookie_token) = extract_token_from_cookies(&headers) {
+        cookie_token
+    } else if let Some(auth_header) = headers.get("authorization").and_then(|h| h.to_str().ok()) {
+        // Fallback to Authorization header for backwards compatibility
+        if !auth_header.starts_with("Bearer ") {
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse {
-                    error: "Authentication required".to_string(),
+                    error: "Invalid authorization header".to_string(),
                 }),
             )
                 .into_response();
         }
-    };
-
-    if !auth_header.starts_with("Bearer ") {
+        auth_header[7..].to_string() // Skip "Bearer "
+    } else {
         return (
             StatusCode::UNAUTHORIZED,
             Json(ErrorResponse {
-                error: "Invalid authorization header".to_string(),
+                error: "Authentication required".to_string(),
             }),
         )
             .into_response();
-    }
-
-    let token = &auth_header[7..]; // Skip "Bearer "
+    };
 
     // Hash the token to find it in the database
-    let token_hash = AuthService::hash_token(token);
+    let token_hash = AuthService::hash_token(&token);
 
     // Direct metadata access - no mutex blocking!
     let result = app_services.metadata_db.delete_session(&token_hash).await;
@@ -1152,9 +1205,14 @@ pub async fn logout(State(app_services): State<AppServicesState>, headers: Heade
     let elapsed = start_time.elapsed();
     info!("logout completed in {:?}", elapsed);
 
+    // Always clear the cookie, even if session deletion fails
+    let is_production = std::env::var("CANARY_PRODUCTION").is_ok();
+    let clear_cookie = build_clear_auth_cookie(is_production);
+
     if let Err(e) = result {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
+            [(header::SET_COOKIE, clear_cookie)],
             Json(ErrorResponse {
                 error: format!("Failed to delete session: {}", e),
             }),
@@ -1162,10 +1220,13 @@ pub async fn logout(State(app_services): State<AppServicesState>, headers: Heade
             .into_response();
     }
 
-    Json(serde_json::json!({
-        "message": "Logged out successfully"
-    }))
-    .into_response()
+    (
+        [(header::SET_COOKIE, clear_cookie)],
+        Json(serde_json::json!({
+            "message": "Logged out successfully"
+        })),
+    )
+        .into_response()
 }
 
 /// Get current user info endpoint

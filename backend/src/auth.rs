@@ -401,18 +401,27 @@ impl AuthService {
     }
 }
 
-pub fn authenticate_user(auth_header: Option<&str>, jwt_secret: &str) -> Result<AuthUser> {
-    // Cloud mode: validate JWT token
-    let auth_header = auth_header.ok_or_else(|| anyhow!("Authorization header required"))?;
-
-    if !auth_header.starts_with("Bearer ") {
-        return Err(anyhow!("Invalid authorization header format"));
-    }
-
-    let token = &auth_header[7..];
+/// Authenticate user from either a cookie token or Authorization header
+/// Cookie token takes precedence over Authorization header for security
+pub fn authenticate_user(
+    auth_header: Option<&str>,
+    cookie_token: Option<&str>,
+    jwt_secret: &str,
+) -> Result<AuthUser> {
+    // Try cookie token first (more secure), then fall back to Authorization header
+    let token = if let Some(token) = cookie_token {
+        token.to_string()
+    } else if let Some(auth_header) = auth_header {
+        if !auth_header.starts_with("Bearer ") {
+            return Err(anyhow!("Invalid authorization header format"));
+        }
+        auth_header[7..].to_string()
+    } else {
+        return Err(anyhow!("Authentication required"));
+    };
 
     let auth_service = AuthService::new(jwt_secret.to_string(), None);
-    let claims = auth_service.validate_token(token)?;
+    let claims = auth_service.validate_token(&token)?;
 
     Ok(AuthUser {
         user_id: claims.sub,

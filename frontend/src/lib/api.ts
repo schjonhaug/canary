@@ -13,18 +13,15 @@ export interface ProviderInfo {
 // Base API client
 class ApiClient {
   private baseUrl: string
-  private authToken: string | null = null
 
   constructor() {
     this.baseUrl = getApiBaseUrl()
-    // Check for stored token on initialization
-    if (typeof window !== 'undefined') {
-      this.authToken = localStorage.getItem('auth_token')
-    }
   }
 
-  setAuthToken(token: string | null) {
-    this.authToken = token
+  // Kept for backwards compatibility during migration, but no longer stores tokens
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  setAuthToken(_token: string | null) {
+    // No-op: tokens are now managed via HttpOnly cookies
   }
 
   private async request<T>(
@@ -38,16 +35,13 @@ class ApiClient {
       ...(options.headers as Record<string, string> || {}),
     }
 
-    // Add auth token if available
-    if (this.authToken) {
-      headers['Authorization'] = `Bearer ${this.authToken}`
-    }
-
     let response: Response
     try {
       response = await fetch(url, {
         ...options,
         headers,
+        // Include credentials (cookies) with all requests for HttpOnly cookie auth
+        credentials: 'include',
       })
     } catch (err) {
       // Network error (fetch failed entirely - no response)

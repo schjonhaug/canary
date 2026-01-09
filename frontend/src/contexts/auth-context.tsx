@@ -37,7 +37,6 @@ interface BillingStatus {
 
 interface AuthContextType {
   user: User | null
-  token: string | null
   billingStatus: BillingStatus | null
   isLoading: boolean
   isAuthenticated: boolean
@@ -46,7 +45,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string, marketingEmails?: boolean) => Promise<void>
   login: (email: string, password: string) => Promise<void>
   demoLogin: () => Promise<void>
-  setAuth: (token: string, user: User) => Promise<void>
+  setAuth: (user: User) => Promise<void>
   forgotPassword: (email: string) => Promise<void>
   resetPassword: (token: string, password: string) => Promise<void>
   verifyEmail: (token: string) => Promise<void>
@@ -58,7 +57,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(null)
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
@@ -81,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
   const isCloudMode = mode === 'cloud'
   const isSelfHostedMode = mode === 'self-hosted'
-  
+
 
   // Sync locale cookie from user's stored preference (used on page refresh when already logged in)
   const syncLocaleFromUser = useCallback((userData: User) => {
@@ -90,23 +88,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const fetchUser = useCallback(async () => {
+  const fetchUser = useCallback(async (): Promise<boolean> => {
     try {
       const { user: userData } = await api.getMe()
       setUser(userData)
       syncLocaleFromUser(userData)
+      return true
     } catch (error) {
       console.error('Failed to fetch user:', error)
-      // Clear auth on 401/403 authentication errors - token is invalid or expired
+      // Clear user state on 401/403 authentication errors - session is invalid or expired
       if (error instanceof ApiError && error.isAuthError()) {
-        console.log('Token appears invalid, logging out')
-        localStorage.removeItem('auth_token')
-        setToken(null)
-        api.setAuthToken(null)
+        console.log('Session appears invalid, clearing user state')
+        setUser(null)
       } else {
-        console.log('Non-auth error, keeping user logged in:', error instanceof Error ? error.message : String(error))
-        // Keep user data but mark as potentially stale
+        console.log('Non-auth error, keeping user state:', error instanceof Error ? error.message : String(error))
       }
+      return false
     } finally {
       setIsLoading(false)
     }
@@ -126,7 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user])
 
-  // Check for existing session on mount
+  // Check for existing session on mount by calling /api/auth/me
+  // The HttpOnly cookie will be sent automatically with the request
   useEffect(() => {
     // In self-hosted mode, set a default user and skip auth
     if (isSelfHostedMode) {
@@ -139,21 +137,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email_verified: true,
         subscription_tier: 'team' as const
       })
-      setToken('self-hosted-mode')
       setIsLoading(false)
       return
     }
 
-    const storedToken = localStorage.getItem('auth_token')
-    if (storedToken) {
-      setToken(storedToken)
-      // Set token in API client
-      api.setAuthToken(storedToken)
-      // Fetch user info
-      fetchUser()
-    } else {
-      setIsLoading(false)
-    }
+    // In cloud mode, check if we have a valid session by fetching user info
+    // The HttpOnly auth cookie will be sent automatically
+    fetchUser()
   }, [isSelfHostedMode, fetchUser])
 
   // Fetch billing status after user is loaded
@@ -166,96 +156,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, isCloudMode, fetchBillingStatus])
 
   const refreshBillingStatus = useCallback(async () => {
-    if (!token) return
+    if (!user) return
     await fetchBillingStatus()
-  }, [token, fetchBillingStatus])
+  }, [user, fetchBillingStatus])
 
   const register = async (email: string, password: string, name: string, marketingEmails: boolean = false) => {
-    try {
-      await api.register(email, password, name, marketingEmails)
-    } catch (error) {
-      throw error
-    }
+    await api.register(email, password, name, marketingEmails)
   }
 
   const login = async (email: string, password: string) => {
-    try {
-      const data = await api.login(email, password)
-      setToken(data.token)
-      setUser(data.user)
-      localStorage.setItem('auth_token', data.token)
-      api.setAuthToken(data.token)
+    // The login API will set an HttpOnly cookie with the JWT
+    const data = await api.login(email, password)
+    setUser(data.user)
 
-      // Set locale cookie and force full page reload to apply new locale
-      if (data.user.preferred_language && locales.includes(data.user.preferred_language as Locale)) {
-        setStoredLocale(data.user.preferred_language as Locale)
-        // Force hard navigation to re-run server-side locale detection
-        window.location.href = '/'
-      } else {
-        router.push('/')
-      }
-    } catch (error) {
-      throw error
+    // Set locale cookie and force full page reload to apply new locale
+    if (data.user.preferred_language && locales.includes(data.user.preferred_language as Locale)) {
+      setStoredLocale(data.user.preferred_language as Locale)
+      // Force hard navigation to re-run server-side locale detection
+      window.location.href = '/'
+    } else {
+      router.push('/')
     }
   }
 
   const demoLogin = async () => {
-    try {
-      const data = await api.demoLogin()
-      setToken(data.token)
-      setUser(data.user)
-      localStorage.setItem('auth_token', data.token)
-      api.setAuthToken(data.token)
+    // The demo login API will set an HttpOnly cookie with the JWT
+    const data = await api.demoLogin()
+    setUser(data.user)
 
-      // Set locale cookie and force full page reload to apply new locale
-      if (data.user.preferred_language && locales.includes(data.user.preferred_language as Locale)) {
-        setStoredLocale(data.user.preferred_language as Locale)
-        window.location.href = '/'
-      } else {
-        router.push('/')
-      }
-    } catch (error) {
-      throw error
+    // Set locale cookie and force full page reload to apply new locale
+    if (data.user.preferred_language && locales.includes(data.user.preferred_language as Locale)) {
+      setStoredLocale(data.user.preferred_language as Locale)
+      window.location.href = '/'
+    } else {
+      router.push('/')
     }
   }
 
   const forgotPassword = async (email: string) => {
-    try {
-      await api.forgotPassword(email)
-    } catch (error) {
-      throw error
-    }
+    await api.forgotPassword(email)
   }
 
   const resetPassword = async (token: string, password: string) => {
-    try {
-      await api.resetPassword(token, password)
-    } catch (error) {
-      throw error
-    }
+    await api.resetPassword(token, password)
   }
 
   const verifyEmail = async (token: string) => {
-    try {
-      await api.verifyEmail(token)
-    } catch (error) {
-      throw error
-    }
+    await api.verifyEmail(token)
   }
 
-  const setAuth = async (token: string, user: User) => {
-    setToken(token)
+  // setAuth is used after successful OAuth flows or similar
+  // The cookie should already be set by the backend
+  const setAuth = async (user: User) => {
     setUser(user)
-    localStorage.setItem('auth_token', token)
-    api.setAuthToken(token)
     // Small delay to ensure state is propagated before navigation
     await new Promise(resolve => setTimeout(resolve, 100))
     await router.push('/')
   }
 
   const logout = async () => {
-    if (token) {
+    if (user) {
       try {
+        // The logout API will clear the HttpOnly cookie
         await api.logout()
       } catch (error) {
         console.error('Logout error:', error)
@@ -266,10 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearStoredLocale()
 
     setUser(null)
-    setToken(null)
     setBillingStatus(null)
-    localStorage.removeItem('auth_token')
-    api.setAuthToken(null)
     // Don't redirect here - let the calling component handle navigation
   }
 
@@ -277,10 +236,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        token,
         billingStatus,
         isLoading,
-        isAuthenticated: !!token,
+        // Derive isAuthenticated from validated user state, not token presence
+        isAuthenticated: !!user,
         isCloudMode,
         isSelfHostedMode,
         register,

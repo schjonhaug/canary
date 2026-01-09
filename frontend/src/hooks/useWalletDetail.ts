@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Wallet, Transaction, Contact, BalanceAlert } from '../types';
 import { useAuth } from '../contexts/auth-context';
+import { getApiBaseUrl } from '../lib/utils';
 
 interface WalletDetailResponse {
   timestamp: number;
@@ -19,7 +20,7 @@ export function useWalletDetail(walletChecksum: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
-  const { token, isAuthenticated, billingStatus } = useAuth();
+  const { isAuthenticated, billingStatus } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -30,8 +31,8 @@ export function useWalletDetail(walletChecksum: string | null) {
   }, [billingStatus?.limits?.sync_interval_seconds]);
 
   const fetchWalletDetail = useCallback(async () => {
-    // Only fetch data if user is authenticated, has a token, and walletChecksum is provided
-    if (!isAuthenticated || !token || !walletChecksum) {
+    // Only fetch data if user is authenticated and walletChecksum is provided
+    if (!isAuthenticated || !walletChecksum) {
       return;
     }
 
@@ -39,17 +40,12 @@ export function useWalletDetail(walletChecksum: string | null) {
     setError(null);
 
     try {
-      const headers: HeadersInit = {};
-      
-      // Add Authorization header if token is available
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(`/api/wallets/${walletChecksum}/detail`, {
-        headers,
+      // Use credentials: 'include' to send HttpOnly auth cookie
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/wallets/${walletChecksum}/detail`, {
+        credentials: 'include',
       });
-      
+
       if (response.ok) {
         const data: WalletDetailResponse = await response.json();
         setWallet(data.wallet);
@@ -77,7 +73,7 @@ export function useWalletDetail(walletChecksum: string | null) {
     } finally {
       setIsLoading(false);
     }
-  }, [token, isAuthenticated, walletChecksum]);
+  }, [isAuthenticated, walletChecksum]);
 
   const refresh = useCallback(() => {
     fetchWalletDetail();
