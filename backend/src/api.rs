@@ -248,9 +248,18 @@ fn build_cors_layer(config: &AppConfig) -> CorsLayer {
             .allow_credentials(true);
 
         if let Some(frontend_url) = config.frontend_url() {
-            let origin = frontend_url
-                .parse::<HeaderValue>()
-                .expect("FRONTEND_URL must be a valid header value");
+            let origin = match frontend_url.parse::<HeaderValue>() {
+                Ok(val) => val,
+                Err(e) => {
+                    tracing::error!(
+                        "Invalid FRONTEND_URL for CORS: {}. Error: {}",
+                        frontend_url,
+                        e
+                    );
+                    // Fallback to a restrictive origin if parsing fails
+                    "https://invalid.localhost".parse().unwrap()
+                }
+            };
             cors.allow_origin(origin)
         } else {
             tracing::warn!("Cloud mode without FRONTEND_URL - using restrictive CORS");
