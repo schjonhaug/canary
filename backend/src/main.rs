@@ -832,7 +832,12 @@ async fn main() -> anyhow::Result<()> {
                                 let ntfy_provider = NtfyProvider::with_auth(ntfy_server, ntfy_auth);
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
-                                    .send_notification(&notification, &wallet_info.name, &contacts, &user_language)
+                                    .send_notification(
+                                        &notification,
+                                        &wallet_info.name,
+                                        &contacts,
+                                        &user_language,
+                                    )
                                     .await)
                             } else {
                                 manager

@@ -69,7 +69,8 @@ impl EmailService {
         let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let body_text = t!("auth_email.verify_email.body", locale = locale).to_string();
         let button_text = t!("auth_email.verify_email.button", locale = locale).to_string();
-        let link_fallback = t!("auth_email.verify_email.link_fallback", locale = locale).to_string();
+        let link_fallback =
+            t!("auth_email.verify_email.link_fallback", locale = locale).to_string();
         let expiry_text = t!("auth_email.verify_email.expiry", locale = locale).to_string();
         let footer = t!("common.footer", locale = locale).to_string();
 
@@ -175,7 +176,8 @@ impl EmailService {
         let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let body_text = t!("auth_email.password_reset.body", locale = locale).to_string();
         let button_text = t!("auth_email.password_reset.button", locale = locale).to_string();
-        let link_fallback = t!("auth_email.password_reset.link_fallback", locale = locale).to_string();
+        let link_fallback =
+            t!("auth_email.password_reset.link_fallback", locale = locale).to_string();
         let expiry_text = t!("auth_email.password_reset.expiry", locale = locale).to_string();
         let footer = t!("common.footer", locale = locale).to_string();
 
@@ -376,16 +378,36 @@ Your verification code is: {otp_code}
         let header = t!("auth_email.trial_ending.header", locale = locale).to_string();
         let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         // Body has a placeholder for trial_ends_at - wrap in <strong> for HTML
-        let body_text = t!("auth_email.trial_ending.body", locale = locale, trial_ends_at = format!("<strong>{}</strong>", trial_ends_at)).to_string();
-        let body_text_plain = t!("auth_email.trial_ending.body", locale = locale, trial_ends_at = trial_ends_at).to_string();
-        let continue_text = t!("auth_email.trial_ending.continue_text", locale = locale).to_string();
-        let what_happens_header = t!("auth_email.trial_ending.what_happens_header", locale = locale).to_string();
+        let body_text = t!(
+            "auth_email.trial_ending.body",
+            locale = locale,
+            trial_ends_at = format!("<strong>{}</strong>", trial_ends_at)
+        )
+        .to_string();
+        let body_text_plain = t!(
+            "auth_email.trial_ending.body",
+            locale = locale,
+            trial_ends_at = trial_ends_at
+        )
+        .to_string();
+        let continue_text =
+            t!("auth_email.trial_ending.continue_text", locale = locale).to_string();
+        let what_happens_header = t!(
+            "auth_email.trial_ending.what_happens_header",
+            locale = locale
+        )
+        .to_string();
         let sync_stops = t!("auth_email.trial_ending.sync_stops", locale = locale).to_string();
-        let notifications_stop = t!("auth_email.trial_ending.notifications_stop", locale = locale).to_string();
+        let notifications_stop = t!(
+            "auth_email.trial_ending.notifications_stop",
+            locale = locale
+        )
+        .to_string();
         let data_safe = t!("auth_email.trial_ending.data_safe", locale = locale).to_string();
         let button_text = t!("auth_email.trial_ending.button", locale = locale).to_string();
         let choose_plan = t!("auth_email.trial_ending.choose_plan", locale = locale).to_string();
-        let personal_plan = t!("auth_email.trial_ending.personal_plan", locale = locale).to_string();
+        let personal_plan =
+            t!("auth_email.trial_ending.personal_plan", locale = locale).to_string();
         let team_plan = t!("auth_email.trial_ending.team_plan", locale = locale).to_string();
         let footer = t!("common.footer", locale = locale).to_string();
 

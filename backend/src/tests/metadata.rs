@@ -213,7 +213,11 @@ async fn test_get_user_preferred_language_default() {
 
     // Should return English as default
     let language = db.get_user_preferred_language(&user_id).await.unwrap();
-    assert_eq!(language, Language::English, "Should default to English when no preference set");
+    assert_eq!(
+        language,
+        Language::English,
+        "Should default to English when no preference set"
+    );
 }
 
 #[tokio::test]
@@ -227,15 +231,19 @@ async fn test_get_user_preferred_language_norwegian() {
             "hashedpassword",
             Some("Nordic User"),
             false,
-            None,           // preferred_currency
-            Some("nb"),     // preferred_language - Norwegian (Bokmål)
+            None,       // preferred_currency
+            Some("nb"), // preferred_language - Norwegian (Bokmål)
         )
         .await
         .unwrap();
 
     // Should return Norwegian
     let language = db.get_user_preferred_language(&user_id).await.unwrap();
-    assert_eq!(language, Language::Norwegian, "Should return Norwegian when set");
+    assert_eq!(
+        language,
+        Language::Norwegian,
+        "Should return Norwegian when set"
+    );
 }
 
 #[tokio::test]
@@ -249,15 +257,19 @@ async fn test_get_user_preferred_language_japanese() {
             "hashedpassword",
             Some("Japanese User"),
             false,
-            None,           // preferred_currency
-            Some("ja"),     // preferred_language - Japanese
+            None,       // preferred_currency
+            Some("ja"), // preferred_language - Japanese
         )
         .await
         .unwrap();
 
     // Should return Japanese
     let language = db.get_user_preferred_language(&user_id).await.unwrap();
-    assert_eq!(language, Language::Japanese, "Should return Japanese when set");
+    assert_eq!(
+        language,
+        Language::Japanese,
+        "Should return Japanese when set"
+    );
 }
 
 #[tokio::test]
@@ -269,5 +281,9 @@ async fn test_get_user_preferred_language_nonexistent_user() {
         .get_user_preferred_language("nonexistent-user-id")
         .await
         .unwrap();
-    assert_eq!(language, Language::English, "Should default to English for non-existent user");
+    assert_eq!(
+        language,
+        Language::English,
+        "Should default to English for non-existent user"
+    );
 }

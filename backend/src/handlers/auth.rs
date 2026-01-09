@@ -513,7 +513,8 @@ pub async fn demo_login(
         }
 
         // Update currency
-        let preferred_currency = exchange_rates::ExchangeRateService::locale_to_currency(browser_locale);
+        let preferred_currency =
+            exchange_rates::ExchangeRateService::locale_to_currency(browser_locale);
         if user_record.preferred_fiat_currency.as_deref() != Some(preferred_currency) {
             if let Err(e) = app_services
                 .metadata_db

@@ -299,14 +299,26 @@ async fn test_notification_manager() {
         vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
 
     let results = manager
-        .send_notifications("success", &notification, "Test Wallet", &[contact.clone()], &TEST_LANGUAGE)
+        .send_notifications(
+            "success",
+            &notification,
+            "Test Wallet",
+            &[contact.clone()],
+            &TEST_LANGUAGE,
+        )
         .await
         .unwrap();
     assert_eq!(results.len(), 1);
     assert!(results[0].1.success);
 
     let results = manager
-        .send_notifications("failure", &notification, "Test Wallet", &[contact], &TEST_LANGUAGE)
+        .send_notifications(
+            "failure",
+            &notification,
+            "Test Wallet",
+            &[contact],
+            &TEST_LANGUAGE,
+        )
         .await
         .unwrap();
     assert_eq!(results.len(), 1);
@@ -324,7 +336,13 @@ async fn test_notification_manager_unknown_provider() {
     let contact = create_test_contact("Test User");
 
     let result = manager
-        .send_notifications("unknown", &notification, "Test Wallet", &[contact], &TEST_LANGUAGE)
+        .send_notifications(
+            "unknown",
+            &notification,
+            "Test Wallet",
+            &[contact],
+            &TEST_LANGUAGE,
+        )
         .await;
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not found"));

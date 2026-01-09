@@ -32,7 +32,9 @@ fn validate_ntfy_topic(topic: &str) -> Result<String, String> {
         .chars()
         .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
     {
-        return Err("ntfy topic can only contain letters, numbers, dashes, and underscores".to_string());
+        return Err(
+            "ntfy topic can only contain letters, numbers, dashes, and underscores".to_string(),
+        );
     }
     Ok(topic.to_string())
 }
@@ -224,10 +226,7 @@ pub async fn create_wallet_contact(
                 match validate_ntfy_topic(&method.notification_target) {
                     Ok(topic) => processed_methods.push((ProviderType::Ntfy, topic)),
                     Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse { error: e }),
-                        )
+                        return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e }))
                             .into_response();
                     }
                 }
@@ -631,10 +630,7 @@ pub async fn update_wallet_contact(
                 match validate_ntfy_topic(&method.notification_target) {
                     Ok(topic) => processed_methods.push((ProviderType::Ntfy, topic)),
                     Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse { error: e }),
-                        )
+                        return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e }))
                             .into_response();
                     }
                 }

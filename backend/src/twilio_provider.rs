@@ -1,5 +1,7 @@
 use crate::message_formatter::MessageFormatter;
-use crate::metadata::{Contact, Language, NotificationMethod, ProviderType, TransactionNotification};
+use crate::metadata::{
+    Contact, Language, NotificationMethod, ProviderType, TransactionNotification,
+};
 use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine as _};
