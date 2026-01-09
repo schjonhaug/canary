@@ -696,10 +696,11 @@ async fn test_delete_wallet_success() {
     // Soft deleted wallet is still visible until background sync removes it
     // It should be marked with status: 'deleted'
     // Use retry loop to handle potential SQLite connection pool timing issues
-    let max_attempts = 5;
+    const MAX_ATTEMPTS: usize = 5;
+    const RETRY_DELAY: tokio::time::Duration = tokio::time::Duration::from_millis(10);
     let mut wallet_status = String::new();
 
-    for attempt in 1..=max_attempts {
+    for attempt in 1..=MAX_ATTEMPTS {
         let request = Request::builder()
             .uri(format!("/api/wallets/{}", checksum))
             .body(Body::empty())
@@ -720,9 +721,9 @@ async fn test_delete_wallet_success() {
             break;
         }
 
-        if attempt < max_attempts {
+        if attempt < MAX_ATTEMPTS {
             // Small delay before retrying to allow database state to propagate
-            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+            tokio::time::sleep(RETRY_DELAY).await;
         }
     }
 
