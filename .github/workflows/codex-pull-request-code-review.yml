@@ -17,12 +17,22 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 0
 
       - name: Pre-fetch base and head refs
         run: |
           git fetch --no-tags origin \
-            ${{ github.event.pull_request.base.ref }} \
-            +refs/pull/${{ github.event.pull_request.number }}/head
+            +refs/heads/${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }} \
+            +refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head
+
+      - name: Get changed files
+        id: changed_files
+        run: |
+          BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          git diff --name-only $BASE_SHA HEAD
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
 
       - name: Run Codex
         id: run_codex
@@ -30,14 +40,25 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
-            - Test coverage
+            Review ONLY the changes in this pull request. Focus exclusively on the modified code in the diff.
 
-            Be constructive and helpful in your feedback.
+            Changed files in this PR:
+            ${{ steps.changed_files.outputs.files }}
+
+            Instructions:
+            1. Use `git diff ${{ steps.changed_files.outputs.base_sha }} HEAD` to see the actual changes
+            2. Review ONLY the changed lines and their immediate context
+            3. Do NOT scan or report issues in unchanged parts of the codebase
+            4. Do NOT report pre-existing issues unrelated to this PR
+
+            Provide feedback on:
+            - Code quality and best practices in the changed code
+            - Potential bugs or issues introduced by these changes
+            - Performance considerations for the new/modified code
+            - Security concerns in the changed code
+            - Whether the changes have adequate test coverage
+
+            Be constructive and helpful. Only report findings relevant to this PR's changes.
           safety-strategy: drop-sudo
           sandbox: workspace-write
 
