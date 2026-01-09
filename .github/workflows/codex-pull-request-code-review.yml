@@ -54,11 +54,12 @@ jobs:
         with:
           github-token: ${{ github.token }}
           script: |
+            const header = '## 🤖 Codex Code Review\n\n';
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: process.env.CODEX_FINAL_MESSAGE,
+              body: header + process.env.CODEX_FINAL_MESSAGE,
             });
         env:
           CODEX_FINAL_MESSAGE: ${{ needs.codex.outputs.final_message }}
