@@ -1,13 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { BlockHeader } from '../types';
 import { useAuth } from '../contexts/auth-context';
+import { getApiBaseUrl } from '../lib/utils';
 
 export function useBlockHeader() {
   const [blockHeader, setBlockHeader] = useState<BlockHeader | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
-  const { token, billingStatus } = useAuth();
+  const { billingStatus } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -22,15 +23,10 @@ export function useBlockHeader() {
     setError(null);
 
     try {
-      const headers: HeadersInit = {};
-
-      // Add Authorization header if token is available
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch('/api/block-headers/current', {
-        headers,
+      // Use credentials: 'include' to send HttpOnly auth cookie
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/block-headers/current`, {
+        credentials: 'include',
       });
       
       if (response.ok) {
@@ -55,7 +51,7 @@ export function useBlockHeader() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, []);
 
   const refresh = useCallback(() => {
     fetchBlockHeader();

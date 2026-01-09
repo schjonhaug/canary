@@ -2,6 +2,7 @@
 
 use crate::auth::{authenticate_user, AuthUser};
 use crate::config::AppConfig;
+use crate::handlers::extract_token_from_cookies;
 use crate::models::ErrorResponse;
 use axum::{
     extract::{FromRef, FromRequestParts},
@@ -13,7 +14,7 @@ use std::sync::Arc;
 /// Custom extractor that handles authentication in both cloud and self-hosted modes.
 ///
 /// In self-hosted mode, returns a hardcoded admin user.
-/// In cloud mode, validates the JWT token from the Authorization header.
+/// In cloud mode, validates the JWT token from HttpOnly cookie (preferred) or Authorization header.
 ///
 /// # Usage
 /// ```rust,ignore
@@ -36,11 +37,6 @@ where
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let config = <Arc<AppConfig> as FromRef<S>>::from_ref(state);
 
-        let auth_header = parts
-            .headers
-            .get("authorization")
-            .and_then(|h| h.to_str().ok());
-
         if config.is_self_hosted_mode() {
             // Self-hosted mode: return hardcoded admin user
             Ok(AuthenticatedUser(AuthUser {
@@ -49,7 +45,7 @@ where
                 is_demo: false,
             }))
         } else {
-            // Cloud mode: authenticate using JWT
+            // Cloud mode: authenticate using JWT from cookie (preferred) or Authorization header
             let jwt_secret = config.get_jwt_secret().map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -60,7 +56,16 @@ where
                     .into_response()
             })?;
 
-            authenticate_user(auth_header, jwt_secret)
+            // Extract token from cookie (HttpOnly, secure)
+            let cookie_token = extract_token_from_cookies(&parts.headers);
+
+            // Fall back to Authorization header for backwards compatibility
+            let auth_header = parts
+                .headers
+                .get("authorization")
+                .and_then(|h| h.to_str().ok());
+
+            authenticate_user(auth_header, cookie_token.as_deref(), jwt_secret)
                 .map(AuthenticatedUser)
                 .map_err(|_| {
                     (

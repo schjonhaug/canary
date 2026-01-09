@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Wallet } from '../types';
 import { useAuth } from '../contexts/auth-context';
+import { getApiBaseUrl } from '../lib/utils';
 
 interface WalletsListResponse {
   timestamp: number;
@@ -15,13 +16,13 @@ export function useWalletsList(shouldFetch: boolean = true) {
   const [isConnected, setIsConnected] = useState(true);
   const [currentPollingInterval, setCurrentPollingInterval] = useState(60000); // Default 60 seconds
   const [hasInitialData, setHasInitialData] = useState(false); // Track if we've ever loaded data
-  const { token, isAuthenticated, billingStatus } = useAuth();
+  const { isAuthenticated, billingStatus } = useAuth();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchWallets = useCallback(async () => {
-    // Only fetch data if user is authenticated, has a token, and should fetch
-    if (!isAuthenticated || !token || !shouldFetch) {
+    // Only fetch data if user is authenticated and should fetch
+    if (!isAuthenticated || !shouldFetch) {
       return;
     }
 
@@ -33,15 +34,10 @@ export function useWalletsList(shouldFetch: boolean = true) {
     setError(null);
 
     try {
-      const headers: HeadersInit = {};
-
-      // Add Authorization header if token is available
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch('/api/wallets', {
-        headers,
+      // Use credentials: 'include' to send HttpOnly auth cookie
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/wallets`, {
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -69,20 +65,20 @@ export function useWalletsList(shouldFetch: boolean = true) {
         setHasInitialData(true);
       }
     }
-  }, [token, isAuthenticated, shouldFetch, hasInitialData]);
+  }, [isAuthenticated, shouldFetch, hasInitialData]);
 
   // Update polling interval when wallets or billing status changes
   useEffect(() => {
     const hasPendingWallets = wallets.some(wallet => wallet.status === 'pending');
     let newInterval: number;
-    
+
     if (hasPendingWallets) {
       newInterval = 1000; // 1 second when wallets are syncing
     } else {
       const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60;
       newInterval = syncIntervalSeconds * 1000; // Convert to milliseconds
     }
-    
+
     // Only update if interval actually changed to avoid unnecessary re-renders
     if (newInterval !== currentPollingInterval) {
       setCurrentPollingInterval(newInterval);
@@ -132,7 +128,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
     }
-    
+
     // Set up new interval with current polling interval
     pollingIntervalRef.current = setInterval(() => {
       fetchWallets();
@@ -147,10 +143,10 @@ export function useWalletsList(shouldFetch: boolean = true) {
     };
   }, [fetchWallets, shouldFetch, currentPollingInterval, wallets.length]);
 
-  return { 
-    wallets: allWallets, 
-    lastUpdate, 
-    error, 
+  return {
+    wallets: allWallets,
+    lastUpdate,
+    error,
     isLoading,
     isConnected,
     refresh, // Manual refresh function
