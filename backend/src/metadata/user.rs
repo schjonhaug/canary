@@ -603,6 +603,8 @@ impl MetadataDb {
     // EMAIL VERIFICATION TOKEN MANAGEMENT
     // ============================
 
+    /// Creates an email verification token. The token should be pre-hashed by the caller
+    /// using AuthService::hash_token() for security.
     pub async fn create_email_verification_token(&self, user_id: &str, token: &str) -> Result<()> {
         let pool = self.pool.clone();
         let token = token.to_string();
@@ -621,6 +623,8 @@ impl MetadataDb {
         }).await?
     }
 
+    /// Verifies an email verification token. The token should be pre-hashed by the caller
+    /// using AuthService::hash_token() for security.
     pub async fn verify_email_token(&self, token: &str) -> Result<Option<String>> {
         let pool = self.pool.clone();
         let token = token.to_string();
