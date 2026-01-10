@@ -8,6 +8,28 @@ Canary is a **Bitcoin monitoring and early warning system** built in [Rust](http
 
 **A canary in the cold mine** - When your bitcoins are in cold storage, you seldom check on them. Canary acts as an early warning system that alerts you the moment your coins move, giving you immediate notification of any activity on your wallets.
 
+## Screenshots
+
+### Add a Wallet
+Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Canary only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
+
+![Add Wallet - Select wallet type](screenshot-01.png)
+
+### Step-by-Step Setup
+Follow wallet-specific instructions to export your output descriptor or XPUB. Each supported wallet has tailored guidance to make setup easy.
+
+![Add Wallet - Sparrow setup instructions](screenshot-02.png)
+
+### Wallet Dashboard
+View your balance in BTC and fiat, manage notification contacts, configure balance alerts, and see your complete transaction history with send/receive indicators.
+
+![Wallet detail view with balance, contacts, alerts and transactions](screenshot-03.png)
+
+### Settings
+Customize your language preference (9 languages supported) and fiat currency display. Exchange rates update automatically via CoinGecko.
+
+![Settings page with language and currency options](screenshot-04.png)
+
 ## Key Features
 
 ### Multi-Channel Notifications
