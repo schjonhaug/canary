@@ -266,8 +266,24 @@ fn build_cors_layer(config: &AppConfig) -> CorsLayer {
             cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
         }
     } else {
-        // Self-hosted mode: Use permissive CORS (mirrors origin, allows credentials)
-        CorsLayer::permissive()
+        // Self-hosted mode: Mirror origin and allow credentials
+        // Note: CorsLayer::permissive() uses "*" which doesn't work with credentials: 'include'
+        // Also cannot use Any for headers when credentials are enabled
+        CorsLayer::new()
+            .allow_origin(tower_http::cors::AllowOrigin::mirror_request())
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([
+                HeaderName::from_static("content-type"),
+                HeaderName::from_static("authorization"),
+                HeaderName::from_static("accept"),
+            ])
+            .allow_credentials(true)
     }
 }
 
