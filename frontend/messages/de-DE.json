@@ -525,7 +525,8 @@
         "title": "Wallet-Limit erreicht",
         "description": "Sie haben das Limit von {count} {count, plural, one {Wallet} other {Wallets}} Ihres {tier}-Plans erreicht. Upgraden Sie, um mehr Wallets hinzuzufügen."
       },
-      "checkoutError": "Checkout konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
+      "checkoutError": "Checkout konnte nicht gestartet werden. Bitte versuchen Sie es erneut.",
+      "electrumUnavailable": "Wallet kann nicht hinzugefügt werden - Electrum-Server ist nicht verfügbar. Bitte versuchen Sie es erneut, sobald eine Verbindung besteht."
     },
     "detail": {
       "balance": "Guthaben",

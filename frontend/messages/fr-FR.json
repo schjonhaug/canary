@@ -525,7 +525,8 @@
         "title": "Limite de portefeuilles atteinte",
         "description": "Vous avez atteint la limite de {count} {count, plural, one {portefeuille} other {portefeuilles}} de votre plan {tier}. Mettez à niveau pour ajouter plus de portefeuilles."
       },
-      "checkoutError": "Échec du démarrage du paiement. Veuillez réessayer."
+      "checkoutError": "Échec du démarrage du paiement. Veuillez réessayer.",
+      "electrumUnavailable": "Impossible d'ajouter le portefeuille - Le serveur Electrum est indisponible. Veuillez réessayer une fois connecté."
     },
     "detail": {
       "balance": "Solde",
