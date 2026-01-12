@@ -525,7 +525,8 @@
         "title": "Limite de Carteiras Atingido",
         "description": "Você atingiu o limite de {count} {count, plural, one {carteira} other {carteiras}} do seu plano {tier}. Atualize para adicionar mais carteiras."
       },
-      "checkoutError": "Falha ao iniciar o checkout. Por favor, tente novamente."
+      "checkoutError": "Falha ao iniciar o checkout. Por favor, tente novamente.",
+      "electrumUnavailable": "Não é possível adicionar carteira - O servidor Electrum está indisponível. Tente novamente quando conectado."
     },
     "detail": {
       "balance": "Saldo",
