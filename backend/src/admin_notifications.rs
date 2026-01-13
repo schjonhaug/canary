@@ -8,7 +8,17 @@ pub struct AdminNotifications {
 
 impl AdminNotifications {
     pub fn new() -> Self {
-        let topic = std::env::var("ADMIN_NOTIFICATION_TOPIC").ok();
+        // Only enable admin notifications in cloud mode
+        let is_cloud_mode = std::env::var("CANARY_MODE")
+            .map(|m| m.to_lowercase() == "cloud")
+            .unwrap_or(false);
+
+        let topic = if is_cloud_mode {
+            std::env::var("ADMIN_NOTIFICATION_TOPIC").ok()
+        } else {
+            None
+        };
+
         let server_url = std::env::var("NTFY_SERVER_URL")
             .unwrap_or_else(|_| "https://ntfy.sh".to_string())
             .trim_end_matches('/')
