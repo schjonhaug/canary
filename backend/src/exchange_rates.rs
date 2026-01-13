@@ -136,14 +136,42 @@ impl ExchangeRateService {
 
         eprintln!("Fetching exchange rates from CoinGecko...");
 
-        let response = reqwest::get(&url)
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&url)
+            .header(
+                "User-Agent",
+                format!("Canary/{} (Bitcoin Wallet)", env!("CARGO_PKG_VERSION")),
+            )
+            .send()
             .await
             .context("Failed to fetch exchange rates")?;
 
-        let data: CoinGeckoResponse = response
-            .json()
+        let status = response.status();
+        if !status.is_success() {
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read response body".to_string());
+            anyhow::bail!(
+                "Exchange rates API returned HTTP {}: {}",
+                status.as_u16(),
+                body.chars().take(500).collect::<String>()
+            );
+        }
+
+        let body = response
+            .text()
             .await
-            .context("Failed to parse exchange rates response")?;
+            .context("Failed to read exchange rates response body")?;
+
+        let data: CoinGeckoResponse = serde_json::from_str(&body).with_context(|| {
+            format!(
+                "Failed to parse exchange rates response (HTTP {}): {}",
+                status.as_u16(),
+                body.chars().take(500).collect::<String>()
+            )
+        })?;
 
         let now = Utc::now();
         let mut rates = HashMap::new();
