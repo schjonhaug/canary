@@ -940,7 +940,8 @@
     "unauthorized": "Vennligst logg inn for å fortsette.",
     "notFound": "Ikke funnet.",
     "serverError": "Serverfeil. Vennligst prøv igjen senere.",
-    "validation": "Vennligst sjekk inndataene dine og prøv igjen."
+    "validation": "Vennligst sjekk inndataene dine og prøv igjen.",
+    "electrumUnavailable": "Electrum-server er utilgjengelig. Vennligst prøv igjen senere."
   },
   "footer": {
     "logoAlt": "Canary-logo",

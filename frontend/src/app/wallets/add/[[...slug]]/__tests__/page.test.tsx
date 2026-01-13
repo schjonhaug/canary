@@ -1,7 +1,9 @@
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AddWalletPage from '../page'
 import { SAMPLE_WALLET_SLUG } from '@/components/add-wallet-form'
+// Import ApiError from utils to use in tests
+import { ApiError } from '../../../../../lib/utils'
 
 // Mock next/navigation
 const mockPush = jest.fn()
@@ -13,13 +15,22 @@ jest.mock('next/navigation', () => ({
   }),
 }))
 
-// Mock API (for checkout and billing)
-jest.mock('../../../../../lib/api', () => ({
-  api: {
-    getBillingPricing: jest.fn().mockResolvedValue({ tiers: [] }),
-    createCheckoutSession: jest.fn(),
-  },
-}))
+// Mock createWallet function - will be configured per test
+const mockCreateWallet = jest.fn()
+
+// Mock API (for checkout, billing, and wallet creation)
+// Need to include ApiError re-export so component can use it
+jest.mock('../../../../../lib/api', () => {
+  const actualUtils = jest.requireActual('../../../../../lib/utils')
+  return {
+    api: {
+      getBillingPricing: jest.fn().mockResolvedValue({ tiers: [] }),
+      createCheckoutSession: jest.fn(),
+      createWallet: (...args: unknown[]) => mockCreateWallet(...args),
+    },
+    ApiError: actualUtils.ApiError,
+  }
+})
 
 // Mock useBlockHeader
 jest.mock('../../../../../hooks/useBlockHeader', () => ({
@@ -69,6 +80,7 @@ function renderWithSlug(slug?: string[]) {
 describe('AddWalletPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockCreateWallet.mockReset()
     authMockValue = { ...defaultAuthMock }
     walletsContextMockValue = { ...defaultWalletsContextMock }
   })
@@ -338,6 +350,56 @@ describe('AddWalletPage', () => {
       await user.click(breadcrumbButton!)
 
       expect(mockPush).toHaveBeenCalledWith('/wallets/add')
+    })
+  })
+
+  describe('Error Handling', () => {
+    it('shows localized error message when Electrum server is unavailable (503)', async () => {
+      const user = userEvent.setup()
+
+      // Mock API to throw 503 Service Unavailable error
+      mockCreateWallet.mockRejectedValue(
+        new ApiError('Electrum server is unavailable. Please try again later.', 'service_unavailable', 503)
+      )
+
+      await act(async () => {
+        renderWithSlug(['form'])
+      })
+
+      // Wait for form to be visible
+      await waitFor(() => {
+        expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
+      })
+
+      // Fill in the form
+      const nameInput = screen.getByLabelText('Wallet Name')
+      const descriptorTextarea = screen.getByLabelText('Wallet Descriptor or XPUB')
+
+      await user.type(nameInput, 'Test Wallet')
+      // Use fireEvent.change for descriptor because it contains special chars that userEvent interprets as keyboard modifiers
+      const testDescriptor = 'wpkh([00000000/84h/0h/0h]xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K/<0;1>/*)#4jhrljfg'
+      fireEvent.change(descriptorTextarea, { target: { value: testDescriptor } })
+
+      // Submit the form - find the submit button by type
+      const submitButtons = screen.getAllByRole('button', { name: 'Add Wallet' })
+      // The submit button is the one with type="submit"
+      const submitButton = submitButtons.find(btn => btn.getAttribute('type') === 'submit')
+      expect(submitButton).toBeInTheDocument()
+      await user.click(submitButton!)
+
+      // Wait for error message to appear (localized message from translations)
+      await waitFor(() => {
+        expect(screen.getByText(/Electrum server is unavailable/)).toBeInTheDocument()
+      })
+
+      // Verify the API was called
+      expect(mockCreateWallet).toHaveBeenCalledWith({
+        name: 'Test Wallet',
+        descriptor: 'wpkh([00000000/84h/0h/0h]xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K/<0;1>/*)#4jhrljfg',
+        isFreshWallet: undefined,
+        scriptType: 'p2wpkh',
+        stopGap: undefined,
+      })
     })
   })
 })

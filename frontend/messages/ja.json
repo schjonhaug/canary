@@ -940,7 +940,8 @@
     "unauthorized": "続行するにはログインしてください。",
     "notFound": "見つかりません。",
     "serverError": "サーバーエラー。後でもう一度お試しください。",
-    "validation": "入力を確認してもう一度お試しください。"
+    "validation": "入力を確認してもう一度お試しください。",
+    "electrumUnavailable": "Electrumサーバーが利用できません。後でもう一度お試しください。"
   },
   "footer": {
     "logoAlt": "Canaryロゴ",

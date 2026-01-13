@@ -98,7 +98,7 @@ export class ApiError extends Error {
       case 'forbidden':
         return 'You do not have permission to perform this action.'
       case 'service_unavailable':
-        // Return the actual error message from backend (e.g., "Electrum server is unavailable")
+        // Return the actual error message from backend
         return this.message
       case 'server':
         return 'Something went wrong on our end. Please try again later.'

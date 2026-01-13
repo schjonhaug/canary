@@ -464,11 +464,9 @@ impl ElectrumClientManager {
         // Try to get block height as a simple health check with a short timeout
         // Use 3 seconds instead of default 10 to keep API responses fast
         let client_arc = Arc::clone(&client.client);
-        let result = timeout(
-            Duration::from_secs(3),
-            spawn_blocking(move || client_arc.inner.block_headers_subscribe()),
-        )
-        .await;
+        let task_handle = spawn_blocking(move || client_arc.inner.block_headers_subscribe());
+
+        let result = timeout(Duration::from_secs(3), task_handle).await;
 
         match result {
             Ok(Ok(Ok(_))) => true,
@@ -491,6 +489,9 @@ impl ElectrumClientManager {
                 false
             }
             Err(_) => {
+                // Note: The blocking task may continue running, but this is acceptable
+                // because block_headers_subscribe will eventually complete or fail.
+                // We can't abort spawn_blocking tasks, but we return immediately.
                 debug!(
                     "ElectrumClientManager: Connection verification timed out (server may be compressing)"
                 );

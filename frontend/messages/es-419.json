@@ -940,7 +940,8 @@
     "unauthorized": "Por favor inicia sesión para continuar.",
     "notFound": "No encontrado.",
     "serverError": "Error del servidor. Por favor intenta más tarde.",
-    "validation": "Por favor verifica tu entrada e intenta de nuevo."
+    "validation": "Por favor verifica tu entrada e intenta de nuevo.",
+    "electrumUnavailable": "El servidor Electrum no está disponible. Por favor intenta de nuevo más tarde."
   },
   "footer": {
     "logoAlt": "Logo de Canary",

@@ -19,6 +19,9 @@ use axum::{
 use std::sync::Arc;
 use tracing::info;
 
+/// Error message for Electrum server unavailability
+const ELECTRUM_UNAVAILABLE_ERROR: &str = "Electrum server is unavailable. Please try again later.";
+
 /// Type alias for Stripe billing state
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 
@@ -50,7 +53,7 @@ pub async fn create_wallet_non_blocking(
         return (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(ErrorResponse {
-                error: "Electrum server is unavailable. Please try again later.".to_string(),
+                error: ELECTRUM_UNAVAILABLE_ERROR.to_string(),
             }),
         )
             .into_response();

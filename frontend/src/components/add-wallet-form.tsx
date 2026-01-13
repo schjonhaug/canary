@@ -62,6 +62,7 @@ export function AddWalletForm({
   const modal = useModal()
   const { user } = useAuth()
   const t = useTranslations('wallets')
+  const tErrors = useTranslations('errors')
 
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'cloud'
@@ -181,7 +182,12 @@ export function AddWalletForm({
       onWalletCreated(wallet)
     } catch (err) {
       if (err instanceof ApiError) {
-        modal.setError(err.getUserFriendlyMessage())
+        // Use localized message for service unavailable errors
+        if (err.type === 'service_unavailable') {
+          modal.setError(tErrors('electrumUnavailable'))
+        } else {
+          modal.setError(err.getUserFriendlyMessage())
+        }
       } else {
         modal.setError(err instanceof Error ? err.message : "Failed to add wallet")
       }
