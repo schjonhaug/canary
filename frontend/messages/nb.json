@@ -525,8 +525,7 @@
         "title": "Lommebokgrense nådd",
         "description": "Du har nådd grensen på {count} {count, plural, one {lommebok} other {lommebøker}} for {tier}-planen din. Oppgrader for å legge til flere lommebøker."
       },
-      "checkoutError": "Kunne ikke starte betaling. Prøv igjen.",
-      "electrumUnavailable": "Kan ikke legge til lommebok - Electrum-serveren er utilgjengelig. Vennligst prøv igjen når du er tilkoblet."
+      "checkoutError": "Kunne ikke starte betaling. Prøv igjen."
     },
     "detail": {
       "balance": "Saldo",
@@ -941,7 +940,8 @@
     "unauthorized": "Vennligst logg inn for å fortsette.",
     "notFound": "Ikke funnet.",
     "serverError": "Serverfeil. Vennligst prøv igjen senere.",
-    "validation": "Vennligst sjekk inndataene dine og prøv igjen."
+    "validation": "Vennligst sjekk inndataene dine og prøv igjen.",
+    "electrumUnavailable": "Electrum-server er utilgjengelig. Vennligst prøv igjen senere."
   },
   "footer": {
     "logoAlt": "Canary-logo",

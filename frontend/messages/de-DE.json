@@ -525,8 +525,7 @@
         "title": "Wallet-Limit erreicht",
         "description": "Sie haben das Limit von {count} {count, plural, one {Wallet} other {Wallets}} Ihres {tier}-Plans erreicht. Upgraden Sie, um mehr Wallets hinzuzufügen."
       },
-      "checkoutError": "Checkout konnte nicht gestartet werden. Bitte versuchen Sie es erneut.",
-      "electrumUnavailable": "Wallet kann nicht hinzugefügt werden - Electrum-Server ist nicht verfügbar. Bitte versuchen Sie es erneut, sobald eine Verbindung besteht."
+      "checkoutError": "Checkout konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
     },
     "detail": {
       "balance": "Guthaben",
@@ -941,7 +940,8 @@
     "unauthorized": "Bitte melden Sie sich an, um fortzufahren.",
     "notFound": "Nicht gefunden.",
     "serverError": "Serverfehler. Bitte versuchen Sie es später erneut.",
-    "validation": "Bitte prüfen Sie Ihre Eingabe und versuchen Sie es erneut."
+    "validation": "Bitte prüfen Sie Ihre Eingabe und versuchen Sie es erneut.",
+    "electrumUnavailable": "Electrum-Server ist nicht verfügbar. Bitte versuchen Sie es später erneut."
   },
   "footer": {
     "logoAlt": "Canary-Logo",

@@ -436,9 +436,68 @@ impl ElectrumClientManager {
         self.client.read().await.clone()
     }
 
-    /// Check if we have an active client
+    /// Check if we have an active client (passive check - may return true for dead connections)
     pub async fn is_connected(&self) -> bool {
+        // Mock instances always report as connected (for testing)
+        if self.url == "mock://test" {
+            return true;
+        }
+
         self.client.read().await.is_some()
+    }
+
+    /// Actively verify connection by making a simple Electrum call.
+    /// Returns true if the connection is actually working.
+    /// This is more reliable than `is_connected()` but has latency (up to 3 second timeout).
+    /// Handles both dead connections and unresponsive servers (e.g., during electrs "compressing").
+    pub async fn verify_connection(&self) -> bool {
+        // Mock instances always report as connected (for testing)
+        if self.url == "mock://test" {
+            return true;
+        }
+
+        let client = match self.get_client().await {
+            Some(c) => c,
+            None => return false,
+        };
+
+        // Try to get block height as a simple health check with a short timeout
+        // Use 3 seconds instead of default 10 to keep API responses fast
+        let client_arc = Arc::clone(&client.client);
+        let task_handle = spawn_blocking(move || client_arc.inner.block_headers_subscribe());
+
+        let result = timeout(Duration::from_secs(3), task_handle).await;
+
+        match result {
+            Ok(Ok(Ok(_))) => true,
+            Ok(Ok(Err(e))) => {
+                let error_msg = e.to_string();
+                debug!(
+                    "ElectrumClientManager: Connection verification failed: {}",
+                    error_msg
+                );
+                if Self::is_transport_error(&error_msg) {
+                    self.mark_disconnected(&error_msg).await;
+                }
+                false
+            }
+            Ok(Err(e)) => {
+                debug!(
+                    "ElectrumClientManager: Connection verification task failed: {}",
+                    e
+                );
+                false
+            }
+            Err(_) => {
+                // Note: The blocking task may continue running, but this is acceptable
+                // because block_headers_subscribe will eventually complete or fail.
+                // We can't abort spawn_blocking tasks, but we return immediately.
+                debug!(
+                    "ElectrumClientManager: Connection verification timed out (server may be compressing)"
+                );
+                false
+            }
+        }
     }
 
     /// Get the Electrum URL
@@ -562,6 +621,19 @@ impl ElectrumClientManager {
             || msg_lower.contains("i/o error")
             || msg_lower.contains("os error 32") // Broken pipe on Linux
             || msg_lower.contains("os error 104") // Connection reset by peer on Linux
+    }
+
+    /// Create a mock manager that reports as connected (for testing only).
+    /// This creates a manager with no real connection but `is_connected()` returns true.
+    pub fn new_mock_connected() -> Self {
+        Self {
+            client: RwLock::new(None),
+            url: "mock://test".to_string(),
+            reconnecting: AtomicBool::new(false),
+            consecutive_failures: AtomicU32::new(0),
+            alert_sent: AtomicBool::new(false),
+            last_error: RwLock::new(None),
+        }
     }
 }
 

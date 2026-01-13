@@ -525,8 +525,7 @@
         "title": "Limite de portefeuilles atteinte",
         "description": "Vous avez atteint la limite de {count} {count, plural, one {portefeuille} other {portefeuilles}} de votre plan {tier}. Mettez à niveau pour ajouter plus de portefeuilles."
       },
-      "checkoutError": "Échec du démarrage du paiement. Veuillez réessayer.",
-      "electrumUnavailable": "Impossible d'ajouter le portefeuille - Le serveur Electrum est indisponible. Veuillez réessayer une fois connecté."
+      "checkoutError": "Échec du démarrage du paiement. Veuillez réessayer."
     },
     "detail": {
       "balance": "Solde",
@@ -941,7 +940,8 @@
     "unauthorized": "Veuillez vous connecter pour continuer.",
     "notFound": "Non trouvé.",
     "serverError": "Erreur serveur. Veuillez réessayer plus tard.",
-    "validation": "Veuillez vérifier votre saisie et réessayer."
+    "validation": "Veuillez vérifier votre saisie et réessayer.",
+    "electrumUnavailable": "Le serveur Electrum n'est pas disponible. Veuillez réessayer plus tard."
   },
   "footer": {
     "logoAlt": "Logo Canary",

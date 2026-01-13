@@ -525,8 +525,7 @@
         "title": "Limite de Carteiras Atingido",
         "description": "Você atingiu o limite de {count} {count, plural, one {carteira} other {carteiras}} do seu plano {tier}. Atualize para adicionar mais carteiras."
       },
-      "checkoutError": "Falha ao iniciar o checkout. Por favor, tente novamente.",
-      "electrumUnavailable": "Não é possível adicionar carteira - O servidor Electrum está indisponível. Tente novamente quando conectado."
+      "checkoutError": "Falha ao iniciar o checkout. Por favor, tente novamente."
     },
     "detail": {
       "balance": "Saldo",
@@ -941,7 +940,8 @@
     "unauthorized": "Por favor entre para continuar.",
     "notFound": "Não encontrado.",
     "serverError": "Erro do servidor. Por favor tente mais tarde.",
-    "validation": "Por favor verifique sua entrada e tente novamente."
+    "validation": "Por favor verifique sua entrada e tente novamente.",
+    "electrumUnavailable": "Servidor Electrum indisponível. Por favor tente novamente mais tarde."
   },
   "footer": {
     "logoAlt": "Logo do Canary",

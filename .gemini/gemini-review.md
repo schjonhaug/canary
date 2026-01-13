@@ -40,12 +40,17 @@ Review the changes for:
 
 ## Review Format
 
+**IMPORTANT:** The review summary MUST start with this exact header:
+```
+## 💎 Gemini Code Review
+```
+
 For inline comments, include:
 - What the issue is
 - Why it matters
 - A suggested fix (if applicable)
 
-For the summary, include:
+For the summary body (after the header), include:
 - Brief overview of the changes
 - Key findings (if any)
 - General feedback on code quality

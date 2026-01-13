@@ -525,8 +525,7 @@
         "title": "Wallet Limit Reached",
         "description": "You've reached your {tier} plan limit of {count} {count, plural, one {wallet} other {wallets}}. Upgrade to add more wallets."
       },
-      "checkoutError": "Failed to start checkout. Please try again.",
-      "electrumUnavailable": "Cannot add wallet - Electrum server is unavailable. Please retry when connected."
+      "checkoutError": "Failed to start checkout. Please try again."
     },
     "detail": {
       "balance": "Balance",
@@ -941,7 +940,8 @@
     "unauthorized": "Please sign in to continue.",
     "notFound": "Not found.",
     "serverError": "Server error. Please try again later.",
-    "validation": "Please check your input and try again."
+    "validation": "Please check your input and try again.",
+    "electrumUnavailable": "Electrum server is unavailable. Please try again later."
   },
   "footer": {
     "logoAlt": "Canary Logo",

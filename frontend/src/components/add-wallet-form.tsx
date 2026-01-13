@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown, Loader2 } from "lucide-react"
 import { useModal } from "@/hooks/useModal"
-import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { api, ApiError } from "@/lib/api"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
@@ -60,12 +59,10 @@ export function AddWalletForm({
   const [scriptType, setScriptType] = useState("")
   const [stopGap, setStopGap] = useState("")
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
-  const [isElectrumError, setIsElectrumError] = useState(false)
   const modal = useModal()
   const { user } = useAuth()
-  const { isConnected, refresh, isLoading: isCheckingConnection } = useBlockHeader()
   const t = useTranslations('wallets')
-  const tCommon = useTranslations('common')
+  const tErrors = useTranslations('errors')
 
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'cloud'
@@ -133,7 +130,6 @@ export function AddWalletForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsElectrumError(false)
 
     if (!name.trim()) {
       modal.setError(t('add.validation.nameRequired'))
@@ -154,13 +150,6 @@ export function AddWalletForm({
     // Validate stop gap: custom stop gap requires specific script type (except for output descriptors)
     if (needsScriptTypeForStopGap(stopGap, descriptor, scriptType)) {
       modal.setError(t('add.stopGap.requiresScriptType'))
-      return
-    }
-
-    // Check Electrum connection before attempting to create wallet
-    if (!isConnected) {
-      setIsElectrumError(true)
-      modal.setError(t('add.electrumUnavailable'))
       return
     }
 
@@ -193,22 +182,18 @@ export function AddWalletForm({
       onWalletCreated(wallet)
     } catch (err) {
       if (err instanceof ApiError) {
-        // Use user-friendly message for network/server errors, actual message for validation
-        modal.setError(err.isNetworkError() || err.isServerError()
-          ? err.getUserFriendlyMessage()
-          : err.message)
+        // Use localized message for service unavailable errors
+        if (err.type === 'service_unavailable') {
+          modal.setError(tErrors('electrumUnavailable'))
+        } else {
+          modal.setError(err.getUserFriendlyMessage())
+        }
       } else {
         modal.setError(err instanceof Error ? err.message : "Failed to add wallet")
       }
     } finally {
       modal.setLoading(false)
     }
-  }
-
-  const handleRetryConnection = () => {
-    refresh()
-    setIsElectrumError(false)
-    modal.clearError()
   }
 
   return (
@@ -335,20 +320,7 @@ export function AddWalletForm({
       </Collapsible>
 
       {modal.error && (
-        <div className="space-y-2">
-          <ErrorDisplay message={modal.error} variant="inline" className="[&_*]:break-all" />
-          {isElectrumError && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleRetryConnection}
-              disabled={isCheckingConnection}
-            >
-              {isCheckingConnection ? tCommon('loading') : tCommon('retry')}
-            </Button>
-          )}
-        </div>
+        <ErrorDisplay message={modal.error} variant="inline" className="[&_*]:break-all" />
       )}
 
       <div className="flex gap-3 pt-2">

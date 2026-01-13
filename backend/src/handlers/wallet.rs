@@ -1,7 +1,7 @@
 //! Wallet management handlers
 
 use crate::admin_notifications::AdminNotifications;
-use crate::api::AppServicesState;
+use crate::api::{AppServicesState, ElectrumClientManagerState};
 use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::metadata::{ProviderType, WalletDetailResponse};
@@ -19,6 +19,9 @@ use axum::{
 use std::sync::Arc;
 use tracing::info;
 
+/// Error message for Electrum server unavailability
+const ELECTRUM_UNAVAILABLE_ERROR: &str = "Electrum server is unavailable. Please try again later.";
+
 /// Type alias for Stripe billing state
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 
@@ -29,6 +32,7 @@ pub async fn create_wallet_non_blocking(
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
     State(config): State<Arc<AppConfig>>,
+    State(electrum_manager): State<ElectrumClientManagerState>,
     Json(payload): Json<CreateWalletRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -36,6 +40,23 @@ pub async fn create_wallet_non_blocking(
     // Reject demo users from creating wallets
     if let Err(response) = require_non_demo(&user) {
         return response;
+    }
+
+    // Actively verify Electrum connectivity before allowing wallet creation
+    // This makes an actual Electrum call to ensure the connection is working
+    let is_connected = match &electrum_manager {
+        Some(manager) => manager.verify_connection().await,
+        None => false,
+    };
+
+    if !is_connected {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse {
+                error: ELECTRUM_UNAVAILABLE_ERROR.to_string(),
+            }),
+        )
+            .into_response();
     }
 
     // Validate network compatibility early - before any database operations

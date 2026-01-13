@@ -18,7 +18,8 @@ export function cn(...inputs: ClassValue[]) {
  * - forbidden: Permission errors (403 Forbidden)
  * - not_found: Resource not found (404 Not Found)
  * - conflict: Resource conflict (409 Conflict)
- * - server: Server-side errors (500+)
+ * - service_unavailable: Dependency unavailable (503 Service Unavailable)
+ * - server: Server-side errors (500, 502, 504, etc.)
  * - unknown: Unclassified errors
  */
 export type ApiErrorType =
@@ -28,6 +29,7 @@ export type ApiErrorType =
   | 'forbidden'
   | 'not_found'
   | 'conflict'
+  | 'service_unavailable'
   | 'server'
   | 'unknown'
 
@@ -95,6 +97,9 @@ export class ApiError extends Error {
         return 'Please sign in to continue.'
       case 'forbidden':
         return 'You do not have permission to perform this action.'
+      case 'service_unavailable':
+        // Return the actual error message from backend
+        return this.message
       case 'server':
         return 'Something went wrong on our end. Please try again later.'
       default:
@@ -112,6 +117,7 @@ function getErrorTypeFromStatus(status: number): ApiErrorType {
   if (status === 403) return 'forbidden'
   if (status === 404) return 'not_found'
   if (status === 409) return 'conflict'
+  if (status === 503) return 'service_unavailable'
   if (status >= 500) return 'server'
   return 'unknown'
 }
