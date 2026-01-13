@@ -6,7 +6,7 @@
     "dev": "mkdir -p logs && next dev --port 3001 2>&1 | tee logs/frontend.log",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "jest",
     "test:watch": "jest --watch"
   },
@@ -34,7 +34,6 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
