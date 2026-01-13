@@ -525,8 +525,7 @@
         "title": "Wallet-grænse nået",
         "description": "Du har nået din {tier} plangrænse på {count} {count, plural, one {wallet} other {wallets}}. Opgrader for at tilføje flere wallets."
       },
-      "checkoutError": "Kunne ikke starte betaling. Prøv venligst igen.",
-      "electrumUnavailable": "Kan ikke tilføje tegnebog - Electrum-serveren er utilgængelig. Prøv venligst igen, når der er forbindelse."
+      "checkoutError": "Kunne ikke starte betaling. Prøv venligst igen."
     },
     "detail": {
       "balance": "Saldo",

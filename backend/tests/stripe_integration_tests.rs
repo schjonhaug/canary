@@ -73,6 +73,7 @@ async fn create_test_app() -> axum::Router {
         notification_manager,
         stripe_billing,
         test_config,
+        None, // electrum_manager - not needed for Stripe tests
     )
 }
 

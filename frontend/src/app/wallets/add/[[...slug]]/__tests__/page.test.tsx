@@ -21,17 +21,11 @@ jest.mock('../../../../../lib/api', () => ({
   },
 }))
 
-// Mock useBlockHeader - default to connected
-const mockRefresh = jest.fn()
-let useBlockHeaderMockValue = {
-  blockHeader: { network: 'regtest', height: 100, timestamp: 1234567890 },
-  isConnected: true,
-  refresh: mockRefresh,
-  isLoading: false,
-}
-
+// Mock useBlockHeader
 jest.mock('../../../../../hooks/useBlockHeader', () => ({
-  useBlockHeader: () => useBlockHeaderMockValue,
+  useBlockHeader: () => ({
+    blockHeader: { network: 'regtest', height: 100, timestamp: 1234567890 },
+  }),
 }))
 
 // Default wallets context mock
@@ -72,20 +66,11 @@ function renderWithSlug(slug?: string[]) {
   return render(<AddWalletPage params={params} />)
 }
 
-// Default useBlockHeader mock value
-const defaultBlockHeaderMock = {
-  blockHeader: { network: 'regtest', height: 100, timestamp: 1234567890 },
-  isConnected: true,
-  refresh: mockRefresh,
-  isLoading: false,
-}
-
 describe('AddWalletPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     authMockValue = { ...defaultAuthMock }
     walletsContextMockValue = { ...defaultWalletsContextMock }
-    useBlockHeaderMockValue = { ...defaultBlockHeaderMock }
   })
 
   describe('URL Routing', () => {
@@ -353,94 +338,6 @@ describe('AddWalletPage', () => {
       await user.click(breadcrumbButton!)
 
       expect(mockPush).toHaveBeenCalledWith('/wallets/add')
-    })
-  })
-
-  describe('Electrum Unavailable', () => {
-    beforeEach(() => {
-      useBlockHeaderMockValue = {
-        ...defaultBlockHeaderMock,
-        isConnected: false,
-      }
-    })
-
-    it('shows error message when trying to add wallet while Electrum is unavailable', async () => {
-      const user = userEvent.setup()
-
-      await act(async () => {
-        renderWithSlug(['form'])
-      })
-
-      await waitFor(() => {
-        expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
-      })
-
-      // Fill out the form
-      await user.type(screen.getByLabelText('Wallet Name'), 'Test Wallet')
-      await user.type(screen.getByLabelText('Wallet Descriptor or XPUB'), 'xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K')
-
-      // Click submit button (use type="submit" to distinguish from breadcrumb button)
-      const formSubmitButton = document.querySelector('button[type="submit"]')
-      expect(formSubmitButton).toBeInTheDocument()
-      await user.click(formSubmitButton!)
-
-      // Should show error message
-      await waitFor(() => {
-        expect(screen.getByText(/Electrum server is unavailable/i)).toBeInTheDocument()
-      })
-    })
-
-    it('shows retry button when Electrum is unavailable', async () => {
-      const user = userEvent.setup()
-
-      await act(async () => {
-        renderWithSlug(['form'])
-      })
-
-      await waitFor(() => {
-        expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
-      })
-
-      // Fill out the form and submit
-      await user.type(screen.getByLabelText('Wallet Name'), 'Test Wallet')
-      await user.type(screen.getByLabelText('Wallet Descriptor or XPUB'), 'xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K')
-
-      const formSubmitButton = document.querySelector('button[type="submit"]')
-      await user.click(formSubmitButton!)
-
-      // Should show retry button
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Retry/i })).toBeInTheDocument()
-      })
-    })
-
-    it('calls refresh when retry button is clicked', async () => {
-      const user = userEvent.setup()
-
-      await act(async () => {
-        renderWithSlug(['form'])
-      })
-
-      await waitFor(() => {
-        expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
-      })
-
-      // Fill out the form and submit
-      await user.type(screen.getByLabelText('Wallet Name'), 'Test Wallet')
-      await user.type(screen.getByLabelText('Wallet Descriptor or XPUB'), 'xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K')
-
-      const formSubmitButton = document.querySelector('button[type="submit"]')
-      await user.click(formSubmitButton!)
-
-      // Wait for retry button and click it
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Retry/i })).toBeInTheDocument()
-      })
-
-      await user.click(screen.getByRole('button', { name: /Retry/i }))
-
-      // Should call refresh
-      expect(mockRefresh).toHaveBeenCalled()
     })
   })
 })

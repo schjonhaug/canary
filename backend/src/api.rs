@@ -1,4 +1,5 @@
 use crate::config::AppConfig;
+use crate::electrum::ElectrumClientManager;
 use crate::handlers::{
     create_stripe_checkout_session, create_stripe_customer_portal, create_wallet_balance_alert,
     create_wallet_contact, create_wallet_non_blocking, delete_balance_alert, delete_wallet,
@@ -188,6 +189,7 @@ pub type AppServicesState = Arc<AppServices>; // New non-blocking architecture
 pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
+pub type ElectrumClientManagerState = Option<Arc<ElectrumClientManager>>;
 
 /// Unified application state for all handlers.
 /// Contains all state components and implements FromRef for each,
@@ -198,6 +200,7 @@ pub struct AppState {
     pub notification_manager: NotificationManagerState,
     pub stripe_billing: StripeBillingState,
     pub config: ConfigState,
+    pub electrum_manager: ElectrumClientManagerState,
 }
 
 // FromRef implementations allow extractors to access individual state components
@@ -223,6 +226,12 @@ impl FromRef<AppState> for StripeBillingState {
 impl FromRef<AppState> for ConfigState {
     fn from_ref(state: &AppState) -> Self {
         state.config.clone()
+    }
+}
+
+impl FromRef<AppState> for ElectrumClientManagerState {
+    fn from_ref(state: &AppState) -> Self {
+        state.electrum_manager.clone()
     }
 }
 
@@ -266,8 +275,24 @@ fn build_cors_layer(config: &AppConfig) -> CorsLayer {
             cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
         }
     } else {
-        // Self-hosted mode: Use permissive CORS (mirrors origin, allows credentials)
-        CorsLayer::permissive()
+        // Self-hosted mode: Mirror origin and allow credentials
+        // Note: CorsLayer::permissive() uses "*" which doesn't work with credentials: 'include'
+        // Also cannot use Any for headers when credentials are enabled
+        CorsLayer::new()
+            .allow_origin(tower_http::cors::AllowOrigin::mirror_request())
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([
+                HeaderName::from_static("content-type"),
+                HeaderName::from_static("authorization"),
+                HeaderName::from_static("accept"),
+            ])
+            .allow_credentials(true)
     }
 }
 
@@ -276,6 +301,7 @@ pub fn create_router_with_services(
     notification_manager: NotificationManagerState,
     stripe_billing: StripeBillingState,
     config: AppConfig,
+    electrum_manager: ElectrumClientManagerState,
 ) -> Router {
     // Build CORS layer before moving config into Arc
     let cors_layer = build_cors_layer(&config);
@@ -287,6 +313,7 @@ pub fn create_router_with_services(
         notification_manager: notification_manager.clone(),
         stripe_billing: stripe_billing.clone(),
         config: config_state.clone(),
+        electrum_manager,
     };
 
     // Routes using unified AppState with domain handlers

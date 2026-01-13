@@ -525,8 +525,7 @@
         "title": "Límite de Billeteras Alcanzado",
         "description": "Has alcanzado el límite de {count} {count, plural, one {billetera} other {billeteras}} de tu plan {tier}. Actualiza para agregar más billeteras."
       },
-      "checkoutError": "Error al iniciar el pago. Por favor, inténtalo de nuevo.",
-      "electrumUnavailable": "No se puede agregar la billetera - El servidor Electrum no está disponible. Por favor, reintente cuando esté conectado."
+      "checkoutError": "Error al iniciar el pago. Por favor, inténtalo de nuevo."
     },
     "detail": {
       "balance": "Saldo",

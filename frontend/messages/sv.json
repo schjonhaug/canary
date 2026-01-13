@@ -525,8 +525,7 @@
         "title": "Gränsen för plånböcker har nåtts",
         "description": "Du har nått gränsen för din {tier}-plan på {count} {count, plural, one {plånbok} other {plånböcker}}. Uppgradera för att lägga till fler plånböcker."
       },
-      "checkoutError": "Misslyckades med att starta kassan. Försök igen.",
-      "electrumUnavailable": "Kan inte lägga till plånbok - Electrum-servern är inte tillgänglig. Försök igen när du är ansluten."
+      "checkoutError": "Misslyckades med att starta kassan. Försök igen."
     },
     "detail": {
       "balance": "Saldo",
