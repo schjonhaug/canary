@@ -10,6 +10,7 @@ use axum::{
 use canary::{
     api::{create_router_with_services, AppServices},
     config::{AppConfig, NetworkConfig, OperatingMode},
+    electrum::ElectrumClientManager,
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
@@ -83,12 +84,15 @@ async fn create_test_app() -> (axum::Router, TempDir) {
 
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
     let stripe_billing = None;
+    // Use mock electrum manager that reports as connected (for testing without real server)
+    let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
 
     let router = create_router_with_services(
         app_services,
         notification_manager,
         stripe_billing,
         test_config,
+        electrum_manager,
     );
 
     (router, temp_dir)

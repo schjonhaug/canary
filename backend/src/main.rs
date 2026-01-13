@@ -1091,11 +1091,15 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    // Extract electrum manager for API state (used by wallet creation handler)
+    let electrum_manager = wallet_manager.get_electrum_manager();
+
     let app = api::create_router_with_services(
         app_services.clone(),
         notification_manager,
         stripe_billing,
         config.clone(),
+        electrum_manager,
     );
 
     // Apply subscription limits for all existing users at startup (cloud mode only)
