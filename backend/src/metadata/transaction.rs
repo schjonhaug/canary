@@ -187,23 +187,18 @@ impl MetadataDb {
         &self,
         transaction_txid: &str,
         transaction_wallet_checksum: &str,
-        notification_method_id: &str,
-        provider_name: &str,
-        provider_message_id: Option<&str>,
-        status: &str,
-        error_message: Option<&str>,
-        message_content: &str,
+        params: &NotificationLogParams<'_>,
         notification_type: &str,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let transaction_txid = transaction_txid.to_string();
         let transaction_wallet_checksum = transaction_wallet_checksum.to_string();
-        let notification_method_id = notification_method_id.to_string();
-        let provider_name = provider_name.to_string();
-        let provider_message_id = provider_message_id.map(|s| s.to_string());
-        let status = status.to_string();
-        let error_message = error_message.map(|s| s.to_string());
-        let message_content = message_content.to_string();
+        let notification_method_id = params.notification_method_id.to_string();
+        let provider_name = params.provider_name.to_string();
+        let provider_message_id = params.provider_message_id.map(|s| s.to_string());
+        let status = params.status.to_string();
+        let error_message = params.error_message.map(|s| s.to_string());
+        let message_content = params.message_content.to_string();
         let notification_type = notification_type.to_string();
 
         spawn_blocking(move || -> Result<String> {

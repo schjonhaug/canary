@@ -2,7 +2,8 @@ use crate::admin_notifications::AdminNotifications;
 use crate::config::AppConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{
-    EventType, MetadataDb, Transaction, TransactionInsert, TransactionNotification,
+    BalanceAlertTriggerParams, EventType, MetadataDb, Transaction, TransactionInsert,
+    TransactionNotification,
 };
 use anyhow::Result;
 use bdk_wallet::{rusqlite::Connection, PersistedWallet};
@@ -13,6 +14,9 @@ use tracing::{debug, error, info, warn};
 
 /// Number of consecutive reconnection failures before sending an alert
 const ALERT_FAILURE_THRESHOLD: u32 = 3;
+
+/// Transaction summary: (txid, amount_sats, block_height, is_confirmed, first_seen_at, confirmed_at)
+type TransactionSummary = (String, i64, Option<u32>, bool, u64, Option<u64>);
 
 /// Transaction-based wallet sync service
 /// This replaces the old balance-based sync logic with proper transaction tracking
@@ -1085,7 +1089,7 @@ impl WalletSyncService {
         &self,
         wallet: &PersistedWallet<Connection>,
         wallet_checksum: &str,
-        all_transactions: &[(String, i64, Option<u32>, bool, u64, Option<u64>)],
+        all_transactions: &[TransactionSummary],
     ) -> Result<std::collections::HashMap<String, String>> {
         use std::collections::HashMap;
 
@@ -1364,18 +1368,17 @@ impl WalletSyncService {
                 }
 
                 // Create notification record in balance_alert_notifications table
+                let trigger_params = BalanceAlertTriggerParams {
+                    threshold_sats: alert.threshold_sats,
+                    current_balance_sats,
+                    alert_type: alert.alert_type,
+                    threshold_currency: alert.threshold_currency.clone(),
+                    threshold_fiat_amount: alert.threshold_fiat_amount,
+                    exchange_rate_snapshot,
+                };
                 if let Err(e) = self
                     .metadata_db
-                    .create_balance_alert_notification(
-                        &alert.id,
-                        wallet_checksum,
-                        alert.threshold_sats,
-                        current_balance_sats,
-                        alert.alert_type,
-                        alert.threshold_currency.clone(),
-                        alert.threshold_fiat_amount,
-                        exchange_rate_snapshot,
-                    )
+                    .create_balance_alert_notification(&alert.id, wallet_checksum, &trigger_params)
                     .await
                 {
                     warn!(

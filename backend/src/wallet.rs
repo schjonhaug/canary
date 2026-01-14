@@ -9,11 +9,30 @@ use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
 use futures::future::join_all;
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{broadcast, Mutex, Semaphore};
 use tracing::{debug, error, info, warn};
+
+/// Individual wallet entry containing BDK wallet and its SQLite connection
+type WalletEntry = Arc<Mutex<(PersistedWallet<Connection>, Connection)>>;
+
+/// Thread-safe map of wallet checksums to wallet entries
+type WalletMap = Arc<Mutex<HashMap<String, WalletEntry>>>;
+
+/// Context for completing wallet creation with deep scanning
+struct WalletCreationContext {
+    wallet_path: PathBuf,
+    receive_descriptor: String,
+    change_descriptor: String,
+    network: Network,
+    electrum_client: Option<ElectrumClient>,
+    metadata_db: MetadataDb,
+    checksum: String,
+    is_fresh_wallet: bool,
+    stop_gap: Option<String>,
+}
 
 /// Maximum number of wallets to sync in parallel
 const MAX_PARALLEL_SYNCS: usize = 10;
@@ -144,32 +163,27 @@ impl WalletCreationService {
             .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
 
         // PHASE 2: Spawn background task for slow operations
-        let electrum_client_clone = self.electrum_client.clone();
-        let metadata_db_clone = self.metadata_db.clone();
-        let network = self.network;
-        let checksum_clone = checksum.clone();
-        let stop_gap_clone = stop_gap.map(|s| s.to_string());
         let wallet_manager_clone = self.wallet_manager.clone();
-        let wallet_path_clone = wallet_path.clone();
+        let ctx = WalletCreationContext {
+            wallet_path: wallet_path.clone(),
+            receive_descriptor,
+            change_descriptor,
+            network: self.network,
+            electrum_client: self.electrum_client.clone(),
+            metadata_db: self.metadata_db.clone(),
+            checksum: checksum.clone(),
+            is_fresh_wallet,
+            stop_gap: stop_gap.map(|s| s.to_string()),
+        };
 
         tokio::spawn(async move {
             debug!(
                 "[{}] Starting background wallet creation with stop gap: {:?}",
-                checksum_clone, stop_gap_clone
+                ctx.checksum, ctx.stop_gap
             );
-            if let Err(e) = WalletManager::complete_wallet_creation_with_stop_gap(
-                wallet_path_clone.clone(),
-                receive_descriptor,
-                change_descriptor,
-                network,
-                electrum_client_clone,
-                metadata_db_clone,
-                checksum_clone.clone(),
-                is_fresh_wallet,
-                stop_gap_clone.as_deref(),
-                wallet_manager_clone,
-            )
-            .await
+            if let Err(e) =
+                WalletManager::complete_wallet_creation_with_stop_gap(ctx, wallet_manager_clone)
+                    .await
             {
                 error!(
                     "[{}] Background wallet creation failed: {}",
@@ -265,32 +279,27 @@ impl WalletCreationService {
             .ok_or_else(|| anyhow!("Failed to retrieve created wallet metadata"))?;
 
         // PHASE 2: Spawn background task for slow operations
-        let electrum_client_clone = self.electrum_client.clone();
-        let metadata_db_clone = self.metadata_db.clone();
-        let network = self.network;
-        let checksum_clone = checksum.clone();
-        let stop_gap_clone = stop_gap.map(|s| s.to_string());
         let wallet_manager_clone = self.wallet_manager.clone();
-        let wallet_path_clone = wallet_path.clone();
+        let ctx = WalletCreationContext {
+            wallet_path: wallet_path.clone(),
+            receive_descriptor,
+            change_descriptor,
+            network: self.network,
+            electrum_client: self.electrum_client.clone(),
+            metadata_db: self.metadata_db.clone(),
+            checksum: checksum.clone(),
+            is_fresh_wallet: true, // Fresh wallet for XPUB with known type
+            stop_gap: stop_gap.map(|s| s.to_string()),
+        };
 
         tokio::spawn(async move {
             debug!(
                 "[{}] Starting background wallet creation with stop gap: {:?}",
-                checksum_clone, stop_gap_clone
+                ctx.checksum, ctx.stop_gap
             );
-            if let Err(e) = WalletManager::complete_wallet_creation_with_stop_gap(
-                wallet_path_clone.clone(),
-                receive_descriptor,
-                change_descriptor,
-                network,
-                electrum_client_clone,
-                metadata_db_clone,
-                checksum_clone.clone(),
-                true, // Fresh wallet for XPUB with known type
-                stop_gap_clone.as_deref(),
-                wallet_manager_clone,
-            )
-            .await
+            if let Err(e) =
+                WalletManager::complete_wallet_creation_with_stop_gap(ctx, wallet_manager_clone)
+                    .await
             {
                 error!(
                     "[{}] Background wallet creation failed: {}",
@@ -311,7 +320,7 @@ impl WalletCreationService {
 pub struct WalletManager {
     // Thread-safe HashMap for in-memory wallet storage
     // Each wallet has its own mutex for parallel access
-    pub wallets: Arc<Mutex<HashMap<String, Arc<Mutex<(PersistedWallet<Connection>, Connection)>>>>>,
+    pub wallets: WalletMap,
     pub wallet_dir: PathBuf,
     /// Electrum client manager with automatic reconnection support
     pub electrum_client_manager: Option<Arc<ElectrumClientManager>>,
@@ -440,42 +449,37 @@ impl WalletManager {
 
     /// Background task to complete wallet creation with scan depth support
     async fn complete_wallet_creation_with_stop_gap(
-        wallet_path: PathBuf,
-        receive_descriptor: String,
-        change_descriptor: String,
-        network: Network,
-        electrum_client: Option<ElectrumClient>,
-        metadata_db: MetadataDb,
-        checksum: String,
-        is_fresh_wallet: bool,
-        stop_gap: Option<&str>,
+        ctx: WalletCreationContext,
         wallet_manager: Arc<WalletManager>,
     ) -> Result<()> {
+        let stop_gap = ctx.stop_gap.as_deref();
         debug!(
             "[{}] Starting background wallet creation with stop gap: {:?}",
-            checksum, stop_gap
+            ctx.checksum, stop_gap
         );
 
         // Create SQLite connection
-        let mut db = Connection::open(&wallet_path).map_err(|e| {
+        let mut db = Connection::open(&ctx.wallet_path).map_err(|e| {
             anyhow!(
                 "Failed to create connection to {}: {}",
-                wallet_path.display(),
+                ctx.wallet_path.display(),
                 e
             )
         })?;
 
         // Parse descriptors
-        let receive_desc: Descriptor<DescriptorPublicKey> = receive_descriptor
+        let receive_desc: Descriptor<DescriptorPublicKey> = ctx
+            .receive_descriptor
             .parse()
             .map_err(|e| anyhow!("Failed to parse receive descriptor: {}", e))?;
-        let change_desc: Descriptor<DescriptorPublicKey> = change_descriptor
+        let change_desc: Descriptor<DescriptorPublicKey> = ctx
+            .change_descriptor
             .parse()
             .map_err(|e| anyhow!("Failed to parse change descriptor: {}", e))?;
 
         // Create new wallet
         let mut wallet = Wallet::create(receive_desc, change_desc)
-            .network(network)
+            .network(ctx.network)
             .create_wallet(&mut db)
             .map_err(|e| anyhow!("Failed to create wallet: {}", e))?;
 
@@ -490,7 +494,7 @@ impl WalletManager {
                 if let Ok(max_index) = stop_gap_str.parse::<u32>() {
                     debug!(
                         "[{}] Applying custom stop gap: {} addresses",
-                        checksum, max_index
+                        ctx.checksum, max_index
                     );
 
                     // Reveal addresses up to the specified index
@@ -505,7 +509,7 @@ impl WalletManager {
                     if let Err(e) = wallet.persist(&mut db) {
                         error!(
                             "[{}] Warning: Failed to persist revealed addresses: {}",
-                            checksum, e
+                            ctx.checksum, e
                         );
                     }
                 }
@@ -513,7 +517,7 @@ impl WalletManager {
         }
 
         // Full scan with electrum (using custom stop gap if specified)
-        if let Some(ref client) = electrum_client {
+        if let Some(ref client) = ctx.electrum_client {
             let custom_stop_gap = if let Some(stop_gap_str) = stop_gap {
                 if stop_gap_str != "auto" {
                     stop_gap_str.parse::<usize>().ok()
@@ -527,25 +531,25 @@ impl WalletManager {
             if let Err(e) = client.full_scan_wallet(&mut wallet, custom_stop_gap).await {
                 error!(
                     "[{}] Warning: Failed to full scan wallet during background creation: {}",
-                    checksum, e
+                    ctx.checksum, e
                 );
             } else {
                 // Persist after sync
                 if let Err(e) = wallet.persist(&mut db) {
                     error!(
                         "[{}] Warning: Failed to persist wallet after sync: {}",
-                        checksum, e
+                        ctx.checksum, e
                     );
                 }
 
                 // Deep scanning for existing wallets with no funds (only if stop_gap is auto)
-                if !is_fresh_wallet
+                if !ctx.is_fresh_wallet
                     && wallet.balance().total().to_sat() == 0
                     && stop_gap.unwrap_or("auto") == "auto"
                 {
                     debug!(
                         "[{}] No funds found in initial scan, starting deep scan...",
-                        checksum
+                        ctx.checksum
                     );
 
                     // Deep scan in batches up to 500 addresses (only for auto mode)
@@ -553,7 +557,7 @@ impl WalletManager {
                         let reveal_to = batch * 100;
                         debug!(
                             "[{}] Deep scan batch {}: checking addresses up to index {}",
-                            checksum, batch, reveal_to
+                            ctx.checksum, batch, reveal_to
                         );
 
                         // Reveal more addresses for both keychains
@@ -566,7 +570,7 @@ impl WalletManager {
 
                         debug!(
                             "[{}] Revealed {} external, {} internal addresses (total: {} each)",
-                            checksum,
+                            ctx.checksum,
                             ext_revealed.len(),
                             int_revealed.len(),
                             reveal_to + 1
@@ -576,7 +580,7 @@ impl WalletManager {
                         if let Err(e) = client.sync_wallet(&mut wallet).await {
                             error!(
                                 "[{}] Warning: Failed to sync during deep scan batch {}: {}",
-                                checksum, batch, e
+                                ctx.checksum, batch, e
                             );
                             break;
                         }
@@ -586,7 +590,7 @@ impl WalletManager {
                         if current_balance > 0 {
                             debug!(
                                 "[{}] Found activity during deep scan! Balance: {} sats",
-                                checksum, current_balance
+                                ctx.checksum, current_balance
                             );
                             // Continue scanning to find all transactions
                         }
@@ -596,7 +600,7 @@ impl WalletManager {
                     if let Err(e) = wallet.persist(&mut db) {
                         error!(
                             "[{}] Warning: Failed to persist after deep scan: {}",
-                            checksum, e
+                            ctx.checksum, e
                         );
                     }
                 }
@@ -605,13 +609,14 @@ impl WalletManager {
 
         // Update balance in metadata database
         let balance = wallet.balance().total().to_sat() as i64;
-        if let Err(e) = metadata_db
-            .update_wallet_balance_by_checksum(&checksum, balance)
+        if let Err(e) = ctx
+            .metadata_db
+            .update_wallet_balance_by_checksum(&ctx.checksum, balance)
             .await
         {
             error!(
                 "[{}] Warning: Failed to update wallet balance: {}",
-                checksum, e
+                ctx.checksum, e
             );
         }
 
@@ -619,54 +624,63 @@ impl WalletManager {
         if let Err(e) =
             crate::sync::WalletSyncService::extract_historical_transactions_for_background(
                 &wallet,
-                &checksum,
-                &metadata_db,
-                electrum_client.as_ref(),
+                &ctx.checksum,
+                &ctx.metadata_db,
+                ctx.electrum_client.as_ref(),
             )
             .await
         {
             error!(
                 "[{}] Warning: Failed to extract historical transactions: {}",
-                checksum, e
+                ctx.checksum, e
             );
         }
 
         // Update last synced timestamp
-        if let Err(e) = metadata_db.update_wallet_last_synced(&checksum).await {
+        if let Err(e) = ctx
+            .metadata_db
+            .update_wallet_last_synced(&ctx.checksum)
+            .await
+        {
             error!(
                 "[{}] Warning: Failed to update wallet last synced: {}",
-                checksum, e
+                ctx.checksum, e
             );
         }
 
         // Mark wallet as ready after deep scan and transaction extraction is complete
-        if let Err(e) = metadata_db.update_wallet_status(&checksum, "ready").await {
+        if let Err(e) = ctx
+            .metadata_db
+            .update_wallet_status(&ctx.checksum, "ready")
+            .await
+        {
             error!(
                 "[{}] Warning: Failed to mark wallet as ready: {}",
-                checksum, e
+                ctx.checksum, e
             );
         } else {
             debug!(
                 "[{}] ✅ Wallet marked as ready - available for frontend display",
-                checksum
+                ctx.checksum
             );
         }
 
         // Add wallet to in-memory storage after it's fully set up and marked as ready
-        if let Ok((wallet, conn)) = Self::load_wallet_from_disk(&wallet_path, network).await {
+        if let Ok((wallet, conn)) = Self::load_wallet_from_disk(&ctx.wallet_path, ctx.network).await
+        {
             wallet_manager
-                .register_wallet(checksum.clone(), wallet, conn)
+                .register_wallet(ctx.checksum.clone(), wallet, conn)
                 .await;
         } else {
             error!(
                 "[{}] Failed to load wallet into memory after creation",
-                checksum
+                ctx.checksum
             );
         }
 
         debug!(
             "[{}] Background wallet creation with scan depth completed",
-            checksum
+            ctx.checksum
         );
         Ok(())
     }
@@ -1187,11 +1201,11 @@ impl WalletManager {
     /// Load a single wallet from disk
     /// Returns the wallet and its database connection
     async fn load_wallet_from_disk(
-        wallet_path: &PathBuf,
+        wallet_path: &Path,
         network: Network,
     ) -> Result<(PersistedWallet<Connection>, Connection)> {
         // Run blocking I/O in a separate thread
-        let path = wallet_path.clone();
+        let path = wallet_path.to_path_buf();
         let result = tokio::task::spawn_blocking(move || {
             let conn = Connection::open(&path)
                 .map_err(|e| anyhow!("Failed to open wallet database: {}", e))?;

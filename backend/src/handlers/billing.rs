@@ -2,6 +2,7 @@
 
 use crate::api::{AppServicesState, ConfigState, StripeBillingState};
 use crate::extractors::AuthenticatedUser;
+use crate::metadata::SubscriptionUpdateParams;
 use crate::models::{
     BillingStatusResponse, BillingTierLimits, CreateCheckoutSessionRequest,
     CreateCustomerPortalRequest, ErrorResponse,
@@ -556,17 +557,17 @@ pub async fn handle_stripe_webhook(
                     }
                 } else {
                     // Regular subscription update (tier + status) - no mutex blocking!
+                    let sub_params = SubscriptionUpdateParams {
+                        subscription_tier: &update.subscription_tier,
+                        subscription_status: &update.subscription_status,
+                        stripe_subscription_id: update.stripe_subscription_id.as_deref(),
+                        subscription_started_at: update.subscription_started_at.as_deref(),
+                        subscription_ends_at: update.subscription_ends_at.as_deref(),
+                        trial_ends_at: update.trial_ends_at.as_deref(),
+                    };
                     if let Err(e) = app_services
                         .metadata_db
-                        .update_user_subscription(
-                            &actual_user_id,
-                            &update.subscription_tier,
-                            &update.subscription_status,
-                            update.stripe_subscription_id.as_deref(),
-                            update.subscription_started_at.as_deref(),
-                            update.subscription_ends_at.as_deref(),
-                            update.trial_ends_at.as_deref(),
-                        )
+                        .update_user_subscription(&actual_user_id, &sub_params)
                         .await
                     {
                         tracing::error!(

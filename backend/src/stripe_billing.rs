@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::metadata::{MetadataDb, UserRecord};
+use crate::metadata::{MetadataDb, SubscriptionUpdateParams, UserRecord};
 use crate::stripe_client_service::StripeClientService;
 use crate::subscription::SubscriptionTier;
 
@@ -592,17 +592,20 @@ impl StripeBilling {
         // Update user's subscription info in database
         let now = chrono::Utc::now();
         let trial_end = now + chrono::Duration::days(30);
+        let now_str = now.to_rfc3339();
+        let trial_end_str = trial_end.to_rfc3339();
+        let tier_str = format!("{:?}", tier).to_lowercase();
 
+        let sub_params = SubscriptionUpdateParams {
+            subscription_tier: &tier_str,
+            subscription_status: "trialing",
+            stripe_subscription_id: Some(&subscription_id),
+            subscription_started_at: Some(&now_str),
+            subscription_ends_at: None, // subscription_ends_at - not set for trials
+            trial_ends_at: Some(&trial_end_str),
+        };
         metadata_db
-            .update_user_subscription(
-                &user.id,
-                &format!("{:?}", tier).to_lowercase(),
-                "trialing",
-                Some(&subscription_id),
-                Some(&now.to_rfc3339()),
-                None, // subscription_ends_at - not set for trials
-                Some(&trial_end.to_rfc3339()),
-            )
+            .update_user_subscription(&user.id, &sub_params)
             .await?;
 
         tracing::info!(

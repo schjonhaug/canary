@@ -107,11 +107,7 @@ impl UserRecord {}
 /// Convert browser locale to language code for emails and notifications
 /// Returns language code for supported locales, "en" for all others
 pub fn locale_to_language(locale: &str) -> &'static str {
-    let lang_code = locale
-        .split(|c| c == '-' || c == '_')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let lang_code = locale.split(['-', '_']).next().unwrap_or("").to_lowercase();
     match lang_code.as_str() {
         "nb" | "nn" | "no" => "no",
         "es" => "es",
@@ -472,4 +468,37 @@ fn checksum_to_hex_color(checksum: &str) -> String {
 pub fn calculate_wallet_color(descriptor: &str) -> String {
     let checksum = extract_checksum(descriptor);
     checksum_to_hex_color(&checksum)
+}
+
+/// Parameters for creating a notification log entry
+#[derive(Debug, Clone)]
+pub struct NotificationLogParams<'a> {
+    pub notification_method_id: &'a str,
+    pub provider_name: &'a str,
+    pub provider_message_id: Option<&'a str>,
+    pub status: &'a str,
+    pub error_message: Option<&'a str>,
+    pub message_content: &'a str,
+}
+
+/// Parameters for triggering a balance alert notification
+#[derive(Debug, Clone)]
+pub struct BalanceAlertTriggerParams {
+    pub threshold_sats: i64,
+    pub current_balance_sats: i64,
+    pub alert_type: BalanceAlertType,
+    pub threshold_currency: Option<String>,
+    pub threshold_fiat_amount: Option<f64>,
+    pub exchange_rate_snapshot: Option<f64>,
+}
+
+/// Parameters for updating a user's subscription
+#[derive(Debug, Clone, Default)]
+pub struct SubscriptionUpdateParams<'a> {
+    pub subscription_tier: &'a str,
+    pub subscription_status: &'a str,
+    pub stripe_subscription_id: Option<&'a str>,
+    pub subscription_started_at: Option<&'a str>,
+    pub subscription_ends_at: Option<&'a str>,
+    pub trial_ends_at: Option<&'a str>,
 }
