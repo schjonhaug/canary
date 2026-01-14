@@ -15,22 +15,17 @@ impl MetadataDb {
         &self,
         balance_alert_id: &str,
         wallet_checksum: &str,
-        notification_method_id: &str,
-        provider_name: &str,
-        provider_message_id: Option<&str>,
-        status: &str,
-        error_message: Option<&str>,
-        message_content: &str,
+        params: &NotificationLogParams<'_>,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let balance_alert_id = balance_alert_id.to_string();
         let wallet_checksum = wallet_checksum.to_string();
-        let notification_method_id = notification_method_id.to_string();
-        let provider_name = provider_name.to_string();
-        let provider_message_id = provider_message_id.map(|s| s.to_string());
-        let status = status.to_string();
-        let error_message = error_message.map(|s| s.to_string());
-        let message_content = message_content.to_string();
+        let notification_method_id = params.notification_method_id.to_string();
+        let provider_name = params.provider_name.to_string();
+        let provider_message_id = params.provider_message_id.map(|s| s.to_string());
+        let status = params.status.to_string();
+        let error_message = params.error_message.map(|s| s.to_string());
+        let message_content = params.message_content.to_string();
 
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
@@ -355,18 +350,19 @@ impl MetadataDb {
         &self,
         balance_alert_id: &str,
         wallet_checksum: &str,
-        threshold_sats: i64,
-        current_balance_sats: i64,
-        alert_type: BalanceAlertType,
-        threshold_currency: Option<String>,
-        threshold_fiat_amount: Option<f64>,
-        exchange_rate_snapshot: Option<f64>,
+        params: &BalanceAlertTriggerParams,
     ) -> Result<BalanceAlertNotification> {
         let pool = self.pool.clone();
         let notification_id = Uuid::new_v4().to_string();
         let balance_alert_id = balance_alert_id.to_string();
         let wallet_checksum = wallet_checksum.to_string();
+        let alert_type = params.alert_type;
         let alert_type_str = alert_type.as_str().to_string();
+        let threshold_sats = params.threshold_sats;
+        let current_balance_sats = params.current_balance_sats;
+        let threshold_currency = params.threshold_currency.clone();
+        let threshold_fiat_amount = params.threshold_fiat_amount;
+        let exchange_rate_snapshot = params.exchange_rate_snapshot;
         let notification_sent_at = chrono::Utc::now().timestamp() as u64;
 
         spawn_blocking(move || -> Result<BalanceAlertNotification> {

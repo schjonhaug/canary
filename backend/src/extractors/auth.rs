@@ -93,6 +93,7 @@ where
 ///     // Continue with the operation
 /// }
 /// ```
+#[allow(clippy::result_large_err)]
 pub fn require_non_demo(user: &AuthUser) -> Result<(), Response> {
     if user.is_demo {
         Err((

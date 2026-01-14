@@ -34,7 +34,7 @@ mod xpub_converter;
 
 use config::AppConfig;
 use email_provider::EmailProvider;
-use metadata::TransactionNotification;
+use metadata::{NotificationLogParams, TransactionNotification};
 use notifications::NotificationManager;
 use ntfy_provider::{NtfyAuth, NtfyProvider};
 use std::sync::Arc;
@@ -864,6 +864,14 @@ async fn main() -> anyhow::Result<()> {
                                         let status = if result.success { "sent" } else { "failed" };
 
                                         // Handle logging based on notification type
+                                        let log_params = NotificationLogParams {
+                                            notification_method_id: method_id,
+                                            provider_name,
+                                            provider_message_id: result.provider_id.as_deref(),
+                                            status,
+                                            error_message: result.error_message.as_deref(),
+                                            message_content: &message,
+                                        };
                                         let log_result = match &notification {
                                             TransactionNotification::Pending(tx)
                                             | TransactionNotification::Confirmed(tx) => {
@@ -873,12 +881,7 @@ async fn main() -> anyhow::Result<()> {
                                                     .insert_notification_log_for_transaction(
                                                         &tx.txid,
                                                         &tx.wallet_checksum,
-                                                        method_id,
-                                                        provider_name,
-                                                        result.provider_id.as_deref(),
-                                                        status,
-                                                        result.error_message.as_deref(),
-                                                        &message,
+                                                        &log_params,
                                                         notification_type,
                                                     )
                                                     .await
@@ -890,12 +893,7 @@ async fn main() -> anyhow::Result<()> {
                                                     .insert_notification_log_for_balance_alert(
                                                         &alert.balance_alert_id,
                                                         &alert.wallet_checksum,
-                                                        method_id,
-                                                        provider_name,
-                                                        result.provider_id.as_deref(),
-                                                        status,
-                                                        result.error_message.as_deref(),
-                                                        &message,
+                                                        &log_params,
                                                     )
                                                     .await
                                             }

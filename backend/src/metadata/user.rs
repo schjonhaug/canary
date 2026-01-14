@@ -488,21 +488,16 @@ impl MetadataDb {
     pub async fn update_user_subscription(
         &self,
         user_id: &str,
-        subscription_tier: &str,
-        subscription_status: &str,
-        stripe_subscription_id: Option<&str>,
-        subscription_started_at: Option<&str>,
-        subscription_ends_at: Option<&str>,
-        trial_ends_at: Option<&str>,
+        params: &SubscriptionUpdateParams<'_>,
     ) -> Result<()> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
-        let subscription_tier = subscription_tier.to_string();
-        let subscription_status = subscription_status.to_string();
-        let stripe_subscription_id = stripe_subscription_id.map(|s| s.to_string());
-        let subscription_started_at = subscription_started_at.map(|s| s.to_string());
-        let subscription_ends_at = subscription_ends_at.map(|s| s.to_string());
-        let trial_ends_at = trial_ends_at.map(|s| s.to_string());
+        let subscription_tier = params.subscription_tier.to_string();
+        let subscription_status = params.subscription_status.to_string();
+        let stripe_subscription_id = params.stripe_subscription_id.map(|s| s.to_string());
+        let subscription_started_at = params.subscription_started_at.map(|s| s.to_string());
+        let subscription_ends_at = params.subscription_ends_at.map(|s| s.to_string());
+        let trial_ends_at = params.trial_ends_at.map(|s| s.to_string());
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
