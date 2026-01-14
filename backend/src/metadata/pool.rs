@@ -8,11 +8,16 @@ use std::sync::Arc;
 use tracing::{error, warn};
 
 #[derive(Debug)]
-struct ForeignKeyEnabler;
+struct SqliteConnectionInitializer;
 
-impl CustomizeConnection<Connection, bdk_wallet::rusqlite::Error> for ForeignKeyEnabler {
+impl CustomizeConnection<Connection, bdk_wallet::rusqlite::Error> for SqliteConnectionInitializer {
     fn on_acquire(&self, conn: &mut Connection) -> Result<(), bdk_wallet::rusqlite::Error> {
-        conn.execute_batch("PRAGMA foreign_keys = ON")
+        conn.execute_batch(
+            "PRAGMA foreign_keys = ON;
+             PRAGMA journal_mode = WAL;
+             PRAGMA synchronous = NORMAL;
+             PRAGMA busy_timeout = 5000;",
+        )
     }
 }
 
@@ -62,7 +67,7 @@ impl MetadataDb {
         let manager = SqliteConnectionManager::file(db_path);
         let pool = Pool::builder()
             .max_size(16)
-            .connection_customizer(Box::new(ForeignKeyEnabler))
+            .connection_customizer(Box::new(SqliteConnectionInitializer))
             .build(manager)
             .context("Failed to create database pool")?;
 
