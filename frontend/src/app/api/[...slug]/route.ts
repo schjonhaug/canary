@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
 
+// Ensure Node.js runtime for full Headers API support (including getSetCookie)
+export const runtime = 'nodejs';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> }
@@ -91,7 +94,8 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
 
     // Use getSetCookie() to properly handle multiple Set-Cookie headers
     // (forEach/entries may collapse them into one)
-    const setCookies = response.headers.getSetCookie();
+    // Fallback to empty array for safety in case getSetCookie is unavailable
+    const setCookies = response.headers.getSetCookie?.() ?? [];
     for (const cookie of setCookies) {
       responseHeaders.append('Set-Cookie', cookie);
     }
