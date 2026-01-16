@@ -86,10 +86,21 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       body,
     });
 
-    // Copy response headers
+    // Copy response headers, handling multiple Set-Cookie headers correctly
     const responseHeaders = new Headers();
+
+    // Use getSetCookie() to properly handle multiple Set-Cookie headers
+    // (forEach/entries may collapse them into one)
+    const setCookies = response.headers.getSetCookie();
+    for (const cookie of setCookies) {
+      responseHeaders.append('Set-Cookie', cookie);
+    }
+
+    // Copy all other headers
     response.headers.forEach((value, key) => {
-      responseHeaders.set(key, value);
+      if (key.toLowerCase() !== 'set-cookie') {
+        responseHeaders.set(key, value);
+      }
     });
 
     return new Response(response.body, {
