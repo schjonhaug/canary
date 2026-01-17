@@ -3,8 +3,8 @@
 import React from "react"
 import { Mail, MessageCircle, Bell, XCircle, ArrowRight } from "lucide-react"
 import { Transaction } from "../types"
-import { formatTransactionAmount, formatDateTime } from "@/lib/utils"
 import { useTranslations } from "next-intl"
+import { useFormatters } from "@/hooks/useFormatters"
 
 interface ProviderIconProps {
   providerType: string
@@ -31,6 +31,7 @@ interface TransactionDetailsProps {
 
 export function TransactionDetails({ transaction, isExpanded }: TransactionDetailsProps) {
   const t = useTranslations('transactions')
+  const { formatTransactionAmount, formatDateTime } = useFormatters()
 
   const renderNotificationGroup = (notifications: NonNullable<Transaction['notification_status']>) => {
     // Group notifications by contact name to avoid repetition

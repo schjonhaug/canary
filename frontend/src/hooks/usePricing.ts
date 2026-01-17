@@ -68,8 +68,8 @@ export function usePricing() {
 }
 
 // Helper function to format price from cents to dollars
-export function formatPrice(amountInCents: number, currency: string = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
+export function formatPrice(amountInCents: number, currency: string, locale: string): string {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency.toUpperCase(),
     minimumFractionDigits: 0,

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Loader2, ArrowRight } from "lucide-react"
 import { getTierDisplayName } from "@/lib/pricing-data"
 import { formatPrice, usePricing } from "@/hooks/usePricing"
+import { useLocale } from "next-intl"
 
 export default function BillingSuccessPage() {
   const searchParams = useSearchParams()
@@ -18,6 +19,7 @@ export default function BillingSuccessPage() {
   const { refreshBillingStatus } = useAuth()
   const { pricing } = usePricing()
   const discountPercent = pricing?.yearly_discount_percent || 20
+  const locale = useLocale()
 
   const [sessionDetails, setSessionDetails] = useState<{
     session_id: string
@@ -133,7 +135,7 @@ export default function BillingSuccessPage() {
               <div className="flex justify-between items-center">
                 <span className="font-medium">Amount Paid</span>
                 <span className="font-bold">
-                  {formatPrice(amount, currency)}
+                  {formatPrice(amount, currency, locale)}
                   {isYearly ? '/year' : '/month'}
                 </span>
               </div>

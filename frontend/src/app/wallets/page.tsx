@@ -3,7 +3,6 @@
 import { AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { formatBitcoinAmount } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { WalletCards } from "@/components/wallet-cards"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
@@ -11,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useWalletsContext } from "@/contexts/wallets-context"
 import { useTranslations } from "next-intl"
+import { useFormatters } from "@/hooks/useFormatters"
 
 export default function WalletsPage() {
   const t = useTranslations('wallets')
@@ -18,6 +18,7 @@ export default function WalletsPage() {
   const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading } = useWalletsContext()
   const { isAuthenticated, isLoading: authLoading, user, isCloudMode, billingStatus } = useAuth()
   const router = useRouter()
+  const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
 
   // Set page title
   useEffect(() => {
@@ -81,7 +82,7 @@ export default function WalletsPage() {
             {t('connectionLost.description')}
             {lastUpdate && (
               <span className="block mt-1 text-xs">
-                {t('connectionLost.lastUpdated', { time: new Date(lastUpdate * 1000).toLocaleString() })}
+                {t('connectionLost.lastUpdated', { time: new Date(lastUpdate * 1000).toLocaleString(locale) })}
               </span>
             )}
           </AlertDescription>
@@ -106,14 +107,7 @@ export default function WalletsPage() {
                         if (fiatTotal) {
                           return (
                             <span>
-                              {' '}(
-                              {new Intl.NumberFormat(undefined, {
-                                style: 'currency',
-                                currency: fiatTotal.currency,
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0
-                              }).format(fiatTotal.amount)}
-                              )
+                              {' '}({formatFiatAmount(fiatTotal.amount, fiatTotal.currency)})
                             </span>
                           )
                         }

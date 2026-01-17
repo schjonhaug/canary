@@ -86,12 +86,12 @@ export function getCurrencyName(code: string): string {
 }
 
 /**
- * Format a fiat amount with currency symbol using browser locale
+ * Format a fiat amount with currency symbol using user's preferred locale
  */
-export function formatFiatAmount(amount: number, currencyCode: string): string {
-  // Use browser's locale (undefined) to format currency appropriately
+export function formatFiatAmount(amount: number, currencyCode: string, locale: string): string {
+  // Use user's preferred locale to format currency appropriately
   // This handles symbol placement, separators, and decimals based on locale
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currencyCode,
     minimumFractionDigits: 0,

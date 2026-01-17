@@ -15,10 +15,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { CheckCircle, Baby, Mail, MessageCircle, Bell, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
 import { Transaction } from "../types"
-import { formatTransactionAmount, formatDateTime } from "@/lib/utils"
 import { TransactionCard } from "./transaction-card"
 import { TransactionDetails } from "./transaction-details"
 import { useTranslations } from "next-intl"
+import { useFormatters } from "@/hooks/useFormatters"
 
 interface TransactionsProps {
   selectedWalletChecksum?: string | null
@@ -33,6 +33,7 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const t = useTranslations('transactions')
+  const { formatTransactionAmount, formatDateTime } = useFormatters()
 
   // Track when we've received data for the first time
   useEffect(() => {

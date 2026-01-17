@@ -7,6 +7,7 @@ import { CheckCircle2, Loader2, Github } from "lucide-react"
 import { allFeatures } from "@/lib/pricing-data"
 import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
 import { useTranslations } from "next-intl"
+import { useLocale } from "next-intl"
 
 // Map tier slug to translation key (handles selfhosted -> selfHosted)
 function getTierTranslationKey(tier: string): string {
@@ -161,6 +162,7 @@ function PlanComparisonContent({
   hasPaidSubscription
 }: PlanComparisonContentProps) {
   const t = useTranslations('billing')
+  const locale = useLocale()
 
   // Separate paid tiers from self-hosted for different layout
   const paidTiers = tiersToShow.filter(tier => tier.tier !== 'selfhosted')
@@ -224,7 +226,7 @@ function PlanComparisonContent({
               )}
               {showPricing && monthlyPrice && tier.tier !== 'selfhosted' && (
                 <div className="mt-3">
-                  <span className="text-2xl font-bold">{formatPrice(monthlyPrice.amount, monthlyPrice.currency)}</span>
+                  <span className="text-2xl font-bold">{formatPrice(monthlyPrice.amount, monthlyPrice.currency, locale)}</span>
                   <span className="text-muted-foreground text-sm">{t('perMonth')}</span>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {t('plusTaxes')}

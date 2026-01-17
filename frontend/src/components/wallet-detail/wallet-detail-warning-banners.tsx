@@ -4,6 +4,7 @@ import Link from "next/link"
 import { AlertCircle, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useFormatters } from "@/hooks/useFormatters"
 import type { Wallet } from "@/types"
 
 interface WalletDetailWarningBannersProps {
@@ -25,6 +26,7 @@ export function WalletDetailWarningBanners({
   billingStatus,
   t,
 }: WalletDetailWarningBannersProps) {
+  const { locale } = useFormatters()
   return (
     <>
       {/* Connection Warning Banner */}
@@ -37,7 +39,7 @@ export function WalletDetailWarningBanners({
             {lastUpdate && (
               <span className="block mt-1 text-xs">
                 {t("connectionLost.lastUpdated", {
-                  time: new Date(lastUpdate * 1000).toLocaleString(),
+                  time: new Date(lastUpdate * 1000).toLocaleString(locale),
                 })}
               </span>
             )}
