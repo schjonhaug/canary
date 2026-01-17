@@ -648,21 +648,31 @@ impl WalletManager {
             );
         }
 
-        // Mark wallet as ready after deep scan and transaction extraction is complete
-        if let Err(e) = ctx
+        // Mark wallet as ready only if not already deleted (prevents race condition with deletion)
+        match ctx
             .metadata_db
-            .update_wallet_status(&ctx.checksum, "ready")
+            .update_wallet_status_if_not_deleted(&ctx.checksum, "ready")
             .await
         {
-            error!(
-                "[{}] Warning: Failed to mark wallet as ready: {}",
-                ctx.checksum, e
-            );
-        } else {
-            debug!(
-                "[{}] ✅ Wallet marked as ready - available for frontend display",
-                ctx.checksum
-            );
+            Ok(true) => {
+                debug!(
+                    "[{}] Wallet marked as ready - available for frontend display",
+                    ctx.checksum
+                );
+            }
+            Ok(false) => {
+                debug!(
+                    "[{}] Wallet status not updated (deleted during creation)",
+                    ctx.checksum
+                );
+                return Ok(()); // Skip adding to memory since wallet is deleted
+            }
+            Err(e) => {
+                error!(
+                    "[{}] Warning: Failed to mark wallet as ready: {}",
+                    ctx.checksum, e
+                );
+            }
         }
 
         // Add wallet to in-memory storage after it's fully set up and marked as ready

@@ -690,6 +690,28 @@ impl MetadataDb {
         .await?
     }
 
+    /// Update wallet status only if the wallet is not already deleted
+    /// Returns true if the update was applied, false if wallet was deleted
+    pub async fn update_wallet_status_if_not_deleted(
+        &self,
+        checksum: &str,
+        status: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let checksum = checksum.to_string();
+        let status = status.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let changes = conn.execute(
+                "UPDATE wallets SET status = ?1 WHERE checksum = ?2 AND status != 'deleted'",
+                params![status, checksum],
+            )?;
+            Ok(changes > 0)
+        })
+        .await?
+    }
+
     pub async fn update_wallet_active_status(&self, checksum: &str, is_active: bool) -> Result<()> {
         let pool = self.pool.clone();
         let checksum = checksum.to_string();
