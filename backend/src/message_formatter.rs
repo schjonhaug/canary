@@ -30,9 +30,10 @@ impl MessageFormatter {
         let formatter = DecimalFormatter::try_new(locale.into(), Default::default())
             .expect("locale should be valid");
 
-        // Convert satoshis to BTC as a Decimal with 8 decimal places
-        let btc_string = format!("{:.8}", amount_sats as f64 / 100_000_000.0);
-        let decimal: Decimal = btc_string.parse().expect("formatted string should parse");
+        // Convert satoshis to BTC using integer math to avoid floating-point precision issues
+        // Use multiply_pow10(-8) to shift decimal point: 100000000 sats -> 1.00000000 BTC
+        let mut decimal = Decimal::from(amount_sats);
+        decimal.multiply_pow10(-8);
 
         // Format and normalize spaces (ICU uses various Unicode spaces, convert to regular space)
         formatter
