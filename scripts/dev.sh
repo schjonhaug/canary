@@ -989,9 +989,9 @@ case "$1" in
 
         # Set values based on mode
         if [[ "$MODE" == "self-hosted" ]]; then
-            DATA_DIR="./database-self-hosted"
+            DATA_DIR="./database/self-hosted"
         else
-            DATA_DIR="./database-cloud"
+            DATA_DIR="./database/cloud"
         fi
 
         # Update backend .env
@@ -1453,14 +1453,14 @@ case "$1" in
             echo "Cleaning up regtest databases..."
             FOUND_DB=false
 
-            if [ -d "../backend/database-cloud/regtest" ]; then
-                rm -rf ../backend/database-cloud/regtest
+            if [ -d "../backend/database/cloud/regtest" ]; then
+                rm -rf ../backend/database/cloud/regtest
                 echo "✅ Cloud regtest database folder removed"
                 FOUND_DB=true
             fi
 
-            if [ -d "../backend/database-self-hosted/regtest" ]; then
-                rm -rf ../backend/database-self-hosted/regtest
+            if [ -d "../backend/database/self-hosted/regtest" ]; then
+                rm -rf ../backend/database/self-hosted/regtest
                 echo "✅ Self-hosted regtest database folder removed"
                 FOUND_DB=true
             fi
@@ -1786,15 +1786,15 @@ case "$1" in
         FOUND_DB=false
 
         # Remove cloud mode databases
-        if [ -d "../backend/database-cloud" ]; then
-            rm -rf ../backend/database-cloud
+        if [ -d "../backend/database/cloud" ]; then
+            rm -rf ../backend/database/cloud
             echo "✅ Cloud database folder removed"
             FOUND_DB=true
         fi
 
         # Remove self-hosted mode databases
-        if [ -d "../backend/database-self-hosted" ]; then
-            rm -rf ../backend/database-self-hosted
+        if [ -d "../backend/database/self-hosted" ]; then
+            rm -rf ../backend/database/self-hosted
             echo "✅ Self-hosted database folder removed"
             FOUND_DB=true
         fi
