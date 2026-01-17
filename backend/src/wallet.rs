@@ -668,10 +668,9 @@ impl WalletManager {
                 return Ok(()); // Skip adding to memory since wallet is deleted
             }
             Err(e) => {
-                error!(
-                    "[{}] Warning: Failed to mark wallet as ready: {}",
-                    ctx.checksum, e
-                );
+                error!("[{}] Failed to mark wallet as ready: {}", ctx.checksum, e);
+                // Don't add to memory if DB state is unknown - next sync cycle will handle it
+                return Ok(());
             }
         }
 

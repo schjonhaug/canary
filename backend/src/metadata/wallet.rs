@@ -690,8 +690,14 @@ impl MetadataDb {
         .await?
     }
 
-    /// Update wallet status only if the wallet is not already deleted
-    /// Returns true if the update was applied, false if wallet was deleted
+    /// Atomically updates the wallet status, but only if the wallet has not
+    /// already been marked as 'deleted'. This is used to prevent a race
+    /// condition where a wallet is deleted while a background creation
+    /// task is still running.
+    ///
+    /// Returns `Ok(true)` if the update was successful, `Ok(false)` if the
+    /// wallet was not updated (because it was already deleted or not found),
+    /// and `Err` if a database error occurred.
     pub async fn update_wallet_status_if_not_deleted(
         &self,
         checksum: &str,
