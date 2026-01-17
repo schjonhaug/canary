@@ -21,7 +21,9 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.0", features = ["derive"] }
 dotenvy = "0.15"
 phonenumber = "0.3"
-num-format = "0.4"
+icu = "2"
+fixed_decimal = "0.7"
+writeable = "0.6"
 r2d2 = "0.8"
 r2d2_sqlite = "0.24"
 async-trait = "0.1"
