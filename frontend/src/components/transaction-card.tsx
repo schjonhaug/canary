@@ -17,8 +17,8 @@ import {
   Clock
 } from "lucide-react"
 import { Transaction } from "../types"
-import { formatBitcoinAmount, formatTransactionAmount, formatDateTime } from "@/lib/utils"
 import { useTranslations } from "next-intl"
+import { useFormatters } from "@/hooks/useFormatters"
 
 interface TransactionCardProps {
   transaction: Transaction
@@ -28,6 +28,7 @@ interface TransactionCardProps {
 export function TransactionCard({ transaction, showWalletName }: TransactionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const t = useTranslations('transactions')
+  const { formatTransactionAmount, formatDateTime } = useFormatters()
 
   const getUniqueProviderSummary = (notifications: typeof transaction.notification_status) => {
     if (!notifications || notifications.length === 0) return null

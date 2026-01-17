@@ -5,8 +5,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { WalletContactsList } from "@/components/wallet-contacts-list"
 import { BalanceAlertsList } from "@/components/balance-alerts-list"
-import { formatBitcoinAmount } from "@/lib/utils"
 import { useTranslations } from "next-intl"
+import { useFormatters } from "@/hooks/useFormatters"
 import type { Wallet, Contact, BalanceAlert } from "@/types"
 
 interface WalletInfoSidebarProps {
@@ -30,6 +30,7 @@ export function WalletInfoSidebar({
 }: WalletInfoSidebarProps) {
   const t = useTranslations("wallets")
   const tCommon = useTranslations("common")
+  const { formatBitcoinAmount, formatFiatAmount } = useFormatters()
 
   return (
     <div className="lg:col-span-1">
@@ -45,12 +46,7 @@ export function WalletInfoSidebar({
             </div>
             {wallet.balance_fiat !== undefined && wallet.fiat_currency && (
               <div className="text-sm text-muted-foreground mt-1">
-                {new Intl.NumberFormat(undefined, {
-                  style: "currency",
-                  currency: wallet.fiat_currency,
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                }).format(wallet.balance_fiat)}
+                {formatFiatAmount(wallet.balance_fiat, wallet.fiat_currency)}
               </div>
             )}
           </div>

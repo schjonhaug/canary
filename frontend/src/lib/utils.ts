@@ -170,11 +170,11 @@ export async function loadCanarySvg(hexColor: string): Promise<string> {
 }
 
 // Bitcoin amount formatting for balances (no trailing zeros)
-export function formatBitcoinAmount(sats: number | null | undefined): string {
+export function formatBitcoinAmount(sats: number | null | undefined, locale: string): string {
   if (sats === null || sats === undefined) return "0 BTC"
 
   const btc = sats / 100_000_000
-  const formattedAmount = btc.toLocaleString(undefined, {
+  const formattedAmount = btc.toLocaleString(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 8
   })
@@ -183,12 +183,12 @@ export function formatBitcoinAmount(sats: number | null | undefined): string {
 }
 
 // Bitcoin amount formatting for transactions (full 8-digit precision)
-export function formatTransactionAmount(sats: number | null | undefined, eventType?: 'send' | 'receive'): string {
+export function formatTransactionAmount(sats: number | null | undefined, eventType: 'send' | 'receive' | undefined, locale: string): string {
   if (sats === null || sats === undefined) return "0.00000000 BTC"
 
   const absSats = Math.abs(sats)
   const btc = absSats / 100_000_000
-  const formattedAmount = btc.toLocaleString(undefined, {
+  const formattedAmount = btc.toLocaleString(locale, {
     minimumFractionDigits: 8,
     maximumFractionDigits: 8
   })
@@ -205,9 +205,9 @@ export function formatTransactionAmount(sats: number | null | undefined, eventTy
 }
 
 // Date formatting utilities
-export function formatDateTime(dateTime: string | number): string {
+export function formatDateTime(dateTime: string | number, locale: string): string {
   let date: Date
-  
+
   if (typeof dateTime === 'number') {
     // Convert Unix timestamp to milliseconds
     date = new Date(dateTime * 1000)
@@ -221,14 +221,14 @@ export function formatDateTime(dateTime: string | number): string {
       date = new Date(dateTime)
     }
   }
-  
+
   // Ensure valid date object
   if (isNaN(date.getTime())) {
     return "Invalid date"
   }
-  
-  // Use browser's locale with consistent formatting options
-  return date.toLocaleString(undefined, {
+
+  // Use user's preferred locale with consistent formatting options
+  return date.toLocaleString(locale, {
     year: '2-digit',
     month: '2-digit',
     day: '2-digit',
@@ -238,9 +238,9 @@ export function formatDateTime(dateTime: string | number): string {
   })
 }
 
-export function formatDate(dateTime: string): string {
+export function formatDate(dateTime: string, locale: string): string {
   const date = new Date(dateTime)
-  return date.toLocaleDateString()
+  return date.toLocaleDateString(locale)
 }
 
 // API utilities
@@ -373,8 +373,8 @@ export function btcToSats(btc: number): number {
   return Math.round(btc * 100_000_000)
 }
 
-export function formatBtcAmount(btc: number): string {
-  return btc.toLocaleString(undefined, {
+export function formatBtcAmount(btc: number, locale: string): string {
+  return btc.toLocaleString(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 8
   })

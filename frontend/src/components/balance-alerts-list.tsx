@@ -18,13 +18,12 @@ import { BalanceAlert, CreateBalanceAlertRequest } from "@/types"
 import {
   satsToBtc,
   btcToSats,
-  formatBtcAmount,
   parseBtcInput,
   getBtcPlaceholder
 } from "@/lib/utils"
-import { formatFiatAmount } from "@/lib/currencies"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
+import { useFormatters } from "@/hooks/useFormatters"
 
 interface BalanceAlertsListProps {
   walletChecksum: string
@@ -59,6 +58,7 @@ export function BalanceAlertsList({
   const { user, isCloudMode } = useAuth()
   const t = useTranslations('balanceAlerts')
   const tCommon = useTranslations('common')
+  const { formatFiatAmount, formatBtcAmount } = useFormatters()
 
   // Use local state for optimistic updates
   const [localAlerts, setLocalAlerts] = useState<BalanceAlert[]>(balanceAlerts)

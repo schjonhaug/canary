@@ -6,8 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { loadCanarySvg, getCachedCanarySvg, formatBitcoinAmount } from "@/lib/utils"
+import { loadCanarySvg, getCachedCanarySvg } from "@/lib/utils"
 import { useTranslations } from "next-intl"
+import { useFormatters } from "@/hooks/useFormatters"
 
 import { Wallet } from "../types"
 
@@ -21,6 +22,7 @@ interface WalletCardsProps {
 export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const t = useTranslations('wallets')
+  const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
 
   // Check if subscription is expired
   const isSubscriptionExpired = subscriptionStatus === 'expired'
@@ -200,19 +202,14 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                       </div>
                       {wallet.balance_fiat !== undefined && wallet.fiat_currency && (
                         <div className="text-sm text-muted-foreground mt-1">
-                          {new Intl.NumberFormat(undefined, {
-                            style: 'currency',
-                            currency: wallet.fiat_currency,
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 0
-                          }).format(wallet.balance_fiat)}
+                          {formatFiatAmount(wallet.balance_fiat, wallet.fiat_currency)}
                         </div>
                       )}
                     </div>
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                       <span>
                         {wallet.last_activity
-                          ? t('card.lastActivity', { date: new Date(parseInt(wallet.last_activity) * 1000).toLocaleDateString(undefined, {
+                          ? t('card.lastActivity', { date: new Date(parseInt(wallet.last_activity) * 1000).toLocaleDateString(locale, {
                               year: '2-digit',
                               month: '2-digit',
                               day: '2-digit'

@@ -3,6 +3,7 @@
 import Image from "next/image"
 import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { useRelativeTime } from "@/hooks/useRelativeTime"
+import { useFormatters } from "@/hooks/useFormatters"
 import { BuildInfo } from "./build-info"
 import { useTranslations } from "next-intl"
 
@@ -11,6 +12,7 @@ export function AppFooter() {
   const blockHeaderTime = useRelativeTime(blockHeader?.timestamp)
   const t = useTranslations('footer')
   const tCommon = useTranslations('common')
+  const { formatNumber } = useFormatters()
 
   return (
     <footer className="mt-16 pt-8 border-t border-border">
@@ -27,7 +29,7 @@ export function AppFooter() {
             <h3 className="text-lg font-bold tracking-wide">{t('appName')}</h3>
             {blockHeader ? (
               <p className="text-muted-foreground text-sm">
-                {t('blockInfo', { height: blockHeader.height.toLocaleString() })} • {blockHeaderTime}
+                {t('blockInfo', { height: formatNumber(blockHeader.height) })} • {blockHeaderTime}
               </p>
             ) : (
               <p className="text-muted-foreground text-sm">{tCommon('connectingToNetwork')}</p>
