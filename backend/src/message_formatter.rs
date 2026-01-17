@@ -1,106 +1,65 @@
 use crate::metadata::{EventType, Language, TransactionNotification};
-use num_format::{Locale, ToFormattedString};
+use icu::decimal::input::Decimal;
+use icu::decimal::DecimalFormatter;
+use icu::locale::{locale, Locale};
 use rust_i18n::t;
+use writeable::Writeable;
 
 pub struct MessageFormatter;
 
 impl MessageFormatter {
-    /// Format Bitcoin amount based on language preference
-    /// Note: This stays in Rust as it handles locale-specific number formatting
-    pub fn format_btc_amount(amount_sats: i64, language: &Language) -> String {
-        let btc_amount = amount_sats as f64 / 100_000_000.0;
-
-        // Always format with 8 decimal places
-        let formatted_with_decimals = format!("{:.8}", btc_amount);
-
-        // Split into integer and decimal parts
-        let parts: Vec<&str> = formatted_with_decimals.split('.').collect();
-        let integer_part = parts[0];
-        let decimal_part = parts.get(1).unwrap_or(&"00000000");
-
-        // Parse integer part for locale formatting
-        let integer_value: i64 = integer_part.parse().unwrap_or(0);
-
-        // Format integer part with locale-specific thousands separators
-        let formatted_integer = match language {
-            Language::Norwegian
-            | Language::German
-            | Language::French
-            | Language::Spanish
-            | Language::Portuguese
-            | Language::Danish
-            | Language::Swedish => {
-                // These languages use space as thousands separator
-                // Replace non-breaking space with regular space
-                integer_value
-                    .to_formatted_string(&Locale::nb)
-                    .replace('\u{a0}', " ")
-            }
-            Language::English | Language::Japanese => {
-                // English and Japanese use comma as thousands separator
-                integer_value.to_formatted_string(&Locale::en)
-            }
-        };
-
-        // Combine with decimal separator based on language
+    /// Convert Language enum to ICU4X Locale
+    fn language_to_locale(language: &Language) -> Locale {
         match language {
-            Language::Norwegian
-            | Language::German
-            | Language::French
-            | Language::Spanish
-            | Language::Portuguese
-            | Language::Danish
-            | Language::Swedish => {
-                format!("{},{}", formatted_integer, decimal_part)
-            }
-            Language::English | Language::Japanese => {
-                format!("{}.{}", formatted_integer, decimal_part)
-            }
+            Language::English => locale!("en-US"),
+            Language::Norwegian => locale!("nb"),
+            Language::Spanish => locale!("es-419"),
+            Language::Portuguese => locale!("pt-BR"),
+            Language::German => locale!("de-DE"),
+            Language::French => locale!("fr-FR"),
+            Language::Japanese => locale!("ja"),
+            Language::Danish => locale!("da"),
+            Language::Swedish => locale!("sv"),
         }
     }
 
-    /// Format fiat amount based on language preference
+    /// Format Bitcoin amount based on language preference using ICU4X
+    /// Note: This stays in Rust as it handles locale-specific number formatting
+    pub fn format_btc_amount(amount_sats: i64, language: &Language) -> String {
+        let locale = Self::language_to_locale(language);
+        let formatter = DecimalFormatter::try_new(locale.into(), Default::default())
+            .expect("locale should be valid");
+
+        // Convert satoshis to BTC using integer math to avoid floating-point precision issues
+        // Use multiply_pow10(-8) to shift decimal point: 100000000 sats -> 1.00000000 BTC
+        let mut decimal = Decimal::from(amount_sats);
+        decimal.multiply_pow10(-8);
+
+        // Format and normalize spaces (ICU uses various Unicode spaces, convert to regular space)
+        formatter
+            .format(&decimal)
+            .write_to_string()
+            .into_owned()
+            .replace(['\u{a0}', '\u{202f}'], " ") // non-breaking space, narrow no-break space
+    }
+
+    /// Format fiat amount based on language preference using ICU4X
     /// Note: This stays in Rust as it handles locale-specific number formatting
     pub fn format_fiat_amount(amount: f64, currency: &str, language: &Language) -> String {
+        let locale = Self::language_to_locale(language);
+        let formatter = DecimalFormatter::try_new(locale.into(), Default::default())
+            .expect("locale should be valid");
+
         // Format with 2 decimal places for fiat
-        let integer_part = amount.floor() as i64;
-        let decimal_part = ((amount - amount.floor()) * 100.0).round() as i64;
+        let fiat_string = format!("{:.2}", amount);
+        let decimal: Decimal = fiat_string.parse().expect("formatted string should parse");
 
-        // Format integer part with locale-specific thousands separators
-        let formatted_integer = match language {
-            Language::Norwegian
-            | Language::German
-            | Language::French
-            | Language::Spanish
-            | Language::Portuguese
-            | Language::Danish
-            | Language::Swedish => {
-                // These languages use space as thousands separator
-                integer_part
-                    .to_formatted_string(&Locale::nb)
-                    .replace('\u{a0}', " ")
-            }
-            Language::English | Language::Japanese => {
-                // English and Japanese use comma as thousands separator
-                integer_part.to_formatted_string(&Locale::en)
-            }
-        };
-
-        // Combine with decimal separator based on language
-        let formatted_amount = match language {
-            Language::Norwegian
-            | Language::German
-            | Language::French
-            | Language::Spanish
-            | Language::Portuguese
-            | Language::Danish
-            | Language::Swedish => {
-                format!("{},{:02}", formatted_integer, decimal_part)
-            }
-            Language::English | Language::Japanese => {
-                format!("{}.{:02}", formatted_integer, decimal_part)
-            }
-        };
+        // Format and normalize spaces (ICU uses various Unicode spaces, convert to regular space)
+        let formatted_amount = formatter
+            .format(&decimal)
+            .write_to_string()
+            .into_owned()
+            .replace(['\u{a0}', '\u{202f}'], " "); // non-breaking space, narrow no-break space
 
         // Add currency symbol/code
         format!("{} {}", formatted_amount, currency)
