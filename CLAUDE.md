@@ -83,8 +83,9 @@ canary/
 │   │   ├── metadata.rs       # SQLite database layer
 │   │   ├── sync.rs           # Background sync operations
 │   │   └── ...               # Notification providers, config, etc.
-│   ├── database-self-hosted/ # self-hosted mode SQLite databases
-│   ├── database-cloud/       # cloud mode SQLite databases
+│   ├── database/             # SQLite databases (gitignored)
+│   │   ├── cloud/            # cloud mode databases
+│   │   └── self-hosted/      # self-hosted mode databases
 │   ├── migrations/           # 16 database schema migrations (001-016)
 │   ├── tests/                # Integration tests
 │   ├── system_tests/         # End-to-end Docker-based tests
@@ -556,9 +557,9 @@ TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 This is separate from the main authentication system and only used when users add phone number contacts.
 
 ## Storage
-- **Mode-specific Databases**: `database-self-hosted/{network}/` for self-hosted mode, `database-cloud/{network}/` for cloud mode
-- **Wallets**: `database-{mode}/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
-- **Metadata**: `database-{mode}/{network}/metadata.sqlite` (normalized schema with 16 migrations)
+- **Mode-specific Databases**: `database/self-hosted/{network}/` for self-hosted mode, `database/cloud/{network}/` for cloud mode
+- **Wallets**: `database/{mode}/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
+- **Metadata**: `database/{mode}/{network}/metadata.sqlite` (normalized schema with 16 migrations)
 - **Schema**: 16 migration files providing comprehensive schema for all features
 - **Reset**: `./scripts/dev.sh reset` removes all databases
 

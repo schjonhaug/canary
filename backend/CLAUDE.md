@@ -116,7 +116,7 @@ src/
 - Plugin-based notification architecture with trait objects
 - Tier-based wallet sync intervals (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
 - Automatic wallet cleanup during sync cycles (soft delete → hard delete)
-- Network-specific SQLite databases in `database-{mode}/{network}/` (e.g., `database-cloud/regtest/`, `database-self-hosted/mainnet/`)
+- Network-specific SQLite databases in `database/{mode}/{network}/` (e.g., `database/cloud/regtest/`, `database/self-hosted/mainnet/`)
 
 ### Frontend Structure
 - **App Router**: Next.js 15 app directory structure with TypeScript
@@ -266,4 +266,4 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - **Models**: Request/response DTOs and validators
 - **Frontend**: App router structure with co-located component tests
 - **Migrations**: 16 migration files for schema evolution
-- **Database**: Mode and network-specific directories under `database-{mode}/{network}/` (e.g., `database-cloud/regtest/`)
+- **Database**: Mode and network-specific directories under `database/{mode}/{network}/` (e.g., `database/cloud/regtest/`)
