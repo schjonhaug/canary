@@ -76,3 +76,10 @@ auth_email:
     choose_plan: "Elige el plan adecuado para ti:"
     personal_plan: "Personal: 1 billetera, 1 contacto, sincronización de 10 minutos"
     team_plan: "Team: 5 billeteras, 5 contactos por billetera, sincronización de 2 minutos"
+  account_locked:
+    subject: "Alerta de seguridad - Cuenta bloqueada"
+    header: "Alerta de seguridad de la cuenta"
+    body: "Tu cuenta de Canary ha sido bloqueada temporalmente debido a varios intentos fallidos de inicio de sesión."
+    unlock_text: "Tu cuenta se desbloqueará automáticamente en %{minutes} minutos."
+    security_warning: "Si no fuiste tú, te recomendamos restablecer tu contraseña de inmediato para asegurar tu cuenta."
+    button: "Restablecer contraseña"

@@ -76,3 +76,10 @@ auth_email:
     choose_plan: "Choisissez le forfait qui vous convient :"
     personal_plan: "Personnel : 1 portefeuille, 1 contact, synchronisation toutes les 10 minutes"
     team_plan: "Équipe : 5 portefeuilles, 5 contacts par portefeuille, synchronisation toutes les 2 minutes"
+  account_locked:
+    subject: "Alerte de sécurité - Compte verrouillé"
+    header: "Alerte de sécurité du compte"
+    body: "Votre compte Canary a été temporairement verrouillé en raison de plusieurs tentatives de connexion infructueuses."
+    unlock_text: "Votre compte sera automatiquement déverrouillé dans %{minutes} minutes."
+    security_warning: "Si ce n'était pas vous, nous vous recommandons de réinitialiser votre mot de passe immédiatement pour sécuriser votre compte."
+    button: "Réinitialiser le mot de passe"

@@ -76,3 +76,10 @@ auth_email:
     choose_plan: "Choose the plan that's right for you:"
     personal_plan: "Personal: 1 wallet, 1 contact, 10-minute sync"
     team_plan: "Team: 5 wallets, 5 contacts per wallet, 2-minute sync"
+  account_locked:
+    subject: "Security Alert - Account Locked"
+    header: "Account Security Alert"
+    body: "Your Canary account has been temporarily locked due to multiple failed login attempts."
+    unlock_text: "Your account will be automatically unlocked in %{minutes} minutes."
+    security_warning: "If this wasn't you, we recommend resetting your password immediately to secure your account."
+    button: "Reset Password"

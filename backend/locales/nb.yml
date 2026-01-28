@@ -76,3 +76,10 @@ auth_email:
     choose_plan: "Velg planen som passer for deg:"
     personal_plan: "Personlig: 1 lommebok, 1 kontakt, 10-minutters synkronisering"
     team_plan: "Team: 5 lommebøker, 5 kontakter per lommebok, 2-minutters synkronisering"
+  account_locked:
+    subject: "Sikkerhetsvarsel - Konto låst"
+    header: "Sikkerhetsvarsel for konto"
+    body: "Din Canary-konto har blitt midlertidig låst på grunn av flere mislykkede påloggingsforsøk."
+    unlock_text: "Kontoen din vil bli automatisk låst opp om %{minutes} minutter."
+    security_warning: "Hvis dette ikke var deg, anbefaler vi at du tilbakestiller passordet ditt umiddelbart for å sikre kontoen din."
+    button: "Tilbakestill passord"

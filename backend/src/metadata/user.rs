@@ -915,21 +915,15 @@ impl MetadataDb {
     }
 
     /// Record a login attempt (successful or failed)
-    pub async fn record_login_attempt(
-        &self,
-        email: &str,
-        ip_address: Option<&str>,
-        success: bool,
-    ) -> Result<()> {
+    pub async fn record_login_attempt(&self, email: &str, success: bool) -> Result<()> {
         let pool = self.pool.clone();
         let email = email.to_string();
-        let ip_address = ip_address.map(|s| s.to_string());
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
-                "INSERT INTO login_attempts (email, ip_address, success) VALUES (?1, ?2, ?3)",
-                params![&email, &ip_address, success],
+                "INSERT INTO login_attempts (email, success) VALUES (?1, ?2)",
+                params![&email, success],
             )?;
             Ok(())
         })
@@ -949,30 +943,6 @@ impl MetadataDb {
             let count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM login_attempts WHERE email = ?1 AND attempt_time > ?2 AND success = FALSE",
                 params![&email, &window_start],
-                |row| row.get(0),
-            )?;
-            Ok(count)
-        })
-        .await?
-    }
-
-    /// Get the count of failed login attempts from a specific IP in the last N minutes
-    pub async fn get_failed_login_count_by_ip(
-        &self,
-        ip_address: &str,
-        window_minutes: i64,
-    ) -> Result<i64> {
-        let pool = self.pool.clone();
-        let ip_address = ip_address.to_string();
-        let window_start = (chrono::Utc::now() - chrono::Duration::minutes(window_minutes))
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string();
-
-        spawn_blocking(move || -> Result<i64> {
-            let conn = pool.get()?;
-            let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM login_attempts WHERE ip_address = ?1 AND attempt_time > ?2 AND success = FALSE",
-                params![&ip_address, &window_start],
                 |row| row.get(0),
             )?;
             Ok(count)

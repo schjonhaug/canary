@@ -334,71 +334,14 @@ pub async fn register(
 
 // Rate limiting constants
 const MAX_FAILED_ATTEMPTS_PER_EMAIL: i64 = 5; // Lock account after 5 failed attempts
-const MAX_FAILED_ATTEMPTS_PER_IP: i64 = 20; // Rate limit IP after 20 failed attempts
-const RATE_LIMIT_WINDOW_MINUTES: i64 = 15; // Time window for counting attempts
 const ACCOUNT_LOCKOUT_MINUTES: i64 = 15; // How long to lock an account
-
-/// Extract client IP address from headers (supports X-Forwarded-For for proxied requests)
-fn extract_client_ip(headers: &HeaderMap) -> Option<String> {
-    // First try X-Forwarded-For (for proxied requests)
-    if let Some(forwarded_for) = headers.get("x-forwarded-for") {
-        if let Ok(value) = forwarded_for.to_str() {
-            // Take the first IP in the chain (original client)
-            if let Some(ip) = value.split(',').next() {
-                return Some(ip.trim().to_string());
-            }
-        }
-    }
-
-    // Try X-Real-IP
-    if let Some(real_ip) = headers.get("x-real-ip") {
-        if let Ok(value) = real_ip.to_str() {
-            return Some(value.trim().to_string());
-        }
-    }
-
-    None
-}
 
 /// User login endpoint
 pub async fn login(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
-    headers: HeaderMap,
     Json(request): Json<LoginRequest>,
 ) -> Response {
-    let client_ip = extract_client_ip(&headers);
-
-    // Check IP-based rate limiting first (before any user lookup)
-    if let Some(ref ip) = client_ip {
-        match app_services
-            .metadata_db
-            .get_failed_login_count_by_ip(ip, RATE_LIMIT_WINDOW_MINUTES)
-            .await
-        {
-            Ok(count) if count >= MAX_FAILED_ATTEMPTS_PER_IP => {
-                tracing::warn!(
-                    "IP {} rate limited: {} failed attempts in {} minutes",
-                    ip,
-                    count,
-                    RATE_LIMIT_WINDOW_MINUTES
-                );
-                return (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    Json(ErrorResponse {
-                        error: "Too many login attempts. Please try again later.".to_string(),
-                    }),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                tracing::error!("Failed to check IP rate limit: {}", e);
-                // Continue with login attempt if rate limit check fails
-            }
-            _ => {}
-        }
-    }
-
     // Check if account is locked
     match app_services
         .metadata_db
@@ -419,12 +362,8 @@ pub async fn login(
                 .into_response();
         }
         Ok(None) => {
-            // Lockout has expired - reset the failed login counter
-            // This prevents immediate re-locking on the next failed attempt
-            let _ = app_services
-                .metadata_db
-                .reset_failed_login_count(&request.email)
-                .await;
+            // Account is not locked - continue with login attempt
+            // Note: failed_login_attempts counter is only reset on successful login
         }
         Err(e) => {
             tracing::error!("Failed to check account lockout: {}", e);
@@ -443,7 +382,7 @@ pub async fn login(
             // Record failed attempt even for non-existent users (prevents user enumeration timing attacks)
             let _ = app_services
                 .metadata_db
-                .record_login_attempt(&request.email, client_ip.as_deref(), false)
+                .record_login_attempt(&request.email, false)
                 .await;
 
             return (
@@ -518,7 +457,7 @@ pub async fn login(
         // Record failed login attempt
         let _ = app_services
             .metadata_db
-            .record_login_attempt(&request.email, client_ip.as_deref(), false)
+            .record_login_attempt(&request.email, false)
             .await;
 
         // Increment failed login counter and check if we need to lock the account
@@ -541,6 +480,33 @@ pub async fn login(
                         request.email,
                         failed_count
                     );
+
+                    // Send account locked notification email (fire-and-forget)
+                    if let Ok(email_service) = EmailService::from_env() {
+                        let email = user_record.email.clone();
+                        let name = user_record
+                            .name
+                            .clone()
+                            .unwrap_or_else(|| "User".to_string());
+                        let language = user_record
+                            .preferred_language
+                            .clone()
+                            .unwrap_or_else(|| "en".to_string());
+                        let lockout_minutes = ACCOUNT_LOCKOUT_MINUTES;
+
+                        tokio::spawn(async move {
+                            if let Err(e) = email_service
+                                .send_account_locked(&email, &name, lockout_minutes, &language)
+                                .await
+                            {
+                                tracing::error!(
+                                    "Failed to send account locked email to {}: {}",
+                                    email,
+                                    e
+                                );
+                            }
+                        });
+                    }
                 }
 
                 return (
@@ -585,7 +551,7 @@ pub async fn login(
     // Successful login - record it and reset failed login counter
     let _ = app_services
         .metadata_db
-        .record_login_attempt(&request.email, client_ip.as_deref(), true)
+        .record_login_attempt(&request.email, true)
         .await;
 
     let _ = app_services
