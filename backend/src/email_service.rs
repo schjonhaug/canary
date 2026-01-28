@@ -5,6 +5,15 @@ use resend_rs::types::{ContactData, CreateEmailBaseOptions};
 use resend_rs::Resend;
 use rust_i18n::t;
 
+/// Escape HTML special characters to prevent XSS in email content
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
+
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
     pub resend_api_key: String,
@@ -373,11 +382,14 @@ Your verification code is: {otp_code}
     ) -> Result<()> {
         let reset_url = format!("{}/forgot-password", self.config.frontend_url);
 
+        // Escape name for HTML to prevent XSS
+        let safe_name = html_escape(to_name);
+
         // Get translations using rust-i18n
         let locale = language;
         let subject = t!("auth_email.account_locked.subject", locale = locale).to_string();
         let header = t!("auth_email.account_locked.header", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
         let body_text = t!("auth_email.account_locked.body", locale = locale).to_string();
         let unlock_text = t!(
             "auth_email.account_locked.unlock_text",

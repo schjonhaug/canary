@@ -4,6 +4,8 @@
 -- a liability. We keep email-based rate limiting (5 attempts → 15 min lockout)
 -- but remove IP tracking entirely.
 
+BEGIN TRANSACTION;
+
 -- Drop the IP-based index
 DROP INDEX IF EXISTS idx_login_attempts_ip_time;
 
@@ -25,3 +27,5 @@ ALTER TABLE login_attempts_new RENAME TO login_attempts;
 
 -- Recreate email index
 CREATE INDEX idx_login_attempts_email_time ON login_attempts (email, attempt_time);
+
+COMMIT;
