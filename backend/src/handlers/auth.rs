@@ -362,8 +362,15 @@ pub async fn login(
                 .into_response();
         }
         Ok(None) => {
-            // Account is not locked - continue with login attempt
-            // Note: failed_login_attempts counter is only reset on successful login
+            // Account is not actively locked - check if lockout just expired
+            // If so, reset the counter to give user a fresh start
+            if let Ok(true) = app_services
+                .metadata_db
+                .clear_expired_lockout(&request.email)
+                .await
+            {
+                tracing::info!("Cleared expired lockout for {}", request.email);
+            }
         }
         Err(e) => {
             tracing::error!("Failed to check account lockout: {}", e);
@@ -491,7 +498,7 @@ pub async fn login(
                         let language = user_record
                             .preferred_language
                             .clone()
-                            .unwrap_or_else(|| "en".to_string());
+                            .unwrap_or_else(|| "en-US".to_string());
                         let lockout_minutes = ACCOUNT_LOCKOUT_MINUTES;
 
                         tokio::spawn(async move {

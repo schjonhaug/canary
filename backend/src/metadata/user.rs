@@ -914,6 +914,38 @@ impl MetadataDb {
         .await?
     }
 
+    /// Check if lockout has expired and clear it if so
+    /// Returns true if an expired lockout was cleared, false otherwise
+    pub async fn clear_expired_lockout(&self, email: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let email = email.to_string();
+        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            // Check if there's an expired lockout (locked_until is set but in the past)
+            let has_expired_lockout: bool = conn
+                .prepare(
+                    "SELECT 1 FROM users WHERE email = ?1 AND locked_until IS NOT NULL AND locked_until <= ?2",
+                )?
+                .query_row(params![&email, &current_time], |_| Ok(true))
+                .optional()?
+                .unwrap_or(false);
+
+            if has_expired_lockout {
+                // Clear the expired lockout and reset counter
+                conn.execute(
+                    "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE email = ?1",
+                    params![&email],
+                )?;
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        })
+        .await?
+    }
+
     /// Record a login attempt (successful or failed)
     pub async fn record_login_attempt(&self, email: &str, success: bool) -> Result<()> {
         let pool = self.pool.clone();
