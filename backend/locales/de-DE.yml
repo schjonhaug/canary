@@ -76,3 +76,10 @@ auth_email:
     choose_plan: "Wählen Sie den Plan, der am besten zu Ihnen passt:"
     personal_plan: "Personal: 1 Wallet, 1 Kontakt, 10-Minuten-Synchronisierung"
     team_plan: "Team: 5 Wallets, 5 Kontakte pro Wallet, 2-Minuten-Synchronisierung"
+  account_locked:
+    subject: "Sicherheitswarnung - Konto gesperrt"
+    header: "Kontosicherheitswarnung"
+    body: "Ihr Canary-Konto wurde aufgrund mehrerer fehlgeschlagener Anmeldeversuche vorübergehend gesperrt."
+    unlock_text: "Ihr Konto wird in %{minutes} Minuten automatisch entsperrt."
+    security_warning: "Falls Sie das nicht waren, empfehlen wir Ihnen, Ihr Passwort sofort zurückzusetzen, um Ihr Konto zu sichern."
+    button: "Passwort zurücksetzen"

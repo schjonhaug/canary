@@ -41,7 +41,7 @@ jobs:
                   "args": [
                     "run", "-i", "--rm",
                     "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server:v0.18.0"
+                    "ghcr.io/github/github-mcp-server:v0.30.2"
                   ],
                   "includeTools": [
                     "add_comment_to_pending_review",

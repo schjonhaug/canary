@@ -5,6 +5,15 @@ use resend_rs::types::{ContactData, CreateEmailBaseOptions};
 use resend_rs::Resend;
 use rust_i18n::t;
 
+/// Escape HTML special characters to prevent XSS in email content
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
+
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
     pub resend_api_key: String,
@@ -356,6 +365,121 @@ Your verification code is: {otp_code}
             body_text = body_text,
             otp_code = otp_code,
             expiry_text = expiry_text,
+            footer = footer
+        );
+
+        self.send_email(to_email, to_name, &subject, &html_body, &text_body)
+            .await
+    }
+
+    /// Send account locked notification email
+    pub async fn send_account_locked(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        lockout_minutes: i64,
+        language: &str,
+    ) -> Result<()> {
+        let reset_url = format!("{}/forgot-password", self.config.frontend_url);
+
+        // Escape name for HTML to prevent XSS
+        let safe_name = html_escape(to_name);
+
+        // Get translations using rust-i18n
+        let locale = language;
+        let subject = t!("auth_email.account_locked.subject", locale = locale).to_string();
+        let header = t!("auth_email.account_locked.header", locale = locale).to_string();
+        let greeting = t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let body_text = t!("auth_email.account_locked.body", locale = locale).to_string();
+        let unlock_text = t!(
+            "auth_email.account_locked.unlock_text",
+            locale = locale,
+            minutes = lockout_minutes
+        )
+        .to_string();
+        let security_warning =
+            t!("auth_email.account_locked.security_warning", locale = locale).to_string();
+        let button_text = t!("auth_email.account_locked.button", locale = locale).to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
+
+        let html_body = format!(
+            r#"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>{subject}</title>
+            </head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #1f2937;">Canary</h1>
+                </div>
+
+                <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
+                    <h2 style="color: #991b1b; margin-top: 0;">{header}</h2>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        {greeting}
+                    </p>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        {body_text}
+                    </p>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        {unlock_text}
+                    </p>
+
+                    <div style="background-color: #fff; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                        <p style="color: #92400e; margin: 0;">
+                            ⚠️ {security_warning}
+                        </p>
+                    </div>
+
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{reset_url}"
+                           style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
+                            {button_text}
+                        </a>
+                    </div>
+                </div>
+
+                <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
+                    <p>{footer}</p>
+                </div>
+            </body>
+            </html>
+            "#,
+            subject = subject,
+            header = header,
+            greeting = greeting,
+            body_text = body_text,
+            unlock_text = unlock_text,
+            security_warning = security_warning,
+            reset_url = reset_url,
+            button_text = button_text,
+            footer = footer
+        );
+
+        let text_body = format!(
+            r#"
+{header}
+
+{greeting}
+
+{body_text}
+
+{unlock_text}
+
+⚠️ {security_warning}
+
+{reset_url}
+
+{footer}
+            "#,
+            header = header,
+            greeting = greeting,
+            body_text = body_text,
+            unlock_text = unlock_text,
+            security_warning = security_warning,
+            reset_url = reset_url,
             footer = footer
         );
 
