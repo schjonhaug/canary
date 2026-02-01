@@ -16,6 +16,7 @@ COPY Cargo.toml Cargo.lock ./
 # Copy source code
 COPY src ./src
 COPY migrations ./migrations
+COPY locales ./locales
 
 # Build the application
 RUN cargo build --release
