@@ -54,7 +54,7 @@ impl MetadataDb {
                 let default_language = std::env::var("LANG")
                     .ok()
                     .map(|locale| locale_to_language(&locale))
-                    .unwrap_or("en");
+                    .unwrap_or("en-US");
                 conn.execute(
                     "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
                      VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 0, 1, 'team', 'active', datetime('now'), ?1, ?2)",
@@ -93,7 +93,7 @@ impl MetadataDb {
                 conn.execute(
                     "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10, ?11)",
-                    params![&user_id, DEMO_USER_EMAIL, &password_hash, "Demo User", false, true, true, "team", "active", "USD", "en"],
+                    params![&user_id, DEMO_USER_EMAIL, &password_hash, "Demo User", false, true, true, "team", "active", "USD", "en-US"],
                 )?;
 
                 println!("[CLOUD MODE] Created demo user: {}", DEMO_USER_EMAIL);
@@ -147,7 +147,7 @@ impl MetadataDb {
                     conn.execute(
                         "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10, ?11)",
-                        params![&user_id, email, &password_hash, name, is_admin, false, true, tier, "pending", "USD", "en"],
+                        params![&user_id, email, &password_hash, name, is_admin, false, true, tier, "pending", "USD", "en-US"],
                     )?;
 
                     println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
@@ -218,7 +218,7 @@ impl MetadataDb {
             // Create new user
             tx.execute(
                 "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, preferred_fiat_currency, preferred_language) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, false, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD"), preferred_language.as_deref().unwrap_or("en")],
+                params![&user_id, &email, &password_hash, user_name, final_is_admin, false, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD"), preferred_language.as_deref().unwrap_or("en-US")],
             )?;
 
             tx.commit()?;

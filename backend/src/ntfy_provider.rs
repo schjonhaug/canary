@@ -91,20 +91,49 @@ impl NotificationProvider for NtfyProvider {
                 let ntfy_url = format!("{}/{}", self.server_url, topic);
 
                 // Create localized title for push notification
+                // Note: t!() macro requires string literals, not variables, for compile-time translation lookup
                 let locale = user_language.as_str();
-                let title_key = match notification {
+                let localized_title = match notification {
                     TransactionNotification::Pending(tx) => match tx.transaction_type {
-                        EventType::Receive => "titles.receive.pending",
-                        EventType::Send => "titles.send.pending",
+                        EventType::Receive => {
+                            format!(
+                                "{} - {}",
+                                t!("titles.receive.pending", locale = locale),
+                                wallet_name
+                            )
+                        }
+                        EventType::Send => {
+                            format!(
+                                "{} - {}",
+                                t!("titles.send.pending", locale = locale),
+                                wallet_name
+                            )
+                        }
                     },
                     TransactionNotification::Confirmed(tx) => match tx.transaction_type {
-                        EventType::Receive => "titles.receive.confirmed",
-                        EventType::Send => "titles.send.confirmed",
+                        EventType::Receive => {
+                            format!(
+                                "{} - {}",
+                                t!("titles.receive.confirmed", locale = locale),
+                                wallet_name
+                            )
+                        }
+                        EventType::Send => {
+                            format!(
+                                "{} - {}",
+                                t!("titles.send.confirmed", locale = locale),
+                                wallet_name
+                            )
+                        }
                     },
-                    TransactionNotification::BalanceAlert(_) => "titles.balance_alert",
+                    TransactionNotification::BalanceAlert(_) => {
+                        format!(
+                            "{} - {}",
+                            t!("titles.balance_alert", locale = locale),
+                            wallet_name
+                        )
+                    }
                 };
-                let localized_title =
-                    format!("{} - {}", t!(title_key, locale = locale), wallet_name);
 
                 // Build the request with optional authentication
                 let mut request = self

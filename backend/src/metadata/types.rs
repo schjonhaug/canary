@@ -105,19 +105,19 @@ pub struct UserRecord {
 impl UserRecord {}
 
 /// Convert browser locale to language code for emails and notifications
-/// Returns language code for supported locales, "en" for all others
+/// Returns the exact locale code that matches our YAML translation files
 pub fn locale_to_language(locale: &str) -> &'static str {
     let lang_code = locale.split(['-', '_']).next().unwrap_or("").to_lowercase();
     match lang_code.as_str() {
-        "nb" | "nn" | "no" => "no",
-        "es" => "es",
-        "pt" => "pt",
-        "de" => "de",
-        "fr" => "fr",
+        "nb" | "nn" | "no" => "nb",
+        "es" => "es-419",
+        "pt" => "pt-BR",
+        "de" => "de-DE",
+        "fr" => "fr-FR",
         "ja" => "ja",
         "da" => "da",
         "sv" => "sv",
-        _ => "en",
+        _ => "en-US",
     }
 }
 

@@ -36,9 +36,8 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4.1)
-          # model: "claude-opus-4-1-20250805"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          use_sticky_comment: true
 
           # Prompt for automated review (no @claude mention needed)
           prompt: |
@@ -48,11 +47,8 @@ jobs:
             - Performance considerations
             - Security concerns
             - Test coverage
-            
-            Be constructive and helpful in your feedback.
 
-          # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
-          # use_sticky_comment: true
+            Be constructive and helpful in your feedback.
           
           # Optional: Customize review based on file types
           # direct_prompt: |

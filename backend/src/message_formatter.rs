@@ -93,23 +93,28 @@ impl MessageFormatter {
     ) -> String {
         let locale = language.as_str();
 
+        // Note: t!() macro requires string literals, not variables, for compile-time translation lookup
         match notification {
-            TransactionNotification::Pending(tx) => {
-                let (title_key, emoji) = match tx.transaction_type {
-                    EventType::Receive => ("titles.receive.pending", "💸"),
-                    EventType::Send => ("titles.send.pending", "📤"),
-                };
-                let title_text = t!(title_key, locale = locale).to_string();
-                format!("{} {} - {}", emoji, title_text, wallet_name)
-            }
-            TransactionNotification::Confirmed(tx) => {
-                let (title_key, emoji) = match tx.transaction_type {
-                    EventType::Receive => ("titles.receive.confirmed", "✅"),
-                    EventType::Send => ("titles.send.confirmed", "✅"),
-                };
-                let title_text = t!(title_key, locale = locale).to_string();
-                format!("{} {} - {}", emoji, title_text, wallet_name)
-            }
+            TransactionNotification::Pending(tx) => match tx.transaction_type {
+                EventType::Receive => {
+                    let title_text = t!("titles.receive.pending", locale = locale).to_string();
+                    format!("💸 {} - {}", title_text, wallet_name)
+                }
+                EventType::Send => {
+                    let title_text = t!("titles.send.pending", locale = locale).to_string();
+                    format!("📤 {} - {}", title_text, wallet_name)
+                }
+            },
+            TransactionNotification::Confirmed(tx) => match tx.transaction_type {
+                EventType::Receive => {
+                    let title_text = t!("titles.receive.confirmed", locale = locale).to_string();
+                    format!("✅ {} - {}", title_text, wallet_name)
+                }
+                EventType::Send => {
+                    let title_text = t!("titles.send.confirmed", locale = locale).to_string();
+                    format!("✅ {} - {}", title_text, wallet_name)
+                }
+            },
             TransactionNotification::BalanceAlert(_) => {
                 let title_text = t!("titles.balance_alert", locale = locale).to_string();
                 format!("📊 {} - {}", title_text, wallet_name)

@@ -11,48 +11,70 @@ concurrency:
 jobs:
   gemini-review:
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
       issues: write
+    outputs:
+      gemini_response: ${{ steps.gemini.outputs.gemini_response }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed_files
+        run: |
+          BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          git diff --name-only $BASE_SHA HEAD
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
 
       - name: Run Gemini PR Review
+        id: gemini
         uses: google-github-actions/run-gemini-cli@v0
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
-          REPOSITORY: ${{ github.repository }}
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          workflow_name: 'gemini-review'
-          settings: |
-            {
-              "model": {
-                "maxSessionTurns": 25
-              },
-              "mcpServers": {
-                "github": {
-                  "command": "docker",
-                  "args": [
-                    "run", "-i", "--rm",
-                    "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server:v0.30.2"
-                  ],
-                  "includeTools": [
-                    "add_comment_to_pending_review",
-                    "create_pending_pull_request_review",
-                    "pull_request_read",
-                    "submit_pending_pull_request_review"
-                  ],
-                  "env": {
-                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-                  }
-                }
-              }
-            }
-          prompt: '/gemini-review'
+          prompt: |
+            Review ONLY the changes in this pull request. Focus exclusively on the modified code in the diff.
+
+            Changed files in this PR:
+            ${{ steps.changed_files.outputs.files }}
+
+            Use `git diff ${{ steps.changed_files.outputs.base_sha }} HEAD` to see the actual changes.
+
+            Provide feedback on:
+            - Code quality and best practices in the changed code
+            - Potential bugs or issues introduced by these changes
+            - Performance considerations for the new/modified code
+            - Security concerns in the changed code
+            - Whether the changes have adequate test coverage
+
+            Be constructive and helpful. Only report findings relevant to this PR's changes.
+            Format your response in markdown.
+
+  post_feedback:
+    runs-on: ubuntu-latest
+    needs: gemini-review
+    if: needs.gemini-review.outputs.gemini_response != ''
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post Gemini feedback
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const header = '## 🤖 Gemini Code Review\n\n';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: header + process.env.GEMINI_RESPONSE,
+            });
+        env:
+          GEMINI_RESPONSE: ${{ needs.gemini-review.outputs.gemini_response }}
