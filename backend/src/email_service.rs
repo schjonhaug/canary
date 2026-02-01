@@ -397,8 +397,11 @@ Your verification code is: {otp_code}
             minutes = lockout_minutes
         )
         .to_string();
-        let security_warning =
-            t!("auth_email.account_locked.security_warning", locale = locale).to_string();
+        let security_warning = t!(
+            "auth_email.account_locked.security_warning",
+            locale = locale
+        )
+        .to_string();
         let button_text = t!("auth_email.account_locked.button", locale = locale).to_string();
         let footer = t!("common.footer", locale = locale).to_string();
 

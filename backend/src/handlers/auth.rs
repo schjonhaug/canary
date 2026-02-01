@@ -299,7 +299,7 @@ pub async fn register(
         }
 
         // Send verification email
-        let user_language = preferred_language.unwrap_or("en");
+        let user_language = preferred_language.unwrap_or("en-US");
         if let Err(e) = auth_service
             .send_email_verification(&request.email, &request.name, &token, user_language)
             .await
@@ -937,7 +937,7 @@ pub async fn forgot_password(
     }
 
     // Send password reset email
-    let user_language = user_record.preferred_language.as_deref().unwrap_or("en");
+    let user_language = user_record.preferred_language.as_deref().unwrap_or("en-US");
     if let Err(e) = auth_service
         .send_password_reset(
             &user_record.email,
