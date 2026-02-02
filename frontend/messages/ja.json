@@ -614,7 +614,7 @@
     "verification": {
       "codeLabel": "確認コード",
       "codePlaceholder": "6桁のコードを入力",
-      "sendCode": "確認コードを送信",
+      "sendCode": "確認",
       "sendingCode": "送信中...",
       "verify": "確認",
       "verifying": "確認中...",

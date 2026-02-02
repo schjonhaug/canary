@@ -193,7 +193,7 @@ describe('ContactModal', () => {
       await user.type(phoneInput, '+4712345678')
 
       // Verification button should appear
-      expect(screen.getByText('Send Verification Code')).toBeInTheDocument()
+      expect(screen.getByText('Verify')).toBeInTheDocument()
     })
 
     it('sends SMS verification and shows code input', async () => {
@@ -214,7 +214,7 @@ describe('ContactModal', () => {
       await user.type(phoneInput, '+4712345678')
 
       // Send verification
-      await user.click(screen.getByText('Send Verification Code'))
+      await user.click(screen.getByText('Verify'))
 
       await waitFor(() => {
         expect(mockApi.sendContactVerification).toHaveBeenCalledWith(
@@ -248,7 +248,7 @@ describe('ContactModal', () => {
       await user.type(phoneInput, '+4712345678')
 
       // Send and verify
-      await user.click(screen.getByText('Send Verification Code'))
+      await user.click(screen.getByText('Verify'))
 
       await waitFor(() => {
         expect(screen.getByLabelText('Verification Code')).toBeInTheDocument()
@@ -293,7 +293,7 @@ describe('ContactModal', () => {
       const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.type(phoneInput, '+4712345678')
 
-      await user.click(screen.getByText('Send Verification Code'))
+      await user.click(screen.getByText('Verify'))
 
       await waitFor(() => {
         expect(screen.getByLabelText('Verification Code')).toBeInTheDocument()
@@ -349,7 +349,7 @@ describe('ContactModal', () => {
       const emailInput = screen.getByPlaceholderText('your@email.com')
       await user.type(emailInput, 'test@example.com')
 
-      expect(screen.getByText('Send Verification Code')).toBeInTheDocument()
+      expect(screen.getByText('Verify')).toBeInTheDocument()
     })
 
     it('handles auto-verified email (user\'s own email)', async () => {
@@ -373,7 +373,7 @@ describe('ContactModal', () => {
       const emailInput = screen.getByPlaceholderText('your@email.com')
       await user.type(emailInput, 'your@email.com')
 
-      await user.click(screen.getByText('Send Verification Code'))
+      await user.click(screen.getByText('Verify'))
 
       await waitFor(() => {
         expect(screen.getAllByText((content, element) => {
@@ -402,7 +402,7 @@ describe('ContactModal', () => {
       await user.type(emailInput, 'test@example.com')
 
       // Send verification
-      await user.click(screen.getByText('Send Verification Code'))
+      await user.click(screen.getByText('Verify'))
 
       await waitFor(() => {
         expect(screen.getByLabelText('Verification Code')).toBeInTheDocument()
@@ -446,7 +446,7 @@ describe('ContactModal', () => {
       expect(phoneInput.value).toBe('+4799999999')
 
       // Should show as already verified (no verification button)
-      expect(screen.queryByText('Send Verification Code')).not.toBeInTheDocument()
+      expect(screen.queryByText('Verify')).not.toBeInTheDocument()
     })
 
     it('requires verification when phone number changes in edit mode', async () => {
@@ -466,7 +466,7 @@ describe('ContactModal', () => {
       await user.type(phoneInput, '+4788888888')
 
       // Verification button should appear
-      expect(screen.getByText('Send Verification Code')).toBeInTheDocument()
+      expect(screen.getByText('Verify')).toBeInTheDocument()
     })
 
     it('reverts to verified state when phone number reverts to original', async () => {
@@ -485,14 +485,14 @@ describe('ContactModal', () => {
       // Change phone number
       await user.clear(phoneInput)
       await user.type(phoneInput, '+4788888888')
-      expect(screen.getByText('Send Verification Code')).toBeInTheDocument()
+      expect(screen.getByText('Verify')).toBeInTheDocument()
 
       // Revert to original
       await user.clear(phoneInput)
       await user.type(phoneInput, '+4799999999')
       
       // Should be verified again
-      expect(screen.queryByText('Send Verification Code')).not.toBeInTheDocument()
+      expect(screen.queryByText('Verify')).not.toBeInTheDocument()
     })
   })
 
@@ -515,7 +515,7 @@ describe('ContactModal', () => {
       // Verify all provider sections are visible
       expect(screen.getByPlaceholderText('+1 234 567 8900')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('your@email.com')).toBeInTheDocument()
-      expect(screen.getAllByText('Send Verification Code')).toHaveLength(2) // SMS and Email verification buttons
+      expect(screen.getAllByText('Verify')).toHaveLength(2) // SMS and Email verification buttons
     })
   })
 
@@ -557,7 +557,7 @@ describe('ContactModal', () => {
 
       const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
       await user.type(phoneInput, 'invalid')
-      await user.click(screen.getByText('Send Verification Code'))
+      await user.click(screen.getByText('Verify'))
 
       await waitFor(() => {
         expect(screen.getAllByText((content, element) => {

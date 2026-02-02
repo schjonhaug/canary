@@ -614,7 +614,7 @@
     "verification": {
       "codeLabel": "Verifiseringskode",
       "codePlaceholder": "Skriv inn 6-sifret kode",
-      "sendCode": "Send verifiseringskode",
+      "sendCode": "Verifiser",
       "sendingCode": "Sender...",
       "verify": "Verifiser",
       "verifying": "Verifiserer...",
