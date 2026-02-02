@@ -367,3 +367,272 @@ fn test_twilio_locale_all_languages_are_valid() {
         );
     }
 }
+
+// ============================
+// Cross-wallet verification tests
+// ============================
+
+use crate::metadata::ProviderType;
+
+#[tokio::test]
+async fn test_cross_wallet_verification_same_user_sms() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    // Create user with two wallets
+    let user_id = db
+        .create_user(
+            "test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet1_checksum = db
+        .insert_wallet("Wallet 1", "descriptor1", &user_id)
+        .await
+        .unwrap();
+    let wallet2_checksum = db
+        .insert_wallet("Wallet 2", "descriptor2", &user_id)
+        .await
+        .unwrap();
+
+    let phone = "+4712345678";
+
+    // Initially, phone should not be verified for user
+    let result = db
+        .is_notification_target_verified_for_user(&user_id, "sms", phone)
+        .await
+        .unwrap();
+    assert!(!result, "Phone should not be verified initially");
+
+    // Add contact with phone to wallet1
+    db.insert_contact_with_notification_methods(
+        &wallet1_checksum,
+        "Contact 1",
+        vec![(ProviderType::Sms, phone.to_string())],
+    )
+    .await
+    .unwrap();
+
+    // Now phone should be verified for user (can be used on wallet2 without OTP)
+    let result = db
+        .is_notification_target_verified_for_user(&user_id, "sms", phone)
+        .await
+        .unwrap();
+    assert!(
+        result,
+        "Phone should be verified after adding to another wallet"
+    );
+
+    // Verify it works for any wallet owned by this user
+    let _ = wallet2_checksum; // Wallet2 exists but has no contacts yet
+}
+
+#[tokio::test]
+async fn test_cross_wallet_verification_same_user_email() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    // Create user with two wallets
+    let user_id = db
+        .create_user(
+            "test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet1_checksum = db
+        .insert_wallet("Wallet 1", "descriptor1", &user_id)
+        .await
+        .unwrap();
+
+    let email = "contact@example.com";
+
+    // Initially, email should not be verified for user
+    let result = db
+        .is_notification_target_verified_for_user(&user_id, "email", email)
+        .await
+        .unwrap();
+    assert!(!result, "Email should not be verified initially");
+
+    // Add contact with email to wallet1
+    db.insert_contact_with_notification_methods(
+        &wallet1_checksum,
+        "Contact 1",
+        vec![(ProviderType::Email, email.to_string())],
+    )
+    .await
+    .unwrap();
+
+    // Now email should be verified for user
+    let result = db
+        .is_notification_target_verified_for_user(&user_id, "email", email)
+        .await
+        .unwrap();
+    assert!(
+        result,
+        "Email should be verified after adding to another wallet"
+    );
+}
+
+#[tokio::test]
+async fn test_cross_wallet_verification_different_users() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    // Create two different users
+    let user1_id = db
+        .create_user(
+            "user1@example.com",
+            "hashedpassword",
+            Some("User 1"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let user2_id = db
+        .create_user(
+            "user2@example.com",
+            "hashedpassword",
+            Some("User 2"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet1_checksum = db
+        .insert_wallet("Wallet 1", "descriptor1", &user1_id)
+        .await
+        .unwrap();
+
+    let phone = "+4712345678";
+
+    // Add contact with phone to user1's wallet
+    db.insert_contact_with_notification_methods(
+        &wallet1_checksum,
+        "Contact 1",
+        vec![(ProviderType::Sms, phone.to_string())],
+    )
+    .await
+    .unwrap();
+
+    // Phone should be verified for user1
+    let result = db
+        .is_notification_target_verified_for_user(&user1_id, "sms", phone)
+        .await
+        .unwrap();
+    assert!(result, "Phone should be verified for user1");
+
+    // Phone should NOT be verified for user2 (different user)
+    let result = db
+        .is_notification_target_verified_for_user(&user2_id, "sms", phone)
+        .await
+        .unwrap();
+    assert!(
+        !result,
+        "Phone should NOT be verified for different user - security boundary"
+    );
+}
+
+#[tokio::test]
+async fn test_cross_wallet_verification_email_case_insensitive() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Wallet 1", "descriptor1", &user_id)
+        .await
+        .unwrap();
+
+    // Add contact with lowercase email
+    db.insert_contact_with_notification_methods(
+        &wallet_checksum,
+        "Contact 1",
+        vec![(ProviderType::Email, "contact@example.com".to_string())],
+    )
+    .await
+    .unwrap();
+
+    // Should match with different case
+    let result = db
+        .is_notification_target_verified_for_user(&user_id, "email", "CONTACT@EXAMPLE.COM")
+        .await
+        .unwrap();
+    assert!(result, "Email comparison should be case-insensitive");
+
+    let result = db
+        .is_notification_target_verified_for_user(&user_id, "email", "Contact@Example.Com")
+        .await
+        .unwrap();
+    assert!(result, "Email comparison should be case-insensitive");
+}
+
+#[tokio::test]
+async fn test_cross_wallet_verification_sms_exact_match() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Wallet 1", "descriptor1", &user_id)
+        .await
+        .unwrap();
+
+    // Add contact with phone in E.164 format
+    db.insert_contact_with_notification_methods(
+        &wallet_checksum,
+        "Contact 1",
+        vec![(ProviderType::Sms, "+4712345678".to_string())],
+    )
+    .await
+    .unwrap();
+
+    // Should match exact E.164 format
+    let result = db
+        .is_notification_target_verified_for_user(&user_id, "sms", "+4712345678")
+        .await
+        .unwrap();
+    assert!(result, "Phone should match with exact E.164 format");
+
+    // Should NOT match with different format (not normalized)
+    let result = db
+        .is_notification_target_verified_for_user(&user_id, "sms", "4712345678")
+        .await
+        .unwrap();
+    assert!(
+        !result,
+        "Phone comparison should be exact match (E.164 format)"
+    );
+}
