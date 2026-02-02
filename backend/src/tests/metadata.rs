@@ -288,3 +288,78 @@ async fn test_get_user_preferred_language_nonexistent_user() {
         "Should default to English for non-existent user"
     );
 }
+
+// Unit tests for Language::to_twilio_locale()
+
+#[test]
+fn test_twilio_locale_english() {
+    assert_eq!(Language::English.to_twilio_locale(), "en");
+}
+
+#[test]
+fn test_twilio_locale_norwegian() {
+    assert_eq!(Language::Norwegian.to_twilio_locale(), "nb");
+}
+
+#[test]
+fn test_twilio_locale_spanish() {
+    assert_eq!(Language::Spanish.to_twilio_locale(), "es");
+}
+
+#[test]
+fn test_twilio_locale_portuguese() {
+    // Twilio uses lowercase "pt-br" unlike BCP 47 "pt-BR"
+    assert_eq!(Language::Portuguese.to_twilio_locale(), "pt-br");
+}
+
+#[test]
+fn test_twilio_locale_german() {
+    assert_eq!(Language::German.to_twilio_locale(), "de");
+}
+
+#[test]
+fn test_twilio_locale_french() {
+    assert_eq!(Language::French.to_twilio_locale(), "fr");
+}
+
+#[test]
+fn test_twilio_locale_japanese() {
+    assert_eq!(Language::Japanese.to_twilio_locale(), "ja");
+}
+
+#[test]
+fn test_twilio_locale_danish() {
+    assert_eq!(Language::Danish.to_twilio_locale(), "da");
+}
+
+#[test]
+fn test_twilio_locale_swedish() {
+    assert_eq!(Language::Swedish.to_twilio_locale(), "sv");
+}
+
+#[test]
+fn test_twilio_locale_all_languages_are_valid() {
+    // Verify all locales are non-empty and valid Twilio locale format
+    let languages = [
+        Language::English,
+        Language::Norwegian,
+        Language::Spanish,
+        Language::Portuguese,
+        Language::German,
+        Language::French,
+        Language::Japanese,
+        Language::Danish,
+        Language::Swedish,
+    ];
+
+    for lang in languages {
+        let locale = lang.to_twilio_locale();
+        assert!(!locale.is_empty(), "Locale should not be empty for {:?}", lang);
+        assert!(
+            locale.chars().all(|c| c.is_ascii_lowercase() || c == '-'),
+            "Locale should be lowercase ASCII for {:?}: {}",
+            lang,
+            locale
+        );
+    }
+}

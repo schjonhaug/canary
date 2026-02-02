@@ -3,33 +3,26 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+
+concurrency:
+  group: 'claude-review-${{ github.event.pull_request.number }}'
+  cancel-in-progress: true
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-    
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write
       issues: write
       id-token: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Run Claude Code Review
         id: claude-review
@@ -38,8 +31,6 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           use_sticky_comment: true
-
-          # Prompt for automated review (no @claude mention needed)
           prompt: |
             Please review this pull request and provide feedback on:
             - Code quality and best practices
@@ -49,26 +40,136 @@ jobs:
             - Test coverage
 
             Be constructive and helpful in your feedback.
-          
-          # Optional: Customize review based on file types
-          # direct_prompt: |
-          #   Review this PR focusing on:
-          #   - For TypeScript files: Type safety and proper interface usage
-          #   - For API endpoints: Security, input validation, and error handling
-          #   - For React components: Performance, accessibility, and best practices
-          #   - For tests: Coverage, edge cases, and test quality
-          
-          # Optional: Different prompts for different authors
-          # direct_prompt: |
-          #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' && 
-          #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
-          #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
-          
-          # Optional: Add specific tools for running tests or linting
-          # allowed_tools: "Bash(npm run test),Bash(npm run lint),Bash(npm run typecheck)"
-          
-          # Optional: Skip review for certain conditions
-          # if: |
-          #   !contains(github.event.pull_request.title, '[skip-review]') &&
-          #   !contains(github.event.pull_request.title, '[WIP]')
+            Format your response in markdown.
 
+      - name: Extract and post review
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('fs');
+            const execFile = '/home/runner/work/_temp/claude-execution-output.json';
+
+            if (!fs.existsSync(execFile)) {
+              console.log('No execution file found');
+              return;
+            }
+
+            const raw = fs.readFileSync(execFile, 'utf8');
+            console.log('File size:', raw.length);
+
+            let reviewContent = '';
+
+            try {
+              const data = JSON.parse(raw);
+
+              // The file is a JSON array of events
+              if (Array.isArray(data)) {
+                console.log('Parsed as array with', data.length, 'items');
+
+                // Look for assistant messages in the array (with early exit)
+                for (const item of data) {
+                  // Check for type: "assistant" with message.content
+                  if (item.type === 'assistant' && item.message?.content) {
+                    for (const block of item.message.content) {
+                      if (block.type === 'text' && block.text) {
+                        console.log('Found assistant text, length:', block.text.length);
+                        reviewContent = block.text;
+                        // Don't break - we want the last/most complete response
+                      }
+                    }
+                  }
+
+                  // Check for direct content array
+                  if (Array.isArray(item.content)) {
+                    for (const block of item.content) {
+                      if (block.type === 'text' && block.text) {
+                        console.log('Found direct text, length:', block.text.length);
+                        reviewContent = block.text;
+                      }
+                    }
+                  }
+
+                  // Check for role: "assistant" format
+                  if (item.role === 'assistant' && Array.isArray(item.content)) {
+                    for (const block of item.content) {
+                      if (block.type === 'text' && block.text) {
+                        console.log('Found role assistant text, length:', block.text.length);
+                        reviewContent = block.text;
+                      }
+                    }
+                  }
+                }
+              } else {
+                console.log('Parsed as object with keys:', Object.keys(data));
+              }
+            } catch (e) {
+              console.log('Parse error:', e.message);
+            }
+
+            if (!reviewContent) {
+              console.log('No review content found');
+              core.setOutput('extraction_failed', 'true');
+              return;
+            }
+
+            console.log('Using review content, length:', reviewContent.length);
+            core.setOutput('extraction_failed', 'false');
+
+            // Check for existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+
+            const existingComment = comments.find(c =>
+              c.body?.includes('🤖 Claude Code Review')
+            );
+
+            const body = '## 🤖 Claude Code Review\n\n' + reviewContent;
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body,
+              });
+              console.log('Updated existing Claude comment');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: body,
+              });
+              console.log('Created new Claude comment');
+            }
+
+      - name: Notify on failure
+        if: failure() || (always() && steps.claude-review.outcome == 'failure')
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            // Check for existing failure comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+
+            const existingFailure = comments.find(c =>
+              c.body?.includes('Claude code review failed')
+            );
+
+            if (!existingFailure) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: '⚠️ **Claude code review failed.** Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.',
+              });
+            }
