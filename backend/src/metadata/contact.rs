@@ -729,6 +729,52 @@ impl MetadataDb {
         .await?
     }
 
+    /// Check if a notification target (email or phone) is already used by any wallet owned by this user
+    /// This allows skipping OTP verification for cross-wallet contact reuse
+    pub async fn is_notification_target_verified_for_user(
+        &self,
+        user_id: &str,
+        provider_type: &str,
+        notification_target: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let provider = provider_type.to_string();
+        let target = notification_target.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+
+            // Check if this exact notification target exists for any wallet owned by this user
+            let count: i64 = if provider == "email" {
+                // Case-insensitive comparison for email
+                conn.query_row(
+                    "SELECT COUNT(*) FROM contact_notification_methods cnm
+                     JOIN wallets w ON cnm.wallet_checksum = w.checksum
+                     WHERE w.user_id = ?1
+                     AND cnm.provider_type = ?2
+                     AND LOWER(cnm.notification_target) = LOWER(?3)",
+                    params![user_id, provider, target],
+                    |row| row.get(0),
+                )?
+            } else {
+                // Exact match for SMS (E.164 format)
+                conn.query_row(
+                    "SELECT COUNT(*) FROM contact_notification_methods cnm
+                     JOIN wallets w ON cnm.wallet_checksum = w.checksum
+                     WHERE w.user_id = ?1
+                     AND cnm.provider_type = ?2
+                     AND cnm.notification_target = ?3",
+                    params![user_id, provider, target],
+                    |row| row.get(0),
+                )?
+            };
+
+            Ok(count > 0)
+        })
+        .await?
+    }
+
     // ============================
     // OTP RATE LIMITING OPERATIONS
     // ============================

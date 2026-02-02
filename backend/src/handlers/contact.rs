@@ -189,7 +189,31 @@ pub async fn create_wallet_contact(
                     }
                 };
 
-                // SECURITY: Check if this phone number was recently verified
+                // Check if this phone number is already verified for this user (cross-wallet)
+                match app_services
+                    .metadata_db
+                    .is_notification_target_verified_for_user(
+                        &user.user_id,
+                        "sms",
+                        &normalized_phone,
+                    )
+                    .await
+                {
+                    Ok(true) => {
+                        // Phone already verified for another wallet, skip OTP
+                        processed_methods.push((ProviderType::Sms, normalized_phone));
+                        continue;
+                    }
+                    Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to check cross-wallet SMS verification, requiring OTP: {}",
+                            e
+                        );
+                    }
+                }
+
+                // SECURITY: Check if this phone number was recently verified for THIS wallet
                 match app_services
                     .metadata_db
                     .was_recently_verified(&wallet_checksum, &normalized_phone)
@@ -244,7 +268,27 @@ pub async fn create_wallet_contact(
                         .into_response();
                 }
 
-                // SECURITY: Check if this email address was recently verified
+                // Check if this email is already verified for this user (cross-wallet)
+                match app_services
+                    .metadata_db
+                    .is_notification_target_verified_for_user(&user.user_id, "email", &email)
+                    .await
+                {
+                    Ok(true) => {
+                        // Email already verified for another wallet, skip OTP
+                        processed_methods.push((ProviderType::Email, email));
+                        continue;
+                    }
+                    Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to check cross-wallet email verification, requiring OTP: {}",
+                            e
+                        );
+                    }
+                }
+
+                // SECURITY: Check if this email address was recently verified for THIS wallet
                 match app_services
                     .metadata_db
                     .was_recently_verified(&wallet_checksum, &email)
@@ -590,7 +634,30 @@ pub async fn update_wallet_contact(
 
                 // SECURITY: Only verify if the phone number has changed
                 if has_method_changed(method) {
-                    // Check if this phone number was recently verified
+                    // Check cross-wallet verification first
+                    match app_services
+                        .metadata_db
+                        .is_notification_target_verified_for_user(
+                            &user.user_id,
+                            "sms",
+                            &normalized_phone,
+                        )
+                        .await
+                    {
+                        Ok(true) => {
+                            processed_methods.push((ProviderType::Sms, normalized_phone));
+                            continue;
+                        }
+                        Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
+                        Err(e) => {
+                            tracing::warn!(
+                                "Failed to check cross-wallet SMS verification, requiring OTP: {}",
+                                e
+                            );
+                        }
+                    }
+
+                    // Check if this phone number was recently verified for THIS wallet
                     match app_services
                         .metadata_db
                         .was_recently_verified(&wallet_checksum, &normalized_phone)
@@ -650,7 +717,26 @@ pub async fn update_wallet_contact(
 
                 // SECURITY: Only verify if the email address has changed
                 if has_method_changed(method) {
-                    // Check if this email address was recently verified
+                    // Check cross-wallet verification first
+                    match app_services
+                        .metadata_db
+                        .is_notification_target_verified_for_user(&user.user_id, "email", &email)
+                        .await
+                    {
+                        Ok(true) => {
+                            processed_methods.push((ProviderType::Email, email));
+                            continue;
+                        }
+                        Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
+                        Err(e) => {
+                            tracing::warn!(
+                                "Failed to check cross-wallet email verification, requiring OTP: {}",
+                                e
+                            );
+                        }
+                    }
+
+                    // Check if this email address was recently verified for THIS wallet
                     match app_services
                         .metadata_db
                         .was_recently_verified(&wallet_checksum, &email)

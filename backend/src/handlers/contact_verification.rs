@@ -131,6 +131,62 @@ pub async fn send_contact_verification(
             }
         }
 
+        // Check if already verified for another wallet owned by this user (cross-wallet)
+        match app_services
+            .metadata_db
+            .is_notification_target_verified_for_user(&user.user_id, "sms", &normalized_phone)
+            .await
+        {
+            Ok(true) => {
+                // Auto-approve - create verification record and mark as verified
+                match app_services
+                    .metadata_db
+                    .create_pending_contact_verification(
+                        &wallet_checksum,
+                        "sms",
+                        &normalized_phone,
+                        &request.name,
+                        None,
+                    )
+                    .await
+                {
+                    Ok(verification_id) => {
+                        if let Err(e) = app_services
+                            .metadata_db
+                            .mark_verification_completed(verification_id)
+                            .await
+                        {
+                            tracing::error!(
+                                "Failed to mark cross-wallet SMS verification as completed: {}",
+                                e
+                            );
+                        }
+                        return Json(serde_json::json!({
+                            "message": "Phone number verified automatically (already verified for another wallet)",
+                            "auto_verified": true
+                        }))
+                        .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to create verification record: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            Ok(false) => {} // Not verified for another wallet, continue with normal flow
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to check cross-wallet SMS verification, requiring OTP: {}",
+                    e
+                );
+            }
+        }
+
         let is_dev_phone = cfg!(debug_assertions)
             && ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
 
@@ -177,6 +233,62 @@ pub async fn send_contact_verification(
                     }),
                 )
                     .into_response();
+            }
+        }
+
+        // Check if already verified for another wallet owned by this user (cross-wallet)
+        match app_services
+            .metadata_db
+            .is_notification_target_verified_for_user(&user.user_id, "email", &email)
+            .await
+        {
+            Ok(true) => {
+                // Auto-approve - create verification record and mark as verified
+                match app_services
+                    .metadata_db
+                    .create_pending_contact_verification(
+                        &wallet_checksum,
+                        "email",
+                        &email,
+                        &request.name,
+                        None,
+                    )
+                    .await
+                {
+                    Ok(verification_id) => {
+                        if let Err(e) = app_services
+                            .metadata_db
+                            .mark_verification_completed(verification_id)
+                            .await
+                        {
+                            tracing::error!(
+                                "Failed to mark cross-wallet email verification as completed: {}",
+                                e
+                            );
+                        }
+                        return Json(serde_json::json!({
+                            "message": "Email verified automatically (already verified for another wallet)",
+                            "auto_verified": true
+                        }))
+                        .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to create verification record: {}", e),
+                            }),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            Ok(false) => {} // Not verified for another wallet, continue with normal flow
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to check cross-wallet email verification, requiring OTP: {}",
+                    e
+                );
             }
         }
 
