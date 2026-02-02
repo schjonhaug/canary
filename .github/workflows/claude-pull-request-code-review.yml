@@ -42,22 +42,6 @@ jobs:
             Be constructive and helpful in your feedback.
             Format your response in markdown.
 
-      - name: Debug execution file
-        if: always()
-        run: |
-          EXEC_FILE="/home/runner/work/_temp/claude-execution-output.json"
-          if [ -f "$EXEC_FILE" ]; then
-            echo "=== Execution file exists ==="
-            echo "File size: $(wc -c < "$EXEC_FILE")"
-            echo "Line count: $(wc -l < "$EXEC_FILE")"
-            echo "=== First 50 lines ==="
-            head -50 "$EXEC_FILE"
-            echo "=== Last 20 lines ==="
-            tail -20 "$EXEC_FILE"
-          else
-            echo "Execution file not found"
-          fi
-
       - name: Extract and post review
         if: always()
         uses: actions/github-script@v7
@@ -75,70 +59,60 @@ jobs:
             const raw = fs.readFileSync(execFile, 'utf8');
             console.log('File size:', raw.length);
 
-            // Try to find any text content in the file
             let reviewContent = '';
 
-            // Method 1: Parse as JSONL and look for text blocks
-            const lines = raw.trim().split('\n');
-            console.log('Line count:', lines.length);
+            try {
+              const data = JSON.parse(raw);
 
-            for (const line of lines) {
-              try {
-                const obj = JSON.parse(line);
+              // The file is a JSON array of events
+              if (Array.isArray(data)) {
+                console.log('Parsed as array with', data.length, 'items');
 
-                // Check various possible structures
-                if (obj.message?.content) {
-                  for (const block of obj.message.content) {
-                    if (block.type === 'text' && block.text) {
-                      console.log('Found text block, length:', block.text.length);
-                      reviewContent = block.text;
+                // Look for assistant messages in the array
+                for (const item of data) {
+                  // Check for type: "assistant" with message.content
+                  if (item.type === 'assistant' && item.message?.content) {
+                    for (const block of item.message.content) {
+                      if (block.type === 'text' && block.text) {
+                        console.log('Found assistant text, length:', block.text.length);
+                        reviewContent = block.text;
+                      }
                     }
                   }
-                }
 
-                // Also check for content array directly
-                if (Array.isArray(obj.content)) {
-                  for (const block of obj.content) {
-                    if (block.type === 'text' && block.text) {
-                      console.log('Found direct text block, length:', block.text.length);
-                      reviewContent = block.text;
+                  // Also check for direct content array
+                  if (Array.isArray(item.content)) {
+                    for (const block of item.content) {
+                      if (block.type === 'text' && block.text) {
+                        console.log('Found direct text, length:', block.text.length);
+                        reviewContent = block.text;
+                      }
                     }
                   }
-                }
-              } catch (e) {
-                // Skip non-JSON lines
-              }
-            }
 
-            // Method 2: If no JSONL content found, try parsing as single JSON
-            if (!reviewContent) {
-              try {
-                const data = JSON.parse(raw);
-                console.log('Parsed as single JSON, keys:', Object.keys(data));
-
-                // Check for messages array
-                if (Array.isArray(data.messages)) {
-                  for (const msg of data.messages) {
-                    if (msg.role === 'assistant' && Array.isArray(msg.content)) {
-                      for (const block of msg.content) {
-                        if (block.type === 'text' && block.text) {
-                          reviewContent = block.text;
-                        }
+                  // Check for role: "assistant" format
+                  if (item.role === 'assistant' && Array.isArray(item.content)) {
+                    for (const block of item.content) {
+                      if (block.type === 'text' && block.text) {
+                        console.log('Found role assistant text, length:', block.text.length);
+                        reviewContent = block.text;
                       }
                     }
                   }
                 }
-              } catch (e) {
-                console.log('Not valid single JSON');
+              } else {
+                console.log('Parsed as object with keys:', Object.keys(data));
               }
+            } catch (e) {
+              console.log('Parse error:', e.message);
             }
 
             if (!reviewContent) {
-              console.log('No review content found after all parsing attempts');
+              console.log('No review content found');
               return;
             }
 
-            console.log('Found review content, length:', reviewContent.length);
+            console.log('Using review content, length:', reviewContent.length);
 
             // Check for existing comment
             const { data: comments } = await github.rest.issues.listComments({
