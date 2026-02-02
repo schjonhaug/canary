@@ -31,7 +31,6 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           use_sticky_comment: true
-          trigger_phrase: ""
           prompt: |
             Please review this pull request and provide feedback on:
             - Code quality and best practices
@@ -43,59 +42,69 @@ jobs:
             Be constructive and helpful in your feedback.
             Format your response in markdown.
 
-      - name: Post Claude feedback (fallback)
-        if: always() && steps.claude-review.outputs.execution_file != ''
+      - name: Extract and post review
+        if: always()
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
           script: |
             const fs = require('fs');
-            const execFile = '${{ steps.claude-review.outputs.execution_file }}';
+            const execFile = '/home/runner/work/_temp/claude-execution-output.json';
 
             if (!fs.existsSync(execFile)) {
-              console.log('No execution file found, skipping fallback comment');
+              console.log('No execution file found');
               return;
             }
 
-            const data = JSON.parse(fs.readFileSync(execFile, 'utf8'));
+            const raw = fs.readFileSync(execFile, 'utf8');
+            const lines = raw.trim().split('\n');
 
-            // Find the assistant's final response
-            let reviewContent = '';
-            if (data.messages) {
-              for (const msg of data.messages.reverse()) {
-                if (msg.role === 'assistant' && msg.content) {
-                  for (const block of msg.content) {
-                    if (block.type === 'text') {
-                      reviewContent = block.text;
-                      break;
+            // Find text blocks from assistant messages
+            let reviewParts = [];
+            for (const line of lines) {
+              try {
+                const obj = JSON.parse(line);
+                if (obj.type === 'assistant' && obj.message?.content) {
+                  for (const block of obj.message.content) {
+                    if (block.type === 'text' && block.text) {
+                      reviewParts.push(block.text);
                     }
                   }
-                  if (reviewContent) break;
                 }
+              } catch (e) {
+                // Skip non-JSON lines
               }
             }
 
-            if (!reviewContent) {
-              console.log('No review content found in execution file');
+            if (reviewParts.length === 0) {
+              console.log('No review content found');
               return;
             }
 
-            // Check if a Claude comment already exists
+            // Use the last substantive review
+            const reviewContent = reviewParts[reviewParts.length - 1];
+
+            // Check for existing comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
             });
 
-            const claudeComment = comments.find(c =>
-              c.body && c.body.includes('Claude Code Review')
+            const existingComment = comments.find(c =>
+              c.body?.includes('🤖 Claude Code Review')
             );
 
-            const header = '## 🤖 Claude Code Review\n\n';
-            const body = header + reviewContent;
+            const body = '## 🤖 Claude Code Review\n\n' + reviewContent;
 
-            if (claudeComment) {
-              console.log('Claude comment already exists, skipping fallback');
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body,
+              });
+              console.log('Updated existing Claude comment');
             } else {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -103,5 +112,5 @@ jobs:
                 issue_number: context.payload.pull_request.number,
                 body: body,
               });
-              console.log('Posted Claude review as fallback comment');
+              console.log('Created new Claude comment');
             }

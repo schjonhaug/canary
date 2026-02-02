@@ -16,9 +16,6 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
-    outputs:
-      gemini_response: ${{ steps.gemini.outputs.summary }}
-      gemini_error: ${{ steps.gemini.outputs.error }}
 
     steps:
       - name: Checkout repository
@@ -26,19 +23,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get changed files and diff
-        id: changed_files
+      - name: Get PR info
+        id: pr_info
         run: |
           BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
           echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
 
-          echo "files<<EOF" >> $GITHUB_OUTPUT
-          git diff --name-only $BASE_SHA HEAD
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Get changed files
+          FILES=$(git diff --name-only $BASE_SHA HEAD | tr '\n' ', ' | sed 's/,$//')
+          echo "files=$FILES" >> $GITHUB_OUTPUT
 
-          echo "diff<<EOF" >> $GITHUB_OUTPUT
-          git diff $BASE_SHA HEAD | head -2000
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Get diff content with delimiter for multiline output
+          {
+            echo "diff<<DIFF_EOF"
+            git diff $BASE_SHA HEAD | head -c 30000
+            echo ""
+            echo "DIFF_EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Run Gemini PR Review
         id: gemini
@@ -46,39 +47,29 @@ jobs:
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           prompt: |
-            Review ONLY the changes in this pull request. Focus exclusively on the modified code in the diff.
+            Review the changes in this pull request.
 
-            Changed files in this PR:
-            ${{ steps.changed_files.outputs.files }}
+            Changed files: ${{ steps.pr_info.outputs.files }}
 
-            Here is the diff:
+            Please analyze the diff below and provide feedback on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Performance considerations
+            - Security concerns
+            - Test coverage
+
+            Be constructive and helpful. Format your response in markdown.
+
             ```diff
-            ${{ steps.changed_files.outputs.diff }}
+            ${{ steps.pr_info.outputs.diff }}
             ```
 
-            Provide feedback on:
-            - Code quality and best practices in the changed code
-            - Potential bugs or issues introduced by these changes
-            - Performance considerations for the new/modified code
-            - Security concerns in the changed code
-            - Whether the changes have adequate test coverage
-
-            Be constructive and helpful. Only report findings relevant to this PR's changes.
-            Format your response in markdown.
-
-  post_feedback:
-    runs-on: ubuntu-latest
-    needs: gemini-review
-    if: always() && needs.gemini-review.outputs.gemini_response != ''
-    permissions:
-      pull-requests: write
-    steps:
       - name: Post Gemini feedback
+        if: always() && steps.gemini.outputs.summary != ''
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
           script: |
-            const header = '## 🤖 Gemini Code Review\n\n';
             const response = process.env.GEMINI_RESPONSE;
 
             if (!response || response.trim() === '') {
@@ -86,11 +77,35 @@ jobs:
               return;
             }
 
-            await github.rest.issues.createComment({
+            // Check for existing comment
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: header + response,
             });
+
+            const existingComment = comments.find(c =>
+              c.body?.includes('🤖 Gemini Code Review')
+            );
+
+            const body = '## 🤖 Gemini Code Review\n\n' + response;
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body,
+              });
+              console.log('Updated existing Gemini comment');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: body,
+              });
+              console.log('Created new Gemini comment');
+            }
         env:
-          GEMINI_RESPONSE: ${{ needs.gemini-review.outputs.gemini_response }}
+          GEMINI_RESPONSE: ${{ steps.gemini.outputs.summary }}
