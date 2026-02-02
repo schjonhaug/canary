@@ -17,7 +17,8 @@ jobs:
       pull-requests: write
       issues: write
     outputs:
-      gemini_response: ${{ steps.gemini.outputs.gemini_response }}
+      gemini_response: ${{ steps.gemini.outputs.summary }}
+      gemini_error: ${{ steps.gemini.outputs.error }}
 
     steps:
       - name: Checkout repository
@@ -25,14 +26,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get changed files
+      - name: Get changed files and diff
         id: changed_files
         run: |
           BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
+          echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
+
           echo "files<<EOF" >> $GITHUB_OUTPUT
           git diff --name-only $BASE_SHA HEAD
           echo "EOF" >> $GITHUB_OUTPUT
-          echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
+
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          git diff $BASE_SHA HEAD | head -2000
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Run Gemini PR Review
         id: gemini
@@ -45,7 +51,10 @@ jobs:
             Changed files in this PR:
             ${{ steps.changed_files.outputs.files }}
 
-            Use `git diff ${{ steps.changed_files.outputs.base_sha }} HEAD` to see the actual changes.
+            Here is the diff:
+            ```diff
+            ${{ steps.changed_files.outputs.diff }}
+            ```
 
             Provide feedback on:
             - Code quality and best practices in the changed code
@@ -60,7 +69,7 @@ jobs:
   post_feedback:
     runs-on: ubuntu-latest
     needs: gemini-review
-    if: needs.gemini-review.outputs.gemini_response != ''
+    if: always() && needs.gemini-review.outputs.gemini_response != ''
     permissions:
       pull-requests: write
     steps:
@@ -70,11 +79,18 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const header = '## 🤖 Gemini Code Review\n\n';
+            const response = process.env.GEMINI_RESPONSE;
+
+            if (!response || response.trim() === '') {
+              console.log('No Gemini response to post');
+              return;
+            }
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: header + process.env.GEMINI_RESPONSE,
+              body: header + response,
             });
         env:
           GEMINI_RESPONSE: ${{ needs.gemini-review.outputs.gemini_response }}
