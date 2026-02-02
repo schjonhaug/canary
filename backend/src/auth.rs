@@ -252,6 +252,7 @@ impl AuthService {
         &self,
         twilio_config: &TwilioConfig,
         phone_number: &str,
+        locale: &str,
     ) -> Result<()> {
         let verify_service_sid = twilio_config
             .verify_service_sid
@@ -266,7 +267,7 @@ impl AuthService {
         let auth_string = format!("{}:{}", twilio_config.account_sid, twilio_config.auth_token);
         let auth_header = format!("Basic {}", general_purpose::STANDARD.encode(auth_string));
 
-        let params = [("To", phone_number), ("Channel", "sms")];
+        let params = [("To", phone_number), ("Channel", "sms"), ("Locale", locale)];
 
         let response = self
             .client

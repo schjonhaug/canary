@@ -60,6 +60,22 @@ impl Language {
             Language::Swedish => "sv",
         }
     }
+
+    /// Returns the Twilio Verify locale code for this language.
+    /// See: https://www.twilio.com/docs/verify/supported-languages
+    pub fn to_twilio_locale(&self) -> &'static str {
+        match self {
+            Language::English => "en",
+            Language::Norwegian => "nb",
+            Language::Spanish => "es",
+            Language::Portuguese => "pt-br",
+            Language::German => "de",
+            Language::French => "fr",
+            Language::Japanese => "ja",
+            Language::Danish => "da",
+            Language::Swedish => "sv",
+        }
+    }
 }
 
 impl From<&str> for Language {

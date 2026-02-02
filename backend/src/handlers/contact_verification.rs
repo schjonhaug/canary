@@ -377,7 +377,7 @@ pub async fn send_contact_verification(
 
         let auth_service = AuthService::new(jwt_secret, None);
         auth_service
-            .send_contact_otp(&twilio_config, &notification_target)
+            .send_contact_otp(&twilio_config, &notification_target, user_language.to_twilio_locale())
             .await
     } else {
         // Email verification via Resend
