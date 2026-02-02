@@ -614,7 +614,7 @@
     "verification": {
       "codeLabel": "Verifieringskod",
       "codePlaceholder": "Ange 6-siffrig kod",
-      "sendCode": "Skicka verifieringskod",
+      "sendCode": "Verifiera",
       "sendingCode": "Skickar...",
       "verify": "Verifiera",
       "verifying": "Verifierar...",

@@ -614,7 +614,7 @@
     "verification": {
       "codeLabel": "Verification Code",
       "codePlaceholder": "Enter 6-digit code",
-      "sendCode": "Send Verification Code",
+      "sendCode": "Verify",
       "sendingCode": "Sending...",
       "verify": "Verify",
       "verifying": "Verifying...",

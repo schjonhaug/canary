@@ -107,17 +107,23 @@ export function useSmsVerification({
     setPhoneError(null)
 
     try {
-      await api.sendContactVerification(
+      const result = await api.sendContactVerification(
         walletChecksum,
         contactName || `Contact-${phoneNumber.slice(-4)}`,
         phoneNumber,
         undefined
       )
 
-      setVerificationPhone(phoneNumber)
-      setVerificationSent(true)
-      setVerificationCode("")
-      startTimer()
+      // Check if phone was auto-verified (cross-wallet verification)
+      if (result.auto_verified) {
+        setIsVerified(true)
+        setShowSuccess(true)
+      } else {
+        setVerificationPhone(phoneNumber)
+        setVerificationSent(true)
+        setVerificationCode("")
+        startTimer()
+      }
     } catch (err) {
       let errorMessage: string
       if (err instanceof ApiError) {
@@ -197,14 +203,21 @@ export function useSmsVerification({
     setVerificationError(null)
 
     try {
-      await api.sendContactVerification(
+      const result = await api.sendContactVerification(
         walletChecksum,
         contactName,
         verificationPhone
       )
 
-      setVerificationCode("")
-      startTimer()
+      // Check if phone was auto-verified (cross-wallet verification)
+      if (result.auto_verified) {
+        setIsVerified(true)
+        setShowSuccess(true)
+        clearTimer()
+      } else {
+        setVerificationCode("")
+        startTimer()
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         onError?.(err.isNetworkError() || err.isServerError()
