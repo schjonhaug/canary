@@ -68,7 +68,7 @@ jobs:
               if (Array.isArray(data)) {
                 console.log('Parsed as array with', data.length, 'items');
 
-                // Look for assistant messages in the array
+                // Look for assistant messages in the array (with early exit)
                 for (const item of data) {
                   // Check for type: "assistant" with message.content
                   if (item.type === 'assistant' && item.message?.content) {
@@ -76,11 +76,12 @@ jobs:
                       if (block.type === 'text' && block.text) {
                         console.log('Found assistant text, length:', block.text.length);
                         reviewContent = block.text;
+                        // Don't break - we want the last/most complete response
                       }
                     }
                   }
 
-                  // Also check for direct content array
+                  // Check for direct content array
                   if (Array.isArray(item.content)) {
                     for (const block of item.content) {
                       if (block.type === 'text' && block.text) {
@@ -109,10 +110,12 @@ jobs:
 
             if (!reviewContent) {
               console.log('No review content found');
+              core.setOutput('extraction_failed', 'true');
               return;
             }
 
             console.log('Using review content, length:', reviewContent.length);
+            core.setOutput('extraction_failed', 'false');
 
             // Check for existing comment
             const { data: comments } = await github.rest.issues.listComments({
@@ -143,4 +146,30 @@ jobs:
                 body: body,
               });
               console.log('Created new Claude comment');
+            }
+
+      - name: Notify on failure
+        if: failure() || (always() && steps.claude-review.outcome == 'failure')
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            // Check for existing failure comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+
+            const existingFailure = comments.find(c =>
+              c.body?.includes('Claude code review failed')
+            );
+
+            if (!existingFailure) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: '⚠️ **Claude code review failed.** Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.',
+              });
             }

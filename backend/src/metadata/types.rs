@@ -62,6 +62,11 @@ impl Language {
     }
 
     /// Returns the Twilio Verify locale code for this language.
+    ///
+    /// Note: Twilio uses lowercase locale codes (e.g., `pt-br`) while our i18n
+    /// system uses standard BCP 47 codes (e.g., `pt-BR`). This method returns
+    /// the Twilio-specific format.
+    ///
     /// See: https://www.twilio.com/docs/verify/supported-languages
     pub fn to_twilio_locale(&self) -> &'static str {
         match self {

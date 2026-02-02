@@ -33,13 +33,27 @@ jobs:
           FILES=$(git diff --name-only $BASE_SHA HEAD | tr '\n' ', ' | sed 's/,$//')
           echo "files=$FILES" >> $GITHUB_OUTPUT
 
-          # Get diff content with delimiter for multiline output
-          {
-            echo "diff<<DIFF_EOF"
-            git diff $BASE_SHA HEAD | head -c 30000
-            echo ""
-            echo "DIFF_EOF"
-          } >> $GITHUB_OUTPUT
+          # Get diff content and check if truncated
+          FULL_DIFF=$(git diff $BASE_SHA HEAD)
+          DIFF_SIZE=${#FULL_DIFF}
+          MAX_SIZE=30000
+
+          if [ $DIFF_SIZE -gt $MAX_SIZE ]; then
+            echo "truncated=true" >> $GITHUB_OUTPUT
+            {
+              echo "diff<<DIFF_EOF"
+              echo "$FULL_DIFF" | head -c $MAX_SIZE
+              echo ""
+              echo "DIFF_EOF"
+            } >> $GITHUB_OUTPUT
+          else
+            echo "truncated=false" >> $GITHUB_OUTPUT
+            {
+              echo "diff<<DIFF_EOF"
+              echo "$FULL_DIFF"
+              echo "DIFF_EOF"
+            } >> $GITHUB_OUTPUT
+          fi
 
       - name: Run Gemini PR Review
         id: gemini
@@ -59,6 +73,7 @@ jobs:
             - Test coverage
 
             Be constructive and helpful. Format your response in markdown.
+            ${{ steps.pr_info.outputs.truncated == 'true' && '⚠️ Note: The diff below has been truncated due to size limits. Some changes may not be included in this review.' || '' }}
 
             ```diff
             ${{ steps.pr_info.outputs.diff }}
@@ -109,3 +124,29 @@ jobs:
             }
         env:
           GEMINI_RESPONSE: ${{ steps.gemini.outputs.summary }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            // Check for existing failure comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+
+            const existingFailure = comments.find(c =>
+              c.body?.includes('Gemini code review failed')
+            );
+
+            if (!existingFailure) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: '⚠️ **Gemini code review failed.** Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.',
+              });
+            }

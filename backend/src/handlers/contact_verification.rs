@@ -375,9 +375,15 @@ pub async fn send_contact_verification(
                 .into_response();
         }
 
+        let twilio_locale = user_language.to_twilio_locale();
+        info!(
+            "Sending SMS OTP to {} with locale {}",
+            notification_target, twilio_locale
+        );
+
         let auth_service = AuthService::new(jwt_secret, None);
         auth_service
-            .send_contact_otp(&twilio_config, &notification_target, user_language.to_twilio_locale())
+            .send_contact_otp(&twilio_config, &notification_target, twilio_locale)
             .await
     } else {
         // Email verification via Resend
