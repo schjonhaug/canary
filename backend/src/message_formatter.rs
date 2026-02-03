@@ -34,6 +34,7 @@ impl MessageFormatter {
         // Use multiply_pow10(-8) to shift decimal point: 100000000 sats -> 1.00000000 BTC
         let mut decimal = Decimal::from(amount_sats);
         decimal.multiply_pow10(-8);
+        decimal.trim_end(); // Remove trailing zeros (e.g., 0.10000000 -> 0.1)
 
         // Format and normalize spaces (ICU uses various Unicode spaces, convert to regular space)
         formatter
