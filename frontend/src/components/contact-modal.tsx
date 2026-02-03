@@ -259,14 +259,18 @@ export function ContactModal({
           notificationMethods.push({ provider_type: 'ntfy', notification_target: ntfyTopic.trim() })
         }
 
-        if (hasEmail && emailVerification.isVerified) {
+        // Include email if verified OR if unchanged in edit mode (already verified when first added)
+        const emailUnchangedInEditMode = isEditMode && !emailAddressChanged && originalState.emailEnabled
+        if (hasEmail && (emailVerification.isVerified || emailUnchangedInEditMode)) {
           notificationMethods.push({
             provider_type: 'email',
             notification_target: emailVerification.verificationAddress || providerValues['email'].trim()
           })
         }
 
-        if (hasSms && smsVerification.isVerified) {
+        // Include SMS if verified OR if unchanged in edit mode (already verified when first added)
+        const smsUnchangedInEditMode = isEditMode && !phoneNumberChanged && originalState.smsEnabled
+        if (hasSms && (smsVerification.isVerified || smsUnchangedInEditMode)) {
           notificationMethods.push({
             provider_type: 'sms',
             notification_target: smsVerification.verificationPhone || providerValues['twilio'].trim()
