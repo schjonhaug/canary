@@ -18,6 +18,7 @@ jest.mock('../../lib/api', () => {
       sendContactVerification: jest.fn(),
       verifyContact: jest.fn(),
       createContact: jest.fn(),
+      updateContact: jest.fn(),
       deleteContact: jest.fn(),
     },
   }
@@ -481,7 +482,7 @@ describe('ContactModal', () => {
       })
 
       const phoneInput = screen.getByPlaceholderText('+1 234 567 8900')
-      
+
       // Change phone number
       await user.clear(phoneInput)
       await user.type(phoneInput, '+4788888888')
@@ -490,9 +491,59 @@ describe('ContactModal', () => {
       // Revert to original
       await user.clear(phoneInput)
       await user.type(phoneInput, '+4799999999')
-      
+
       // Should be verified again
       expect(screen.queryByText('Verify')).not.toBeInTheDocument()
+    })
+
+    it('preserves unchanged email when editing contact name', async () => {
+      // Contact with email
+      const contactWithEmail = {
+        id: 2,
+        name: 'Email Contact',
+        created_at: '2024-01-01T00:00:00Z',
+        notification_methods: [
+          {
+            id: 2,
+            provider_type: 'email' as const,
+            notification_target: 'test@example.com',
+            display_target: 'test@example.com',
+            verified: true,
+            created_at: '2024-01-01T00:00:00Z',
+          },
+        ],
+      }
+
+      const user = userEvent.setup()
+      mockApi.updateContact.mockResolvedValue({ id: 2 })
+
+      await act(async () => {
+        render(<ContactModal {...defaultProps} editContact={contactWithEmail} />)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Email Notifications')).toBeInTheDocument()
+      })
+
+      // Change only the name (email unchanged)
+      const nameInput = screen.getByLabelText('Name')
+      await user.clear(nameInput)
+      await user.type(nameInput, 'Updated Name')
+
+      // Submit the form
+      await user.click(screen.getByRole('button', { name: /Update Contact/i }))
+
+      // Check that updateContact was called with the unchanged email preserved
+      await waitFor(() => {
+        expect(mockApi.updateContact).toHaveBeenCalledWith(
+          'test-checksum',
+          2,
+          'Updated Name',
+          expect.arrayContaining([
+            expect.objectContaining({ provider_type: 'email', notification_target: 'test@example.com' }),
+          ])
+        )
+      })
     })
   })
 
