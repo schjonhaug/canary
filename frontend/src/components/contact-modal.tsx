@@ -250,23 +250,34 @@ export function ContactModal({
     setIsSubmitting(true)
     setError(null)
 
+    // Check if unchanged methods in edit mode (already verified when first added)
+    const emailUnchangedInEditMode = isEditMode && !emailAddressChanged && originalState.emailEnabled
+    const smsUnchangedInEditMode = isEditMode && !phoneNumberChanged && originalState.smsEnabled
+
+    // SMS is ready if: not enabled, OR verified, OR unchanged in edit mode
+    const smsReady = !hasSms || smsVerification.isVerified || smsUnchangedInEditMode
+    // Email is ready if: not enabled, OR verified, OR unchanged in edit mode
+    const emailReady = !hasEmail || emailVerification.isVerified || emailUnchangedInEditMode
+
     try {
       // If verification requirements are met
-      if ((!hasSms || (hasSms && smsVerification.isVerified)) && (!hasEmail || (hasEmail && emailVerification.isVerified))) {
+      if (smsReady && emailReady) {
         const notificationMethods: { provider_type: 'sms' | 'ntfy' | 'email'; notification_target: string }[] = []
 
         if (hasNtfy) {
           notificationMethods.push({ provider_type: 'ntfy', notification_target: ntfyTopic.trim() })
         }
 
-        if (hasEmail && emailVerification.isVerified) {
+        // Include email if verified OR if unchanged in edit mode
+        if (hasEmail && (emailVerification.isVerified || emailUnchangedInEditMode)) {
           notificationMethods.push({
             provider_type: 'email',
             notification_target: emailVerification.verificationAddress || providerValues['email'].trim()
           })
         }
 
-        if (hasSms && smsVerification.isVerified) {
+        // Include SMS if verified OR if unchanged in edit mode
+        if (hasSms && (smsVerification.isVerified || smsUnchangedInEditMode)) {
           notificationMethods.push({
             provider_type: 'sms',
             notification_target: smsVerification.verificationPhone || providerValues['twilio'].trim()
