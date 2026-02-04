@@ -68,7 +68,7 @@ impl Language {
     /// the Twilio-specific format.
     ///
     /// See: https://www.twilio.com/docs/verify/supported-languages
-    pub fn to_twilio_locale(&self) -> &'static str {
+    pub fn twilio_locale(self) -> &'static str {
         match self {
             Language::English => "en",
             Language::Norwegian => "nb",
