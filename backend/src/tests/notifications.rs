@@ -92,7 +92,7 @@ async fn test_ntfy_send_notification() {
     assert_eq!(results.len(), 1);
     let (method, _result, message) = &results[0];
     assert_eq!(method.notification_target, "test-topic");
-    assert_eq!(message, "✅ Received: 1.00000000 BTC to Test Wallet");
+    assert_eq!(message, "✅ Received: 1 BTC to Test Wallet");
     // Note: Actual result.success depends on ntfy.sh availability
 }
 
@@ -118,7 +118,7 @@ async fn test_ntfy_filters_only_ntfy_methods() {
     let (method, _, message) = &results[0];
     assert_eq!(method.provider_type, ProviderType::Ntfy);
     assert_eq!(method.notification_target, "my-topic");
-    assert!(message.contains("0,50000000 BTC")); // Norwegian formatting
+    assert!(message.contains("0,5 BTC")); // Norwegian formatting
 }
 
 #[test]
@@ -177,7 +177,7 @@ async fn test_twilio_send_notification() {
     assert_eq!(results.len(), 1);
     let (method, _result, message) = &results[0];
     assert_eq!(method.notification_target, "+15551234567");
-    assert_eq!(message, "✅ Received: 1.00000000 BTC to Test Wallet");
+    assert_eq!(message, "✅ Received: 1 BTC to Test Wallet");
 
     // Clean up
     std::env::remove_var("TWILIO_ACCOUNT_SID");
@@ -211,7 +211,7 @@ async fn test_twilio_filters_only_sms_methods() {
     let (method, _, message) = &results[0];
     assert_eq!(method.provider_type, ProviderType::Sms);
     assert_eq!(method.notification_target, "+4712345678");
-    assert!(message.contains("0,50000000 BTC")); // Norwegian formatting
+    assert!(message.contains("0,5 BTC")); // Norwegian formatting
 
     // Clean up
     std::env::remove_var("TWILIO_ACCOUNT_SID");
