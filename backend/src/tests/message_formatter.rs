@@ -90,6 +90,60 @@ fn test_format_btc_amount_zero() {
 }
 
 #[test]
+fn test_format_btc_amount_one_satoshi() {
+    // Minimum Bitcoin unit - all 8 decimal places should be preserved
+    let amount = 1; // 1 sat = 0.00000001 BTC
+    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    assert_eq!(formatted, "0.00000001");
+
+    let formatted_no = MessageFormatter::format_btc_amount(amount, &Language::Norwegian);
+    assert_eq!(formatted_no, "0,00000001");
+}
+
+#[test]
+fn test_format_btc_amount_all_decimals_significant() {
+    // All 8 decimal places matter - none should be trimmed
+    let amount = 12_345_678; // 0.12345678 BTC
+    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    assert_eq!(formatted, "0.12345678");
+}
+
+#[test]
+fn test_format_btc_amount_trailing_zeros_trimmed() {
+    // Common round number - trailing zeros should be trimmed
+    let amount = 10_000_000; // 0.1 BTC exactly (0.10000000 -> 0.1)
+    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    assert_eq!(formatted, "0.1");
+
+    let formatted_no = MessageFormatter::format_btc_amount(amount, &Language::Norwegian);
+    assert_eq!(formatted_no, "0,1");
+}
+
+#[test]
+fn test_format_btc_amount_mixed_trailing_zeros() {
+    // Some trailing zeros, but not all - only trailing zeros removed
+    let amount = 10_500_000; // 0.10500000 BTC -> 0.105
+    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    assert_eq!(formatted, "0.105");
+
+    // Test with more complex case
+    let amount2 = 123_456_000; // 1.23456000 BTC -> 1.23456
+    let formatted2 = MessageFormatter::format_btc_amount(amount2, &Language::English);
+    assert_eq!(formatted2, "1.23456");
+}
+
+#[test]
+fn test_format_btc_amount_max_supply() {
+    // Maximum Bitcoin supply - 21 million BTC
+    let amount = 2_100_000_000_000_000; // 21 million BTC
+    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    assert_eq!(formatted, "21,000,000");
+
+    let formatted_no = MessageFormatter::format_btc_amount(amount, &Language::Norwegian);
+    assert_eq!(formatted_no, "21 000 000");
+}
+
+#[test]
 fn test_create_norwegian_message_receive_confirmed() {
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
