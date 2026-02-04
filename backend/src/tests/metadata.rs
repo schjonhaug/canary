@@ -289,52 +289,52 @@ async fn test_get_user_preferred_language_nonexistent_user() {
     );
 }
 
-// Unit tests for Language::to_twilio_locale()
+// Unit tests for Language::twilio_locale()
 
 #[test]
 fn test_twilio_locale_english() {
-    assert_eq!(Language::English.to_twilio_locale(), "en");
+    assert_eq!(Language::English.twilio_locale(), "en");
 }
 
 #[test]
 fn test_twilio_locale_norwegian() {
-    assert_eq!(Language::Norwegian.to_twilio_locale(), "nb");
+    assert_eq!(Language::Norwegian.twilio_locale(), "nb");
 }
 
 #[test]
 fn test_twilio_locale_spanish() {
-    assert_eq!(Language::Spanish.to_twilio_locale(), "es");
+    assert_eq!(Language::Spanish.twilio_locale(), "es");
 }
 
 #[test]
 fn test_twilio_locale_portuguese() {
     // Twilio uses lowercase "pt-br" unlike BCP 47 "pt-BR"
-    assert_eq!(Language::Portuguese.to_twilio_locale(), "pt-br");
+    assert_eq!(Language::Portuguese.twilio_locale(), "pt-br");
 }
 
 #[test]
 fn test_twilio_locale_german() {
-    assert_eq!(Language::German.to_twilio_locale(), "de");
+    assert_eq!(Language::German.twilio_locale(), "de");
 }
 
 #[test]
 fn test_twilio_locale_french() {
-    assert_eq!(Language::French.to_twilio_locale(), "fr");
+    assert_eq!(Language::French.twilio_locale(), "fr");
 }
 
 #[test]
 fn test_twilio_locale_japanese() {
-    assert_eq!(Language::Japanese.to_twilio_locale(), "ja");
+    assert_eq!(Language::Japanese.twilio_locale(), "ja");
 }
 
 #[test]
 fn test_twilio_locale_danish() {
-    assert_eq!(Language::Danish.to_twilio_locale(), "da");
+    assert_eq!(Language::Danish.twilio_locale(), "da");
 }
 
 #[test]
 fn test_twilio_locale_swedish() {
-    assert_eq!(Language::Swedish.to_twilio_locale(), "sv");
+    assert_eq!(Language::Swedish.twilio_locale(), "sv");
 }
 
 #[test]
@@ -353,7 +353,7 @@ fn test_twilio_locale_all_languages_are_valid() {
     ];
 
     for lang in languages {
-        let locale = lang.to_twilio_locale();
+        let locale = lang.twilio_locale();
         assert!(
             !locale.is_empty(),
             "Locale should not be empty for {:?}",

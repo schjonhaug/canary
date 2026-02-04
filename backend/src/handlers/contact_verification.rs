@@ -487,7 +487,7 @@ pub async fn send_contact_verification(
                 .into_response();
         }
 
-        let twilio_locale = user_language.to_twilio_locale();
+        let twilio_locale = user_language.twilio_locale();
         info!(
             "Sending SMS OTP to {} with locale {}",
             notification_target, twilio_locale
