@@ -12,12 +12,6 @@ import type { UserPreferences, NtfyAuthType } from "@/hooks/useUserPreferences"
 interface NtfyServerSettingsProps {
   ntfyServerUrl: string
   onNtfyServerUrlChange: (url: string) => void
-  hasNtfyChanges: boolean
-  isUpdatingNtfy: boolean
-  ntfyError: string | null
-  ntfySuccess: boolean
-  onNtfyServerSave: () => void
-  onClearNtfyErrors: () => void
 
   // Auth section
   userPreferences: UserPreferences | null
@@ -29,22 +23,19 @@ interface NtfyServerSettingsProps {
   onNtfyUsernameChange: (username: string) => void
   ntfyPassword: string
   onNtfyPasswordChange: (password: string) => void
-  isUpdatingNtfyAuth: boolean
-  ntfyAuthError: string | null
-  ntfyAuthSuccess: boolean
-  onNtfyAuthSave: () => void
-  onClearNtfyAuthErrors: () => void
+
+  // Consolidated save
+  hasAnyNtfyChanges: boolean
+  isUpdatingNtfySettings: boolean
+  ntfySettingsError: string | null
+  ntfySettingsSuccess: boolean
+  onNtfySettingsSave: () => void
+  onClearNtfySettingsErrors: () => void
 }
 
 export function NtfyServerSettings({
   ntfyServerUrl,
   onNtfyServerUrlChange,
-  hasNtfyChanges,
-  isUpdatingNtfy,
-  ntfyError,
-  ntfySuccess,
-  onNtfyServerSave,
-  onClearNtfyErrors,
   userPreferences,
   ntfyAuthType,
   onNtfyAuthTypeChange,
@@ -54,11 +45,12 @@ export function NtfyServerSettings({
   onNtfyUsernameChange,
   ntfyPassword,
   onNtfyPasswordChange,
-  isUpdatingNtfyAuth,
-  ntfyAuthError,
-  ntfyAuthSuccess,
-  onNtfyAuthSave,
-  onClearNtfyAuthErrors,
+  hasAnyNtfyChanges,
+  isUpdatingNtfySettings,
+  ntfySettingsError,
+  ntfySettingsSuccess,
+  onNtfySettingsSave,
+  onClearNtfySettingsErrors,
 }: NtfyServerSettingsProps) {
   const t = useTranslations("settings")
   const tCommon = useTranslations("common")
@@ -79,25 +71,18 @@ export function NtfyServerSettings({
           {/* Server URL */}
           <div>
             <Label htmlFor="ntfy-server">{t("ntfy.serverLabel")}</Label>
-            <div className="flex gap-2 mt-1">
-              <Input
-                id="ntfy-server"
-                type="url"
-                placeholder={t("ntfy.serverPlaceholder")}
-                value={ntfyServerUrl}
-                onChange={(e) => {
-                  onNtfyServerUrlChange(e.target.value)
-                  onClearNtfyErrors()
-                }}
-                disabled={isUpdatingNtfy}
-                className="flex-1"
-              />
-              <Button onClick={onNtfyServerSave} disabled={isUpdatingNtfy || !hasNtfyChanges}>
-                {isUpdatingNtfy ? tCommon("saving") : tCommon("save")}
-              </Button>
-            </div>
-            {ntfyError && <p className="text-sm text-red-500 mt-1">{ntfyError}</p>}
-            {ntfySuccess && <p className="text-sm text-green-500 mt-1">{tCommon("savedSuccessfully")}</p>}
+            <Input
+              id="ntfy-server"
+              type="url"
+              placeholder={t("ntfy.serverPlaceholder")}
+              value={ntfyServerUrl}
+              onChange={(e) => {
+                onNtfyServerUrlChange(e.target.value)
+                onClearNtfySettingsErrors()
+              }}
+              disabled={isUpdatingNtfySettings}
+              className="mt-1"
+            />
             <p className="text-sm text-muted-foreground mt-2">
               {t("ntfy.serverNoteBefore")}
               <a
@@ -129,9 +114,9 @@ export function NtfyServerSettings({
                   value={ntfyAuthType}
                   onValueChange={(value: NtfyAuthType) => {
                     onNtfyAuthTypeChange(value)
-                    onClearNtfyAuthErrors()
+                    onClearNtfySettingsErrors()
                   }}
-                  disabled={isUpdatingNtfyAuth}
+                  disabled={isUpdatingNtfySettings}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -155,9 +140,9 @@ export function NtfyServerSettings({
                       value={ntfyAccessToken}
                       onChange={(e) => {
                         onNtfyAccessTokenChange(e.target.value)
-                        onClearNtfyAuthErrors()
+                        onClearNtfySettingsErrors()
                       }}
-                      disabled={isUpdatingNtfyAuth}
+                      disabled={isUpdatingNtfySettings}
                       className="mt-1"
                     />
                   </div>
@@ -174,9 +159,9 @@ export function NtfyServerSettings({
                         value={ntfyUsername}
                         onChange={(e) => {
                           onNtfyUsernameChange(e.target.value)
-                          onClearNtfyAuthErrors()
+                          onClearNtfySettingsErrors()
                         }}
-                        disabled={isUpdatingNtfyAuth}
+                        disabled={isUpdatingNtfySettings}
                         className="mt-1"
                       />
                     </div>
@@ -191,24 +176,28 @@ export function NtfyServerSettings({
                         value={ntfyPassword}
                         onChange={(e) => {
                           onNtfyPasswordChange(e.target.value)
-                          onClearNtfyAuthErrors()
+                          onClearNtfySettingsErrors()
                         }}
-                        disabled={isUpdatingNtfyAuth}
+                        disabled={isUpdatingNtfySettings}
                         className="mt-1"
                       />
                     </div>
                   </>
                 )}
-
-                <Button onClick={onNtfyAuthSave} disabled={isUpdatingNtfyAuth} className="w-full">
-                  {isUpdatingNtfyAuth ? tCommon("saving") : t("ntfy.auth.saveAuth")}
-                </Button>
-
-                {ntfyAuthError && <p className="text-sm text-red-500">{ntfyAuthError}</p>}
-                {ntfyAuthSuccess && <p className="text-sm text-green-500">{t("ntfy.auth.authSaved")}</p>}
               </div>
             </div>
           )}
+
+          {/* Consolidated save button - always visible */}
+          {ntfySettingsError && <p className="text-sm text-red-500">{ntfySettingsError}</p>}
+          {ntfySettingsSuccess && <p className="text-sm text-green-500">{tCommon("savedSuccessfully")}</p>}
+          <Button
+            onClick={onNtfySettingsSave}
+            disabled={!hasAnyNtfyChanges || isUpdatingNtfySettings}
+            className="w-full"
+          >
+            {isUpdatingNtfySettings ? tCommon("saving") : tCommon("save")}
+          </Button>
         </div>
       </CardContent>
     </Card>
