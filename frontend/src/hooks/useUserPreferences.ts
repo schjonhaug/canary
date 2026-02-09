@@ -147,6 +147,12 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     setNtfySettingsError(null)
     setNtfySettingsSuccess(false)
 
+    // Only validate/include auth fields when auth settings actually changed
+    const authChanged =
+      ntfyAuthType !== savedNtfyAuthType ||
+      (ntfyAuthType === "token" && ntfyAccessToken.trim() !== "") ||
+      (ntfyAuthType === "basic" && (ntfyPassword.trim() !== "" || ntfyUsername !== savedNtfyUsername))
+
     try {
       let updateData: {
         ntfy_server_url?: string
@@ -157,37 +163,41 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         ntfy_server_url: ntfyServerUrl || "",
       }
 
-      if (ntfyAuthType === "none") {
-        updateData = {
-          ...updateData,
-          ntfy_access_token: "",
-          ntfy_username: "",
-          ntfy_password: "",
-        }
-      } else if (ntfyAuthType === "token") {
-        if (!ntfyAccessToken.trim()) {
-          setNtfySettingsError("Access token is required")
-          return
-        }
-        updateData = { ...updateData, ntfy_access_token: ntfyAccessToken.trim() }
-      } else if (ntfyAuthType === "basic") {
-        if (!ntfyUsername.trim() || !ntfyPassword.trim()) {
-          setNtfySettingsError("Both username and password are required")
-          return
-        }
-        updateData = {
-          ...updateData,
-          ntfy_username: ntfyUsername.trim(),
-          ntfy_password: ntfyPassword.trim(),
+      if (authChanged) {
+        if (ntfyAuthType === "none") {
+          updateData = {
+            ...updateData,
+            ntfy_access_token: "",
+            ntfy_username: "",
+            ntfy_password: "",
+          }
+        } else if (ntfyAuthType === "token") {
+          if (!ntfyAccessToken.trim()) {
+            setNtfySettingsError("Access token is required")
+            return
+          }
+          updateData = { ...updateData, ntfy_access_token: ntfyAccessToken.trim() }
+        } else if (ntfyAuthType === "basic") {
+          if (!ntfyUsername.trim() || !ntfyPassword.trim()) {
+            setNtfySettingsError("Both username and password are required")
+            return
+          }
+          updateData = {
+            ...updateData,
+            ntfy_username: ntfyUsername.trim(),
+            ntfy_password: ntfyPassword.trim(),
+          }
         }
       }
 
       const result = await api.updateUserPreferences(updateData)
       setUserPreferences(result)
       setSavedNtfyUrl(result.ntfy_server_url || "")
-      setSavedNtfyAuthType(ntfyAuthType)
-      if (ntfyAuthType === "basic") {
-        setSavedNtfyUsername(ntfyUsername.trim())
+      if (authChanged) {
+        setSavedNtfyAuthType(ntfyAuthType)
+        if (ntfyAuthType === "basic") {
+          setSavedNtfyUsername(ntfyUsername.trim())
+        }
       }
 
       // Clear sensitive fields after save
@@ -198,11 +208,16 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     } catch (error) {
       console.error("Failed to update ntfy settings:", error)
       setNtfySettingsError(error instanceof Error ? error.message : "Failed to save")
+      // Revert all fields to saved state
       setNtfyServerUrl(savedNtfyUrl)
+      setNtfyAuthType(savedNtfyAuthType)
+      if (savedNtfyAuthType === "basic") {
+        setNtfyUsername(savedNtfyUsername)
+      }
     } finally {
       setIsUpdatingNtfySettings(false)
     }
-  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, ntfyAccessToken, ntfyUsername, ntfyPassword])
+  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword])
 
   const clearNtfySettingsErrors = useCallback(() => {
     setNtfySettingsError(null)
