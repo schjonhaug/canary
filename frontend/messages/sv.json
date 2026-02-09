@@ -591,7 +591,7 @@
       },
       "ntfy": {
         "topicLabel": "ntfy-ämne",
-        "topicHint": "Prenumerera på detta ämne på ntfy.sh för att ta emot aviseringar"
+        "topicHint": "Prenumerera på detta ämne på {server} för att ta emot aviseringar"
       },
       "sms": {
         "phoneHint": "Inkludera landskod"

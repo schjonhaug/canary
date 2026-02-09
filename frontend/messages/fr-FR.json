@@ -591,7 +591,7 @@
       },
       "ntfy": {
         "topicLabel": "Sujet ntfy",
-        "topicHint": "Abonnez-vous à ce sujet sur ntfy.sh pour recevoir les notifications"
+        "topicHint": "Abonnez-vous à ce sujet sur {server} pour recevoir les notifications"
       },
       "sms": {
         "phoneHint": "Inclure l'indicatif du pays"

@@ -23,6 +23,7 @@ import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { useEmailVerification } from "@/hooks/useEmailVerification"
 import { useOriginalContactState } from "@/hooks/useOriginalContactState"
 import { useContactChangeDetection } from "@/hooks/useContactChangeDetection"
+import { useNtfyServerUrl } from "@/hooks/useNtfyServerUrl"
 
 // Helper to sanitize name for ntfy topic
 function sanitizeForNtfyTopic(name: string): string {
@@ -61,6 +62,7 @@ export function ContactModal({
   const t = useTranslations('contacts')
   const tCommon = useTranslations('common')
   const phonePlaceholder = usePhonePlaceholder()
+  const ntfyServerUrl = useNtfyServerUrl()
   const [name, setName] = useState("")
   const [ntfyTopic, setNtfyTopic] = useState("")
   const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
@@ -521,6 +523,7 @@ export function ContactModal({
                           }}
                           defaultTopicPlaceholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
                           disabled={isSubmitting}
+                          ntfyServerUrl={ntfyServerUrl}
                         />
                       )}
                     </div>

@@ -20,6 +20,7 @@ jest.mock('../../lib/api', () => {
       createContact: jest.fn(),
       updateContact: jest.fn(),
       deleteContact: jest.fn(),
+      getUserPreferences: jest.fn(),
     },
   }
 })
@@ -74,6 +75,13 @@ describe('ContactModal', () => {
     mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
     mockApi.verifyContact.mockResolvedValue({ valid: true, message: 'Verified' })
     mockApi.createContact.mockResolvedValue({ id: 1 })
+    mockApi.getUserPreferences.mockResolvedValue({
+      preferred_fiat_currency: 'USD',
+      ntfy_server_url: null,
+      ntfy_has_access_token: false,
+      ntfy_has_credentials: false,
+      ntfy_username: null,
+    })
   })
 
   describe('Basic Modal Behavior', () => {

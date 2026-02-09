@@ -1,6 +1,6 @@
 {
   "name": "canary",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "private": true,
   "scripts": {
     "dev": "mkdir -p logs && next dev --port 3001 2>&1 | tee logs/frontend.log",

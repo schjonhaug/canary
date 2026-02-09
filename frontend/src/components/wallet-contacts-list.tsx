@@ -7,6 +7,7 @@ import { Contact } from "../types"
 import { ContactModal } from "./contact-modal"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
+import { useNtfyServerUrl } from "@/hooks/useNtfyServerUrl"
 
 interface WalletContactsListProps {
   walletChecksum: string
@@ -18,6 +19,7 @@ interface WalletContactsListProps {
 export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated, isWalletActive = true }: WalletContactsListProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
+  const ntfyServerUrl = useNtfyServerUrl()
   const { user, isCloudMode, billingStatus } = useAuth()
   const t = useTranslations('contacts')
 
@@ -119,7 +121,7 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                           </a>
                         ) : method.provider_type === 'ntfy' ? (
                           <a
-                            href={`https://ntfy.sh/${method.notification_target}`}
+                            href={`${ntfyServerUrl}/${method.notification_target}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="truncate text-blue-600 hover:text-blue-800 underline"
