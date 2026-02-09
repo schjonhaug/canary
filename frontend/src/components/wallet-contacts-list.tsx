@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Bell, Mail, MessageCircle, AlertTriangle } from "lucide-react"
 import { Contact } from "../types"
 import { ContactModal } from "./contact-modal"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
-import { api } from "@/lib/api"
+import { useNtfyServerUrl } from "@/hooks/useNtfyServerUrl"
 
 interface WalletContactsListProps {
   walletChecksum: string
@@ -19,21 +19,9 @@ interface WalletContactsListProps {
 export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated, isWalletActive = true }: WalletContactsListProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
-  const [ntfyServerUrl, setNtfyServerUrl] = useState("https://ntfy.sh")
+  const ntfyServerUrl = useNtfyServerUrl()
   const { user, isCloudMode, billingStatus } = useAuth()
   const t = useTranslations('contacts')
-
-  useEffect(() => {
-    api.getUserPreferences()
-      .then((prefs) => {
-        if (prefs.ntfy_server_url) {
-          setNtfyServerUrl(prefs.ntfy_server_url.replace(/\/+$/, ''))
-        }
-      })
-      .catch(() => {
-        // Fall back to default ntfy.sh
-      })
-  }, [])
 
   // All notification methods are available for all tiers - no need to check provider type
 

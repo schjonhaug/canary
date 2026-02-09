@@ -23,6 +23,7 @@ import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { useEmailVerification } from "@/hooks/useEmailVerification"
 import { useOriginalContactState } from "@/hooks/useOriginalContactState"
 import { useContactChangeDetection } from "@/hooks/useContactChangeDetection"
+import { useNtfyServerUrl } from "@/hooks/useNtfyServerUrl"
 
 // Helper to sanitize name for ntfy topic
 function sanitizeForNtfyTopic(name: string): string {
@@ -61,6 +62,7 @@ export function ContactModal({
   const t = useTranslations('contacts')
   const tCommon = useTranslations('common')
   const phonePlaceholder = usePhonePlaceholder()
+  const ntfyServerUrl = useNtfyServerUrl()
   const [name, setName] = useState("")
   const [ntfyTopic, setNtfyTopic] = useState("")
   const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
@@ -70,7 +72,6 @@ export function ContactModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [ntfyServerUrl, setNtfyServerUrl] = useState<string | undefined>(undefined)
 
   // Consolidated original state management
   const { originalState, initializeFromContact, reset: resetOriginalState } = useOriginalContactState()
@@ -120,19 +121,6 @@ export function ContactModal({
     } catch (err) {
       console.error('Failed to fetch providers:', err)
     }
-  }, [])
-
-  // Fetch ntfy server URL from user preferences
-  useEffect(() => {
-    api.getUserPreferences()
-      .then((prefs) => {
-        if (prefs.ntfy_server_url) {
-          setNtfyServerUrl(prefs.ntfy_server_url.replace(/\/+$/, ''))
-        }
-      })
-      .catch(() => {
-        // Fall back to default ntfy.sh
-      })
   }, [])
 
   // Initialize form data when modal opens
