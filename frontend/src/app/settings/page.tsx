@@ -61,12 +61,6 @@ export default function SettingsPage() {
           <NtfyServerSettings
             ntfyServerUrl={preferences.ntfyServerUrl}
             onNtfyServerUrlChange={preferences.setNtfyServerUrl}
-            hasNtfyChanges={preferences.hasNtfyChanges}
-            isUpdatingNtfy={preferences.isUpdatingNtfy}
-            ntfyError={preferences.ntfyError}
-            ntfySuccess={preferences.ntfySuccess}
-            onNtfyServerSave={preferences.handleNtfyServerSave}
-            onClearNtfyErrors={preferences.clearNtfyErrors}
             userPreferences={preferences.userPreferences}
             ntfyAuthType={preferences.ntfyAuthType}
             onNtfyAuthTypeChange={preferences.setNtfyAuthType}
@@ -76,11 +70,12 @@ export default function SettingsPage() {
             onNtfyUsernameChange={preferences.setNtfyUsername}
             ntfyPassword={preferences.ntfyPassword}
             onNtfyPasswordChange={preferences.setNtfyPassword}
-            isUpdatingNtfyAuth={preferences.isUpdatingNtfyAuth}
-            ntfyAuthError={preferences.ntfyAuthError}
-            ntfyAuthSuccess={preferences.ntfyAuthSuccess}
-            onNtfyAuthSave={preferences.handleNtfyAuthSave}
-            onClearNtfyAuthErrors={preferences.clearNtfyAuthErrors}
+            hasAnyNtfyChanges={preferences.hasAnyNtfyChanges}
+            isUpdatingNtfySettings={preferences.isUpdatingNtfySettings}
+            ntfySettingsError={preferences.ntfySettingsError}
+            ntfySettingsSuccess={preferences.ntfySettingsSuccess}
+            onNtfySettingsSave={preferences.handleNtfySettingsSave}
+            onClearNtfySettingsErrors={preferences.clearNtfySettingsErrors}
           />
         )}
       </div>

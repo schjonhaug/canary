@@ -32,36 +32,35 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   // ntfy server state
   const [ntfyServerUrl, setNtfyServerUrl] = useState<string>("")
   const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>("")
-  const [isUpdatingNtfy, setIsUpdatingNtfy] = useState(false)
-  const [ntfyError, setNtfyError] = useState<string | null>(null)
-  const [ntfySuccess, setNtfySuccess] = useState(false)
 
   // ntfy authentication state
   const [ntfyAuthType, setNtfyAuthType] = useState<NtfyAuthType>("none")
+  const [savedNtfyAuthType, setSavedNtfyAuthType] = useState<NtfyAuthType>("none")
   const [ntfyAccessToken, setNtfyAccessToken] = useState<string>("")
   const [ntfyUsername, setNtfyUsername] = useState<string>("")
+  const [savedNtfyUsername, setSavedNtfyUsername] = useState<string>("")
   const [ntfyPassword, setNtfyPassword] = useState<string>("")
-  const [isUpdatingNtfyAuth, setIsUpdatingNtfyAuth] = useState(false)
-  const [ntfyAuthError, setNtfyAuthError] = useState<string | null>(null)
-  const [ntfyAuthSuccess, setNtfyAuthSuccess] = useState(false)
 
-  // Derived state
-  const hasNtfyChanges = ntfyServerUrl !== savedNtfyUrl
+  // Consolidated ntfy save state
+  const [isUpdatingNtfySettings, setIsUpdatingNtfySettings] = useState(false)
+  const [ntfySettingsError, setNtfySettingsError] = useState<string | null>(null)
+  const [ntfySettingsSuccess, setNtfySettingsSuccess] = useState(false)
 
-  // Auto-clear success messages after 3 seconds
+  // Derived state - any ntfy field has changed
+  const hasAnyNtfyChanges =
+    ntfyServerUrl !== savedNtfyUrl ||
+    ntfyAuthType !== savedNtfyAuthType ||
+    (ntfyAuthType === "token" && ntfyAccessToken.trim() !== "") ||
+    (ntfyAuthType === "basic" && ntfyPassword.trim() !== "") ||
+    (ntfyAuthType === "basic" && ntfyUsername !== savedNtfyUsername)
+
+  // Auto-clear success message after 3 seconds
   useEffect(() => {
-    if (ntfySuccess) {
-      const timerId = setTimeout(() => setNtfySuccess(false), 3000)
+    if (ntfySettingsSuccess) {
+      const timerId = setTimeout(() => setNtfySettingsSuccess(false), 3000)
       return () => clearTimeout(timerId)
     }
-  }, [ntfySuccess])
-
-  useEffect(() => {
-    if (ntfyAuthSuccess) {
-      const timerId = setTimeout(() => setNtfyAuthSuccess(false), 3000)
-      return () => clearTimeout(timerId)
-    }
-  }, [ntfyAuthSuccess])
+  }, [ntfySettingsSuccess])
 
   // Fetch user preferences on mount
   useEffect(() => {
@@ -76,11 +75,15 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         // Set auth type based on what's configured
         if (prefs.ntfy_has_access_token) {
           setNtfyAuthType("token")
+          setSavedNtfyAuthType("token")
         } else if (prefs.ntfy_has_credentials) {
           setNtfyAuthType("basic")
+          setSavedNtfyAuthType("basic")
           setNtfyUsername(prefs.ntfy_username || "")
+          setSavedNtfyUsername(prefs.ntfy_username || "")
         } else {
           setNtfyAuthType("none")
+          setSavedNtfyAuthType("none")
         }
       } catch (error) {
         console.error("Failed to fetch user preferences:", error)
@@ -139,84 +142,86 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     [userPreferences]
   )
 
-  const handleNtfyServerSave = useCallback(async () => {
-    setIsUpdatingNtfy(true)
-    setNtfyError(null)
-    setNtfySuccess(false)
+  const handleNtfySettingsSave = useCallback(async () => {
+    setIsUpdatingNtfySettings(true)
+    setNtfySettingsError(null)
+    setNtfySettingsSuccess(false)
 
-    try {
-      const result = await api.updateUserPreferences({ ntfy_server_url: ntfyServerUrl || "" })
-      setUserPreferences(result)
-      setSavedNtfyUrl(result.ntfy_server_url || "")
-      setNtfySuccess(true)
-    } catch (error) {
-      console.error("Failed to update ntfy server URL:", error)
-      setNtfyError(error instanceof Error ? error.message : "Failed to save")
-      setNtfyServerUrl(savedNtfyUrl)
-    } finally {
-      setIsUpdatingNtfy(false)
-    }
-  }, [ntfyServerUrl, savedNtfyUrl])
-
-  const handleNtfyAuthSave = useCallback(async () => {
-    setIsUpdatingNtfyAuth(true)
-    setNtfyAuthError(null)
-    setNtfyAuthSuccess(false)
+    // Only validate/include auth fields when auth settings actually changed
+    const authChanged =
+      ntfyAuthType !== savedNtfyAuthType ||
+      (ntfyAuthType === "token" && ntfyAccessToken.trim() !== "") ||
+      (ntfyAuthType === "basic" && (ntfyPassword.trim() !== "" || ntfyUsername !== savedNtfyUsername))
 
     try {
       let updateData: {
+        ntfy_server_url?: string
         ntfy_access_token?: string
         ntfy_username?: string
         ntfy_password?: string
-      } = {}
+      } = {
+        ntfy_server_url: ntfyServerUrl || "",
+      }
 
-      if (ntfyAuthType === "none") {
-        updateData = {
-          ntfy_access_token: "",
-          ntfy_username: "",
-          ntfy_password: "",
-        }
-      } else if (ntfyAuthType === "token") {
-        if (!ntfyAccessToken.trim()) {
-          setNtfyAuthError("Access token is required")
-          return
-        }
-        updateData = { ntfy_access_token: ntfyAccessToken.trim() }
-      } else if (ntfyAuthType === "basic") {
-        if (!ntfyUsername.trim() || !ntfyPassword.trim()) {
-          setNtfyAuthError("Both username and password are required")
-          return
-        }
-        updateData = {
-          ntfy_username: ntfyUsername.trim(),
-          ntfy_password: ntfyPassword.trim(),
+      if (authChanged) {
+        if (ntfyAuthType === "none") {
+          updateData = {
+            ...updateData,
+            ntfy_access_token: "",
+            ntfy_username: "",
+            ntfy_password: "",
+          }
+        } else if (ntfyAuthType === "token") {
+          if (!ntfyAccessToken.trim()) {
+            setNtfySettingsError("Access token is required")
+            return
+          }
+          updateData = { ...updateData, ntfy_access_token: ntfyAccessToken.trim() }
+        } else if (ntfyAuthType === "basic") {
+          if (!ntfyUsername.trim() || !ntfyPassword.trim()) {
+            setNtfySettingsError("Both username and password are required")
+            return
+          }
+          updateData = {
+            ...updateData,
+            ntfy_username: ntfyUsername.trim(),
+            ntfy_password: ntfyPassword.trim(),
+          }
         }
       }
 
       const result = await api.updateUserPreferences(updateData)
       setUserPreferences(result)
+      setSavedNtfyUrl(result.ntfy_server_url || "")
+      if (authChanged) {
+        setSavedNtfyAuthType(ntfyAuthType)
+        if (ntfyAuthType === "basic") {
+          setSavedNtfyUsername(ntfyUsername.trim())
+        }
+      }
 
       // Clear sensitive fields after save
       setNtfyAccessToken("")
       setNtfyPassword("")
 
-      setNtfyAuthSuccess(true)
+      setNtfySettingsSuccess(true)
     } catch (error) {
-      console.error("Failed to update ntfy authentication:", error)
-      setNtfyAuthError(error instanceof Error ? error.message : "Failed to save")
+      console.error("Failed to update ntfy settings:", error)
+      setNtfySettingsError(error instanceof Error ? error.message : "Failed to save")
+      // Revert all fields to saved state
+      setNtfyServerUrl(savedNtfyUrl)
+      setNtfyAuthType(savedNtfyAuthType)
+      if (savedNtfyAuthType === "basic") {
+        setNtfyUsername(savedNtfyUsername)
+      }
     } finally {
-      setIsUpdatingNtfyAuth(false)
+      setIsUpdatingNtfySettings(false)
     }
-  }, [ntfyAuthType, ntfyAccessToken, ntfyUsername, ntfyPassword])
+  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword])
 
-  const clearNtfyErrors = useCallback(() => {
-    setNtfyError(null)
-    setNtfySuccess(false)
-  }, [])
-
-  const clearNtfyAuthErrors = useCallback(() => {
-    setNtfyAuthError(null)
-    setNtfyAuthSuccess(false)
+  const clearNtfySettingsErrors = useCallback(() => {
+    setNtfySettingsError(null)
+    setNtfySettingsSuccess(false)
   }, [])
 
   return {
@@ -227,15 +232,15 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     handleLanguageChange,
     handleCurrencyChange,
 
-    // ntfy settings
+    // ntfy settings (consolidated)
     ntfyServerUrl,
     setNtfyServerUrl,
-    hasNtfyChanges,
-    isUpdatingNtfy,
-    ntfyError,
-    ntfySuccess,
-    handleNtfyServerSave,
-    clearNtfyErrors,
+    hasAnyNtfyChanges,
+    isUpdatingNtfySettings,
+    ntfySettingsError,
+    ntfySettingsSuccess,
+    handleNtfySettingsSave,
+    clearNtfySettingsErrors,
 
     // ntfy auth
     userPreferences,
@@ -247,10 +252,5 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     setNtfyUsername,
     ntfyPassword,
     setNtfyPassword,
-    isUpdatingNtfyAuth,
-    ntfyAuthError,
-    ntfyAuthSuccess,
-    handleNtfyAuthSave,
-    clearNtfyAuthErrors,
   }
 }
