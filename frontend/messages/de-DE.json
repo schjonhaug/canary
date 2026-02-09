@@ -591,7 +591,7 @@
       },
       "ntfy": {
         "topicLabel": "ntfy-Thema",
-        "topicHint": "Abonnieren Sie dieses Thema auf ntfy.sh, um Benachrichtigungen zu erhalten"
+        "topicHint": "Abonnieren Sie dieses Thema auf {server}, um Benachrichtigungen zu erhalten"
       },
       "sms": {
         "phoneHint": "Ländervorwahl angeben"

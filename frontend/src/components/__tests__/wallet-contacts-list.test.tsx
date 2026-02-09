@@ -11,6 +11,7 @@ jest.mock('../../lib/api', () => ({
     verifyContact: jest.fn(),
     createContact: jest.fn(),
     deleteContact: jest.fn(),
+    getUserPreferences: jest.fn(),
   },
 }))
 
@@ -96,6 +97,13 @@ describe('WalletContactsList', () => {
     mockApi.verifyContact.mockResolvedValue({ valid: true, message: 'Verified' })
     mockApi.createContact.mockResolvedValue({ id: 1 })
     mockApi.deleteContact.mockResolvedValue({})
+    mockApi.getUserPreferences.mockResolvedValue({
+      preferred_fiat_currency: 'USD',
+      ntfy_server_url: null,
+      ntfy_has_access_token: false,
+      ntfy_has_credentials: false,
+      ntfy_username: null,
+    })
   })
 
   it('renders contacts without title', () => {
@@ -173,6 +181,32 @@ describe('WalletContactsList', () => {
     // Should not show any contact items
     expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument()
     expect(screen.queryByText('Bob Johnson')).not.toBeInTheDocument()
+  })
+
+  it('renders ntfy links with default ntfy.sh URL when no custom server configured', async () => {
+    render(<WalletContactsList {...defaultProps} />)
+
+    await waitFor(() => {
+      const ntfyLink = screen.getByText('bob-no-8nt3y08q').closest('a')
+      expect(ntfyLink).toHaveAttribute('href', 'https://ntfy.sh/bob-no-8nt3y08q')
+    })
+  })
+
+  it('renders ntfy links with custom server URL when configured', async () => {
+    mockApi.getUserPreferences.mockResolvedValue({
+      preferred_fiat_currency: 'USD',
+      ntfy_server_url: 'https://ntfy.example.com',
+      ntfy_has_access_token: false,
+      ntfy_has_credentials: false,
+      ntfy_username: null,
+    })
+
+    render(<WalletContactsList {...defaultProps} />)
+
+    await waitFor(() => {
+      const ntfyLink = screen.getByText('bob-no-8nt3y08q').closest('a')
+      expect(ntfyLink).toHaveAttribute('href', 'https://ntfy.example.com/bob-no-8nt3y08q')
+    })
   })
 
   it('displays multiple notification methods for a single contact', () => {
