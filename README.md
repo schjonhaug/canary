@@ -32,14 +32,6 @@ Customize your language preference (9 languages supported) and fiat currency dis
 
 ## Key Features
 
-### Multi-Channel Notifications
-Real-time notifications in 9 languages via multiple channels:
-- **[ntfy.sh](https://ntfy.sh)** - Push notifications (self-hostable)
-- **SMS** - Via Twilio integration
-- **Email** - Via Resend integration
-
-**Supported Languages:** English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish
-
 ### Transaction Monitoring
 - Sending and receiving bitcoin notifications
 - Transaction confirmation alerts
@@ -52,19 +44,21 @@ Real-time notifications in 9 languages via multiple channels:
 - Smart crossing detection to prevent notification spam
 - Auto-disable after firing with manual reactivation
 
-### Authentication & Multi-User Support
-- Optional email/password authentication with email verification
-- JWT-based sessions with user isolation
-- Password reset functionality
+### Notifications
+Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push notifications (self-hostable).
 
-### Subscription Billing (Cloud Mode)
-- Two-tier system: Personal and Team plans
-- Stripe integration with native trial subscriptions
-- Customer portal for subscription management
+[canarybitcoin.com](https://canarybitcoin.com) additionally supports **SMS** (via Twilio) and **Email** (via Resend) notifications.
 
-### Deployment Modes
-- **Self-hosted**: Single user, no auth, ntfy notifications only
-- **Cloud**: Multi-user with authentication, billing, and all notification providers
+**Supported Languages:** English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish
+
+## Self-Hosted vs. canarybitcoin.com
+
+| | Self-Hosted | [canarybitcoin.com](https://canarybitcoin.com) |
+|---|---|---|
+| **Users** | Single user, no auth required | Multi-user with email/password authentication |
+| **Notifications** | ntfy.sh push notifications | ntfy.sh + SMS + Email |
+| **Billing** | Free | Subscription plans (Personal & Team) |
+| **Wallet sync** | Fixed interval | Tier-based (faster sync on higher plans) |
 
 ## Quick Start
 
