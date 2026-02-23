@@ -297,6 +297,16 @@
         "tokenRequired": "El token de acceso es requerido",
         "credentialsRequired": "Se requieren usuario y contraseña",
         "authSaved": "Autenticación guardada!"
+      },
+      "test": {
+        "title": "Notificación de prueba",
+        "description": "Envía una notificación de prueba para verificar que tu configuración de ntfy funciona.",
+        "topicLabel": "Tema",
+        "topicPlaceholder": "tema-prueba",
+        "send": "Enviar prueba",
+        "sending": "Enviando...",
+        "success": "¡Notificación de prueba enviada con éxito!",
+        "error": "Error al enviar la notificación de prueba"
       }
     },
     "currencies": {

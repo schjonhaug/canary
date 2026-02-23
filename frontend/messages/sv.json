@@ -345,6 +345,16 @@
         "tokenRequired": "Åtkomsttoken krävs",
         "credentialsRequired": "Både användarnamn och lösenord krävs",
         "authSaved": "Autentiseringen sparad!"
+      },
+      "test": {
+        "title": "Testavisering",
+        "description": "Skicka en testavisering för att verifiera att din ntfy-konfiguration fungerar.",
+        "topicLabel": "Ämne",
+        "topicPlaceholder": "test-ämne",
+        "send": "Skicka test",
+        "sending": "Skickar...",
+        "success": "Testaviseringen skickades!",
+        "error": "Kunde inte skicka testavisering"
       }
     }
   },

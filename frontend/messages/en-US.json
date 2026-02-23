@@ -345,6 +345,16 @@
         "tokenRequired": "Access token is required",
         "credentialsRequired": "Both username and password are required",
         "authSaved": "Authentication saved!"
+      },
+      "test": {
+        "title": "Test Notification",
+        "description": "Send a test notification to verify your ntfy setup is working.",
+        "topicLabel": "Topic",
+        "topicPlaceholder": "test-topic",
+        "send": "Send Test",
+        "sending": "Sending...",
+        "success": "Test notification sent successfully!",
+        "error": "Failed to send test notification"
       }
     }
   },

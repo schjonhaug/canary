@@ -345,6 +345,16 @@
         "tokenRequired": "Tilgangstoken er påkrevd",
         "credentialsRequired": "Både brukernavn og passord er påkrevd",
         "authSaved": "Autentisering lagret!"
+      },
+      "test": {
+        "title": "Testvarsel",
+        "description": "Send et testvarsel for å bekrefte at ntfy-oppsettet ditt fungerer.",
+        "topicLabel": "Emne",
+        "topicPlaceholder": "test-emne",
+        "send": "Send test",
+        "sending": "Sender...",
+        "success": "Testvarsel sendt!",
+        "error": "Kunne ikke sende testvarsel"
       }
     }
   },

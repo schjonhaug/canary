@@ -112,3 +112,9 @@ pub struct DemoLoginRequest {
     /// Browser locale for language preference (e.g., "no-NO", "en-US")
     pub browser_locale: Option<String>,
 }
+
+#[derive(Deserialize)]
+pub struct TestNtfyRequest {
+    /// The ntfy topic to send the test notification to
+    pub topic: String,
+}

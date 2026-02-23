@@ -297,6 +297,16 @@
         "tokenRequired": "アクセストークンは必須です",
         "credentialsRequired": "ユーザー名とパスワードの両方が必要です",
         "authSaved": "認証が保存されました！"
+      },
+      "test": {
+        "title": "テスト通知",
+        "description": "テスト通知を送信して、ntfyの設定が正しく動作しているか確認します。",
+        "topicLabel": "トピック",
+        "topicPlaceholder": "test-topic",
+        "send": "テスト送信",
+        "sending": "送信中...",
+        "success": "テスト通知を正常に送信しました！",
+        "error": "テスト通知の送信に失敗しました"
       }
     },
     "currencies": {
