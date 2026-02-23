@@ -136,11 +136,23 @@ pub async fn send_test_ntfy_notification(
                 )
                     .into_response()
             } else {
-                let error = format!(
-                    "HTTP {}: {}",
-                    response.status(),
-                    response.status().canonical_reason().unwrap_or("Unknown")
-                );
+                let status = response.status();
+                let body = response.text().await.unwrap_or_default();
+                // Try to extract "error" field from ntfy JSON responses
+                let detail = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                    json["error"]
+                        .as_str()
+                        .unwrap_or(&body)
+                        .to_string()
+                } else if body.is_empty() {
+                    status
+                        .canonical_reason()
+                        .unwrap_or("Unknown")
+                        .to_string()
+                } else {
+                    body
+                };
+                let error = format!("HTTP {}: {}", status.as_u16(), detail);
                 (
                     StatusCode::OK,
                     Json(TestNtfyResponse {

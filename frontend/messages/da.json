@@ -354,7 +354,8 @@
         "send": "Send test",
         "sending": "Sender...",
         "success": "Testnotifikation sendt!",
-        "error": "Kunne ikke sende testnotifikation"
+        "error": "Kunne ikke sende testnotifikation",
+        "errorWithDetail": "Kunne ikke sende testnotifikation: {detail}"
       }
     }
   },

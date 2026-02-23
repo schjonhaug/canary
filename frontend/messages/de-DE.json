@@ -306,7 +306,8 @@
         "send": "Test senden",
         "sending": "Wird gesendet...",
         "success": "Testbenachrichtigung erfolgreich gesendet!",
-        "error": "Testbenachrichtigung konnte nicht gesendet werden"
+        "error": "Testbenachrichtigung konnte nicht gesendet werden",
+        "errorWithDetail": "Testbenachrichtigung konnte nicht gesendet werden: {detail}"
       }
     },
     "currencies": {

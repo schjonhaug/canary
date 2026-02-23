@@ -306,7 +306,8 @@
         "send": "Enviar prueba",
         "sending": "Enviando...",
         "success": "¡Notificación de prueba enviada con éxito!",
-        "error": "Error al enviar la notificación de prueba"
+        "error": "Error al enviar la notificación de prueba",
+        "errorWithDetail": "Error al enviar la notificación de prueba: {detail}"
       }
     },
     "currencies": {

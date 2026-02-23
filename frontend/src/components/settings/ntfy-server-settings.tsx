@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -215,13 +215,6 @@ function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | 
   const [isSending, setIsSending] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string; topicUrl?: string } | null>(null)
 
-  // Auto-clear the result after 10 seconds
-  useEffect(() => {
-    if (!result) return
-    const timer = setTimeout(() => setResult(null), 10000)
-    return () => clearTimeout(timer)
-  }, [result])
-
   const handleSendTest = useCallback(async () => {
     setIsSending(true)
     setResult(null)
@@ -231,8 +224,10 @@ function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | 
       const topicUrl = `${serverBase.replace(/\/+$/, "")}/${topic.trim()}`
       if (response.success) {
         setResult({ success: true, message: t("ntfy.test.success"), topicUrl })
+      } else if (response.error) {
+        setResult({ success: false, message: t("ntfy.test.errorWithDetail", { detail: response.error }) })
       } else {
-        setResult({ success: false, message: response.error || t("ntfy.test.error") })
+        setResult({ success: false, message: t("ntfy.test.error") })
       }
     } catch {
       setResult({ success: false, message: t("ntfy.test.error") })

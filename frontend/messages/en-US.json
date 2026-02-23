@@ -354,7 +354,8 @@
         "send": "Send Test",
         "sending": "Sending...",
         "success": "Test notification sent successfully!",
-        "error": "Failed to send test notification"
+        "error": "Failed to send test notification",
+        "errorWithDetail": "Failed to send test notification: {detail}"
       }
     }
   },

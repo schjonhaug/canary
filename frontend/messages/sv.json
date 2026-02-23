@@ -354,7 +354,8 @@
         "send": "Skicka test",
         "sending": "Skickar...",
         "success": "Testaviseringen skickades!",
-        "error": "Kunde inte skicka testavisering"
+        "error": "Kunde inte skicka testavisering",
+        "errorWithDetail": "Kunde inte skicka testavisering: {detail}"
       }
     }
   },
