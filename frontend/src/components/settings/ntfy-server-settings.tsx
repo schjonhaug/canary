@@ -238,12 +238,13 @@ function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | 
 
   return (
     <div className="border-t pt-4">
-      <Label>{t("ntfy.test.title")}</Label>
+      <Label htmlFor="ntfy-test-topic">{t("ntfy.test.title")}</Label>
       <p className="text-sm text-muted-foreground mb-3">
         {t("ntfy.test.description")}
       </p>
       <div className="flex gap-2">
         <Input
+          id="ntfy-test-topic"
           type="text"
           placeholder={t("ntfy.test.topicPlaceholder")}
           value={topic}
