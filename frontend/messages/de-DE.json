@@ -297,6 +297,17 @@
         "tokenRequired": "Zugriffstoken ist erforderlich",
         "credentialsRequired": "Benutzername und Passwort sind erforderlich",
         "authSaved": "Authentifizierung gespeichert!"
+      },
+      "test": {
+        "title": "Testbenachrichtigung",
+        "description": "Sende eine Testbenachrichtigung, um zu überprüfen, ob dein ntfy-Setup funktioniert.",
+        "topicLabel": "Thema",
+        "topicPlaceholder": "test-thema",
+        "send": "Test senden",
+        "sending": "Wird gesendet...",
+        "success": "Testbenachrichtigung erfolgreich gesendet!",
+        "error": "Testbenachrichtigung konnte nicht gesendet werden",
+        "errorWithDetail": "Testbenachrichtigung konnte nicht gesendet werden: {detail}"
       }
     },
     "currencies": {

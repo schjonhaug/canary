@@ -21,13 +21,14 @@ cargo run
 
 - **Bitcoin Core**: Regtest network with 101 pre-mined blocks
 - **Fulcrum**: Electrum server providing protocol compatibility
-- **Ports**: Bitcoin RPC (18443), Electrum (50001)
+- **ntfy**: Self-hosted push notification server with auth enabled
+- **Ports**: Bitcoin RPC (18443), Electrum (50001), ntfy (2586)
 
 ## Utilities
 
 ### Environment Management
 ```bash
-./dev.sh start            # Start Bitcoin + Fulcrum containers
+./dev.sh start            # Start Bitcoin + Fulcrum + ntfy containers
 ./dev.sh create-wallets   # Create Alice, Bob, Charlie test wallets
 ./dev.sh status           # Check environment status
 ./dev.sh stop             # Stop containers
@@ -107,6 +108,37 @@ pnpm dev
 
 # Advanced testing
 ./dev.sh run-tests <wallet-address>  # Complete test suite
+```
+
+## Local ntfy Server
+
+`./dev.sh start` automatically sets up a local ntfy server with auth enabled (`deny-all` default access). A test user and access token are created on first start.
+
+| Setting | Value |
+|---------|-------|
+| Server URL | `http://localhost:2586` |
+| Username | `testuser` |
+| Password | `testpassword` |
+
+An access token is generated automatically — run `./dev.sh status` to see it.
+
+### Testing from the frontend
+
+1. Go to Settings and set the ntfy server URL to `http://localhost:2586`
+2. Enter either username/password or the access token
+3. Use "Send Test Notification" to verify the connection
+
+### Testing from the command line
+
+```bash
+# Unauthenticated (should be denied)
+curl http://localhost:2586/test-topic/json
+
+# Username/password auth
+curl -u testuser:testpassword http://localhost:2586/test-topic/json
+
+# Access token auth (get token from ./dev.sh status)
+curl -H "Authorization: Bearer tk_..." http://localhost:2586/test-topic/json
 ```
 
 ## Environment Variable

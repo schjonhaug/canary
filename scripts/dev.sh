@@ -1059,11 +1059,41 @@ case "$1" in
             echo "⚠️  Fulcrum may still be starting (can take a few minutes on first run)"
             echo "Check logs with: ./docker-utils.sh logs fulcrum"
         fi
-        
+
+        # Wait for ntfy server to start
+        echo "Waiting for ntfy server to start..."
+        timeout=30
+        while [ $timeout -gt 0 ]; do
+            if curl -s http://localhost:2586/v1/health > /dev/null 2>&1; then
+                echo "✅ ntfy server is ready (auth: deny-all)"
+                break
+            fi
+            sleep 1
+            timeout=$((timeout-1))
+        done
+
+        if [ $timeout -le 0 ]; then
+            echo "⚠️  ntfy server may still be starting"
+        else
+            # Set up ntfy test user and access token
+            echo "Setting up ntfy test credentials..."
+            printf "testpassword\ntestpassword\n" | docker exec -i ntfy-regtest ntfy user add --role=admin testuser 2>/dev/null || true
+            # Check if token already exists, otherwise create one
+            NTFY_TOKEN=$(docker exec ntfy-regtest ntfy token list testuser 2>/dev/null | grep -o 'tk_[a-zA-Z0-9_]*' | head -1)
+            if [ -z "$NTFY_TOKEN" ]; then
+                NTFY_TOKEN=$(docker exec ntfy-regtest ntfy token add -l "Dev token" testuser 2>&1 | grep -o 'tk_[a-zA-Z0-9_]*' | head -1)
+            fi
+        fi
+
         echo ""
         echo "🚀 Bitcoin regtest environment is running!"
         echo "Bitcoin RPC: localhost:18443"
         echo "Fulcrum Electrum server: localhost:50001"
+        echo "ntfy server: http://localhost:2586"
+        echo "  User: testuser / testpassword"
+        if [ -n "$NTFY_TOKEN" ]; then
+            echo "  Token: $NTFY_TOKEN"
+        fi
         echo "Set BITCOIN_NETWORK=regtest in your environment"
         echo ""
         echo "💡 Next: $0 create-wallets (creates Alice with 1 BTC distributed)"
@@ -1608,7 +1638,20 @@ case "$1" in
         else
             echo "Fulcrum Electrum server: ❌ Not ready (may still be starting)"
         fi
-        
+
+        echo ""
+        echo "=== ntfy Server Status ==="
+        if curl -s http://localhost:2586/v1/health > /dev/null 2>&1; then
+            echo "ntfy server: ✅ Running on http://localhost:2586"
+            echo "  Auth: deny-all (user: testuser / testpassword)"
+            NTFY_TOKEN=$(docker exec ntfy-regtest ntfy token list testuser 2>/dev/null | grep -o 'tk_[a-zA-Z0-9_]*' | head -1)
+            if [ -n "$NTFY_TOKEN" ]; then
+                echo "  Token: $NTFY_TOKEN"
+            fi
+        else
+            echo "ntfy server: ❌ Not running"
+        fi
+
         echo ""
         echo "=== Docker Containers ==="
         docker-compose ps
@@ -1818,7 +1861,7 @@ case "$1" in
         echo "Usage: $0 <command> [args...]"
         echo ""
         echo "Environment Commands:"
-        echo "  start               Start Bitcoin + Electrum containers"
+        echo "  start               Start Bitcoin + Electrum + ntfy containers"
         echo "  create-wallets      Create Alice, Bob, and Charlie wallets (run after start)"
         echo "  stop                Stop all containers"
         echo "  restart             Restart all containers"  

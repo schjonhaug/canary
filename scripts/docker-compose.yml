@@ -26,6 +26,22 @@ services:
       - ./fulcrum.conf:/data/fulcrum.conf:ro
     command: ["Fulcrum", "/data/fulcrum.conf"]
 
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy-regtest
+    restart: unless-stopped
+    ports:
+      - "2586:80"
+    volumes:
+      - ntfy_data:/var/lib/ntfy
+    environment:
+      - NTFY_BASE_URL=http://localhost:2586
+      - NTFY_AUTH_FILE=/var/lib/ntfy/auth.db
+      - NTFY_AUTH_DEFAULT_ACCESS=deny-all
+      - NTFY_ENABLE_LOGIN=true
+    command: serve
+
 volumes:
   bitcoin_data:
   fulcrum_data:
+  ntfy_data:

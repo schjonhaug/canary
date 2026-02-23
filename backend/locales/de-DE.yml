@@ -1,5 +1,10 @@
 _version: 1
 
+# Test notification (handlers/notifications.rs)
+test_notification:
+  title: "Testbenachrichtigung"
+  message: "Dies ist eine Testbenachrichtigung von Canary. Wenn du dies siehst, funktioniert dein ntfy-Setup korrekt!"
+
 # Common strings used across multiple providers
 common:
   greeting: "Hallo %{to_name},"

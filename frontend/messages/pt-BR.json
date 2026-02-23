@@ -297,6 +297,17 @@
         "tokenRequired": "O token de acesso é obrigatório",
         "credentialsRequired": "Usuário e senha são obrigatórios",
         "authSaved": "Autenticação salva!"
+      },
+      "test": {
+        "title": "Notificação de teste",
+        "description": "Envie uma notificação de teste para verificar se sua configuração do ntfy está funcionando.",
+        "topicLabel": "Tópico",
+        "topicPlaceholder": "topico-teste",
+        "send": "Enviar teste",
+        "sending": "Enviando...",
+        "success": "Notificação de teste enviada com sucesso!",
+        "error": "Falha ao enviar notificação de teste",
+        "errorWithDetail": "Falha ao enviar notificação de teste: {detail}"
       }
     },
     "currencies": {

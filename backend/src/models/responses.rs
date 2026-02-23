@@ -90,3 +90,11 @@ pub struct BillingStatusResponse {
     /// Subscription tier limits
     pub limits: BillingTierLimits,
 }
+
+#[derive(Serialize)]
+pub struct TestNtfyResponse {
+    /// Whether the test notification was sent successfully
+    pub success: bool,
+    /// Error message if the notification failed
+    pub error: Option<String>,
+}

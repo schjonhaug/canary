@@ -6,6 +6,7 @@ mod billing;
 mod blockchain;
 mod contact;
 mod contact_verification;
+mod notifications;
 mod providers;
 mod user_preferences;
 mod wallet;
@@ -26,6 +27,7 @@ pub use contact::{
     create_wallet_contact, delete_wallet_contact, get_wallet_contacts, update_wallet_contact,
 };
 pub use contact_verification::{send_contact_verification, verify_contact};
+pub use notifications::send_test_ntfy_notification;
 pub use providers::get_providers;
 pub use user_preferences::{get_user_preferences, update_user_preferences};
 pub use wallet::{

@@ -413,6 +413,13 @@ class ApiClient {
       body: JSON.stringify({ email, message }),
     })
   }
+
+  async sendTestNtfyNotification(topic: string): Promise<{ success: boolean; error?: string }> {
+    return this.request<{ success: boolean; error?: string }>('/api/ntfy/test', {
+      method: 'POST',
+      body: JSON.stringify({ topic }),
+    })
+  }
 }
 
 // Export a singleton instance

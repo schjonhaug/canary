@@ -345,6 +345,17 @@
         "tokenRequired": "Adgangstoken er påkrævet",
         "credentialsRequired": "Både brugernavn og adgangskode er påkrævet",
         "authSaved": "Godkendelse gemt!"
+      },
+      "test": {
+        "title": "Testnotifikation",
+        "description": "Send en testnotifikation for at bekræfte, at din ntfy-opsætning fungerer.",
+        "topicLabel": "Emne",
+        "topicPlaceholder": "test-emne",
+        "send": "Send test",
+        "sending": "Sender...",
+        "success": "Testnotifikation sendt!",
+        "error": "Kunne ikke sende testnotifikation",
+        "errorWithDetail": "Kunne ikke sende testnotifikation: {detail}"
       }
     }
   },

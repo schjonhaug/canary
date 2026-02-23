@@ -7,8 +7,9 @@ use crate::handlers::{
     get_checkout_session_details, get_current_block_header, get_exchange_rates, get_providers,
     get_user_preferences, get_wallet, get_wallet_balance_alerts, get_wallet_contacts,
     get_wallet_detail, get_wallets_list, handle_stripe_webhook, login, logout, me, register,
-    reset_password, send_contact_verification, submit_contact_form, update_user,
-    update_user_preferences, update_wallet, update_wallet_contact, verify_contact, verify_email,
+    reset_password, send_contact_verification, send_test_ntfy_notification, submit_contact_form,
+    update_user, update_user_preferences, update_wallet, update_wallet_contact, verify_contact,
+    verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
@@ -375,6 +376,8 @@ pub fn create_router_with_services(
         .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
         // Billing status route (authenticated)
         .route("/billing/status", get(get_billing_status))
+        // Test notification route (self-hosted only)
+        .route("/ntfy/test", post(send_test_ntfy_notification))
         .with_state(app_state.clone());
 
     let provider_routes = Router::new()

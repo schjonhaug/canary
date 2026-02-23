@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -7,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bell } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { api } from "@/lib/api"
 import type { UserPreferences, NtfyAuthType } from "@/hooks/useUserPreferences"
 
 interface NtfyServerSettingsProps {
@@ -198,8 +200,84 @@ export function NtfyServerSettings({
           >
             {isUpdatingNtfySettings ? tCommon("saving") : tCommon("save")}
           </Button>
+
+          {/* Test Notification */}
+          <TestNotificationSection savedServerUrl={userPreferences?.ntfy_server_url || null} />
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | null }) {
+  const t = useTranslations("settings")
+  const [topic, setTopic] = useState("canary-test")
+  const [isSending, setIsSending] = useState(false)
+  const [result, setResult] = useState<{ success: boolean; message: string; topicUrl?: string } | null>(null)
+
+  const handleSendTest = useCallback(async () => {
+    setIsSending(true)
+    setResult(null)
+    try {
+      const response = await api.sendTestNtfyNotification(topic)
+      const serverBase = savedServerUrl || "https://ntfy.sh"
+      const topicUrl = `${serverBase.replace(/\/+$/, "")}/${topic.trim()}`
+      if (response.success) {
+        setResult({ success: true, message: t("ntfy.test.success"), topicUrl })
+      } else if (response.error) {
+        setResult({ success: false, message: t("ntfy.test.errorWithDetail", { detail: response.error }) })
+      } else {
+        setResult({ success: false, message: t("ntfy.test.error") })
+      }
+    } catch {
+      setResult({ success: false, message: t("ntfy.test.error") })
+    } finally {
+      setIsSending(false)
+    }
+  }, [topic, savedServerUrl, t])
+
+  return (
+    <div className="border-t pt-4">
+      <Label htmlFor="ntfy-test-topic">{t("ntfy.test.title")}</Label>
+      <p className="text-sm text-muted-foreground mb-3">
+        {t("ntfy.test.description")}
+      </p>
+      <div className="flex gap-2">
+        <Input
+          id="ntfy-test-topic"
+          type="text"
+          placeholder={t("ntfy.test.topicPlaceholder")}
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          disabled={isSending}
+        />
+        <Button
+          onClick={handleSendTest}
+          disabled={!topic.trim() || isSending}
+          variant="outline"
+          className="shrink-0"
+        >
+          {isSending ? t("ntfy.test.sending") : t("ntfy.test.send")}
+        </Button>
+      </div>
+      {result && (
+        <p className={`text-sm mt-2 ${result.success ? "text-green-500" : "text-red-500"}`}>
+          {result.message}
+          {result.topicUrl && (
+            <>
+              {" "}
+              <a
+                href={result.topicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                {result.topicUrl}
+              </a>
+            </>
+          )}
+        </p>
+      )}
+    </div>
   )
 }
