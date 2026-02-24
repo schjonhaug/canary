@@ -209,9 +209,8 @@ export default function BillingSuccessPage() {
       {/* Support Info */}
       <Card>
         <CardContent className="pt-6">
-          <div className="text-center text-sm text-muted-foreground space-y-1">
+          <div className="text-center text-sm text-muted-foreground">
             <p>Need help? Contact us at <a href="mailto:support@canarybitcoin.com" className="text-primary hover:underline">support@canarybitcoin.com</a></p>
-            <p>Session ID: <code className="text-xs bg-muted px-1 py-0.5 rounded">{sessionDetails.session_id}</code></p>
           </div>
         </CardContent>
       </Card>
