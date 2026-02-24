@@ -27,16 +27,16 @@ writeable = "0.6"
 r2d2 = "0.8"
 r2d2_sqlite = "0.24"
 async-trait = "0.1"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.13", features = ["json", "form"] }
 base64 = "0.22"
-jsonwebtoken = "9.3"
-rand = "0.8"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+rand = "0.9"
 sha2 = "0.10"
 hmac = "0.12"
 hex = "0.4"
 argon2 = "0.5"
 uuid = { version = "1", features = ["v4"] }
-resend-rs = "0.16"
+resend-rs = "0.21"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"

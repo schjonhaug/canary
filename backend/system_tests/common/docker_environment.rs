@@ -461,7 +461,7 @@ impl IsolatedTestEnvironment {
         _test_offset: u16, // Unused now, but kept for API compatibility
     ) -> Result<u16, Box<dyn std::error::Error>> {
         use rand::Rng;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         // Use current timestamp in microseconds to ensure uniqueness
         let now = std::time::SystemTime::now()
@@ -470,7 +470,7 @@ impl IsolatedTestEnvironment {
             .as_micros() as u32;
 
         // Create a unique offset based on timestamp and random number
-        let unique_offset = (now % 10000) + rng.gen_range(0..1000);
+        let unique_offset = (now % 10000) + rng.random_range(0..1000);
 
         // Try multiple port ranges to avoid conflicts
         let port_ranges = [
@@ -501,7 +501,7 @@ impl IsolatedTestEnvironment {
         // If deterministic approach fails, try random ports within ranges
         for (range_start, range_end) in port_ranges {
             for _ in 0..20 {
-                let random_port = rng.gen_range(range_start..range_end) as u16;
+                let random_port = rng.random_range(range_start..range_end) as u16;
                 if Self::is_port_available(random_port) {
                     println!(
                         "   Selected random port {} from range {}-{}",

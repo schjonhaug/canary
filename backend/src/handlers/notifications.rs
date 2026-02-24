@@ -143,15 +143,9 @@ pub async fn send_test_ntfy_notification(
                 let body = response.text().await.unwrap_or_default();
                 // Try to extract "error" field from ntfy JSON responses
                 let detail = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-                    json["error"]
-                        .as_str()
-                        .unwrap_or(&body)
-                        .to_string()
+                    json["error"].as_str().unwrap_or(&body).to_string()
                 } else if body.is_empty() {
-                    status
-                        .canonical_reason()
-                        .unwrap_or("Unknown")
-                        .to_string()
+                    status.canonical_reason().unwrap_or("Unknown").to_string()
                 } else {
                     body
                 };

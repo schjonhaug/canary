@@ -93,8 +93,8 @@ pub async fn create_stripe_checkout_session(
                 .into_response();
         }
     };
-    let success_url = format!("{}/settings/subscription?success=true", frontend_url);
-    let cancel_url = format!("{}/settings/subscription?cancelled=true", frontend_url);
+    let success_url = format!("{}/subscription?success=true&session={{CHECKOUT_SESSION_ID}}", frontend_url);
+    let cancel_url = format!("{}/subscription?cancelled=true", frontend_url);
 
     let result = stripe_billing
         .create_checkout_session(
