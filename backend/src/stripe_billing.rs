@@ -935,10 +935,17 @@ impl StripeBilling {
                                         }
                                     }
 
-                                    // Catch-all: always update when subscription becomes active
+                                    // Catch-all: update when subscription transitions to active
+                                    // Only fires when previous_attributes confirms status changed from non-active
                                     if !should_update && current_status == Some("active") {
-                                        should_update = true;
-                                        if reason.is_empty() {
+                                        let status_changed_to_active = subscription
+                                            .get("previous_attributes")
+                                            .and_then(|p| p.get("status"))
+                                            .and_then(|s| s.as_str())
+                                            .map(|s| s != "active")
+                                            .unwrap_or(false);
+                                        if status_changed_to_active {
+                                            should_update = true;
                                             reason = "Subscription activated".to_string();
                                         }
                                     }
@@ -1087,23 +1094,26 @@ impl StripeBilling {
                                     // Safety net: ensure subscription status is "active" after successful payment.
                                     // This handles race conditions where subscription.deleted (for old trial)
                                     // may overwrite the active status set by checkout.session.completed.
-                                    if let Some(cid) = customer_id {
-                                        let subscription_id = invoice
-                                            .get("subscription")
-                                            .and_then(|s| s.as_str())
-                                            .map(|s| s.to_string());
+                                    // Only applies to subscription-related invoices.
+                                    let subscription_id = invoice
+                                        .get("subscription")
+                                        .and_then(|s| s.as_str())
+                                        .map(|s| s.to_string());
 
-                                        tracing::info!(
-                                            "🔒 Safety net: ensuring active status for customer {} (subscription: {:?})",
+                                    if let (Some(cid), Some(sub_id)) =
+                                        (customer_id, subscription_id)
+                                    {
+                                        tracing::debug!(
+                                            "🔒 Safety net: ensuring active status for customer {} (subscription: {})",
                                             cid,
-                                            subscription_id
+                                            sub_id
                                         );
 
                                         let update = SubscriptionUpdate {
                                             user_id: self.extract_user_id_from_customer(cid),
                                             subscription_tier: "keep_current".to_string(),
                                             subscription_status: "active".to_string(),
-                                            stripe_subscription_id: subscription_id,
+                                            stripe_subscription_id: Some(sub_id),
                                             subscription_started_at: None,
                                             subscription_ends_at: None,
                                             trial_ends_at: None,
