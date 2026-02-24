@@ -979,14 +979,12 @@
       "phone_not_verified": "保存する前に電話番号を確認する必要があります。",
       "email_not_verified_contact": "保存する前にメールアドレスを確認する必要があります。",
       "no_notification_method": "少なくとも1つの通知方法を指定する必要があります。",
-      "ntfy_topic_invalid": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。",
       "duplicate_notification_targets": "この通知先は既にこのウォレットで使用されています。",
       "contact_not_found": "連絡先が見つかりません。",
       "duplicate_phone_number": "この電話番号は既にこのウォレットで使用されています。",
       "duplicate_email_address": "このメールアドレスは既にこのウォレットで使用されています。",
       "verification_rate_limit": "確認の試行回数が多すぎます。後でもう一度お試しください。",
       "no_pending_verification": "保留中の確認が見つかりません。新しいコードをリクエストしてください。",
-      "invalid_verification_code": "無効な確認コードです。",
       "verification_input_required": "電話番号またはメールアドレスを指定する必要があります。",
       "invalid_threshold_config": "しきい値タイプは1つだけ指定する必要があります: BTCまたはフィアット。",
       "negative_btc_threshold": "しきい値は正の値である必要があります。",
@@ -998,7 +996,10 @@
       "invalid_subscription_tier": "無効なサブスクリプションティアです。",
       "no_stripe_customer": "Stripeの顧客が見つかりません。まずサブスクリプションを作成してください。",
       "demo_read_only": "デモアカウントは読み取り専用です。自分のウォレットを作成するにはサインアップしてください。",
-      "user_not_found": "ユーザーが見つかりません。"
+      "user_not_found": "ユーザーが見つかりません。",
+      "negative_fiat_threshold": "法定通貨のしきい値は正の数でなければなりません。",
+      "fiat_amount_too_small": "法定通貨の金額が小さすぎてサトシに変換できません。",
+      "invalid_ntfy_topic": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。"
     }
   },
   "footer": {

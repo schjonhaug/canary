@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Bell, MessageCircle, Mail } from "lucide-react"
 import { api, ProviderInfo, ApiError } from "../lib/api"
+import { getTranslatedApiError } from "../lib/utils"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
 import { SmsProviderFields, EmailProviderFields, NtfyProviderFields } from "./contact-modal/index"
@@ -61,6 +62,7 @@ export function ContactModal({
 }: ContactModalProps) {
   const t = useTranslations('contacts')
   const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
   const phonePlaceholder = usePhonePlaceholder()
   const ntfyServerUrl = useNtfyServerUrl()
   const [name, setName] = useState("")
@@ -315,12 +317,8 @@ export function ContactModal({
           setError(t('verification.expiredRequest'))
           smsVerification.reset()
           emailVerification.reset()
-        } else if (err.errorCode === 'invalid_verification_code') {
-          setError(t('verification.invalid'))
         } else {
-          setError(err.isNetworkError() || err.isServerError()
-            ? err.getUserFriendlyMessage()
-            : err.message)
+          setError(getTranslatedApiError(err, tApiErrors))
         }
       } else {
         setError(err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'create'} contact`)

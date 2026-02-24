@@ -164,7 +164,7 @@ pub async fn create_wallet_balance_alert(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::coded(
-                    "negative_btc_threshold",
+                    "negative_fiat_threshold",
                     "Fiat threshold amount must be positive",
                 )),
             )
@@ -224,7 +224,7 @@ pub async fn create_wallet_balance_alert(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::coded(
-                    "negative_btc_threshold",
+                    "fiat_amount_too_small",
                     format!(
                         "Fiat amount {} {} is too small to convert to satoshis",
                         fiat_amount, currency

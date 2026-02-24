@@ -185,9 +185,6 @@ export function useSmsVerification({
         setVerificationSent(false)
         setIsVerified(false)
         clearTimer()
-      } else if (err instanceof ApiError && err.errorCode === 'invalid_verification_code') {
-        setVerificationError(t('verification.invalid'))
-        setVerificationCode("")
       } else {
         setVerificationError(errorMessage)
       }

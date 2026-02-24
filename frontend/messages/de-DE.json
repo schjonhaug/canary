@@ -979,14 +979,12 @@
       "phone_not_verified": "Die Telefonnummer muss vor dem Speichern verifiziert werden.",
       "email_not_verified_contact": "Die E-Mail-Adresse muss vor dem Speichern verifiziert werden.",
       "no_notification_method": "Mindestens eine Benachrichtigungsmethode muss angegeben werden.",
-      "ntfy_topic_invalid": "Ungültiges ntfy-Thema. Verwenden Sie nur Buchstaben, Zahlen, Bindestriche und Unterstriche.",
       "duplicate_notification_targets": "Dieses Benachrichtigungsziel wird für diese Wallet bereits verwendet.",
       "contact_not_found": "Kontakt nicht gefunden.",
       "duplicate_phone_number": "Diese Telefonnummer wird für diese Wallet bereits verwendet.",
       "duplicate_email_address": "Diese E-Mail-Adresse wird für diese Wallet bereits verwendet.",
       "verification_rate_limit": "Zu viele Verifizierungsversuche. Bitte versuchen Sie es später erneut.",
       "no_pending_verification": "Keine ausstehende Verifizierung gefunden. Bitte fordern Sie einen neuen Code an.",
-      "invalid_verification_code": "Ungültiger Verifizierungscode.",
       "verification_input_required": "Entweder eine Telefonnummer oder eine E-Mail-Adresse muss angegeben werden.",
       "invalid_threshold_config": "Es muss genau ein Schwellenwerttyp angegeben werden: entweder BTC oder Fiat.",
       "negative_btc_threshold": "Der Schwellenwert muss positiv sein.",
@@ -998,7 +996,10 @@
       "invalid_subscription_tier": "Ungültige Abonnementstufe.",
       "no_stripe_customer": "Kein Stripe-Kunde gefunden. Bitte erstellen Sie zuerst ein Abonnement.",
       "demo_read_only": "Das Demokonto ist schreibgeschützt. Registrieren Sie sich, um Ihre eigene Wallet zu erstellen.",
-      "user_not_found": "Benutzer nicht gefunden."
+      "user_not_found": "Benutzer nicht gefunden.",
+      "negative_fiat_threshold": "Der Fiat-Schwellenwert muss positiv sein.",
+      "fiat_amount_too_small": "Der Fiat-Betrag ist zu klein, um in Satoshis umgerechnet zu werden.",
+      "invalid_ntfy_topic": "Ungültiges ntfy-Thema. Verwenden Sie nur Buchstaben, Zahlen, Bindestriche und Unterstriche."
     }
   },
   "footer": {

@@ -979,14 +979,12 @@
       "phone_not_verified": "Telefonnumret måste verifieras innan det sparas.",
       "email_not_verified_contact": "E-postadressen måste verifieras innan den sparas.",
       "no_notification_method": "Minst en aviseringsmetod måste anges.",
-      "ntfy_topic_invalid": "Ogiltigt ntfy-ämne. Använd bara bokstäver, siffror, bindestreck och understreck.",
       "duplicate_notification_targets": "Detta aviseringsmål används redan för denna plånbok.",
       "contact_not_found": "Kontakt hittades inte.",
       "duplicate_phone_number": "Detta telefonnummer används redan för denna plånbok.",
       "duplicate_email_address": "Denna e-postadress används redan för denna plånbok.",
       "verification_rate_limit": "För många verifieringsförsök. Försök igen senare.",
       "no_pending_verification": "Ingen väntande verifiering hittades. Begär en ny kod.",
-      "invalid_verification_code": "Ogiltig verifieringskod.",
       "verification_input_required": "Antingen ett telefonnummer eller en e-postadress måste anges.",
       "invalid_threshold_config": "Exakt en tröskeltyp måste anges: antingen BTC eller fiat.",
       "negative_btc_threshold": "Tröskelbeloppet måste vara positivt.",
@@ -998,7 +996,10 @@
       "invalid_subscription_tier": "Ogiltig prenumerationsnivå.",
       "no_stripe_customer": "Ingen Stripe-kund hittades. Skapa en prenumeration först.",
       "demo_read_only": "Demokontot är skrivskyddat. Registrera dig för att skapa din egen plånbok.",
-      "user_not_found": "Användare hittades inte."
+      "user_not_found": "Användare hittades inte.",
+      "negative_fiat_threshold": "Fiat-tröskelvärdet måste vara positivt.",
+      "fiat_amount_too_small": "Fiat-beloppet är för litet för att konvertera till satoshis.",
+      "invalid_ntfy_topic": "Ogiltigt ntfy-ämne. Använd bara bokstäver, siffror, bindestreck och understreck."
     }
   },
   "footer": {

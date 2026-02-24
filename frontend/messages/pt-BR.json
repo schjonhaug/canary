@@ -979,14 +979,12 @@
       "phone_not_verified": "O número de telefone deve ser verificado antes de salvar.",
       "email_not_verified_contact": "O endereço de e-mail deve ser verificado antes de salvar.",
       "no_notification_method": "Pelo menos um método de notificação deve ser fornecido.",
-      "ntfy_topic_invalid": "Tópico ntfy inválido. Use apenas letras, números, hífens e underlines.",
       "duplicate_notification_targets": "Este destino de notificação já está em uso para esta carteira.",
       "contact_not_found": "Contato não encontrado.",
       "duplicate_phone_number": "Este número de telefone já está em uso para esta carteira.",
       "duplicate_email_address": "Este endereço de e-mail já está em uso para esta carteira.",
       "verification_rate_limit": "Muitas tentativas de verificação. Tente novamente mais tarde.",
       "no_pending_verification": "Nenhuma verificação pendente encontrada. Solicite um novo código.",
-      "invalid_verification_code": "Código de verificação inválido.",
       "verification_input_required": "Um número de telefone ou endereço de e-mail deve ser fornecido.",
       "invalid_threshold_config": "Exatamente um tipo de limite deve ser fornecido: BTC ou fiat.",
       "negative_btc_threshold": "O valor do limite deve ser positivo.",
@@ -998,7 +996,10 @@
       "invalid_subscription_tier": "Nível de assinatura inválido.",
       "no_stripe_customer": "Nenhum cliente Stripe encontrado. Crie uma assinatura primeiro.",
       "demo_read_only": "A conta de demonstração é somente leitura. Cadastre-se para criar sua própria carteira.",
-      "user_not_found": "Usuário não encontrado."
+      "user_not_found": "Usuário não encontrado.",
+      "negative_fiat_threshold": "O valor do limite fiat deve ser positivo.",
+      "fiat_amount_too_small": "O valor fiat é muito pequeno para converter em satoshis.",
+      "invalid_ntfy_topic": "Tópico ntfy inválido. Use apenas letras, números, hífens e underlines."
     }
   },
   "footer": {

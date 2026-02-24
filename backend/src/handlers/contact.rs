@@ -249,7 +249,7 @@ pub async fn create_wallet_contact(
                     Err(e) => {
                         return (
                             StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("ntfy_topic_invalid", e)),
+                            Json(ErrorResponse::coded("invalid_ntfy_topic", e)),
                         )
                             .into_response();
                     }
@@ -691,7 +691,7 @@ pub async fn update_wallet_contact(
                     Err(e) => {
                         return (
                             StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("ntfy_topic_invalid", e)),
+                            Json(ErrorResponse::coded("invalid_ntfy_topic", e)),
                         )
                             .into_response();
                     }

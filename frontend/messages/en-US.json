@@ -979,14 +979,12 @@
       "phone_not_verified": "Phone number must be verified before saving.",
       "email_not_verified_contact": "Email address must be verified before saving.",
       "no_notification_method": "At least one notification method must be provided.",
-      "ntfy_topic_invalid": "Invalid ntfy topic. Use only letters, numbers, dashes, and underscores.",
       "duplicate_notification_targets": "This notification target is already in use for this wallet.",
       "contact_not_found": "Contact not found.",
       "duplicate_phone_number": "This phone number is already in use for this wallet.",
       "duplicate_email_address": "This email address is already in use for this wallet.",
       "verification_rate_limit": "Too many verification attempts. Please try again later.",
       "no_pending_verification": "No pending verification found. Please request a new code.",
-      "invalid_verification_code": "Invalid verification code.",
       "verification_input_required": "Either a phone number or email address must be provided.",
       "invalid_threshold_config": "Exactly one threshold type must be provided: either BTC or fiat.",
       "negative_btc_threshold": "Threshold amount must be positive.",
@@ -998,7 +996,10 @@
       "invalid_subscription_tier": "Invalid subscription tier.",
       "no_stripe_customer": "No Stripe customer found. Please create a subscription first.",
       "demo_read_only": "Demo account is read-only. Sign up to create your own wallet.",
-      "user_not_found": "User not found."
+      "user_not_found": "User not found.",
+      "negative_fiat_threshold": "Fiat threshold amount must be positive.",
+      "fiat_amount_too_small": "The fiat amount is too small to convert to satoshis.",
+      "invalid_ntfy_topic": "Invalid ntfy topic. Use only letters, numbers, dashes, and underscores."
     }
   },
   "footer": {

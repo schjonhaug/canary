@@ -979,14 +979,12 @@
       "phone_not_verified": "Telefonnummeret skal bekræftes før det kan gemmes.",
       "email_not_verified_contact": "E-mailadressen skal bekræftes før den kan gemmes.",
       "no_notification_method": "Mindst én notifikationsmetode skal angives.",
-      "ntfy_topic_invalid": "Ugyldigt ntfy-emne. Brug kun bogstaver, tal, bindestreger og understreger.",
       "duplicate_notification_targets": "Dette notifikationsmål er allerede i brug for denne tegnebog.",
       "contact_not_found": "Kontakt ikke fundet.",
       "duplicate_phone_number": "Dette telefonnummer er allerede i brug for denne tegnebog.",
       "duplicate_email_address": "Denne e-mailadresse er allerede i brug for denne tegnebog.",
       "verification_rate_limit": "For mange bekræftelsesforsøg. Prøv venligst igen senere.",
       "no_pending_verification": "Ingen ventende bekræftelse fundet. Anmod venligst om en ny kode.",
-      "invalid_verification_code": "Ugyldig bekræftelseskode.",
       "verification_input_required": "Enten et telefonnummer eller en e-mailadresse skal angives.",
       "invalid_threshold_config": "Præcis én tærskeltype skal angives: enten BTC eller fiat.",
       "negative_btc_threshold": "Tærskelbeløbet skal være positivt.",
@@ -998,7 +996,10 @@
       "invalid_subscription_tier": "Ugyldigt abonnementsniveau.",
       "no_stripe_customer": "Ingen Stripe-kunde fundet. Opret venligst et abonnement først.",
       "demo_read_only": "Demokontoen er skrivebeskyttet. Tilmeld dig for at oprette din egen tegnebog.",
-      "user_not_found": "Bruger ikke fundet."
+      "user_not_found": "Bruger ikke fundet.",
+      "negative_fiat_threshold": "Fiat-tærskelbeløbet skal være positivt.",
+      "fiat_amount_too_small": "Fiat-beløbet er for lille til at konvertere til satoshis.",
+      "invalid_ntfy_topic": "Ugyldigt ntfy-emne. Brug kun bogstaver, tal, bindestreger og understreger."
     }
   },
   "footer": {

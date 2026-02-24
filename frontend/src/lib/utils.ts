@@ -339,8 +339,9 @@ export function getTranslatedApiError(
   if (err instanceof ApiError && err.errorCode) {
     try {
       const translated = t(err.errorCode)
-      // next-intl returns the key path if no translation is found
-      if (translated && translated !== `errors.api.${err.errorCode}`) {
+      // next-intl returns the key path if no translation is found;
+      // also check for bare key in case namespace is not prefixed
+      if (translated && translated !== `errors.api.${err.errorCode}` && translated !== err.errorCode) {
         return translated
       }
     } catch {

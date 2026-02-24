@@ -979,14 +979,12 @@
       "phone_not_verified": "Telefonnummeret må verifiseres før lagring.",
       "email_not_verified_contact": "E-postadressen må verifiseres før lagring.",
       "no_notification_method": "Minst én varslingsmetode må oppgis.",
-      "ntfy_topic_invalid": "Ugyldig ntfy-emne. Bruk bare bokstaver, tall, bindestreker og understreker.",
       "duplicate_notification_targets": "Dette varslingsmålet er allerede i bruk for denne lommeboken.",
       "contact_not_found": "Kontakt ikke funnet.",
       "duplicate_phone_number": "Dette telefonnummeret er allerede i bruk for denne lommeboken.",
       "duplicate_email_address": "Denne e-postadressen er allerede i bruk for denne lommeboken.",
       "verification_rate_limit": "For mange verifiseringsforsøk. Vennligst prøv igjen senere.",
       "no_pending_verification": "Ingen ventende verifisering funnet. Vennligst be om en ny kode.",
-      "invalid_verification_code": "Ugyldig verifiseringskode.",
       "verification_input_required": "Enten telefonnummer eller e-postadresse må oppgis.",
       "invalid_threshold_config": "Nøyaktig én terskeltype må oppgis: enten BTC eller fiat.",
       "negative_btc_threshold": "Terskelbeløpet må være positivt.",
@@ -998,7 +996,10 @@
       "invalid_subscription_tier": "Ugyldig abonnementsnivå.",
       "no_stripe_customer": "Ingen Stripe-kunde funnet. Vennligst opprett et abonnement først.",
       "demo_read_only": "Demokontoen er skrivebeskyttet. Registrer deg for å opprette din egen lommebok.",
-      "user_not_found": "Bruker ikke funnet."
+      "user_not_found": "Bruker ikke funnet.",
+      "negative_fiat_threshold": "Fiat-terskelbeløpet må være positivt.",
+      "fiat_amount_too_small": "Fiat-beløpet er for lite til å konvertere til satoshier.",
+      "invalid_ntfy_topic": "Ugyldig ntfy-emne. Bruk bare bokstaver, tall, bindestreker og understreker."
     }
   },
   "footer": {

@@ -979,14 +979,12 @@
       "phone_not_verified": "El número de teléfono debe ser verificado antes de guardar.",
       "email_not_verified_contact": "La dirección de correo electrónico debe ser verificada antes de guardar.",
       "no_notification_method": "Se debe proporcionar al menos un método de notificación.",
-      "ntfy_topic_invalid": "Tema de ntfy no válido. Use solo letras, números, guiones y guiones bajos.",
       "duplicate_notification_targets": "Este destino de notificación ya está en uso para esta billetera.",
       "contact_not_found": "Contacto no encontrado.",
       "duplicate_phone_number": "Este número de teléfono ya está en uso para esta billetera.",
       "duplicate_email_address": "Esta dirección de correo electrónico ya está en uso para esta billetera.",
       "verification_rate_limit": "Demasiados intentos de verificación. Por favor, inténtelo de nuevo más tarde.",
       "no_pending_verification": "No se encontró ninguna verificación pendiente. Por favor, solicite un nuevo código.",
-      "invalid_verification_code": "Código de verificación no válido.",
       "verification_input_required": "Se debe proporcionar un número de teléfono o una dirección de correo electrónico.",
       "invalid_threshold_config": "Se debe proporcionar exactamente un tipo de umbral: ya sea BTC o fiat.",
       "negative_btc_threshold": "El monto del umbral debe ser positivo.",
@@ -998,7 +996,10 @@
       "invalid_subscription_tier": "Nivel de suscripción no válido.",
       "no_stripe_customer": "No se encontró ningún cliente de Stripe. Por favor, cree una suscripción primero.",
       "demo_read_only": "La cuenta de demostración es de solo lectura. Regístrese para crear su propia billetera.",
-      "user_not_found": "Usuario no encontrado."
+      "user_not_found": "Usuario no encontrado.",
+      "negative_fiat_threshold": "El monto del umbral fiat debe ser positivo.",
+      "fiat_amount_too_small": "El monto fiat es demasiado pequeño para convertir a satoshis.",
+      "invalid_ntfy_topic": "Tema de ntfy no válido. Use solo letras, números, guiones y guiones bajos."
     }
   },
   "footer": {
