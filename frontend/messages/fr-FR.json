@@ -1048,8 +1048,8 @@
     "mailtoSubject": "Question sur la facturation",
     "mailtoBody": "Bonjour, j'essayais de mettre à jour mon forfait mais j'ai annulé le paiement. Pouvez-vous m'aider avec...",
     "helpTitle": "Besoin d'aide pour choisir un forfait ?",
-    "personalDescription": "• <strong>Personnel :</strong> Idéal pour les utilisateurs individuels gérant leur propre Bitcoin",
-    "teamDescription": "• <strong>Équipe :</strong> Parfait pour les tuteurs familiaux gérant plusieurs portefeuilles",
+    "personalDescription": "<strong>{planName} :</strong> Idéal pour les utilisateurs individuels gérant leur propre Bitcoin",
+    "teamDescription": "<strong>{planName} :</strong> Parfait pour les tuteurs familiaux gérant plusieurs portefeuilles",
     "supportQuestion": "Des questions sur nos forfaits ? Nous sommes là pour vous aider !",
     "supportEmail": "Envoyez-nous un e-mail à <link>{email}</link>"
   },

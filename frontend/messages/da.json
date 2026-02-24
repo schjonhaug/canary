@@ -1048,8 +1048,8 @@
     "mailtoSubject": "Spørgsmål om fakturering",
     "mailtoBody": "Hej, jeg forsøgte at opgradere mit abonnement, men annullerede betalingen. Kan I hjælpe mig med...",
     "helpTitle": "Har du brug for hjælp til at vælge et abonnement?",
-    "personalDescription": "• <strong>Personlig:</strong> Perfekt til enkelte brugere, der administrerer deres egen Bitcoin",
-    "teamDescription": "• <strong>Team:</strong> Ideelt til familieoverhoveder, der administrerer flere tegnebøger",
+    "personalDescription": "<strong>{planName}:</strong> Perfekt til enkelte brugere, der administrerer deres egen Bitcoin",
+    "teamDescription": "<strong>{planName}:</strong> Ideelt til familieoverhoveder, der administrerer flere tegnebøger",
     "supportQuestion": "Spørgsmål til vores abonnementer? Vi er her for at hjælpe!",
     "supportEmail": "Send os en e-mail på <link>{email}</link>"
   },

@@ -1048,8 +1048,8 @@
     "mailtoSubject": "Billing Question",
     "mailtoBody": "Hi, I was trying to upgrade my plan but cancelled the payment. Can you help me with...",
     "helpTitle": "Need help choosing a plan?",
-    "personalDescription": "• <strong>Personal:</strong> Perfect for individual users managing their own Bitcoin",
-    "teamDescription": "• <strong>Team:</strong> Great for family guardians managing multiple wallets",
+    "personalDescription": "<strong>{planName}:</strong> Perfect for individual users managing their own Bitcoin",
+    "teamDescription": "<strong>{planName}:</strong> Great for family guardians managing multiple wallets",
     "supportQuestion": "Questions about our plans? We're here to help!",
     "supportEmail": "Email us at <link>{email}</link>"
   },

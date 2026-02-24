@@ -1048,8 +1048,8 @@
     "mailtoSubject": "請求に関するお問い合わせ",
     "mailtoBody": "こんにちは。プランのアップグレードを試みましたが、支払いをキャンセルしました。以下の件についてサポートをお願いできますか...",
     "helpTitle": "プラン選びでお手伝いが必要ですか？",
-    "personalDescription": "• <strong>個人:</strong> ご自身のビットコインを管理する個人ユーザーに最適です",
-    "teamDescription": "• <strong>チーム:</strong> 複数のウォレットを管理するご家族の保護者に最適です",
+    "personalDescription": "<strong>{planName}:</strong> ご自身のビットコインを管理する個人ユーザーに最適です",
+    "teamDescription": "<strong>{planName}:</strong> 複数のウォレットを管理するご家族の保護者に最適です",
     "supportQuestion": "プランについてご質問がありますか？お気軽にお問い合わせください。",
     "supportEmail": "メールでお問い合わせください：<link>{email}</link>"
   },

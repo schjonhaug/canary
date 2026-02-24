@@ -1048,8 +1048,8 @@
     "mailtoSubject": "Faktureringsfråga",
     "mailtoBody": "Hej, jag försökte uppgradera min plan men avbröt betalningen. Kan ni hjälpa mig med...",
     "helpTitle": "Behöver du hjälp att välja en plan?",
-    "personalDescription": "• <strong>Personlig:</strong> Perfekt för enskilda användare som hanterar sin egen Bitcoin",
-    "teamDescription": "• <strong>Team:</strong> Utmärkt för familjeförvaltare som hanterar flera plånböcker",
+    "personalDescription": "<strong>{planName}:</strong> Perfekt för enskilda användare som hanterar sin egen Bitcoin",
+    "teamDescription": "<strong>{planName}:</strong> Utmärkt för familjeförvaltare som hanterar flera plånböcker",
     "supportQuestion": "Frågor om våra planer? Vi finns här för att hjälpa!",
     "supportEmail": "Skicka e-post till oss på <link>{email}</link>"
   },
