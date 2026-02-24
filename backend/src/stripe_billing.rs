@@ -935,6 +935,14 @@ impl StripeBilling {
                                         }
                                     }
 
+                                    // Catch-all: always update when subscription becomes active
+                                    if !should_update && current_status == Some("active") {
+                                        should_update = true;
+                                        if reason.is_empty() {
+                                            reason = "Subscription activated".to_string();
+                                        }
+                                    }
+
                                     // Check for subscription cancellation
                                     // If cancel_at_period_end is true, always update to set the end date
                                     if cancel_at_period_end == Some(true) {
@@ -1075,6 +1083,33 @@ impl StripeBilling {
                                         amount_dollars,
                                         customer_id.unwrap_or("unknown")
                                     );
+
+                                    // Safety net: ensure subscription status is "active" after successful payment.
+                                    // This handles race conditions where subscription.deleted (for old trial)
+                                    // may overwrite the active status set by checkout.session.completed.
+                                    if let Some(cid) = customer_id {
+                                        let subscription_id = invoice
+                                            .get("subscription")
+                                            .and_then(|s| s.as_str())
+                                            .map(|s| s.to_string());
+
+                                        tracing::info!(
+                                            "🔒 Safety net: ensuring active status for customer {} (subscription: {:?})",
+                                            cid,
+                                            subscription_id
+                                        );
+
+                                        let update = SubscriptionUpdate {
+                                            user_id: self.extract_user_id_from_customer(cid),
+                                            subscription_tier: "keep_current".to_string(),
+                                            subscription_status: "active".to_string(),
+                                            stripe_subscription_id: subscription_id,
+                                            subscription_started_at: None,
+                                            subscription_ends_at: None,
+                                            trial_ends_at: None,
+                                        };
+                                        updates.push(update);
+                                    }
                                 }
                             } else {
                                 // Fallback if we can't parse the invoice
@@ -1320,7 +1355,30 @@ impl StripeBilling {
             return tier.to_lowercase();
         }
 
-        tracing::warn!("⚠️ Could not determine tier from subscription, defaulting to personal");
+        let sub_id = subscription
+            .get("id")
+            .and_then(|id| id.as_str())
+            .unwrap_or("unknown");
+        let price_ids: Vec<&str> = subscription
+            .get("items")
+            .and_then(|i| i.get("data"))
+            .and_then(|d| d.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| {
+                        item.get("price")
+                            .and_then(|p| p.get("id"))
+                            .and_then(|id| id.as_str())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        tracing::warn!(
+            "⚠️ Could not determine tier from subscription {}, price_ids: {:?}, defaulting to personal",
+            sub_id,
+            price_ids
+        );
         "personal".to_string()
     }
 }
