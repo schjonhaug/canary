@@ -181,12 +181,10 @@ async fn test_create_wallet_duplicate_descriptor() {
 
     let response = app.oneshot(request).await.unwrap();
 
-    // Note: Current behavior returns 400 BAD_REQUEST for duplicates
-    // because the error message doesn't match the handler's CONFLICT checks
     assert_eq!(
         response.status(),
-        StatusCode::BAD_REQUEST,
-        "Expected 400 BAD_REQUEST for duplicate descriptor (current behavior)"
+        StatusCode::CONFLICT,
+        "Expected 409 CONFLICT for duplicate descriptor"
     );
 
     let body = body_to_json(response.into_body()).await;
@@ -196,6 +194,11 @@ async fn test_create_wallet_duplicate_descriptor() {
             .unwrap()
             .contains("already been added"),
         "Error should mention wallet already exists"
+    );
+    assert_eq!(
+        body["error_code"].as_str().unwrap(),
+        "wallet_already_exists",
+        "Error should include wallet_already_exists error code"
     );
 }
 
