@@ -19,14 +19,15 @@ export default function SubscriptionPage() {
   const isSuccess = searchParams.get('success') === 'true'
   const isCancelled = searchParams.get('cancelled') === 'true'
 
-  if (isSuccess) return <BillingSuccessPage />
-  if (isCancelled) return <BillingCancelPage />
   const t = useTranslations('subscriptionPage')
   const tBilling = useTranslations('billing')
   const tCommon = useTranslations('common')
   const { user, billingStatus, isLoading, refreshBillingStatus, isSelfHostedMode } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+
+  if (isSuccess) return <BillingSuccessPage />
+  if (isCancelled) return <BillingCancelPage />
 
   useEffect(() => {
     // Only refresh billing status when auth is ready and user is logged in
