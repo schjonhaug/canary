@@ -153,28 +153,42 @@ impl std::fmt::Display for LimitError {
 
 impl std::error::Error for LimitError {}
 
+/// Parse a datetime string and check if it's in the future
+fn is_future_datetime(date_str: &str) -> Option<bool> {
+    chrono::NaiveDateTime::parse_from_str(date_str, "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .map(|dt| dt > chrono::Utc::now().naive_utc())
+}
+
 /// Check if a subscription is currently active
 ///
 /// A subscription is active if:
 /// - Status is "active", OR
-/// - Status is "trialing" AND trial_ends_at is in the future
-pub fn is_subscription_active(subscription_status: &str, trial_ends_at: Option<&str>) -> bool {
-    if subscription_status == "trialing" {
-        if let Some(trial_ends_at_str) = trial_ends_at {
-            // Parse trial_ends_at and check if it's in the future
-            if let Ok(trial_ends_at) =
-                chrono::NaiveDateTime::parse_from_str(trial_ends_at_str, "%Y-%m-%d %H:%M:%S")
-            {
-                let now = chrono::Utc::now().naive_utc();
-                trial_ends_at > now // Active if trial hasn't ended yet
+/// - Status is "trialing" AND trial_ends_at is in the future, OR
+/// - Status is "canceled" AND subscription_ends_at is in the future
+pub fn is_subscription_active(
+    subscription_status: &str,
+    trial_ends_at: Option<&str>,
+    subscription_ends_at: Option<&str>,
+) -> bool {
+    match subscription_status {
+        "active" => true,
+        "trialing" => {
+            if let Some(trial_ends_at_str) = trial_ends_at {
+                // Assume active if parse fails (shouldn't happen with valid DB data)
+                is_future_datetime(trial_ends_at_str).unwrap_or(true)
             } else {
-                true // If parse fails, assume active (shouldn't happen)
+                true // If no trial_ends_at, assume active
             }
-        } else {
-            true // If no trial_ends_at, assume active
         }
-    } else {
-        subscription_status == "active"
+        "canceled" => {
+            // Active if subscription_ends_at is in the future (user paid for remaining period).
+            // Fail closed: if missing or unparseable, treat as inactive.
+            subscription_ends_at
+                .and_then(is_future_datetime)
+                .unwrap_or(false)
+        }
+        _ => false,
     }
 }
 
@@ -235,10 +249,11 @@ mod tests {
 
     #[test]
     fn test_is_subscription_active_with_active_status() {
-        assert!(is_subscription_active("active", None));
+        assert!(is_subscription_active("active", None, None));
         assert!(is_subscription_active(
             "active",
-            Some("2025-01-01 00:00:00")
+            Some("2025-01-01 00:00:00"),
+            None
         ));
     }
 
@@ -247,7 +262,7 @@ mod tests {
         // Trial ends in the future
         let future_date = chrono::Utc::now().naive_utc() + chrono::Duration::days(30);
         let future_str = future_date.format("%Y-%m-%d %H:%M:%S").to_string();
-        assert!(is_subscription_active("trialing", Some(&future_str)));
+        assert!(is_subscription_active("trialing", Some(&future_str), None));
     }
 
     #[test]
@@ -255,15 +270,41 @@ mod tests {
         // Trial ended in the past
         let past_date = chrono::Utc::now().naive_utc() - chrono::Duration::days(30);
         let past_str = past_date.format("%Y-%m-%d %H:%M:%S").to_string();
-        assert!(!is_subscription_active("trialing", Some(&past_str)));
+        assert!(!is_subscription_active("trialing", Some(&past_str), None));
     }
 
     #[test]
     fn test_is_subscription_active_with_other_statuses() {
-        assert!(!is_subscription_active("expired", None));
-        assert!(!is_subscription_active("canceled", None));
-        assert!(!is_subscription_active("past_due", None));
-        assert!(!is_subscription_active("pending", None));
+        assert!(!is_subscription_active("expired", None, None));
+        assert!(!is_subscription_active("canceled", None, None));
+        assert!(!is_subscription_active("past_due", None, None));
+        assert!(!is_subscription_active("pending", None, None));
+    }
+
+    #[test]
+    fn test_is_subscription_active_with_canceled_future_end() {
+        // Canceled but subscription_ends_at is in the future — should be active
+        let future_date = chrono::Utc::now().naive_utc() + chrono::Duration::days(15);
+        let future_str = future_date.format("%Y-%m-%d %H:%M:%S").to_string();
+        assert!(is_subscription_active("canceled", None, Some(&future_str)));
+    }
+
+    #[test]
+    fn test_is_subscription_active_with_canceled_past_end() {
+        // Canceled and subscription_ends_at is in the past — should be inactive
+        let past_date = chrono::Utc::now().naive_utc() - chrono::Duration::days(5);
+        let past_str = past_date.format("%Y-%m-%d %H:%M:%S").to_string();
+        assert!(!is_subscription_active("canceled", None, Some(&past_str)));
+    }
+
+    #[test]
+    fn test_is_subscription_active_with_canceled_invalid_date() {
+        // Canceled with invalid date format — should fail closed (inactive)
+        assert!(!is_subscription_active(
+            "canceled",
+            None,
+            Some("not-a-date")
+        ));
     }
 
     #[test]

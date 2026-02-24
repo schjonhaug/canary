@@ -63,11 +63,13 @@ impl AppServices {
         subscription_status: &str,
         is_admin: bool,
         trial_ends_at: Option<String>,
+        subscription_ends_at: Option<String>,
     ) -> Result<(), anyhow::Error> {
         // Check if subscription has expired or failed payment
         let is_subscription_active = crate::subscription::is_subscription_active(
             subscription_status,
             trial_ends_at.as_deref(),
+            subscription_ends_at.as_deref(),
         );
 
         if is_admin {
@@ -97,7 +99,7 @@ impl AppServices {
         let wallet_limit = if is_admin {
             usize::MAX // Unlimited for admin
         } else if !is_subscription_active {
-            0 // No active wallets for expired/past_due/canceled subscriptions
+            0 // No active wallets for inactive subscriptions (expired, past_due, or canceled with no remaining access)
         } else {
             match tier {
                 "personal" => 1,
@@ -141,7 +143,7 @@ impl AppServices {
             let contact_limit = if is_admin {
                 usize::MAX // Unlimited for admin
             } else if !is_subscription_active {
-                0 // No active contacts for expired/past_due/canceled subscriptions
+                0 // No active contacts for inactive subscriptions (expired, past_due, or canceled with no remaining access)
             } else {
                 match tier {
                     "personal" => 1,
