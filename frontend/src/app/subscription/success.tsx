@@ -33,31 +33,48 @@ export default function BillingSuccessPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let isMounted = true
+    let timeoutId: ReturnType<typeof setTimeout>
+
     const fetchSessionDetails = async () => {
       if (!sessionId) {
-        setError('No session ID provided')
-        setLoading(false)
+        if (isMounted) {
+          setError('No session ID provided')
+          setLoading(false)
+        }
         return
       }
 
       try {
         setLoading(true)
         const details = await api.getCheckoutSessionDetails(sessionId)
+        if (!isMounted) return
+
         setSessionDetails(details)
 
         // Refresh billing status to get updated subscription
-        setTimeout(() => {
-          refreshBillingStatus()
+        timeoutId = setTimeout(() => {
+          if (isMounted) {
+            refreshBillingStatus()
+          }
         }, 2000)
       } catch (err) {
         console.error('Failed to fetch session details:', err)
-        setError('Failed to load payment details')
+        if (isMounted) {
+          setError('Failed to load payment details')
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     fetchSessionDetails()
+    return () => {
+      isMounted = false
+      clearTimeout(timeoutId)
+    }
   }, [sessionId, refreshBillingStatus])
 
   if (loading) {
