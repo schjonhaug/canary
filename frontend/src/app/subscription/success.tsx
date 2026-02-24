@@ -22,7 +22,6 @@ export default function BillingSuccessPage() {
   const locale = useLocale()
 
   const [sessionDetails, setSessionDetails] = useState<{
-    session_id: string
     status: string
     tier?: string
     billing_period?: string

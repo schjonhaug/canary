@@ -653,8 +653,9 @@ pub async fn handle_stripe_webhook(
     }
 }
 
-/// Get checkout session details (no auth required)
+/// Get checkout session details
 pub async fn get_checkout_session_details(
+    AuthenticatedUser(_user): AuthenticatedUser,
     State(stripe_billing): State<StripeBillingState>,
     Path(session_id): Path<String>,
 ) -> Response {
