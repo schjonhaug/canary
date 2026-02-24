@@ -12,10 +12,12 @@ import { Loader2, User, Shield } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { ApiError, getTranslatedApiError } from '@/lib/utils'
 
 export default function SignInPage() {
   const t = useTranslations('auth.signIn')
   const tCommon = useTranslations('common')
+  const tErrors = useTranslations('errors.api')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -39,7 +41,11 @@ export default function SignInPage() {
       await login(email, password)
       // Navigation is handled by the login function in auth context
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('loginFailed'))
+      if (err instanceof ApiError) {
+        setError(getTranslatedApiError(err, tErrors))
+      } else {
+        setError(err instanceof Error ? err.message : t('loginFailed'))
+      }
     } finally {
       setIsLoading(false)
     }
@@ -53,7 +59,11 @@ export default function SignInPage() {
       await login(devEmail, 'password123')
       // Navigation is handled by the login function in auth context
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to login')
+      if (err instanceof ApiError) {
+        setError(getTranslatedApiError(err, tErrors))
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to login')
+      }
     } finally {
       setIsLoading(false)
     }

@@ -51,18 +51,14 @@ pub async fn send_contact_verification(
                     Ok(false) => {
                         return (
                             StatusCode::FORBIDDEN,
-                            Json(ErrorResponse {
-                                error: "Access denied".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("access_denied", "Access denied")),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Database error: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!("Database error: {}", e))),
                         )
                             .into_response();
                     }
@@ -72,18 +68,14 @@ pub async fn send_contact_verification(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -97,7 +89,11 @@ pub async fn send_contact_verification(
         let normalized_phone = match validate_phone_number(phone_number) {
             Ok(phone) => phone,
             Err(e) => {
-                return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })).into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded("invalid_phone_number", e)),
+                )
+                    .into_response();
             }
         };
 
@@ -110,12 +106,13 @@ pub async fn send_contact_verification(
             Ok(Some(existing_contact_name)) => {
                 return (
                     StatusCode::CONFLICT,
-                    Json(ErrorResponse {
-                        error: format!(
+                    Json(ErrorResponse::coded(
+                        "duplicate_phone_number",
+                        format!(
                             "Phone number '{}' is already used by contact '{}' in this wallet",
                             normalized_phone, existing_contact_name
                         ),
-                    }),
+                    )),
                 )
                     .into_response();
             }
@@ -123,9 +120,10 @@ pub async fn send_contact_verification(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to check for duplicate phone number: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Failed to check for duplicate phone number: {}",
+                        e
+                    ))),
                 )
                     .into_response();
             }
@@ -170,9 +168,10 @@ pub async fn send_contact_verification(
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Failed to create verification record: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!(
+                                "Failed to create verification record: {}",
+                                e
+                            ))),
                         )
                             .into_response();
                     }
@@ -199,9 +198,10 @@ pub async fn send_contact_verification(
         if !email.contains('@') || email.len() < 5 {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "Invalid email address format".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "invalid_email_format",
+                    "Invalid email address format",
+                )),
             )
                 .into_response();
         }
@@ -215,12 +215,13 @@ pub async fn send_contact_verification(
             Ok(Some(existing_contact_name)) => {
                 return (
                     StatusCode::CONFLICT,
-                    Json(ErrorResponse {
-                        error: format!(
+                    Json(ErrorResponse::coded(
+                        "duplicate_email_address",
+                        format!(
                             "Email '{}' is already used by contact '{}' in this wallet",
                             email, existing_contact_name
                         ),
-                    }),
+                    )),
                 )
                     .into_response();
             }
@@ -228,9 +229,10 @@ pub async fn send_contact_verification(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to check for duplicate email: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Failed to check for duplicate email: {}",
+                        e
+                    ))),
                 )
                     .into_response();
             }
@@ -275,9 +277,10 @@ pub async fn send_contact_verification(
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Failed to create verification record: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!(
+                                "Failed to create verification record: {}",
+                                e
+                            ))),
                         )
                             .into_response();
                     }
@@ -300,9 +303,7 @@ pub async fn send_contact_verification(
                 Err(e) => {
                     return (
                         StatusCode::SERVICE_UNAVAILABLE,
-                        Json(ErrorResponse {
-                            error: e.to_string(),
-                        }),
+                        Json(ErrorResponse::new(e.to_string())),
                     )
                         .into_response();
                 }
@@ -331,9 +332,10 @@ pub async fn send_contact_verification(
                         {
                             return (
                                 StatusCode::INTERNAL_SERVER_ERROR,
-                                Json(ErrorResponse {
-                                    error: format!("Failed to complete auto-verification: {}", e),
-                                }),
+                                Json(ErrorResponse::new(format!(
+                                    "Failed to complete auto-verification: {}",
+                                    e
+                                ))),
                             )
                                 .into_response();
                         }
@@ -347,9 +349,10 @@ pub async fn send_contact_verification(
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Failed to create verification record: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!(
+                                "Failed to create verification record: {}",
+                                e
+                            ))),
                         )
                             .into_response();
                     }
@@ -364,9 +367,10 @@ pub async fn send_contact_verification(
     } else {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Either phone_number or email_address must be provided".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "verification_input_required",
+                "Either phone_number or email_address must be provided",
+            )),
         )
             .into_response();
     };
@@ -382,19 +386,20 @@ pub async fn send_contact_verification(
             Ok(false) => {
                 return (
                     StatusCode::TOO_MANY_REQUESTS,
-                    Json(ErrorResponse {
-                        error: "Too many verification attempts. Please try again later."
-                            .to_string(),
-                    }),
+                    Json(ErrorResponse::coded(
+                        "verification_rate_limit",
+                        "Too many verification attempts. Please try again later.",
+                    )),
                 )
                     .into_response();
             }
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to check rate limit: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Failed to check rate limit: {}",
+                        e
+                    ))),
                 )
                     .into_response();
             }
@@ -440,9 +445,10 @@ pub async fn send_contact_verification(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to store verification: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to store verification: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -454,9 +460,7 @@ pub async fn send_contact_verification(
         Err(e) => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -469,9 +473,10 @@ pub async fn send_contact_verification(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Twilio configuration error: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Twilio configuration error: {}",
+                        e
+                    ))),
                 )
                     .into_response();
             }
@@ -480,9 +485,7 @@ pub async fn send_contact_verification(
         if !is_dev_mode && twilio_config.verify_service_sid.is_none() {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "Twilio Verify service not configured".to_string(),
-                }),
+                Json(ErrorResponse::new("Twilio Verify service not configured")),
             )
                 .into_response();
         }
@@ -505,9 +508,10 @@ pub async fn send_contact_verification(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Email service configuration error: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Email service configuration error: {}",
+                        e
+                    ))),
                 )
                     .into_response();
             }
@@ -538,9 +542,10 @@ pub async fn send_contact_verification(
 
             (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: format!("Failed to send verification: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to send verification: {}",
+                    e
+                ))),
             )
                 .into_response()
         }
@@ -578,18 +583,14 @@ pub async fn verify_contact(
                     Ok(false) => {
                         return (
                             StatusCode::FORBIDDEN,
-                            Json(ErrorResponse {
-                                error: "Access denied".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("access_denied", "Access denied")),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Database error: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!("Database error: {}", e))),
                         )
                             .into_response();
                     }
@@ -599,18 +600,14 @@ pub async fn verify_contact(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -624,7 +621,11 @@ pub async fn verify_contact(
         let normalized_phone = match validate_phone_number(phone_number) {
             Ok(phone) => phone,
             Err(e) => {
-                return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })).into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded("invalid_phone_number", e)),
+                )
+                    .into_response();
             }
         };
         let is_dev_phone = cfg!(debug_assertions)
@@ -638,9 +639,10 @@ pub async fn verify_contact(
         if !email.contains('@') || email.len() < 5 {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "Invalid email address format".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "invalid_email_format",
+                    "Invalid email address format",
+                )),
             )
                 .into_response();
         }
@@ -650,9 +652,10 @@ pub async fn verify_contact(
     } else {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Either phone_number or email_address must be provided".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "verification_input_required",
+                "Either phone_number or email_address must be provided",
+            )),
         )
             .into_response();
     };
@@ -669,10 +672,10 @@ pub async fn verify_contact(
             Ok(false) => {
                 return (
                     StatusCode::TOO_MANY_REQUESTS,
-                    Json(ErrorResponse {
-                        error: "Too many failed verification attempts. Please try again later."
-                            .to_string(),
-                    }),
+                    Json(ErrorResponse::coded(
+                        "verification_rate_limit",
+                        "Too many failed verification attempts. Please try again later.",
+                    )),
                 )
                     .into_response();
             }
@@ -681,9 +684,9 @@ pub async fn verify_contact(
                 tracing::error!("Failed to check verification rate limit: {}", e);
                 return (
                     StatusCode::SERVICE_UNAVAILABLE,
-                    Json(ErrorResponse {
-                        error: "Unable to verify at this time. Please try again later.".to_string(),
-                    }),
+                    Json(ErrorResponse::new(
+                        "Unable to verify at this time. Please try again later.",
+                    )),
                 )
                     .into_response();
             }
@@ -705,18 +708,14 @@ pub async fn verify_contact(
             };
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: error_msg.to_string(),
-                }),
+                Json(ErrorResponse::coded("no_pending_verification", error_msg)),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -727,9 +726,7 @@ pub async fn verify_contact(
         Err(e) => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -756,9 +753,10 @@ pub async fn verify_contact(
                 Err(e) => {
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: format!("Twilio configuration error: {}", e),
-                        }),
+                        Json(ErrorResponse::new(format!(
+                            "Twilio configuration error: {}",
+                            e
+                        ))),
                     )
                         .into_response();
                 }
@@ -773,9 +771,7 @@ pub async fn verify_contact(
                 Err(e) => {
                     return (
                         StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse {
-                            error: format!("Failed to verify code: {}", e),
-                        }),
+                        Json(ErrorResponse::new(format!("Failed to verify code: {}", e))),
                     )
                         .into_response();
                 }

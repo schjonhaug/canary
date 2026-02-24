@@ -134,7 +134,7 @@ export function useSmsVerification({
         errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
       }
 
-      if (errorMessage.toLowerCase().includes("phone") || errorMessage.toLowerCase().includes("number")) {
+      if (err instanceof ApiError && (err.errorCode === 'invalid_phone_number' || err.errorCode === 'duplicate_phone_number' || err.errorCode === 'phone_not_verified')) {
         setPhoneError(errorMessage)
       } else {
         onError?.(errorMessage)
@@ -180,14 +180,11 @@ export function useSmsVerification({
         errorMessage = err instanceof Error ? err.message : "Invalid verification code"
       }
 
-      if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
+      if (err instanceof ApiError && err.errorCode === 'no_pending_verification') {
         setVerificationError(t('verification.expiredRequest'))
         setVerificationSent(false)
         setIsVerified(false)
         clearTimer()
-      } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setVerificationError(t('verification.invalid'))
-        setVerificationCode("")
       } else {
         setVerificationError(errorMessage)
       }
@@ -229,7 +226,7 @@ export function useSmsVerification({
     } finally {
       setIsSending(false)
     }
-  }, [verificationPhone, walletChecksum, contactName, startTimer, onError])
+  }, [verificationPhone, walletChecksum, contactName, startTimer, clearTimer, onError])
 
   return {
     verificationSent,

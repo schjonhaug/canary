@@ -45,12 +45,14 @@ export type ApiErrorType =
 export class ApiError extends Error {
   public readonly type: ApiErrorType
   public readonly statusCode: number | null
+  public readonly errorCode: string | null
 
-  constructor(message: string, type: ApiErrorType, statusCode: number | null = null) {
+  constructor(message: string, type: ApiErrorType, statusCode: number | null = null, errorCode: string | null = null) {
     super(message)
     this.name = 'ApiError'
     this.type = type
     this.statusCode = statusCode
+    this.errorCode = errorCode
 
     // Maintains proper stack trace for where our error was thrown (only in V8)
     if (Error.captureStackTrace) {
@@ -256,16 +258,18 @@ export async function handleApiResponse(response: Response): Promise<unknown> {
   if (!response.ok) {
     const errorType = getErrorTypeFromStatus(response.status)
     let errorMessage: string
+    let errorCode: string | null = null
 
-    // Try to get error message from response first
+    // Try to get error message and error_code from response first
     try {
       const errorData = await response.json()
       errorMessage = errorData.error || errorData.message || getDefaultErrorMessage(response.status)
+      errorCode = errorData.error_code || null
     } catch {
       errorMessage = getDefaultErrorMessage(response.status)
     }
 
-    throw new ApiError(errorMessage, errorType, response.status)
+    throw new ApiError(errorMessage, errorType, response.status, errorCode)
   }
 
   // Return JSON if response has content
@@ -318,6 +322,36 @@ export function createNetworkError(originalError?: Error): ApiError {
     'network',
     null
   )
+}
+
+/**
+ * Get a translated error message from an ApiError using its error_code.
+ * Falls back to the raw error message if no translation exists.
+ *
+ * @param err - The ApiError (or generic Error) to translate
+ * @param t - The useTranslations('errors.api') translation function
+ * @returns The translated error message string
+ */
+export function getTranslatedApiError(
+  err: ApiError | Error,
+  t: (key: string) => string
+): string {
+  if (err instanceof ApiError && err.errorCode) {
+    try {
+      const translated = t(err.errorCode)
+      // next-intl returns the key path if no translation is found;
+      // also check for bare key in case namespace is not prefixed
+      if (translated && translated !== `errors.api.${err.errorCode}` && translated !== err.errorCode) {
+        return translated
+      }
+    } catch {
+      // Translation key not found, fall back to raw message
+    }
+  }
+  if (err instanceof ApiError) {
+    return err.getUserFriendlyMessage()
+  }
+  return err.message
 }
 
 // Common error styles

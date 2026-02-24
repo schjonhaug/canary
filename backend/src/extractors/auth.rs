@@ -49,9 +49,7 @@ where
             let jwt_secret = config.get_jwt_secret().map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Configuration error: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!("Configuration error: {}", e))),
                 )
                     .into_response()
             })?;
@@ -70,9 +68,7 @@ where
                 .map_err(|_| {
                     (
                         StatusCode::UNAUTHORIZED,
-                        Json(ErrorResponse {
-                            error: "Authentication required".to_string(),
-                        }),
+                        Json(ErrorResponse::new("Authentication required")),
                     )
                         .into_response()
                 })
@@ -98,9 +94,7 @@ pub fn require_non_demo(user: &AuthUser) -> Result<(), Response> {
     if user.is_demo {
         Err((
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse {
-                error: "Demo account is read-only. Sign up to create your own wallet at https://canarybitcoin.com".to_string(),
-            }),
+            Json(ErrorResponse::coded("demo_read_only", "Demo account is read-only. Sign up to create your own wallet at https://canarybitcoin.com")),
         )
             .into_response())
     } else {

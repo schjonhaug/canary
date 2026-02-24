@@ -76,18 +76,14 @@ pub async fn create_wallet_contact(
                     Ok(false) => {
                         return (
                             StatusCode::FORBIDDEN,
-                            Json(ErrorResponse {
-                                error: "Access denied".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("access_denied", "Access denied")),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Database error: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!("Database error: {}", e))),
                         )
                             .into_response();
                     }
@@ -98,18 +94,14 @@ pub async fn create_wallet_contact(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -121,18 +113,17 @@ pub async fn create_wallet_contact(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "User not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("user_not_found", "User not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get user information: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to get user information: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -155,9 +146,10 @@ pub async fn create_wallet_contact(
                 ) {
                     return (
                         StatusCode::FORBIDDEN,
-                        Json(ErrorResponse {
-                            error: limit_err.to_string(),
-                        }),
+                        Json(ErrorResponse::coded(
+                            "contact_limit_reached",
+                            limit_err.to_string(),
+                        )),
                     )
                         .into_response();
                 }
@@ -165,9 +157,10 @@ pub async fn create_wallet_contact(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to check contact limit: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Failed to check contact limit: {}",
+                        e
+                    ))),
                 )
                     .into_response();
             }
@@ -184,7 +177,10 @@ pub async fn create_wallet_contact(
                 let normalized_phone = match validate_phone_number(&method.notification_target) {
                     Ok(phone) => phone,
                     Err(e) => {
-                        return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e }))
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_phone_number", e)),
+                        )
                             .into_response();
                     }
                 };
@@ -226,19 +222,20 @@ pub async fn create_wallet_contact(
                     Ok(false) => {
                         return (
                             StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse {
-                                error: "Phone number must be verified before adding contact"
-                                    .to_string(),
-                            }),
+                            Json(ErrorResponse::coded(
+                                "phone_not_verified",
+                                "Phone number must be verified before adding contact",
+                            )),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Failed to check phone verification: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!(
+                                "Failed to check phone verification: {}",
+                                e
+                            ))),
                         )
                             .into_response();
                     }
@@ -250,7 +247,10 @@ pub async fn create_wallet_contact(
                 match validate_ntfy_topic(&method.notification_target) {
                     Ok(topic) => processed_methods.push((ProviderType::Ntfy, topic)),
                     Err(e) => {
-                        return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e }))
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_ntfy_topic", e)),
+                        )
                             .into_response();
                     }
                 }
@@ -261,9 +261,10 @@ pub async fn create_wallet_contact(
                 if !email.contains('@') || email.len() < 5 {
                     return (
                         StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse {
-                            error: "Invalid email address format".to_string(),
-                        }),
+                        Json(ErrorResponse::coded(
+                            "invalid_email_format",
+                            "Invalid email address format",
+                        )),
                     )
                         .into_response();
                 }
@@ -301,19 +302,20 @@ pub async fn create_wallet_contact(
                     Ok(false) => {
                         return (
                             StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse {
-                                error: "Email address must be verified before adding contact"
-                                    .to_string(),
-                            }),
+                            Json(ErrorResponse::coded(
+                                "email_not_verified_contact",
+                                "Email address must be verified before adding contact",
+                            )),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Failed to check email verification: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!(
+                                "Failed to check email verification: {}",
+                                e
+                            ))),
                         )
                             .into_response();
                     }
@@ -326,9 +328,10 @@ pub async fn create_wallet_contact(
     if processed_methods.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "At least one notification method must be provided".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "no_notification_method",
+                "At least one notification method must be provided",
+            )),
         )
             .into_response();
     }
@@ -348,9 +351,10 @@ pub async fn create_wallet_contact(
             if !duplicates.is_empty() {
                 return (
                     StatusCode::CONFLICT,
-                    Json(ErrorResponse {
-                        error: format!("Duplicate notification targets: {}", duplicates.join(", ")),
-                    }),
+                    Json(ErrorResponse::coded(
+                        "duplicate_notification_targets",
+                        format!("Duplicate notification targets: {}", duplicates.join(", ")),
+                    )),
                 )
                     .into_response();
             }
@@ -358,9 +362,10 @@ pub async fn create_wallet_contact(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to check for duplicates: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to check for duplicates: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -389,9 +394,7 @@ pub async fn create_wallet_contact(
             .into_response(),
         Err(e) => (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
+            Json(ErrorResponse::new(e.to_string())),
         )
             .into_response(),
     }
@@ -427,18 +430,14 @@ pub async fn delete_wallet_contact(
                     Ok(false) => {
                         return (
                             StatusCode::FORBIDDEN,
-                            Json(ErrorResponse {
-                                error: "Access denied".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("access_denied", "Access denied")),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Database error: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!("Database error: {}", e))),
                         )
                             .into_response();
                     }
@@ -448,18 +447,14 @@ pub async fn delete_wallet_contact(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -477,16 +472,15 @@ pub async fn delete_wallet_contact(
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: "Contact not found".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "contact_not_found",
+                "Contact not found",
+            )),
         )
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
+            Json(ErrorResponse::new(e.to_string())),
         )
             .into_response(),
     }
@@ -523,18 +517,14 @@ pub async fn update_wallet_contact(
                     Ok(false) => {
                         return (
                             StatusCode::FORBIDDEN,
-                            Json(ErrorResponse {
-                                error: "Access denied".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("access_denied", "Access denied")),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Database error: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!("Database error: {}", e))),
                         )
                             .into_response();
                     }
@@ -545,18 +535,14 @@ pub async fn update_wallet_contact(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -572,18 +558,20 @@ pub async fn update_wallet_contact(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Contact not found".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "contact_not_found",
+                    "Contact not found",
+                )),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get existing contact: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to get existing contact: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -627,7 +615,10 @@ pub async fn update_wallet_contact(
                 let normalized_phone = match validate_phone_number(&method.notification_target) {
                     Ok(phone) => phone,
                     Err(e) => {
-                        return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e }))
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_phone_number", e)),
+                        )
                             .into_response();
                     }
                 };
@@ -669,19 +660,20 @@ pub async fn update_wallet_contact(
                         Ok(false) => {
                             return (
                                 StatusCode::BAD_REQUEST,
-                                Json(ErrorResponse {
-                                    error: "Phone number must be verified before updating contact"
-                                        .to_string(),
-                                }),
+                                Json(ErrorResponse::coded(
+                                    "phone_not_verified",
+                                    "Phone number must be verified before updating contact",
+                                )),
                             )
                                 .into_response();
                         }
                         Err(e) => {
                             return (
                                 StatusCode::INTERNAL_SERVER_ERROR,
-                                Json(ErrorResponse {
-                                    error: format!("Failed to check phone verification: {}", e),
-                                }),
+                                Json(ErrorResponse::new(format!(
+                                    "Failed to check phone verification: {}",
+                                    e
+                                ))),
                             )
                                 .into_response();
                         }
@@ -697,7 +689,10 @@ pub async fn update_wallet_contact(
                 match validate_ntfy_topic(&method.notification_target) {
                     Ok(topic) => processed_methods.push((ProviderType::Ntfy, topic)),
                     Err(e) => {
-                        return (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e }))
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_ntfy_topic", e)),
+                        )
                             .into_response();
                     }
                 }
@@ -708,9 +703,10 @@ pub async fn update_wallet_contact(
                 if !email.contains('@') || email.len() < 5 {
                     return (
                         StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse {
-                            error: "Invalid email address format".to_string(),
-                        }),
+                        Json(ErrorResponse::coded(
+                            "invalid_email_format",
+                            "Invalid email address format",
+                        )),
                     )
                         .into_response();
                 }
@@ -748,19 +744,20 @@ pub async fn update_wallet_contact(
                         Ok(false) => {
                             return (
                                 StatusCode::BAD_REQUEST,
-                                Json(ErrorResponse {
-                                    error: "Email address must be verified before updating contact"
-                                        .to_string(),
-                                }),
+                                Json(ErrorResponse::coded(
+                                    "email_not_verified_contact",
+                                    "Email address must be verified before updating contact",
+                                )),
                             )
                                 .into_response();
                         }
                         Err(e) => {
                             return (
                                 StatusCode::INTERNAL_SERVER_ERROR,
-                                Json(ErrorResponse {
-                                    error: format!("Failed to check email verification: {}", e),
-                                }),
+                                Json(ErrorResponse::new(format!(
+                                    "Failed to check email verification: {}",
+                                    e
+                                ))),
                             )
                                 .into_response();
                         }
@@ -777,9 +774,10 @@ pub async fn update_wallet_contact(
     if processed_methods.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "At least one notification method must be provided".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "no_notification_method",
+                "At least one notification method must be provided",
+            )),
         )
             .into_response();
     }
@@ -803,9 +801,10 @@ pub async fn update_wallet_contact(
             if !duplicates.is_empty() {
                 return (
                     StatusCode::CONFLICT,
-                    Json(ErrorResponse {
-                        error: format!("Duplicate notification targets: {}", duplicates.join(", ")),
-                    }),
+                    Json(ErrorResponse::coded(
+                        "duplicate_notification_targets",
+                        format!("Duplicate notification targets: {}", duplicates.join(", ")),
+                    )),
                 )
                     .into_response();
             }
@@ -813,9 +812,10 @@ pub async fn update_wallet_contact(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to check for duplicates: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to check for duplicates: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -849,18 +849,20 @@ pub async fn update_wallet_contact(
                     } else {
                         (
                             StatusCode::NOT_FOUND,
-                            Json(ErrorResponse {
-                                error: "Updated contact not found".to_string(),
-                            }),
+                            Json(ErrorResponse::coded(
+                                "contact_not_found",
+                                "Updated contact not found",
+                            )),
                         )
                             .into_response()
                     }
                 }
                 Err(e) => (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to fetch updated contact: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Failed to fetch updated contact: {}",
+                        e
+                    ))),
                 )
                     .into_response(),
             }
@@ -870,9 +872,7 @@ pub async fn update_wallet_contact(
             info!("update_wallet_contact failed in {:?}", elapsed);
             (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response()
         }
@@ -904,18 +904,14 @@ pub async fn get_wallet_contacts(
                     Ok(false) => {
                         return (
                             StatusCode::FORBIDDEN,
-                            Json(ErrorResponse {
-                                error: "Access denied".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("access_denied", "Access denied")),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Database error: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!("Database error: {}", e))),
                         )
                             .into_response();
                     }
@@ -925,18 +921,14 @@ pub async fn get_wallet_contacts(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -954,9 +946,7 @@ pub async fn get_wallet_contacts(
         Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
+            Json(ErrorResponse::new(e.to_string())),
         )
             .into_response(),
     }

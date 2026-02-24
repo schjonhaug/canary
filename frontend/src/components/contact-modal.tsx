@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Bell, MessageCircle, Mail } from "lucide-react"
 import { api, ProviderInfo, ApiError } from "../lib/api"
+import { getTranslatedApiError } from "../lib/utils"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
 import { SmsProviderFields, EmailProviderFields, NtfyProviderFields } from "./contact-modal/index"
@@ -61,6 +62,7 @@ export function ContactModal({
 }: ContactModalProps) {
   const t = useTranslations('contacts')
   const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
   const phonePlaceholder = usePhonePlaceholder()
   const ntfyServerUrl = useNtfyServerUrl()
   const [name, setName] = useState("")
@@ -309,25 +311,17 @@ export function ContactModal({
         }
       }
     } catch (err) {
-      let errorMessage: string
       if (err instanceof ApiError) {
-        // Use user-friendly message for network/server errors
-        errorMessage = err.isNetworkError() || err.isServerError()
-          ? err.getUserFriendlyMessage()
-          : err.message
+        // Use error codes for specific verification issues
+        if (err.errorCode === 'no_pending_verification') {
+          setError(t('verification.expiredRequest'))
+          smsVerification.reset()
+          emailVerification.reset()
+        } else {
+          setError(getTranslatedApiError(err, tApiErrors))
+        }
       } else {
-        errorMessage = err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'create'} contact`
-      }
-
-      // Provide more specific error messages for verification issues
-      if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
-        setError(t('verification.expiredRequest'))
-        smsVerification.reset()
-        emailVerification.reset()
-      } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setError(t('verification.invalid'))
-      } else {
-        setError(errorMessage)
+        setError(err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'create'} contact`)
       }
     } finally {
       setIsSubmitting(false)

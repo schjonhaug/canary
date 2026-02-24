@@ -10,12 +10,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
+import { getTranslatedApiError } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 
 export default function ResetPasswordPage() {
   const t = useTranslations('auth.resetPassword')
   const tSignUp = useTranslations('auth.signUp')
+  const tApiErrors = useTranslations('errors.api')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -50,7 +52,11 @@ export default function ResetPasswordPage() {
         router.push('/sign-in')
       }, 3000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('invalidToken'))
+      if (err instanceof ApiError || err instanceof Error) {
+        setError(getTranslatedApiError(err, tApiErrors))
+      } else {
+        setError(t('invalidToken'))
+      }
     } finally {
       setIsLoading(false)
     }

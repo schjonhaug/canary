@@ -134,7 +134,7 @@ export function useEmailVerification({
         errorMessage = err instanceof Error ? err.message : "Failed to send verification code"
       }
 
-      if (errorMessage.toLowerCase().includes("email") || errorMessage.toLowerCase().includes("address")) {
+      if (err instanceof ApiError && (err.errorCode === 'invalid_email_format' || err.errorCode === 'duplicate_email_address' || err.errorCode === 'email_not_verified_contact')) {
         setEmailError(errorMessage)
       } else {
         onError?.(errorMessage)
@@ -181,14 +181,11 @@ export function useEmailVerification({
         errorMessage = err instanceof Error ? err.message : "Invalid verification code"
       }
 
-      if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
+      if (err instanceof ApiError && err.errorCode === 'no_pending_verification') {
         setVerificationError(t('verification.expiredRequest'))
         setVerificationSent(false)
         setIsVerified(false)
         clearTimer()
-      } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setVerificationError(t('verification.invalid'))
-        setVerificationCode("")
       } else {
         setVerificationError(errorMessage)
       }
