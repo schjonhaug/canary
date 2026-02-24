@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { ApiError } from '@/lib/utils'
@@ -59,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const userRef = useRef<User | null>(null)
   const router = useRouter()
 
   // Check operating mode - REQUIRED configuration
@@ -80,6 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isCloudMode = mode === 'cloud'
   const isSelfHostedMode = mode === 'self-hosted'
 
+
+  // Keep userRef in sync for use in stable callbacks
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
 
   // Sync locale cookie from user's stored preference (used on page refresh when already logged in)
   const syncLocaleFromUser = useCallback((userData: User) => {
@@ -113,10 +119,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const status = await api.getBillingStatus()
       setBillingStatus(status)
-      // Update user subscription tier if it differs
-      if (user && status.subscription_tier !== user.subscription_tier) {
-        setUser(prev => prev ? { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'team' } : null)
-      }
+      // Update user subscription tier if it differs - use functional updater
+      // to avoid depending on `user` in the dependency array, which would cause
+      // fetchBillingStatus to get a new reference on every user change
+      setUser(prev => {
+        if (prev && status.subscription_tier !== prev.subscription_tier) {
+          return { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'team' }
+        }
+        return prev
+      })
     } catch (error) {
       // Auth errors are expected when session expires - don't log as error
       if (!(error instanceof ApiError && error.isAuthError())) {
@@ -124,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       // Don't throw - billing status is optional
     }
-  }, [user])
+  }, [])
 
   // Check for existing session on mount by calling /api/auth/me
   // The HttpOnly cookie will be sent automatically with the request
@@ -159,9 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, isCloudMode, fetchBillingStatus])
 
   const refreshBillingStatus = useCallback(async () => {
-    if (!user) return
+    if (!userRef.current) return
     await fetchBillingStatus()
-  }, [user, fetchBillingStatus])
+  }, [fetchBillingStatus])
 
   const register = async (email: string, password: string, name: string, marketingEmails: boolean = false) => {
     await api.register(email, password, name, marketingEmails)
