@@ -273,15 +273,14 @@ class ApiClient {
     }> }>('/api/billing/pricing')
   }
 
-  async createCheckoutSession(tier: string, isYearly: boolean = false): Promise<{ url: string, session_id: string }> {
-    return this.request<{ url: string, session_id: string }>('/api/stripe/checkout', {
+  async createCheckoutSession(tier: string, isYearly: boolean = false): Promise<{ url: string }> {
+    return this.request<{ url: string }>('/api/stripe/checkout', {
       method: 'POST',
       body: JSON.stringify({ tier, is_yearly: isYearly }),
     })
   }
 
   async getCheckoutSessionDetails(sessionId: string): Promise<{
-    session_id: string,
     status: string,
     tier?: string,
     billing_period?: string,
@@ -289,7 +288,6 @@ class ApiClient {
     currency?: string
   }> {
     return this.request<{
-      session_id: string,
       status: string,
       tier?: string,
       billing_period?: string,

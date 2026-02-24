@@ -1144,17 +1144,6 @@ impl StripeBilling {
         if let Some(metadata) = &session.metadata {
             tier = metadata.get("tier").cloned();
             billing_period = metadata.get("billing_period").cloned();
-
-            // If billing_period is not in metadata, try to infer from the amount
-            if billing_period.is_none() && session.amount_total.is_some() {
-                // Check if amount matches yearly pricing (typically higher than monthly)
-                // This is a fallback - metadata should normally contain this info
-                if let Some(amount) = session.amount_total {
-                    // Yearly subscriptions are typically > $100 (e.g., $108 for Personal yearly)
-                    billing_period =
-                        Some(if amount > 10000 { "yearly" } else { "monthly" }.to_string());
-                }
-            }
         }
 
         Ok(CheckoutSessionDetails {
