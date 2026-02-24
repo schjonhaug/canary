@@ -26,15 +26,15 @@ export default function SubscriptionPage() {
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
-  if (isSuccess) return <BillingSuccessPage />
-  if (isCancelled) return <BillingCancelPage />
-
   useEffect(() => {
     // Only refresh billing status when auth is ready and user is logged in
     if (!isLoading && user) {
       refreshBillingStatus()
     }
   }, [refreshBillingStatus, isLoading, user])
+
+  if (isSuccess) return <BillingSuccessPage />
+  if (isCancelled) return <BillingCancelPage />
 
   const handleManageBilling = async () => {
     if (!billingStatus?.stripe_customer_id) return
