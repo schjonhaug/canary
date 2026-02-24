@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl"
 
 export default function BillingCancelPage() {
   const t = useTranslations('subscriptionCancel')
+  const tBilling = useTranslations('billing')
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
@@ -61,14 +62,16 @@ export default function BillingCancelPage() {
           {/* Help section */}
           <div className="border-t pt-4 space-y-2">
             <h4 className="font-medium text-sm">{t('helpTitle')}</h4>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>{'• '}{t.rich('personalDescription', {
+            <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
+              <li>{t.rich('personalDescription', {
+                planName: tBilling('plans.personal.name'),
                 strong: (chunks) => <strong>{chunks}</strong>
-              })}</p>
-              <p>{'• '}{t.rich('teamDescription', {
+              })}</li>
+              <li>{t.rich('teamDescription', {
+                planName: tBilling('plans.team.name'),
                 strong: (chunks) => <strong>{chunks}</strong>
-              })}</p>
-            </div>
+              })}</li>
+            </ul>
           </div>
         </CardContent>
       </Card>

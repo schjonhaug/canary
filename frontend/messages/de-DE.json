@@ -1048,8 +1048,8 @@
     "mailtoSubject": "Frage zur Abrechnung",
     "mailtoBody": "Hallo, ich habe versucht, meinen Plan zu aktualisieren, habe aber die Zahlung abgebrochen. Können Sie mir helfen bei...",
     "helpTitle": "Benötigen Sie Hilfe bei der Auswahl eines Plans?",
-    "personalDescription": "<strong>Personal:</strong> Perfekt für Einzelpersonen, die ihr eigenes Bitcoin verwalten",
-    "teamDescription": "<strong>Team:</strong> Ideal für Familienverwalter, die mehrere Wallets verwalten",
+    "personalDescription": "<strong>{planName}:</strong> Perfekt für Einzelpersonen, die ihr eigenes Bitcoin verwalten",
+    "teamDescription": "<strong>{planName}:</strong> Ideal für Familienverwalter, die mehrere Wallets verwalten",
     "supportQuestion": "Fragen zu unseren Plänen? Wir sind hier, um zu helfen!",
     "supportEmail": "Schreiben Sie uns eine E-Mail an <link>{email}</link>"
   },
