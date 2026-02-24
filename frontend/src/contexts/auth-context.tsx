@@ -113,10 +113,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const status = await api.getBillingStatus()
       setBillingStatus(status)
-      // Update user subscription tier if it differs
-      if (user && status.subscription_tier !== user.subscription_tier) {
-        setUser(prev => prev ? { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'team' } : null)
-      }
+      // Update user subscription tier if it differs - use functional updater
+      // to avoid depending on `user` in the dependency array, which would cause
+      // fetchBillingStatus to get a new reference on every user change
+      setUser(prev => {
+        if (prev && status.subscription_tier !== prev.subscription_tier) {
+          return { ...prev, subscription_tier: status.subscription_tier as 'personal' | 'team' }
+        }
+        return prev
+      })
     } catch (error) {
       // Auth errors are expected when session expires - don't log as error
       if (!(error instanceof ApiError && error.isAuthError())) {
@@ -124,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       // Don't throw - billing status is optional
     }
-  }, [user])
+  }, [])
 
   // Check for existing session on mount by calling /api/auth/me
   // The HttpOnly cookie will be sent automatically with the request
