@@ -1048,8 +1048,8 @@
     "mailtoSubject": "Consulta de facturación",
     "mailtoBody": "Hola, estaba intentando actualizar mi plan pero cancelé el pago. ¿Podrían ayudarme con...",
     "helpTitle": "¿Necesitas ayuda para elegir un plan?",
-    "personalDescription": "• <strong>Personal:</strong> Perfecto para usuarios individuales que gestionan su propio Bitcoin",
-    "teamDescription": "• <strong>Equipo:</strong> Ideal para guardianes familiares que gestionan múltiples billeteras",
+    "personalDescription": "<strong>Personal:</strong> Perfecto para usuarios individuales que gestionan su propio Bitcoin",
+    "teamDescription": "<strong>Equipo:</strong> Ideal para guardianes familiares que gestionan múltiples billeteras",
     "supportQuestion": "¿Tienes preguntas sobre nuestros planes? ¡Estamos aquí para ayudarte!",
     "supportEmail": "Envíanos un correo a <link>{email}</link>"
   },

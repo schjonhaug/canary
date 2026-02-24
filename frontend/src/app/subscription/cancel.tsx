@@ -62,10 +62,10 @@ export default function BillingCancelPage() {
           <div className="border-t pt-4 space-y-2">
             <h4 className="font-medium text-sm">{t('helpTitle')}</h4>
             <div className="text-sm text-muted-foreground space-y-1">
-              <p>{t.rich('personalDescription', {
+              <p>{'• '}{t.rich('personalDescription', {
                 strong: (chunks) => <strong>{chunks}</strong>
               })}</p>
-              <p>{t.rich('teamDescription', {
+              <p>{'• '}{t.rich('teamDescription', {
                 strong: (chunks) => <strong>{chunks}</strong>
               })}</p>
             </div>

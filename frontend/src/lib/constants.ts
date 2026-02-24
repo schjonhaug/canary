@@ -1,8 +1,8 @@
 /**
- * Centralized validation patterns and constants
+ * Centralized application constants and validation patterns
  *
- * This file contains all validation regex patterns and constants used across
- * the frontend application, enabling reuse and consistent validation behavior.
+ * This file contains shared constants, validation regex patterns, and
+ * constraints used across the frontend application.
  */
 
 // =============================================================================
