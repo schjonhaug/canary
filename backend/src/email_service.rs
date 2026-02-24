@@ -1,7 +1,7 @@
 use crate::email_queue;
 use anyhow::{anyhow, Result};
 use rand::Rng;
-use resend_rs::types::{ContactData, CreateEmailBaseOptions};
+use resend_rs::types::{CreateContactOptions, CreateEmailBaseOptions};
 use resend_rs::Resend;
 use rust_i18n::t;
 
@@ -275,8 +275,8 @@ impl EmailService {
 
     /// Generate a 6-digit OTP code for email verification
     pub fn generate_otp_code() -> String {
-        let mut rng = rand::thread_rng();
-        format!("{:06}", rng.gen_range(100000..1000000))
+        let mut rng = rand::rng();
+        format!("{:06}", rng.random_range(100000..1000000))
     }
 
     /// Send OTP verification code via email for contact verification
@@ -732,12 +732,13 @@ This message was sent via the Canary contact form
             (name, "")
         };
 
-        let contact = ContactData::new(email)
+        let contact = CreateContactOptions::new(email)
+            .with_audience_id(&audience_id)
             .with_first_name(first_name)
             .with_last_name(last_name)
             .with_unsubscribed(false);
 
-        match self.resend.contacts.create(&audience_id, contact).await {
+        match self.resend.contacts.create(contact).await {
             Ok(_) => {
                 println!("Added {} to marketing audience", email);
                 Ok(())

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,14 +11,23 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, CreditCard, Users, Calendar, TrendingUp, Zap, AlertTriangle, Clock, XCircle } from "lucide-react"
 import { PlansModal } from "@/components/plans-modal"
 import Link from "next/link"
+import BillingSuccessPage from "./success"
+import BillingCancelPage from "./cancel"
 
 export default function SubscriptionPage() {
+  const searchParams = useSearchParams()
+  const isSuccess = searchParams.get('success') === 'true'
+  const isCancelled = searchParams.get('cancelled') === 'true'
+
   const t = useTranslations('subscriptionPage')
   const tBilling = useTranslations('billing')
   const tCommon = useTranslations('common')
   const { user, billingStatus, isLoading, refreshBillingStatus, isSelfHostedMode } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+
+  if (isSuccess) return <BillingSuccessPage />
+  if (isCancelled) return <BillingCancelPage />
 
   useEffect(() => {
     // Only refresh billing status when auth is ready and user is logged in
