@@ -1036,6 +1036,23 @@
     "supportMessage": "Precisa de ajuda? Entre em contato conosco em <link>{email}</link>",
     "unknownPlan": "Desconhecido"
   },
+  "subscriptionCancel": {
+    "title": "Pagamento Cancelado",
+    "description": "Você cancelou o processo de pagamento. Nenhuma cobrança foi feita em sua conta.",
+    "whatHappenedTitle": "O que aconteceu?",
+    "whatHappenedDescription": "Você fechou a janela de pagamento ou clicou no botão voltar durante a finalização da compra. Sua assinatura permanece inalterada e nenhum pagamento foi processado.",
+    "optionsTitle": "O que você gostaria de fazer?",
+    "tryAgain": "Tentar Novamente",
+    "continueCurrent": "Continuar com o Plano Atual",
+    "contactSupport": "Contatar Suporte",
+    "mailtoSubject": "Dúvida sobre Faturamento",
+    "mailtoBody": "Olá, eu estava tentando atualizar meu plano, mas cancelei o pagamento. Você pode me ajudar com...",
+    "helpTitle": "Precisa de ajuda para escolher um plano?",
+    "personalDescription": "• <strong>Pessoal:</strong> Perfeito para usuários individuais gerenciando seu próprio Bitcoin",
+    "teamDescription": "• <strong>Equipe:</strong> Ótimo para guardiões de famílias que gerenciam várias carteiras",
+    "supportQuestion": "Dúvidas sobre nossos planos? Estamos aqui para ajudar!",
+    "supportEmail": "Envie um e-mail para <link>{email}</link>"
+  },
   "demoBanner": {
     "title": "Modo Demo",
     "description": "Você está visualizando uma carteira demo somente leitura. Todos os recursos são apenas para visualização.",

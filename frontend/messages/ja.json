@@ -1036,6 +1036,23 @@
     "supportMessage": "お困りですか？<link>{email}</link>までお問い合わせください",
     "unknownPlan": "不明"
   },
+  "subscriptionCancel": {
+    "title": "お支払いがキャンセルされました",
+    "description": "お支払い手続きがキャンセルされました。お客様のアカウントへの請求は発生していません。",
+    "whatHappenedTitle": "何が起きましたか？",
+    "whatHappenedDescription": "チェックアウト中に支払いウィンドウを閉じたか、戻るボタンがクリックされました。サブスクリプションに変更はなく、支払いは処理されていません。",
+    "optionsTitle": "次に行う操作を選択してください",
+    "tryAgain": "もう一度試す",
+    "continueCurrent": "現在のプランを継続する",
+    "contactSupport": "サポートに問い合わせる",
+    "mailtoSubject": "請求に関するお問い合わせ",
+    "mailtoBody": "こんにちは。プランのアップグレードを試みましたが、支払いをキャンセルしました。以下の件についてサポートをお願いできますか...",
+    "helpTitle": "プラン選びでお手伝いが必要ですか？",
+    "personalDescription": "• <strong>個人:</strong> ご自身のビットコインを管理する個人ユーザーに最適です",
+    "teamDescription": "• <strong>チーム:</strong> 複数のウォレットを管理するご家族の保護者に最適です",
+    "supportQuestion": "プランについてご質問がありますか？お気軽にお問い合わせください。",
+    "supportEmail": "メールでお問い合わせください：<link>{email}</link>"
+  },
   "demoBanner": {
     "title": "デモモード",
     "description": "読み取り専用のデモウォレットを表示しています。すべての機能は閲覧のみです。",

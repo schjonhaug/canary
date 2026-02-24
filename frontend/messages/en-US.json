@@ -1036,6 +1036,23 @@
     "supportMessage": "Need help? Contact us at <link>{email}</link>",
     "unknownPlan": "Unknown"
   },
+  "subscriptionCancel": {
+    "title": "Payment Cancelled",
+    "description": "You cancelled the payment process. No charges have been made to your account.",
+    "whatHappenedTitle": "What happened?",
+    "whatHappenedDescription": "You closed the payment window or clicked the back button during checkout. Your subscription remains unchanged, and no payment was processed.",
+    "optionsTitle": "What would you like to do?",
+    "tryAgain": "Try Again",
+    "continueCurrent": "Continue with Current Plan",
+    "contactSupport": "Contact Support",
+    "mailtoSubject": "Billing Question",
+    "mailtoBody": "Hi, I was trying to upgrade my plan but cancelled the payment. Can you help me with...",
+    "helpTitle": "Need help choosing a plan?",
+    "personalDescription": "• <strong>Personal:</strong> Perfect for individual users managing their own Bitcoin",
+    "teamDescription": "• <strong>Team:</strong> Great for family guardians managing multiple wallets",
+    "supportQuestion": "Questions about our plans? We're here to help!",
+    "supportEmail": "Email us at <link>{email}</link>"
+  },
   "demoBanner": {
     "title": "Demo Mode",
     "description": "You're viewing a read-only demo wallet. All features are view-only.",

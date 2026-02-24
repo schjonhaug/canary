@@ -1036,6 +1036,23 @@
     "supportMessage": "Brauchen Sie Hilfe? Kontaktieren Sie uns unter <link>{email}</link>",
     "unknownPlan": "Unbekannt"
   },
+  "subscriptionCancel": {
+    "title": "Zahlung abgebrochen",
+    "description": "Sie haben den Zahlungsvorgang abgebrochen. Ihr Konto wurde nicht belastet.",
+    "whatHappenedTitle": "Was ist passiert?",
+    "whatHappenedDescription": "Sie haben das Zahlungsfenster geschlossen oder während des Bezahlvorgangs auf die Zurück-Schaltfläche geklickt. Ihr Abonnement bleibt unverändert und es wurde keine Zahlung verarbeitet.",
+    "optionsTitle": "Was möchten Sie tun?",
+    "tryAgain": "Erneut versuchen",
+    "continueCurrent": "Mit aktuellem Plan fortfahren",
+    "contactSupport": "Support kontaktieren",
+    "mailtoSubject": "Frage zur Abrechnung",
+    "mailtoBody": "Hallo, ich habe versucht, meinen Plan zu aktualisieren, habe aber die Zahlung abgebrochen. Können Sie mir helfen bei...",
+    "helpTitle": "Benötigen Sie Hilfe bei der Auswahl eines Plans?",
+    "personalDescription": "• <strong>Personal:</strong> Perfekt für Einzelpersonen, die ihr eigenes Bitcoin verwalten",
+    "teamDescription": "• <strong>Team:</strong> Ideal für Familienverwalter, die mehrere Wallets verwalten",
+    "supportQuestion": "Fragen zu unseren Plänen? Wir sind hier, um zu helfen!",
+    "supportEmail": "Schreiben Sie uns eine E-Mail an <link>{email}</link>"
+  },
   "demoBanner": {
     "title": "Demo-Modus",
     "description": "Sie sehen eine schreibgeschützte Demo-Wallet. Alle Funktionen sind nur zur Ansicht.",

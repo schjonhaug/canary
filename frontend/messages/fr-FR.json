@@ -1036,6 +1036,23 @@
     "supportMessage": "Besoin d'aide ? Contactez-nous à <link>{email}</link>",
     "unknownPlan": "Inconnu"
   },
+  "subscriptionCancel": {
+    "title": "Paiement annulé",
+    "description": "Vous avez annulé le processus de paiement. Aucun frais n'a été débité de votre compte.",
+    "whatHappenedTitle": "Que s'est-il passé ?",
+    "whatHappenedDescription": "Vous avez fermé la fenêtre de paiement ou cliqué sur le bouton de retour lors de la commande. Votre abonnement reste inchangé et aucun paiement n'a été traité.",
+    "optionsTitle": "Que souhaitez-vous faire ?",
+    "tryAgain": "Réessayer",
+    "continueCurrent": "Continuer avec le forfait actuel",
+    "contactSupport": "Contacter le support",
+    "mailtoSubject": "Question sur la facturation",
+    "mailtoBody": "Bonjour, j'essayais de mettre à jour mon forfait mais j'ai annulé le paiement. Pouvez-vous m'aider avec...",
+    "helpTitle": "Besoin d'aide pour choisir un forfait ?",
+    "personalDescription": "• <strong>Personnel :</strong> Idéal pour les utilisateurs individuels gérant leur propre Bitcoin",
+    "teamDescription": "• <strong>Équipe :</strong> Parfait pour les tuteurs familiaux gérant plusieurs portefeuilles",
+    "supportQuestion": "Des questions sur nos forfaits ? Nous sommes là pour vous aider !",
+    "supportEmail": "Envoyez-nous un e-mail à <link>{email}</link>"
+  },
   "demoBanner": {
     "title": "Mode Démo",
     "description": "Vous visualisez un portefeuille démo en lecture seule. Toutes les fonctionnalités sont en lecture seule.",
