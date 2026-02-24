@@ -572,6 +572,7 @@ pub async fn handle_stripe_webhook(
                                         &update.subscription_status,
                                         user_record.is_admin,
                                         user_record.trial_ends_at.clone(),
+                                        user_record.subscription_ends_at.clone(),
                                     )
                                     .await
                                 {

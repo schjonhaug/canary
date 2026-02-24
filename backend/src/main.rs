@@ -1140,6 +1140,7 @@ async fn apply_startup_subscription_limits(
                 &user.subscription_status,
                 user.is_admin,
                 user.trial_ends_at.clone(),
+                user.subscription_ends_at.clone(),
             )
             .await
         {

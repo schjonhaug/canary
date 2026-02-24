@@ -63,11 +63,13 @@ impl AppServices {
         subscription_status: &str,
         is_admin: bool,
         trial_ends_at: Option<String>,
+        subscription_ends_at: Option<String>,
     ) -> Result<(), anyhow::Error> {
         // Check if subscription has expired or failed payment
         let is_subscription_active = crate::subscription::is_subscription_active(
             subscription_status,
             trial_ends_at.as_deref(),
+            subscription_ends_at.as_deref(),
         );
 
         if is_admin {
