@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Loader2, ArrowRight } from "lucide-react"
 import { getTierDisplayName } from "@/lib/pricing-data"
 import { formatPrice, usePricing } from "@/hooks/usePricing"
-import { useLocale } from "next-intl"
+import { useTranslations, useLocale } from "next-intl"
+
+const SUPPORT_EMAIL = 'support@canarybitcoin.com'
 
 export default function BillingSuccessPage() {
   const searchParams = useSearchParams()
@@ -20,6 +22,7 @@ export default function BillingSuccessPage() {
   const { pricing } = usePricing()
   const discountPercent = pricing?.yearly_discount_percent || 20
   const locale = useLocale()
+  const t = useTranslations('subscriptionSuccess')
 
   const [sessionDetails, setSessionDetails] = useState<{
     status: string
@@ -38,7 +41,7 @@ export default function BillingSuccessPage() {
     const fetchSessionDetails = async () => {
       if (!sessionId) {
         if (isMounted) {
-          setError('No session ID provided')
+          setError('no_session')
           setLoading(false)
         }
         return
@@ -60,7 +63,7 @@ export default function BillingSuccessPage() {
       } catch (err) {
         console.error('Failed to fetch session details:', err)
         if (isMounted) {
-          setError('Failed to load payment details')
+          setError('load_failed')
         }
       } finally {
         if (isMounted) {
@@ -82,7 +85,7 @@ export default function BillingSuccessPage() {
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Loading payment details...</span>
+            <span className="ml-2 text-muted-foreground">{t('loading')}</span>
           </CardContent>
         </Card>
       </div>
@@ -94,16 +97,16 @@ export default function BillingSuccessPage() {
       <div className="max-w-2xl mx-auto p-6">
         <Card>
           <CardContent className="text-center py-12 space-y-4">
-            <div className="text-red-500 text-lg">Payment Status Unknown</div>
+            <div className="text-red-500 text-lg">{t('errorTitle')}</div>
             <p className="text-muted-foreground">
-              {error || 'We could not verify your payment status. Please check your email for confirmation or contact support.'}
+              {t('errorDescription')}
             </p>
             <div className="flex gap-3 justify-center">
               <Button asChild>
-                <Link href="/subscription">View Subscription</Link>
+                <Link href="/subscription">{t('viewSubscription')}</Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/wallets">Go to Wallets</Link>
+                <Link href="/wallets">{t('goToWallets')}</Link>
               </Button>
             </div>
           </CardContent>
@@ -113,7 +116,7 @@ export default function BillingSuccessPage() {
   }
 
   const isSuccessful = sessionDetails.status === 'complete'
-  const tierName = sessionDetails.tier ? getTierDisplayName(sessionDetails.tier) : 'Unknown'
+  const tierName = sessionDetails.tier ? getTierDisplayName(sessionDetails.tier) : t('unknownPlan')
   const isYearly = sessionDetails.billing_period === 'yearly'
   const amount = sessionDetails.amount_total
   const currency = sessionDetails.currency || 'USD'
@@ -128,12 +131,12 @@ export default function BillingSuccessPage() {
             <CheckCircle2 className={`h-8 w-8 ${isSuccessful ? 'text-green-600' : 'text-yellow-600'}`} />
           </div>
           <CardTitle className="text-2xl">
-            {isSuccessful ? 'Payment Successful!' : 'Payment Processing'}
+            {isSuccessful ? t('titleSuccess') : t('titleProcessing')}
           </CardTitle>
           <CardDescription>
             {isSuccessful
-              ? 'Your subscription has been updated successfully.'
-              : 'Your payment is being processed. This may take a few minutes.'}
+              ? t('descriptionSuccess')
+              : t('descriptionProcessing')}
           </CardDescription>
         </CardHeader>
 
@@ -141,50 +144,50 @@ export default function BillingSuccessPage() {
           {/* Payment Summary */}
           <div className="bg-muted/50 rounded-lg p-4 space-y-3">
             <div className="flex justify-between items-center">
-              <span className="font-medium">Plan</span>
+              <span className="font-medium">{t('plan')}</span>
               <Badge variant="secondary">
-                {tierName} {isYearly ? '(Yearly)' : '(Monthly)'}
+                {tierName} {isYearly ? t('yearly') : t('monthly')}
               </Badge>
             </div>
 
             {amount && (
               <div className="flex justify-between items-center">
-                <span className="font-medium">Amount Paid</span>
+                <span className="font-medium">{t('amountPaid')}</span>
                 <span className="font-bold">
                   {formatPrice(amount, currency, locale)}
-                  {isYearly ? '/year' : '/month'}
+                  {isYearly ? t('perYear') : t('perMonth')}
                 </span>
               </div>
             )}
 
             <div className="flex justify-between items-center">
-              <span className="font-medium">Status</span>
+              <span className="font-medium">{t('status')}</span>
               <Badge variant={isSuccessful ? "default" : "secondary"}>
-                {isSuccessful ? 'Active' : 'Processing'}
+                {isSuccessful ? t('statusActive') : t('statusProcessing')}
               </Badge>
             </div>
           </div>
 
           {/* Next Steps */}
           <div className="space-y-3">
-            <h3 className="font-semibold">What&apos;s next?</h3>
+            <h3 className="font-semibold">{t('whatsNext')}</h3>
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                <span>Your subscription has been activated</span>
+                <span>{t('activated')}</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                <span>You now have access to {tierName} features</span>
+                <span>{t('accessFeatures', { tierName })}</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                <span>A receipt has been sent to your email</span>
+                <span>{t('receiptSent')}</span>
               </div>
               {isYearly && (
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                  <span>You&apos;re saving {Math.round(discountPercent)}% with yearly billing</span>
+                  <span>{t('savingYearly', { percent: Math.round(discountPercent) })}</span>
                 </div>
               )}
             </div>
@@ -194,12 +197,12 @@ export default function BillingSuccessPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <Button asChild className="flex-1">
               <Link href="/wallets">
-                Start Using Your Plan
+                {t('startUsing')}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/subscription">Manage Subscription</Link>
+              <Link href="/subscription">{t('manageSubscription')}</Link>
             </Button>
           </div>
         </CardContent>
@@ -209,7 +212,10 @@ export default function BillingSuccessPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center text-sm text-muted-foreground">
-            <p>Need help? Contact us at <a href="mailto:support@canarybitcoin.com" className="text-primary hover:underline">support@canarybitcoin.com</a></p>
+            <p>{t.rich('supportMessage', {
+              email: SUPPORT_EMAIL,
+              link: (chunks) => <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">{chunks}</a>
+            })}</p>
           </div>
         </CardContent>
       </Card>
