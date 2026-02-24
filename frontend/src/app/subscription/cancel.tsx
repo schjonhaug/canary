@@ -79,6 +79,7 @@ export default function BillingCancelPage() {
           <div className="text-center text-sm text-muted-foreground space-y-1">
             <p>{t('supportQuestion')}</p>
             <p>{t.rich('supportEmail', {
+              email: SUPPORT_EMAIL,
               link: (chunks) => <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">{chunks}</a>
             })}</p>
           </div>
