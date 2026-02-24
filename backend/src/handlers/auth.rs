@@ -83,9 +83,10 @@ pub async fn register(
     if !request.email.contains('@') || request.email.len() < 5 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Invalid email format".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "invalid_email_format",
+                "Invalid email format",
+            )),
         )
             .into_response();
     }
@@ -94,9 +95,10 @@ pub async fn register(
     if request.password.len() < 6 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Password must be at least 6 characters long".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "password_too_short",
+                "Password must be at least 6 characters long",
+            )),
         )
             .into_response();
     }
@@ -110,9 +112,10 @@ pub async fn register(
         Ok(Some(_)) => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "User with this email already exists".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "email_already_exists",
+                    "User with this email already exists",
+                )),
             )
                 .into_response();
         }
@@ -120,9 +123,10 @@ pub async fn register(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to check user existence: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to check user existence: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -133,9 +137,7 @@ pub async fn register(
         Err(e) => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -155,9 +157,10 @@ pub async fn register(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to hash password: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to hash password: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -193,9 +196,7 @@ pub async fn register(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to create user: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Failed to create user: {}", e))),
             )
                 .into_response();
         }
@@ -223,18 +224,19 @@ pub async fn register(
             Ok(None) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: "User was created but could not be retrieved".to_string(),
-                    }),
+                    Json(ErrorResponse::new(
+                        "User was created but could not be retrieved",
+                    )),
                 )
                     .into_response();
             }
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to retrieve user: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Failed to retrieve user: {}",
+                        e
+                    ))),
                 )
                     .into_response();
             }
@@ -291,9 +293,10 @@ pub async fn register(
         {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to create verification token: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to create verification token: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -306,9 +309,10 @@ pub async fn register(
         {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: format!("Failed to send verification email: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to send verification email: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -352,12 +356,10 @@ pub async fn login(
             tracing::warn!("Login attempt for locked account: {}", request.email);
             return (
                 StatusCode::TOO_MANY_REQUESTS,
-                Json(ErrorResponse {
-                    error: format!(
+                Json(ErrorResponse::coded("account_locked", format!(
                         "Account temporarily locked due to too many failed login attempts. Try again after {}.",
                         locked_until
-                    ),
-                }),
+                    ))),
             )
                 .into_response();
         }
@@ -394,18 +396,17 @@ pub async fn login(
 
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "Invalid credentials".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "invalid_credentials",
+                    "Invalid credentials",
+                )),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to check user: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Failed to check user: {}", e))),
             )
                 .into_response();
         }
@@ -416,9 +417,7 @@ pub async fn login(
         Err(e) => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -451,9 +450,10 @@ pub async fn login(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to verify password: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Failed to verify password: {}",
+                        e
+                    ))),
                 )
                     .into_response();
             }
@@ -518,12 +518,10 @@ pub async fn login(
 
                 return (
                     StatusCode::TOO_MANY_REQUESTS,
-                    Json(ErrorResponse {
-                        error: format!(
+                    Json(ErrorResponse::coded("account_locked", format!(
                             "Account temporarily locked due to too many failed login attempts. Try again in {} minutes.",
                             ACCOUNT_LOCKOUT_MINUTES
-                        ),
-                    }),
+                        ))),
                 )
                     .into_response();
             }
@@ -535,9 +533,10 @@ pub async fn login(
 
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Invalid credentials".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "invalid_credentials",
+                "Invalid credentials",
+            )),
         )
             .into_response();
     }
@@ -546,11 +545,10 @@ pub async fn login(
     if !is_dev_email && !user_record.email_verified {
         return (
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse {
-                error:
-                    "Email not verified. Please check your email and click the verification link."
-                        .to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "email_not_verified",
+                "Email not verified. Please check your email and click the verification link.",
+            )),
         )
             .into_response();
     }
@@ -590,9 +588,10 @@ pub async fn login(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to generate token: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to generate token: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -609,9 +608,10 @@ pub async fn login(
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to create session: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to create session: {}",
+                e
+            ))),
         )
             .into_response();
     }
@@ -657,9 +657,9 @@ pub async fn demo_login(
     if !config.is_cloud_mode() {
         return (
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse {
-                error: "Demo login is only available in cloud mode".to_string(),
-            }),
+            Json(ErrorResponse::new(
+                "Demo login is only available in cloud mode",
+            )),
         )
             .into_response();
     }
@@ -672,19 +672,19 @@ pub async fn demo_login(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Demo user not found. Please ensure backend is running in dev mode."
-                        .to_string(),
-                }),
+                Json(ErrorResponse::new(
+                    "Demo user not found. Please ensure backend is running in dev mode.",
+                )),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get demo user: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to get demo user: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -694,9 +694,7 @@ pub async fn demo_login(
     if !user_record.is_demo {
         return (
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse {
-                error: "This user is not a demo account".to_string(),
-            }),
+            Json(ErrorResponse::new("This user is not a demo account")),
         )
             .into_response();
     }
@@ -745,9 +743,7 @@ pub async fn demo_login(
         Err(e) => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -764,9 +760,10 @@ pub async fn demo_login(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to generate token: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to generate token: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -789,9 +786,10 @@ pub async fn demo_login(
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to create session: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to create session: {}",
+                e
+            ))),
         )
             .into_response();
     }
@@ -850,16 +848,15 @@ pub async fn verify_email(
         .into_response(),
         Ok(None) => (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Invalid or expired verification token".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "invalid_verification_token",
+                "Invalid or expired verification token",
+            )),
         )
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to verify email: {}", e),
-            }),
+            Json(ErrorResponse::new(format!("Failed to verify email: {}", e))),
         )
             .into_response(),
     };
@@ -894,9 +891,7 @@ pub async fn forgot_password(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to check user: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Failed to check user: {}", e))),
             )
                 .into_response();
         }
@@ -907,9 +902,7 @@ pub async fn forgot_password(
         Err(e) => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -929,9 +922,10 @@ pub async fn forgot_password(
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to create reset token: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to create reset token: {}",
+                e
+            ))),
         )
             .into_response();
     }
@@ -949,9 +943,10 @@ pub async fn forgot_password(
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to send reset email: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to send reset email: {}",
+                e
+            ))),
         )
             .into_response();
     }
@@ -974,9 +969,10 @@ pub async fn submit_contact_form(Json(payload): Json<ContactFormRequest>) -> Res
     if email.is_empty() || !email.contains('@') || email.len() > 255 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Please provide a valid email address".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "invalid_email_format",
+                "Please provide a valid email address",
+            )),
         )
             .into_response();
     }
@@ -985,9 +981,10 @@ pub async fn submit_contact_form(Json(payload): Json<ContactFormRequest>) -> Res
     if message.len() < 10 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Message must be at least 10 characters".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "message_too_short",
+                "Message must be at least 10 characters",
+            )),
         )
             .into_response();
     }
@@ -995,9 +992,10 @@ pub async fn submit_contact_form(Json(payload): Json<ContactFormRequest>) -> Res
     if message.len() > 5000 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Message must be less than 5000 characters".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "message_too_long",
+                "Message must be less than 5000 characters",
+            )),
         )
             .into_response();
     }
@@ -1024,9 +1022,9 @@ pub async fn submit_contact_form(Json(payload): Json<ContactFormRequest>) -> Res
                     tracing::error!("Failed to send contact form email: {}", e);
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: "Failed to send message. Please try again later.".to_string(),
-                        }),
+                        Json(ErrorResponse::new(
+                            "Failed to send message. Please try again later.",
+                        )),
                     )
                         .into_response()
                 }
@@ -1036,9 +1034,9 @@ pub async fn submit_contact_form(Json(payload): Json<ContactFormRequest>) -> Res
             tracing::error!("Email service not configured: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "Contact form is temporarily unavailable.".to_string(),
-                }),
+                Json(ErrorResponse::new(
+                    "Contact form is temporarily unavailable.",
+                )),
             )
                 .into_response()
         }
@@ -1058,9 +1056,10 @@ pub async fn reset_password(
     if request.password.len() < 6 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Password must be at least 6 characters long".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "password_too_short",
+                "Password must be at least 6 characters long",
+            )),
         )
             .into_response();
     }
@@ -1078,18 +1077,17 @@ pub async fn reset_password(
         Ok(None) => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "Invalid or expired reset token".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "invalid_reset_token",
+                    "Invalid or expired reset token",
+                )),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to verify token: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Failed to verify token: {}", e))),
             )
                 .into_response();
         }
@@ -1100,9 +1098,7 @@ pub async fn reset_password(
         Err(e) => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
+                Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
         }
@@ -1116,9 +1112,10 @@ pub async fn reset_password(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to hash password: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to hash password: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -1132,9 +1129,10 @@ pub async fn reset_password(
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to update password: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to update password: {}",
+                e
+            ))),
         )
             .into_response();
     }
@@ -1160,9 +1158,7 @@ pub async fn logout(State(app_services): State<AppServicesState>, headers: Heade
         if !auth_header.starts_with("Bearer ") {
             return (
                 StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    error: "Invalid authorization header".to_string(),
-                }),
+                Json(ErrorResponse::new("Invalid authorization header")),
             )
                 .into_response();
         }
@@ -1170,9 +1166,7 @@ pub async fn logout(State(app_services): State<AppServicesState>, headers: Heade
     } else {
         return (
             StatusCode::UNAUTHORIZED,
-            Json(ErrorResponse {
-                error: "Authentication required".to_string(),
-            }),
+            Json(ErrorResponse::new("Authentication required")),
         )
             .into_response();
     };
@@ -1194,9 +1188,10 @@ pub async fn logout(State(app_services): State<AppServicesState>, headers: Heade
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             [(header::SET_COOKIE, clear_cookie)],
-            Json(ErrorResponse {
-                error: format!("Failed to delete session: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to delete session: {}",
+                e
+            ))),
         )
             .into_response();
     }
@@ -1234,18 +1229,14 @@ pub async fn me(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "User not found".to_string(),
-                }),
+                Json(ErrorResponse::new("User not found")),
             )
                 .into_response();
         }
         Err(_) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "Failed to get user info".to_string(),
-                }),
+                Json(ErrorResponse::new("Failed to get user info")),
             )
                 .into_response();
         }
@@ -1269,9 +1260,10 @@ pub async fn update_user(
     if request.name.trim().is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Name cannot be empty".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "name_required",
+                "Name cannot be empty",
+            )),
         )
             .into_response();
     }
@@ -1284,9 +1276,7 @@ pub async fn update_user(
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to update user: {}", e),
-            }),
+            Json(ErrorResponse::new(format!("Failed to update user: {}", e))),
         )
             .into_response();
     }
@@ -1308,18 +1298,14 @@ pub async fn update_user(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "User not found".to_string(),
-                }),
+                Json(ErrorResponse::new("User not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get user: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Failed to get user: {}", e))),
             )
                 .into_response();
         }

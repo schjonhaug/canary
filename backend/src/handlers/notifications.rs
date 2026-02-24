@@ -25,9 +25,9 @@ pub async fn send_test_ntfy_notification(
     if !config.is_self_hosted_mode() {
         return (
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse {
-                error: "Test notifications are only available in self-hosted mode".to_string(),
-            }),
+            Json(ErrorResponse::new(
+                "Test notifications are only available in self-hosted mode",
+            )),
         )
             .into_response();
     }
@@ -37,18 +37,16 @@ pub async fn send_test_ntfy_notification(
     if topic.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "ntfy topic cannot be empty".to_string(),
-            }),
+            Json(ErrorResponse::new("ntfy topic cannot be empty")),
         )
             .into_response();
     }
     if topic.len() > 64 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "ntfy topic must be at most 64 characters".to_string(),
-            }),
+            Json(ErrorResponse::new(
+                "ntfy topic must be at most 64 characters",
+            )),
         )
             .into_response();
     }
@@ -58,10 +56,9 @@ pub async fn send_test_ntfy_notification(
     {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "ntfy topic can only contain letters, numbers, dashes, and underscores"
-                    .to_string(),
-            }),
+            Json(ErrorResponse::new(
+                "ntfy topic can only contain letters, numbers, dashes, and underscores",
+            )),
         )
             .into_response();
     }

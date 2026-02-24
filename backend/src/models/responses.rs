@@ -16,6 +16,27 @@ pub struct CreateWalletResponse {
 pub struct ErrorResponse {
     /// Error description
     pub error: String,
+    /// Machine-readable error code for frontend translation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+}
+
+impl ErrorResponse {
+    /// Create an error response without an error code (internal/generic errors)
+    pub fn new(error: impl Into<String>) -> Self {
+        Self {
+            error: error.into(),
+            error_code: None,
+        }
+    }
+
+    /// Create an error response with a machine-readable error code (user-facing errors)
+    pub fn coded(code: &str, error: impl Into<String>) -> Self {
+        Self {
+            error: error.into(),
+            error_code: Some(code.to_string()),
+        }
+    }
 }
 
 #[derive(Serialize)]

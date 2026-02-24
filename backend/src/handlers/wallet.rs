@@ -52,9 +52,10 @@ pub async fn create_wallet_non_blocking(
     if !is_connected {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(ErrorResponse {
-                error: ELECTRUM_UNAVAILABLE_ERROR.to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "electrum_unavailable",
+                ELECTRUM_UNAVAILABLE_ERROR.to_string(),
+            )),
         )
             .into_response();
     }
@@ -71,9 +72,10 @@ pub async fn create_wallet_non_blocking(
         };
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: format!("{}. Please use a {} key.", e, server_network_name),
-            }),
+            Json(ErrorResponse::coded(
+                "network_mismatch",
+                format!("{}. Please use a {} key.", e, server_network_name),
+            )),
         )
             .into_response();
     }
@@ -97,9 +99,7 @@ pub async fn create_wallet_non_blocking(
                     _ => {
                         return (
                             StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse {
-                                error: "Custom stop gap requires selecting a specific script type (not auto)".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("script_type_required", "Custom stop gap requires selecting a specific script type (not auto)")),
                         )
                             .into_response();
                     }
@@ -110,10 +110,10 @@ pub async fn create_wallet_non_blocking(
             if !["250", "500", "750", "1000"].contains(&stop_gap.as_str()) {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse {
-                        error: "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000"
-                            .to_string(),
-                    }),
+                    Json(ErrorResponse::coded(
+                        "invalid_stop_gap",
+                        "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000",
+                    )),
                 )
                     .into_response();
             }
@@ -141,9 +141,10 @@ pub async fn create_wallet_non_blocking(
                         {
                             return (
                                 StatusCode::FORBIDDEN,
-                                Json(ErrorResponse {
-                                    error: limit_err.to_string(),
-                                }),
+                                Json(ErrorResponse::coded(
+                                    "wallet_limit_reached",
+                                    limit_err.to_string(),
+                                )),
                             )
                                 .into_response();
                         }
@@ -151,9 +152,10 @@ pub async fn create_wallet_non_blocking(
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Failed to check wallet limit: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!(
+                                "Failed to check wallet limit: {}",
+                                e
+                            ))),
                         )
                             .into_response();
                     }
@@ -163,18 +165,17 @@ pub async fn create_wallet_non_blocking(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "User not found".to_string(),
-                }),
+                Json(ErrorResponse::new("User not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get user information: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to get user information: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -196,9 +197,10 @@ pub async fn create_wallet_non_blocking(
                 None => {
                     return (
                         StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse {
-                            error: "script_type is required for fresh XPUB wallets".to_string(),
-                        }),
+                        Json(ErrorResponse::coded(
+                            "script_type_required",
+                            "script_type is required for fresh XPUB wallets",
+                        )),
                     )
                         .into_response();
                 }
@@ -393,13 +395,16 @@ pub async fn create_wallet_non_blocking(
         }
         Err(e) => {
             let error_msg = e.to_string();
-            let status_code = match error_msg.as_str() {
-                "Descriptor already exists" => StatusCode::CONFLICT,
-                "Wallet already exists" | "Wallet file already exists" => StatusCode::CONFLICT,
-                _ => StatusCode::BAD_REQUEST,
+            let (status_code, error_response) = match error_msg.as_str() {
+                "Descriptor already exists"
+                | "Wallet already exists"
+                | "Wallet file already exists" => (
+                    StatusCode::CONFLICT,
+                    ErrorResponse::coded("wallet_already_exists", error_msg),
+                ),
+                _ => (StatusCode::BAD_REQUEST, ErrorResponse::new(error_msg)),
             };
-
-            (status_code, Json(ErrorResponse { error: error_msg })).into_response()
+            (status_code, Json(error_response)).into_response()
         }
     }
 }
@@ -434,18 +439,14 @@ pub async fn delete_wallet(
                     Ok(false) => {
                         return (
                             StatusCode::FORBIDDEN,
-                            Json(ErrorResponse {
-                                error: "Access denied".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("access_denied", "Access denied")),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Database error: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!("Database error: {}", e))),
                         )
                             .into_response();
                     }
@@ -455,18 +456,14 @@ pub async fn delete_wallet(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -485,16 +482,12 @@ pub async fn delete_wallet(
         }
         Ok(false) => (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: "Wallet not found".to_string(),
-            }),
+            Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
         )
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Database error: {}", e),
-            }),
+            Json(ErrorResponse::new(format!("Database error: {}", e))),
         )
             .into_response(),
     }
@@ -515,9 +508,10 @@ pub async fn update_wallet(
     if payload.name.trim().is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Wallet name cannot be empty".to_string(),
-            }),
+            Json(ErrorResponse::coded(
+                "wallet_name_required",
+                "Wallet name cannot be empty",
+            )),
         )
             .into_response();
     }
@@ -542,18 +536,14 @@ pub async fn update_wallet(
                     Ok(false) => {
                         return (
                             StatusCode::FORBIDDEN,
-                            Json(ErrorResponse {
-                                error: "Access denied".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("access_denied", "Access denied")),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Database error: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!("Database error: {}", e))),
                         )
                             .into_response();
                     }
@@ -563,18 +553,14 @@ pub async fn update_wallet(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -592,16 +578,12 @@ pub async fn update_wallet(
         Ok(true) => StatusCode::OK.into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: "Wallet not found".to_string(),
-            }),
+            Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
         )
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Database error: {}", e),
-            }),
+            Json(ErrorResponse::new(format!("Database error: {}", e))),
         )
             .into_response(),
     }
@@ -631,18 +613,14 @@ pub async fn get_wallet(
                     Ok(false) => {
                         return (
                             StatusCode::FORBIDDEN,
-                            Json(ErrorResponse {
-                                error: "Access denied".to_string(),
-                            }),
+                            Json(ErrorResponse::coded("access_denied", "Access denied")),
                         )
                             .into_response();
                     }
                     Err(e) => {
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse {
-                                error: format!("Database error: {}", e),
-                            }),
+                            Json(ErrorResponse::new(format!("Database error: {}", e))),
                         )
                             .into_response();
                     }
@@ -653,16 +631,12 @@ pub async fn get_wallet(
         }
         Ok(None) => (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: "Wallet not found".to_string(),
-            }),
+            Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
         )
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
+            Json(ErrorResponse::new(e.to_string())),
         )
             .into_response(),
     }
@@ -702,9 +676,10 @@ pub async fn get_wallets_list(
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to get wallets list: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to get wallets list: {}",
+                e
+            ))),
         )
             .into_response(),
     }
@@ -732,18 +707,14 @@ pub async fn get_wallet_detail(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -760,18 +731,14 @@ pub async fn get_wallet_detail(
             Ok(false) => {
                 return (
                     StatusCode::FORBIDDEN,
-                    Json(ErrorResponse {
-                        error: "Access denied to wallet".to_string(),
-                    }),
+                    Json(ErrorResponse::coded("access_denied", "Access denied")),
                 )
                     .into_response();
             }
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Database error: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!("Database error: {}", e))),
                 )
                     .into_response();
             }
@@ -790,9 +757,7 @@ pub async fn get_wallet_detail(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to get contacts: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!("Failed to get contacts: {}", e))),
                 )
                     .into_response();
             }
@@ -832,9 +797,10 @@ pub async fn get_wallet_detail(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get transactions: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to get transactions: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -850,9 +816,7 @@ pub async fn get_wallet_detail(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get contacts: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Failed to get contacts: {}", e))),
             )
                 .into_response();
         }

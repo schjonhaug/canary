@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, Loader2 } from "lucide-react"
 import { useModal } from "@/hooks/useModal"
 import { api, ApiError } from "@/lib/api"
+import { getTranslatedApiError } from "@/lib/utils"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
@@ -62,7 +63,7 @@ export function AddWalletForm({
   const modal = useModal()
   const { user } = useAuth()
   const t = useTranslations('wallets')
-  const tErrors = useTranslations('errors')
+  const tApiErrors = useTranslations('errors.api')
 
   // Check if auth is enabled
   const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'cloud'
@@ -182,12 +183,7 @@ export function AddWalletForm({
       onWalletCreated(wallet)
     } catch (err) {
       if (err instanceof ApiError) {
-        // Use localized message for service unavailable errors
-        if (err.type === 'service_unavailable') {
-          modal.setError(tErrors('electrumUnavailable'))
-        } else {
-          modal.setError(err.getUserFriendlyMessage())
-        }
+        modal.setError(getTranslatedApiError(err, tApiErrors))
       } else {
         modal.setError(err instanceof Error ? err.message : "Failed to add wallet")
       }

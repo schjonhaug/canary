@@ -309,25 +309,21 @@ export function ContactModal({
         }
       }
     } catch (err) {
-      let errorMessage: string
       if (err instanceof ApiError) {
-        // Use user-friendly message for network/server errors
-        errorMessage = err.isNetworkError() || err.isServerError()
-          ? err.getUserFriendlyMessage()
-          : err.message
+        // Use error codes for specific verification issues
+        if (err.errorCode === 'no_pending_verification') {
+          setError(t('verification.expiredRequest'))
+          smsVerification.reset()
+          emailVerification.reset()
+        } else if (err.errorCode === 'invalid_verification_code') {
+          setError(t('verification.invalid'))
+        } else {
+          setError(err.isNetworkError() || err.isServerError()
+            ? err.getUserFriendlyMessage()
+            : err.message)
+        }
       } else {
-        errorMessage = err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'create'} contact`
-      }
-
-      // Provide more specific error messages for verification issues
-      if (errorMessage.includes("verification not found") || errorMessage.includes("expired")) {
-        setError(t('verification.expiredRequest'))
-        smsVerification.reset()
-        emailVerification.reset()
-      } else if (errorMessage.includes("Invalid verification code") || errorMessage.includes("wrong") || errorMessage.includes("incorrect")) {
-        setError(t('verification.invalid'))
-      } else {
-        setError(errorMessage)
+        setError(err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'create'} contact`)
       }
     } finally {
       setIsSubmitting(false)

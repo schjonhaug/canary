@@ -26,6 +26,7 @@ jest.mock('../../lib/api', () => {
 })
 
 const mockApi = jest.requireMock('../../lib/api').api
+const { ApiError } = jest.requireMock('../../lib/api')
 
 const mockProviders = [
   {
@@ -600,7 +601,7 @@ describe('ContactModal', () => {
 
     it('clears errors when user starts typing', async () => {
       const user = userEvent.setup()
-      mockApi.sendContactVerification.mockRejectedValue(new Error('Invalid phone number format'))
+      mockApi.sendContactVerification.mockRejectedValue(new ApiError('Invalid phone number format', 'validation', 400, 'invalid_phone_number'))
 
       await act(async () => {
         render(<ContactModal {...defaultProps} />)

@@ -26,9 +26,10 @@ pub async fn get_user_preferences(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get user preferences: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to get user preferences: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -44,9 +45,10 @@ pub async fn get_user_preferences(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to get user preferences: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to get user preferences: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -93,9 +95,10 @@ pub async fn update_user_preferences(
         if !exchange_rates::SUPPORTED_CURRENCIES.contains(&currency.as_str()) {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: format!("Unsupported currency: {}", currency),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Unsupported currency: {}",
+                    currency
+                ))),
             )
                 .into_response();
         }
@@ -108,9 +111,10 @@ pub async fn update_user_preferences(
         {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to update preferences: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to update preferences: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -133,9 +137,10 @@ pub async fn update_user_preferences(
         if !SUPPORTED_LANGUAGES.contains(&language.as_str()) {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: format!("Unsupported language: {}", language),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Unsupported language: {}",
+                    language
+                ))),
             )
                 .into_response();
         }
@@ -148,9 +153,10 @@ pub async fn update_user_preferences(
         {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to update language preference: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to update language preference: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -168,9 +174,9 @@ pub async fn update_user_preferences(
             if !ntfy_url.starts_with("http://") && !ntfy_url.starts_with("https://") {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse {
-                        error: "ntfy server URL must start with http:// or https://".to_string(),
-                    }),
+                    Json(ErrorResponse::new(
+                        "ntfy server URL must start with http:// or https://",
+                    )),
                 )
                     .into_response();
             }
@@ -184,9 +190,10 @@ pub async fn update_user_preferences(
         {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to update ntfy server URL: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to update ntfy server URL: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -231,10 +238,9 @@ pub async fn update_user_preferences(
             } else if username.is_none() || password.is_none() {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse {
-                        error: "Both ntfy_username and ntfy_password are required for Basic auth"
-                            .to_string(),
-                    }),
+                    Json(ErrorResponse::new(
+                        "Both ntfy_username and ntfy_password are required for Basic auth",
+                    )),
                 )
                     .into_response();
             } else {
@@ -251,9 +257,10 @@ pub async fn update_user_preferences(
         {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to update ntfy authentication: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to update ntfy authentication: {}",
+                    e
+                ))),
             )
                 .into_response();
         }

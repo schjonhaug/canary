@@ -36,16 +36,12 @@ pub async fn get_current_block_header(
         }
         Ok(None) => (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: "No block header found".to_string(),
-            }),
+            Json(ErrorResponse::new("No block header found")),
         )
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
+            Json(ErrorResponse::new(e.to_string())),
         )
             .into_response(),
     }
@@ -61,9 +57,10 @@ pub async fn get_exchange_rates(State(app_services): State<AppServicesState>) ->
         .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to get exchange rates: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to get exchange rates: {}",
+                e
+            ))),
         )
             .into_response(),
     }

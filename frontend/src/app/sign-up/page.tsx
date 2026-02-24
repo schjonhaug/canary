@@ -12,16 +12,19 @@ import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { ApiError, getTranslatedApiError } from '@/lib/utils'
 
 export default function SignUpPage() {
   const t = useTranslations('auth.signUp')
   const tCommon = useTranslations('common')
+  const tErrors = useTranslations('errors.api')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [marketingEmails, setMarketingEmails] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [errorCode, setErrorCode] = useState<string | null>(null)
   const { register, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
@@ -42,7 +45,13 @@ export default function SignUpPage() {
       // Redirect to success page immediately
       router.push('/sign-up/success')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('registrationFailed'))
+      if (err instanceof ApiError) {
+        setErrorCode(err.errorCode)
+        setError(getTranslatedApiError(err, tErrors))
+      } else {
+        setErrorCode(null)
+        setError(err instanceof Error ? err.message : t('registrationFailed'))
+      }
     } finally {
       setIsLoading(false)
     }
@@ -78,7 +87,7 @@ export default function SignUpPage() {
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>
                 {error}
-                {error.includes("already exists") && (
+                {errorCode === 'email_already_exists' && (
                   <>
                     {" "}
                     <Link href="/sign-in" className="underline font-medium hover:no-underline">

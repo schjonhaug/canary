@@ -27,18 +27,14 @@ pub async fn get_wallet_balance_alerts(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response()
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response()
         }
@@ -48,9 +44,7 @@ pub async fn get_wallet_balance_alerts(
     if !user.is_admin && wallet.user_id != user.user_id {
         return (
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse {
-                error: "Access denied".to_string(),
-            }),
+            Json(ErrorResponse::coded("access_denied", "Access denied")),
         )
             .into_response();
     }
@@ -64,9 +58,10 @@ pub async fn get_wallet_balance_alerts(
         Ok(alerts) => Json(BalanceAlertsResponse { alerts }).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to get balance alerts: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to get balance alerts: {}",
+                e
+            ))),
         )
             .into_response(),
     }
@@ -94,18 +89,14 @@ pub async fn create_wallet_balance_alert(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Wallet not found".to_string(),
-                }),
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
             )
                 .into_response()
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response()
         }
@@ -115,9 +106,7 @@ pub async fn create_wallet_balance_alert(
     if !user.is_admin && wallet.user_id != user.user_id {
         return (
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse {
-                error: "Access denied".to_string(),
-            }),
+            Json(ErrorResponse::coded("access_denied", "Access denied")),
         )
             .into_response();
     }
@@ -130,9 +119,7 @@ pub async fn create_wallet_balance_alert(
     if is_btc_threshold == is_fiat_threshold {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Exactly one threshold type must be provided: either threshold_sats (BTC) OR threshold_currency + threshold_fiat_amount (fiat)".to_string(),
-            }),
+            Json(ErrorResponse::coded("invalid_threshold_config", "Exactly one threshold type must be provided: either threshold_sats (BTC) OR threshold_currency + threshold_fiat_amount (fiat)")),
         )
             .into_response();
     }
@@ -146,9 +133,10 @@ pub async fn create_wallet_balance_alert(
         if sats < 0 {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "BTC threshold must be non-negative".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "negative_btc_threshold",
+                    "BTC threshold must be non-negative",
+                )),
             )
                 .into_response();
         }
@@ -157,10 +145,10 @@ pub async fn create_wallet_balance_alert(
         if request.alert_type == BalanceAlertType::Below && sats == 0 {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "Cannot create alert for 'below 0' - balance cannot go below zero"
-                        .to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "below_zero_alert",
+                    "Cannot create alert for 'below 0' - balance cannot go below zero",
+                )),
             )
                 .into_response();
         }
@@ -175,9 +163,10 @@ pub async fn create_wallet_balance_alert(
         if fiat_amount <= 0.0 {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "Fiat threshold amount must be positive".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "negative_btc_threshold",
+                    "Fiat threshold amount must be positive",
+                )),
             )
                 .into_response();
         }
@@ -186,13 +175,14 @@ pub async fn create_wallet_balance_alert(
         if !exchange_rates::SUPPORTED_CURRENCIES.contains(&currency.as_str()) {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: format!(
+                Json(ErrorResponse::coded(
+                    "unsupported_currency",
+                    format!(
                         "Unsupported currency: {}. Supported currencies: {}",
                         currency,
                         exchange_rates::SUPPORTED_CURRENCIES.join(", ")
                     ),
-                }),
+                )),
             )
                 .into_response();
         }
@@ -203,9 +193,10 @@ pub async fn create_wallet_balance_alert(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Failed to fetch exchange rates: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Failed to fetch exchange rates: {}",
+                        e
+                    ))),
                 )
                     .into_response();
             }
@@ -216,9 +207,10 @@ pub async fn create_wallet_balance_alert(
             None => {
                 return (
                     StatusCode::SERVICE_UNAVAILABLE,
-                    Json(ErrorResponse {
-                        error: format!("Exchange rate for {} is currently unavailable", currency),
-                    }),
+                    Json(ErrorResponse::new(format!(
+                        "Exchange rate for {} is currently unavailable",
+                        currency
+                    ))),
                 )
                     .into_response();
             }
@@ -231,12 +223,13 @@ pub async fn create_wallet_balance_alert(
         if threshold_sats <= 0 {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: format!(
+                Json(ErrorResponse::coded(
+                    "negative_btc_threshold",
+                    format!(
                         "Fiat amount {} {} is too small to convert to satoshis",
                         fiat_amount, currency
                     ),
-                }),
+                )),
             )
                 .into_response();
         }
@@ -253,9 +246,10 @@ pub async fn create_wallet_balance_alert(
         Ok(Some(_existing_alert)) => {
             return (
                 StatusCode::CONFLICT,
-                Json(ErrorResponse {
-                    error: "An alert with this type and threshold already exists".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "duplicate_alert",
+                    "An alert with this type and threshold already exists",
+                )),
             )
                 .into_response();
         }
@@ -265,9 +259,10 @@ pub async fn create_wallet_balance_alert(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to check for duplicate alert: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to check for duplicate alert: {}",
+                    e
+                ))),
             )
                 .into_response();
         }
@@ -342,7 +337,10 @@ pub async fn create_wallet_balance_alert(
 
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse { error: error_msg }),
+                Json(ErrorResponse::coded(
+                    "alert_would_trigger_immediately",
+                    error_msg,
+                )),
             )
                 .into_response();
         }
@@ -364,9 +362,10 @@ pub async fn create_wallet_balance_alert(
         Ok(alert) => Json(alert).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to create balance alert: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to create balance alert: {}",
+                e
+            ))),
         )
             .into_response(),
     }
@@ -393,18 +392,17 @@ pub async fn delete_balance_alert(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "Balance alert not found".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "alert_not_found",
+                    "Balance alert not found",
+                )),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -421,18 +419,14 @@ pub async fn delete_balance_alert(
             Ok(false) => {
                 return (
                     StatusCode::FORBIDDEN,
-                    Json(ErrorResponse {
-                        error: "Access denied".to_string(),
-                    }),
+                    Json(ErrorResponse::coded("access_denied", "Access denied")),
                 )
                     .into_response();
             }
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: format!("Database error: {}", e),
-                    }),
+                    Json(ErrorResponse::new(format!("Database error: {}", e))),
                 )
                     .into_response();
             }
@@ -448,9 +442,10 @@ pub async fn delete_balance_alert(
         Ok(()) => (StatusCode::OK, "Balance alert deleted").into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to delete balance alert: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to delete balance alert: {}",
+                e
+            ))),
         )
             .into_response(),
     }

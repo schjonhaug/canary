@@ -33,9 +33,10 @@ pub async fn create_stripe_checkout_session(
         _ => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "Invalid subscription tier".to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "invalid_subscription_tier",
+                    "Invalid subscription tier",
+                )),
             )
                 .into_response();
         }
@@ -47,18 +48,14 @@ pub async fn create_stripe_checkout_session(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "User not found".to_string(),
-                }),
+                Json(ErrorResponse::new("User not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -70,9 +67,7 @@ pub async fn create_stripe_checkout_session(
         None => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "Stripe billing not initialized".to_string(),
-                }),
+                Json(ErrorResponse::new("Stripe billing not initialized")),
             )
                 .into_response();
         }
@@ -86,14 +81,15 @@ pub async fn create_stripe_checkout_session(
         None => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "FRONTEND_URL not configured".to_string(),
-                }),
+                Json(ErrorResponse::new("FRONTEND_URL not configured")),
             )
                 .into_response();
         }
     };
-    let success_url = format!("{}/subscription?success=true&session={{CHECKOUT_SESSION_ID}}", frontend_url);
+    let success_url = format!(
+        "{}/subscription?success=true&session={{CHECKOUT_SESSION_ID}}",
+        frontend_url
+    );
     let cancel_url = format!("{}/subscription?cancelled=true", frontend_url);
 
     let result = stripe_billing
@@ -114,9 +110,10 @@ pub async fn create_stripe_checkout_session(
         Ok(session) => (StatusCode::OK, Json(session)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to create checkout session: {}", e),
-            }),
+            Json(ErrorResponse::new(format!(
+                "Failed to create checkout session: {}",
+                e
+            ))),
         )
             .into_response(),
     }
@@ -137,18 +134,14 @@ pub async fn create_stripe_customer_portal(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "User not found".to_string(),
-                }),
+                Json(ErrorResponse::new("User not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -160,10 +153,10 @@ pub async fn create_stripe_customer_portal(
         None => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "No Stripe customer found. Please create a subscription first."
-                        .to_string(),
-                }),
+                Json(ErrorResponse::coded(
+                    "no_stripe_customer",
+                    "No Stripe customer found. Please create a subscription first.",
+                )),
             )
                 .into_response();
         }
@@ -175,9 +168,7 @@ pub async fn create_stripe_customer_portal(
         None => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "Stripe billing not initialized".to_string(),
-                }),
+                Json(ErrorResponse::new("Stripe billing not initialized")),
             )
                 .into_response();
         }
@@ -208,9 +199,10 @@ pub async fn create_stripe_customer_portal(
             info!("create_stripe_customer_portal completed in {:?}", elapsed);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Failed to create customer portal session: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Failed to create customer portal session: {}",
+                    e
+                ))),
             )
                 .into_response()
         }
@@ -231,18 +223,14 @@ pub async fn get_billing_status(
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "User not found".to_string(),
-                }),
+                Json(ErrorResponse::new("User not found")),
             )
                 .into_response();
         }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -258,9 +246,7 @@ pub async fn get_billing_status(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -276,9 +262,7 @@ pub async fn get_billing_status(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
             )
                 .into_response();
         }
@@ -295,9 +279,7 @@ pub async fn get_billing_status(
                 Err(e) => {
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: format!("Database error: {}", e),
-                        }),
+                        Json(ErrorResponse::new(format!("Database error: {}", e))),
                     )
                         .into_response();
                 }
@@ -359,9 +341,7 @@ pub async fn get_billing_pricing(State(stripe_billing): State<StripeBillingState
         None => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "Stripe billing not initialized".to_string(),
-                }),
+                Json(ErrorResponse::new("Stripe billing not initialized")),
             )
                 .into_response();
         }
@@ -386,9 +366,7 @@ pub async fn handle_stripe_webhook(
             Err(_) => {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse {
-                        error: "Invalid stripe-signature header".to_string(),
-                    }),
+                    Json(ErrorResponse::new("Invalid stripe-signature header")),
                 )
                     .into_response();
             }
@@ -396,9 +374,7 @@ pub async fn handle_stripe_webhook(
         None => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "Missing stripe-signature header".to_string(),
-                }),
+                Json(ErrorResponse::new("Missing stripe-signature header")),
             )
                 .into_response();
         }
@@ -410,9 +386,7 @@ pub async fn handle_stripe_webhook(
         None => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "Stripe billing not initialized".to_string(),
-                }),
+                Json(ErrorResponse::new("Stripe billing not initialized")),
             )
                 .into_response();
         }
@@ -644,9 +618,10 @@ pub async fn handle_stripe_webhook(
             tracing::error!("❌ Webhook processing failed: {}", e);
             (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: format!("Webhook processing failed: {}", e),
-                }),
+                Json(ErrorResponse::new(format!(
+                    "Webhook processing failed: {}",
+                    e
+                ))),
             )
                 .into_response()
         }
@@ -665,9 +640,7 @@ pub async fn get_checkout_session_details(
         None => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "Stripe billing not initialized".to_string(),
-                }),
+                Json(ErrorResponse::new("Stripe billing not initialized")),
             )
                 .into_response();
         }
@@ -681,9 +654,7 @@ pub async fn get_checkout_session_details(
         Ok(details) => (StatusCode::OK, Json(details)).into_response(),
         Err(e) => (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: format!("Session not found: {}", e),
-            }),
+            Json(ErrorResponse::new(format!("Session not found: {}", e))),
         )
             .into_response(),
     }
