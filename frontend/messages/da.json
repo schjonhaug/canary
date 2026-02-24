@@ -985,7 +985,8 @@
     "savingYearly": "Du sparer {percent}% med årlig fakturering",
     "startUsing": "Begynd at bruge din plan",
     "manageSubscription": "Administrer abonnement",
-    "supportMessage": "Brug for hjælp? Kontakt os på <link>{email}</link>"
+    "supportMessage": "Brug for hjælp? Kontakt os på <link>{email}</link>",
+    "unknownPlan": "Ukendt"
   },
   "demoBanner": {
     "title": "Demotilstand",

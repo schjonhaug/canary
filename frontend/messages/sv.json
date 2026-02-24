@@ -971,7 +971,7 @@
     "descriptionProcessing": "Din betalning behandlas. Det kan ta några minuter.",
     "plan": "Plan",
     "yearly": "(Årlig)",
-    "monthly": "(Månadsvis)",
+    "monthly": "(Månads)",
     "amountPaid": "Betalt belopp",
     "perYear": "/år",
     "perMonth": "/månad",
@@ -985,7 +985,8 @@
     "savingYearly": "Du sparar {percent}% med årlig fakturering",
     "startUsing": "Börja använda din plan",
     "manageSubscription": "Hantera prenumeration",
-    "supportMessage": "Behöver du hjälp? Kontakta oss på <link>{email}</link>"
+    "supportMessage": "Behöver du hjälp? Kontakta oss på <link>{email}</link>",
+    "unknownPlan": "Okänd"
   },
   "demoBanner": {
     "title": "Demoläge",

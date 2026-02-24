@@ -985,7 +985,8 @@
     "savingYearly": "Vous économisez {percent}% avec la facturation annuelle",
     "startUsing": "Commencer à utiliser votre plan",
     "manageSubscription": "Gérer l'abonnement",
-    "supportMessage": "Besoin d'aide ? Contactez-nous à <link>{email}</link>"
+    "supportMessage": "Besoin d'aide ? Contactez-nous à <link>{email}</link>",
+    "unknownPlan": "Inconnu"
   },
   "demoBanner": {
     "title": "Mode Démo",

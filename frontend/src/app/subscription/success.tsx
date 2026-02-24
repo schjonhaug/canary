@@ -13,6 +13,8 @@ import { getTierDisplayName } from "@/lib/pricing-data"
 import { formatPrice, usePricing } from "@/hooks/usePricing"
 import { useTranslations, useLocale } from "next-intl"
 
+const SUPPORT_EMAIL = 'support@canarybitcoin.com'
+
 export default function BillingSuccessPage() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session')
@@ -39,7 +41,7 @@ export default function BillingSuccessPage() {
     const fetchSessionDetails = async () => {
       if (!sessionId) {
         if (isMounted) {
-          setError('No session ID provided')
+          setError('no_session')
           setLoading(false)
         }
         return
@@ -61,7 +63,7 @@ export default function BillingSuccessPage() {
       } catch (err) {
         console.error('Failed to fetch session details:', err)
         if (isMounted) {
-          setError('Failed to load payment details')
+          setError('load_failed')
         }
       } finally {
         if (isMounted) {
@@ -97,7 +99,7 @@ export default function BillingSuccessPage() {
           <CardContent className="text-center py-12 space-y-4">
             <div className="text-red-500 text-lg">{t('errorTitle')}</div>
             <p className="text-muted-foreground">
-              {error || t('errorDescription')}
+              {t('errorDescription')}
             </p>
             <div className="flex gap-3 justify-center">
               <Button asChild>
@@ -114,7 +116,7 @@ export default function BillingSuccessPage() {
   }
 
   const isSuccessful = sessionDetails.status === 'complete'
-  const tierName = sessionDetails.tier ? getTierDisplayName(sessionDetails.tier) : 'Unknown'
+  const tierName = sessionDetails.tier ? getTierDisplayName(sessionDetails.tier) : t('unknownPlan')
   const isYearly = sessionDetails.billing_period === 'yearly'
   const amount = sessionDetails.amount_total
   const currency = sessionDetails.currency || 'USD'
@@ -211,8 +213,8 @@ export default function BillingSuccessPage() {
         <CardContent className="pt-6">
           <div className="text-center text-sm text-muted-foreground">
             <p>{t.rich('supportMessage', {
-              email: 'support@canarybitcoin.com',
-              link: (chunks) => <a href="mailto:support@canarybitcoin.com" className="text-primary hover:underline">{chunks}</a>
+              email: SUPPORT_EMAIL,
+              link: (chunks) => <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">{chunks}</a>
             })}</p>
           </div>
         </CardContent>

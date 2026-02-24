@@ -985,7 +985,8 @@
     "savingYearly": "You're saving {percent}% with yearly billing",
     "startUsing": "Start Using Your Plan",
     "manageSubscription": "Manage Subscription",
-    "supportMessage": "Need help? Contact us at <link>{email}</link>"
+    "supportMessage": "Need help? Contact us at <link>{email}</link>",
+    "unknownPlan": "Unknown"
   },
   "demoBanner": {
     "title": "Demo Mode",

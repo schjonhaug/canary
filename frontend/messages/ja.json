@@ -985,7 +985,8 @@
     "savingYearly": "年間払いで{percent}%お得です",
     "startUsing": "プランの利用を開始",
     "manageSubscription": "サブスクリプション管理",
-    "supportMessage": "お困りですか？<link>{email}</link>までお問い合わせください"
+    "supportMessage": "お困りですか？<link>{email}</link>までお問い合わせください",
+    "unknownPlan": "不明"
   },
   "demoBanner": {
     "title": "デモモード",
