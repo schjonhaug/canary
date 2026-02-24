@@ -33,6 +33,8 @@ export default function BillingSuccessPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>
+
     const fetchSessionDetails = async () => {
       if (!sessionId) {
         setError('No session ID provided')
@@ -46,7 +48,7 @@ export default function BillingSuccessPage() {
         setSessionDetails(details)
 
         // Refresh billing status to get updated subscription
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
           refreshBillingStatus()
         }, 2000)
       } catch (err) {
@@ -58,6 +60,7 @@ export default function BillingSuccessPage() {
     }
 
     fetchSessionDetails()
+    return () => clearTimeout(timeoutId)
   }, [sessionId, refreshBillingStatus])
 
   if (loading) {
