@@ -1060,7 +1060,7 @@ impl WalletManager {
         let wallet_limit = if is_admin {
             usize::MAX // Unlimited for admin
         } else if !is_subscription_active {
-            0 // No active wallets for expired/past_due/canceled subscriptions
+            0 // No active wallets for inactive subscriptions (expired, past_due, or canceled with no remaining access)
         } else {
             match tier {
                 "personal" => 1,
@@ -1101,7 +1101,7 @@ impl WalletManager {
         let contact_limit = if is_admin {
             usize::MAX // Unlimited for admin
         } else if !is_subscription_active {
-            0 // No active contacts for expired/past_due/canceled subscriptions
+            0 // No active contacts for inactive subscriptions (expired, past_due, or canceled with no remaining access)
         } else {
             match tier {
                 "personal" => 1,

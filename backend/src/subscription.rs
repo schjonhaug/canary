@@ -153,6 +153,13 @@ impl std::fmt::Display for LimitError {
 
 impl std::error::Error for LimitError {}
 
+/// Parse a datetime string and check if it's in the future
+fn is_future_datetime(date_str: &str) -> Option<bool> {
+    chrono::NaiveDateTime::parse_from_str(date_str, "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .map(|dt| dt > chrono::Utc::now().naive_utc())
+}
+
 /// Check if a subscription is currently active
 ///
 /// A subscription is active if:
@@ -168,32 +175,18 @@ pub fn is_subscription_active(
         "active" => true,
         "trialing" => {
             if let Some(trial_ends_at_str) = trial_ends_at {
-                // Parse trial_ends_at and check if it's in the future
-                if let Ok(trial_ends_at) =
-                    chrono::NaiveDateTime::parse_from_str(trial_ends_at_str, "%Y-%m-%d %H:%M:%S")
-                {
-                    let now = chrono::Utc::now().naive_utc();
-                    trial_ends_at > now // Active if trial hasn't ended yet
-                } else {
-                    true // If parse fails, assume active (shouldn't happen)
-                }
+                // Assume active if parse fails (shouldn't happen with valid DB data)
+                is_future_datetime(trial_ends_at_str).unwrap_or(true)
             } else {
                 true // If no trial_ends_at, assume active
             }
         }
         "canceled" => {
-            // Active if subscription_ends_at is in the future (user paid for remaining period)
-            if let Some(ends_at_str) = subscription_ends_at {
-                if let Ok(ends_at) =
-                    chrono::NaiveDateTime::parse_from_str(ends_at_str, "%Y-%m-%d %H:%M:%S")
-                {
-                    ends_at > chrono::Utc::now().naive_utc()
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
+            // Active if subscription_ends_at is in the future (user paid for remaining period).
+            // Fail closed: if missing or unparseable, treat as inactive.
+            subscription_ends_at
+                .and_then(is_future_datetime)
+                .unwrap_or(false)
         }
         _ => false,
     }
@@ -302,6 +295,16 @@ mod tests {
         let past_date = chrono::Utc::now().naive_utc() - chrono::Duration::days(5);
         let past_str = past_date.format("%Y-%m-%d %H:%M:%S").to_string();
         assert!(!is_subscription_active("canceled", None, Some(&past_str)));
+    }
+
+    #[test]
+    fn test_is_subscription_active_with_canceled_invalid_date() {
+        // Canceled with invalid date format — should fail closed (inactive)
+        assert!(!is_subscription_active(
+            "canceled",
+            None,
+            Some("not-a-date")
+        ));
     }
 
     #[test]
