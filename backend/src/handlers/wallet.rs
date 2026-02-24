@@ -395,15 +395,19 @@ pub async fn create_wallet_non_blocking(
         }
         Err(e) => {
             let error_msg = e.to_string();
-            let (status_code, error_response) = match error_msg.as_str() {
-                "Descriptor already exists"
-                | "Wallet already exists"
-                | "Wallet file already exists" => (
-                    StatusCode::CONFLICT,
-                    ErrorResponse::coded("wallet_already_exists", error_msg),
-                ),
-                _ => (StatusCode::BAD_REQUEST, ErrorResponse::new(error_msg)),
-            };
+            let (status_code, error_response) =
+                if error_msg.contains("already been added")
+                    || error_msg == "Descriptor already exists"
+                    || error_msg == "Wallet already exists"
+                    || error_msg == "Wallet file already exists"
+                {
+                    (
+                        StatusCode::CONFLICT,
+                        ErrorResponse::coded("wallet_already_exists", error_msg),
+                    )
+                } else {
+                    (StatusCode::BAD_REQUEST, ErrorResponse::new(error_msg))
+                };
             (status_code, Json(error_response)).into_response()
         }
     }
