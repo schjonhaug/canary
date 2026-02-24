@@ -1036,6 +1036,23 @@
     "supportMessage": "¿Necesitas ayuda? Contáctanos en <link>{email}</link>",
     "unknownPlan": "Desconocido"
   },
+  "subscriptionCancel": {
+    "title": "Pago cancelado",
+    "description": "Cancelaste el proceso de pago. No se han realizado cargos en tu cuenta.",
+    "whatHappenedTitle": "¿Qué sucedió?",
+    "whatHappenedDescription": "Cerraste la ventana de pago o hiciste clic en el botón de retroceso durante el proceso de compra. Tu suscripción permanece sin cambios y no se procesó ningún pago.",
+    "optionsTitle": "¿Qué te gustaría hacer?",
+    "tryAgain": "Intentar de nuevo",
+    "continueCurrent": "Continuar con el plan actual",
+    "contactSupport": "Contactar a soporte",
+    "mailtoSubject": "Consulta de facturación",
+    "mailtoBody": "Hola, estaba intentando actualizar mi plan pero cancelé el pago. ¿Podrían ayudarme con...",
+    "helpTitle": "¿Necesitas ayuda para elegir un plan?",
+    "personalDescription": "• <strong>Personal:</strong> Perfecto para usuarios individuales que gestionan su propio Bitcoin",
+    "teamDescription": "• <strong>Equipo:</strong> Ideal para guardianes familiares que gestionan múltiples billeteras",
+    "supportQuestion": "¿Tienes preguntas sobre nuestros planes? ¡Estamos aquí para ayudarte!",
+    "supportEmail": "Envíanos un correo a <link>{email}</link>"
+  },
   "demoBanner": {
     "title": "Modo Demo",
     "description": "Estás viendo una billetera demo de solo lectura. Todas las funciones son solo para visualización.",

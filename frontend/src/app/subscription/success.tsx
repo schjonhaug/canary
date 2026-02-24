@@ -11,9 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Loader2, ArrowRight } from "lucide-react"
 import { getTierDisplayName } from "@/lib/pricing-data"
 import { formatPrice, usePricing } from "@/hooks/usePricing"
+import { SUPPORT_EMAIL } from "@/lib/constants"
 import { useTranslations, useLocale } from "next-intl"
-
-const SUPPORT_EMAIL = 'support@canarybitcoin.com'
 
 export default function BillingSuccessPage() {
   const searchParams = useSearchParams()

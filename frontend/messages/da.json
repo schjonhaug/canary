@@ -1036,6 +1036,23 @@
     "supportMessage": "Brug for hjælp? Kontakt os på <link>{email}</link>",
     "unknownPlan": "Ukendt"
   },
+  "subscriptionCancel": {
+    "title": "Betaling annulleret",
+    "description": "Du annullerede betalingsprocessen. Der er ikke trukket penge fra din konto.",
+    "whatHappenedTitle": "Hvad skete der?",
+    "whatHappenedDescription": "Du lukkede betalingsvinduet eller klikkede på tilbage-knappen under betalingen. Dit abonnement forbliver uændret, og ingen betaling blev gennemført.",
+    "optionsTitle": "Hvad vil du gerne gøre?",
+    "tryAgain": "Prøv igen",
+    "continueCurrent": "Fortsæt med nuværende abonnement",
+    "contactSupport": "Kontakt support",
+    "mailtoSubject": "Spørgsmål om fakturering",
+    "mailtoBody": "Hej, jeg forsøgte at opgradere mit abonnement, men annullerede betalingen. Kan I hjælpe mig med...",
+    "helpTitle": "Har du brug for hjælp til at vælge et abonnement?",
+    "personalDescription": "• <strong>Personlig:</strong> Perfekt til enkelte brugere, der administrerer deres egen Bitcoin",
+    "teamDescription": "• <strong>Team:</strong> Ideelt til familieoverhoveder, der administrerer flere tegnebøger",
+    "supportQuestion": "Spørgsmål til vores abonnementer? Vi er her for at hjælpe!",
+    "supportEmail": "Send os en e-mail på <link>{email}</link>"
+  },
   "demoBanner": {
     "title": "Demotilstand",
     "description": "Du får vist en skrivebeskyttet demo-wallet. Alle funktioner er kun til visning.",

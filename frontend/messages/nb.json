@@ -1036,6 +1036,23 @@
     "supportMessage": "Trenger du hjelp? Kontakt oss på <link>{email}</link>",
     "unknownPlan": "Ukjent"
   },
+  "subscriptionCancel": {
+    "title": "Betaling avbrutt",
+    "description": "Du avbrøt betalingsprosessen. Ingen belastninger er gjort på kontoen din.",
+    "whatHappenedTitle": "Hva skjedde?",
+    "whatHappenedDescription": "Du lukket betalingsvinduet eller klikket på tilbake-knappen under betalingen. Abonnementet ditt forblir uendret, og ingen betaling ble behandlet.",
+    "optionsTitle": "Hva ønsker du å gjøre?",
+    "tryAgain": "Prøv igjen",
+    "continueCurrent": "Fortsett med nåværende abonnement",
+    "contactSupport": "Kontakt brukerstøtte",
+    "mailtoSubject": "Spørsmål om fakturering",
+    "mailtoBody": "Hei, jeg prøvde å oppgradere abonnementet mitt, men avbrøt betalingen. Kan dere hjelpe meg med...",
+    "helpTitle": "Trenger du hjelp til å velge et abonnement?",
+    "personalDescription": "• <strong>Personlig:</strong> Perfekt for enkeltbrukere som administrerer sin egen Bitcoin",
+    "teamDescription": "• <strong>Team:</strong> Flott for familievogtere som administrerer flere lommebøker",
+    "supportQuestion": "Spørsmål om våre abonnementer? Vi er her for å hjelpe!",
+    "supportEmail": "Send oss en e-post på <link>{email}</link>"
+  },
   "demoBanner": {
     "title": "Demomodus",
     "description": "Du ser på en skrivebeskyttet demo-lommebok. Alle funksjoner er kun for visning.",
