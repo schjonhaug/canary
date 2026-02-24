@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { ApiError } from '@/lib/utils'
@@ -59,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const userRef = useRef<User | null>(null)
   const router = useRouter()
 
   // Check operating mode - REQUIRED configuration
@@ -80,6 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isCloudMode = mode === 'cloud'
   const isSelfHostedMode = mode === 'self-hosted'
 
+
+  // Keep userRef in sync for use in stable callbacks
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
 
   // Sync locale cookie from user's stored preference (used on page refresh when already logged in)
   const syncLocaleFromUser = useCallback((userData: User) => {
@@ -164,9 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, isCloudMode, fetchBillingStatus])
 
   const refreshBillingStatus = useCallback(async () => {
-    if (!user) return
+    if (!userRef.current) return
     await fetchBillingStatus()
-  }, [user, fetchBillingStatus])
+  }, [fetchBillingStatus])
 
   const register = async (email: string, password: string, name: string, marketingEmails: boolean = false) => {
     await api.register(email, password, name, marketingEmails)
