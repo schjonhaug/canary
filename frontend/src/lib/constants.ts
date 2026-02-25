@@ -9,7 +9,7 @@
 // Application Constants
 // =============================================================================
 
-export const SUPPORT_EMAIL = 'support@canarybitcoin.com'
+export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@canarybitcoin.com'
 
 // =============================================================================
 // Validation Regex Patterns
