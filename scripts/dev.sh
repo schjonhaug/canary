@@ -10,14 +10,11 @@
 #
 # Key Commands:
 #   start           - Start infrastructure (Bitcoin Core + Fulcrum)
-#   create-wallets  - Create Alice (1 BTC distributed) and Bob (unfunded) wallets
-#   add-wallets-to-backend - Integrate wallets with backend API
+#   init            - Create wallets and add to backend
 #
 # Workflow:
-#   1. ./docker-utils.sh start
-#   2. ./docker-utils.sh create-wallets  (Alice gets 1 BTC distributed automatically)
-#   3. cd ../backend && BITCOIN_NETWORK=regtest cargo run
-#   4. cd ../regtest-env && ./docker-utils.sh add-wallets-to-backend
+#   1. cd ../backend && cargo run   (start backend)
+#   2. ./dev.sh init                (starts infra, creates wallets, adds to backend)
 
 # Function to run bitcoin-cli against the Docker container  
 btc() {
@@ -72,7 +69,7 @@ cpfp_for_wallet() {
     }
     # Check if wallet exists
     if ! btc_wallet "$WALLET" getwalletinfo >/dev/null 2>&1; then
-        echo "❌ $WALLET wallet not found. Run '$0 create-wallets' first"
+        echo "❌ $WALLET wallet not found. Run '$0 init' first"
         exit 1
     fi
     # Check wallet has sufficient confirmed funds for fees
@@ -723,8 +720,17 @@ mine_blocks() {
     btc generatetoaddress "$BLOCKS" "$ADDRESS" >/dev/null 2>&1
 }
 
+# Kill backend and frontend processes (ports 3000 and 3001)
+kill_servers() {
+    if lsof -ti:3000,3001 > /dev/null 2>&1; then
+        echo "🔪 Stopping backend/frontend (ports 3000, 3001)..."
+        lsof -ti:3000,3001 | xargs kill -9 2>/dev/null || true
+        sleep 1
+    fi
+}
+
 # --- New multi-word command parsing for wallet actions ---
-if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" || "$1" == "addr-legacy" || "$1" == "addr-p2sh" || "$1" == "addr-segwit" || "$1" == "addr-taproot" ]]; then
+if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" || "$1" == "legacy-address" || "$1" == "p2sh-address" || "$1" == "segwit-address" || "$1" == "taproot-address" ]]; then
     WALLET="$1"
     SUBCMD="$2"
     shift 2
@@ -746,11 +752,11 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" |
             
             # Validate destination wallet (all wallets can be destinations)
             case "$DESTINATION_WALLET" in
-                alice|bob|charlie|miner|addr-legacy|addr-p2sh|addr-segwit|addr-taproot)
+                alice|bob|charlie|miner|legacy-address|p2sh-address|segwit-address|taproot-address)
                     ;;
                 *)
                     echo "❌ Invalid destination wallet: $DESTINATION_WALLET"
-                    echo "Available destinations: alice, bob, charlie, miner, addr-legacy, addr-p2sh, addr-segwit, addr-taproot"
+                    echo "Available destinations: alice, bob, charlie, miner, legacy-address, p2sh-address, segwit-address, taproot-address"
                     exit 1
                     ;;
             esac
@@ -766,10 +772,28 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" |
             btc loadwallet "$WALLET" 2>/dev/null || true
             btc loadwallet "$DESTINATION_WALLET" 2>/dev/null || true
             
+            # Helper: get target address for destination wallet
+            # For addr-* wallets, reuse the existing address (single-address wallets)
+            # For regular wallets, generate a new address each time
+            get_target_address() {
+                local dest="$1"
+                case "$dest" in
+                    *-address)
+                        # Single-address wallets: reuse the existing address
+                        local addr_list
+                        addr_list=$(btc_wallet "$dest" listreceivedbyaddress 0 true)
+                        echo "$addr_list" | jq -r '.[0].address'
+                        ;;
+                    *)
+                        btc_wallet "$dest" getnewaddress
+                        ;;
+                esac
+            }
+
             # Handle max amount (drain wallet) - single transaction
             if [ "${AMOUNTS[0]}" == "max" ] && [ ${#AMOUNTS[@]} -eq 1 ]; then
                 # Get target address from destination wallet
-                TARGET_ADDRESS=$(btc_wallet "$DESTINATION_WALLET" getnewaddress)
+                TARGET_ADDRESS=$(get_target_address "$DESTINATION_WALLET")
                 # Get current balance
                 CURRENT_BALANCE=$(btc_wallet "$WALLET" getbalance)
                 echo "🎯 Draining $WALLET wallet ($CURRENT_BALANCE BTC) to $DESTINATION_WALLET address: $TARGET_ADDRESS"
@@ -779,14 +803,14 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" |
                 echo "💡 Use '$0 mine' to confirm transaction"
                 exit 0
             fi
-            
+
             # Handle multiple amounts - separate transaction for each amount
             echo "🎯 Sending ${#AMOUNTS[@]} separate transactions from $WALLET to $DESTINATION_WALLET"
             TXIDS=()
             for i in "${!AMOUNTS[@]}"; do
                 AMOUNT="${AMOUNTS[$i]}"
-                # Get a new target address for each transaction
-                TARGET_ADDRESS=$(btc_wallet "$DESTINATION_WALLET" getnewaddress)
+                # Get target address (reuses existing for addr-* wallets)
+                TARGET_ADDRESS=$(get_target_address "$DESTINATION_WALLET")
                 
                 echo "  📤 Transaction $((i+1))/${#AMOUNTS[@]}: Sending $AMOUNT BTC to address $TARGET_ADDRESS"
                 TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
@@ -880,7 +904,7 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" |
             
             # Check if wallet exists
             if ! btc_wallet "$WALLET" getwalletinfo >/dev/null 2>&1; then
-                echo "❌ $WALLET wallet not found. Run '$0 create-wallets' first"
+                echo "❌ $WALLET wallet not found. Run '$0 init' first"
                 exit 1
             fi
             
@@ -984,8 +1008,7 @@ case "$1" in
         fi
 
         # Kill running backend and frontend
-        echo "Killing processes on ports 3000 and 3001..."
-        lsof -ti:3000,3001 | xargs kill -9 2>/dev/null || true
+        kill_servers
 
         # Set values based on mode
         if [[ "$MODE" == "self-hosted" ]]; then
@@ -1096,15 +1119,22 @@ case "$1" in
         fi
         echo "Set BITCOIN_NETWORK=regtest in your environment"
         echo ""
-        echo "💡 Next: $0 create-wallets (creates Alice with 1 BTC distributed)"
+        echo "💡 Next: $0 init (creates wallets and adds to backend)"
         ;;
     
-    "create-wallets")
+    "init")
+        # Start infrastructure if not already running
+        if ! btc getblockchaininfo > /dev/null 2>&1; then
+            echo "🔧 Bitcoin Core not running — starting infrastructure first..."
+            $0 start
+            echo ""
+        fi
+
         echo "🏦 Setting up Alice, Bob and Miner wallets..."
-        
+
         # Check if Bitcoin Core is running
         if ! btc getblockchaininfo > /dev/null 2>&1; then
-            echo "❌ Bitcoin Core is not running. Run '$0 start' first."
+            echo "❌ Bitcoin Core is not running."
             exit 1
         fi
         
@@ -1430,7 +1460,7 @@ case "$1" in
         echo "📋 Creating single-address wallets..."
         ADDR_TYPES=("legacy" "p2sh-segwit" "bech32" "bech32m")
         ADDR_LABELS=("P2PKH legacy" "P2SH nested segwit" "P2WPKH native segwit" "P2TR taproot")
-        ADDR_WALLET_NAMES=("addr-legacy" "addr-p2sh" "addr-segwit" "addr-taproot")
+        ADDR_WALLET_NAMES=("legacy-address" "p2sh-address" "segwit-address" "taproot-address")
 
         for i in "${!ADDR_TYPES[@]}"; do
             ADDR_TYPE="${ADDR_TYPES[$i]}"
@@ -1453,8 +1483,8 @@ case "$1" in
             ADDR_BALANCE=$(btc_wallet "$ADDR_WALLET_NAME" getbalance 2>/dev/null || echo "0")
             if [ "$(echo "$ADDR_BALANCE == 0" | bc -l 2>/dev/null || echo "1")" -eq 1 ]; then
                 ADDRESS=$(btc_wallet "$ADDR_WALLET_NAME" getnewaddress "" "$ADDR_TYPE")
-                btc_miner sendtoaddress "$ADDRESS" 0.5 > /dev/null
-                echo "   ✅ $ADDR_WALLET_NAME ($ADDR_LABEL): $ADDRESS — funded 0.5 BTC"
+                btc_miner sendtoaddress "$ADDRESS" 0.123 > /dev/null
+                echo "   ✅ $ADDR_WALLET_NAME ($ADDR_LABEL): $ADDRESS — funded 0.123 BTC"
             else
                 echo "   ✅ $ADDR_WALLET_NAME already funded ($ADDR_BALANCE BTC)"
             fi
@@ -1492,7 +1522,55 @@ case "$1" in
             echo "   🔍 $ADDR_WALLET_NAME ($ADDR_LABEL): $ADDRESS ($ADDR_BALANCE BTC)"
         done
         echo ""
-        echo "💡 Next: $0 add-wallets-to-backend (requires backend running)"
+
+        # Add wallets to backend if it's running
+        BACKEND_URL="http://localhost:3000"
+        echo "🔍 Checking if backend is running at $BACKEND_URL..."
+        if curl -s --connect-timeout 2 --max-time 5 "$BACKEND_URL/api/wallets" > /dev/null 2>&1; then
+            echo "✅ Backend is running — adding wallets..."
+            echo ""
+
+            # Helper to add a wallet to the backend
+            add_wallet_to_backend() {
+                local name="$1"
+                local descriptor="$2"
+                local emoji="$3"
+
+                RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/wallets" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"name\":\"$name\",\"descriptor\":\"$descriptor\"}")
+
+                if echo "$RESPONSE" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
+                    CHECKSUM=$(echo "$RESPONSE" | jq -r '.wallet.checksum')
+                    echo "   $emoji $name added (checksum: $CHECKSUM)"
+                    return 0
+                else
+                    ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error // "unknown error"')
+                    echo "   $emoji $name: $ERROR_MSG"
+                    return 1
+                fi
+            }
+
+            add_wallet_to_backend "Alice (Regtest)" "$ALICE_DESCRIPTOR" "👩"
+            add_wallet_to_backend "Bob (Regtest)" "$BOB_DESCRIPTOR" "👨"
+            add_wallet_to_backend "Charlie (Regtest)" "$CHARLIE_DESCRIPTOR" "🎭"
+
+            # Add single-address wallets
+            for i in "${!ADDR_WALLET_NAMES[@]}"; do
+                ADDR_WALLET_NAME="${ADDR_WALLET_NAMES[$i]}"
+                ADDR_LABEL="${ADDR_LABELS[$i]}"
+                btc loadwallet "$ADDR_WALLET_NAME" >/dev/null 2>&1 || true
+                ADDR_LIST=$(btc_wallet "$ADDR_WALLET_NAME" listreceivedbyaddress 0 true)
+                ADDRESS=$(echo "$ADDR_LIST" | jq -r '.[0].address')
+                add_wallet_to_backend "$ADDR_WALLET_NAME" "$ADDRESS" "🔍"
+            done
+
+            echo ""
+            echo "🎉 Init complete! Check http://localhost:3001"
+        else
+            echo "⚠️  Backend not running — wallets not added to database"
+            echo "💡 Start the backend and run: $0 add-wallets-to-backend"
+        fi
         ;;
         
     "stop")
@@ -1512,6 +1590,9 @@ case "$1" in
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo "Resetting environment..."
+
+            # Kill backend and frontend first so they don't hold database locks
+            kill_servers
 
             # Try to unload wallets before reset (if Bitcoin is running)
             if btc getblockchaininfo > /dev/null 2>&1; then
@@ -1897,8 +1978,7 @@ case "$1" in
         ;;
         
     "kill")
-        echo "🔪 Killing processes on ports 3000 and 3001..."
-        lsof -ti:3000,3001 | xargs kill -9 2>/dev/null || true
+        kill_servers
         echo "🎯 Port cleanup complete"
         ;;
         
@@ -1909,9 +1989,9 @@ case "$1" in
         echo ""
         echo "Environment Commands:"
         echo "  start               Start Bitcoin + Electrum + ntfy containers"
-        echo "  create-wallets      Create Alice, Bob, and Charlie wallets (run after start)"
+        echo "  init                Start infra, create wallets, add to backend"
         echo "  stop                Stop all containers"
-        echo "  restart             Restart all containers"  
+        echo "  restart             Restart all containers"
         echo "  reset               Stop containers and delete all data (includes database)"
         echo "  wipe-database       Remove all database folders (cloud & self-hosted)"
         echo "  kill                Kill processes on localhost ports 3000 and 3001"
@@ -1965,13 +2045,13 @@ case "$1" in
         echo "  miner rbf <txid>                      Replace transaction with automatically calculated higher fee"
         echo "  miner cpfp <txid>                     Create CPFP child transaction for Miner's unconfirmed output"
         echo ""
-        echo "Single-Address Wallets (created by create-wallets, one address per type):"
-        echo "  addr-legacy sending <wallet> <amt>     Send from P2PKH address"
-        echo "  addr-p2sh sending <wallet> <amt>       Send from P2SH-P2WPKH address"
-        echo "  addr-segwit sending <wallet> <amt>     Send from P2WPKH address"
-        echo "  addr-taproot sending <wallet> <amt>    Send from P2TR address"
-        echo "  addr-* balance                         Show balance"
-        echo "  addr-* address                         Show address"
+        echo "Single-Address Wallets (created by init, one address per type):"
+        echo "  legacy-address sending <wallet> <amt>  Send from P2PKH address"
+        echo "  p2sh-address sending <wallet> <amt>    Send from P2SH-P2WPKH address"
+        echo "  segwit-address sending <wallet> <amt>  Send from P2WPKH address"
+        echo "  taproot-address sending <wallet> <amt> Send from P2TR address"
+        echo "  *-address balance                      Show balance"
+        echo "  *-address address                      Show address"
         echo ""
         echo "Mining Commands:"
         echo "  mine [blocks]           Mine blocks to Miner wallet (default: 1)"
@@ -1985,13 +2065,12 @@ case "$1" in
         echo "  run-tests <address>          Run comprehensive test suite with wallet address"
         echo ""
         echo "Backend Integration:"
-        echo "  add-wallets-to-backend [url]    Add Alice/Bob/Charlie wallets to backend (default: http://localhost:3000)"
+        echo "  add-wallets-to-backend [url]    Add wallets to backend (also done by init)"
         echo "  remove-wallets-from-backend [url] Remove regtest wallets from backend"
         echo ""
         echo "Examples:"
         echo "  $0 start                             # Start the environment"
-        echo "  $0 create-wallets                    # Create Alice/Bob/Charlie wallets (Alice gets 1 BTC distributed, Charlie gets 0.5 BTC at index 250)"
-        echo "  $0 add-wallets-to-backend            # Add Alice/Bob/Charlie to your backend"
+        echo "  $0 init                              # Create wallets + add to backend"
         echo "  $0 mine 6                            # Mine 6 blocks"
         echo "  $0 alice sending bob 0.5             # Send single 0.5 BTC transaction from Alice to Bob"
         echo "  $0 alice sending bob 0.1 0.2 0.05    # Send three separate transactions from Alice to Bob"
