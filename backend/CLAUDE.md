@@ -8,7 +8,7 @@ Canary is a Bitcoin wallet management service built in Rust that provides REST A
 
 **Key Architecture Components:**
 - **Backend**: Rust service with Axum web framework, BDK wallet management, SQLite databases per network
-- **Frontend**: Next.js 15 with React 19, TypeScript, Tailwind CSS 4, shadcn/ui components
+- **Frontend**: Next.js 16 with React 19, TypeScript, Tailwind CSS 4, shadcn/ui components
 - **Development Environment**: Docker-based Bitcoin regtest + Fulcrum Electrum server setup
 - **Authentication**: Optional JWT-based multi-user system with email verification
 - **Billing**: Stripe integration with subscription management and webhook processing
@@ -71,35 +71,55 @@ The backend will fail fast with clear error messages if required variables are m
 ```
 src/
   main.rs                   # Application initialization with async task spawning
-  api.rs                    # Router configuration, AppServices, AppState (~335 lines)
+  lib.rs                    # Library crate root
+  api.rs                    # Router configuration, AppServices, AppState
   extractors/
     mod.rs                  # Re-exports
     auth.rs                 # AuthenticatedUser custom Axum extractor
   handlers/
     mod.rs                  # Re-exports all handlers
-    auth.rs                 # 10 handlers (register, login, logout, me, etc.)
-    balance_alerts.rs       # 3 handlers (create, get, delete alerts)
-    billing.rs              # 6 handlers (checkout, portal, webhook, pricing, etc.)
-    blockchain.rs           # 4 handlers (block headers, exchange rates)
-    contact.rs              # 4 handlers (CRUD for contacts)
-    contact_verification.rs # 2 handlers (send verification, verify)
-    providers.rs            # 1 handler (list notification providers)
-    user_preferences.rs     # 2 handlers (get, update preferences)
-    wallet.rs               # 4 handlers (CRUD for wallets)
+    auth.rs                 # Authentication handlers (register, login, logout, me, etc.)
+    balance_alerts.rs       # Balance alert CRUD handlers
+    billing.rs              # Stripe checkout, portal, webhook, pricing handlers
+    blockchain.rs           # Block headers, exchange rates handlers
+    contact.rs              # Contact CRUD handlers
+    contact_verification.rs # Send verification, verify handlers
+    notifications.rs        # Notification-related handlers
+    providers.rs            # List notification providers handler
+    user_preferences.rs     # Get/update preferences handlers
+    wallet.rs               # Wallet CRUD handlers
   models/
     mod.rs                  # Re-exports
-    requests.rs             # Request DTOs (~200 lines)
-    responses.rs            # Response DTOs (~170 lines)
+    requests.rs             # Request DTOs
+    responses.rs            # Response DTOs (includes error_code field for i18n)
     validators.rs           # Input validation (phone number, etc.)
+  metadata/                 # SQLite database layer (modular)
+    mod.rs                  # Module re-exports
+    db.rs                   # Database operations
+    pool.rs                 # r2d2 connection pooling
+    types.rs                # Database types
+    user.rs                 # User operations (auth, rate limiting, lockout)
+    wallet.rs               # Wallet metadata operations
+    contact.rs              # Contact operations (with OTP rate limiting)
+    transaction.rs          # Transaction operations
+    alert.rs                # Balance alert operations
   wallet.rs                 # BDK wallet operations, sync logic, address revelation
-  metadata.rs               # SQLite with r2d2 connection pooling
   auth.rs                   # JWT session management, email verification
   stripe_billing.rs         # Subscription management
   stripe_client_service.rs  # Stripe API client
   notifications.rs          # Notification manager
+  notification_failure_tracker.rs # Provider failure tracking with admin alerts
   ntfy_provider.rs          # ntfy.sh push notifications
   twilio_provider.rs        # Twilio SMS notifications
   email_provider.rs         # Resend email notifications
+  email_queue.rs            # Background email queue with batching
+  email_service.rs          # Email service abstraction
+  admin_notifications.rs    # Admin notification system
+  exchange_rates.rs         # Exchange rate functionality
+  message_formatter.rs      # Notification message formatting
+  electrum.rs               # Electrum client management
+  xpub_converter.rs         # XPUB format conversion
+  migrations.rs             # Database migration management
   sync.rs                   # Background wallet sync operations
   config.rs                 # Application configuration
   subscription.rs           # Subscription tier logic
@@ -119,7 +139,7 @@ src/
 - Network-specific SQLite databases in `database/{mode}/{network}/` (e.g., `database/cloud/regtest/`, `database/self-hosted/mainnet/`)
 
 ### Frontend Structure
-- **App Router**: Next.js 15 app directory structure with TypeScript
+- **App Router**: Next.js 16 app directory structure with TypeScript
 - **Authentication**: `src/contexts/auth-context.tsx` - JWT token management, billing status
 - **State Management**: React Context + custom hooks pattern
 - **UI Components**: `src/components/ui/` - shadcn/ui design system
@@ -133,17 +153,20 @@ src/
 - Shared pricing data for consistent billing UI
 
 ### Database Schema
-- **16 Migration Files**: migrations/001_initial_schema.sql through migrations/016_add_ntfy_access_token.sql with complete normalized schema and transaction-based architecture
+- **22 Migration Files**: migrations/001_initial_schema.sql through migrations/022_remove_ip_address_logging.sql with complete normalized schema, transaction-based architecture, rate limiting, and privacy improvements
 - **UUID Primary Keys**: Used for security-critical tables (users, transaction_events)
 - **Subscription Management**: Built-in user tiers, Stripe integration fields
+- **Security Tables**: Login rate limiting (`login_attempts`), OTP brute-force protection (`otp_verification_attempts`)
 - **Network Isolation**: Separate databases per Bitcoin network (regtest/testnet/mainnet)
 
 ### Notification System Architecture
 - **Provider Registration**: Runtime registration based on environment variables
-- **Trait-based**: Common `NotificationProvider` trait for extensibility  
+- **Trait-based**: Common `NotificationProvider` trait for extensibility
 - **Multi-method Support**: Contacts can have multiple notification methods
 - **Auto-detection**: Phone numbers → SMS, email addresses → email, topics → ntfy
 - **Delivery Tracking**: Database logging with success/failure status
+- **Failure Tracking**: Consecutive failure monitoring for SMS/email with throttled admin alerts after 3 failures
+- **Email Queue**: Background batching (up to 100 per batch) with retry logic and rate limiting
 
 ## Environment Configuration
 
@@ -238,7 +261,7 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - Without webhook forwarding, users remain in "pending" status
 
 ### Database Management
-- **16 Migration Files**: Complete schema through migration 016 with transaction-based architecture, balance alerts, demo accounts, and ntfy authentication
+- **22 Migration Files**: Complete schema through migration 022 with transaction-based architecture, balance alerts, rate limiting, and privacy improvements
 - **Network Isolation**: Each network has separate database directory
 - **Reset Command**: `./scripts/dev.sh reset` clears all databases
 - **Connection Pooling**: r2d2 SQLite pool with 10 max connections
@@ -265,5 +288,5 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - **Extractors**: Custom Axum extractors for authentication and authorization
 - **Models**: Request/response DTOs and validators
 - **Frontend**: App router structure with co-located component tests
-- **Migrations**: 16 migration files for schema evolution
+- **Migrations**: 22 migration files for schema evolution
 - **Database**: Mode and network-specific directories under `database/{mode}/{network}/` (e.g., `database/cloud/regtest/`)
