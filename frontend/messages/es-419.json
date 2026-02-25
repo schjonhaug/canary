@@ -217,7 +217,6 @@
       "submit": "Crear cuenta",
       "submitting": "Creando cuenta...",
       "hasAccount": "¿Ya tienes cuenta? Inicia sesión",
-      "signInInstead": "Iniciar sesión en su lugar",
       "registrationFailed": "Error en el registro"
     },
     "signUpSuccess": {
@@ -956,7 +955,6 @@
     "api": {
       "invalid_email_format": "Formato de correo electrónico no válido.",
       "password_too_short": "La contraseña debe tener al menos 6 caracteres.",
-      "email_already_exists": "Ya existe una cuenta con este correo electrónico.",
       "invalid_credentials": "Correo electrónico o contraseña no válidos.",
       "account_locked": "Cuenta bloqueada temporalmente debido a demasiados intentos de inicio de sesión fallidos. Por favor, inténtelo de nuevo más tarde.",
       "email_not_verified": "Correo electrónico no verificado. Por favor, revise su correo y haga clic en el enlace de verificación.",

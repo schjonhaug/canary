@@ -81,6 +81,13 @@ auth_email:
     choose_plan: "Elige el plan adecuado para ti:"
     personal_plan: "Personal: 1 billetera, 1 contacto, sincronización de 10 minutos"
     team_plan: "Team: 5 billeteras, 5 contactos por billetera, sincronización de 2 minutos"
+  registration_attempt:
+    subject: "Aviso de seguridad - Canary"
+    header: "Se detectó un intento de registro"
+    body: "Alguien intentó crear una cuenta nueva de Canary usando tu dirección de correo electrónico. Si fuiste tú, ya tienes una cuenta y puedes iniciar sesión o restablecer tu contraseña."
+    button: "Restablecer contraseña"
+    link_fallback: "Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:"
+    security_note: "Si no intentaste registrarte, no es necesario realizar ninguna acción. Tu cuenta permanece segura."
   account_locked:
     subject: "Alerta de seguridad - Cuenta bloqueada"
     header: "Alerta de seguridad de la cuenta"

@@ -24,7 +24,6 @@ export default function SignUpPage() {
   const [marketingEmails, setMarketingEmails] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [errorCode, setErrorCode] = useState<string | null>(null)
   const { register, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
@@ -46,10 +45,8 @@ export default function SignUpPage() {
       router.push('/sign-up/success')
     } catch (err) {
       if (err instanceof ApiError) {
-        setErrorCode(err.errorCode)
         setError(getTranslatedApiError(err, tErrors))
       } else {
-        setErrorCode(null)
         setError(err instanceof Error ? err.message : t('registrationFailed'))
       }
     } finally {
@@ -87,14 +84,6 @@ export default function SignUpPage() {
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>
                 {error}
-                {errorCode === 'email_already_exists' && (
-                  <>
-                    {" "}
-                    <Link href="/sign-in" className="underline font-medium hover:no-underline">
-                      {t('signInInstead')}
-                    </Link>
-                  </>
-                )}
               </AlertDescription>
             </Alert>
           )}

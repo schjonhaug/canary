@@ -81,6 +81,13 @@ auth_email:
     choose_plan: "Vælg den plan, der passer til dig:"
     personal_plan: "Personlig: 1 wallet, 1 kontakt, 10-minutters synkronisering"
     team_plan: "Team: 5 wallets, 5 kontakter pr. wallet, 2-minutters synkronisering"
+  registration_attempt:
+    subject: "Sikkerhedsmeddelelse - Canary"
+    header: "Registreringsforsøg registreret"
+    body: "Nogen har forsøgt at oprette en ny Canary-konto med din e-mailadresse. Hvis det var dig, har du allerede en konto og kan logge ind eller nulstille din adgangskode."
+    button: "Nulstil adgangskode"
+    link_fallback: "Hvis knappen ikke virker, kan du kopiere og indsætte dette link i din browser:"
+    security_note: "Hvis du ikke har forsøgt at registrere dig, er ingen handling nødvendig. Din konto forbliver sikker."
   account_locked:
     subject: "Sikkerhedsadvarsel - Konto låst"
     header: "Sikkerhedsadvarsel for konto"

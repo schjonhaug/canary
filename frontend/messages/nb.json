@@ -217,7 +217,6 @@
       "submit": "Opprett konto",
       "submitting": "Oppretter konto...",
       "hasAccount": "Har du allerede en konto? Logg inn",
-      "signInInstead": "Logg inn i stedet",
       "registrationFailed": "Registrering mislyktes"
     },
     "signUpSuccess": {
@@ -956,7 +955,6 @@
     "api": {
       "invalid_email_format": "Ugyldig e-postformat.",
       "password_too_short": "Passordet må være minst 6 tegn langt.",
-      "email_already_exists": "Det finnes allerede en konto med denne e-postadressen.",
       "invalid_credentials": "Ugyldig e-post eller passord.",
       "account_locked": "Kontoen er midlertidig låst på grunn av for mange mislykkede påloggingsforsøk. Vennligst prøv igjen senere.",
       "email_not_verified": "E-post ikke verifisert. Vennligst sjekk e-posten din og klikk på verifiseringslenken.",

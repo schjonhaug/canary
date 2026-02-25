@@ -217,7 +217,6 @@
       "submit": "Skapa konto",
       "submitting": "Skapar konto...",
       "hasAccount": "Har du redan ett konto? Logga in",
-      "signInInstead": "Logga in istället",
       "registrationFailed": "Registreringen misslyckades"
     },
     "signUpSuccess": {
@@ -956,7 +955,6 @@
     "api": {
       "invalid_email_format": "Ogiltigt e-postformat.",
       "password_too_short": "Lösenordet måste vara minst 6 tecken långt.",
-      "email_already_exists": "Ett konto med denna e-postadress finns redan.",
       "invalid_credentials": "Ogiltig e-postadress eller ogiltigt lösenord.",
       "account_locked": "Kontot är tillfälligt låst på grund av för många misslyckade inloggningsförsök. Försök igen senare.",
       "email_not_verified": "E-postadressen är inte verifierad. Kontrollera din e-post och klicka på verifieringslänken.",

@@ -109,15 +109,46 @@ pub async fn register(
         .get_user_by_email(&request.email)
         .await
     {
-        Ok(Some(_)) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "email_already_exists",
-                    "User with this email already exists",
-                )),
-            )
-                .into_response();
+        Ok(Some(existing_user)) => {
+            // Return same response as successful registration to prevent email enumeration.
+            // Send notification email to existing user (fire-and-forget).
+            let email_service = EmailService::from_env().ok();
+            if let Some(email_service) = email_service {
+                let email = existing_user.email.clone();
+                let name = existing_user
+                    .name
+                    .clone()
+                    .unwrap_or_else(|| "User".to_string());
+                let language = existing_user
+                    .preferred_language
+                    .clone()
+                    .unwrap_or_else(|| "en-US".to_string());
+
+                tokio::spawn(async move {
+                    if let Err(e) = email_service
+                        .send_registration_attempt_notification(&email, &name, &language)
+                        .await
+                    {
+                        tracing::error!(
+                            "Failed to send registration attempt notification to {}: {}",
+                            email,
+                            e
+                        );
+                    }
+                });
+            }
+
+            // Add artificial delay to match the timing of a real registration
+            // (which involves password hashing, Stripe calls, and email sending)
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+            let elapsed = start_time.elapsed();
+            info!("register (existing email) completed in {:?}", elapsed);
+
+            return Json(serde_json::json!({
+                "message": "Registration successful. Please check your email to verify your account."
+            }))
+            .into_response();
         }
         Ok(None) => {} // User doesn't exist, proceed
         Err(e) => {
