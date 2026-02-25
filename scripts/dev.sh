@@ -1523,10 +1523,19 @@ case "$1" in
         done
         echo ""
 
-        # Add wallets to backend if it's running
+        # Add wallets to backend
         BACKEND_URL="http://localhost:3000"
-        echo "🔍 Checking if backend is running at $BACKEND_URL..."
-        if curl -s --connect-timeout 2 --max-time 5 "$BACKEND_URL/api/wallets" > /dev/null 2>&1; then
+        echo ""
+        if ! curl -s --connect-timeout 2 --max-time 5 "$BACKEND_URL/api/wallets" > /dev/null 2>&1; then
+            echo "⏳ Backend not running at $BACKEND_URL"
+            echo "   Start it now:  cd ../backend && cargo run"
+            echo ""
+            read -p "Press Enter when the backend is running (or Ctrl+C to skip)..."
+            echo ""
+        fi
+
+        echo "🔍 Checking backend at $BACKEND_URL..."
+        if curl -s --connect-timeout 5 --max-time 10 "$BACKEND_URL/api/wallets" > /dev/null 2>&1; then
             echo "✅ Backend is running — adding wallets..."
             echo ""
 
