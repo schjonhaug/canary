@@ -1,7 +1,6 @@
 'use client'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -32,11 +31,6 @@ export default function SignUpSuccessPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Alert>
-            <AlertDescription>
-              {t('description')}
-            </AlertDescription>
-          </Alert>
 
           <div className="text-center space-y-2">
             <p className="text-sm text-gray-600">
