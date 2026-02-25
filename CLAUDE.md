@@ -218,6 +218,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Proactive Limit Enforcement**: Smart upgrade modals prevent users from hitting limits after form completion
 - **Trial Management**: 30-day Team tier trial with automatic Stripe webhook transitions
 - **Never Downgrade Policy**: Users keep tier after expiration but lose wallet syncing
+- See `backend/CLAUDE.md` for Stripe integration details, webhook events, and billing configuration
 
 ### Wallet Management
 - **Deep Scanning & Script Detection**: Detects funds at high address indexes (200+) with fast API responses
@@ -228,6 +229,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Wallet Deletion**: Soft delete with automatic cleanup during sync cycles
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps with blockchain confirmation tracking
 - **Network Isolation**: Separate databases per Bitcoin network
+- See `backend/CLAUDE.md` for deep scanning implementation and address revelation details
 
 ### Notifications & Alerts
 - **Balance Alerts**: User-configurable alerts for above/below/equals threshold monitoring with auto-disable and manual reactivation
