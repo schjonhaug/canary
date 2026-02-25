@@ -388,7 +388,9 @@ Your verification code is: {otp_code}
         let locale = language;
         let subject = t!("auth_email.registration_attempt.subject", locale = locale).to_string();
         let header = t!("auth_email.registration_attempt.header", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_html =
+            t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_text = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let body_text = t!("auth_email.registration_attempt.body", locale = locale).to_string();
         let button_text = t!("auth_email.registration_attempt.button", locale = locale).to_string();
         let link_fallback = t!(
@@ -419,7 +421,7 @@ Your verification code is: {otp_code}
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        {greeting}
+                        {greeting_html}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
                         {body_text}
@@ -453,7 +455,7 @@ Your verification code is: {otp_code}
             "#,
             subject = subject,
             header = header,
-            greeting = greeting,
+            greeting_html = greeting_html,
             body_text = body_text,
             security_note = security_note,
             reset_url = reset_url,
@@ -466,7 +468,7 @@ Your verification code is: {otp_code}
             r#"
 {header}
 
-{greeting}
+{greeting_text}
 
 {body_text}
 
@@ -477,7 +479,7 @@ Your verification code is: {otp_code}
 {footer}
             "#,
             header = header,
-            greeting = greeting,
+            greeting_text = greeting_text,
             body_text = body_text,
             security_note = security_note,
             reset_url = reset_url,
