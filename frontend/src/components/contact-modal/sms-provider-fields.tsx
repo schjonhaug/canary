@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "next-intl"
+import { parsePhoneNumber } from "libphonenumber-js"
 
 // Time threshold (in seconds) before resend is allowed
 // With 10-minute (600s) verification expiry, allowing resend after 1 minute means checking for > 540s remaining
@@ -59,6 +60,10 @@ export function SmsProviderFields({
   onResendCode
 }: SmsProviderFieldsProps) {
   const t = useTranslations('contacts')
+
+  const formattedPhone = verificationPhone
+    ? (parsePhoneNumber(verificationPhone)?.formatInternational() ?? verificationPhone)
+    : ''
 
   return (
     <div className="mt-2 space-y-3">
@@ -133,7 +138,7 @@ export function SmsProviderFields({
           </div>
           <div className="flex justify-between items-center text-xs text-muted-foreground">
             <span>
-              {t('verification.codeSentTo', { target: verificationPhone || '' })}
+              {t('verification.codeSentTo', { target: formattedPhone })}
               {timeRemaining > 0 && (
                 <span className="block">{t('verification.expiresIn', { time: formatTime(timeRemaining) })}</span>
               )}

@@ -237,7 +237,7 @@ describe('ContactModal', () => {
 
       // Verification code input should appear
       expect(screen.getByLabelText('Verification Code')).toBeInTheDocument()
-      expect(screen.getByText('Code sent to +4712345678')).toBeInTheDocument()
+      expect(screen.getByText('Code sent to +47 12345678')).toBeInTheDocument()
     })
 
     it('verifies SMS code successfully', async () => {
