@@ -81,6 +81,13 @@ auth_email:
     choose_plan: "Choose the plan that's right for you:"
     personal_plan: "Personal: 1 wallet, 1 contact, 10-minute sync"
     team_plan: "Team: 5 wallets, 5 contacts per wallet, 2-minute sync"
+  registration_attempt:
+    subject: "Security Notice - Canary"
+    header: "Registration Attempt Detected"
+    body: "Someone tried to create a new Canary account using your email address. If this was you, you already have an account and can sign in or reset your password."
+    button: "Reset Password"
+    link_fallback: "If the button doesn't work, you can copy and paste this link into your browser:"
+    security_note: "If you did not attempt to register, no action is needed. Your account remains secure."
   account_locked:
     subject: "Security Alert - Account Locked"
     header: "Account Security Alert"

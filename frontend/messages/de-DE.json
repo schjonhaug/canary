@@ -217,7 +217,6 @@
       "submit": "Konto erstellen",
       "submitting": "Erstellt Konto...",
       "hasAccount": "Bereits ein Konto? Anmelden",
-      "signInInstead": "Stattdessen anmelden",
       "registrationFailed": "Registrierung fehlgeschlagen"
     },
     "signUpSuccess": {
@@ -956,7 +955,6 @@
     "api": {
       "invalid_email_format": "Ungültiges E-Mail-Format.",
       "password_too_short": "Das Passwort muss mindestens 6 Zeichen lang sein.",
-      "email_already_exists": "Ein Konto mit dieser E-Mail-Adresse existiert bereits.",
       "invalid_credentials": "Ungültige E-Mail-Adresse oder ungültiges Passwort.",
       "account_locked": "Konto vorübergehend gesperrt aufgrund zu vieler fehlgeschlagener Anmeldeversuche. Bitte versuchen Sie es später erneut.",
       "email_not_verified": "E-Mail nicht verifiziert. Bitte überprüfen Sie Ihre E-Mails und klicken Sie auf den Verifizierungslink.",

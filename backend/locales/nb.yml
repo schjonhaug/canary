@@ -81,6 +81,13 @@ auth_email:
     choose_plan: "Velg planen som passer for deg:"
     personal_plan: "Personlig: 1 lommebok, 1 kontakt, 10-minutters synkronisering"
     team_plan: "Team: 5 lommebøker, 5 kontakter per lommebok, 2-minutters synkronisering"
+  registration_attempt:
+    subject: "Sikkerhetsvarsel - Canary"
+    header: "Forsøk på registrering oppdaget"
+    body: "Noen har forsøkt å opprette en ny Canary-konto med din e-postadresse. Hvis dette var deg, har du allerede en konto og kan logge inn eller tilbakestille passordet ditt."
+    button: "Tilbakestill passord"
+    link_fallback: "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren din:"
+    security_note: "Hvis du ikke har forsøkt å registrere deg, trenger du ikke å foreta deg noe. Kontoen din forblir sikker."
   account_locked:
     subject: "Sikkerhetsvarsel - Konto låst"
     header: "Sikkerhetsvarsel for konto"

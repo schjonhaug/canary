@@ -372,6 +372,124 @@ Your verification code is: {otp_code}
             .await
     }
 
+    /// Send registration attempt notification to existing user
+    pub async fn send_registration_attempt_notification(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        language: &str,
+    ) -> Result<()> {
+        let reset_url = format!("{}/forgot-password", self.config.frontend_url);
+
+        // Escape name for HTML to prevent XSS
+        let safe_name = html_escape(to_name);
+
+        // Get translations using rust-i18n
+        let locale = language;
+        let subject = t!("auth_email.registration_attempt.subject", locale = locale).to_string();
+        let header = t!("auth_email.registration_attempt.header", locale = locale).to_string();
+        let greeting_html =
+            t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_text = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let body_text = t!("auth_email.registration_attempt.body", locale = locale).to_string();
+        let button_text = t!("auth_email.registration_attempt.button", locale = locale).to_string();
+        let link_fallback = t!(
+            "auth_email.registration_attempt.link_fallback",
+            locale = locale
+        )
+        .to_string();
+        let security_note = t!(
+            "auth_email.registration_attempt.security_note",
+            locale = locale
+        )
+        .to_string();
+        let footer = t!("common.footer", locale = locale).to_string();
+
+        let html_body = format!(
+            r#"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>{subject}</title>
+            </head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #1f2937;">Canary</h1>
+                </div>
+
+                <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        {greeting_html}
+                    </p>
+                    <p style="color: #4b5563; line-height: 1.6;">
+                        {body_text}
+                    </p>
+
+                    <div style="background-color: #fff; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                        <p style="color: #92400e; margin: 0;">
+                            {security_note}
+                        </p>
+                    </div>
+
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{reset_url}"
+                           style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
+                            {button_text}
+                        </a>
+                    </div>
+
+                    <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+                        {link_fallback}
+                        <br>
+                        <a href="{reset_url}" style="color: #3b82f6; word-break: break-all;">{reset_url}</a>
+                    </p>
+                </div>
+
+                <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
+                    <p>{footer}</p>
+                </div>
+            </body>
+            </html>
+            "#,
+            subject = subject,
+            header = header,
+            greeting_html = greeting_html,
+            body_text = body_text,
+            security_note = security_note,
+            reset_url = reset_url,
+            button_text = button_text,
+            link_fallback = link_fallback,
+            footer = footer
+        );
+
+        let text_body = format!(
+            r#"
+{header}
+
+{greeting_text}
+
+{body_text}
+
+{security_note}
+
+{reset_url}
+
+{footer}
+            "#,
+            header = header,
+            greeting_text = greeting_text,
+            body_text = body_text,
+            security_note = security_note,
+            reset_url = reset_url,
+            footer = footer
+        );
+
+        self.send_email(to_email, to_name, &subject, &html_body, &text_body)
+            .await
+    }
+
     /// Send account locked notification email
     pub async fn send_account_locked(
         &self,

@@ -217,7 +217,6 @@
       "submit": "Criar conta",
       "submitting": "Criando conta...",
       "hasAccount": "Já tem conta? Entre",
-      "signInInstead": "Entrar em vez disso",
       "registrationFailed": "Falha no cadastro"
     },
     "signUpSuccess": {
@@ -956,7 +955,6 @@
     "api": {
       "invalid_email_format": "Formato de e-mail inválido.",
       "password_too_short": "A senha deve ter pelo menos 6 caracteres.",
-      "email_already_exists": "Já existe uma conta com este e-mail.",
       "invalid_credentials": "E-mail ou senha inválidos.",
       "account_locked": "Conta temporariamente bloqueada devido a muitas tentativas de login malsucedidas. Tente novamente mais tarde.",
       "email_not_verified": "E-mail não verificado. Verifique seu e-mail e clique no link de verificação.",

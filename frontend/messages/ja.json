@@ -217,7 +217,6 @@
       "submit": "アカウント作成",
       "submitting": "アカウント作成中...",
       "hasAccount": "既にアカウントをお持ちですか？ログイン",
-      "signInInstead": "代わりにログイン",
       "registrationFailed": "登録失敗"
     },
     "signUpSuccess": {
@@ -956,7 +955,6 @@
     "api": {
       "invalid_email_format": "メールアドレスの形式が無効です。",
       "password_too_short": "パスワードは6文字以上である必要があります。",
-      "email_already_exists": "このメールアドレスのアカウントは既に存在します。",
       "invalid_credentials": "メールアドレスまたはパスワードが無効です。",
       "account_locked": "ログイン試行の失敗回数が多すぎるため、アカウントが一時的にロックされています。後でもう一度お試しください。",
       "email_not_verified": "メールアドレスが確認されていません。メールを確認し、確認リンクをクリックしてください。",

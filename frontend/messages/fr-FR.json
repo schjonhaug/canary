@@ -217,7 +217,6 @@
       "submit": "Créer un compte",
       "submitting": "Création du compte...",
       "hasAccount": "Déjà un compte ? Connectez-vous",
-      "signInInstead": "Se connecter à la place",
       "registrationFailed": "Échec de l'inscription"
     },
     "signUpSuccess": {
@@ -956,7 +955,6 @@
     "api": {
       "invalid_email_format": "Format d'e-mail invalide.",
       "password_too_short": "Le mot de passe doit comporter au moins 6 caractères.",
-      "email_already_exists": "Un compte avec cet e-mail existe déjà.",
       "invalid_credentials": "E-mail ou mot de passe invalide.",
       "account_locked": "Compte temporairement verrouillé en raison d'un trop grand nombre de tentatives de connexion échouées. Veuillez réessayer plus tard.",
       "email_not_verified": "E-mail non vérifié. Veuillez consulter vos e-mails et cliquer sur le lien de vérification.",

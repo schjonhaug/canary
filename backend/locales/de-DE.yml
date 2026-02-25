@@ -81,6 +81,13 @@ auth_email:
     choose_plan: "Wählen Sie den Plan, der am besten zu Ihnen passt:"
     personal_plan: "Personal: 1 Wallet, 1 Kontakt, 10-Minuten-Synchronisierung"
     team_plan: "Team: 5 Wallets, 5 Kontakte pro Wallet, 2-Minuten-Synchronisierung"
+  registration_attempt:
+    subject: "Sicherheitshinweis - Canary"
+    header: "Registrierungsversuch erkannt"
+    body: "Jemand hat versucht, mit Ihrer E-Mail-Adresse ein neues Canary-Konto zu erstellen. Falls Sie dies waren: Sie haben bereits ein Konto und können sich anmelden oder Ihr Passwort zurücksetzen."
+    button: "Passwort zurücksetzen"
+    link_fallback: "Falls die Schaltfläche nicht funktioniert, können Sie diesen Link kopieren und in Ihren Browser einfügen:"
+    security_note: "Falls Sie keinen Registrierungsversuch unternommen haben, ist keine weitere Aktion erforderlich. Ihr Konto ist weiterhin sicher."
   account_locked:
     subject: "Sicherheitswarnung - Konto gesperrt"
     header: "Kontosicherheitswarnung"

@@ -217,7 +217,6 @@
       "submit": "Create account",
       "submitting": "Creating account...",
       "hasAccount": "Already have an account? Sign in",
-      "signInInstead": "Sign in instead",
       "registrationFailed": "Registration failed"
     },
     "signUpSuccess": {
@@ -956,7 +955,6 @@
     "api": {
       "invalid_email_format": "Invalid email format.",
       "password_too_short": "Password must be at least 6 characters long.",
-      "email_already_exists": "An account with this email already exists.",
       "invalid_credentials": "Invalid email or password.",
       "account_locked": "Account temporarily locked due to too many failed login attempts. Please try again later.",
       "email_not_verified": "Email not verified. Please check your email and click the verification link.",

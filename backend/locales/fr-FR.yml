@@ -81,6 +81,13 @@ auth_email:
     choose_plan: "Choisissez le forfait qui vous convient :"
     personal_plan: "Personnel : 1 portefeuille, 1 contact, synchronisation toutes les 10 minutes"
     team_plan: "Équipe : 5 portefeuilles, 5 contacts par portefeuille, synchronisation toutes les 2 minutes"
+  registration_attempt:
+    subject: "Avis de sécurité - Canary"
+    header: "Tentative d'inscription détectée"
+    body: "Quelqu'un a tenté de créer un nouveau compte Canary en utilisant votre adresse e-mail. Si c'était vous, vous possédez déjà un compte et pouvez vous connecter ou réinitialiser votre mot de passe."
+    button: "Réinitialiser le mot de passe"
+    link_fallback: "Si le bouton ne fonctionne pas, vous pouvez copier et coller ce lien dans votre navigateur :"
+    security_note: "Si vous n'avez pas tenté de vous inscrire, aucune action n'est requise. Votre compte reste sécurisé."
   account_locked:
     subject: "Alerte de sécurité - Compte verrouillé"
     header: "Alerte de sécurité du compte"
