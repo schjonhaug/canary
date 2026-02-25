@@ -1541,7 +1541,7 @@ impl WalletSyncService {
                 }
             };
 
-            // Calculate amount for our address
+            // Calculate received amount (outputs to our address)
             let mut received: i64 = 0;
             for output in &full_tx.output {
                 if output.script_pubkey == script {
@@ -1549,19 +1549,47 @@ impl WalletSyncService {
                 }
             }
 
-            // For single-address watches, we can only reliably detect receives
-            // (we can't know inputs without full UTXO context from BDK)
-            // If received > 0, it's a receive; otherwise skip
-            if received == 0 {
-                // This could be a send from our address - check inputs
-                // For now, mark as send with amount 0 as a placeholder
-                // (We know it involved our address from the history)
+            // Calculate sent amount (inputs from our address)
+            let mut sent: i64 = 0;
+            for input in &full_tx.input {
+                let prev_txid = input.previous_output.txid;
+                let prev_vout = input.previous_output.vout;
+                match client.transaction_get(&prev_txid).await {
+                    Ok(prev_tx) => {
+                        if let Some(prev_output) = prev_tx.output.get(prev_vout as usize) {
+                            if prev_output.script_pubkey == script {
+                                sent += prev_output.value.to_sat() as i64;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        debug!(
+                            "[{}] Could not fetch parent tx {}: {}",
+                            wallet_checksum, prev_txid, e
+                        );
+                    }
+                }
+            }
+
+            if received == 0 && sent == 0 {
                 debug!(
-                    "[{}] Transaction {} has no outputs to our address, skipping",
+                    "[{}] Transaction {} has no inputs/outputs for our address, skipping",
                     wallet_checksum, txid_str
                 );
                 continue;
             }
+
+            // Determine transaction type and net amount
+            let (event_type, amount) = if sent > 0 && received == 0 {
+                // Pure send (no change back to same address)
+                (EventType::Send, sent)
+            } else if sent > 0 && received > 0 {
+                // Send with change back to our address; net amount sent
+                (EventType::Send, sent - received)
+            } else {
+                // Pure receive
+                (EventType::Receive, received)
+            };
 
             let is_confirmed = hist_entry.height > 0;
             let now = std::time::SystemTime::now()
@@ -1584,8 +1612,8 @@ impl WalletSyncService {
             let transaction = TransactionInsert {
                 txid: txid_str.clone(),
                 wallet_checksum: wallet_checksum.to_string(),
-                transaction_type: EventType::Receive,
-                amount_sats: received,
+                transaction_type: event_type,
+                amount_sats: amount,
                 fee_sats: None,
                 block_height,
                 first_seen_at,
@@ -1604,11 +1632,12 @@ impl WalletSyncService {
             self.send_new_transaction_notification(&transaction).await?;
 
             has_changes = true;
-            debug!(
-                "[{}] New address watch tx: {} ({} sats, {})",
+            info!(
+                "[{}] New address watch tx: {} ({:?}, {} sats, {})",
                 wallet_checksum,
                 txid_str,
-                received,
+                event_type,
+                amount,
                 if is_confirmed { "confirmed" } else { "pending" }
             );
         }

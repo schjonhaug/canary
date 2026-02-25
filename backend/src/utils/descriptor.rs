@@ -93,17 +93,6 @@ pub fn parse_multipath_descriptor(descriptor_str: &str) -> Result<(String, Strin
     Ok((receive_descriptor, change_descriptor))
 }
 
-/// Check if a descriptor string uses the addr() format (single-address watch)
-pub fn is_addr_descriptor(descriptor_str: &str) -> bool {
-    // Strip checksum if present
-    let without_checksum = if let Some(pos) = descriptor_str.find('#') {
-        &descriptor_str[..pos]
-    } else {
-        descriptor_str
-    };
-    without_checksum.trim().starts_with("addr(")
-}
-
 /// Extract the address from an addr() descriptor string
 pub fn extract_address_from_descriptor(descriptor_str: &str) -> Option<String> {
     let without_checksum = if let Some(pos) = descriptor_str.find('#') {

@@ -790,6 +790,34 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" |
                 esac
             }
 
+            # Helper: send from wallet, routing change back to same address for *-address wallets
+            send_from_wallet() {
+                local wallet="$1"
+                local target="$2"
+                local amount="$3"
+                local subtract_fee="${4:-false}"
+
+                case "$wallet" in
+                    *-address)
+                        # Use 'send' RPC with change routed back to the wallet's own address
+                        local own_addr
+                        own_addr=$(btc_wallet "$wallet" listreceivedbyaddress 0 true | jq -r '.[0].address')
+                        local send_opts="{\"change_address\": \"$own_addr\"}"
+                        if [ "$subtract_fee" = "true" ]; then
+                            send_opts="{\"change_address\": \"$own_addr\", \"subtract_fee_from_outputs\": [0]}"
+                        fi
+                        btc_wallet "$wallet" send "{\"$target\": $amount}" null "unset" null "$send_opts" | jq -r '.txid'
+                        ;;
+                    *)
+                        if [ "$subtract_fee" = "true" ]; then
+                            btc_wallet "$wallet" sendtoaddress "$target" "$amount" "" "" true
+                        else
+                            btc_wallet "$wallet" sendtoaddress "$target" "$amount"
+                        fi
+                        ;;
+                esac
+            }
+
             # Handle max amount (drain wallet) - single transaction
             if [ "${AMOUNTS[0]}" == "max" ] && [ ${#AMOUNTS[@]} -eq 1 ]; then
                 # Get target address from destination wallet
@@ -798,7 +826,7 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" |
                 CURRENT_BALANCE=$(btc_wallet "$WALLET" getbalance)
                 echo "🎯 Draining $WALLET wallet ($CURRENT_BALANCE BTC) to $DESTINATION_WALLET address: $TARGET_ADDRESS"
                 # Use subtractfeefromamount to send everything minus fees
-                TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$CURRENT_BALANCE" "" "" true)
+                TXID=$(send_from_wallet "$WALLET" "$TARGET_ADDRESS" "$CURRENT_BALANCE" true)
                 echo "✅ Transaction sent: $TXID"
                 echo "💡 Use '$0 mine' to confirm transaction"
                 exit 0
@@ -811,9 +839,9 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" |
                 AMOUNT="${AMOUNTS[$i]}"
                 # Get target address (reuses existing for addr-* wallets)
                 TARGET_ADDRESS=$(get_target_address "$DESTINATION_WALLET")
-                
+
                 echo "  📤 Transaction $((i+1))/${#AMOUNTS[@]}: Sending $AMOUNT BTC to address $TARGET_ADDRESS"
-                TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+                TXID=$(send_from_wallet "$WALLET" "$TARGET_ADDRESS" "$AMOUNT")
                 TXIDS+=("$TXID")
                 echo "     ✅ Transaction $((i+1)) sent: $TXID"
             done

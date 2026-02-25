@@ -2,7 +2,7 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
-use crate::utils::{is_addr_descriptor, parse_multipath_descriptor, strip_key_origin};
+use crate::utils::{parse_multipath_descriptor, strip_key_origin};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
@@ -930,7 +930,7 @@ impl WalletManager {
         // Partition into BDK wallets and address watches
         let (address_watches, bdk_wallets): (Vec<_>, Vec<_>) = tier_wallets
             .into_iter()
-            .partition(|w| is_addr_descriptor(&w.descriptor));
+            .partition(|w| w.wallet_type == "address");
 
         // Sync address watches in parallel (no BDK wallet loading needed)
         if !address_watches.is_empty() {
@@ -1335,6 +1335,15 @@ impl WalletManager {
         let mut wallets_map = self.wallets.lock().await;
 
         for wallet_metadata in active_wallets {
+            // Address watches use direct Electrum queries, no BDK wallet file
+            if wallet_metadata.wallet_type == "address" {
+                debug!(
+                    " Skipping address watch: {} ({})",
+                    wallet_metadata.name, wallet_metadata.checksum
+                );
+                continue;
+            }
+
             let wallet_path = self
                 .wallet_dir
                 .join(format!("{}.sqlite", wallet_metadata.checksum));
