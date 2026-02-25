@@ -522,7 +522,9 @@ Your verification code is: {otp_code}
         let locale = language;
         let subject = t!("auth_email.account_locked.subject", locale = locale).to_string();
         let header = t!("auth_email.account_locked.header", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_html =
+            t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_text = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let body_text = t!("auth_email.account_locked.body", locale = locale).to_string();
         let unlock_text = t!(
             "auth_email.account_locked.unlock_text",
@@ -554,7 +556,7 @@ Your verification code is: {otp_code}
                 <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
                     <h2 style="color: #991b1b; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        {greeting}
+                        {greeting_html}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
                         {body_text}
@@ -585,7 +587,7 @@ Your verification code is: {otp_code}
             "#,
             subject = subject,
             header = header,
-            greeting = greeting,
+            greeting_html = greeting_html,
             body_text = body_text,
             unlock_text = unlock_text,
             security_warning = security_warning,
@@ -598,7 +600,7 @@ Your verification code is: {otp_code}
             r#"
 {header}
 
-{greeting}
+{greeting_text}
 
 {body_text}
 
@@ -611,7 +613,7 @@ Your verification code is: {otp_code}
 {footer}
             "#,
             header = header,
-            greeting = greeting,
+            greeting_text = greeting_text,
             body_text = body_text,
             unlock_text = unlock_text,
             security_warning = security_warning,
