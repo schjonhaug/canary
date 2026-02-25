@@ -80,20 +80,37 @@ canary/
 │   │   │   ├── responses.rs  # API response types
 │   │   │   └── validators.rs # Input validation
 │   │   ├── wallet.rs         # BDK wallet operations
-│   │   ├── metadata.rs       # SQLite database layer
+│   │   ├── metadata/         # SQLite database layer (modular)
+│   │   │   ├── mod.rs        # Module re-exports
+│   │   │   ├── db.rs         # Database operations
+│   │   │   ├── pool.rs       # Connection pooling
+│   │   │   ├── types.rs      # Database types
+│   │   │   ├── user.rs       # User operations (auth, rate limiting)
+│   │   │   ├── wallet.rs     # Wallet metadata operations
+│   │   │   ├── contact.rs    # Contact operations
+│   │   │   ├── transaction.rs # Transaction operations
+│   │   │   └── alert.rs      # Balance alert operations
 │   │   ├── sync.rs           # Background sync operations
+│   │   ├── email_queue.rs    # Background email queue with batching
+│   │   ├── email_service.rs  # Email service abstraction
+│   │   ├── notification_failure_tracker.rs # Provider failure tracking
+│   │   ├── admin_notifications.rs # Admin alert system
+│   │   ├── exchange_rates.rs # Exchange rate functionality
+│   │   ├── message_formatter.rs # Notification message formatting
+│   │   ├── electrum.rs       # Electrum client management
+│   │   ├── xpub_converter.rs # XPUB format conversion
 │   │   └── ...               # Notification providers, config, etc.
 │   ├── database/             # SQLite databases (gitignored)
 │   │   ├── cloud/            # cloud mode databases
 │   │   └── self-hosted/      # self-hosted mode databases
-│   ├── migrations/           # 16 database schema migrations (001-016)
+│   ├── migrations/           # 22 database schema migrations (001-022)
 │   ├── tests/                # Integration tests
 │   ├── system_tests/         # End-to-end Docker-based tests
 │   └── tasks/                # Development tasks and documentation
 ├── frontend/        # Next.js app with React components
 │   ├── messages/       # i18n translation files (en-US.json, nb.json, es-419.json, pt-BR.json, de-DE.json, fr-FR.json, ja.json, da.json, sv.json)
 │   ├── src/
-│   │   ├── app/        # Next.js 13+ app directory (pages, layouts, API routes)
+│   │   ├── app/        # Next.js App Router (pages, layouts, API routes)
 │   │   ├── components/ # UI components (plan-comparison.tsx, plans-modal.tsx, contact-modal.tsx)
 │   │   ├── lib/        # Shared utilities (pricing-data.ts, utils.ts, api.ts)
 │   │   ├── contexts/   # React contexts (auth-context.tsx, wallets-context.tsx)
@@ -106,7 +123,7 @@ canary/
 
 ## Key Dependencies
 - **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio + Resend email notifications
-- **Frontend**: Next.js 15, React 19, Tailwind CSS 4, Radix UI with shadcn/ui components, next-intl for i18n, date-fns for localized dates, JWT authentication support
+- **Frontend**: Next.js 16, React 19, Tailwind CSS 4, Radix UI with shadcn/ui components, next-intl for i18n, date-fns for localized dates, JWT authentication support
 
 ## API Endpoints
 
@@ -222,13 +239,22 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Secure Verification System**: OTP verification for SMS/email with 30-minute validity windows
 - **Admin Notifications**: Infrastructure alerts for trial expirations, non-syncing wallets, and system issues
 
+### Security Features
+- **Login Rate Limiting**: 5 failed attempts trigger 15-minute account lockout; email-based tracking in `login_attempts` table
+- **OTP Verification Rate Limiting**: 5 failed OTP attempts trigger 30-minute block per notification target
+- **Email Enumeration Prevention**: Registration endpoint returns consistent responses regardless of whether email exists
+- **HTML Escaping**: `html_escape()` applied consistently across all email templates to prevent XSS
+- **Machine-readable Error Codes**: `error_code` field in API error responses for frontend i18n translation (45+ error codes)
+
 ### Technical Features
 - **Non-blocking Web Architecture**: Fast API responses (<1ms) avoiding wallet mutex locks
 - **Dual State Design**: `AppServices` for immediate metadata access, `WalletManager` for sync operations
 - **Performance**: Async SQLite with r2d2 connection pooling
-- **Normalized Database**: 16 migration files with clean schema design supporting extensibility
+- **Normalized Database**: 22 migration files with clean schema design supporting extensibility
 - **Environment Configuration**: Provider selection and network config via .env variables
 - **Atomic Updates**: Database transactions prevent data loss during modifications
+- **Email Queue**: Background email queue with batching (up to 100 per batch), retry logic, and rate limiting
+- **Notification Failure Tracking**: Consecutive failure monitoring for SMS/email providers with throttled admin alerts
 
 ### Internationalization (i18n)
 - **9 Supported Languages**: English (US), Norwegian (Bokmål), Spanish (Latin America), Portuguese (Brazil), German, French, Japanese, Danish, Swedish
@@ -294,10 +320,10 @@ frontend/messages/
 - **Current Plan Highlighting**: Blue highlighting with "CURRENT PLAN" badge
 
 ### Database Schema
-Database consists of 16 migrations providing comprehensive schema:
+Database consists of 22 migrations providing comprehensive schema:
 
 **Key Tables:**
-- `users` - Authentication, subscription tier, Stripe integration, admin flags
+- `users` - Authentication, subscription tier, Stripe integration, admin flags, rate limiting (failed_login_attempts, locked_until)
 - `wallets` - Wallet metadata, sync status, user ownership
 - `contacts` - Contact information with priority ordering (created_at)
 - `contact_notification_methods` - Multiple notification methods per contact
@@ -307,6 +333,8 @@ Database consists of 16 migrations providing comprehensive schema:
 - `balance_alert_notifications` - Audit trail for balance alert triggers
 - `email_verification_tokens` - Email verification for authentication
 - `password_reset_tokens` - Password reset functionality
+- `login_attempts` - Email-based login rate limiting (20 attempts per 15 minutes)
+- `otp_verification_attempts` - OTP brute-force protection (5 attempts per 15 minutes)
 
 **Migration Files:**
 1. `001_initial_schema.sql` - Core tables (users, wallets, contacts, events)
@@ -325,6 +353,12 @@ Database consists of 16 migrations providing comprehensive schema:
 14. `014_add_preferred_language.sql` - User language preferences
 15. `015_add_ntfy_server_url.sql` - Self-hosted ntfy server support
 16. `016_add_ntfy_access_token.sql` - ntfy authentication (access token, username/password)
+17. `017_expand_language_support.sql` - Expand language support to 9 languages in contacts
+18. `018_remove_contact_language.sql` - Remove per-contact language (use user's preferred_language instead)
+19. `019_update_locale_codes.sql` - Standardize locale codes (en→en-US, no→nb, es→es-419, pt→pt-BR, de→de-DE, fr→fr-FR)
+20. `020_add_login_rate_limiting.sql` - Login rate limiting and account lockout security
+21. `021_add_otp_verification_rate_limiting.sql` - OTP verification brute-force protection
+22. `022_remove_ip_address_logging.sql` - Remove IP address logging for privacy
 
 ## Notification Setup
 
@@ -559,8 +593,8 @@ This is separate from the main authentication system and only used when users ad
 ## Storage
 - **Mode-specific Databases**: `database/self-hosted/{network}/` for self-hosted mode, `database/cloud/{network}/` for cloud mode
 - **Wallets**: `database/{mode}/{network}/wallets/*.sqlite` (BDK storage, user-isolated when auth enabled)
-- **Metadata**: `database/{mode}/{network}/metadata.sqlite` (normalized schema with 16 migrations)
-- **Schema**: 16 migration files providing comprehensive schema for all features
+- **Metadata**: `database/{mode}/{network}/metadata.sqlite` (normalized schema with 22 migrations)
+- **Schema**: 22 migration files providing comprehensive schema for all features
 - **Reset**: `./scripts/dev.sh reset` removes all databases
 
 ## Address Management & Deep Scanning
@@ -581,7 +615,7 @@ The service uses BDK's address revelation mechanism with advanced deep scanning 
 
 ## Development Workflow
 - **Testing**: `./scripts/dev.sh` provides complete Bitcoin regtest environment
-- **Database Management**: 16 migration files for schema evolution covering all features
+- **Database Management**: 22 migration files for schema evolution covering all features
 - **Docker Environment**: Complete Bitcoin Core + Fulcrum Electrum server for local development
 
 ## Testing & Quality Assurance
@@ -611,6 +645,12 @@ Comprehensive test coverage for subscription limits and user interactions:
   - Edit mode with existing contact data handling
   - Error handling and validation
   - State cleanup and management
+
+- **Inline Wallet Name Edit Tests** (`inline-wallet-name-edit.test.tsx`):
+  - Wallet name inline editing functionality
+
+- **Wallet Contacts List Tests** (`wallet-contacts-list.test.tsx`):
+  - Contact list display and interaction testing
 
 ### Test Coverage Areas
 - **Subscription Limits**: Proactive enforcement of wallet and contact limits
@@ -654,38 +694,46 @@ End-to-end Docker-based tests with real Bitcoin transactions:
 
 ## Recent Updates & Changes
 
-### Balance Alerts System (Migrations 010-012)
-- User-configurable balance threshold alerts with above/below/equals conditions
-- Automatic deactivation after firing with manual reactivation required
-- Complete audit trail of balance alert notifications
-- Integration with existing notification system
-- Comprehensive system tests in `balance_alert_scenarios.rs`
+### Security Hardening (Migrations 020-022)
+- Login rate limiting: 5 failed attempts trigger 15-minute account lockout
+- OTP verification rate limiting: 5 failed attempts per 30 minutes per target
+- Email enumeration prevention on registration endpoint
+- IP address logging removed for privacy (migration 022)
+- HTML escaping applied consistently across all email templates
 
-### Email Optimization
-- Batch email API implementation using Resend batch endpoint (up to 100 emails per request)
-- Resolves rate limiting issues when sending to multiple recipients
-- Improved performance for multi-wallet transaction notifications
+### Machine-readable Error Codes
+- `error_code` field added to API error responses for frontend i18n translation
+- 45+ error codes across auth, wallet, contact, billing, and balance alert handlers
+- Frontend maps error codes to translated strings via next-intl
+
+### Language System Refactoring (Migrations 017-019)
+- Per-contact language removed; user's preferred_language used instead
+- Locale codes standardized to include region variants (en-US, nb, es-419, pt-BR, de-DE, fr-FR)
+
+### Email Queue System
+- Background email queue with batching support (up to 100 emails per batch)
+- Retry logic with up to 3 attempts
+- Rate limiting: 500ms between batches
+
+### Notification Failure Tracking
+- Consecutive failure monitoring for SMS (Twilio) and Email (Resend) providers
+- Categorized errors: authentication, insufficient funds, rate limit, invalid recipient, server error
+- Throttled admin alerts after 3 consecutive failures
 
 ### Subscription Management Improvements
+- Keep wallets syncing during cancelled subscription (until subscription_ends_at)
+- Subscription status updated on reactivation
+- Internationalized subscription cancel page
 - Trial ending email notifications 3 days before expiration
-- Fixed expired subscription reactivation flow to use Stripe Customer Portal
-- Hide "Manage Billing" button for expired users to avoid duplicate upgrade prompts
-- Better differentiation between expired subscriptions and tier limits in UI messages
-- Admin notifications for non-syncing wallets by subscription status
 
-### Infrastructure & Logging
-- Comprehensive logging for non-syncing wallets with subscription status context
-- Admin notification system for infrastructure monitoring
-- Documentation for trial extension webhook support verification
-
-### User Experience
-- Skeleton placeholders on wallet detail page during loading
-- Fixed flash of empty wallet screen on login with proper loading states
-- Better error messaging for expired vs. limit-reached scenarios
+### Dependency Updates
+- Next.js 16, Jest 30, TypeScript 5.9
+- @types/node aligned with Node 22 runtime
+- CI pnpm updated to v10
 
 ## Committing code to git
 
 Always build both the frontend and backend and run and verify all tests before committing. In case of errors, they need to be fixed.
 
 ---
-*Last updated: January 2026*
+*Last updated: February 2026*
