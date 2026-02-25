@@ -138,9 +138,14 @@ pub async fn register(
                 });
             }
 
-            // Add artificial delay to match the timing of a real registration
-            // (which involves password hashing, Stripe calls, and email sending)
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            // Ensure response timing matches a real registration to prevent timing attacks.
+            // Real registrations involve password hashing + Stripe + email (~1-2s).
+            // Sleep for the remaining time up to the target, rather than a fixed delay.
+            let target_duration = std::time::Duration::from_millis(1500);
+            let elapsed = start_time.elapsed();
+            if elapsed < target_duration {
+                tokio::time::sleep(target_duration - elapsed).await;
+            }
 
             let elapsed = start_time.elapsed();
             info!("register (existing email) completed in {:?}", elapsed);
