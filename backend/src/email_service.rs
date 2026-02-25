@@ -71,11 +71,16 @@ impl EmailService {
             self.config.frontend_url, verification_token
         );
 
+        // Escape name for HTML to prevent XSS
+        let safe_name = html_escape(to_name);
+
         // Get translations using rust-i18n
         let locale = language;
         let subject = t!("auth_email.verify_email.subject", locale = locale).to_string();
         let header = t!("auth_email.verify_email.header", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let greeting_html =
+            t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_text = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let body_text = t!("auth_email.verify_email.body", locale = locale).to_string();
         let button_text = t!("auth_email.verify_email.button", locale = locale).to_string();
         let link_fallback =
@@ -99,7 +104,7 @@ impl EmailService {
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        {greeting}
+                        {greeting_html}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
                         {body_text}
@@ -131,7 +136,7 @@ impl EmailService {
             "#,
             subject = subject,
             header = header,
-            greeting = greeting,
+            greeting_html = greeting_html,
             body_text = body_text,
             verification_url = verification_url,
             button_text = button_text,
@@ -144,7 +149,7 @@ impl EmailService {
             r#"
 {header}
 
-{greeting}
+{greeting_text}
 
 {body_text}
 
@@ -155,7 +160,7 @@ impl EmailService {
 {footer}
             "#,
             header = header,
-            greeting = greeting,
+            greeting_text = greeting_text,
             body_text = body_text,
             verification_url = verification_url,
             expiry_text = expiry_text,
@@ -178,11 +183,16 @@ impl EmailService {
             self.config.frontend_url, reset_token
         );
 
+        // Escape name for HTML to prevent XSS
+        let safe_name = html_escape(to_name);
+
         // Get translations using rust-i18n
         let locale = language;
         let subject = t!("auth_email.password_reset.subject", locale = locale).to_string();
         let header = t!("auth_email.password_reset.header", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let greeting_html =
+            t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_text = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let body_text = t!("auth_email.password_reset.body", locale = locale).to_string();
         let button_text = t!("auth_email.password_reset.button", locale = locale).to_string();
         let link_fallback =
@@ -206,7 +216,7 @@ impl EmailService {
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        {greeting}
+                        {greeting_html}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
                         {body_text}
@@ -238,7 +248,7 @@ impl EmailService {
             "#,
             subject = subject,
             header = header,
-            greeting = greeting,
+            greeting_html = greeting_html,
             body_text = body_text,
             reset_url = reset_url,
             button_text = button_text,
@@ -251,7 +261,7 @@ impl EmailService {
             r#"
 {header}
 
-{greeting}
+{greeting_text}
 
 {body_text}
 
@@ -262,7 +272,7 @@ impl EmailService {
 {footer}
             "#,
             header = header,
-            greeting = greeting,
+            greeting_text = greeting_text,
             body_text = body_text,
             reset_url = reset_url,
             expiry_text = expiry_text,
@@ -287,11 +297,16 @@ impl EmailService {
         otp_code: &str,
         language: &str,
     ) -> Result<()> {
+        // Escape name for HTML to prevent XSS
+        let safe_name = html_escape(to_name);
+
         // Get translations using rust-i18n
         let locale = language;
         let subject = t!("auth_email.contact_otp.subject", locale = locale).to_string();
         let header = t!("auth_email.contact_otp.header", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let greeting_html =
+            t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_text = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let body_text = t!("auth_email.contact_otp.body", locale = locale).to_string();
         let expiry_text = t!("auth_email.contact_otp.expiry", locale = locale).to_string();
         let footer = t!("common.footer", locale = locale).to_string();
@@ -312,7 +327,7 @@ impl EmailService {
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        {greeting}
+                        {greeting_html}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
                         {body_text}
@@ -339,7 +354,7 @@ impl EmailService {
             "#,
             subject = subject,
             header = header,
-            greeting = greeting,
+            greeting_html = greeting_html,
             body_text = body_text,
             otp_code = otp_code,
             expiry_text = expiry_text,
@@ -350,7 +365,7 @@ impl EmailService {
             r#"
 Canary - {header}
 
-{greeting}
+{greeting_text}
 
 {body_text}
 
@@ -361,7 +376,7 @@ Your verification code is: {otp_code}
 {footer}
             "#,
             header = header,
-            greeting = greeting,
+            greeting_text = greeting_text,
             body_text = body_text,
             otp_code = otp_code,
             expiry_text = expiry_text,
@@ -507,7 +522,9 @@ Your verification code is: {otp_code}
         let locale = language;
         let subject = t!("auth_email.account_locked.subject", locale = locale).to_string();
         let header = t!("auth_email.account_locked.header", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_html =
+            t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_text = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let body_text = t!("auth_email.account_locked.body", locale = locale).to_string();
         let unlock_text = t!(
             "auth_email.account_locked.unlock_text",
@@ -539,7 +556,7 @@ Your verification code is: {otp_code}
                 <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
                     <h2 style="color: #991b1b; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        {greeting}
+                        {greeting_html}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
                         {body_text}
@@ -570,7 +587,7 @@ Your verification code is: {otp_code}
             "#,
             subject = subject,
             header = header,
-            greeting = greeting,
+            greeting_html = greeting_html,
             body_text = body_text,
             unlock_text = unlock_text,
             security_warning = security_warning,
@@ -583,7 +600,7 @@ Your verification code is: {otp_code}
             r#"
 {header}
 
-{greeting}
+{greeting_text}
 
 {body_text}
 
@@ -596,7 +613,7 @@ Your verification code is: {otp_code}
 {footer}
             "#,
             header = header,
-            greeting = greeting,
+            greeting_text = greeting_text,
             body_text = body_text,
             unlock_text = unlock_text,
             security_warning = security_warning,
@@ -617,11 +634,16 @@ Your verification code is: {otp_code}
     ) -> Result<()> {
         let billing_url = format!("{}/billing", self.config.frontend_url);
 
+        // Escape name for HTML to prevent XSS
+        let safe_name = html_escape(to_name);
+
         // Get translations using rust-i18n
         let locale = language;
         let subject = t!("auth_email.trial_ending.subject", locale = locale).to_string();
         let header = t!("auth_email.trial_ending.header", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
+        let greeting_html =
+            t!("common.greeting", locale = locale, to_name = &safe_name).to_string();
+        let greeting_text = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         // Body has a placeholder for trial_ends_at - wrap in <strong> for HTML
         let body_text = t!(
             "auth_email.trial_ending.body",
@@ -672,7 +694,7 @@ Your verification code is: {otp_code}
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h2 style="color: #1f2937; margin-top: 0;">{header}</h2>
                     <p style="color: #4b5563; line-height: 1.6;">
-                        {greeting}
+                        {greeting_html}
                     </p>
                     <p style="color: #4b5563; line-height: 1.6;">
                         {body_text}
@@ -714,7 +736,7 @@ Your verification code is: {otp_code}
             "#,
             subject = subject,
             header = header,
-            greeting = greeting,
+            greeting_html = greeting_html,
             body_text = body_text,
             continue_text = continue_text,
             what_happens_header = what_happens_header,
@@ -733,7 +755,7 @@ Your verification code is: {otp_code}
             r#"
 {header}
 
-{greeting}
+{greeting_text}
 
 {body_text_plain}
 
@@ -753,7 +775,7 @@ Your verification code is: {otp_code}
 {footer}
             "#,
             header = header,
-            greeting = greeting,
+            greeting_text = greeting_text,
             body_text_plain = body_text_plain,
             continue_text = continue_text,
             what_happens_header = what_happens_header,
@@ -784,6 +806,10 @@ Your verification code is: {otp_code}
 
         let subject = format!("Contact Form Submission from {}", from_email);
 
+        // Escape user-supplied content for HTML to prevent XSS
+        let safe_from_email = html_escape(from_email);
+        let safe_message = html_escape(message);
+
         let html_body = format!(
             r#"
             <!DOCTYPE html>
@@ -801,11 +827,11 @@ Your verification code is: {otp_code}
                     <h2 style="color: #1f2937; margin-top: 0;">New Message Received</h2>
 
                     <p style="color: #4b5563; line-height: 1.6;">
-                        <strong>From:</strong> {from_email}
+                        <strong>From:</strong> {safe_from_email}
                     </p>
 
                     <div style="background-color: #fff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
-                        <p style="color: #1f2937; margin: 0; white-space: pre-wrap;">{message}</p>
+                        <p style="color: #1f2937; margin: 0; white-space: pre-wrap;">{safe_message}</p>
                     </div>
                 </div>
 
@@ -815,8 +841,8 @@ Your verification code is: {otp_code}
             </body>
             </html>
             "#,
-            from_email = from_email,
-            message = message
+            safe_from_email = safe_from_email,
+            safe_message = safe_message
         );
 
         let text_body = format!(
