@@ -403,14 +403,15 @@
       "inactiveTierLimit": "This wallet exceeds your subscription tier limits and won't sync automatically",
       "balance": "Balance",
       "lastActivity": "Last activity: {date}",
-      "noRecentActivity": "No recent activity"
+      "noRecentActivity": "No recent activity",
+      "addressWatch": "Address"
     },
     "add": {
       "title": "Add Wallet",
       "nameLabel": "Wallet Name",
       "namePlaceholder": "My Bitcoin Wallet",
-      "descriptorLabel": "Wallet Descriptor or XPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": "Wallet Descriptor, XPUB, or Address",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) or bc1q...",
       "descriptorHint": "Enter your wallet's output descriptor or XPUB. We'll automatically detect the script type.",
       "advancedSettings": "Advanced Settings",
       "scriptType": {
@@ -457,7 +458,7 @@
         "keysStaySafe": "Canary only needs this to monitor your transactions. Your private keys stay safe in your wallet.",
         "tryBaconWallet": "New here? Try with a sample wallet first to see how Canary works.",
         "useBaconWallet": "Use Bacon Wallet",
-        "haveDescriptor": "I already have my output descriptor or XPUB",
+        "haveDescriptor": "I already have my output descriptor, XPUB, or address",
         "exportSteps": "Follow these steps to export your descriptor from {walletName}",
         "pasteXpub": "Paste your XPUB below.",
         "pasteDescriptor": "Paste your output descriptor or XPUB below.",

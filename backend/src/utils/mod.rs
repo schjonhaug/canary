@@ -2,4 +2,7 @@
 
 pub mod descriptor;
 
-pub use descriptor::{parse_multipath_descriptor, strip_key_origin};
+pub use descriptor::{
+    extract_address_from_descriptor, is_addr_descriptor, parse_multipath_descriptor,
+    strip_key_origin,
+};

@@ -403,14 +403,15 @@
       "inactiveTierLimit": "Ce portefeuille dépasse les limites de votre abonnement et ne se synchronisera pas automatiquement",
       "balance": "Solde",
       "lastActivity": "Dernière activité : {date}",
-      "noRecentActivity": "Aucune activité récente"
+      "noRecentActivity": "Aucune activité récente",
+      "addressWatch": "Adresse"
     },
     "add": {
       "title": "Ajouter un portefeuille",
       "nameLabel": "Nom du portefeuille",
       "namePlaceholder": "Mon portefeuille Bitcoin",
-      "descriptorLabel": "Descripteur de portefeuille ou XPUB",
-      "descriptorPlaceholder": "wpkh([empreinte/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": "Descripteur de portefeuille, XPUB ou adresse",
+      "descriptorPlaceholder": "wpkh([empreinte/84'/0'/0']xpub.../0/*) ou bc1q...",
       "descriptorHint": "Entrez le descripteur de sortie de votre portefeuille ou XPUB. Nous détecterons automatiquement le type de script.",
       "advancedSettings": "Paramètres avancés",
       "scriptType": {
@@ -457,7 +458,7 @@
         "keysStaySafe": "Canary n'a besoin de cela que pour surveiller vos transactions. Vos clés privées restent en sécurité dans votre portefeuille.",
         "tryBaconWallet": "Nouveau ici ? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary.",
         "useBaconWallet": "Utiliser le portefeuille Bacon",
-        "haveDescriptor": "J'ai déjà mon descripteur de sortie ou XPUB",
+        "haveDescriptor": "J'ai déjà mon descripteur de sortie, XPUB ou adresse",
         "exportSteps": "Suivez ces étapes pour exporter votre descripteur depuis {walletName}",
         "pasteXpub": "Collez votre XPUB ci-dessous.",
         "pasteDescriptor": "Collez votre descripteur de sortie ou XPUB ci-dessous.",

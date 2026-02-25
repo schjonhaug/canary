@@ -724,7 +724,7 @@ mine_blocks() {
 }
 
 # --- New multi-word command parsing for wallet actions ---
-if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]]; then
+if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" || "$1" == "addr-legacy" || "$1" == "addr-p2sh" || "$1" == "addr-segwit" || "$1" == "addr-taproot" ]]; then
     WALLET="$1"
     SUBCMD="$2"
     shift 2
@@ -746,11 +746,11 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]
             
             # Validate destination wallet (all wallets can be destinations)
             case "$DESTINATION_WALLET" in
-                alice|bob|charlie|miner)
+                alice|bob|charlie|miner|addr-legacy|addr-p2sh|addr-segwit|addr-taproot)
                     ;;
                 *)
                     echo "❌ Invalid destination wallet: $DESTINATION_WALLET"
-                    echo "Available destinations: alice, bob, charlie, miner"
+                    echo "Available destinations: alice, bob, charlie, miner, addr-legacy, addr-p2sh, addr-segwit, addr-taproot"
                     exit 1
                     ;;
             esac
@@ -1426,24 +1426,71 @@ case "$1" in
             echo "   ✅ Bacon already funded"
         fi
 
+        # Create single-address wallets (one per address type, for testing address monitoring)
+        echo "📋 Creating single-address wallets..."
+        ADDR_TYPES=("legacy" "p2sh-segwit" "bech32" "bech32m")
+        ADDR_LABELS=("P2PKH legacy" "P2SH nested segwit" "P2WPKH native segwit" "P2TR taproot")
+        ADDR_WALLET_NAMES=("addr-legacy" "addr-p2sh" "addr-segwit" "addr-taproot")
+
+        for i in "${!ADDR_TYPES[@]}"; do
+            ADDR_TYPE="${ADDR_TYPES[$i]}"
+            ADDR_LABEL="${ADDR_LABELS[$i]}"
+            ADDR_WALLET_NAME="${ADDR_WALLET_NAMES[$i]}"
+
+            set +e
+            CREATE_RESULT=$(btc -named createwallet wallet_name="$ADDR_WALLET_NAME" descriptors=true 2>&1)
+            CREATE_EXIT_CODE=$?
+            set -e
+
+            if echo "$CREATE_RESULT" | grep -q "already exists"; then
+                btc loadwallet "$ADDR_WALLET_NAME" >/dev/null 2>&1 || true
+            elif [ $CREATE_EXIT_CODE -ne 0 ]; then
+                echo "   ❌ Failed to create $ADDR_WALLET_NAME: $CREATE_RESULT"
+                continue
+            fi
+
+            # Check if already funded
+            ADDR_BALANCE=$(btc_wallet "$ADDR_WALLET_NAME" getbalance 2>/dev/null || echo "0")
+            if [ "$(echo "$ADDR_BALANCE == 0" | bc -l 2>/dev/null || echo "1")" -eq 1 ]; then
+                ADDRESS=$(btc_wallet "$ADDR_WALLET_NAME" getnewaddress "" "$ADDR_TYPE")
+                btc_miner sendtoaddress "$ADDRESS" 0.5 > /dev/null
+                echo "   ✅ $ADDR_WALLET_NAME ($ADDR_LABEL): $ADDRESS — funded 0.5 BTC"
+            else
+                echo "   ✅ $ADDR_WALLET_NAME already funded ($ADDR_BALANCE BTC)"
+            fi
+        done
+
+        # Mine to confirm address wallet funding
+        btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+
         # Show final balances
         ALICE_BALANCE=$(btc_wallet alice getbalance)
         CHARLIE_BALANCE=$(btc_wallet charlie getbalance)
         BACON_BALANCE=$(btc_wallet bacon getbalance)
+        echo ""
         echo "   💰 Alice balance: $ALICE_BALANCE BTC"
         echo "   💰 Charlie balance: $CHARLIE_BALANCE BTC"
         echo "   💰 Bacon balance: $BACON_BALANCE BTC"
 
         echo ""
-        echo "🎉 Alice, Bob, Charlie, and Bacon wallets setup complete!"
+        echo "🎉 All wallets setup complete!"
         echo ""
-        echo "📱 Add these descriptors to your wallet app to follow along:"
+        echo "📱 Descriptors (for backend):"
         echo "   👩 Alice Wallet (funded - 1 BTC):    $ALICE_DESCRIPTOR"
         echo "   👨 Bob Wallet (unfunded):             $BOB_DESCRIPTOR"
         echo "   🎭 Charlie Wallet (funded - 0.5 BTC): $CHARLIE_DESCRIPTOR"
         echo "   🥓 Bacon Wallet (demo - ~0.08 BTC):   $BACON_DESCRIPTOR"
         echo ""
-        echo "💡 Wallets are ready - addresses will be derived automatically by your backend"
+        echo "📍 Single addresses (for address monitoring):"
+        for i in "${!ADDR_WALLET_NAMES[@]}"; do
+            ADDR_WALLET_NAME="${ADDR_WALLET_NAMES[$i]}"
+            ADDR_LABEL="${ADDR_LABELS[$i]}"
+            btc loadwallet "$ADDR_WALLET_NAME" >/dev/null 2>&1 || true
+            ADDR_LIST=$(btc_wallet "$ADDR_WALLET_NAME" listreceivedbyaddress 0 true)
+            ADDRESS=$(echo "$ADDR_LIST" | jq -r '.[0].address')
+            ADDR_BALANCE=$(btc_wallet "$ADDR_WALLET_NAME" getbalance)
+            echo "   🔍 $ADDR_WALLET_NAME ($ADDR_LABEL): $ADDRESS ($ADDR_BALANCE BTC)"
+        done
         echo ""
         echo "💡 Next: $0 add-wallets-to-backend (requires backend running)"
         ;;
@@ -1917,6 +1964,14 @@ case "$1" in
         echo "  miner fund <addr> [amt]               Fund address from Miner (default: 1.0)"
         echo "  miner rbf <txid>                      Replace transaction with automatically calculated higher fee"
         echo "  miner cpfp <txid>                     Create CPFP child transaction for Miner's unconfirmed output"
+        echo ""
+        echo "Single-Address Wallets (created by create-wallets, one address per type):"
+        echo "  addr-legacy sending <wallet> <amt>     Send from P2PKH address"
+        echo "  addr-p2sh sending <wallet> <amt>       Send from P2SH-P2WPKH address"
+        echo "  addr-segwit sending <wallet> <amt>     Send from P2WPKH address"
+        echo "  addr-taproot sending <wallet> <amt>    Send from P2TR address"
+        echo "  addr-* balance                         Show balance"
+        echo "  addr-* address                         Show address"
         echo ""
         echo "Mining Commands:"
         echo "  mine [blocks]           Mine blocks to Miner wallet (default: 1)"

@@ -80,42 +80,47 @@ pub async fn create_wallet_non_blocking(
             .into_response();
     }
 
+    // Detect if input is a single Bitcoin address
+    let is_address = XpubConverter::is_bitcoin_address(payload.descriptor.trim());
+
     // Helper function to detect output descriptor format
     let is_descriptor_format = |input: &str| -> bool {
         let descriptor_regex = regex::Regex::new(r"^(wpkh|wsh|sh|pkh|tr)\(").unwrap();
         descriptor_regex.is_match(input.trim())
     };
 
-    // Validate advanced settings: custom stop gap requires specific script type (except for output descriptors)
-    if let Some(stop_gap) = &payload.stop_gap {
-        if stop_gap != "auto" {
-            // Skip script type requirement for output descriptors (they already contain script type info)
-            if !is_descriptor_format(&payload.descriptor) {
-                // Custom stop gap requires specific script type for XPUBs
-                match &payload.script_type {
-                    Some(script_type) if script_type != "auto" => {
-                        // Valid: custom stop gap with specific script type
-                    }
-                    _ => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("script_type_required", "Custom stop gap requires selecting a specific script type (not auto)")),
-                        )
-                            .into_response();
+    // Skip stop gap / script type validation for addresses (irrelevant for single-address watches)
+    if !is_address {
+        if let Some(stop_gap) = &payload.stop_gap {
+            if stop_gap != "auto" {
+                // Skip script type requirement for output descriptors (they already contain script type info)
+                if !is_descriptor_format(&payload.descriptor) {
+                    // Custom stop gap requires specific script type for XPUBs
+                    match &payload.script_type {
+                        Some(script_type) if script_type != "auto" => {
+                            // Valid: custom stop gap with specific script type
+                        }
+                        _ => {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(ErrorResponse::coded("script_type_required", "Custom stop gap requires selecting a specific script type (not auto)")),
+                            )
+                                .into_response();
+                        }
                     }
                 }
-            }
 
-            // Validate stop gap values
-            if !["250", "500", "750", "1000"].contains(&stop_gap.as_str()) {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse::coded(
-                        "invalid_stop_gap",
-                        "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000",
-                    )),
-                )
-                    .into_response();
+                // Validate stop gap values
+                if !["250", "500", "750", "1000"].contains(&stop_gap.as_str()) {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse::coded(
+                            "invalid_stop_gap",
+                            "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000",
+                        )),
+                    )
+                        .into_response();
+                }
             }
         }
     }
@@ -181,8 +186,11 @@ pub async fn create_wallet_non_blocking(
         }
     }
 
-    // NON-BLOCKING: Check if input is an XPUB and handle conversion
-    let descriptor = if XpubConverter::is_xpub(&payload.descriptor) {
+    // NON-BLOCKING: Check if input is an address, XPUB, or descriptor
+    let descriptor = if is_address {
+        // Single Bitcoin address - pass as-is, creation service handles conversion
+        payload.descriptor.trim().to_string()
+    } else if XpubConverter::is_xpub(&payload.descriptor) {
         // For fresh wallets with known script type, convert immediately
         if payload.is_fresh_wallet == Some(true) {
             match &payload.script_type {

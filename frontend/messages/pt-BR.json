@@ -403,14 +403,15 @@
       "inactiveTierLimit": "Esta carteira excede os limites do seu plano e não sincronizará automaticamente",
       "balance": "Saldo",
       "lastActivity": "Última atividade: {date}",
-      "noRecentActivity": "Sem atividade recente"
+      "noRecentActivity": "Sem atividade recente",
+      "addressWatch": "Endereço"
     },
     "add": {
       "title": "Adicionar Carteira",
       "nameLabel": "Nome da Carteira",
       "namePlaceholder": "Minha Carteira Bitcoin",
-      "descriptorLabel": "Descritor de Carteira ou XPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": "Descritor de Carteira, XPUB ou endereço",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) ou bc1q...",
       "descriptorHint": "Digite o descritor de saída da sua carteira ou XPUB. Detectaremos automaticamente o tipo de script.",
       "advancedSettings": "Configurações Avançadas",
       "scriptType": {
@@ -457,7 +458,7 @@
         "keysStaySafe": "O Canary só precisa disso para monitorar suas transações. Suas chaves privadas permanecem seguras na sua carteira.",
         "tryBaconWallet": "Novo aqui? Experimente primeiro com uma carteira de amostra para ver como o Canary funciona.",
         "useBaconWallet": "Usar Carteira Bacon",
-        "haveDescriptor": "Já tenho meu descritor de saída ou XPUB",
+        "haveDescriptor": "Já tenho meu descritor de saída, XPUB ou endereço",
         "exportSteps": "Siga estes passos para exportar seu descritor do {walletName}",
         "pasteXpub": "Cole seu XPUB abaixo.",
         "pasteDescriptor": "Cole seu descritor de saída ou XPUB abaixo.",

@@ -15,7 +15,7 @@ import { getTranslatedApiError } from "@/lib/utils"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
-import { XPUB_REGEX, DESCRIPTOR_REGEX } from "@/lib/constants"
+import { XPUB_REGEX, DESCRIPTOR_REGEX, isValidBitcoinAddress } from "@/lib/constants"
 import { useTranslations } from "next-intl"
 
 // Slug for the sample wallet route
@@ -95,6 +95,11 @@ export function AddWalletForm({
     }
   }, [descriptor, isFreshWallet, scriptType])
 
+  // Helper function to detect Bitcoin address format
+  const isAddressFormat = (input: string): boolean => {
+    return isValidBitcoinAddress(input)
+  }
+
   // Helper function to detect XPUB format (uses centralized pattern)
   const isXpubFormat = (input: string): boolean => {
     return XPUB_REGEX.test(input.trim())
@@ -142,43 +147,51 @@ export function AddWalletForm({
       return
     }
 
-    // Validate script type for fresh XPUB wallets
-    if (isFreshWallet && isXpubFormat(descriptor) && !scriptType) {
-      modal.setError(t('add.validation.scriptTypeRequired'))
-      return
-    }
+    // Skip advanced validation for Bitcoin addresses
+    if (!isAddressFormat(descriptor)) {
+      // Validate script type for fresh XPUB wallets
+      if (isFreshWallet && isXpubFormat(descriptor) && !scriptType) {
+        modal.setError(t('add.validation.scriptTypeRequired'))
+        return
+      }
 
-    // Validate stop gap: custom stop gap requires specific script type (except for output descriptors)
-    if (needsScriptTypeForStopGap(stopGap, descriptor, scriptType)) {
-      modal.setError(t('add.stopGap.requiresScriptType'))
-      return
+      // Validate stop gap: custom stop gap requires specific script type (except for output descriptors)
+      if (needsScriptTypeForStopGap(stopGap, descriptor, scriptType)) {
+        modal.setError(t('add.stopGap.requiresScriptType'))
+        return
+      }
     }
 
     modal.setLoading(true)
     modal.clearError()
 
     try {
+      // For Bitcoin addresses, skip script type and advanced settings
+      const isAddress = isAddressFormat(descriptor)
+
       // Determine script type to send
       let finalScriptType: string | undefined
 
-      if (isFreshWallet && isXpubFormat(descriptor)) {
-        // Fresh XPUB: always send script type
-        finalScriptType = scriptType
-      } else if (!isFreshWallet && isXpubFormat(descriptor) && scriptType && scriptType !== "auto") {
-        // Existing XPUB with manually selected script type
-        finalScriptType = scriptType
-      } else if (isDescriptorFormat(descriptor)) {
-        // Descriptor: extract script type for display purposes but don't send "auto"
-        const extractedType = getDescriptorScriptType(descriptor)
-        finalScriptType = extractedType || undefined
+      if (!isAddress) {
+        if (isFreshWallet && isXpubFormat(descriptor)) {
+          // Fresh XPUB: always send script type
+          finalScriptType = scriptType
+        } else if (!isFreshWallet && isXpubFormat(descriptor) && scriptType && scriptType !== "auto") {
+          // Existing XPUB with manually selected script type
+          finalScriptType = scriptType
+        } else if (isDescriptorFormat(descriptor)) {
+          // Descriptor: extract script type for display purposes but don't send "auto"
+          const extractedType = getDescriptorScriptType(descriptor)
+          finalScriptType = extractedType || undefined
+        }
       }
 
       const wallet = await api.createWallet({
         name: name.trim(),
         descriptor: descriptor.trim(),
-        isFreshWallet: isFreshWallet || undefined,
-        scriptType: finalScriptType,
-        stopGap: stopGap || undefined,
+        isFreshWallet: isAddress ? undefined : (isFreshWallet || undefined),
+        scriptType: isAddress ? undefined : finalScriptType,
+        stopGap: isAddress ? undefined : (stopGap || undefined),
       })
       onWalletCreated(wallet)
     } catch (err) {
@@ -221,8 +234,8 @@ export function AddWalletForm({
         />
       </div>
 
-      {/* Advanced Settings */}
-      <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+      {/* Advanced Settings - hidden for Bitcoin addresses */}
+      {!isAddressFormat(descriptor) && <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
@@ -313,7 +326,7 @@ export function AddWalletForm({
             )}
           </div>
         </CollapsibleContent>
-      </Collapsible>
+      </Collapsible>}
 
       {modal.error && (
         <ErrorDisplay message={modal.error} variant="inline" className="[&_*]:break-all" />

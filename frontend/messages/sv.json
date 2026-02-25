@@ -403,14 +403,15 @@
       "inactiveTierLimit": "Denna plånbok överskrider gränserna för din prenumerationsnivå och kommer inte att synkroniseras automatiskt",
       "balance": "Saldo",
       "lastActivity": "Senaste aktivitet: {date}",
-      "noRecentActivity": "Ingen senaste aktivitet"
+      "noRecentActivity": "Ingen senaste aktivitet",
+      "addressWatch": "Adress"
     },
     "add": {
       "title": "Lägg till plånbok",
       "nameLabel": "Namn på plånbok",
       "namePlaceholder": "Min Bitcoin-plånbok",
-      "descriptorLabel": "Wallet Descriptor eller XPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": "Wallet Descriptor, XPUB eller adress",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) eller bc1q...",
       "descriptorHint": "Ange din plånboks output descriptor eller XPUB. Vi kommer automatiskt att upptäcka skripttypen.",
       "advancedSettings": "Avancerade inställningar",
       "scriptType": {
@@ -457,7 +458,7 @@
         "keysStaySafe": "Canary behöver bara detta för att övervaka dina transaktioner. Dina privata nycklar förblir säkra i din plånbok.",
         "tryBaconWallet": "Ny här? Prova med en exempelplånbok först för att se hur Canary fungerar.",
         "useBaconWallet": "Använd Bacon Wallet",
-        "haveDescriptor": "Jag har redan min utdata-deskriptor eller XPUB",
+        "haveDescriptor": "Jag har redan min utdata-deskriptor, XPUB eller adress",
         "exportSteps": "Följ dessa steg för att exportera din deskriptor från {walletName}",
         "pasteXpub": "Klistra in din XPUB nedan.",
         "pasteDescriptor": "Klistra in din utdata-deskriptor eller XPUB nedan.",

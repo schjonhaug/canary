@@ -5,8 +5,11 @@ use crate::metadata::{
     BalanceAlertTriggerParams, EventType, MetadataDb, Transaction, TransactionInsert,
     TransactionNotification,
 };
-use anyhow::Result;
+use crate::utils::extract_address_from_descriptor;
+use anyhow::{anyhow, Result};
+use bdk_wallet::bitcoin::{Address, Txid};
 use bdk_wallet::{rusqlite::Connection, PersistedWallet};
+use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 use tokio::time::sleep;
@@ -1412,6 +1415,234 @@ impl WalletSyncService {
         }
 
         Ok(triggered_alerts)
+    }
+
+    /// Sync a single-address watch using direct Electrum script queries
+    pub async fn sync_address_watch(
+        &self,
+        wallet_checksum: &str,
+        descriptor: &str,
+        electrum_manager: Option<&ElectrumClientManager>,
+    ) -> Result<bool> {
+        let sync_start = Instant::now();
+        info!("[{}] Starting address watch sync", wallet_checksum);
+
+        // Extract address from addr() descriptor
+        let address_str = extract_address_from_descriptor(descriptor)
+            .ok_or_else(|| anyhow!("Invalid addr() descriptor format: {}", descriptor))?;
+
+        // Parse address and get script_pubkey
+        let address = Address::from_str(&address_str)
+            .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
+        let script = address.assume_checked().script_pubkey();
+
+        // Get Electrum client
+        let client = match electrum_manager {
+            Some(manager) => match manager.get_client().await {
+                Some(c) => c,
+                None => {
+                    warn!(
+                        "[{}] No Electrum client available for address watch",
+                        wallet_checksum
+                    );
+                    return Ok(false);
+                }
+            },
+            None => {
+                warn!(
+                    "[{}] No Electrum manager available for address watch",
+                    wallet_checksum
+                );
+                return Ok(false);
+            }
+        };
+
+        // Get transaction history for the address
+        let history = client.script_get_history(&script).await?;
+        debug!(
+            "[{}] Address has {} transactions in history",
+            wallet_checksum,
+            history.len()
+        );
+
+        // Get existing transactions from our database
+        let existing_transactions = self
+            .metadata_db
+            .get_transactions_by_wallet_checksum(wallet_checksum, None)
+            .await?;
+        let existing_txids: std::collections::HashSet<String> = existing_transactions
+            .iter()
+            .map(|tx| tx.txid.clone())
+            .collect();
+
+        let mut has_changes = false;
+
+        // Process each transaction in history
+        for hist_entry in &history {
+            let txid_str = hist_entry.tx_hash.to_string();
+
+            if existing_txids.contains(&txid_str) {
+                // Check if an existing pending transaction got confirmed
+                if hist_entry.height > 0 {
+                    if let Some(_existing) = existing_transactions
+                        .iter()
+                        .find(|tx| tx.txid == txid_str && tx.block_height.is_none())
+                    {
+                        // Transaction just confirmed
+                        let confirmed_at =
+                            match client.get_block_header(hist_entry.height as u32).await {
+                                Ok(header) => header.timestamp,
+                                Err(_) => std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs(),
+                            };
+
+                        self.metadata_db
+                            .update_transaction_confirmation(
+                                wallet_checksum,
+                                &txid_str,
+                                hist_entry.height as u32,
+                                confirmed_at,
+                            )
+                            .await?;
+
+                        // Send confirmation notification
+                        if let Some(updated_tx) = self
+                            .metadata_db
+                            .get_transaction_by_txid(wallet_checksum, &txid_str)
+                            .await?
+                        {
+                            self.send_confirmed_transaction_notification(&updated_tx)
+                                .await?;
+                        }
+
+                        has_changes = true;
+                        debug!(
+                            "[{}] Address watch tx confirmed: {} at height {}",
+                            wallet_checksum, txid_str, hist_entry.height
+                        );
+                    }
+                }
+                continue;
+            }
+
+            // New transaction - fetch full tx to determine amount
+            let txid = Txid::from_str(&txid_str)
+                .map_err(|e| anyhow!("Failed to parse txid {}: {}", txid_str, e))?;
+            let full_tx = match client.transaction_get(&txid).await {
+                Ok(tx) => tx,
+                Err(e) => {
+                    warn!(
+                        "[{}] Failed to fetch tx {}: {}",
+                        wallet_checksum, txid_str, e
+                    );
+                    continue;
+                }
+            };
+
+            // Calculate amount for our address
+            let mut received: i64 = 0;
+            for output in &full_tx.output {
+                if output.script_pubkey == script {
+                    received += output.value.to_sat() as i64;
+                }
+            }
+
+            // For single-address watches, we can only reliably detect receives
+            // (we can't know inputs without full UTXO context from BDK)
+            // If received > 0, it's a receive; otherwise skip
+            if received == 0 {
+                // This could be a send from our address - check inputs
+                // For now, mark as send with amount 0 as a placeholder
+                // (We know it involved our address from the history)
+                debug!(
+                    "[{}] Transaction {} has no outputs to our address, skipping",
+                    wallet_checksum, txid_str
+                );
+                continue;
+            }
+
+            let is_confirmed = hist_entry.height > 0;
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+
+            let (confirmed_at, block_height) = if is_confirmed {
+                let timestamp = match client.get_block_header(hist_entry.height as u32).await {
+                    Ok(header) => header.timestamp,
+                    Err(_) => now,
+                };
+                (Some(timestamp), Some(hist_entry.height as u32))
+            } else {
+                (None, None)
+            };
+
+            let first_seen_at = confirmed_at.unwrap_or(now);
+
+            let transaction = TransactionInsert {
+                txid: txid_str.clone(),
+                wallet_checksum: wallet_checksum.to_string(),
+                transaction_type: EventType::Receive,
+                amount_sats: received,
+                fee_sats: None,
+                block_height,
+                first_seen_at,
+                confirmed_at,
+                parent_txid: None,
+                transaction_status: if is_confirmed {
+                    "confirmed".to_string()
+                } else {
+                    "pending".to_string()
+                },
+                replaced_by_txid: None,
+                replaced_at: None,
+            };
+
+            self.metadata_db.insert_transaction(&transaction).await?;
+            self.send_new_transaction_notification(&transaction).await?;
+
+            has_changes = true;
+            debug!(
+                "[{}] New address watch tx: {} ({} sats, {})",
+                wallet_checksum,
+                txid_str,
+                received,
+                if is_confirmed { "confirmed" } else { "pending" }
+            );
+        }
+
+        // Update balance from Electrum
+        let balance = client.script_get_balance(&script).await?;
+        let total_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        self.metadata_db
+            .update_wallet_balance_by_checksum(wallet_checksum, total_balance)
+            .await?;
+
+        // Update last_synced_at
+        let _ = self
+            .metadata_db
+            .update_wallet_last_synced(wallet_checksum)
+            .await;
+
+        // Check balance alerts
+        if let Err(e) = self
+            .check_balance_alerts(wallet_checksum, total_balance)
+            .await
+        {
+            warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+        }
+
+        let sync_duration = sync_start.elapsed();
+        info!(
+            "[{}] Address watch sync complete in {:.2}s; changes={}",
+            wallet_checksum,
+            sync_duration.as_secs_f64(),
+            has_changes
+        );
+
+        Ok(has_changes)
     }
 
     /// Send balance alert notification using existing notification system

@@ -373,7 +373,7 @@ describe('AddWalletPage', () => {
 
       // Fill in the form
       const nameInput = screen.getByLabelText('Wallet Name')
-      const descriptorTextarea = screen.getByLabelText('Wallet Descriptor or XPUB')
+      const descriptorTextarea = screen.getByLabelText('Wallet Descriptor, XPUB, or Address')
 
       await user.type(nameInput, 'Test Wallet')
       // Use fireEvent.change for descriptor because it contains special chars that userEvent interprets as keyboard modifiers

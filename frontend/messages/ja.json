@@ -403,14 +403,15 @@
       "inactiveTierLimit": "このウォレットはサブスクリプションの制限を超えており、自動同期されません",
       "balance": "残高",
       "lastActivity": "最終活動: {date}",
-      "noRecentActivity": "最近の活動なし"
+      "noRecentActivity": "最近の活動なし",
+      "addressWatch": "アドレス"
     },
     "add": {
       "title": "ウォレットを追加",
       "nameLabel": "ウォレット名",
       "namePlaceholder": "マイビットコインウォレット",
-      "descriptorLabel": "ウォレットディスクリプタまたはXPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": "ウォレットディスクリプタ、XPUBまたはアドレス",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) または bc1q...",
       "descriptorHint": "ウォレットの出力ディスクリプタまたはXPUBを入力してください。スクリプトタイプは自動検出されます。",
       "advancedSettings": "詳細設定",
       "scriptType": {
@@ -457,7 +458,7 @@
         "keysStaySafe": "Canaryはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
         "tryBaconWallet": "初めてですか？まずサンプルウォレットでCanaryの動作を確認してください。",
         "useBaconWallet": "Baconウォレットを使用",
-        "haveDescriptor": "出力ディスクリプタまたはXPUBを持っています",
+        "haveDescriptor": "出力ディスクリプタ、XPUBまたはアドレスを持っています",
         "exportSteps": "{walletName}からディスクリプタをエクスポートするには、以下の手順に従ってください",
         "pasteXpub": "下にXPUBを貼り付けてください。",
         "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。",

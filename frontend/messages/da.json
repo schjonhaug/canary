@@ -403,14 +403,15 @@
       "inactiveTierLimit": "Denne wallet overskrider grænserne for dit abonnementsniveau og vil ikke synkronisere automatisk",
       "balance": "Saldo",
       "lastActivity": "Seneste aktivitet: {date}",
-      "noRecentActivity": "Ingen nylig aktivitet"
+      "noRecentActivity": "Ingen nylig aktivitet",
+      "addressWatch": "Adresse"
     },
     "add": {
       "title": "Tilføj Wallet",
       "nameLabel": "Wallet Navn",
       "namePlaceholder": "Min Bitcoin Wallet",
-      "descriptorLabel": "Wallet Descriptor eller XPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": "Wallet Descriptor, XPUB eller adresse",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) eller bc1q...",
       "descriptorHint": "Indtast din wallets output descriptor eller XPUB. Vi registrerer automatisk script-typen.",
       "advancedSettings": "Avancerede indstillinger",
       "scriptType": {
@@ -457,7 +458,7 @@
         "keysStaySafe": "Canary har kun brug for dette til at overvåge dine transaktioner. Dine private nøgler forbliver sikre i din wallet.",
         "tryBaconWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary fungerer.",
         "useBaconWallet": "Brug Bacon Wallet",
-        "haveDescriptor": "Jeg har allerede min output descriptor eller XPUB",
+        "haveDescriptor": "Jeg har allerede min output descriptor, XPUB eller adresse",
         "exportSteps": "Følg disse trin for at eksportere din descriptor fra {walletName}",
         "pasteXpub": "Indsæt din XPUB nedenfor.",
         "pasteDescriptor": "Indsæt din output descriptor eller XPUB nedenfor.",

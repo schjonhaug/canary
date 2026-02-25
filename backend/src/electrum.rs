@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
-use bdk_electrum::electrum_client::ElectrumApi;
-use bdk_electrum::{electrum_client, BdkElectrumClient};
+use bdk_electrum::electrum_client::{self, ElectrumApi, GetBalanceRes, GetHistoryRes};
+use bdk_electrum::BdkElectrumClient;
+use bdk_wallet::bitcoin::{ScriptBuf, Transaction, Txid};
 use bdk_wallet::chain::collections::HashSet;
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{KeychainKind, PersistedWallet};
@@ -364,6 +365,54 @@ impl ElectrumClient {
             height,
             timestamp: header.time as u64,
         })
+    }
+
+    /// Get transaction history for a specific script pubkey (for address watches)
+    pub async fn script_get_history(&self, script: &ScriptBuf) -> Result<Vec<GetHistoryRes>> {
+        let client = Arc::clone(&self.client);
+        let script = script.clone();
+        let history = timeout(
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            spawn_blocking(move || client.inner.script_get_history(&script)),
+        )
+        .await
+        .map_err(|_| anyhow!("script_get_history timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"))?
+        .map_err(|e| anyhow!("script_get_history task failed: {}", e))?
+        .map_err(|e| anyhow!("script_get_history failed: {}", e))?;
+
+        Ok(history)
+    }
+
+    /// Get balance for a specific script pubkey (for address watches)
+    pub async fn script_get_balance(&self, script: &ScriptBuf) -> Result<GetBalanceRes> {
+        let client = Arc::clone(&self.client);
+        let script = script.clone();
+        let balance = timeout(
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            spawn_blocking(move || client.inner.script_get_balance(&script)),
+        )
+        .await
+        .map_err(|_| anyhow!("script_get_balance timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"))?
+        .map_err(|e| anyhow!("script_get_balance task failed: {}", e))?
+        .map_err(|e| anyhow!("script_get_balance failed: {}", e))?;
+
+        Ok(balance)
+    }
+
+    /// Get a full transaction by txid (for address watches)
+    pub async fn transaction_get(&self, txid: &Txid) -> Result<Transaction> {
+        let client = Arc::clone(&self.client);
+        let txid = *txid;
+        let tx = timeout(
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            spawn_blocking(move || client.inner.transaction_get(&txid)),
+        )
+        .await
+        .map_err(|_| anyhow!("transaction_get timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"))?
+        .map_err(|e| anyhow!("transaction_get task failed: {}", e))?
+        .map_err(|e| anyhow!("transaction_get failed: {}", e))?;
+
+        Ok(tx)
     }
 
     pub async fn get_current_block_height(&self) -> Result<u32> {

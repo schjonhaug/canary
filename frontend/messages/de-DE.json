@@ -403,14 +403,15 @@
       "inactiveTierLimit": "Diese Wallet überschreitet Ihre Abonnementgrenzen und wird nicht automatisch synchronisiert",
       "balance": "Guthaben",
       "lastActivity": "Letzte Aktivität: {date}",
-      "noRecentActivity": "Keine aktuelle Aktivität"
+      "noRecentActivity": "Keine aktuelle Aktivität",
+      "addressWatch": "Adresse"
     },
     "add": {
       "title": "Wallet hinzufügen",
       "nameLabel": "Wallet-Name",
       "namePlaceholder": "Meine Bitcoin-Wallet",
-      "descriptorLabel": "Wallet-Descriptor oder XPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": "Wallet-Descriptor, XPUB oder Adresse",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) oder bc1q...",
       "descriptorHint": "Geben Sie den Output-Descriptor Ihrer Wallet oder XPUB ein. Wir erkennen den Script-Typ automatisch.",
       "advancedSettings": "Erweiterte Einstellungen",
       "scriptType": {
@@ -457,7 +458,7 @@
         "keysStaySafe": "Canary braucht dies nur, um Ihre Transaktionen zu überwachen. Ihre privaten Schlüssel bleiben sicher in Ihrer Wallet.",
         "tryBaconWallet": "Neu hier? Probieren Sie zuerst eine Beispiel-Wallet aus, um zu sehen, wie Canary funktioniert.",
         "useBaconWallet": "Bacon-Wallet verwenden",
-        "haveDescriptor": "Ich habe bereits meinen Output-Descriptor oder XPUB",
+        "haveDescriptor": "Ich habe bereits meinen Output-Descriptor, XPUB oder Adresse",
         "exportSteps": "Befolgen Sie diese Schritte, um Ihren Descriptor aus {walletName} zu exportieren",
         "pasteXpub": "Fügen Sie Ihren XPUB unten ein.",
         "pasteDescriptor": "Fügen Sie Ihren Output-Descriptor oder XPUB unten ein.",

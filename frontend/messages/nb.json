@@ -403,14 +403,15 @@
       "inactiveTierLimit": "Denne lommeboken overstiger abonnementsgrensene dine og synkroniseres ikke automatisk",
       "balance": "Saldo",
       "lastActivity": "Siste aktivitet: {date}",
-      "noRecentActivity": "Ingen nylig aktivitet"
+      "noRecentActivity": "Ingen nylig aktivitet",
+      "addressWatch": "Adresse"
     },
     "add": {
       "title": "Legg til lommebok",
       "nameLabel": "Lommeboknavn",
       "namePlaceholder": "Min Bitcoin-lommebok",
-      "descriptorLabel": "Lommebokdeskriptor eller XPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": "Lommebokdeskriptor, XPUB eller adresse",
+      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) eller bc1q...",
       "descriptorHint": "Skriv inn lommebokens output-deskriptor eller XPUB. Vi oppdager automatisk skripttypen.",
       "advancedSettings": "Avanserte innstillinger",
       "scriptType": {
@@ -457,7 +458,7 @@
         "keysStaySafe": "Canary trenger bare dette for å overvåke transaksjonene dine. Dine private nøkler forblir trygge i lommeboken din.",
         "tryBaconWallet": "Ny her? Prøv med en prøvelommebok først for å se hvordan Canary fungerer.",
         "useBaconWallet": "Bruk Bacon-lommebok",
-        "haveDescriptor": "Jeg har allerede min output-deskriptor eller XPUB",
+        "haveDescriptor": "Jeg har allerede min output-deskriptor, XPUB eller adresse",
         "exportSteps": "Følg disse trinnene for å eksportere deskriptoren fra {walletName}",
         "pasteXpub": "Lim inn XPUB nedenfor.",
         "pasteDescriptor": "Lim inn output-deskriptoren eller XPUB nedenfor.",

@@ -41,6 +41,19 @@ export const XPUB_REGEX = /^[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{107,108}$/
  * - pkh: Public Key Hash (P2PKH)
  * - tr: Taproot (P2TR)
  */
+/**
+ * Bitcoin address pre-filter pattern (loose, for UI toggling)
+ *
+ * Matches common Bitcoin address formats:
+ * - P2PKH: 1... (mainnet), m/n... (testnet/regtest)
+ * - P2SH: 3... (mainnet), 2... (testnet/regtest)
+ * - Bech32: bc1... (mainnet), tb1... (testnet), bcrt1... (regtest)
+ *
+ * This is intentionally permissive - the backend does authoritative validation
+ * with proper checksum verification via bitcoin::Address::from_str().
+ */
+export const BITCOIN_ADDRESS_REGEX = /^(1[1-9A-HJ-NP-Za-km-z]{25,34}|3[1-9A-HJ-NP-Za-km-z]{25,34}|bc1[a-zA-HJ-NP-Z0-9]{25,87}|[mn2][1-9A-HJ-NP-Za-km-z]{25,34}|tb1[a-zA-HJ-NP-Z0-9]{25,87}|bcrt1[a-zA-HJ-NP-Z0-9]{25,87})$/i
+
 export const DESCRIPTOR_REGEX = /^(wpkh|wsh|sh|pkh|tr)\(/
 
 /**
@@ -69,6 +82,14 @@ export function isValidXpub(input: string): boolean {
  */
 export function isValidDescriptor(input: string): boolean {
   return DESCRIPTOR_REGEX.test(input.trim())
+}
+
+/**
+ * Check if input looks like a Bitcoin address (loose pre-filter for UI)
+ * Backend does authoritative validation with proper checksum verification.
+ */
+export function isValidBitcoinAddress(input: string): boolean {
+  return BITCOIN_ADDRESS_REGEX.test(input.trim())
 }
 
 /**

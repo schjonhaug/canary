@@ -2,7 +2,7 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
-use crate::utils::{parse_multipath_descriptor, strip_key_origin};
+use crate::utils::{is_addr_descriptor, parse_multipath_descriptor, strip_key_origin};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
@@ -65,6 +65,81 @@ impl WalletCreationService {
         }
     }
 
+    /// Create a single-address watch (no BDK wallet, uses direct Electrum queries)
+    async fn create_from_address(
+        &self,
+        name: &str,
+        address: &str,
+        user_id: &str,
+    ) -> Result<WalletMetadata> {
+        use crate::xpub_converter::XpubConverter;
+
+        debug!("Creating address watch for: {}", address);
+
+        // Validate address network
+        XpubConverter::validate_address_network(address, self.network)?;
+
+        // Convert to addr() descriptor with checksum
+        let descriptor = XpubConverter::address_to_descriptor(address)?;
+
+        // Check if this address is already being watched
+        if self.metadata_db.descriptor_exists(&descriptor).await? {
+            let checksum = self.metadata_db.extract_checksum(&descriptor);
+            return Err(anyhow!(
+                "This address is already being watched with ID: {}.",
+                checksum
+            ));
+        }
+
+        // Insert wallet metadata with 'address' type
+        let checksum = self
+            .metadata_db
+            .insert_wallet_with_type(name, &descriptor, user_id, "address")
+            .await?;
+
+        // Mark as ready immediately (no BDK wallet file needed, no pending state)
+        self.metadata_db
+            .update_wallet_status(&checksum, "ready")
+            .await?;
+
+        // Get the wallet metadata to return
+        let wallet_metadata = self
+            .metadata_db
+            .get_wallet_by_descriptor(&descriptor)
+            .await?
+            .ok_or_else(|| anyhow!("Failed to retrieve created address watch metadata"))?;
+
+        // Spawn a background task for the initial Electrum sync
+        let metadata_db = self.metadata_db.clone();
+        let electrum_manager = self.wallet_manager.electrum_client_manager.clone();
+        let notification_sender = self.wallet_manager.notification_sender.clone();
+        let config = self.wallet_manager.config.clone();
+        let descriptor_clone = descriptor.clone();
+        let checksum_clone = checksum.clone();
+
+        tokio::spawn(async move {
+            let sync_service =
+                crate::sync::WalletSyncService::new(metadata_db, notification_sender, config);
+            if let Err(e) = sync_service
+                .sync_address_watch(
+                    &checksum_clone,
+                    &descriptor_clone,
+                    electrum_manager.as_deref(),
+                )
+                .await
+            {
+                error!(
+                    "[{}] Initial address watch sync failed: {}",
+                    checksum_clone, e
+                );
+            } else {
+                debug!("[{}] Initial address watch sync completed", checksum_clone);
+            }
+        });
+
+        Ok(wallet_metadata)
+    }
+
     /// Create wallet without blocking WalletManager
     /// Returns wallet metadata immediately while background task handles BDK wallet creation
     pub async fn create_wallet_non_blocking(
@@ -84,6 +159,13 @@ impl WalletCreationService {
 
         // Validate network compatibility (defense-in-depth)
         XpubConverter::validate_descriptor_network(descriptor_str, self.network)?;
+
+        // Check if input is a single Bitcoin address
+        if XpubConverter::is_bitcoin_address(descriptor_str) {
+            return self
+                .create_from_address(name, descriptor_str, user_id)
+                .await;
+        }
 
         // Check if input is an XPUB - convert to descriptor with script type
         if XpubConverter::is_xpub(descriptor_str) && !is_fresh_wallet {
@@ -746,7 +828,7 @@ impl WalletManager {
                 }
             }
 
-            // Delete wallet file from disk (whether it was in memory or not)
+            // Delete wallet file from disk (only for descriptor-type wallets; address watches have no file)
             let wallet_filename = format!("{}.sqlite", checksum);
             let wallet_path = self.wallet_dir.join(&wallet_filename);
             if wallet_path.exists() {
@@ -845,13 +927,95 @@ impl WalletManager {
             return Ok(());
         }
 
+        // Partition into BDK wallets and address watches
+        let (address_watches, bdk_wallets): (Vec<_>, Vec<_>) = tier_wallets
+            .into_iter()
+            .partition(|w| is_addr_descriptor(&w.descriptor));
+
+        // Sync address watches in parallel (no BDK wallet loading needed)
+        if !address_watches.is_empty() {
+            debug!(
+                "🔍 Syncing {} {:?} tier address watches",
+                address_watches.len(),
+                tier
+            );
+            let semaphore = Arc::new(Semaphore::new(MAX_PARALLEL_SYNCS));
+            let metadata_db = self.metadata_db.clone();
+            let notification_sender = self.notification_sender.clone();
+            let electrum_manager = self.electrum_client_manager.clone();
+            let config = self.config.clone();
+
+            let addr_tasks: Vec<_> = address_watches
+                .into_iter()
+                .map(|wallet_metadata| {
+                    let semaphore = semaphore.clone();
+                    let metadata_db = metadata_db.clone();
+                    let notification_sender = notification_sender.clone();
+                    let electrum_manager = electrum_manager.clone();
+                    let config = config.clone();
+
+                    tokio::spawn(async move {
+                        let _permit = semaphore
+                            .acquire()
+                            .await
+                            .map_err(|e| anyhow!("Failed to acquire semaphore: {}", e))?;
+
+                        let sync_service = crate::sync::WalletSyncService::new(
+                            metadata_db,
+                            notification_sender,
+                            config,
+                        );
+
+                        match sync_service
+                            .sync_address_watch(
+                                &wallet_metadata.checksum,
+                                &wallet_metadata.descriptor,
+                                electrum_manager.as_deref(),
+                            )
+                            .await
+                        {
+                            Ok(_) => Ok(wallet_metadata.name),
+                            Err(e) => {
+                                warn!(
+                                    "Failed to sync address watch {}: {}",
+                                    wallet_metadata.name, e
+                                );
+                                Err(e)
+                            }
+                        }
+                    })
+                })
+                .collect();
+
+            let results = join_all(addr_tasks).await;
+            let mut addr_success = 0;
+            let mut addr_failure = 0;
+            for result in results {
+                match result {
+                    Ok(Ok(_)) => addr_success += 1,
+                    _ => addr_failure += 1,
+                }
+            }
+            debug!(
+                "🔍 Address watch sync done - Success: {}, Failed: {}",
+                addr_success, addr_failure
+            );
+        }
+
+        let tier_wallets = bdk_wallets;
+
+        if tier_wallets.is_empty() {
+            debug!("No {:?} tier BDK wallets to sync", tier);
+            return Ok(());
+        }
+
         debug!(
             "🔄 Starting parallel sync for {} {:?} tier wallets (in-memory)",
             tier_wallets.len(),
             tier
         );
 
-        // Ensure all tier wallets are loaded in memory
+        // Ensure all BDK tier wallets are loaded in memory
         {
             let wallets_map = self.wallets.lock().await;
             let mut missing_wallets = Vec::new();

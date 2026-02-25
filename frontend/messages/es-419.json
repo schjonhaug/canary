@@ -403,14 +403,15 @@
       "inactiveTierLimit": "Esta billetera excede los límites de tu plan y no se sincronizará automáticamente",
       "balance": "Saldo",
       "lastActivity": "Última actividad: {date}",
-      "noRecentActivity": "Sin actividad reciente"
+      "noRecentActivity": "Sin actividad reciente",
+      "addressWatch": "Dirección"
     },
     "add": {
       "title": "Agregar Billetera",
       "nameLabel": "Nombre de Billetera",
       "namePlaceholder": "Mi Billetera Bitcoin",
-      "descriptorLabel": "Descriptor de Billetera o XPUB",
-      "descriptorPlaceholder": "wpkh([huella/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": "Descriptor de Billetera, XPUB o dirección",
+      "descriptorPlaceholder": "wpkh([huella/84'/0'/0']xpub.../0/*) o bc1q...",
       "descriptorHint": "Ingresa el descriptor de salida de tu billetera o XPUB. Detectaremos automáticamente el tipo de script.",
       "advancedSettings": "Configuración Avanzada",
       "scriptType": {
@@ -457,7 +458,7 @@
         "keysStaySafe": "Canary solo necesita esto para monitorear tus transacciones. Tus claves privadas permanecen seguras en tu billetera.",
         "tryBaconWallet": "¿Nuevo aquí? Prueba primero con una billetera de muestra para ver cómo funciona Canary.",
         "useBaconWallet": "Usar Billetera Bacon",
-        "haveDescriptor": "Ya tengo mi descriptor de salida o XPUB",
+        "haveDescriptor": "Ya tengo mi descriptor de salida, XPUB o dirección",
         "exportSteps": "Sigue estos pasos para exportar tu descriptor desde {walletName}",
         "pasteXpub": "Pega tu XPUB abajo.",
         "pasteDescriptor": "Pega tu descriptor de salida o XPUB abajo.",
