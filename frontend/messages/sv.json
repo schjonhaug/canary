@@ -972,6 +972,7 @@
       "wallet_not_found": "Plånbok hittades inte.",
       "wallet_name_required": "Plånbokens namn får inte vara tomt.",
       "wallet_already_exists": "Denna plånbok har redan lagts till. Be ägaren att lägga till dig som kontakt.",
+      "address_already_watched": "Denna adress övervakas redan.",
       "access_denied": "Du har inte behörighet att komma åt denna resurs.",
       "contact_limit_reached": "Du har nått det maximala antalet kontakter för denna plånbok. Uppgradera för att lägga till fler.",
       "invalid_phone_number": "Ogiltigt telefonnummer. Ange landskod (t.ex. +46...).",

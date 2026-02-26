@@ -972,6 +972,7 @@
       "wallet_not_found": "Tegnebog ikke fundet.",
       "wallet_name_required": "Tegnebogens navn kan ikke være tomt.",
       "wallet_already_exists": "Denne tegnebog er allerede tilføjet. Bed ejeren om at tilføje dig som kontakt.",
+      "address_already_watched": "Denne adresse overvåges allerede.",
       "access_denied": "Du har ikke adgang til denne ressource.",
       "contact_limit_reached": "Du har nået det maksimale antal kontakter for denne tegnebog. Opgrader for at tilføje flere.",
       "invalid_phone_number": "Ugyldigt telefonnummer. Inkluder venligst landekoden (f.eks. +45...).",

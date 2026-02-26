@@ -972,6 +972,7 @@
       "wallet_not_found": "Portefeuille non trouvé.",
       "wallet_name_required": "Le nom du portefeuille ne peut pas être vide.",
       "wallet_already_exists": "Ce portefeuille a déjà été ajouté. Demandez au propriétaire de vous ajouter en tant que contact.",
+      "address_already_watched": "Cette adresse est déjà surveillée.",
       "access_denied": "Vous n'avez pas la permission d'accéder à cette ressource.",
       "contact_limit_reached": "Vous avez atteint le nombre maximum de contacts pour ce portefeuille. Passez au niveau supérieur pour en ajouter d'autres.",
       "invalid_phone_number": "Numéro de téléphone invalide. Veuillez inclure l'indicatif international (ex. : +33...).",

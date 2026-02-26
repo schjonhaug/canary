@@ -972,6 +972,7 @@
       "wallet_not_found": "Billetera no encontrada.",
       "wallet_name_required": "El nombre de la billetera no puede estar vacío.",
       "wallet_already_exists": "Esta billetera ya ha sido agregada. Pida al propietario que lo agregue como contacto.",
+      "address_already_watched": "Esta dirección ya está siendo monitoreada.",
       "access_denied": "No tiene permiso para acceder a este recurso.",
       "contact_limit_reached": "Ha alcanzado el número máximo de contactos para esta billetera. Actualice para agregar más.",
       "invalid_phone_number": "Número de teléfono no válido. Por favor, incluya el código de país (ej. +1...).",

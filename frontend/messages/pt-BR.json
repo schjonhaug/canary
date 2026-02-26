@@ -972,6 +972,7 @@
       "wallet_not_found": "Carteira não encontrada.",
       "wallet_name_required": "O nome da carteira não pode estar vazio.",
       "wallet_already_exists": "Esta carteira já foi adicionada. Peça ao proprietário para adicioná-lo como contato.",
+      "address_already_watched": "Este endereço já está sendo monitorado.",
       "access_denied": "Você não tem permissão para acessar este recurso.",
       "contact_limit_reached": "Você atingiu o número máximo de contatos para esta carteira. Faça upgrade para adicionar mais.",
       "invalid_phone_number": "Número de telefone inválido. Inclua o código do país (ex.: +55...).",

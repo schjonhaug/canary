@@ -972,6 +972,7 @@
       "wallet_not_found": "Wallet not found.",
       "wallet_name_required": "Wallet name cannot be empty.",
       "wallet_already_exists": "This wallet has already been added. Ask the owner to add you as a contact.",
+      "address_already_watched": "This address is already being watched.",
       "access_denied": "You do not have permission to access this resource.",
       "contact_limit_reached": "You've reached the maximum number of contacts for this wallet. Upgrade to add more.",
       "invalid_phone_number": "Invalid phone number. Please include the country code (e.g., +1...).",

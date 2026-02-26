@@ -972,6 +972,7 @@
       "wallet_not_found": "Lommebok ikke funnet.",
       "wallet_name_required": "Lommeboknavn kan ikke være tomt.",
       "wallet_already_exists": "Denne lommeboken er allerede lagt til. Be eieren om å legge deg til som kontakt.",
+      "address_already_watched": "Denne adressen overvåkes allerede.",
       "access_denied": "Du har ikke tilgang til denne ressursen.",
       "contact_limit_reached": "Du har nådd maksimalt antall kontakter for denne lommeboken. Oppgrader for å legge til flere.",
       "invalid_phone_number": "Ugyldig telefonnummer. Vennligst inkluder landskode (f.eks. +47...).",

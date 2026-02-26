@@ -972,6 +972,7 @@
       "wallet_not_found": "ウォレットが見つかりません。",
       "wallet_name_required": "ウォレット名を空にすることはできません。",
       "wallet_already_exists": "このウォレットは既に追加されています。オーナーに連絡先として追加してもらってください。",
+      "address_already_watched": "このアドレスは既に監視されています。",
       "access_denied": "このリソースへのアクセス権がありません。",
       "contact_limit_reached": "このウォレットの連絡先上限に達しました。追加するにはアップグレードしてください。",
       "invalid_phone_number": "無効な電話番号です。国番号を含めてください（例: +81...）。",

@@ -412,6 +412,11 @@ pub async fn create_wallet_non_blocking(
                     StatusCode::CONFLICT,
                     ErrorResponse::coded("wallet_already_exists", error_msg),
                 )
+            } else if error_msg.contains("already being watched") {
+                (
+                    StatusCode::CONFLICT,
+                    ErrorResponse::coded("address_already_watched", error_msg),
+                )
             } else {
                 (StatusCode::BAD_REQUEST, ErrorResponse::new(error_msg))
             };
