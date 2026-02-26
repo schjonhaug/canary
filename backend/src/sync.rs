@@ -1417,7 +1417,31 @@ impl WalletSyncService {
         Ok(triggered_alerts)
     }
 
-    /// Sync a single-address watch using direct Electrum script queries
+    /// Sync a single-address watch using direct Electrum script queries.
+    ///
+    /// Address watches use `addr()` descriptors (BIP-385) which are valid Bitcoin descriptors
+    /// supported by Bitcoin Core, but not yet by `rust-miniscript` / BDK. Because of this we
+    /// cannot create a BDK `Wallet` for them and instead query Electrum directly via
+    /// `script_get_history` and `script_get_balance`.
+    ///
+    /// We evaluated BDK's `SpkTxOutIndex` / `IndexedTxGraph` from `bdk_chain` as an
+    /// alternative (tracks arbitrary script pubkeys without descriptor support) and decided
+    /// to keep the direct Electrum approach because:
+    /// - `SpkTxOutIndex` is an in-memory index, not a sync engine — we'd still need the
+    ///   same Electrum network calls to fetch transactions.
+    /// - Our stateless approach (query Electrum, diff against the DB) avoids the need to
+    ///   persist `TxGraph` state or accept full re-syncs on restart.
+    /// - The N+1 parent-tx fetches for send detection happen either way — `SpkTxOutIndex`
+    ///   only replaces who iterates the inputs (~20 lines of code).
+    /// - `IndexedTxGraph` adds conflict/reorg handling we don't need for single addresses.
+    ///
+    /// Revisit if we support multiple addresses per watch or need RBF/reorg detection.
+    ///
+    /// If `rust-miniscript` adds `addr()` support in the future, we can migrate to BDK wallets
+    /// without any data migration since the stored descriptors are already in standard format.
+    ///
+    /// See: https://github.com/rust-bitcoin/rust-miniscript/issues/294
+    /// See: https://github.com/bitcoindevkit/bdk_wallet/issues/174
     pub async fn sync_address_watch(
         &self,
         wallet_checksum: &str,
