@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Mes portefeuilles",
+    "title": "Portefeuilles",
     "summary": "Suivi de {count} {count, plural, one {portefeuille} other {portefeuilles}} avec un solde total de {balance}",
     "onboarding": {
       "trial": {

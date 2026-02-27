@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "My Wallets",
+    "title": "Wallets",
     "summary": "Tracking {count} {count, plural, one {wallet} other {wallets}} with a total balance of {balance}",
     "onboarding": {
       "trial": {

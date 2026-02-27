@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Mina plånböcker",
+    "title": "Plånböcker",
     "summary": "Bevakar {count} {count, plural, one {plånbok} other {plånböcker}} med ett totalt saldo på {balance}",
     "onboarding": {
       "trial": {

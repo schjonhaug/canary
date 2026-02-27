@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Mis Billeteras",
+    "title": "Billeteras",
     "summary": "Rastreando {count} {count, plural, one {billetera} other {billeteras}} con un saldo total de {balance}",
     "onboarding": {
       "trial": {

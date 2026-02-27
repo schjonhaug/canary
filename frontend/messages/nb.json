@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Mine lommebøker",
+    "title": "Lommebøker",
     "summary": "Sporer {count} {count, plural, one {lommebok} other {lommebøker}} med en total saldo på {balance}",
     "onboarding": {
       "trial": {

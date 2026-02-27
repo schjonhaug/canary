@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Mine Wallets",
+    "title": "Wallets",
     "summary": "Sporer {count} {count, plural, one {wallet} other {wallets}} med en samlet saldo på {balance}",
     "onboarding": {
       "trial": {

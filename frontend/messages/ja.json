@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "マイウォレット",
+    "title": "ウォレット",
     "summary": "合計残高{balance}の{count}個のウォレットを追跡中",
     "onboarding": {
       "trial": {

@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Meine Wallets",
+    "title": "Wallets",
     "summary": "Verfolge {count} {count, plural, one {Wallet} other {Wallets}} mit einem Gesamtguthaben von {balance}",
     "onboarding": {
       "trial": {
