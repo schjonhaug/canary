@@ -24,6 +24,10 @@ const ALERT_FAILURE_THRESHOLD: u32 = 3;
 const GENESIS_COINBASE_TXID: &str =
     "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b";
 
+/// Genesis block timestamp (2009-01-03T18:15:05Z) as a fallback when the Electrum
+/// server cannot serve the block 0 header.
+const GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
+
 /// Check if a transaction is confirmed based on Electrum's height convention.
 /// height > 0: confirmed at that block height
 /// height == 0: unconfirmed (mempool), EXCEPT for the genesis coinbase
@@ -1557,6 +1561,7 @@ impl WalletSyncService {
                         let confirmed_at =
                             match client.get_block_header(hist_entry.height as u32).await {
                                 Ok(header) => header.timestamp,
+                                Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
                                 Err(_) => std::time::SystemTime::now()
                                     .duration_since(std::time::UNIX_EPOCH)
                                     .unwrap()
@@ -1669,6 +1674,7 @@ impl WalletSyncService {
             let (confirmed_at, block_height) = if is_confirmed {
                 let timestamp = match client.get_block_header(hist_entry.height as u32).await {
                     Ok(header) => header.timestamp,
+                    Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
                     Err(_) => now,
                 };
                 (Some(timestamp), Some(hist_entry.height as u32))
@@ -1837,6 +1843,9 @@ impl WalletSyncService {
                                         .await
                                     {
                                         Ok(header) => header.timestamp,
+                                        Err(_) if hist_entry.height == 0 => {
+                                            GENESIS_BLOCK_TIMESTAMP
+                                        }
                                         Err(_) => std::time::SystemTime::now()
                                             .duration_since(std::time::UNIX_EPOCH)
                                             .unwrap()
@@ -1945,6 +1954,9 @@ impl WalletSyncService {
                                 let ts =
                                     match client.get_block_header(hist_entry.height as u32).await {
                                         Ok(header) => header.timestamp,
+                                        Err(_) if hist_entry.height == 0 => {
+                                            GENESIS_BLOCK_TIMESTAMP
+                                        }
                                         Err(_) => now,
                                     };
                                 block_header_cache.insert(hist_entry.height as u32, ts);
@@ -2075,5 +2087,32 @@ impl WalletSyncService {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_tx_confirmed_positive_height() {
+        assert!(is_tx_confirmed(1, "some_txid"));
+        assert!(is_tx_confirmed(100, "some_txid"));
+        assert!(is_tx_confirmed(800000, "some_txid"));
+    }
+
+    #[test]
+    fn test_is_tx_confirmed_mempool() {
+        assert!(!is_tx_confirmed(0, "some_mempool_txid"));
+    }
+
+    #[test]
+    fn test_is_tx_confirmed_unconfirmed_parents() {
+        assert!(!is_tx_confirmed(-1, "some_txid"));
+    }
+
+    #[test]
+    fn test_is_tx_confirmed_genesis_coinbase() {
+        assert!(is_tx_confirmed(0, GENESIS_COINBASE_TXID));
     }
 }

@@ -417,9 +417,12 @@ async fn main() -> anyhow::Result<()> {
                 "Satoshi (Hal Finney Tx)",
                 "Satoshi (Patoshi)",
             ];
+            let mut genesis_cleanup_failed = false;
             for wallet in &existing_wallets {
-                let should_delete = retired_names.contains(&wallet.name.as_str())
-                    || (wallet.name == genesis_name && wallet.descriptor.starts_with("addr("));
+                let is_old_genesis =
+                    wallet.name == genesis_name && wallet.descriptor.starts_with("addr(");
+                let should_delete =
+                    retired_names.contains(&wallet.name.as_str()) || is_old_genesis;
                 if should_delete {
                     println!(
                         "🔄 Removing old demo wallet '{}' (checksum: {})",
@@ -431,6 +434,9 @@ async fn main() -> anyhow::Result<()> {
                         .await
                     {
                         println!("❌ Failed to delete '{}': {}", wallet.name, e);
+                        if is_old_genesis {
+                            genesis_cleanup_failed = true;
+                        }
                     }
                 }
             }
@@ -439,7 +445,7 @@ async fn main() -> anyhow::Result<()> {
             let already_exists = existing_wallets
                 .iter()
                 .any(|w| w.name == genesis_name && w.descriptor.starts_with("pk("));
-            if !already_exists {
+            if !already_exists && !genesis_cleanup_failed {
                 match app_services
                     .wallet_creation_service
                     .create_wallet_non_blocking(
