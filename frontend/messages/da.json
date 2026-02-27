@@ -558,6 +558,9 @@
         "p2tr": "Taproot",
         "p2wsh": "SegWit Script"
       },
+      "signing": "Signering",
+      "singleSig": "Single-sig",
+      "multisig": "{scheme} Multisig",
       "added": "Tilføjet",
       "copied": "Kopieret!",
       "noTransactions": "Ingen transaktioner endnu",

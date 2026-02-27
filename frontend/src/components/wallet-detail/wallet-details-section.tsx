@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 import { useRelativeTime } from "@/hooks/useRelativeTime"
-import { getDescriptorScriptType, getAddressScriptType } from "@/lib/constants"
+import { getDescriptorScriptType, getDescriptorSigningType, getAddressScriptType } from "@/lib/constants"
 import type { Wallet } from "@/types"
 
 interface WalletDetailsSectionProps {
@@ -77,6 +77,7 @@ export function WalletDetailsSection({ wallet }: WalletDetailsSectionProps) {
 
   const scriptType = getScriptType(wallet)
   const isAddress = wallet.wallet_type === "address"
+  const signingType = !isAddress ? getDescriptorSigningType(wallet.descriptor) : null
 
   // For address wallets, show the raw address; for descriptors, show the full descriptor
   const displayValue = isAddress
@@ -134,6 +135,20 @@ export function WalletDetailsSection({ wallet }: WalletDetailsSectionProps) {
             </div>
             <div className="text-sm">
               {scriptTypeLabels[scriptType] || scriptType}
+            </div>
+          </div>
+        )}
+
+        {/* Signing Type */}
+        {!isAddress && (
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">
+              {t("detail.signing")}
+            </div>
+            <div className="text-sm">
+              {signingType
+                ? t("detail.multisig", { scheme: signingType })
+                : t("detail.singleSig")}
             </div>
           </div>
         )}

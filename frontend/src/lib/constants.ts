@@ -112,9 +112,38 @@ export function getDescriptorScriptType(input: string): string {
   if (trimmed.startsWith('sh(wpkh(')) return 'p2sh'
   if (trimmed.startsWith('wpkh(')) return 'p2wpkh'
   if (trimmed.startsWith('wsh(')) return 'p2wsh'
+  if (trimmed.startsWith('sh(')) return 'p2sh'
   if (trimmed.startsWith('pkh(')) return 'p2pkh'
   if (trimmed.startsWith('tr(')) return 'p2tr'
   return ''
+}
+
+/**
+ * Extract signing type from a descriptor string.
+ * Returns e.g. "2-of-3" for multisig descriptors, or null for single-sig.
+ */
+export function getDescriptorSigningType(descriptor: string): string | null {
+  const match = descriptor.match(/(?:sorted)?multi(?:_a)?\((\d+)/)
+  if (!match) return null
+
+  const m = parseInt(match[1], 10)
+  const multiStart = descriptor.indexOf(match[0])
+  const content = descriptor.slice(multiStart)
+
+  let depth = 0
+  let keyCount = 0
+  let pastM = false
+  for (const char of content) {
+    if (char === '(') depth++
+    if (char === ')') { depth--; if (depth === 0) break }
+    if (char === ',' && depth === 1) {
+      if (!pastM) { pastM = true } else { keyCount++ }
+    }
+  }
+  if (pastM) keyCount++
+
+  if (keyCount > 0) return `${m}-of-${keyCount}`
+  return null
 }
 
 /**
