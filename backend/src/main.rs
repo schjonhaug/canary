@@ -391,7 +391,10 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    // For demo user on mainnet, add famous Satoshi P2PK coinbase outputs as watched wallets
+    // For demo user on mainnet, add the genesis block P2PK coinbase as a watched wallet.
+    // Uses the actual P2PK public key (not P2PKH address) — the P2PKH address receives
+    // tens of thousands of donation transactions that overwhelm Electrum sync, while
+    // the P2PK output has only ~11 transactions.
     if config.network() == bdk_wallet::bitcoin::Network::Bitcoin {
         let demo_user_result = app_services
             .metadata_db
@@ -405,81 +408,58 @@ async fn main() -> anyhow::Result<()> {
                 .await
                 .unwrap_or_default();
 
-            // Use actual P2PK public keys from early coinbase outputs (not P2PKH addresses).
-            // P2PKH addresses receive tens of thousands of donation transactions that overwhelm
-            // Electrum sync; the P2PK outputs have only a handful of transactions.
-            let satoshi_pubkeys: &[(&str, &str)] = &[
-                (
-                    "Satoshi (Genesis)",
-                    "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f",
-                ),
-                (
-                    "Satoshi (First Reward)",
-                    "0496b538e853519c726a2c91e61ec11600ae1390813a627c66fb8be7947be63c52da7589379515d4e0a604f8141781e62294721166bf621e73a82cbf2342c858ee",
-                ),
-                (
-                    "Satoshi (Hal Finney Tx)",
-                    "04ae1a62fe09c5f51b13905f07f06b99a2f7159b2225f374cd378d71302fa28414e7aab37397f554a7df5f142c21c1b7303b8a0626f1baded5c72a704f7e6cd84c",
-                ),
-                (
-                    "Satoshi (Patoshi)",
-                    "047211a824f55b505228e4c3d5194c1fcfaa15a456abdf37f9b9d97a4040afc073dee6c89064984f03385237d92167c13e236446b417ab79a0fcae412ae3316b77",
-                ),
-            ];
+            let genesis_name = "Satoshi (Genesis)";
+            let genesis_pubkey = "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f";
 
-            // Clean up old addr()-based Satoshi wallets so they get recreated with pk() descriptors
-            let mut cleanup_failed: Vec<&str> = Vec::new();
-            for (name, _pubkey) in satoshi_pubkeys {
-                if let Some(old_wallet) = existing_wallets
-                    .iter()
-                    .find(|w| w.name == *name && w.descriptor.starts_with("addr("))
-                {
+            // Clean up retired demo wallets and old addr()-based wallets
+            let retired_names = [
+                "Satoshi (First Reward)",
+                "Satoshi (Hal Finney Tx)",
+                "Satoshi (Patoshi)",
+            ];
+            let mut genesis_cleanup_failed = false;
+            for wallet in &existing_wallets {
+                let is_old_genesis =
+                    wallet.name == genesis_name && wallet.descriptor.starts_with("addr(");
+                let should_delete =
+                    retired_names.contains(&wallet.name.as_str()) || is_old_genesis;
+                if should_delete {
                     println!(
-                        "🔄 Removing old addr() wallet '{}' (checksum: {}) to recreate with pk()",
-                        name, old_wallet.checksum
+                        "🔄 Removing old demo wallet '{}' (checksum: {})",
+                        wallet.name, wallet.checksum
                     );
                     if let Err(e) = app_services
                         .metadata_db
-                        .hard_delete_wallet_by_checksum(&old_wallet.checksum)
+                        .hard_delete_wallet_by_checksum(&wallet.checksum)
                         .await
                     {
-                        println!("❌ Failed to delete old wallet '{}': {}", name, e);
-                        cleanup_failed.push(name);
+                        println!("❌ Failed to delete '{}': {}", wallet.name, e);
+                        if is_old_genesis {
+                            genesis_cleanup_failed = true;
+                        }
                     }
                 }
             }
 
-            // Fetch wallets once after cleanup (not per-iteration)
-            let current_wallets = app_services
-                .metadata_db
-                .get_wallets_for_user(Some(&demo_user.id))
-                .await
-                .unwrap_or_default();
-
-            for (name, pubkey) in satoshi_pubkeys {
-                // Skip wallets whose old addr() version failed to delete (avoid duplicates)
-                if cleanup_failed.contains(name) {
-                    continue;
-                }
-                let already_exists = current_wallets
-                    .iter()
-                    .any(|w| w.name == *name && w.descriptor.starts_with("pk("));
-                if !already_exists {
-                    match app_services
-                        .wallet_creation_service
-                        .create_wallet_non_blocking(
-                            name,
-                            pubkey,
-                            &demo_user.id,
-                            false, // not a fresh wallet
-                            None,  // auto-detect script type
-                            None,  // default stop gap
-                        )
-                        .await
-                    {
-                        Ok(_) => println!("✅ Created {} for demo user (P2PK)", name),
-                        Err(e) => println!("❌ Failed to create {}: {}", name, e),
-                    }
+            // Create Genesis P2PK wallet if it doesn't already exist
+            let already_exists = existing_wallets
+                .iter()
+                .any(|w| w.name == genesis_name && w.descriptor.starts_with("pk("));
+            if !already_exists && !genesis_cleanup_failed {
+                match app_services
+                    .wallet_creation_service
+                    .create_wallet_non_blocking(
+                        genesis_name,
+                        genesis_pubkey,
+                        &demo_user.id,
+                        false, // not a fresh wallet
+                        None,  // auto-detect script type
+                        None,  // default stop gap
+                    )
+                    .await
+                {
+                    Ok(_) => println!("✅ Created {} for demo user (P2PK)", genesis_name),
+                    Err(e) => println!("❌ Failed to create {}: {}", genesis_name, e),
                 }
             }
         }
