@@ -453,11 +453,10 @@
         "scriptTypeRequired": "Skripttype er påkrevd for nye XPUB-lommebøker"
       },
       "wizard": {
-        "chooseWallet": "Hvilken lommebok bruker du? Vi viser deg hvordan du eksporterer output-deskriptoren eller XPUB.",
         "keysStaySafe": "Canary trenger bare dette for å overvåke transaksjonene dine. Dine private nøkler forblir trygge i lommeboken din.",
         "tryBaconWallet": "Ny her? Prøv med en prøvelommebok først for å se hvordan Canary fungerer.",
         "useBaconWallet": "Bruk Bacon-lommebok",
-        "haveDescriptor": "Jeg har allerede min output-deskriptor, XPUB eller adresse",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Følg disse trinnene for å eksportere deskriptoren fra {walletName}",
         "pasteXpub": "Lim inn XPUB nedenfor.",
         "pasteDescriptor": "Lim inn output-deskriptoren eller XPUB nedenfor.",

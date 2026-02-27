@@ -270,20 +270,19 @@ describe('AddWalletPage', () => {
       expect(mockPush).toHaveBeenCalledWith('/wallets/add/sparrow')
     })
 
-    it('navigates to form when skip link is clicked', async () => {
-      const user = userEvent.setup()
-
+    it('shows form directly on choose step', async () => {
       await act(async () => {
         renderWithSlug(undefined)
       })
 
+      // The form is now shown directly on the choose step
       await waitFor(() => {
-        expect(screen.getByText(/I already have my output descriptor/)).toBeInTheDocument()
+        expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
+        expect(screen.getByLabelText('Wallet Descriptor, XPUB, or Address')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByText(/I already have my output descriptor/))
-
-      expect(mockPush).toHaveBeenCalledWith('/wallets/add/form')
+      // Wallet guides should also be visible below the form
+      expect(screen.getByText('Sparrow')).toBeInTheDocument()
     })
 
     it('navigates to bacon form when Bacon wallet is clicked', async () => {
@@ -311,8 +310,10 @@ describe('AddWalletPage', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Wallets')).toBeInTheDocument()
-        expect(screen.getByText('Add Wallet')).toBeInTheDocument()
+        const navElement = screen.getByRole('navigation')
+        expect(navElement).toBeInTheDocument()
+        expect(navElement).toHaveTextContent('Wallets')
+        expect(navElement).toHaveTextContent('Add Wallet')
       })
     })
 

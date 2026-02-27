@@ -453,11 +453,10 @@
         "scriptTypeRequired": "Script-type er påkrævet for nye XPUB-wallets"
       },
       "wizard": {
-        "chooseWallet": "Hvilken wallet bruger du? Vi viser dig, hvordan du eksporterer din output descriptor eller XPUB.",
         "keysStaySafe": "Canary har kun brug for dette til at overvåge dine transaktioner. Dine private nøgler forbliver sikre i din wallet.",
         "tryBaconWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary fungerer.",
         "useBaconWallet": "Brug Bacon Wallet",
-        "haveDescriptor": "Jeg har allerede min output descriptor, XPUB eller adresse",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Følg disse trin for at eksportere din descriptor fra {walletName}",
         "pasteXpub": "Indsæt din XPUB nedenfor.",
         "pasteDescriptor": "Indsæt din output descriptor eller XPUB nedenfor.",

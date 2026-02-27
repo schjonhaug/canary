@@ -453,11 +453,10 @@
         "scriptTypeRequired": "新しいXPUBウォレットにはスクリプトタイプが必要です"
       },
       "wizard": {
-        "chooseWallet": "どのウォレットをお使いですか？出力ディスクリプタまたはXPUBのエクスポート方法をご案内します。",
         "keysStaySafe": "Canaryはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
         "tryBaconWallet": "初めてですか？まずサンプルウォレットでCanaryの動作を確認してください。",
         "useBaconWallet": "Baconウォレットを使用",
-        "haveDescriptor": "出力ディスクリプタ、XPUBまたはアドレスを持っています",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "{walletName}からディスクリプタをエクスポートするには、以下の手順に従ってください",
         "pasteXpub": "下にXPUBを貼り付けてください。",
         "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。",

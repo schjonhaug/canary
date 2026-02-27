@@ -453,11 +453,10 @@
         "scriptTypeRequired": "El tipo de script es requerido para billeteras XPUB nuevas"
       },
       "wizard": {
-        "chooseWallet": "¿Qué billetera usas? Te mostraremos cómo exportar tu descriptor de salida o XPUB.",
         "keysStaySafe": "Canary solo necesita esto para monitorear tus transacciones. Tus claves privadas permanecen seguras en tu billetera.",
         "tryBaconWallet": "¿Nuevo aquí? Prueba primero con una billetera de muestra para ver cómo funciona Canary.",
         "useBaconWallet": "Usar Billetera Bacon",
-        "haveDescriptor": "Ya tengo mi descriptor de salida, XPUB o dirección",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Sigue estos pasos para exportar tu descriptor desde {walletName}",
         "pasteXpub": "Pega tu XPUB abajo.",
         "pasteDescriptor": "Pega tu descriptor de salida o XPUB abajo.",

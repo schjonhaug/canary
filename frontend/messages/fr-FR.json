@@ -453,11 +453,10 @@
         "scriptTypeRequired": "Le type de script est requis pour les nouveaux portefeuilles XPUB"
       },
       "wizard": {
-        "chooseWallet": "Quel portefeuille utilisez-vous ? Nous vous montrerons comment exporter votre descripteur de sortie ou XPUB.",
         "keysStaySafe": "Canary n'a besoin de cela que pour surveiller vos transactions. Vos clés privées restent en sécurité dans votre portefeuille.",
         "tryBaconWallet": "Nouveau ici ? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary.",
         "useBaconWallet": "Utiliser le portefeuille Bacon",
-        "haveDescriptor": "J'ai déjà mon descripteur de sortie, XPUB ou adresse",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Suivez ces étapes pour exporter votre descripteur depuis {walletName}",
         "pasteXpub": "Collez votre XPUB ci-dessous.",
         "pasteDescriptor": "Collez votre descripteur de sortie ou XPUB ci-dessous.",

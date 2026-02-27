@@ -453,11 +453,10 @@
         "scriptTypeRequired": "Skripttyp krävs för nya XPUB-plånböcker"
       },
       "wizard": {
-        "chooseWallet": "Vilken plånbok använder du? Vi visar dig hur du exporterar din utdata-deskriptor eller XPUB.",
         "keysStaySafe": "Canary behöver bara detta för att övervaka dina transaktioner. Dina privata nycklar förblir säkra i din plånbok.",
         "tryBaconWallet": "Ny här? Prova med en exempelplånbok först för att se hur Canary fungerar.",
         "useBaconWallet": "Använd Bacon Wallet",
-        "haveDescriptor": "Jag har redan min utdata-deskriptor, XPUB eller adress",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Följ dessa steg för att exportera din deskriptor från {walletName}",
         "pasteXpub": "Klistra in din XPUB nedan.",
         "pasteDescriptor": "Klistra in din utdata-deskriptor eller XPUB nedan.",
