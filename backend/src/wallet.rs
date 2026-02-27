@@ -184,6 +184,103 @@ impl WalletCreationService {
         Ok(wallet_metadata)
     }
 
+    /// Create a P2PK (Pay-to-Public-Key) watch using direct Electrum queries.
+    /// Mirrors create_from_address but uses pk() descriptors for raw public keys.
+    async fn create_from_pubkey(
+        &self,
+        name: &str,
+        pubkey: &str,
+        user_id: &str,
+    ) -> Result<WalletMetadata> {
+        use crate::xpub_converter::XpubConverter;
+
+        debug!("Creating P2PK watch for pubkey: {}", pubkey);
+
+        // Convert to pk() descriptor with checksum
+        let descriptor = XpubConverter::pubkey_to_descriptor(pubkey)?;
+
+        // Check if THIS USER already watches this pubkey
+        if self
+            .metadata_db
+            .descriptor_exists_for_user(&descriptor, user_id)
+            .await?
+        {
+            let existing_wallets = self
+                .metadata_db
+                .get_wallets_for_user(Some(user_id))
+                .await?;
+            let existing_checksum = existing_wallets
+                .iter()
+                .find(|w| w.descriptor == descriptor)
+                .map(|w| w.checksum.clone())
+                .unwrap_or_else(|| self.metadata_db.extract_checksum(&descriptor));
+            return Err(anyhow!(
+                "This public key is already being watched with ID: {}.",
+                existing_checksum
+            ));
+        }
+
+        // If another user already watches this pubkey, generate a unique short ID
+        let checksum_override = if self.metadata_db.descriptor_exists(&descriptor).await? {
+            Some(generate_unique_wallet_id())
+        } else {
+            None
+        };
+
+        // Insert wallet metadata with 'address' type (same sync dispatch path)
+        let checksum = self
+            .metadata_db
+            .insert_wallet_with_type_and_checksum(
+                name,
+                &descriptor,
+                user_id,
+                "address",
+                checksum_override.as_deref(),
+            )
+            .await?;
+
+        // Mark as ready immediately
+        self.metadata_db
+            .update_wallet_status(&checksum, "ready")
+            .await?;
+
+        let wallet_metadata = self
+            .metadata_db
+            .get_wallet_by_checksum(&checksum)
+            .await?
+            .ok_or_else(|| anyhow!("Failed to retrieve created P2PK watch metadata"))?;
+
+        // Spawn background task for initial Electrum sync
+        let metadata_db = self.metadata_db.clone();
+        let electrum_manager = self.wallet_manager.electrum_client_manager.clone();
+        let notification_sender = self.wallet_manager.notification_sender.clone();
+        let config = self.wallet_manager.config.clone();
+        let descriptor_clone = descriptor.clone();
+        let checksum_clone = checksum.clone();
+
+        tokio::spawn(async move {
+            let sync_service =
+                crate::sync::WalletSyncService::new(metadata_db, notification_sender, config);
+            if let Err(e) = sync_service
+                .sync_address_watch(
+                    &checksum_clone,
+                    &descriptor_clone,
+                    electrum_manager.as_deref(),
+                )
+                .await
+            {
+                error!(
+                    "[{}] Initial P2PK watch sync failed: {}",
+                    checksum_clone, e
+                );
+            } else {
+                debug!("[{}] Initial P2PK watch sync completed", checksum_clone);
+            }
+        });
+
+        Ok(wallet_metadata)
+    }
+
     /// Create wallet without blocking WalletManager
     /// Returns wallet metadata immediately while background task handles BDK wallet creation
     pub async fn create_wallet_non_blocking(
@@ -203,6 +300,13 @@ impl WalletCreationService {
 
         // Validate network compatibility (defense-in-depth)
         XpubConverter::validate_descriptor_network(descriptor_str, self.network)?;
+
+        // Check if input is a raw public key (P2PK watch)
+        if XpubConverter::is_bitcoin_public_key(descriptor_str) {
+            return self
+                .create_from_pubkey(name, descriptor_str, user_id)
+                .await;
+        }
 
         // Check if input is a single Bitcoin address
         if XpubConverter::is_bitcoin_address(descriptor_str) {

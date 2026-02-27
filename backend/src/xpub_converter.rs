@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use bdk_wallet::bitcoin::{Address, Network};
+use bdk_wallet::bitcoin::{Address, Network, PublicKey};
 use miniscript::descriptor::checksum::desc_checksum;
 use std::str::FromStr;
 use xyzpub::{convert_version, Version};
@@ -148,6 +148,23 @@ impl XpubConverter {
         }
     }
 
+    /// Check if the input is a valid Bitcoin public key (compressed or uncompressed)
+    pub fn is_bitcoin_public_key(input: &str) -> bool {
+        PublicKey::from_str(input.trim()).is_ok()
+    }
+
+    /// Wrap a Bitcoin public key in a pk() descriptor string with checksum
+    pub fn pubkey_to_descriptor(pubkey: &str) -> Result<String> {
+        let pubkey_trimmed = pubkey.trim();
+        // Validate the public key first
+        PublicKey::from_str(pubkey_trimmed)
+            .map_err(|e| anyhow!("Invalid public key: {}", e))?;
+        let descriptor_without_checksum = format!("pk({})", pubkey_trimmed);
+        let checksum = desc_checksum(&descriptor_without_checksum)
+            .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
+        Ok(format!("{}#{}", descriptor_without_checksum, checksum))
+    }
+
     /// Check if the input is a valid Bitcoin address (any type, any network)
     pub fn is_bitcoin_address(input: &str) -> bool {
         Address::from_str(input.trim()).is_ok()
@@ -188,6 +205,11 @@ impl XpubConverter {
     /// Extracts XPUBs from within descriptors and validates each one.
     /// Also handles raw Bitcoin address inputs.
     pub fn validate_descriptor_network(descriptor: &str, expected_network: Network) -> Result<()> {
+        // Public keys are network-agnostic, no validation needed
+        if Self::is_bitcoin_public_key(descriptor) {
+            return Ok(());
+        }
+
         // Check if the input is a raw Bitcoin address
         if Self::is_bitcoin_address(descriptor) {
             return Self::validate_address_network(descriptor, expected_network);
