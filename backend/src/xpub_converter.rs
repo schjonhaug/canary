@@ -235,3 +235,60 @@ impl XpubConverter {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Genesis block coinbase public key (uncompressed)
+    const GENESIS_PUBKEY: &str = "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f";
+
+    #[test]
+    fn test_is_bitcoin_public_key_uncompressed() {
+        assert!(XpubConverter::is_bitcoin_public_key(GENESIS_PUBKEY));
+    }
+
+    #[test]
+    fn test_is_bitcoin_public_key_compressed() {
+        // Compressed key (33 bytes / 66 hex chars starting with 02 or 03)
+        assert!(XpubConverter::is_bitcoin_public_key(
+            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ));
+    }
+
+    #[test]
+    fn test_is_bitcoin_public_key_rejects_invalid() {
+        assert!(!XpubConverter::is_bitcoin_public_key("not_a_key"));
+        assert!(!XpubConverter::is_bitcoin_public_key(""));
+        assert!(!XpubConverter::is_bitcoin_public_key(
+            "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+        ));
+        assert!(!XpubConverter::is_bitcoin_public_key("04abcdef")); // too short
+    }
+
+    #[test]
+    fn test_is_bitcoin_public_key_trims_whitespace() {
+        let padded = format!("  {}  ", GENESIS_PUBKEY);
+        assert!(XpubConverter::is_bitcoin_public_key(&padded));
+    }
+
+    #[test]
+    fn test_pubkey_to_descriptor() {
+        let result = XpubConverter::pubkey_to_descriptor(GENESIS_PUBKEY).unwrap();
+        assert!(result.starts_with("pk("));
+        assert!(result.contains(GENESIS_PUBKEY));
+        assert!(result.contains('#')); // has checksum
+    }
+
+    #[test]
+    fn test_pubkey_to_descriptor_invalid() {
+        assert!(XpubConverter::pubkey_to_descriptor("not_a_key").is_err());
+    }
+
+    #[test]
+    fn test_validate_descriptor_network_bypasses_pubkey() {
+        // Public keys are network-agnostic, should pass on any network
+        assert!(XpubConverter::validate_descriptor_network(GENESIS_PUBKEY, Network::Bitcoin).is_ok());
+        assert!(XpubConverter::validate_descriptor_network(GENESIS_PUBKEY, Network::Testnet).is_ok());
+    }
+}
