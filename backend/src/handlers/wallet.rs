@@ -16,8 +16,12 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json, Response},
 };
-use std::sync::Arc;
-use tracing::info;
+use std::sync::{Arc, LazyLock};
+use tracing::{debug, info, warn};
+
+/// Pre-compiled regex for detecting output descriptor format
+static DESCRIPTOR_REGEX: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"^(wpkh|wsh|sh|pkh|tr)\(").unwrap());
 
 /// Error message for Electrum server unavailability
 const ELECTRUM_UNAVAILABLE_ERROR: &str = "Electrum server is unavailable. Please try again later.";
@@ -80,42 +84,44 @@ pub async fn create_wallet_non_blocking(
             .into_response();
     }
 
-    // Helper function to detect output descriptor format
-    let is_descriptor_format = |input: &str| -> bool {
-        let descriptor_regex = regex::Regex::new(r"^(wpkh|wsh|sh|pkh|tr)\(").unwrap();
-        descriptor_regex.is_match(input.trim())
-    };
+    // Detect if input is a single Bitcoin address
+    let is_address = XpubConverter::is_bitcoin_address(payload.descriptor.trim());
 
-    // Validate advanced settings: custom stop gap requires specific script type (except for output descriptors)
-    if let Some(stop_gap) = &payload.stop_gap {
-        if stop_gap != "auto" {
-            // Skip script type requirement for output descriptors (they already contain script type info)
-            if !is_descriptor_format(&payload.descriptor) {
-                // Custom stop gap requires specific script type for XPUBs
-                match &payload.script_type {
-                    Some(script_type) if script_type != "auto" => {
-                        // Valid: custom stop gap with specific script type
-                    }
-                    _ => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("script_type_required", "Custom stop gap requires selecting a specific script type (not auto)")),
-                        )
-                            .into_response();
+    // Helper function to detect output descriptor format
+    let is_descriptor_format = |input: &str| -> bool { DESCRIPTOR_REGEX.is_match(input.trim()) };
+
+    // Skip stop gap / script type validation for addresses (irrelevant for single-address watches)
+    if !is_address {
+        if let Some(stop_gap) = &payload.stop_gap {
+            if stop_gap != "auto" {
+                // Skip script type requirement for output descriptors (they already contain script type info)
+                if !is_descriptor_format(&payload.descriptor) {
+                    // Custom stop gap requires specific script type for XPUBs
+                    match &payload.script_type {
+                        Some(script_type) if script_type != "auto" => {
+                            // Valid: custom stop gap with specific script type
+                        }
+                        _ => {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(ErrorResponse::coded("script_type_required", "Custom stop gap requires selecting a specific script type (not auto)")),
+                            )
+                                .into_response();
+                        }
                     }
                 }
-            }
 
-            // Validate stop gap values
-            if !["250", "500", "750", "1000"].contains(&stop_gap.as_str()) {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse::coded(
-                        "invalid_stop_gap",
-                        "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000",
-                    )),
-                )
-                    .into_response();
+                // Validate stop gap values
+                if !["250", "500", "750", "1000"].contains(&stop_gap.as_str()) {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse::coded(
+                            "invalid_stop_gap",
+                            "Invalid stop gap. Allowed values: auto, 250, 500, 750, 1000",
+                        )),
+                    )
+                        .into_response();
+                }
             }
         }
     }
@@ -181,18 +187,20 @@ pub async fn create_wallet_non_blocking(
         }
     }
 
-    // NON-BLOCKING: Check if input is an XPUB and handle conversion
-    let descriptor = if XpubConverter::is_xpub(&payload.descriptor) {
+    // NON-BLOCKING: Check if input is an address, XPUB, or descriptor
+    let descriptor = if is_address {
+        // Single Bitcoin address - pass as-is, creation service handles conversion
+        payload.descriptor.trim().to_string()
+    } else if XpubConverter::is_xpub(&payload.descriptor) {
         // For fresh wallets with known script type, convert immediately
         if payload.is_fresh_wallet == Some(true) {
             match &payload.script_type {
                 Some(script_type) => {
-                    println!(
+                    debug!(
                         "Fresh wallet detected, using provided script type: {}",
                         script_type
                     );
-                    // Use static XPUB conversion (TODO: extract this to avoid electrum client dependency)
-                    payload.descriptor.clone() // For now, pass XPUB directly to creation service
+                    payload.descriptor.clone()
                 }
                 None => {
                     return (
@@ -207,7 +215,7 @@ pub async fn create_wallet_non_blocking(
             }
         } else {
             // Existing wallet - pass XPUB directly to background task for smart script detection
-            println!(
+            debug!(
                 "Detected XPUB format for existing wallet, will probe script types in background"
             );
             payload.descriptor.clone()
@@ -259,13 +267,13 @@ pub async fn create_wallet_non_blocking(
                                 .await
                             {
                                 Ok(contact_id) => {
-                                    eprintln!(
+                                    info!(
                                         "Auto-created contact {} for user {} in wallet {}",
                                         contact_id, user_id, wallet_checksum
                                     );
                                 }
                                 Err(e) => {
-                                    eprintln!(
+                                    warn!(
                                         "Failed to auto-create contact for user {}: {}",
                                         user_id, e
                                     );
@@ -273,13 +281,13 @@ pub async fn create_wallet_non_blocking(
                             }
                         }
                         Ok(None) => {
-                            eprintln!(
+                            warn!(
                                 "User {} not found in database for auto-contact creation",
                                 user_id
                             );
                         }
                         Err(e) => {
-                            eprintln!(
+                            warn!(
                                 "Error getting user {} for auto-contact creation: {}",
                                 user_id, e
                             );
@@ -404,6 +412,11 @@ pub async fn create_wallet_non_blocking(
                     StatusCode::CONFLICT,
                     ErrorResponse::coded("wallet_already_exists", error_msg),
                 )
+            } else if error_msg.contains("already being watched") {
+                (
+                    StatusCode::CONFLICT,
+                    ErrorResponse::coded("address_already_watched", error_msg),
+                )
             } else {
                 (StatusCode::BAD_REQUEST, ErrorResponse::new(error_msg))
             };
@@ -480,7 +493,7 @@ pub async fn delete_wallet(
         .await
     {
         Ok(true) => {
-            println!("[{}] Wallet marked as deleted (soft delete)", checksum);
+            info!("[{}] Wallet marked as deleted (soft delete)", checksum);
             StatusCode::NO_CONTENT.into_response()
         }
         Ok(false) => (
@@ -774,7 +787,7 @@ pub async fn get_wallet_detail(
         {
             Ok(alerts) => alerts,
             Err(e) => {
-                eprintln!("Warning: Failed to get balance alerts: {}", e);
+                warn!("Failed to get balance alerts: {}", e);
                 vec![] // Return empty vec on error, don't fail the whole request
             }
         };

@@ -93,6 +93,25 @@ pub fn parse_multipath_descriptor(descriptor_str: &str) -> Result<(String, Strin
     Ok((receive_descriptor, change_descriptor))
 }
 
+/// Extract the address from an `addr()` descriptor string (BIP-385).
+/// We store address watches as `addr(ADDRESS)#checksum` — a standard descriptor format
+/// supported by Bitcoin Core but not yet by rust-miniscript.
+/// See: https://github.com/rust-bitcoin/rust-miniscript/issues/294
+/// See: https://github.com/bitcoindevkit/bdk_wallet/issues/174
+pub fn extract_address_from_descriptor(descriptor_str: &str) -> Option<String> {
+    let without_checksum = if let Some(pos) = descriptor_str.find('#') {
+        &descriptor_str[..pos]
+    } else {
+        descriptor_str
+    };
+    let trimmed = without_checksum.trim();
+    if trimmed.starts_with("addr(") && trimmed.ends_with(')') {
+        Some(trimmed[5..trimmed.len() - 1].to_string())
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -98,7 +98,7 @@
       },
       "security": {
         "title": "Sikker watch-only Bitcoin-overvågning",
-        "description": "Watch-only Bitcoin-walletadgang ved hjælp af XPUBs eller descriptors - vi rører aldrig dine private nøgler"
+        "description": "Watch-only Bitcoin-overvågning ved hjælp af XPUBs, descriptors eller individuelle adresser - vi rører aldrig dine private nøgler"
       },
       "sync": {
         "title": "Real-time Bitcoin Wallet Sync",
@@ -141,19 +141,19 @@
       "items": {
         "whatIsCanary": {
           "question": "Hvad er Canary Bitcoin wallet-overvågning?",
-          "answer": "Canary er en professionel Bitcoin-wallet overvågnings- og notifikationstjeneste, der holder øje med dine Bitcoin-wallets ved hjælp af XPUBs eller descriptors og sender øjeblikkelige varsler for alle transaktioner via e-mail, SMS og push-beskeder. Perfekt til overvågning af cold storage, hardware wallets og watch-only Bitcoin-adresser."
+          "answer": "Canary er en professionel Bitcoin-overvågnings- og notifikationstjeneste, der holder øje med dine Bitcoin-wallets ved hjælp af XPUBs, descriptors eller individuelle adresser og sender øjeblikkelige varsler for alle transaktioner via e-mail, SMS og push-beskeder. Perfekt til overvågning af cold storage, hardware wallets og individuelle Bitcoin-adresser."
         },
         "howDoesItWork": {
           "question": "Hvordan fungerer Bitcoin-wallet overvågning uden private nøgler?",
-          "answer": "Canary bruger din wallets XPUB (extended public key) eller descriptor til watch-only Bitcoin-overvågning. Dette giver os skrivebeskyttet adgang til at spore dine Bitcoin-adresser og detektere transaktioner. Vi har aldrig adgang til dine private nøgler og kan ikke flytte dine Bitcoin - hvilket sikrer fuldstændig sikkerhed for din cold storage overvågning."
+          "answer": "Canary bruger din wallets XPUB (extended public key), descriptor eller en enkelt Bitcoin-adresse til watch-only overvågning. Dette giver os skrivebeskyttet adgang til at spore dine Bitcoin-adresser og detektere transaktioner. Vi har aldrig adgang til dine private nøgler og kan ikke flytte dine Bitcoin - hvilket sikrer fuldstændig sikkerhed for din cold storage overvågning."
         },
         "whatIsXpub": {
           "question": "Hvad er XPUB-overvågning?",
-          "answer": "XPUB-overvågning giver dig mulighed for at spore alle adresser i din Bitcoin-wallet uden at afsløre private nøgler. Ved at levere din wallets XPUB eller descriptor kan Canary overvåge ubegrænsede adresser, detektere transaktioner i enhver dybde (selv 200+ adresser dybt) og give dig øjeblikkelig besked, når Bitcoin flyttes."
+          "answer": "XPUB-overvågning giver dig mulighed for at spore alle adresser i din Bitcoin-wallet uden at afsløre private nøgler. Ved at levere din wallets XPUB eller descriptor kan Canary overvåge ubegrænsede adresser, detektere transaktioner i enhver dybde (selv 200+ adresser dybt) og give dig øjeblikkelig besked, når Bitcoin flyttes. Du kan også spore en enkelt Bitcoin-adresse direkte, hvis du ikke har brug for fuld wallet-overvågning."
         },
         "coldStorage": {
           "question": "Kan jeg overvåge Bitcoin cold storage wallets?",
-          "answer": "Ja! Canary er perfekt til Bitcoin cold storage overvågning. Uanset om du bruger hardware wallets som Ledger eller Trezor, papir-wallets eller enhver anden cold storage løsning, skal du blot angive din XPUB eller descriptor for sikker watch-only overvågning med øjeblikkelige notifikationer."
+          "answer": "Ja! Canary er perfekt til Bitcoin cold storage overvågning. Uanset om du bruger hardware wallets som Ledger eller Trezor, papir-wallets eller enhver anden cold storage løsning, skal du blot angive din XPUB eller descriptor for sikker watch-only overvågning med øjeblikkelige notifikationer. Du kan også spore individuelle adresser som donationsadresser eller engangsbetalingsadresser."
         },
         "notificationSpeed": {
           "question": "Hvor hurtige er Bitcoin-transaktionsvarsler?",
@@ -161,7 +161,7 @@
         },
         "walletTypes": {
           "question": "Hvilke typer Bitcoin-wallets understøttes?",
-          "answer": "Canary understøtter alle større Bitcoin-wallettyper, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR) adresser. Vi registrerer automatisk din wallet-type fra XPUB'en, eller du kan angive den manuelt. Multi-signature og hardware wallet-overvågning er fuldt understøttet."
+          "answer": "Canary understøtter alle større Bitcoin-wallettyper, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR). Vi registrerer automatisk din wallet-type fra XPUB'en, eller du kan angive den manuelt. Individuelle adresser af enhver type kan også spores direkte. Multi-signature og hardware wallet-overvågning er fuldt understøttet."
         },
         "whyCanary": {
           "question": "Hvorfor hedder det Canary?",
@@ -169,7 +169,7 @@
         },
         "noBlockchain": {
           "question": "Kan jeg spore Bitcoin uden at downloade blockchainen?",
-          "answer": "Ja! Canary forbinder til professionelle Electrum-servere for at overvåge Bitcoin-blockchainen for dig. Ingen grund til at køre en fuld node eller downloade blockchainen - bare angiv din XPUB og begynd at modtage øjeblikkelige notifikationer for al Bitcoin-wallet aktivitet."
+          "answer": "Ja! Canary forbinder til professionelle Electrum-servere for at overvåge Bitcoin-blockchainen for dig. Ingen grund til at køre en fuld node eller downloade blockchainen - bare angiv din XPUB eller en enkelt Bitcoin-adresse og begynd at modtage øjeblikkelige notifikationer for al Bitcoin-aktivitet."
         },
         "balanceAlerts": {
           "question": "Hvordan fungerer Bitcoin-saldovarsler?",
@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Mine Wallets",
+    "title": "Wallets",
     "summary": "Sporer {count} {count, plural, one {wallet} other {wallets}} med en samlet saldo på {balance}",
     "onboarding": {
       "trial": {
@@ -403,14 +403,19 @@
       "inactiveTierLimit": "Denne wallet overskrider grænserne for dit abonnementsniveau og vil ikke synkronisere automatisk",
       "balance": "Saldo",
       "lastActivity": "Seneste aktivitet: {date}",
-      "noRecentActivity": "Ingen nylig aktivitet"
+      "noRecentActivity": "Ingen nylig aktivitet",
+      "addressWatch": "Adresse"
     },
     "add": {
       "title": "Tilføj Wallet",
       "nameLabel": "Wallet Navn",
       "namePlaceholder": "Min Bitcoin Wallet",
-      "descriptorLabel": "Wallet Descriptor eller XPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Indtast din wallets output descriptor eller XPUB. Vi registrerer automatisk script-typen.",
       "advancedSettings": "Avancerede indstillinger",
       "scriptType": {
@@ -426,6 +431,7 @@
         "p2pkhFresh": "Legacy (1...) - Ældste",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - Moderne",
+        "p2wsh": "SegWit Script",
         "detectedHint": "Script-type registreret fra descriptor og kan ikke ændres",
         "requiredHint": "Script-type er påkrævet for nye XPUB-wallets"
       },
@@ -453,11 +459,10 @@
         "scriptTypeRequired": "Script-type er påkrævet for nye XPUB-wallets"
       },
       "wizard": {
-        "chooseWallet": "Hvilken wallet bruger du? Vi viser dig, hvordan du eksporterer din output descriptor eller XPUB.",
         "keysStaySafe": "Canary har kun brug for dette til at overvåge dine transaktioner. Dine private nøgler forbliver sikre i din wallet.",
         "tryBaconWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary fungerer.",
         "useBaconWallet": "Brug Bacon Wallet",
-        "haveDescriptor": "Jeg har allerede min output descriptor eller XPUB",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Følg disse trin for at eksportere din descriptor fra {walletName}",
         "pasteXpub": "Indsæt din XPUB nedenfor.",
         "pasteDescriptor": "Indsæt din output descriptor eller XPUB nedenfor.",
@@ -542,6 +547,22 @@
       "transactions": "Transaktioner",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarsler",
+      "walletDetails": "Tegnebogsdetaljer",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "Adresse",
+      "scriptType": "Scripttype",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "signing": "Signering",
+      "singleSig": "Single-sig",
+      "multisig": "{scheme} Multisig",
+      "added": "Tilføjet",
+      "copied": "Kopieret!",
       "noTransactions": "Ingen transaktioner endnu",
       "pendingSync": "Wallet synkroniserer...",
       "lastSync": "Sidst synkroniseret",
@@ -971,6 +992,7 @@
       "wallet_not_found": "Tegnebog ikke fundet.",
       "wallet_name_required": "Tegnebogens navn kan ikke være tomt.",
       "wallet_already_exists": "Denne tegnebog er allerede tilføjet. Bed ejeren om at tilføje dig som kontakt.",
+      "address_already_watched": "Denne adresse overvåges allerede.",
       "access_denied": "Du har ikke adgang til denne ressource.",
       "contact_limit_reached": "Du har nået det maksimale antal kontakter for denne tegnebog. Opgrader for at tilføje flere.",
       "invalid_phone_number": "Ugyldigt telefonnummer. Inkluder venligst landekoden (f.eks. +45...).",

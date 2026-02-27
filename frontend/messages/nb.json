@@ -98,7 +98,7 @@
       },
       "security": {
         "title": "Sikker skrivebeskyttet Bitcoin-overvåking",
-        "description": "Kun lesetilgang til Bitcoin-lommebøker ved bruk av XPUB-er eller deskriptorer - vi rører aldri dine private nøkler"
+        "description": "Skrivebeskyttet Bitcoin-overvåking ved bruk av XPUB-er, deskriptorer eller enkeltadresser - vi rører aldri dine private nøkler"
       },
       "sync": {
         "title": "Sanntids Bitcoin-lommeboksynkronisering",
@@ -141,19 +141,19 @@
       "items": {
         "whatIsCanary": {
           "question": "Hva er Canary Bitcoin-lommebokovervåking?",
-          "answer": "Canary er en profesjonell Bitcoin-lommebokovervåking- og varslingstjeneste som overvåker Bitcoin-lommebøkene dine ved hjelp av XPUBs eller deskriptorer og sender umiddelbare varsler for alle transaksjoner via e-post, SMS og push-varsler. Perfekt for overvåking av kjølelager, maskinvarelommebøker og skrivebeskyttede Bitcoin-adresser."
+          "answer": "Canary er en profesjonell Bitcoin-overvåking- og varslingstjeneste som overvåker Bitcoin-lommebøkene dine ved hjelp av XPUB-er, deskriptorer eller enkeltadresser og sender umiddelbare varsler for alle transaksjoner via e-post, SMS og push-varsler. Perfekt for overvåking av kjølelager, maskinvarelommebøker og individuelle Bitcoin-adresser."
         },
         "howDoesItWork": {
           "question": "Hvordan fungerer Bitcoin-lommebokovervåking uten private nøkler?",
-          "answer": "Canary bruker lommebokens XPUB (utvidet offentlig nøkkel) eller deskriptor for skrivebeskyttet Bitcoin-overvåking. Dette gir oss skrivebeskyttet tilgang til å spore Bitcoin-adressene dine og oppdage transaksjoner. Vi har aldri tilgang til dine private nøkler og kan ikke flytte din Bitcoin - noe som sikrer fullstendig sikkerhet for din kjølelagerovervåking."
+          "answer": "Canary bruker lommebokens XPUB (utvidet offentlig nøkkel), deskriptor eller en enkelt Bitcoin-adresse for skrivebeskyttet overvåking. Dette gir oss skrivebeskyttet tilgang til å spore Bitcoin-adressene dine og oppdage transaksjoner. Vi har aldri tilgang til dine private nøkler og kan ikke flytte din Bitcoin - noe som sikrer fullstendig sikkerhet for din kjølelagerovervåking."
         },
         "whatIsXpub": {
           "question": "Hva er XPUB-lommebokovervåking?",
-          "answer": "XPUB-overvåking lar deg spore alle adresser i Bitcoin-lommeboken din uten å eksponere private nøkler. Ved å oppgi lommebokens XPUB eller deskriptor kan Canary overvåke ubegrensede adresser, oppdage transaksjoner på hvilken som helst dybde (selv 200+ adresser dypt), og varsle deg umiddelbart når Bitcoin beveger seg."
+          "answer": "XPUB-overvåking lar deg spore alle adresser i Bitcoin-lommeboken din uten å eksponere private nøkler. Ved å oppgi lommebokens XPUB eller deskriptor kan Canary overvåke ubegrensede adresser, oppdage transaksjoner på hvilken som helst dybde (selv 200+ adresser dypt), og varsle deg umiddelbart når Bitcoin beveger seg. Du kan også spore en enkelt Bitcoin-adresse direkte hvis du ikke trenger full lommebokovervåking."
         },
         "coldStorage": {
           "question": "Kan jeg overvåke Bitcoin-kjølelagerlommebøker?",
-          "answer": "Ja! Canary er perfekt for Bitcoin-kjølelagerovervåking. Enten du bruker maskinvarelommebøker som Ledger eller Trezor, papirlommebøker eller andre kjølelagerløsninger, oppgi bare din XPUB eller deskriptor for sikker skrivebeskyttet overvåking med umiddelbare varsler."
+          "answer": "Ja! Canary er perfekt for Bitcoin-kjølelagerovervåking. Enten du bruker maskinvarelommebøker som Ledger eller Trezor, papirlommebøker eller andre kjølelagerløsninger, oppgi bare din XPUB eller deskriptor for sikker skrivebeskyttet overvåking med umiddelbare varsler. Du kan også spore individuelle adresser som donasjonsadresser eller engangsbetalingsadresser."
         },
         "notificationSpeed": {
           "question": "Hvor raske er Bitcoin-transaksjonsvarsler?",
@@ -161,7 +161,7 @@
         },
         "walletTypes": {
           "question": "Hvilke Bitcoin-lommeboktyper støttes?",
-          "answer": "Canary støtter alle store Bitcoin-lommeboktyper inkludert Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR) adresser. Vi oppdager automatisk lommeboktypen din fra XPUB, eller du kan spesifisere den manuelt. Multi-signatur og maskinvarelommebokovervåking støttes fullt ut."
+          "answer": "Canary støtter alle store Bitcoin-lommeboktyper inkludert Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR). Vi oppdager automatisk lommeboktypen din fra XPUB, eller du kan spesifisere den manuelt. Individuelle adresser av alle typer kan også spores direkte. Multi-signatur og maskinvarelommebokovervåking støttes fullt ut."
         },
         "whyCanary": {
           "question": "Hvorfor heter det Canary?",
@@ -169,7 +169,7 @@
         },
         "noBlockchain": {
           "question": "Kan jeg spore Bitcoin uten å laste ned blokkjeden?",
-          "answer": "Ja! Canary kobler til profesjonelle Electrum-servere for å overvåke Bitcoin-blokkjeden for deg. Ingen grunn til å kjøre en full node eller laste ned blokkjeden - bare oppgi din XPUB og begynn å motta umiddelbare varsler for all Bitcoin-lommebokaktivitet."
+          "answer": "Ja! Canary kobler til profesjonelle Electrum-servere for å overvåke Bitcoin-blokkjeden for deg. Ingen grunn til å kjøre en full node eller laste ned blokkjeden - bare oppgi din XPUB eller en enkelt Bitcoin-adresse og begynn å motta umiddelbare varsler for all Bitcoin-aktivitet."
         },
         "balanceAlerts": {
           "question": "Hvordan fungerer Bitcoin-saldovarsler?",
@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Mine lommebøker",
+    "title": "Lommebøker",
     "summary": "Sporer {count} {count, plural, one {lommebok} other {lommebøker}} med en total saldo på {balance}",
     "onboarding": {
       "trial": {
@@ -403,14 +403,19 @@
       "inactiveTierLimit": "Denne lommeboken overstiger abonnementsgrensene dine og synkroniseres ikke automatisk",
       "balance": "Saldo",
       "lastActivity": "Siste aktivitet: {date}",
-      "noRecentActivity": "Ingen nylig aktivitet"
+      "noRecentActivity": "Ingen nylig aktivitet",
+      "addressWatch": "Adresse"
     },
     "add": {
       "title": "Legg til lommebok",
       "nameLabel": "Lommeboknavn",
       "namePlaceholder": "Min Bitcoin-lommebok",
-      "descriptorLabel": "Lommebokdeskriptor eller XPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Skriv inn lommebokens output-deskriptor eller XPUB. Vi oppdager automatisk skripttypen.",
       "advancedSettings": "Avanserte innstillinger",
       "scriptType": {
@@ -426,6 +431,7 @@
         "p2pkhFresh": "Legacy (1...) - Eldst",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - Moderne",
+        "p2wsh": "SegWit Script",
         "detectedHint": "Skripttype oppdaget fra deskriptor og kan ikke endres",
         "requiredHint": "Skripttype er påkrevd for nye XPUB-lommebøker"
       },
@@ -453,11 +459,10 @@
         "scriptTypeRequired": "Skripttype er påkrevd for nye XPUB-lommebøker"
       },
       "wizard": {
-        "chooseWallet": "Hvilken lommebok bruker du? Vi viser deg hvordan du eksporterer output-deskriptoren eller XPUB.",
         "keysStaySafe": "Canary trenger bare dette for å overvåke transaksjonene dine. Dine private nøkler forblir trygge i lommeboken din.",
         "tryBaconWallet": "Ny her? Prøv med en prøvelommebok først for å se hvordan Canary fungerer.",
         "useBaconWallet": "Bruk Bacon-lommebok",
-        "haveDescriptor": "Jeg har allerede min output-deskriptor eller XPUB",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Følg disse trinnene for å eksportere deskriptoren fra {walletName}",
         "pasteXpub": "Lim inn XPUB nedenfor.",
         "pasteDescriptor": "Lim inn output-deskriptoren eller XPUB nedenfor.",
@@ -542,6 +547,22 @@
       "transactions": "Transaksjoner",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarsler",
+      "walletDetails": "Lommebokdetaljer",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "Adresse",
+      "scriptType": "Skripttype",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "signing": "Signering",
+      "singleSig": "Single-sig",
+      "multisig": "{scheme} Multisig",
+      "added": "Lagt til",
+      "copied": "Kopiert!",
       "noTransactions": "Ingen transaksjoner ennå",
       "pendingSync": "Lommebok synkroniseres...",
       "lastSync": "Sist synkronisert",
@@ -971,6 +992,7 @@
       "wallet_not_found": "Lommebok ikke funnet.",
       "wallet_name_required": "Lommeboknavn kan ikke være tomt.",
       "wallet_already_exists": "Denne lommeboken er allerede lagt til. Be eieren om å legge deg til som kontakt.",
+      "address_already_watched": "Denne adressen overvåkes allerede.",
       "access_denied": "Du har ikke tilgang til denne ressursen.",
       "contact_limit_reached": "Du har nådd maksimalt antall kontakter for denne lommeboken. Oppgrader for å legge til flere.",
       "invalid_phone_number": "Ugyldig telefonnummer. Vennligst inkluder landskode (f.eks. +47...).",

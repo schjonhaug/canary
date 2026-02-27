@@ -98,7 +98,7 @@
       },
       "security": {
         "title": "Surveillance Bitcoin sécurisée en lecture seule",
-        "description": "Accès en lecture seule aux portefeuilles Bitcoin utilisant XPUBs ou descripteurs - nous ne touchons jamais vos clés privées"
+        "description": "Surveillance Bitcoin en lecture seule utilisant XPUBs, descripteurs ou adresses individuelles - nous ne touchons jamais vos clés privées"
       },
       "sync": {
         "title": "Synchronisation en temps réel du portefeuille Bitcoin",
@@ -141,19 +141,19 @@
       "items": {
         "whatIsCanary": {
           "question": "Qu'est-ce que la surveillance de portefeuille Bitcoin Canary ?",
-          "answer": "Canary est un service professionnel de surveillance et de notification de portefeuilles Bitcoin qui surveille vos portefeuilles Bitcoin à l'aide de XPUBs ou de descripteurs et envoie des alertes instantanées pour toutes les transactions par email, SMS et notifications push. Parfait pour surveiller le stockage à froid, les portefeuilles matériels et les adresses Bitcoin en lecture seule."
+          "answer": "Canary est un service professionnel de surveillance et de notification Bitcoin qui surveille vos portefeuilles Bitcoin à l'aide de XPUBs, de descripteurs ou d'adresses individuelles et envoie des alertes instantanées pour toutes les transactions par email, SMS et notifications push. Parfait pour surveiller le stockage à froid, les portefeuilles matériels et les adresses Bitcoin individuelles."
         },
         "howDoesItWork": {
           "question": "Comment fonctionne la surveillance de portefeuille Bitcoin sans clés privées ?",
-          "answer": "Canary utilise le XPUB (clé publique étendue) ou le descripteur de votre portefeuille pour une surveillance Bitcoin en lecture seule. Cela nous donne un accès en lecture seule pour suivre vos adresses Bitcoin et détecter les transactions. Nous n'avons jamais accès à vos clés privées et ne pouvons pas déplacer votre Bitcoin - garantissant une sécurité complète pour la surveillance de votre stockage à froid."
+          "answer": "Canary utilise le XPUB (clé publique étendue), le descripteur ou une adresse Bitcoin unique de votre portefeuille pour une surveillance en lecture seule. Cela nous donne un accès en lecture seule pour suivre vos adresses Bitcoin et détecter les transactions. Nous n'avons jamais accès à vos clés privées et ne pouvons pas déplacer votre Bitcoin - garantissant une sécurité complète pour la surveillance de votre stockage à froid."
         },
         "whatIsXpub": {
           "question": "Qu'est-ce que la surveillance de portefeuille XPUB ?",
-          "answer": "La surveillance XPUB vous permet de suivre toutes les adresses de votre portefeuille Bitcoin sans exposer les clés privées. En fournissant l'XPUB ou le descripteur de votre portefeuille, Canary peut surveiller des adresses illimitées, détecter des transactions à n'importe quelle profondeur (même plus de 200 adresses), et vous alerter instantanément lorsque le Bitcoin bouge."
+          "answer": "La surveillance XPUB vous permet de suivre toutes les adresses de votre portefeuille Bitcoin sans exposer les clés privées. En fournissant l'XPUB ou le descripteur de votre portefeuille, Canary peut surveiller des adresses illimitées, détecter des transactions à n'importe quelle profondeur (même plus de 200 adresses), et vous alerter instantanément lorsque le Bitcoin bouge. Vous pouvez également suivre une adresse Bitcoin unique directement si vous n'avez pas besoin d'une surveillance complète de portefeuille."
         },
         "coldStorage": {
           "question": "Puis-je surveiller les portefeuilles Bitcoin de stockage à froid ?",
-          "answer": "Oui ! Canary est parfait pour la surveillance du stockage à froid Bitcoin. Que vous utilisiez des portefeuilles matériels comme Ledger ou Trezor, des portefeuilles papier ou toute autre solution de stockage à froid, fournissez simplement votre XPUB ou descripteur pour une surveillance sécurisée en lecture seule avec des notifications instantanées."
+          "answer": "Oui ! Canary est parfait pour la surveillance du stockage à froid Bitcoin. Que vous utilisiez des portefeuilles matériels comme Ledger ou Trezor, des portefeuilles papier ou toute autre solution de stockage à froid, fournissez simplement votre XPUB ou descripteur pour une surveillance sécurisée en lecture seule avec des notifications instantanées. Vous pouvez également suivre des adresses individuelles comme des adresses de don ou des adresses de paiement à usage unique."
         },
         "notificationSpeed": {
           "question": "Quelle est la rapidité des notifications de transaction Bitcoin ?",
@@ -161,7 +161,7 @@
         },
         "walletTypes": {
           "question": "Quels types de portefeuilles Bitcoin sont pris en charge ?",
-          "answer": "Canary prend en charge tous les principaux types de portefeuilles Bitcoin, y compris Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) et les adresses Taproot (P2TR). Nous détectons automatiquement le type de votre portefeuille à partir de l'XPUB ou vous pouvez le spécifier manuellement. La surveillance multi-signature et des portefeuilles matériels est entièrement prise en charge."
+          "answer": "Canary prend en charge tous les principaux types de portefeuilles Bitcoin, y compris Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) et Taproot (P2TR). Nous détectons automatiquement le type de votre portefeuille à partir de l'XPUB ou vous pouvez le spécifier manuellement. Les adresses individuelles de tout type peuvent également être suivies directement. La surveillance multi-signature et des portefeuilles matériels est entièrement prise en charge."
         },
         "whyCanary": {
           "question": "Pourquoi s'appelle-t-il Canary ?",
@@ -169,7 +169,7 @@
         },
         "noBlockchain": {
           "question": "Puis-je suivre Bitcoin sans télécharger la blockchain ?",
-          "answer": "Oui ! Canary se connecte à des serveurs Electrum professionnels pour surveiller la blockchain Bitcoin pour vous. Pas besoin d'exécuter un nœud complet ou de télécharger la blockchain - fournissez simplement votre XPUB et commencez à recevoir des notifications instantanées pour toute l'activité de votre portefeuille Bitcoin."
+          "answer": "Oui ! Canary se connecte à des serveurs Electrum professionnels pour surveiller la blockchain Bitcoin pour vous. Pas besoin d'exécuter un nœud complet ou de télécharger la blockchain - fournissez simplement votre XPUB ou une adresse Bitcoin unique et commencez à recevoir des notifications instantanées pour toute l'activité Bitcoin."
         },
         "balanceAlerts": {
           "question": "Comment fonctionnent les alertes de solde Bitcoin ?",
@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Mes portefeuilles",
+    "title": "Portefeuilles",
     "summary": "Suivi de {count} {count, plural, one {portefeuille} other {portefeuilles}} avec un solde total de {balance}",
     "onboarding": {
       "trial": {
@@ -403,14 +403,19 @@
       "inactiveTierLimit": "Ce portefeuille dépasse les limites de votre abonnement et ne se synchronisera pas automatiquement",
       "balance": "Solde",
       "lastActivity": "Dernière activité : {date}",
-      "noRecentActivity": "Aucune activité récente"
+      "noRecentActivity": "Aucune activité récente",
+      "addressWatch": "Adresse"
     },
     "add": {
       "title": "Ajouter un portefeuille",
       "nameLabel": "Nom du portefeuille",
       "namePlaceholder": "Mon portefeuille Bitcoin",
-      "descriptorLabel": "Descripteur de portefeuille ou XPUB",
-      "descriptorPlaceholder": "wpkh([empreinte/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Entrez le descripteur de sortie de votre portefeuille ou XPUB. Nous détecterons automatiquement le type de script.",
       "advancedSettings": "Paramètres avancés",
       "scriptType": {
@@ -426,6 +431,7 @@
         "p2pkhFresh": "Legacy (1...) - Le plus ancien",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - Moderne",
+        "p2wsh": "SegWit Script",
         "detectedHint": "Type de script détecté depuis le descripteur et ne peut pas être modifié",
         "requiredHint": "Le type de script est requis pour les nouveaux portefeuilles XPUB"
       },
@@ -453,11 +459,10 @@
         "scriptTypeRequired": "Le type de script est requis pour les nouveaux portefeuilles XPUB"
       },
       "wizard": {
-        "chooseWallet": "Quel portefeuille utilisez-vous ? Nous vous montrerons comment exporter votre descripteur de sortie ou XPUB.",
         "keysStaySafe": "Canary n'a besoin de cela que pour surveiller vos transactions. Vos clés privées restent en sécurité dans votre portefeuille.",
         "tryBaconWallet": "Nouveau ici ? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary.",
         "useBaconWallet": "Utiliser le portefeuille Bacon",
-        "haveDescriptor": "J'ai déjà mon descripteur de sortie ou XPUB",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Suivez ces étapes pour exporter votre descripteur depuis {walletName}",
         "pasteXpub": "Collez votre XPUB ci-dessous.",
         "pasteDescriptor": "Collez votre descripteur de sortie ou XPUB ci-dessous.",
@@ -542,6 +547,22 @@
       "transactions": "Transactions",
       "contacts": "Contacts",
       "balanceAlerts": "Alertes de solde",
+      "walletDetails": "Détails du Portefeuille",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "Adresse",
+      "scriptType": "Type de Script",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "signing": "Signature",
+      "singleSig": "Single-sig",
+      "multisig": "{scheme} Multisig",
+      "added": "Ajouté",
+      "copied": "Copié !",
       "noTransactions": "Pas encore de transactions",
       "pendingSync": "Le portefeuille se synchronise...",
       "lastSync": "Dernière synchronisation",
@@ -971,6 +992,7 @@
       "wallet_not_found": "Portefeuille non trouvé.",
       "wallet_name_required": "Le nom du portefeuille ne peut pas être vide.",
       "wallet_already_exists": "Ce portefeuille a déjà été ajouté. Demandez au propriétaire de vous ajouter en tant que contact.",
+      "address_already_watched": "Cette adresse est déjà surveillée.",
       "access_denied": "Vous n'avez pas la permission d'accéder à cette ressource.",
       "contact_limit_reached": "Vous avez atteint le nombre maximum de contacts pour ce portefeuille. Passez au niveau supérieur pour en ajouter d'autres.",
       "invalid_phone_number": "Numéro de téléphone invalide. Veuillez inclure l'indicatif international (ex. : +33...).",

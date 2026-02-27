@@ -391,6 +391,59 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    // For demo user on mainnet, add famous Satoshi addresses as watched wallets
+    if config.network() == bdk_wallet::bitcoin::Network::Bitcoin {
+        let demo_user_result = app_services
+            .metadata_db
+            .get_user_by_email("demo@canarybitcoin.com")
+            .await;
+
+        if let Ok(Some(demo_user)) = demo_user_result {
+            let existing_wallets = app_services
+                .metadata_db
+                .get_wallets_for_user(Some(&demo_user.id))
+                .await
+                .unwrap_or_default();
+
+            let satoshi_addresses: &[(&str, &str)] = &[
+                ("Satoshi (Genesis)", "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+                (
+                    "Satoshi (First Reward)",
+                    "12c6DsiU4Rq3P4ZxziKxzrL5LmMBrzjrJX",
+                ),
+                (
+                    "Satoshi (Hal Finney Tx)",
+                    "12cbQLTFMXRnSzktFkuoG3eHoMeFtpTu3S",
+                ),
+                (
+                    "Satoshi (Patoshi)",
+                    "1HLoD9E4SDFFPDiYfNYnkBLQ85Y51J3Zb1",
+                ),
+            ];
+
+            for (name, address) in satoshi_addresses {
+                let already_exists = existing_wallets.iter().any(|w| w.name == *name);
+                if !already_exists {
+                    match app_services
+                        .wallet_creation_service
+                        .create_wallet_non_blocking(
+                            name,
+                            address,
+                            &demo_user.id,
+                            false, // not a fresh wallet
+                            None,  // auto-detect script type
+                            None,  // default stop gap
+                        )
+                        .await
+                    {
+                        Ok(_) => println!("✅ Created {} for demo user", name),
+                        Err(e) => println!("❌ Failed to create {}: {}", name, e),
+                    }
+                }
+            }
+        }
+    }
+
     // Try to fetch initial block header in background with timeout
     {
         let initial_wallet_manager = Arc::clone(&wallet_manager);

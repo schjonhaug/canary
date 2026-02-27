@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
-use bdk_wallet::bitcoin::Network;
+use bdk_wallet::bitcoin::{Address, Network};
 use miniscript::descriptor::checksum::desc_checksum;
+use std::str::FromStr;
 use xyzpub::{convert_version, Version};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -147,9 +148,51 @@ impl XpubConverter {
         }
     }
 
+    /// Check if the input is a valid Bitcoin address (any type, any network)
+    pub fn is_bitcoin_address(input: &str) -> bool {
+        Address::from_str(input.trim()).is_ok()
+    }
+
+    /// Validate that a Bitcoin address is compatible with the expected network
+    pub fn validate_address_network(address: &str, expected_network: Network) -> Result<()> {
+        let parsed = Address::from_str(address.trim())
+            .map_err(|e| anyhow!("Invalid Bitcoin address: {}", e))?;
+
+        parsed.require_network(expected_network).map_err(|_| {
+            let expected_name = match expected_network {
+                Network::Bitcoin => "mainnet",
+                Network::Testnet => "testnet",
+                Network::Regtest => "regtest",
+                Network::Signet => "signet",
+                _ => "unknown",
+            };
+            anyhow!(
+                "Address is not valid for {}. Please use a {} address.",
+                expected_name,
+                expected_name
+            )
+        })?;
+
+        Ok(())
+    }
+
+    /// Wrap a Bitcoin address in an addr() descriptor string with checksum
+    pub fn address_to_descriptor(address: &str) -> Result<String> {
+        let descriptor_without_checksum = format!("addr({})", address.trim());
+        let checksum = desc_checksum(&descriptor_without_checksum)
+            .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
+        Ok(format!("{}#{}", descriptor_without_checksum, checksum))
+    }
+
     /// Validate that a descriptor is compatible with the expected network
-    /// Extracts XPUBs from within descriptors and validates each one
+    /// Extracts XPUBs from within descriptors and validates each one.
+    /// Also handles raw Bitcoin address inputs.
     pub fn validate_descriptor_network(descriptor: &str, expected_network: Network) -> Result<()> {
+        // Check if the input is a raw Bitcoin address
+        if Self::is_bitcoin_address(descriptor) {
+            return Self::validate_address_network(descriptor, expected_network);
+        }
+
         // Regex to find extended public keys within descriptors
         // Matches [prefix]pub followed by base58 chars, optionally wrapped in key origin info
         let xpub_regex =

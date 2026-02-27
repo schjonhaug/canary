@@ -98,7 +98,7 @@
       },
       "security": {
         "title": "Monitoreo Seguro de Bitcoin Solo Lectura",
-        "description": "Acceso de solo lectura a billeteras Bitcoin usando XPUBs o descriptores - nunca tocamos tus claves privadas"
+        "description": "Monitoreo de Bitcoin de solo lectura usando XPUBs, descriptores o direcciones individuales - nunca tocamos tus claves privadas"
       },
       "sync": {
         "title": "Sincronización en Tiempo Real de Billetera Bitcoin",
@@ -141,19 +141,19 @@
       "items": {
         "whatIsCanary": {
           "question": "¿Qué es el monitoreo de billeteras Bitcoin de Canary?",
-          "answer": "Canary es un servicio profesional de monitoreo y notificación de billeteras Bitcoin que vigila tus billeteras usando XPUBs o descriptores y envía alertas instantáneas para todas las transacciones vía email, SMS y notificaciones push. Perfecto para monitorear almacenamiento frío, billeteras de hardware y direcciones Bitcoin de solo lectura."
+          "answer": "Canary es un servicio profesional de monitoreo y notificación de Bitcoin que vigila tus billeteras usando XPUBs, descriptores o direcciones individuales y envía alertas instantáneas para todas las transacciones vía email, SMS y notificaciones push. Perfecto para monitorear almacenamiento frío, billeteras de hardware y direcciones Bitcoin individuales."
         },
         "howDoesItWork": {
           "question": "¿Cómo funciona el monitoreo de billeteras Bitcoin sin claves privadas?",
-          "answer": "Canary usa el XPUB (clave pública extendida) o descriptor de tu billetera para monitoreo Bitcoin de solo lectura. Esto nos da acceso de solo lectura para rastrear tus direcciones Bitcoin y detectar transacciones. Nunca tenemos acceso a tus claves privadas y no podemos mover tu Bitcoin - asegurando seguridad completa para tu monitoreo de almacenamiento frío."
+          "answer": "Canary usa el XPUB (clave pública extendida), descriptor o una dirección Bitcoin individual de tu billetera para monitoreo de solo lectura. Esto nos da acceso de solo lectura para rastrear tus direcciones Bitcoin y detectar transacciones. Nunca tenemos acceso a tus claves privadas y no podemos mover tu Bitcoin - asegurando seguridad completa para tu monitoreo de almacenamiento frío."
         },
         "whatIsXpub": {
           "question": "¿Qué es el monitoreo de billetera XPUB?",
-          "answer": "El monitoreo XPUB te permite rastrear todas las direcciones en tu billetera Bitcoin sin exponer claves privadas. Al proporcionar el XPUB o descriptor de tu billetera, Canary puede monitorear direcciones ilimitadas, detectar transacciones a cualquier profundidad (incluso 200+ direcciones de profundidad), y alertarte instantáneamente cuando Bitcoin se mueve."
+          "answer": "El monitoreo XPUB te permite rastrear todas las direcciones en tu billetera Bitcoin sin exponer claves privadas. Al proporcionar el XPUB o descriptor de tu billetera, Canary puede monitorear direcciones ilimitadas, detectar transacciones a cualquier profundidad (incluso 200+ direcciones de profundidad), y alertarte instantáneamente cuando Bitcoin se mueve. También puedes rastrear una dirección Bitcoin individual directamente si no necesitas monitoreo completo de billetera."
         },
         "coldStorage": {
           "question": "¿Puedo monitorear billeteras de almacenamiento frío de Bitcoin?",
-          "answer": "¡Sí! Canary es perfecto para monitoreo de almacenamiento frío de Bitcoin. Ya sea que uses billeteras de hardware como Ledger o Trezor, billeteras de papel u otras soluciones de almacenamiento frío, simplemente proporciona tu XPUB o descriptor para monitoreo seguro de solo lectura con notificaciones instantáneas."
+          "answer": "¡Sí! Canary es perfecto para monitoreo de almacenamiento frío de Bitcoin. Ya sea que uses billeteras de hardware como Ledger o Trezor, billeteras de papel u otras soluciones de almacenamiento frío, simplemente proporciona tu XPUB o descriptor para monitoreo seguro de solo lectura con notificaciones instantáneas. También puedes rastrear direcciones individuales como direcciones de donación o direcciones de pago de un solo uso."
         },
         "notificationSpeed": {
           "question": "¿Qué tan rápidas son las notificaciones de transacciones Bitcoin?",
@@ -161,7 +161,7 @@
         },
         "walletTypes": {
           "question": "¿Qué tipos de billeteras Bitcoin son compatibles?",
-          "answer": "Canary soporta todos los tipos principales de billeteras Bitcoin incluyendo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) y direcciones Taproot (P2TR). Detectamos automáticamente el tipo de tu billetera desde el XPUB o puedes especificarlo manualmente. El monitoreo de multi-firma y billeteras de hardware está totalmente soportado."
+          "answer": "Canary soporta todos los tipos principales de billeteras Bitcoin incluyendo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) y Taproot (P2TR). Detectamos automáticamente el tipo de tu billetera desde el XPUB o puedes especificarlo manualmente. Las direcciones individuales de cualquier tipo también pueden ser rastreadas directamente. El monitoreo de multi-firma y billeteras de hardware está totalmente soportado."
         },
         "whyCanary": {
           "question": "¿Por qué se llama Canary?",
@@ -169,7 +169,7 @@
         },
         "noBlockchain": {
           "question": "¿Puedo rastrear Bitcoin sin descargar la blockchain?",
-          "answer": "¡Sí! Canary se conecta a servidores Electrum profesionales para monitorear la blockchain de Bitcoin por ti. No necesitas ejecutar un nodo completo ni descargar la blockchain - solo proporciona tu XPUB y comienza a recibir notificaciones instantáneas para toda la actividad de tu billetera Bitcoin."
+          "answer": "¡Sí! Canary se conecta a servidores Electrum profesionales para monitorear la blockchain de Bitcoin por ti. No necesitas ejecutar un nodo completo ni descargar la blockchain - solo proporciona tu XPUB o una dirección Bitcoin individual y comienza a recibir notificaciones instantáneas para toda la actividad de Bitcoin."
         },
         "balanceAlerts": {
           "question": "¿Cómo funcionan las alertas de saldo de Bitcoin?",
@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "Mis Billeteras",
+    "title": "Billeteras",
     "summary": "Rastreando {count} {count, plural, one {billetera} other {billeteras}} con un saldo total de {balance}",
     "onboarding": {
       "trial": {
@@ -403,14 +403,19 @@
       "inactiveTierLimit": "Esta billetera excede los límites de tu plan y no se sincronizará automáticamente",
       "balance": "Saldo",
       "lastActivity": "Última actividad: {date}",
-      "noRecentActivity": "Sin actividad reciente"
+      "noRecentActivity": "Sin actividad reciente",
+      "addressWatch": "Dirección"
     },
     "add": {
       "title": "Agregar Billetera",
       "nameLabel": "Nombre de Billetera",
       "namePlaceholder": "Mi Billetera Bitcoin",
-      "descriptorLabel": "Descriptor de Billetera o XPUB",
-      "descriptorPlaceholder": "wpkh([huella/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Ingresa el descriptor de salida de tu billetera o XPUB. Detectaremos automáticamente el tipo de script.",
       "advancedSettings": "Configuración Avanzada",
       "scriptType": {
@@ -426,6 +431,7 @@
         "p2pkhFresh": "Legado (1...) - Más antiguo",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - Moderno",
+        "p2wsh": "SegWit Script",
         "detectedHint": "Tipo de script detectado del descriptor y no se puede cambiar",
         "requiredHint": "El tipo de script es requerido para billeteras XPUB nuevas"
       },
@@ -453,11 +459,10 @@
         "scriptTypeRequired": "El tipo de script es requerido para billeteras XPUB nuevas"
       },
       "wizard": {
-        "chooseWallet": "¿Qué billetera usas? Te mostraremos cómo exportar tu descriptor de salida o XPUB.",
         "keysStaySafe": "Canary solo necesita esto para monitorear tus transacciones. Tus claves privadas permanecen seguras en tu billetera.",
         "tryBaconWallet": "¿Nuevo aquí? Prueba primero con una billetera de muestra para ver cómo funciona Canary.",
         "useBaconWallet": "Usar Billetera Bacon",
-        "haveDescriptor": "Ya tengo mi descriptor de salida o XPUB",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Sigue estos pasos para exportar tu descriptor desde {walletName}",
         "pasteXpub": "Pega tu XPUB abajo.",
         "pasteDescriptor": "Pega tu descriptor de salida o XPUB abajo.",
@@ -542,6 +547,22 @@
       "transactions": "Transacciones",
       "contacts": "Contactos",
       "balanceAlerts": "Alertas de Saldo",
+      "walletDetails": "Detalles de la Cartera",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "Dirección",
+      "scriptType": "Tipo de Script",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "signing": "Firma",
+      "singleSig": "Single-sig",
+      "multisig": "{scheme} Multisig",
+      "added": "Añadido",
+      "copied": "¡Copiado!",
       "noTransactions": "Sin transacciones aún",
       "pendingSync": "La billetera está sincronizando...",
       "lastSync": "Última sincronización",
@@ -971,6 +992,7 @@
       "wallet_not_found": "Billetera no encontrada.",
       "wallet_name_required": "El nombre de la billetera no puede estar vacío.",
       "wallet_already_exists": "Esta billetera ya ha sido agregada. Pida al propietario que lo agregue como contacto.",
+      "address_already_watched": "Esta dirección ya está siendo monitoreada.",
       "access_denied": "No tiene permiso para acceder a este recurso.",
       "contact_limit_reached": "Ha alcanzado el número máximo de contactos para esta billetera. Actualice para agregar más.",
       "invalid_phone_number": "Número de teléfono no válido. Por favor, incluya el código de país (ej. +1...).",

@@ -14,6 +14,8 @@ export interface Wallet {
   status: string // 'pending' | 'ready' | 'deleted'
   contact_count: number
   is_active: boolean
+  wallet_type: string // 'descriptor' | 'address'
+  last_synced_at?: string | null
 }
 
 
