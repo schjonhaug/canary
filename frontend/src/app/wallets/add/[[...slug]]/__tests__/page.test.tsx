@@ -278,7 +278,7 @@ describe('AddWalletPage', () => {
       // The form is now shown directly on the choose step
       await waitFor(() => {
         expect(screen.getByLabelText('Wallet Name')).toBeInTheDocument()
-        expect(screen.getByLabelText('Wallet Descriptor, XPUB, or Address')).toBeInTheDocument()
+        expect(screen.getByLabelText('Output Descriptor, XPUB, or Address')).toBeInTheDocument()
       })
 
       // Wallet guides should also be visible below the form
@@ -374,7 +374,7 @@ describe('AddWalletPage', () => {
 
       // Fill in the form
       const nameInput = screen.getByLabelText('Wallet Name')
-      const descriptorTextarea = screen.getByLabelText('Wallet Descriptor, XPUB, or Address')
+      const descriptorTextarea = screen.getByLabelText('Output Descriptor, XPUB, or Address')
 
       await user.type(nameInput, 'Test Wallet')
       // Use fireEvent.change for descriptor because it contains special chars that userEvent interprets as keyboard modifiers

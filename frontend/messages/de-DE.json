@@ -410,7 +410,12 @@
       "title": "Wallet hinzufügen",
       "nameLabel": "Wallet-Name",
       "namePlaceholder": "Meine Bitcoin-Wallet",
-      "descriptorLabel": "Wallet-Descriptor, XPUB oder Adresse",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Geben Sie den Output-Descriptor Ihrer Wallet oder XPUB ein. Wir erkennen den Script-Typ automatisch.",
       "advancedSettings": "Erweiterte Einstellungen",
       "scriptType": {

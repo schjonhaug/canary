@@ -410,7 +410,12 @@
       "title": "Legg til lommebok",
       "nameLabel": "Lommeboknavn",
       "namePlaceholder": "Min Bitcoin-lommebok",
-      "descriptorLabel": "Lommebokdeskriptor, XPUB eller adresse",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Skriv inn lommebokens output-deskriptor eller XPUB. Vi oppdager automatisk skripttypen.",
       "advancedSettings": "Avanserte innstillinger",
       "scriptType": {

@@ -44,6 +44,7 @@ interface AddWalletFormProps {
   autoFocusDescriptor?: boolean
   initialName?: string
   initialDescriptor?: string
+  outputType?: 'descriptor' | 'xpub' | 'both'
 }
 
 export function AddWalletForm({
@@ -53,6 +54,7 @@ export function AddWalletForm({
   autoFocusDescriptor = false,
   initialName = "",
   initialDescriptor = "",
+  outputType,
 }: AddWalletFormProps) {
   const [name, setName] = useState(initialName)
   const [descriptor, setDescriptor] = useState(initialDescriptor)
@@ -220,7 +222,15 @@ export function AddWalletForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="output-descriptor">{t('add.descriptorLabel')}</Label>
+        <Label htmlFor="output-descriptor">
+          {outputType === 'xpub'
+            ? t('add.descriptorLabel.xpub')
+            : outputType === 'descriptor'
+              ? t('add.descriptorLabel.descriptor')
+              : outputType === 'both'
+                ? t('add.descriptorLabel.both')
+                : t('add.descriptorLabel.any')}
+        </Label>
         <Textarea
           id="output-descriptor"
           value={descriptor}

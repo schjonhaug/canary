@@ -410,7 +410,12 @@
       "title": "Tilføj Wallet",
       "nameLabel": "Wallet Navn",
       "namePlaceholder": "Min Bitcoin Wallet",
-      "descriptorLabel": "Wallet Descriptor, XPUB eller adresse",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Indtast din wallets output descriptor eller XPUB. Vi registrerer automatisk script-typen.",
       "advancedSettings": "Avancerede indstillinger",
       "scriptType": {

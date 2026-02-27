@@ -57,6 +57,7 @@ export function WalletFormStep({
               autoFocusDescriptor={false}
               initialName={isBaconWallet ? baconWallet.name : undefined}
               initialDescriptor={isBaconWallet ? baconWallet.descriptor : undefined}
+              outputType={selectedWallet?.outputType}
             />
           </CardContent>
         </Card>

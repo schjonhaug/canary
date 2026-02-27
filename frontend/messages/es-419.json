@@ -410,7 +410,12 @@
       "title": "Agregar Billetera",
       "nameLabel": "Nombre de Billetera",
       "namePlaceholder": "Mi Billetera Bitcoin",
-      "descriptorLabel": "Descriptor de Billetera, XPUB o dirección",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Ingresa el descriptor de salida de tu billetera o XPUB. Detectaremos automáticamente el tipo de script.",
       "advancedSettings": "Configuración Avanzada",
       "scriptType": {

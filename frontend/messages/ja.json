@@ -410,7 +410,12 @@
       "title": "ウォレットを追加",
       "nameLabel": "ウォレット名",
       "namePlaceholder": "マイビットコインウォレット",
-      "descriptorLabel": "ウォレットディスクリプタ、XPUBまたはアドレス",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "ウォレットの出力ディスクリプタまたはXPUBを入力してください。スクリプトタイプは自動検出されます。",
       "advancedSettings": "詳細設定",
       "scriptType": {

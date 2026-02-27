@@ -410,7 +410,12 @@
       "title": "Ajouter un portefeuille",
       "nameLabel": "Nom du portefeuille",
       "namePlaceholder": "Mon portefeuille Bitcoin",
-      "descriptorLabel": "Descripteur de portefeuille, XPUB ou adresse",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Entrez le descripteur de sortie de votre portefeuille ou XPUB. Nous détecterons automatiquement le type de script.",
       "advancedSettings": "Paramètres avancés",
       "scriptType": {

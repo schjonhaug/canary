@@ -410,7 +410,12 @@
       "title": "Lägg till plånbok",
       "nameLabel": "Namn på plånbok",
       "namePlaceholder": "Min Bitcoin-plånbok",
-      "descriptorLabel": "Wallet Descriptor, XPUB eller adress",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "Ange din plånboks output descriptor eller XPUB. Vi kommer automatiskt att upptäcka skripttypen.",
       "advancedSettings": "Avancerade inställningar",
       "scriptType": {
