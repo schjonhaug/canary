@@ -411,7 +411,6 @@
       "nameLabel": "Lommeboknavn",
       "namePlaceholder": "Min Bitcoin-lommebok",
       "descriptorLabel": "Lommebokdeskriptor, XPUB eller adresse",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) eller bc1q...",
       "descriptorHint": "Skriv inn lommebokens output-deskriptor eller XPUB. Vi oppdager automatisk skripttypen.",
       "advancedSettings": "Avanserte innstillinger",
       "scriptType": {

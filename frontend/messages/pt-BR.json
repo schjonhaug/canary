@@ -411,7 +411,6 @@
       "nameLabel": "Nome da Carteira",
       "namePlaceholder": "Minha Carteira Bitcoin",
       "descriptorLabel": "Descritor de Carteira, XPUB ou endereço",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) ou bc1q...",
       "descriptorHint": "Digite o descritor de saída da sua carteira ou XPUB. Detectaremos automaticamente o tipo de script.",
       "advancedSettings": "Configurações Avançadas",
       "scriptType": {

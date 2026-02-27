@@ -411,7 +411,6 @@
       "nameLabel": "ウォレット名",
       "namePlaceholder": "マイビットコインウォレット",
       "descriptorLabel": "ウォレットディスクリプタ、XPUBまたはアドレス",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) または bc1q...",
       "descriptorHint": "ウォレットの出力ディスクリプタまたはXPUBを入力してください。スクリプトタイプは自動検出されます。",
       "advancedSettings": "詳細設定",
       "scriptType": {

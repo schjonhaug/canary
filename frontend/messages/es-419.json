@@ -411,7 +411,6 @@
       "nameLabel": "Nombre de Billetera",
       "namePlaceholder": "Mi Billetera Bitcoin",
       "descriptorLabel": "Descriptor de Billetera, XPUB o dirección",
-      "descriptorPlaceholder": "wpkh([huella/84'/0'/0']xpub.../0/*) o bc1q...",
       "descriptorHint": "Ingresa el descriptor de salida de tu billetera o XPUB. Detectaremos automáticamente el tipo de script.",
       "advancedSettings": "Configuración Avanzada",
       "scriptType": {

@@ -212,7 +212,6 @@ export function AddWalletForm({
         <Input
           id="wallet-name"
           type="text"
-          placeholder={t('add.namePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={modal.isLoading}
@@ -224,7 +223,6 @@ export function AddWalletForm({
         <Label htmlFor="output-descriptor">{t('add.descriptorLabel')}</Label>
         <Textarea
           id="output-descriptor"
-          placeholder={t('add.descriptorPlaceholder')}
           value={descriptor}
           onChange={(e) => setDescriptor(e.target.value)}
           disabled={modal.isLoading}

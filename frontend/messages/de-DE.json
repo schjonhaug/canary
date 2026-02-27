@@ -411,7 +411,6 @@
       "nameLabel": "Wallet-Name",
       "namePlaceholder": "Meine Bitcoin-Wallet",
       "descriptorLabel": "Wallet-Descriptor, XPUB oder Adresse",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) oder bc1q...",
       "descriptorHint": "Geben Sie den Output-Descriptor Ihrer Wallet oder XPUB ein. Wir erkennen den Script-Typ automatisch.",
       "advancedSettings": "Erweiterte Einstellungen",
       "scriptType": {

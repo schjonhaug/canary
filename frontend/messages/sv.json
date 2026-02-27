@@ -411,7 +411,6 @@
       "nameLabel": "Namn på plånbok",
       "namePlaceholder": "Min Bitcoin-plånbok",
       "descriptorLabel": "Wallet Descriptor, XPUB eller adress",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*) eller bc1q...",
       "descriptorHint": "Ange din plånboks output descriptor eller XPUB. Vi kommer automatiskt att upptäcka skripttypen.",
       "advancedSettings": "Avancerade inställningar",
       "scriptType": {
