@@ -25,6 +25,28 @@ impl MetadataDb {
         .await?
     }
 
+    /// Check if a descriptor already exists for a specific user
+    pub async fn descriptor_exists_for_user(
+        &self,
+        descriptor: &str,
+        user_id: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let descriptor = descriptor.to_string();
+        let user_id = user_id.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM wallets WHERE descriptor = ?1 AND user_id = ?2",
+                params![descriptor, user_id],
+                |row| row.get(0),
+            )?;
+            Ok(count > 0)
+        })
+        .await?
+    }
+
     /// Extract checksum from a Bitcoin descriptor
     pub fn extract_checksum(&self, descriptor: &str) -> String {
         extract_checksum(descriptor)
@@ -47,23 +69,43 @@ impl MetadataDb {
         user_id: &str,
         wallet_type: &str,
     ) -> Result<String> {
+        self.insert_wallet_with_type_and_checksum(name, descriptor, user_id, wallet_type, None)
+            .await
+    }
+
+    /// Insert a wallet with an explicit checksum override.
+    /// When `checksum_override` is None, the checksum is extracted from the descriptor.
+    /// When provided, the override value is used as the PK (for multi-user address watches).
+    pub async fn insert_wallet_with_type_and_checksum(
+        &self,
+        name: &str,
+        descriptor: &str,
+        user_id: &str,
+        wallet_type: &str,
+        checksum_override: Option<&str>,
+    ) -> Result<String> {
         let pool = self.pool.clone();
         let name = name.to_string();
         let descriptor = descriptor.to_string();
         let user_id = user_id.to_string();
         let wallet_type = wallet_type.to_string();
+        let checksum_override = checksum_override.map(|s| s.to_string());
 
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
             let hex_color = calculate_wallet_color(&descriptor);
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-            // Extract checksum from descriptor (part after #)
-            let checksum = descriptor
-                .split('#')
-                .next_back()
-                .ok_or_else(|| anyhow::anyhow!("Invalid descriptor format: missing checksum"))?
-                .to_string();
+            let checksum = match checksum_override {
+                Some(c) => c,
+                None => descriptor
+                    .split('#')
+                    .next_back()
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("Invalid descriptor format: missing checksum")
+                    })?
+                    .to_string(),
+            };
 
             conn.execute(
                 "INSERT INTO wallets (checksum, name, descriptor, hex_color, balance_total, last_activity, status, user_id, wallet_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -739,6 +781,25 @@ impl MetadataDb {
             Ok(changes > 0)
         })
         .await?
+    }
+
+    /// Get all address watch checksums grouped by their descriptor.
+    /// Used by sync to deduplicate Electrum queries for the same address.
+    pub async fn get_address_watches_grouped_by_descriptor(
+        &self,
+        wallets: &[WalletMetadata],
+    ) -> std::collections::HashMap<String, Vec<WalletMetadata>> {
+        let mut groups: std::collections::HashMap<String, Vec<WalletMetadata>> =
+            std::collections::HashMap::new();
+        for w in wallets {
+            if w.wallet_type == "address" {
+                groups
+                    .entry(w.descriptor.clone())
+                    .or_default()
+                    .push(w.clone());
+            }
+        }
+        groups
     }
 
     pub async fn update_wallet_active_status(&self, checksum: &str, is_active: bool) -> Result<()> {

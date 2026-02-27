@@ -37,6 +37,20 @@ struct WalletCreationContext {
 /// Maximum number of wallets to sync in parallel
 const MAX_PARALLEL_SYNCS: usize = 10;
 
+/// Generate a unique 8-character alphanumeric ID for use as a wallet checksum PK.
+/// Used when multiple users watch the same address and need distinct wallet records.
+fn generate_unique_wallet_id() -> String {
+    use rand::Rng;
+    const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+    let mut rng = rand::rng();
+    (0..8)
+        .map(|_| {
+            let idx = rng.random_range(0..CHARSET.len());
+            CHARSET[idx] as char
+        })
+        .collect()
+}
+
 /// Standalone wallet creation function that doesn't require WalletManager mutex
 /// This allows wallet creation to be non-blocking and concurrent
 pub struct WalletCreationService {
@@ -82,8 +96,12 @@ impl WalletCreationService {
         // Convert to addr() descriptor with checksum
         let descriptor = XpubConverter::address_to_descriptor(address)?;
 
-        // Check if this address is already being watched
-        if self.metadata_db.descriptor_exists(&descriptor).await? {
+        // Check if THIS USER already watches this address
+        if self
+            .metadata_db
+            .descriptor_exists_for_user(&descriptor, user_id)
+            .await?
+        {
             let checksum = self.metadata_db.extract_checksum(&descriptor);
             return Err(anyhow!(
                 "This address is already being watched with ID: {}.",
@@ -91,10 +109,25 @@ impl WalletCreationService {
             ));
         }
 
+        // Determine the checksum to use as PK.
+        // If another user already watches this address, generate a unique short ID
+        // so both users get independent wallet records.
+        let checksum_override = if self.metadata_db.descriptor_exists(&descriptor).await? {
+            Some(generate_unique_wallet_id())
+        } else {
+            None // First watcher — use the standard descriptor checksum
+        };
+
         // Insert wallet metadata with 'address' type
         let checksum = self
             .metadata_db
-            .insert_wallet_with_type(name, &descriptor, user_id, "address")
+            .insert_wallet_with_type_and_checksum(
+                name,
+                &descriptor,
+                user_id,
+                "address",
+                checksum_override.as_deref(),
+            )
             .await?;
 
         // Mark as ready immediately (no BDK wallet file needed, no pending state)
@@ -102,10 +135,11 @@ impl WalletCreationService {
             .update_wallet_status(&checksum, "ready")
             .await?;
 
-        // Get the wallet metadata to return
+        // Get the wallet metadata to return (by checksum, not descriptor, since
+        // multiple users may share the same descriptor)
         let wallet_metadata = self
             .metadata_db
-            .get_wallet_by_descriptor(&descriptor)
+            .get_wallet_by_checksum(&checksum)
             .await?
             .ok_or_else(|| anyhow!("Failed to retrieve created address watch metadata"))?;
 
@@ -932,27 +966,38 @@ impl WalletManager {
             .into_iter()
             .partition(|w| w.wallet_type == "address");
 
-        // Sync address watches in parallel (no BDK wallet loading needed)
+        // Sync address watches in parallel, grouped by descriptor to deduplicate
+        // Electrum queries when multiple users watch the same address
         if !address_watches.is_empty() {
+            // Group address watches by descriptor
+            let groups = self
+                .metadata_db
+                .get_address_watches_grouped_by_descriptor(&address_watches)
+                .await;
+
+            let total_watchers = address_watches.len();
+            let unique_descriptors = groups.len();
             debug!(
-                "🔍 Syncing {} {:?} tier address watches",
-                address_watches.len(),
-                tier
+                "🔍 Syncing {} {:?} tier address watches ({} unique descriptors)",
+                total_watchers, tier, unique_descriptors
             );
+
             let semaphore = Arc::new(Semaphore::new(MAX_PARALLEL_SYNCS));
             let metadata_db = self.metadata_db.clone();
             let notification_sender = self.notification_sender.clone();
             let electrum_manager = self.electrum_client_manager.clone();
             let config = self.config.clone();
 
-            let addr_tasks: Vec<_> = address_watches
+            // Spawn one task per unique descriptor (not per watcher)
+            let addr_tasks: Vec<_> = groups
                 .into_iter()
-                .map(|wallet_metadata| {
+                .map(|(descriptor, watchers)| {
                     let semaphore = semaphore.clone();
                     let metadata_db = metadata_db.clone();
                     let notification_sender = notification_sender.clone();
                     let electrum_manager = electrum_manager.clone();
                     let config = config.clone();
+                    let watcher_count = watchers.len();
 
                     tokio::spawn(async move {
                         let _permit = semaphore
@@ -966,21 +1011,46 @@ impl WalletManager {
                             config,
                         );
 
-                        match sync_service
-                            .sync_address_watch(
-                                &wallet_metadata.checksum,
-                                &wallet_metadata.descriptor,
-                                electrum_manager.as_deref(),
-                            )
-                            .await
-                        {
-                            Ok(_) => Ok(wallet_metadata.name),
-                            Err(e) => {
-                                warn!(
-                                    "Failed to sync address watch {}: {}",
-                                    wallet_metadata.name, e
-                                );
-                                Err(e)
+                        let checksums: Vec<String> =
+                            watchers.iter().map(|w| w.checksum.clone()).collect();
+
+                        if watcher_count == 1 {
+                            // Single watcher — use existing method
+                            match sync_service
+                                .sync_address_watch(
+                                    &checksums[0],
+                                    &descriptor,
+                                    electrum_manager.as_deref(),
+                                )
+                                .await
+                            {
+                                Ok(_) => Ok(watcher_count),
+                                Err(e) => {
+                                    warn!(
+                                        "Failed to sync address watch {}: {}",
+                                        checksums[0], e
+                                    );
+                                    Err(e)
+                                }
+                            }
+                        } else {
+                            // Multiple watchers — query Electrum once, fan out results
+                            match sync_service
+                                .sync_address_watch_group(
+                                    &checksums,
+                                    &descriptor,
+                                    electrum_manager.as_deref(),
+                                )
+                                .await
+                            {
+                                Ok(_) => Ok(watcher_count),
+                                Err(e) => {
+                                    warn!(
+                                        "Failed to sync address watch group ({}): {}",
+                                        descriptor, e
+                                    );
+                                    Err(e)
+                                }
                             }
                         }
                     })
@@ -992,7 +1062,7 @@ impl WalletManager {
             let mut addr_failure = 0;
             for result in results {
                 match result {
-                    Ok(Ok(_)) => addr_success += 1,
+                    Ok(Ok(count)) => addr_success += count,
                     _ => addr_failure += 1,
                 }
             }

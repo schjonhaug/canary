@@ -1698,6 +1698,282 @@ impl WalletSyncService {
         Ok(has_changes)
     }
 
+    /// Sync a group of address watches that share the same descriptor.
+    /// Queries Electrum once and fans out the results (transactions, balance,
+    /// notifications) to each watcher independently.
+    pub async fn sync_address_watch_group(
+        &self,
+        wallet_checksums: &[String],
+        descriptor: &str,
+        electrum_manager: Option<&ElectrumClientManager>,
+    ) -> Result<bool> {
+        let sync_start = Instant::now();
+        info!(
+            "Starting grouped address watch sync for {} watchers (descriptor: {})",
+            wallet_checksums.len(),
+            descriptor
+        );
+
+        // Extract address from addr() descriptor
+        let address_str = extract_address_from_descriptor(descriptor)
+            .ok_or_else(|| anyhow!("Invalid addr() descriptor format: {}", descriptor))?;
+
+        // Parse address and get script_pubkey
+        let address = Address::from_str(&address_str)
+            .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
+        let script = address.assume_checked().script_pubkey();
+
+        // Get Electrum client
+        let client = match electrum_manager {
+            Some(manager) => match manager.get_client().await {
+                Some(c) => c,
+                None => {
+                    warn!("No Electrum client available for grouped address watch");
+                    return Ok(false);
+                }
+            },
+            None => {
+                warn!("No Electrum manager available for grouped address watch");
+                return Ok(false);
+            }
+        };
+
+        // === Single Electrum query for history ===
+        let history = client.script_get_history(&script).await?;
+        debug!(
+            "Grouped address watch: {} transactions in history",
+            history.len()
+        );
+
+        // === Single Electrum query for balance ===
+        let balance = client.script_get_balance(&script).await?;
+        let total_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+
+        // Cache block headers by height to avoid repeated Electrum calls
+        let mut block_header_cache: std::collections::HashMap<u32, u64> =
+            std::collections::HashMap::new();
+
+        let mut any_changes = false;
+
+        // === Fan out to each watcher ===
+        for wallet_checksum in wallet_checksums {
+            // Get existing transactions for THIS watcher
+            let existing_transactions = self
+                .metadata_db
+                .get_transactions_by_wallet_checksum(wallet_checksum, None)
+                .await?;
+            let existing_txids: std::collections::HashSet<String> = existing_transactions
+                .iter()
+                .map(|tx| tx.txid.clone())
+                .collect();
+
+            let mut has_changes = false;
+
+            for hist_entry in &history {
+                let txid_str = hist_entry.tx_hash.to_string();
+
+                if existing_txids.contains(&txid_str) {
+                    // Check if an existing pending transaction got confirmed
+                    if hist_entry.height > 0 {
+                        if let Some(_existing) = existing_transactions
+                            .iter()
+                            .find(|tx| tx.txid == txid_str && tx.block_height.is_none())
+                        {
+                            let confirmed_at = match block_header_cache
+                                .get(&(hist_entry.height as u32))
+                            {
+                                Some(&ts) => ts,
+                                None => {
+                                    let ts = match client
+                                        .get_block_header(hist_entry.height as u32)
+                                        .await
+                                    {
+                                        Ok(header) => header.timestamp,
+                                        Err(_) => std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs(),
+                                    };
+                                    block_header_cache.insert(hist_entry.height as u32, ts);
+                                    ts
+                                }
+                            };
+
+                            self.metadata_db
+                                .update_transaction_confirmation(
+                                    wallet_checksum,
+                                    &txid_str,
+                                    hist_entry.height as u32,
+                                    confirmed_at,
+                                )
+                                .await?;
+
+                            if let Some(updated_tx) = self
+                                .metadata_db
+                                .get_transaction_by_txid(wallet_checksum, &txid_str)
+                                .await?
+                            {
+                                self.send_confirmed_transaction_notification(&updated_tx)
+                                    .await?;
+                            }
+
+                            has_changes = true;
+                        }
+                    }
+                    continue;
+                }
+
+                // New transaction for this watcher - fetch full tx
+                let txid = Txid::from_str(&txid_str)
+                    .map_err(|e| anyhow!("Failed to parse txid {}: {}", txid_str, e))?;
+                let full_tx = match client.transaction_get(&txid).await {
+                    Ok(tx) => tx,
+                    Err(e) => {
+                        warn!(
+                            "[{}] Failed to fetch tx {}: {}",
+                            wallet_checksum, txid_str, e
+                        );
+                        continue;
+                    }
+                };
+
+                // Calculate received amount
+                let mut received: i64 = 0;
+                for output in &full_tx.output {
+                    if output.script_pubkey == script {
+                        received += output.value.to_sat() as i64;
+                    }
+                }
+
+                // Calculate sent amount
+                let mut sent: i64 = 0;
+                for input in &full_tx.input {
+                    let prev_txid = input.previous_output.txid;
+                    let prev_vout = input.previous_output.vout;
+                    match client.transaction_get(&prev_txid).await {
+                        Ok(prev_tx) => {
+                            if let Some(prev_output) = prev_tx.output.get(prev_vout as usize) {
+                                if prev_output.script_pubkey == script {
+                                    sent += prev_output.value.to_sat() as i64;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            debug!(
+                                "[{}] Could not fetch parent tx {}: {}",
+                                wallet_checksum, prev_txid, e
+                            );
+                        }
+                    }
+                }
+
+                if received == 0 && sent == 0 {
+                    continue;
+                }
+
+                let (event_type, amount) = if sent > 0 && received == 0 {
+                    (EventType::Send, sent)
+                } else if sent > 0 && received > 0 {
+                    (EventType::Send, sent - received)
+                } else {
+                    (EventType::Receive, received)
+                };
+
+                let is_confirmed = hist_entry.height > 0;
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+
+                let (confirmed_at, block_height) = if is_confirmed {
+                    let timestamp =
+                        match block_header_cache.get(&(hist_entry.height as u32)) {
+                            Some(&ts) => ts,
+                            None => {
+                                let ts =
+                                    match client.get_block_header(hist_entry.height as u32).await {
+                                        Ok(header) => header.timestamp,
+                                        Err(_) => now,
+                                    };
+                                block_header_cache.insert(hist_entry.height as u32, ts);
+                                ts
+                            }
+                        };
+                    (Some(timestamp), Some(hist_entry.height as u32))
+                } else {
+                    (None, None)
+                };
+
+                let first_seen_at = confirmed_at.unwrap_or(now);
+
+                let transaction = TransactionInsert {
+                    txid: txid_str.clone(),
+                    wallet_checksum: wallet_checksum.to_string(),
+                    transaction_type: event_type,
+                    amount_sats: amount,
+                    fee_sats: None,
+                    block_height,
+                    first_seen_at,
+                    confirmed_at,
+                    parent_txid: None,
+                    transaction_status: if is_confirmed {
+                        "confirmed".to_string()
+                    } else {
+                        "pending".to_string()
+                    },
+                    replaced_by_txid: None,
+                    replaced_at: None,
+                };
+
+                self.metadata_db.insert_transaction(&transaction).await?;
+                self.send_new_transaction_notification(&transaction).await?;
+
+                has_changes = true;
+                info!(
+                    "[{}] New address watch tx: {} ({:?}, {} sats, {})",
+                    wallet_checksum,
+                    txid_str,
+                    event_type,
+                    amount,
+                    if is_confirmed { "confirmed" } else { "pending" }
+                );
+            }
+
+            // Update balance for this watcher
+            self.metadata_db
+                .update_wallet_balance_by_checksum(wallet_checksum, total_balance)
+                .await?;
+
+            // Update last_synced_at
+            let _ = self
+                .metadata_db
+                .update_wallet_last_synced(wallet_checksum)
+                .await;
+
+            // Check balance alerts for this watcher
+            if let Err(e) = self
+                .check_balance_alerts(wallet_checksum, total_balance)
+                .await
+            {
+                warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+            }
+
+            if has_changes {
+                any_changes = true;
+            }
+        }
+
+        let sync_duration = sync_start.elapsed();
+        info!(
+            "Grouped address watch sync complete in {:.2}s for {} watchers; changes={}",
+            sync_duration.as_secs_f64(),
+            wallet_checksums.len(),
+            any_changes
+        );
+
+        Ok(any_changes)
+    }
+
     /// Send balance alert notification using existing notification system
     async fn send_balance_alert_notification(
         &self,
