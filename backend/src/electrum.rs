@@ -41,7 +41,14 @@ impl ElectrumClient {
             ));
         }
 
-        let electrum_client = electrum_client::Client::new(url)?;
+        // Set a TCP socket timeout so that blocking reads/writes fail fast when the
+        // Electrum server becomes unresponsive.  Without this, spawn_blocking tasks hold
+        // the internal RawClient mutexes indefinitely, causing all subsequent Electrum
+        // calls to queue up and cascade-timeout.
+        let config = electrum_client::Config::builder()
+            .timeout(Some(BLOCK_OP_TIMEOUT_SECS as u8))
+            .build();
+        let electrum_client = electrum_client::Client::from_config(url, config)?;
         let client = BdkElectrumClient::new(electrum_client);
         Ok(ElectrumClient {
             client: Arc::new(client),
