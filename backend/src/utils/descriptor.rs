@@ -112,6 +112,22 @@ pub fn extract_address_from_descriptor(descriptor_str: &str) -> Option<String> {
     }
 }
 
+/// Extract the public key from a `pk()` descriptor string.
+/// We store P2PK watches as `pk(PUBKEY)#checksum` — a standard descriptor format.
+pub fn extract_pubkey_from_descriptor(descriptor_str: &str) -> Option<String> {
+    let without_checksum = if let Some(pos) = descriptor_str.find('#') {
+        &descriptor_str[..pos]
+    } else {
+        descriptor_str
+    };
+    let trimmed = without_checksum.trim();
+    if trimmed.starts_with("pk(") && trimmed.ends_with(')') {
+        Some(trimmed[3..trimmed.len() - 1].to_string())
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
