@@ -21,7 +21,7 @@ use tracing::{debug, info, warn};
 
 /// Pre-compiled regex for detecting output descriptor format
 static DESCRIPTOR_REGEX: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"^(wpkh|wsh|sh|pkh|tr)\(").unwrap());
+    LazyLock::new(|| regex::Regex::new(r"^(wpkh|wsh|sh|pkh|pk|tr)\(").unwrap());
 
 /// Error message for Electrum server unavailability
 const ELECTRUM_UNAVAILABLE_ERROR: &str = "Electrum server is unavailable. Please try again later.";
@@ -84,14 +84,15 @@ pub async fn create_wallet_non_blocking(
             .into_response();
     }
 
-    // Detect if input is a single Bitcoin address
+    // Detect if input is a raw public key or a single Bitcoin address
+    let is_pubkey = XpubConverter::is_bitcoin_public_key(payload.descriptor.trim());
     let is_address = XpubConverter::is_bitcoin_address(payload.descriptor.trim());
 
     // Helper function to detect output descriptor format
     let is_descriptor_format = |input: &str| -> bool { DESCRIPTOR_REGEX.is_match(input.trim()) };
 
-    // Skip stop gap / script type validation for addresses (irrelevant for single-address watches)
-    if !is_address {
+    // Skip stop gap / script type validation for pubkeys and addresses (irrelevant for watch-only)
+    if !is_pubkey && !is_address {
         if let Some(stop_gap) = &payload.stop_gap {
             if stop_gap != "auto" {
                 // Skip script type requirement for output descriptors (they already contain script type info)
@@ -187,8 +188,11 @@ pub async fn create_wallet_non_blocking(
         }
     }
 
-    // NON-BLOCKING: Check if input is an address, XPUB, or descriptor
-    let descriptor = if is_address {
+    // NON-BLOCKING: Check if input is a pubkey, address, XPUB, or descriptor
+    let descriptor = if is_pubkey {
+        // Raw public key (P2PK) - pass as-is, creation service handles conversion
+        payload.descriptor.trim().to_string()
+    } else if is_address {
         // Single Bitcoin address - pass as-is, creation service handles conversion
         payload.descriptor.trim().to_string()
     } else if XpubConverter::is_xpub(&payload.descriptor) {
