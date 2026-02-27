@@ -119,7 +119,7 @@ impl MetadataDb {
                  FROM transactions t
                  JOIN wallets w ON t.wallet_checksum = w.checksum
                  WHERE t.wallet_checksum = ?1
-                 ORDER BY t.first_seen_at DESC, t.txid DESC
+                 ORDER BY COALESCE(t.confirmed_at, t.first_seen_at) DESC, t.txid DESC
                  LIMIT ?2"
             )?;
 
