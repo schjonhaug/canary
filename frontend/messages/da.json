@@ -431,6 +431,7 @@
         "p2pkhFresh": "Legacy (1...) - Ældste",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - Moderne",
+        "p2wsh": "SegWit Script",
         "detectedHint": "Script-type registreret fra descriptor og kan ikke ændres",
         "requiredHint": "Script-type er påkrævet for nye XPUB-wallets"
       },
@@ -546,6 +547,19 @@
       "transactions": "Transaktioner",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarsler",
+      "walletDetails": "Tegnebogsdetaljer",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "Adresse",
+      "scriptType": "Scripttype",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "added": "Tilføjet",
+      "copied": "Kopieret!",
       "noTransactions": "Ingen transaktioner endnu",
       "pendingSync": "Wallet synkroniserer...",
       "lastSync": "Sidst synkroniseret",

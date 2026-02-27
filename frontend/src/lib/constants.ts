@@ -100,6 +100,37 @@ export function isValidEmail(input: string): boolean {
 }
 
 // =============================================================================
+// Script Type Detection
+// =============================================================================
+
+/**
+ * Extract script type from an output descriptor prefix.
+ * Returns a script type key (e.g. 'p2wpkh', 'p2tr') or empty string if unknown.
+ */
+export function getDescriptorScriptType(input: string): string {
+  const trimmed = input.trim()
+  if (trimmed.startsWith('sh(wpkh(')) return 'p2sh'
+  if (trimmed.startsWith('wpkh(')) return 'p2wpkh'
+  if (trimmed.startsWith('wsh(')) return 'p2wsh'
+  if (trimmed.startsWith('pkh(')) return 'p2pkh'
+  if (trimmed.startsWith('tr(')) return 'p2tr'
+  return ''
+}
+
+/**
+ * Infer script type from a Bitcoin address prefix.
+ * Returns a script type key or empty string if unknown.
+ */
+export function getAddressScriptType(address: string): string {
+  const trimmed = address.trim()
+  if (trimmed.startsWith('bc1p') || trimmed.startsWith('tb1p') || trimmed.startsWith('bcrt1p')) return 'p2tr'
+  if (trimmed.startsWith('bc1q') || trimmed.startsWith('tb1q') || trimmed.startsWith('bcrt1q')) return 'p2wpkh'
+  if (trimmed.startsWith('3') || trimmed.startsWith('2')) return 'p2sh'
+  if (trimmed.startsWith('1') || trimmed.startsWith('m') || trimmed.startsWith('n')) return 'p2pkh'
+  return ''
+}
+
+// =============================================================================
 // Validation Constraints
 // =============================================================================
 

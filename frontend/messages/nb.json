@@ -431,6 +431,7 @@
         "p2pkhFresh": "Legacy (1...) - Eldst",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - Moderne",
+        "p2wsh": "SegWit Script",
         "detectedHint": "Skripttype oppdaget fra deskriptor og kan ikke endres",
         "requiredHint": "Skripttype er påkrevd for nye XPUB-lommebøker"
       },
@@ -546,6 +547,19 @@
       "transactions": "Transaksjoner",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarsler",
+      "walletDetails": "Lommebokdetaljer",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "Adresse",
+      "scriptType": "Skripttype",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "added": "Lagt til",
+      "copied": "Kopiert!",
       "noTransactions": "Ingen transaksjoner ennå",
       "pendingSync": "Lommebok synkroniseres...",
       "lastSync": "Sist synkronisert",

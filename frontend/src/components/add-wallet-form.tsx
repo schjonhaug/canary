@@ -15,7 +15,7 @@ import { getTranslatedApiError } from "@/lib/utils"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
-import { XPUB_REGEX, DESCRIPTOR_REGEX, isValidBitcoinAddress } from "@/lib/constants"
+import { XPUB_REGEX, DESCRIPTOR_REGEX, isValidBitcoinAddress, getDescriptorScriptType } from "@/lib/constants"
 import { useTranslations } from "next-intl"
 
 // Slug for the sample wallet route
@@ -110,17 +110,6 @@ export function AddWalletForm({
   // Helper function to detect output descriptor format (uses centralized pattern)
   const isDescriptorFormat = (input: string): boolean => {
     return DESCRIPTOR_REGEX.test(input.trim())
-  }
-
-  // Helper function to extract script type from descriptor
-  const getDescriptorScriptType = (input: string): string => {
-    const trimmed = input.trim()
-    if (trimmed.startsWith('wpkh(')) return 'p2wpkh'
-    if (trimmed.startsWith('wsh(')) return 'p2wsh'
-    if (trimmed.startsWith('sh(wpkh(')) return 'p2sh'
-    if (trimmed.startsWith('pkh(')) return 'p2pkh'
-    if (trimmed.startsWith('tr(')) return 'p2tr'
-    return ''
   }
 
   // Helper function to check if custom stop gap requires a specific script type

@@ -431,6 +431,7 @@
         "p2pkhFresh": "レガシー (1...) - 最も古い",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - モダン",
+        "p2wsh": "SegWit Script",
         "detectedHint": "スクリプトタイプはディスクリプタから検出され、変更できません",
         "requiredHint": "新しいXPUBウォレットにはスクリプトタイプが必要です"
       },
@@ -546,6 +547,19 @@
       "transactions": "トランザクション",
       "contacts": "連絡先",
       "balanceAlerts": "残高アラート",
+      "walletDetails": "ウォレットの詳細",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "アドレス",
+      "scriptType": "スクリプトタイプ",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "added": "追加済み",
+      "copied": "コピーしました！",
       "noTransactions": "トランザクションがありません",
       "pendingSync": "ウォレットを同期中...",
       "lastSync": "最終同期",

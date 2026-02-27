@@ -431,6 +431,7 @@
         "p2pkhFresh": "Legacy (1...) - Älteste",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - Modern",
+        "p2wsh": "SegWit Script",
         "detectedHint": "Script-Typ aus Descriptor erkannt und kann nicht geändert werden",
         "requiredHint": "Script-Typ ist für neue XPUB-Wallets erforderlich"
       },
@@ -546,6 +547,19 @@
       "transactions": "Transaktionen",
       "contacts": "Kontakte",
       "balanceAlerts": "Saldo-Warnungen",
+      "walletDetails": "Brieftaschen-Details",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "Adresse",
+      "scriptType": "Skripttyp",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "added": "Hinzugefügt",
+      "copied": "Kopiert!",
       "noTransactions": "Noch keine Transaktionen",
       "pendingSync": "Wallet wird synchronisiert...",
       "lastSync": "Zuletzt synchronisiert",

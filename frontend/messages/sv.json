@@ -431,6 +431,7 @@
         "p2pkhFresh": "Legacy (1...) - Äldst",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - Modern",
+        "p2wsh": "SegWit Script",
         "detectedHint": "Skripttyp upptäckt från descriptor och kan inte ändras",
         "requiredHint": "Skripttyp krävs för nya XPUB-plånböcker"
       },
@@ -546,6 +547,19 @@
       "transactions": "Transaktioner",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarningar",
+      "walletDetails": "Plånboksdetaljer",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "Adress",
+      "scriptType": "Skripttyp",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "added": "Tillagd",
+      "copied": "Kopierat!",
       "noTransactions": "Inga transaktioner än",
       "pendingSync": "Plånboken synkroniseras...",
       "lastSync": "Senast synkad",

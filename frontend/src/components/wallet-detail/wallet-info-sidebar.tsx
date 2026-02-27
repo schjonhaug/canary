@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { WalletContactsList } from "@/components/wallet-contacts-list"
 import { BalanceAlertsList } from "@/components/balance-alerts-list"
+import { WalletDetailsSection } from "@/components/wallet-detail/wallet-details-section"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 import type { Wallet, Contact, BalanceAlert } from "@/types"
@@ -83,6 +84,11 @@ export function WalletInfoSidebar({
               walletChecksum={wallet.checksum}
               balanceAlerts={balanceAlerts}
             />
+          </div>
+
+          {/* Wallet Details */}
+          <div className="pt-2 border-t">
+            <WalletDetailsSection wallet={wallet} />
           </div>
 
           {/* Delete Button */}
