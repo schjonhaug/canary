@@ -372,6 +372,7 @@ fn test_twilio_locale_all_languages_are_valid() {
 // Cross-wallet verification tests
 // ============================
 
+use crate::metadata::types::{EventType, TransactionInsert};
 use crate::metadata::ProviderType;
 
 #[tokio::test]
@@ -634,5 +635,112 @@ async fn test_cross_wallet_verification_sms_exact_match() {
     assert!(
         !result,
         "Phone comparison should be exact match (E.164 format)"
+    );
+}
+
+// ============================
+// Transaction ordering tests
+// ============================
+
+#[tokio::test]
+async fn test_transaction_ordering_prefers_confirmed_at() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Test Wallet", "descriptor1", &user_id)
+        .await
+        .unwrap();
+
+    let now = 1740000000u64; // Recent timestamp
+
+    // Transaction 1: Old confirmed transaction imported recently
+    // (e.g. Genesis block tx synced today — confirmed_at is old, first_seen_at is now)
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_old_confirmed".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 5_000_000_000,
+        fee_sats: None,
+        block_height: Some(1),
+        first_seen_at: now,
+        confirmed_at: Some(1231006505), // Jan 3, 2009 (Genesis block)
+        parent_txid: None,
+        transaction_status: "confirmed".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    // Transaction 2: Recent confirmed transaction
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_recent_confirmed".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 1000,
+        fee_sats: None,
+        block_height: Some(800000),
+        first_seen_at: now - 100,
+        confirmed_at: Some(now - 50),
+        parent_txid: None,
+        transaction_status: "confirmed".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    // Transaction 3: Pending mempool transaction (no confirmed_at)
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_pending".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 500,
+        fee_sats: None,
+        block_height: None,
+        first_seen_at: now + 10,
+        confirmed_at: None,
+        parent_txid: None,
+        transaction_status: "pending".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    let transactions = db
+        .get_transactions_by_wallet_checksum(&wallet_checksum, None)
+        .await
+        .unwrap();
+
+    assert_eq!(transactions.len(), 3);
+
+    // Expected order (newest first):
+    // 1. Pending tx (first_seen_at = now + 10, most recent)
+    // 2. Recent confirmed tx (confirmed_at = now - 50)
+    // 3. Old confirmed tx (confirmed_at = Genesis 2009, despite first_seen_at = now)
+    assert_eq!(
+        transactions[0].txid, "tx_pending",
+        "Pending transaction should appear first (newest)"
+    );
+    assert_eq!(
+        transactions[1].txid, "tx_recent_confirmed",
+        "Recent confirmed transaction should appear second"
+    );
+    assert_eq!(
+        transactions[2].txid, "tx_old_confirmed",
+        "Old confirmed transaction should appear last despite recent first_seen_at"
     );
 }

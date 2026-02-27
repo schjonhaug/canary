@@ -127,7 +127,7 @@ impl MetadataDb {
             let conn = pool.get()?;
             conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
-                        (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
+                        (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
                  FROM wallets w
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
@@ -168,7 +168,7 @@ impl MetadataDb {
             let conn = pool.get()?;
             conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
-                        (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
+                        (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
                  FROM wallets w
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
@@ -278,7 +278,7 @@ impl MetadataDb {
             let query = match user_id {
                 Some(_) => {
                     "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
-                            (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
+                            (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                             w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
                      FROM wallets w
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
@@ -288,7 +288,7 @@ impl MetadataDb {
                 }
                 None => {
                     "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
-                            (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
+                            (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                             w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
                      FROM wallets w
                      LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
@@ -348,7 +348,7 @@ impl MetadataDb {
             let conn = pool.get()?;
 
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
-                               (SELECT MAX(t.first_seen_at) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
+                               (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                                w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
                         FROM wallets w
                         LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
@@ -602,7 +602,7 @@ impl MetadataDb {
 
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color,
                                 w.created_at, w.balance_total,
-                                (SELECT MAX(t.first_seen_at) FROM transactions t
+                                (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t
                                  WHERE t.wallet_checksum = w.checksum) as last_activity,
                                 w.status, COUNT(c.id) as contact_count,
                                 w.user_id, w.is_active, w.wallet_type, w.last_synced_at
@@ -658,7 +658,7 @@ impl MetadataDb {
 
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color,
                                 w.created_at, w.balance_total,
-                                (SELECT MAX(t.first_seen_at) FROM transactions t
+                                (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t
                                  WHERE t.wallet_checksum = w.checksum) as last_activity,
                                 w.status, COUNT(c.id) as contact_count,
                                 w.user_id, w.is_active, w.wallet_type, w.last_synced_at
