@@ -98,7 +98,7 @@
       },
       "security": {
         "title": "Sichere Watch-Only Bitcoin-Überwachung",
-        "description": "Watch-Only-Zugriff auf Bitcoin-Wallets mit XPUBs oder Descriptors - wir berühren nie Ihre privaten Schlüssel"
+        "description": "Watch-Only-Bitcoin-Überwachung mit XPUBs, Deskriptoren oder einzelnen Adressen - wir berühren nie Ihre privaten Schlüssel"
       },
       "sync": {
         "title": "Echtzeit-Bitcoin-Wallet-Synchronisation",
@@ -141,19 +141,19 @@
       "items": {
         "whatIsCanary": {
           "question": "Was ist Bitcoin-Wallet-Überwachung von Canary?",
-          "answer": "Canary ist ein professioneller Bitcoin-Wallet-Überwachungs- und Benachrichtigungsdienst, der Ihre Bitcoin-Wallets mittels XPUBs oder Deskriptoren überwacht und sofortige Benachrichtigungen für alle Transaktionen per E-Mail, SMS und Push-Benachrichtigungen sendet. Perfekt für die Überwachung von Cold Storage, Hardware-Wallets und Bitcoin-Adressen im Nur-Lese-Modus."
+          "answer": "Canary ist ein professioneller Bitcoin-Überwachungs- und Benachrichtigungsdienst, der Ihre Bitcoin-Wallets mittels XPUBs, Deskriptoren oder einzelnen Adressen überwacht und sofortige Benachrichtigungen für alle Transaktionen per E-Mail, SMS und Push-Benachrichtigungen sendet. Perfekt für die Überwachung von Cold Storage, Hardware-Wallets und einzelnen Bitcoin-Adressen."
         },
         "howDoesItWork": {
           "question": "Wie funktioniert Bitcoin-Wallet-Überwachung ohne private Schlüssel?",
-          "answer": "Canary verwendet den XPUB (erweiterten öffentlichen Schlüssel) oder Deskriptor Ihrer Wallet für Nur-Lese-Bitcoin-Überwachung. Dies gibt uns Nur-Lese-Zugriff, um Ihre Bitcoin-Adressen zu verfolgen und Transaktionen zu erkennen. Wir haben niemals Zugriff auf Ihre privaten Schlüssel und können Ihr Bitcoin nicht bewegen - was vollständige Sicherheit für Ihre Cold-Storage-Überwachung gewährleistet."
+          "answer": "Canary verwendet den XPUB (erweiterten öffentlichen Schlüssel), Deskriptor oder eine einzelne Bitcoin-Adresse Ihrer Wallet für Nur-Lese-Überwachung. Dies gibt uns Nur-Lese-Zugriff, um Ihre Bitcoin-Adressen zu verfolgen und Transaktionen zu erkennen. Wir haben niemals Zugriff auf Ihre privaten Schlüssel und können Ihr Bitcoin nicht bewegen - was vollständige Sicherheit für Ihre Cold-Storage-Überwachung gewährleistet."
         },
         "whatIsXpub": {
           "question": "Was ist XPUB-Wallet-Überwachung?",
-          "answer": "XPUB-Überwachung ermöglicht es Ihnen, alle Adressen in Ihrer Bitcoin-Wallet zu verfolgen, ohne private Schlüssel preiszugeben. Indem Sie den XPUB oder Deskriptor Ihrer Wallet angeben, kann Canary unbegrenzte Adressen überwachen, Transaktionen in jeder Tiefe erkennen (sogar 200+ Adressen tief) und Sie sofort benachrichtigen, wenn sich Bitcoin bewegt."
+          "answer": "XPUB-Überwachung ermöglicht es Ihnen, alle Adressen in Ihrer Bitcoin-Wallet zu verfolgen, ohne private Schlüssel preiszugeben. Indem Sie den XPUB oder Deskriptor Ihrer Wallet angeben, kann Canary unbegrenzte Adressen überwachen, Transaktionen in jeder Tiefe erkennen (sogar 200+ Adressen tief) und Sie sofort benachrichtigen, wenn sich Bitcoin bewegt. Sie können auch eine einzelne Bitcoin-Adresse direkt verfolgen, wenn Sie keine vollständige Wallet-Überwachung benötigen."
         },
         "coldStorage": {
           "question": "Kann ich Bitcoin-Cold-Storage-Wallets überwachen?",
-          "answer": "Ja! Canary ist perfekt für Bitcoin-Cold-Storage-Überwachung. Egal ob Sie Hardware-Wallets wie Ledger oder Trezor, Paper-Wallets oder andere Cold-Storage-Lösungen verwenden - geben Sie einfach Ihren XPUB oder Deskriptor an für sichere Nur-Lese-Überwachung mit sofortigen Benachrichtigungen."
+          "answer": "Ja! Canary ist perfekt für Bitcoin-Cold-Storage-Überwachung. Egal ob Sie Hardware-Wallets wie Ledger oder Trezor, Paper-Wallets oder andere Cold-Storage-Lösungen verwenden - geben Sie einfach Ihren XPUB oder Deskriptor an für sichere Nur-Lese-Überwachung mit sofortigen Benachrichtigungen. Sie können auch einzelne Adressen wie Spendeadressen oder Einmalzahlungsadressen verfolgen."
         },
         "notificationSpeed": {
           "question": "Wie schnell sind Bitcoin-Transaktionsbenachrichtigungen?",
@@ -161,7 +161,7 @@
         },
         "walletTypes": {
           "question": "Welche Bitcoin-Wallet-Typen werden unterstützt?",
-          "answer": "Canary unterstützt alle wichtigen Bitcoin-Wallet-Typen einschließlich Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) und Taproot (P2TR) Adressen. Wir erkennen automatisch Ihren Wallet-Typ aus dem XPUB oder Sie können ihn manuell angeben. Multi-Signatur- und Hardware-Wallet-Überwachung werden vollständig unterstützt."
+          "answer": "Canary unterstützt alle wichtigen Bitcoin-Wallet-Typen einschließlich Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) und Taproot (P2TR). Wir erkennen automatisch Ihren Wallet-Typ aus dem XPUB oder Sie können ihn manuell angeben. Einzelne Adressen jedes Typs können auch direkt verfolgt werden. Multi-Signatur- und Hardware-Wallet-Überwachung werden vollständig unterstützt."
         },
         "whyCanary": {
           "question": "Warum heißt es Canary?",
@@ -169,7 +169,7 @@
         },
         "noBlockchain": {
           "question": "Kann ich Bitcoin verfolgen, ohne die Blockchain herunterzuladen?",
-          "answer": "Ja! Canary verbindet sich mit professionellen Electrum-Servern, um die Bitcoin-Blockchain für Sie zu überwachen. Kein Bedarf, einen vollständigen Knoten zu betreiben oder die Blockchain herunterzuladen - geben Sie einfach Ihren XPUB an und beginnen Sie, sofortige Benachrichtigungen für alle Bitcoin-Wallet-Aktivitäten zu erhalten."
+          "answer": "Ja! Canary verbindet sich mit professionellen Electrum-Servern, um die Bitcoin-Blockchain für Sie zu überwachen. Kein Bedarf, einen vollständigen Knoten zu betreiben oder die Blockchain herunterzuladen - geben Sie einfach Ihren XPUB oder eine einzelne Bitcoin-Adresse an und beginnen Sie, sofortige Benachrichtigungen für alle Bitcoin-Aktivitäten zu erhalten."
         },
         "balanceAlerts": {
           "question": "Wie funktionieren Bitcoin-Saldowarnungen?",

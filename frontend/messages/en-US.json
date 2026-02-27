@@ -98,7 +98,7 @@
       },
       "security": {
         "title": "Secure Watch-Only Bitcoin Monitoring",
-        "description": "Watch-only Bitcoin wallet access using XPUBs or descriptors - we never touch your private keys"
+        "description": "Watch-only Bitcoin monitoring using XPUBs, descriptors, or individual addresses - we never touch your private keys"
       },
       "sync": {
         "title": "Real-Time Bitcoin Wallet Sync",
@@ -141,19 +141,19 @@
       "items": {
         "whatIsCanary": {
           "question": "What is Canary Bitcoin wallet monitoring?",
-          "answer": "Canary is a professional Bitcoin wallet monitoring and notification service that watches your Bitcoin wallets using XPUBs or descriptors and sends instant alerts for all transactions through email, SMS and push notifications. Perfect for monitoring cold storage, hardware wallets, and watch-only Bitcoin addresses."
+          "answer": "Canary is a professional Bitcoin monitoring and notification service that watches your Bitcoin wallets using XPUBs, descriptors, or individual addresses and sends instant alerts for all transactions through email, SMS and push notifications. Perfect for monitoring cold storage, hardware wallets, and individual Bitcoin addresses."
         },
         "howDoesItWork": {
           "question": "How does Bitcoin wallet monitoring work without private keys?",
-          "answer": "Canary uses your wallet's XPUB (extended public key) or descriptor for watch-only Bitcoin monitoring. This gives us read-only access to track your Bitcoin addresses and detect transactions. We never have access to your private keys and cannot move your Bitcoin - ensuring complete security for your cold storage monitoring."
+          "answer": "Canary uses your wallet's XPUB (extended public key), descriptor, or a single Bitcoin address for watch-only monitoring. This gives us read-only access to track your Bitcoin addresses and detect transactions. We never have access to your private keys and cannot move your Bitcoin - ensuring complete security for your cold storage monitoring."
         },
         "whatIsXpub": {
           "question": "What is XPUB wallet monitoring?",
-          "answer": "XPUB monitoring allows you to track all addresses in your Bitcoin wallet without exposing private keys. By providing your wallet's XPUB or descriptor, Canary can monitor unlimited addresses, detect transactions at any depth (even 200+ addresses deep), and alert you instantly when Bitcoin moves."
+          "answer": "XPUB monitoring allows you to track all addresses in your Bitcoin wallet without exposing private keys. By providing your wallet's XPUB or descriptor, Canary can monitor unlimited addresses, detect transactions at any depth (even 200+ addresses deep), and alert you instantly when Bitcoin moves. You can also track a single Bitcoin address directly if you don't need full wallet monitoring."
         },
         "coldStorage": {
           "question": "Can I monitor Bitcoin cold storage wallets?",
-          "answer": "Yes! Canary is perfect for Bitcoin cold storage monitoring. Whether you're using hardware wallets like Ledger or Trezor, paper wallets, or any other cold storage solution, simply provide your XPUB or descriptor for secure watch-only monitoring with instant notifications."
+          "answer": "Yes! Canary is perfect for Bitcoin cold storage monitoring. Whether you're using hardware wallets like Ledger or Trezor, paper wallets, or any other cold storage solution, simply provide your XPUB or descriptor for secure watch-only monitoring with instant notifications. You can also track individual addresses such as donation addresses or single-use payment addresses."
         },
         "notificationSpeed": {
           "question": "How fast are Bitcoin transaction notifications?",
@@ -161,7 +161,7 @@
         },
         "walletTypes": {
           "question": "What Bitcoin wallet types are supported?",
-          "answer": "Canary supports all major Bitcoin wallet types including Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH), and Taproot (P2TR) addresses. We automatically detect your wallet type from the XPUB or you can specify it manually. Multi-signature and hardware wallet monitoring are fully supported."
+          "answer": "Canary supports all major Bitcoin wallet types including Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH), and Taproot (P2TR). We automatically detect your wallet type from the XPUB or you can specify it manually. Individual addresses of any type can also be tracked directly. Multi-signature and hardware wallet monitoring are fully supported."
         },
         "whyCanary": {
           "question": "Why is it called Canary?",
@@ -169,7 +169,7 @@
         },
         "noBlockchain": {
           "question": "Can I track Bitcoin without downloading the blockchain?",
-          "answer": "Yes! Canary connects to professional Electrum servers to monitor the Bitcoin blockchain for you. No need to run a full node or download the blockchain - just provide your XPUB and start receiving instant notifications for all Bitcoin wallet activity."
+          "answer": "Yes! Canary connects to professional Electrum servers to monitor the Bitcoin blockchain for you. No need to run a full node or download the blockchain - just provide your XPUB or a single Bitcoin address and start receiving instant notifications for all Bitcoin activity."
         },
         "balanceAlerts": {
           "question": "How do Bitcoin balance alerts work?",

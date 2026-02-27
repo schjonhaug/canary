@@ -98,7 +98,7 @@
       },
       "security": {
         "title": "Monitoramento Seguro de Bitcoin Somente Leitura",
-        "description": "Acesso somente leitura a carteiras Bitcoin usando XPUBs ou descritores - nunca tocamos suas chaves privadas"
+        "description": "Monitoramento Bitcoin somente leitura usando XPUBs, descritores ou endereços individuais - nunca tocamos suas chaves privadas"
       },
       "sync": {
         "title": "Sincronização em Tempo Real de Carteira Bitcoin",
@@ -141,19 +141,19 @@
       "items": {
         "whatIsCanary": {
           "question": "O que é o monitoramento de carteiras Bitcoin do Canary?",
-          "answer": "Canary é um serviço profissional de monitoramento e notificação de carteiras Bitcoin que vigia suas carteiras usando XPUBs ou descritores e envia alertas instantâneos para todas as transações via email, SMS e notificações push. Perfeito para monitorar armazenamento frio, carteiras de hardware e endereços Bitcoin somente leitura."
+          "answer": "Canary é um serviço profissional de monitoramento e notificação de Bitcoin que vigia suas carteiras usando XPUBs, descritores ou endereços individuais e envia alertas instantâneos para todas as transações via email, SMS e notificações push. Perfeito para monitorar armazenamento frio, carteiras de hardware e endereços Bitcoin individuais."
         },
         "howDoesItWork": {
           "question": "Como funciona o monitoramento de carteiras Bitcoin sem chaves privadas?",
-          "answer": "Canary usa o XPUB (chave pública estendida) ou descritor da sua carteira para monitoramento Bitcoin somente leitura. Isso nos dá acesso somente leitura para rastrear seus endereços Bitcoin e detectar transações. Nunca temos acesso às suas chaves privadas e não podemos mover seu Bitcoin - garantindo segurança completa para seu monitoramento de armazenamento frio."
+          "answer": "Canary usa o XPUB (chave pública estendida), descritor ou um único endereço Bitcoin da sua carteira para monitoramento somente leitura. Isso nos dá acesso somente leitura para rastrear seus endereços Bitcoin e detectar transações. Nunca temos acesso às suas chaves privadas e não podemos mover seu Bitcoin - garantindo segurança completa para seu monitoramento de armazenamento frio."
         },
         "whatIsXpub": {
           "question": "O que é monitoramento de carteira XPUB?",
-          "answer": "O monitoramento XPUB permite rastrear todos os endereços na sua carteira Bitcoin sem expor chaves privadas. Ao fornecer o XPUB ou descritor da sua carteira, o Canary pode monitorar endereços ilimitados, detectar transações em qualquer profundidade (mesmo 200+ endereços de profundidade), e alertar você instantaneamente quando Bitcoin se move."
+          "answer": "O monitoramento XPUB permite rastrear todos os endereços na sua carteira Bitcoin sem expor chaves privadas. Ao fornecer o XPUB ou descritor da sua carteira, o Canary pode monitorar endereços ilimitados, detectar transações em qualquer profundidade (mesmo 200+ endereços de profundidade), e alertar você instantaneamente quando Bitcoin se move. Você também pode rastrear um único endereço Bitcoin diretamente se não precisar de monitoramento completo de carteira."
         },
         "coldStorage": {
           "question": "Posso monitorar carteiras de armazenamento frio de Bitcoin?",
-          "answer": "Sim! Canary é perfeito para monitoramento de armazenamento frio de Bitcoin. Seja usando carteiras de hardware como Ledger ou Trezor, carteiras de papel ou outras soluções de armazenamento frio, basta fornecer seu XPUB ou descritor para monitoramento seguro somente leitura com notificações instantâneas."
+          "answer": "Sim! Canary é perfeito para monitoramento de armazenamento frio de Bitcoin. Seja usando carteiras de hardware como Ledger ou Trezor, carteiras de papel ou outras soluções de armazenamento frio, basta fornecer seu XPUB ou descritor para monitoramento seguro somente leitura com notificações instantâneas. Você também pode rastrear endereços individuais como endereços de doação ou endereços de pagamento único."
         },
         "notificationSpeed": {
           "question": "Quão rápidas são as notificações de transações Bitcoin?",
@@ -161,7 +161,7 @@
         },
         "walletTypes": {
           "question": "Quais tipos de carteiras Bitcoin são suportados?",
-          "answer": "Canary suporta todos os principais tipos de carteiras Bitcoin incluindo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) e endereços Taproot (P2TR). Detectamos automaticamente o tipo da sua carteira a partir do XPUB ou você pode especificar manualmente. Monitoramento de multi-assinatura e carteiras de hardware são totalmente suportados."
+          "answer": "Canary suporta todos os principais tipos de carteiras Bitcoin incluindo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) e Taproot (P2TR). Detectamos automaticamente o tipo da sua carteira a partir do XPUB ou você pode especificar manualmente. Endereços individuais de qualquer tipo também podem ser rastreados diretamente. Monitoramento de multi-assinatura e carteiras de hardware são totalmente suportados."
         },
         "whyCanary": {
           "question": "Por que se chama Canary?",
@@ -169,7 +169,7 @@
         },
         "noBlockchain": {
           "question": "Posso rastrear Bitcoin sem baixar a blockchain?",
-          "answer": "Sim! Canary se conecta a servidores Electrum profissionais para monitorar a blockchain do Bitcoin para você. Não precisa executar um nó completo ou baixar a blockchain - basta fornecer seu XPUB e começar a receber notificações instantâneas para toda a atividade da sua carteira Bitcoin."
+          "answer": "Sim! Canary se conecta a servidores Electrum profissionais para monitorar a blockchain do Bitcoin para você. Não precisa executar um nó completo ou baixar a blockchain - basta fornecer seu XPUB ou um único endereço Bitcoin e começar a receber notificações instantâneas para toda a atividade de Bitcoin."
         },
         "balanceAlerts": {
           "question": "Como funcionam os alertas de saldo de Bitcoin?",

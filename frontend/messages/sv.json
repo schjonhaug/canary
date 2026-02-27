@@ -98,7 +98,7 @@
       },
       "security": {
         "title": "Säker watch-only Bitcoinövervakning",
-        "description": "Watch-only åtkomst till Bitcoinplånböcker med XPUBs eller descriptorer – vi rör aldrig dina privata nycklar"
+        "description": "Watch-only Bitcoinövervakning med XPUBs, deskriptorer eller enskilda adresser – vi rör aldrig dina privata nycklar"
       },
       "sync": {
         "title": "Realtidssynkronisering av Bitcoinplånböcker",
@@ -141,19 +141,19 @@
       "items": {
         "whatIsCanary": {
           "question": "Vad är Canary bitcoin-plånboksbevakning?",
-          "answer": "Canary är en professionell tjänst för bitcoin-plånboksbevakning och aviseringar som bevakar dina bitcoin-plånböcker med hjälp av XPUB:ar eller deskriptorer och skickar omedelbara varningar för alla transaktioner via e-post, SMS och push-notiser. Perfekt för bevakning av cold storage, hårdvaruplånböcker och watch-only bitcoin-adresser."
+          "answer": "Canary är en professionell tjänst för bitcoinbevakning och aviseringar som bevakar dina bitcoin-plånböcker med hjälp av XPUB:ar, deskriptorer eller enskilda adresser och skickar omedelbara varningar för alla transaktioner via e-post, SMS och push-notiser. Perfekt för bevakning av cold storage, hårdvaruplånböcker och enskilda bitcoin-adresser."
         },
         "howDoesItWork": {
           "question": "Hur fungerar bitcoin-plånboksbevakning utan privata nycklar?",
-          "answer": "Canary använder din plånboks XPUB (utökad publik nyckel) eller deskriptor för watch-only-bevakning av bitcoin. Detta ger oss skrivskyddad åtkomst för att spåra dina bitcoin-adresser och upptäcka transaktioner. Vi har aldrig tillgång till dina privata nycklar och kan inte flytta dina bitcoin – vilket säkerställer fullständig säkerhet för din cold storage-bevakning."
+          "answer": "Canary använder din plånboks XPUB (utökad publik nyckel), deskriptor eller en enskild bitcoin-adress för watch-only-bevakning. Detta ger oss skrivskyddad åtkomst för att spåra dina bitcoin-adresser och upptäcka transaktioner. Vi har aldrig tillgång till dina privata nycklar och kan inte flytta dina bitcoin – vilket säkerställer fullständig säkerhet för din cold storage-bevakning."
         },
         "whatIsXpub": {
           "question": "Vad är XPUB-plånboksbevakning?",
-          "answer": "XPUB-bevakning gör att du kan spåra alla adresser i din bitcoin-plånbok utan att exponera privata nycklar. Genom att ange din plånboks XPUB eller deskriptor kan Canary bevaka obegränsat antal adresser, upptäcka transaktioner på vilket djup som helst (även 200+ adresser djupt) och varna dig omedelbart när bitcoin flyttas."
+          "answer": "XPUB-bevakning gör att du kan spåra alla adresser i din bitcoin-plånbok utan att exponera privata nycklar. Genom att ange din plånboks XPUB eller deskriptor kan Canary bevaka obegränsat antal adresser, upptäcka transaktioner på vilket djup som helst (även 200+ adresser djupt) och varna dig omedelbart när bitcoin flyttas. Du kan också spåra en enskild bitcoin-adress direkt om du inte behöver fullständig plånboksbevakning."
         },
         "coldStorage": {
           "question": "Kan jag bevaka bitcoin-plånböcker i cold storage?",
-          "answer": "Ja! Canary är perfekt för bevakning av bitcoin i cold storage. Oavsett om du använder hårdvaruplånböcker som Ledger eller Trezor, pappersplånböcker eller någon annan cold storage-lösning, behöver du bara ange din XPUB eller deskriptor för säker watch-only-bevakning med omedelbara aviseringar."
+          "answer": "Ja! Canary är perfekt för bevakning av bitcoin i cold storage. Oavsett om du använder hårdvaruplånböcker som Ledger eller Trezor, pappersplånböcker eller någon annan cold storage-lösning, behöver du bara ange din XPUB eller deskriptor för säker watch-only-bevakning med omedelbara aviseringar. Du kan också spåra enskilda adresser som donationsadresser eller engångsbetalningsadresser."
         },
         "notificationSpeed": {
           "question": "Hur snabba är aviseringarna för bitcoin-transaktioner?",
@@ -161,7 +161,7 @@
         },
         "walletTypes": {
           "question": "Vilka typer av bitcoin-plånböcker stöds?",
-          "answer": "Canary stöder alla större typer av bitcoin-plånböcker, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) och Taproot (P2TR). Vi känner automatiskt av din plånbokstyp från din XPUB, eller så kan du ange den manuellt. Bevakning av multisig- och hårdvaruplånböcker stöds fullt ut."
+          "answer": "Canary stöder alla större typer av bitcoin-plånböcker, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) och Taproot (P2TR). Vi känner automatiskt av din plånbokstyp från din XPUB, eller så kan du ange den manuellt. Enskilda adresser av alla typer kan också spåras direkt. Bevakning av multisig- och hårdvaruplånböcker stöds fullt ut."
         },
         "whyCanary": {
           "question": "Varför heter det Canary?",
@@ -169,7 +169,7 @@
         },
         "noBlockchain": {
           "question": "Kan jag spåra bitcoin utan att ladda ner blockkedjan?",
-          "answer": "Ja! Canary ansluter till professionella Electrum-servrar för att bevaka bitcoin-blockkedjan åt dig. Du behöver inte köra en egen nod eller ladda ner blockkedjan – ange bara din XPUB och börja ta emot omedelbara aviseringar för all aktivitet i din bitcoin-plånbok."
+          "answer": "Ja! Canary ansluter till professionella Electrum-servrar för att bevaka bitcoin-blockkedjan åt dig. Du behöver inte köra en egen nod eller ladda ner blockkedjan – ange bara din XPUB eller en enskild bitcoin-adress och börja ta emot omedelbara aviseringar för all bitcoin-aktivitet."
         },
         "balanceAlerts": {
           "question": "Hur fungerar saldovarningar för bitcoin?",
