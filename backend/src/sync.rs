@@ -1468,7 +1468,10 @@ impl WalletSyncService {
         // Parse address and get script_pubkey
         let address = Address::from_str(&address_str)
             .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
-        let script = address.assume_checked().script_pubkey();
+        let script = address
+            .require_network(self.config.network.to_bdk_network())
+            .map_err(|e| anyhow!("Address network mismatch for {}: {}", address_str, e))?
+            .script_pubkey();
 
         // Get Electrum client
         let client = match electrum_manager {
@@ -1586,6 +1589,10 @@ impl WalletSyncService {
             // Calculate sent amount (inputs from our address)
             let mut sent: i64 = 0;
             for input in &full_tx.input {
+                // Skip coinbase inputs (no previous transaction to fetch)
+                if input.previous_output.is_null() {
+                    continue;
+                }
                 let prev_txid = input.previous_output.txid;
                 let prev_vout = input.previous_output.vout;
                 match client.transaction_get(&prev_txid).await {
@@ -1619,7 +1626,7 @@ impl WalletSyncService {
                 (EventType::Send, sent)
             } else if sent > 0 && received > 0 {
                 // Send with change back to our address; net amount sent
-                (EventType::Send, sent - received)
+                (EventType::Send, (sent - received).max(0))
             } else {
                 // Pure receive
                 (EventType::Receive, received)
@@ -1738,7 +1745,10 @@ impl WalletSyncService {
         // Parse address and get script_pubkey
         let address = Address::from_str(&address_str)
             .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
-        let script = address.assume_checked().script_pubkey();
+        let script = address
+            .require_network(self.config.network.to_bdk_network())
+            .map_err(|e| anyhow!("Address network mismatch for {}: {}", address_str, e))?
+            .script_pubkey();
 
         // Get Electrum client
         let client = match electrum_manager {
@@ -1865,6 +1875,10 @@ impl WalletSyncService {
                 // Calculate sent amount
                 let mut sent: i64 = 0;
                 for input in &full_tx.input {
+                    // Skip coinbase inputs (no previous transaction to fetch)
+                    if input.previous_output.is_null() {
+                        continue;
+                    }
                     let prev_txid = input.previous_output.txid;
                     let prev_vout = input.previous_output.vout;
                     match client.transaction_get(&prev_txid).await {
@@ -1891,7 +1905,7 @@ impl WalletSyncService {
                 let (event_type, amount) = if sent > 0 && received == 0 {
                     (EventType::Send, sent)
                 } else if sent > 0 && received > 0 {
-                    (EventType::Send, sent - received)
+                    (EventType::Send, (sent - received).max(0))
                 } else {
                     (EventType::Receive, received)
                 };

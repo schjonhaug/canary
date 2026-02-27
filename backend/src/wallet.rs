@@ -102,10 +102,20 @@ impl WalletCreationService {
             .descriptor_exists_for_user(&descriptor, user_id)
             .await?
         {
-            let checksum = self.metadata_db.extract_checksum(&descriptor);
+            // Look up the user's actual wallet checksum (may differ from descriptor checksum
+            // for multi-user address watches that use generated short IDs)
+            let existing_wallets = self
+                .metadata_db
+                .get_wallets_for_user(Some(user_id))
+                .await?;
+            let existing_checksum = existing_wallets
+                .iter()
+                .find(|w| w.descriptor == descriptor)
+                .map(|w| w.checksum.clone())
+                .unwrap_or_else(|| self.metadata_db.extract_checksum(&descriptor));
             return Err(anyhow!(
                 "This address is already being watched with ID: {}.",
-                checksum
+                existing_checksum
             ));
         }
 

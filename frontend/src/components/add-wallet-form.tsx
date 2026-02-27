@@ -65,6 +65,7 @@ export function AddWalletForm({
   const modal = useModal()
   const { user } = useAuth()
   const t = useTranslations('wallets')
+  const tCommon = useTranslations('common')
   const tApiErrors = useTranslations('errors.api')
 
   // Check if auth is enabled
@@ -338,7 +339,7 @@ export function AddWalletForm({
             disabled={modal.isLoading}
             className="flex-1"
           >
-            Cancel
+            {tCommon("cancel")}
           </Button>
         )}
         <Button
