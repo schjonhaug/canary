@@ -58,7 +58,7 @@ impl WalletSyncService {
         electrum_manager: Option<&ElectrumClientManager>,
     ) -> Result<bool> {
         let sync_start = Instant::now();
-        info!("[{}] Starting transaction-based sync", wallet_checksum);
+        debug!("[{}] Starting descriptor-based sync", wallet_checksum);
         let mut electrum_duration = Duration::ZERO;
         let mut electrum_attempts: u32 = 0;
 
@@ -336,17 +336,27 @@ impl WalletSyncService {
         );
 
         let sync_duration = sync_start.elapsed();
-        info!(
-            "[{}] Sync complete in {:.2}s (electrum {:.2}s across {} attempt(s)); changes={}, new_transactions={}, confirmations={}, conflicts_marked={}",
-            wallet_checksum,
-            sync_duration.as_secs_f64(),
-            electrum_duration.as_secs_f64(),
-            electrum_attempts,
-            summary.has_changes,
-            summary.new_transactions,
-            summary.confirmation_updates,
-            summary.conflicts_marked
-        );
+        if summary.has_changes {
+            info!(
+                "[{}] Descriptor-based sync complete in {:.2}s (electrum {:.2}s across {} attempt(s)); changes={}, new_transactions={}, confirmations={}, conflicts_marked={}",
+                wallet_checksum,
+                sync_duration.as_secs_f64(),
+                electrum_duration.as_secs_f64(),
+                electrum_attempts,
+                summary.has_changes,
+                summary.new_transactions,
+                summary.confirmation_updates,
+                summary.conflicts_marked
+            );
+        } else {
+            debug!(
+                "[{}] Descriptor-based sync complete in {:.2}s (electrum {:.2}s across {} attempt(s)); changes=false",
+                wallet_checksum,
+                sync_duration.as_secs_f64(),
+                electrum_duration.as_secs_f64(),
+                electrum_attempts,
+            );
+        }
 
         // Log warning for unusually long syncs (cloud mode only)
         if self.config.is_cloud_mode() && sync_duration.as_secs() > 120 {
@@ -1449,7 +1459,7 @@ impl WalletSyncService {
         electrum_manager: Option<&ElectrumClientManager>,
     ) -> Result<bool> {
         let sync_start = Instant::now();
-        info!("[{}] Starting address watch sync", wallet_checksum);
+        debug!("[{}] Starting address-based sync", wallet_checksum);
 
         // Extract address from addr() descriptor
         let address_str = extract_address_from_descriptor(descriptor)
@@ -1688,12 +1698,19 @@ impl WalletSyncService {
         }
 
         let sync_duration = sync_start.elapsed();
-        info!(
-            "[{}] Address watch sync complete in {:.2}s; changes={}",
-            wallet_checksum,
-            sync_duration.as_secs_f64(),
-            has_changes
-        );
+        if has_changes {
+            info!(
+                "[{}] Address-based sync complete in {:.2}s; changes=true",
+                wallet_checksum,
+                sync_duration.as_secs_f64(),
+            );
+        } else {
+            debug!(
+                "[{}] Address-based sync complete in {:.2}s; changes=false",
+                wallet_checksum,
+                sync_duration.as_secs_f64(),
+            );
+        }
 
         Ok(has_changes)
     }
@@ -1964,12 +1981,19 @@ impl WalletSyncService {
         }
 
         let sync_duration = sync_start.elapsed();
-        info!(
-            "Grouped address watch sync complete in {:.2}s for {} watchers; changes={}",
-            sync_duration.as_secs_f64(),
-            wallet_checksums.len(),
-            any_changes
-        );
+        if any_changes {
+            info!(
+                "Grouped address-based sync complete in {:.2}s for {} watchers; changes=true",
+                sync_duration.as_secs_f64(),
+                wallet_checksums.len(),
+            );
+        } else {
+            debug!(
+                "Grouped address-based sync complete in {:.2}s for {} watchers; changes=false",
+                sync_duration.as_secs_f64(),
+                wallet_checksums.len(),
+            );
+        }
 
         Ok(any_changes)
     }
