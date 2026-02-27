@@ -5,9 +5,9 @@ use crate::metadata::{
     BalanceAlertTriggerParams, EventType, MetadataDb, Transaction, TransactionInsert,
     TransactionNotification,
 };
-use crate::utils::extract_address_from_descriptor;
+use crate::utils::{extract_address_from_descriptor, extract_pubkey_from_descriptor};
 use anyhow::{anyhow, Result};
-use bdk_wallet::bitcoin::{Address, Txid};
+use bdk_wallet::bitcoin::{Address, Network, PublicKey, ScriptBuf, Txid};
 use bdk_wallet::{rusqlite::Connection, PersistedWallet};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
@@ -1450,6 +1450,27 @@ impl WalletSyncService {
     /// If `rust-miniscript` adds `addr()` support in the future, we can migrate to BDK wallets
     /// without any data migration since the stored descriptors are already in standard format.
     ///
+    /// Resolve an `addr()` or `pk()` descriptor to the corresponding ScriptBuf.
+    fn script_from_watch_descriptor(descriptor: &str, network: Network) -> Result<ScriptBuf> {
+        if let Some(address_str) = extract_address_from_descriptor(descriptor) {
+            let address = Address::from_str(&address_str)
+                .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
+            Ok(address
+                .require_network(network)
+                .map_err(|e| anyhow!("Address network mismatch for {}: {}", address_str, e))?
+                .script_pubkey())
+        } else if let Some(pubkey_str) = extract_pubkey_from_descriptor(descriptor) {
+            let pubkey = PublicKey::from_str(&pubkey_str)
+                .map_err(|e| anyhow!("Failed to parse public key {}: {}", pubkey_str, e))?;
+            Ok(ScriptBuf::new_p2pk(&pubkey))
+        } else {
+            Err(anyhow!(
+                "Invalid watch descriptor format (expected addr() or pk()): {}",
+                descriptor
+            ))
+        }
+    }
+
     /// See: https://github.com/rust-bitcoin/rust-miniscript/issues/294
     /// See: https://github.com/bitcoindevkit/bdk_wallet/issues/174
     pub async fn sync_address_watch(
@@ -1461,17 +1482,10 @@ impl WalletSyncService {
         let sync_start = Instant::now();
         debug!("[{}] Starting address-based sync", wallet_checksum);
 
-        // Extract address from addr() descriptor
-        let address_str = extract_address_from_descriptor(descriptor)
-            .ok_or_else(|| anyhow!("Invalid addr() descriptor format: {}", descriptor))?;
-
-        // Parse address and get script_pubkey
-        let address = Address::from_str(&address_str)
-            .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
-        let script = address
-            .require_network(self.config.network.to_bdk_network())
-            .map_err(|e| anyhow!("Address network mismatch for {}: {}", address_str, e))?
-            .script_pubkey();
+        let script = Self::script_from_watch_descriptor(
+            descriptor,
+            self.config.network.to_bdk_network(),
+        )?;
 
         // Get Electrum client
         let client = match electrum_manager {
@@ -1738,17 +1752,10 @@ impl WalletSyncService {
             descriptor
         );
 
-        // Extract address from addr() descriptor
-        let address_str = extract_address_from_descriptor(descriptor)
-            .ok_or_else(|| anyhow!("Invalid addr() descriptor format: {}", descriptor))?;
-
-        // Parse address and get script_pubkey
-        let address = Address::from_str(&address_str)
-            .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
-        let script = address
-            .require_network(self.config.network.to_bdk_network())
-            .map_err(|e| anyhow!("Address network mismatch for {}: {}", address_str, e))?
-            .script_pubkey();
+        let script = Self::script_from_watch_descriptor(
+            descriptor,
+            self.config.network.to_bdk_network(),
+        )?;
 
         // Get Electrum client
         let client = match electrum_manager {
