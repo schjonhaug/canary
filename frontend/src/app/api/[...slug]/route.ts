@@ -87,6 +87,7 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       method: request.method,
       headers,
       body,
+      signal: AbortSignal.timeout(30_000),
     });
 
     // Copy response headers, handling multiple Set-Cookie headers correctly
@@ -115,14 +116,15 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
   } catch (error) {
     console.error('API Proxy Error:', error);
     console.error('Backend URL:', url.toString());
-    
-    // Return error without exposing backend URL (logged server-side above)
+
+    const isTimeout = error instanceof DOMException && error.name === 'TimeoutError';
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
     return new Response(JSON.stringify({
-      error: 'Backend request failed',
+      error: isTimeout ? 'Backend request timed out' : 'Backend request failed',
       details: errorMessage
-    }), { 
-      status: 502,
+    }), {
+      status: isTimeout ? 504 : 502,
       headers: { 'Content-Type': 'application/json' }
     });
   }
