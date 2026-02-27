@@ -96,96 +96,11 @@ impl WalletCreationService {
         // Convert to addr() descriptor with checksum
         let descriptor = XpubConverter::address_to_descriptor(address)?;
 
-        // Check if THIS USER already watches this address
-        if self
-            .metadata_db
-            .descriptor_exists_for_user(&descriptor, user_id)
-            .await?
-        {
-            // Look up the user's actual wallet checksum (may differ from descriptor checksum
-            // for multi-user address watches that use generated short IDs)
-            let existing_wallets = self
-                .metadata_db
-                .get_wallets_for_user(Some(user_id))
-                .await?;
-            let existing_checksum = existing_wallets
-                .iter()
-                .find(|w| w.descriptor == descriptor)
-                .map(|w| w.checksum.clone())
-                .unwrap_or_else(|| self.metadata_db.extract_checksum(&descriptor));
-            return Err(anyhow!(
-                "This address is already being watched with ID: {}.",
-                existing_checksum
-            ));
-        }
-
-        // Determine the checksum to use as PK.
-        // If another user already watches this address, generate a unique short ID
-        // so both users get independent wallet records.
-        let checksum_override = if self.metadata_db.descriptor_exists(&descriptor).await? {
-            Some(generate_unique_wallet_id())
-        } else {
-            None // First watcher — use the standard descriptor checksum
-        };
-
-        // Insert wallet metadata with 'address' type
-        let checksum = self
-            .metadata_db
-            .insert_wallet_with_type_and_checksum(
-                name,
-                &descriptor,
-                user_id,
-                "address",
-                checksum_override.as_deref(),
-            )
-            .await?;
-
-        // Mark as ready immediately (no BDK wallet file needed, no pending state)
-        self.metadata_db
-            .update_wallet_status(&checksum, "ready")
-            .await?;
-
-        // Get the wallet metadata to return (by checksum, not descriptor, since
-        // multiple users may share the same descriptor)
-        let wallet_metadata = self
-            .metadata_db
-            .get_wallet_by_checksum(&checksum)
-            .await?
-            .ok_or_else(|| anyhow!("Failed to retrieve created address watch metadata"))?;
-
-        // Spawn a background task for the initial Electrum sync
-        let metadata_db = self.metadata_db.clone();
-        let electrum_manager = self.wallet_manager.electrum_client_manager.clone();
-        let notification_sender = self.wallet_manager.notification_sender.clone();
-        let config = self.wallet_manager.config.clone();
-        let descriptor_clone = descriptor.clone();
-        let checksum_clone = checksum.clone();
-
-        tokio::spawn(async move {
-            let sync_service =
-                crate::sync::WalletSyncService::new(metadata_db, notification_sender, config);
-            if let Err(e) = sync_service
-                .sync_address_watch(
-                    &checksum_clone,
-                    &descriptor_clone,
-                    electrum_manager.as_deref(),
-                )
-                .await
-            {
-                error!(
-                    "[{}] Initial address watch sync failed: {}",
-                    checksum_clone, e
-                );
-            } else {
-                debug!("[{}] Initial address watch sync completed", checksum_clone);
-            }
-        });
-
-        Ok(wallet_metadata)
+        self.create_single_script_watch(name, &descriptor, user_id)
+            .await
     }
 
     /// Create a P2PK (Pay-to-Public-Key) watch using direct Electrum queries.
-    /// Mirrors create_from_address but uses pk() descriptors for raw public keys.
     async fn create_from_pubkey(
         &self,
         name: &str,
@@ -199,10 +114,24 @@ impl WalletCreationService {
         // Convert to pk() descriptor with checksum
         let descriptor = XpubConverter::pubkey_to_descriptor(pubkey)?;
 
-        // Check if THIS USER already watches this pubkey
+        self.create_single_script_watch(name, &descriptor, user_id)
+            .await
+    }
+
+    /// Shared implementation for creating a single-script watch wallet (addr() or pk()).
+    /// Uses wallet_type = "address" for both, since the sync dispatch path is the same:
+    /// `script_from_watch_descriptor()` in sync.rs handles resolving either descriptor
+    /// type to the correct ScriptBuf.
+    async fn create_single_script_watch(
+        &self,
+        name: &str,
+        descriptor: &str,
+        user_id: &str,
+    ) -> Result<WalletMetadata> {
+        // Check if THIS USER already watches this script
         if self
             .metadata_db
-            .descriptor_exists_for_user(&descriptor, user_id)
+            .descriptor_exists_for_user(descriptor, user_id)
             .await?
         {
             let existing_wallets = self
@@ -213,33 +142,34 @@ impl WalletCreationService {
                 .iter()
                 .find(|w| w.descriptor == descriptor)
                 .map(|w| w.checksum.clone())
-                .unwrap_or_else(|| self.metadata_db.extract_checksum(&descriptor));
+                .unwrap_or_else(|| self.metadata_db.extract_checksum(descriptor));
             return Err(anyhow!(
-                "This public key is already being watched with ID: {}.",
+                "This script is already being watched with ID: {}.",
                 existing_checksum
             ));
         }
 
-        // If another user already watches this pubkey, generate a unique short ID
-        let checksum_override = if self.metadata_db.descriptor_exists(&descriptor).await? {
+        // If another user already watches this script, generate a unique short ID
+        // so both users get independent wallet records.
+        let checksum_override = if self.metadata_db.descriptor_exists(descriptor).await? {
             Some(generate_unique_wallet_id())
         } else {
-            None
+            None // First watcher — use the standard descriptor checksum
         };
 
-        // Insert wallet metadata with 'address' type (same sync dispatch path)
+        // Insert wallet metadata with 'address' type (covers both addr() and pk() watches)
         let checksum = self
             .metadata_db
             .insert_wallet_with_type_and_checksum(
                 name,
-                &descriptor,
+                descriptor,
                 user_id,
                 "address",
                 checksum_override.as_deref(),
             )
             .await?;
 
-        // Mark as ready immediately
+        // Mark as ready immediately (no BDK wallet file needed, no pending state)
         self.metadata_db
             .update_wallet_status(&checksum, "ready")
             .await?;
@@ -248,14 +178,14 @@ impl WalletCreationService {
             .metadata_db
             .get_wallet_by_checksum(&checksum)
             .await?
-            .ok_or_else(|| anyhow!("Failed to retrieve created P2PK watch metadata"))?;
+            .ok_or_else(|| anyhow!("Failed to retrieve created watch wallet metadata"))?;
 
-        // Spawn background task for initial Electrum sync
+        // Spawn a background task for the initial Electrum sync
         let metadata_db = self.metadata_db.clone();
         let electrum_manager = self.wallet_manager.electrum_client_manager.clone();
         let notification_sender = self.wallet_manager.notification_sender.clone();
         let config = self.wallet_manager.config.clone();
-        let descriptor_clone = descriptor.clone();
+        let descriptor_clone = descriptor.to_string();
         let checksum_clone = checksum.clone();
 
         tokio::spawn(async move {
@@ -270,11 +200,11 @@ impl WalletCreationService {
                 .await
             {
                 error!(
-                    "[{}] Initial P2PK watch sync failed: {}",
+                    "[{}] Initial watch sync failed: {}",
                     checksum_clone, e
                 );
             } else {
-                debug!("[{}] Initial P2PK watch sync completed", checksum_clone);
+                debug!("[{}] Initial watch sync completed", checksum_clone);
             }
         });
 

@@ -428,6 +428,7 @@ async fn main() -> anyhow::Result<()> {
             ];
 
             // Clean up old addr()-based Satoshi wallets so they get recreated with pk() descriptors
+            let mut cleanup_failed: Vec<&str> = Vec::new();
             for (name, _pubkey) in satoshi_pubkeys {
                 if let Some(old_wallet) = existing_wallets
                     .iter()
@@ -443,17 +444,23 @@ async fn main() -> anyhow::Result<()> {
                         .await
                     {
                         println!("❌ Failed to delete old wallet '{}': {}", name, e);
+                        cleanup_failed.push(name);
                     }
                 }
             }
 
+            // Fetch wallets once after cleanup (not per-iteration)
+            let current_wallets = app_services
+                .metadata_db
+                .get_wallets_for_user(Some(&demo_user.id))
+                .await
+                .unwrap_or_default();
+
             for (name, pubkey) in satoshi_pubkeys {
-                // Re-fetch existing wallets after cleanup to get accurate state
-                let current_wallets = app_services
-                    .metadata_db
-                    .get_wallets_for_user(Some(&demo_user.id))
-                    .await
-                    .unwrap_or_default();
+                // Skip wallets whose old addr() version failed to delete (avoid duplicates)
+                if cleanup_failed.contains(name) {
+                    continue;
+                }
                 let already_exists = current_wallets
                     .iter()
                     .any(|w| w.name == *name && w.descriptor.starts_with("pk("));

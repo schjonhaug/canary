@@ -21,7 +21,7 @@ use tracing::{debug, info, warn};
 
 /// Pre-compiled regex for detecting output descriptor format
 static DESCRIPTOR_REGEX: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"^(wpkh|wsh|sh|pkh|tr)\(").unwrap());
+    LazyLock::new(|| regex::Regex::new(r"^(wpkh|wsh|sh|pkh|pk|tr)\(").unwrap());
 
 /// Error message for Electrum server unavailability
 const ELECTRUM_UNAVAILABLE_ERROR: &str = "Electrum server is unavailable. Please try again later.";

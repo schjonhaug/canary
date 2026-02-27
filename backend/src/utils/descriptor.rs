@@ -156,4 +156,51 @@ mod tests {
         // We expect an error since it's not a valid descriptor
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_extract_pubkey_from_descriptor_with_checksum() {
+        let result = extract_pubkey_from_descriptor(
+            "pk(04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f)#abcdef12",
+        );
+        assert_eq!(
+            result,
+            Some("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_pubkey_from_descriptor_without_checksum() {
+        let result = extract_pubkey_from_descriptor(
+            "pk(04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f)",
+        );
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_extract_pubkey_from_descriptor_rejects_addr() {
+        let result = extract_pubkey_from_descriptor("addr(1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)#checksum");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_extract_pubkey_from_descriptor_rejects_invalid() {
+        assert!(extract_pubkey_from_descriptor("wpkh(xpub...)").is_none());
+        assert!(extract_pubkey_from_descriptor("not_a_descriptor").is_none());
+        assert!(extract_pubkey_from_descriptor("").is_none());
+    }
+
+    #[test]
+    fn test_extract_address_from_descriptor_valid() {
+        let result = extract_address_from_descriptor("addr(1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)#abc123");
+        assert_eq!(
+            result,
+            Some("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_address_from_descriptor_rejects_pk() {
+        let result = extract_address_from_descriptor("pk(04abc...)#checksum");
+        assert!(result.is_none());
+    }
 }
