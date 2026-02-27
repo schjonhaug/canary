@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Copy, Check } from "lucide-react"
+import { ChevronDown, Copy, Check, Trash2 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "next-intl"
@@ -12,6 +12,7 @@ import type { Wallet } from "@/types"
 
 interface WalletDetailsSectionProps {
   wallet: Wallet
+  onDeleteClick?: () => void
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -66,7 +67,7 @@ function parseToUnixTimestamp(dateStr: string): number | undefined {
   return isNaN(ts) ? undefined : Math.floor(ts / 1000)
 }
 
-export function WalletDetailsSection({ wallet }: WalletDetailsSectionProps) {
+export function WalletDetailsSection({ wallet, onDeleteClick }: WalletDetailsSectionProps) {
   const [isOpen, setIsOpen] = useState(false)
   const t = useTranslations("wallets")
   const { formatDateTime } = useFormatters()
@@ -173,6 +174,21 @@ export function WalletDetailsSection({ wallet }: WalletDetailsSectionProps) {
             >
               {lastSyncedRelative}
             </div>
+          </div>
+        )}
+
+        {/* Delete Wallet */}
+        {onDeleteClick && (
+          <div className="pt-2 border-t">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDeleteClick}
+              className="text-muted-foreground hover:text-red-600 gap-1.5 px-0"
+            >
+              <Trash2 size={14} />
+              {t("delete.title")}
+            </Button>
           </div>
         )}
       </CollapsibleContent>
