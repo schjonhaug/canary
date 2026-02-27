@@ -1554,12 +1554,20 @@ case "$1" in
         # Add wallets to backend
         BACKEND_URL="http://localhost:3000"
         echo ""
-        if ! curl -s --connect-timeout 2 --max-time 5 "$BACKEND_URL/api/wallets" > /dev/null 2>&1; then
-            echo "⏳ Backend not running at $BACKEND_URL"
-            echo "   Start it now:  cd ../backend && cargo run"
+        if curl -s --connect-timeout 2 --max-time 5 "$BACKEND_URL/api/wallets" > /dev/null 2>&1; then
+            read -p "Do you want to add the wallets to the backend? (Y/n): " -n 1 -r
+            echo
+        else
+            echo "⚠️  Backend not running at $BACKEND_URL — it must be running to add wallets."
+            echo "   Start it with:  cd ../backend && cargo run"
             echo ""
-            read -p "Press Enter when the backend is running (or Ctrl+C to skip)..."
-            echo ""
+            read -p "Press Enter when the backend is running, or type 'n' to skip: " -n 1 -r
+            echo
+        fi
+
+        if [[ $REPLY =~ ^[Nn]$ ]]; then
+            echo "💡 You can add wallets later with: $0 add-wallets-to-backend"
+            exit 0
         fi
 
         echo "🔍 Checking backend at $BACKEND_URL..."
