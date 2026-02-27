@@ -232,8 +232,8 @@ export function AddWalletForm({
         />
       </div>
 
-      {/* Advanced Settings - hidden for Bitcoin addresses */}
-      {!isAddressFormat(descriptor) && <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+      {/* Advanced Settings - only shown for XPUB or output descriptor input */}
+      {(isXpubFormat(descriptor) || isDescriptorFormat(descriptor)) && <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
