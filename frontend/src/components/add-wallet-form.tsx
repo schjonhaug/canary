@@ -15,7 +15,7 @@ import { getTranslatedApiError } from "@/lib/utils"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
-import { XPUB_REGEX, DESCRIPTOR_REGEX } from "@/lib/constants"
+import { XPUB_REGEX, DESCRIPTOR_REGEX, isValidBitcoinAddress, getDescriptorScriptType } from "@/lib/constants"
 import { useTranslations } from "next-intl"
 
 // Slug for the sample wallet route
@@ -44,6 +44,7 @@ interface AddWalletFormProps {
   autoFocusDescriptor?: boolean
   initialName?: string
   initialDescriptor?: string
+  outputType?: 'descriptor' | 'xpub' | 'both'
 }
 
 export function AddWalletForm({
@@ -53,6 +54,7 @@ export function AddWalletForm({
   autoFocusDescriptor = false,
   initialName = "",
   initialDescriptor = "",
+  outputType,
 }: AddWalletFormProps) {
   const [name, setName] = useState(initialName)
   const [descriptor, setDescriptor] = useState(initialDescriptor)
@@ -63,6 +65,7 @@ export function AddWalletForm({
   const modal = useModal()
   const { user } = useAuth()
   const t = useTranslations('wallets')
+  const tCommon = useTranslations('common')
   const tApiErrors = useTranslations('errors.api')
 
   // Check if auth is enabled
@@ -95,6 +98,11 @@ export function AddWalletForm({
     }
   }, [descriptor, isFreshWallet, scriptType])
 
+  // Helper function to detect Bitcoin address format
+  const isAddressFormat = (input: string): boolean => {
+    return isValidBitcoinAddress(input)
+  }
+
   // Helper function to detect XPUB format (uses centralized pattern)
   const isXpubFormat = (input: string): boolean => {
     return XPUB_REGEX.test(input.trim())
@@ -103,17 +111,6 @@ export function AddWalletForm({
   // Helper function to detect output descriptor format (uses centralized pattern)
   const isDescriptorFormat = (input: string): boolean => {
     return DESCRIPTOR_REGEX.test(input.trim())
-  }
-
-  // Helper function to extract script type from descriptor
-  const getDescriptorScriptType = (input: string): string => {
-    const trimmed = input.trim()
-    if (trimmed.startsWith('wpkh(')) return 'p2wpkh'
-    if (trimmed.startsWith('wsh(')) return 'p2wsh'
-    if (trimmed.startsWith('sh(wpkh(')) return 'p2sh'
-    if (trimmed.startsWith('pkh(')) return 'p2pkh'
-    if (trimmed.startsWith('tr(')) return 'p2tr'
-    return ''
   }
 
   // Helper function to check if custom stop gap requires a specific script type
@@ -142,43 +139,51 @@ export function AddWalletForm({
       return
     }
 
-    // Validate script type for fresh XPUB wallets
-    if (isFreshWallet && isXpubFormat(descriptor) && !scriptType) {
-      modal.setError(t('add.validation.scriptTypeRequired'))
-      return
-    }
+    // Skip advanced validation for Bitcoin addresses
+    if (!isAddressFormat(descriptor)) {
+      // Validate script type for fresh XPUB wallets
+      if (isFreshWallet && isXpubFormat(descriptor) && !scriptType) {
+        modal.setError(t('add.validation.scriptTypeRequired'))
+        return
+      }
 
-    // Validate stop gap: custom stop gap requires specific script type (except for output descriptors)
-    if (needsScriptTypeForStopGap(stopGap, descriptor, scriptType)) {
-      modal.setError(t('add.stopGap.requiresScriptType'))
-      return
+      // Validate stop gap: custom stop gap requires specific script type (except for output descriptors)
+      if (needsScriptTypeForStopGap(stopGap, descriptor, scriptType)) {
+        modal.setError(t('add.stopGap.requiresScriptType'))
+        return
+      }
     }
 
     modal.setLoading(true)
     modal.clearError()
 
     try {
+      // For Bitcoin addresses, skip script type and advanced settings
+      const isAddress = isAddressFormat(descriptor)
+
       // Determine script type to send
       let finalScriptType: string | undefined
 
-      if (isFreshWallet && isXpubFormat(descriptor)) {
-        // Fresh XPUB: always send script type
-        finalScriptType = scriptType
-      } else if (!isFreshWallet && isXpubFormat(descriptor) && scriptType && scriptType !== "auto") {
-        // Existing XPUB with manually selected script type
-        finalScriptType = scriptType
-      } else if (isDescriptorFormat(descriptor)) {
-        // Descriptor: extract script type for display purposes but don't send "auto"
-        const extractedType = getDescriptorScriptType(descriptor)
-        finalScriptType = extractedType || undefined
+      if (!isAddress) {
+        if (isFreshWallet && isXpubFormat(descriptor)) {
+          // Fresh XPUB: always send script type
+          finalScriptType = scriptType
+        } else if (!isFreshWallet && isXpubFormat(descriptor) && scriptType && scriptType !== "auto") {
+          // Existing XPUB with manually selected script type
+          finalScriptType = scriptType
+        } else if (isDescriptorFormat(descriptor)) {
+          // Descriptor: extract script type for display purposes but don't send "auto"
+          const extractedType = getDescriptorScriptType(descriptor)
+          finalScriptType = extractedType || undefined
+        }
       }
 
       const wallet = await api.createWallet({
         name: name.trim(),
         descriptor: descriptor.trim(),
-        isFreshWallet: isFreshWallet || undefined,
-        scriptType: finalScriptType,
-        stopGap: stopGap || undefined,
+        isFreshWallet: isAddress ? undefined : (isFreshWallet || undefined),
+        scriptType: isAddress ? undefined : finalScriptType,
+        stopGap: isAddress ? undefined : (stopGap || undefined),
       })
       onWalletCreated(wallet)
     } catch (err) {
@@ -199,7 +204,6 @@ export function AddWalletForm({
         <Input
           id="wallet-name"
           type="text"
-          placeholder={t('add.namePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={modal.isLoading}
@@ -208,10 +212,17 @@ export function AddWalletForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="output-descriptor">{t('add.descriptorLabel')}</Label>
+        <Label htmlFor="output-descriptor">
+          {outputType === 'xpub'
+            ? t('add.descriptorLabel.xpub')
+            : outputType === 'descriptor'
+              ? t('add.descriptorLabel.descriptor')
+              : outputType === 'both'
+                ? t('add.descriptorLabel.both')
+                : t('add.descriptorLabel.any')}
+        </Label>
         <Textarea
           id="output-descriptor"
-          placeholder={t('add.descriptorPlaceholder')}
           value={descriptor}
           onChange={(e) => setDescriptor(e.target.value)}
           disabled={modal.isLoading}
@@ -221,8 +232,8 @@ export function AddWalletForm({
         />
       </div>
 
-      {/* Advanced Settings */}
-      <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+      {/* Advanced Settings - only shown for XPUB or output descriptor input */}
+      {(isXpubFormat(descriptor) || isDescriptorFormat(descriptor)) && <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
@@ -313,7 +324,7 @@ export function AddWalletForm({
             )}
           </div>
         </CollapsibleContent>
-      </Collapsible>
+      </Collapsible>}
 
       {modal.error && (
         <ErrorDisplay message={modal.error} variant="inline" className="[&_*]:break-all" />
@@ -328,7 +339,7 @@ export function AddWalletForm({
             disabled={modal.isLoading}
             className="flex-1"
           >
-            Cancel
+            {tCommon("cancel")}
           </Button>
         )}
         <Button

@@ -190,6 +190,9 @@ pub struct WalletMetadata {
     pub balance_fiat: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fiat_currency: Option<String>,
+    pub wallet_type: String, // 'descriptor' or 'address'
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_synced_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

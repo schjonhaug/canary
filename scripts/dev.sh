@@ -4,34 +4,50 @@
 # 
 # This script provides a complete Bitcoin regtest development environment with:
 # - Docker-based Bitcoin Core + Fulcrum Electrum server
-# - Alice (funded with 1 BTC distributed) and Bob (unfunded) wallet creation
+# - Descriptor wallets covering all 4 script types (wpkh, pkh, sh(wpkh), tr)
+# - Funded and empty wallet variants for each type
 # - Backend integration for Output Descriptor Monitor
 # - Advanced Bitcoin transaction testing (RBF, CPFP, mempool operations)
 #
 # Key Commands:
 #   start           - Start infrastructure (Bitcoin Core + Fulcrum)
-#   create-wallets  - Create Alice (1 BTC distributed) and Bob (unfunded) wallets
-#   add-wallets-to-backend - Integrate wallets with backend API
+#   init            - Create wallets and add to backend
 #
 # Workflow:
-#   1. ./docker-utils.sh start
-#   2. ./docker-utils.sh create-wallets  (Alice gets 1 BTC distributed automatically)
-#   3. cd ../backend && BITCOIN_NETWORK=regtest cargo run
-#   4. cd ../regtest-env && ./docker-utils.sh add-wallets-to-backend
+#   1. cd ../backend && cargo run   (start backend)
+#   2. ./dev.sh init                (starts infra, creates wallets, adds to backend)
 
 # Function to run bitcoin-cli against the Docker container  
 btc() {
     docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 "$@"
 }
 
-# Function to run bitcoin-cli with Alice wallet against the Docker container
-btc_alice() {
-    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=alice "$@"
+# Descriptor wallet helpers (funded)
+btc_segwit_desc() {
+    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=segwit-desc "$@"
+}
+btc_legacy_desc() {
+    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=legacy-desc "$@"
+}
+btc_nested_desc() {
+    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=nested-desc "$@"
+}
+btc_taproot_desc() {
+    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=taproot-desc "$@"
 }
 
-# Function to run bitcoin-cli with Bob wallet against the Docker container
-btc_bob() {
-    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=bob "$@"
+# Descriptor wallet helpers (empty)
+btc_segwit_empty() {
+    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=segwit-empty "$@"
+}
+btc_legacy_empty() {
+    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=legacy-empty "$@"
+}
+btc_nested_empty() {
+    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=nested-empty "$@"
+}
+btc_taproot_empty() {
+    docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet=taproot-empty "$@"
 }
 
 # Function to run bitcoin-cli with Charlie wallet against the Docker container
@@ -57,7 +73,17 @@ btc_wallet() {
     docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 -rpcwallet="$wallet_name" "$@"
 }
 
-# --- CPFP logic as a function for both Alice and Bob ---
+# Get the appropriate Bitcoin Core address type for a wallet name
+get_address_type() {
+    case "$1" in
+        legacy-desc|legacy-empty)   echo "legacy" ;;
+        nested-desc|nested-empty)   echo "p2sh-segwit" ;;
+        taproot-desc|taproot-empty) echo "bech32m" ;;
+        *)                          echo "bech32" ;;
+    esac
+}
+
+# --- CPFP logic as a function for any wallet ---
 cpfp_for_wallet() {
     WALLET="$1"
     PARENT_TXID="$2"
@@ -72,7 +98,7 @@ cpfp_for_wallet() {
     }
     # Check if wallet exists
     if ! btc_wallet "$WALLET" getwalletinfo >/dev/null 2>&1; then
-        echo "❌ $WALLET wallet not found. Run '$0 create-wallets' first"
+        echo "❌ $WALLET wallet not found. Run '$0 init' first"
         exit 1
     fi
     # Check wallet has sufficient confirmed funds for fees
@@ -80,7 +106,7 @@ cpfp_for_wallet() {
     echo "💰 $WALLET wallet balance: $WALLET_BALANCE BTC (confirmed)"
     if [ "$(echo "$WALLET_BALANCE < 0.001" | bc -l)" -eq 1 ]; then
         echo "❌ $WALLET needs confirmed funds for CPFP fees. Current balance: $WALLET_BALANCE BTC"
-        echo "💡 Fund $WALLET first with: $0 $([[ "$WALLET" == "alice" ]] && echo "bob" || echo "alice") send 0.01 && $0 mine 1"
+        echo "💡 Fund $WALLET first with: $0 miner sending $WALLET 0.01 && $0 mine 1"
         exit 1
     fi
     # $WALLET creates high-fee child transaction (CPFP)
@@ -152,7 +178,7 @@ cpfp_for_wallet() {
         exit 1
     fi
     # Get change address for the child transaction
-    CHANGE_ADDRESS=$(btc_wallet "$WALLET" getnewaddress)
+    CHANGE_ADDRESS=$(btc_wallet "$WALLET" getnewaddress "" "$(get_address_type "$WALLET")")
     echo "   🔍 Creating CPFP child spending $TOTAL_WALLET_AMOUNT BTC → $CHILD_AMOUNT BTC ($DYNAMIC_FEE BTC fee)"
     echo "   🎯 Target: $CHANGE_ADDRESS"
     # Create raw transaction inputs from wallet's outputs in the parent transaction
@@ -270,9 +296,9 @@ mempool_purge() {
             
             if [ "$(echo "$MEMPOOL_BEFORE" | jq length)" -eq 0 ]; then
                 echo "⚠️  Mempool is empty. Creating test transaction first..."
-                local NEW_ADDRESS=$(btc_alice getnewaddress)
-                btc loadwallet "alice" 2>/dev/null || true
-                btc_alice sendtoaddress "$NEW_ADDRESS" 0.001
+                local NEW_ADDRESS=$(btc_segwit_desc getnewaddress)
+                btc loadwallet "segwit-desc" 2>/dev/null || true
+                btc_segwit_desc sendtoaddress "$NEW_ADDRESS" 0.001
                 echo "✅ Created test transaction"
                 # Update mempool after creating transaction
                 MEMPOOL_BEFORE=$(btc getrawmempool)
@@ -329,8 +355,8 @@ mempool_purge() {
             
             # Get a UTXO to double-spend
             echo "🔍 Finding UTXO to double-spend..."
-            btc loadwallet "alice" 2>/dev/null || true
-            local UTXOS=$(btc_alice listunspent 1)
+            btc loadwallet "segwit-desc" 2>/dev/null || true
+            local UTXOS=$(btc_segwit_desc listunspent 1)
             
             if [ "$(echo "$UTXOS" | jq length)" -eq 0 ]; then
                 echo "❌ No confirmed UTXOs available for double-spend test"
@@ -347,8 +373,8 @@ mempool_purge() {
             echo "📋 Using UTXO: $UTXO_TXID:$UTXO_VOUT ($UTXO_AMOUNT BTC)"
             
             # Create two addresses for double-spend
-            local ADDRESS1=$(btc_alice getnewaddress)
-            local ADDRESS2=$(btc_alice getnewaddress)
+            local ADDRESS1=$(btc_segwit_desc getnewaddress)
+            local ADDRESS2=$(btc_segwit_desc getnewaddress)
             
             # Send amount split for fees
             local SEND_AMOUNT=$(echo "scale=8; $UTXO_AMOUNT - 0.001" | bc -l)
@@ -356,7 +382,7 @@ mempool_purge() {
             echo "🚀 Creating first transaction to $ADDRESS1..."
             # Create raw transaction manually to ensure we use the same UTXO
             local RAW_TX1=$(btc createrawtransaction "[{\"txid\":\"$UTXO_TXID\",\"vout\":$UTXO_VOUT}]" "{\"$ADDRESS1\":$SEND_AMOUNT}")
-            local SIGNED_TX1=$(btc_alice signrawtransactionwithwallet "$RAW_TX1" | jq -r '.hex')
+            local SIGNED_TX1=$(btc_segwit_desc signrawtransactionwithwallet "$RAW_TX1" | jq -r '.hex')
             local TXID1=$(btc sendrawtransaction "$SIGNED_TX1")
             
             echo "✅ First transaction: $TXID1"
@@ -364,7 +390,7 @@ mempool_purge() {
             echo "🚀 Creating conflicting transaction to $ADDRESS2..."
             # Create conflicting transaction using same UTXO
             local RAW_TX2=$(btc createrawtransaction "[{\"txid\":\"$UTXO_TXID\",\"vout\":$UTXO_VOUT}]" "{\"$ADDRESS2\":$SEND_AMOUNT}")
-            local SIGNED_TX2=$(btc_alice signrawtransactionwithwallet "$RAW_TX2" | jq -r '.hex')
+            local SIGNED_TX2=$(btc_segwit_desc signrawtransactionwithwallet "$RAW_TX2" | jq -r '.hex')
             
             # Try to send second transaction (should fail)
             echo "🚀 Attempting to send conflicting transaction..."
@@ -382,15 +408,15 @@ mempool_purge() {
         
         "low-fee")
             echo "💸 Method: Low-fee transaction (may be purged under fee pressure)"
-            
+
             echo "🚀 Creating very low-fee transaction..."
-            btc loadwallet "alice" 2>/dev/null || true
-            local NEW_ADDRESS=$(btc_alice getnewaddress)
+            btc loadwallet "segwit-desc" 2>/dev/null || true
+            local NEW_ADDRESS=$(btc_segwit_desc getnewaddress)
             
             # Create transaction with extremely low fee (1 sat/kB)
             local LOW_FEE_RATE=0.00000001
             
-            local TXID=$(btc_alice sendtoaddress "$NEW_ADDRESS" 0.001 "" "" false true "$LOW_FEE_RATE" "unset" 2>/dev/null || echo "")
+            local TXID=$(btc_segwit_desc sendtoaddress "$NEW_ADDRESS" 0.001 "" "" false true "$LOW_FEE_RATE" "unset" 2>/dev/null || echo "")
             
             if [ -n "$TXID" ]; then
                 echo "✅ Low-fee transaction created: $TXID"
@@ -415,7 +441,7 @@ mempool_purge() {
                 echo "   - Node restarts"
                 echo ""
                 echo "🧪 To test purging, create many higher-fee transactions:"
-                echo "   for i in {1..10}; do $0 alice fund \$(btc_alice getnewaddress) 0.001; done"
+                echo "   for i in {1..10}; do $0 segwit-desc fund \$(btc_segwit_desc getnewaddress) 0.001; done"
             else
                 echo "❌ Failed to create low-fee transaction"
                 echo "💡 Fee might be too low to be accepted even in regtest"
@@ -454,16 +480,16 @@ reorg() {
     echo "   Height: $INITIAL_HEIGHT"
     echo "   Tip: $INITIAL_TIP"
     
-    # Create test transaction before reorg (Alice sends to Bob)
+    # Create test transaction before reorg (segwit-desc sends to segwit-empty)
     echo ""
     echo "💰 Creating test transaction before reorg..."
-    btc loadwallet "alice" 2>/dev/null || true
-    btc loadwallet "bob" 2>/dev/null || true
-    local BOB_ADDRESS=$(btc_bob getnewaddress)
-    local TEST_TXID=$(btc_alice sendtoaddress "$BOB_ADDRESS" 0.001)
+    btc loadwallet "segwit-desc" 2>/dev/null || true
+    btc loadwallet "segwit-empty" 2>/dev/null || true
+    local EMPTY_ADDRESS=$(btc_segwit_empty getnewaddress)
+    local TEST_TXID=$(btc_segwit_desc sendtoaddress "$EMPTY_ADDRESS" 0.001)
     echo "✅ Test transaction: $TEST_TXID"
-    echo "   👩 Alice → 👨 Bob: 0.001 BTC"
-    echo "   🎯 Bob's address: $BOB_ADDRESS"
+    echo "   segwit-desc → segwit-empty: 0.001 BTC"
+    echo "   🎯 segwit-empty address: $EMPTY_ADDRESS"
     
     echo ""
     echo "⏸️  After the tx is found in the mempool, press enter to mine a block"
@@ -480,7 +506,7 @@ reorg() {
     echo "   Tip: $CONFIRMED_TIP"
     
     # Verify transaction is confirmed
-    local TX_INFO=$(btc_alice gettransaction "$TEST_TXID")
+    local TX_INFO=$(btc_segwit_desc gettransaction "$TEST_TXID")
     local CONFIRMATIONS=$(echo "$TX_INFO" | jq -r '.confirmations')
     echo "   Transaction confirmations: $CONFIRMATIONS"
     
@@ -512,7 +538,7 @@ reorg() {
     # Check transaction status (should be back in mempool)
     echo ""
     echo "🔍 Checking transaction status after reorg..."
-    local TX_INFO_AFTER=$(btc_alice gettransaction "$TEST_TXID" 2>/dev/null || echo "{}")
+    local TX_INFO_AFTER=$(btc_segwit_desc gettransaction "$TEST_TXID" 2>/dev/null || echo "{}")
     local CONFIRMATIONS_AFTER=$(echo "$TX_INFO_AFTER" | jq -r '.confirmations // 0')
     
     if [ "$CONFIRMATIONS_AFTER" -eq 0 ]; then
@@ -547,7 +573,7 @@ reorg() {
     # Check final transaction status
     echo ""
     echo "🔍 Final transaction status..."
-    local TX_INFO_FINAL=$(btc_alice gettransaction "$TEST_TXID" 2>/dev/null || echo "{}")
+    local TX_INFO_FINAL=$(btc_segwit_desc gettransaction "$TEST_TXID" 2>/dev/null || echo "{}")
     local CONFIRMATIONS_FINAL=$(echo "$TX_INFO_FINAL" | jq -r '.confirmations // 0')
     
     if [ "$CONFIRMATIONS_FINAL" -gt 0 ]; then
@@ -612,20 +638,20 @@ run_tests() {
     # Test 1: Basic mempool transaction
     echo "📍 TEST 1: Basic Mempool Transaction"
     echo "-----------------------------------"
-    btc loadwallet "alice" 2>/dev/null || true
-    btc_alice sendtoaddress "$WALLET_ADDRESS" 0.001
+    btc loadwallet "segwit-desc" 2>/dev/null || true
+    btc_segwit_desc sendtoaddress "$WALLET_ADDRESS" 0.001
     pause_test
     
     # Test 2: RBF Testing
     echo "📍 TEST 2: RBF (Replace-By-Fee)"
     echo "-------------------------------"
     echo "Creating low-fee transaction for RBF testing..."
-    local FIRST_TXID=$(btc_alice sendtoaddress "$WALLET_ADDRESS" 0.002 "" "" false true 0.00001 "unset")
+    local FIRST_TXID=$(btc_segwit_desc sendtoaddress "$WALLET_ADDRESS" 0.002 "" "" false true 0.00001 "unset")
     echo "First transaction: $FIRST_TXID"
     sleep 2
     
     echo "Attempting RBF replacement with bumpfee..."
-    local RESULT=$(btc_alice bumpfee "$FIRST_TXID" "{\"fee_rate\": 15}" 2>&1 || echo "RBF failed")
+    local RESULT=$(btc_segwit_desc bumpfee "$FIRST_TXID" "{\"fee_rate\": 15}" 2>&1 || echo "RBF failed")
     if echo "$RESULT" | jq -e '.txid' > /dev/null 2>&1; then
         local NEW_TXID=$(echo "$RESULT" | jq -r '.txid')
         echo "✅ RBF successful: $NEW_TXID"
@@ -638,21 +664,21 @@ run_tests() {
     echo "📍 TEST 3: CPFP (Child-Pays-For-Parent)"
     echo "---------------------------------------"
     echo "Creating low-fee parent transaction..."
-    local PARENT_TXID=$(btc_alice sendtoaddress "$WALLET_ADDRESS" 0.003 "" "" false true 0.00001 "unset")
+    local PARENT_TXID=$(btc_segwit_desc sendtoaddress "$WALLET_ADDRESS" 0.003 "" "" false true 0.00001 "unset")
     echo "Parent transaction: $PARENT_TXID"
     sleep 2
     
     echo "Creating CPFP child transaction..."
-    cpfp_for_wallet "alice" "$PARENT_TXID"
+    cpfp_for_wallet "segwit-desc" "$PARENT_TXID"
     pause_test
     
     # Test 4: Mempool Purge Testing
     echo "📍 TEST 4: Mempool Purge (Node Restart)"
     echo "---------------------------------------"
     echo "Creating transaction to be purged..."
-    btc_alice sendtoaddress "$WALLET_ADDRESS" 0.001
+    btc_segwit_desc sendtoaddress "$WALLET_ADDRESS" 0.001
     sleep 2
-    
+
     echo "Testing mempool purge via restart..."
     mempool_purge "restart"
     pause_test
@@ -661,7 +687,7 @@ run_tests() {
     echo "📍 TEST 5: Blockchain Reorganization"
     echo "------------------------------------"
     echo "Creating transaction for reorg testing..."
-    btc_alice sendtoaddress "$WALLET_ADDRESS" 0.004
+    btc_segwit_desc sendtoaddress "$WALLET_ADDRESS" 0.004
     sleep 2
     
     echo "Mining blocks to confirm transaction..."
@@ -676,7 +702,7 @@ run_tests() {
     echo "📍 TEST 6: Transaction Confirmation"
     echo "-----------------------------------"
     echo "Creating final test transaction..."
-    btc_alice sendtoaddress "$WALLET_ADDRESS" 0.005
+    btc_segwit_desc sendtoaddress "$WALLET_ADDRESS" 0.005
     sleep 2
     
     echo "Confirming transaction..."
@@ -723,8 +749,17 @@ mine_blocks() {
     btc generatetoaddress "$BLOCKS" "$ADDRESS" >/dev/null 2>&1
 }
 
+# Kill backend and frontend processes (ports 3000 and 3001)
+kill_servers() {
+    if lsof -ti:3000,3001 > /dev/null 2>&1; then
+        echo "🔪 Stopping backend/frontend (ports 3000, 3001)..."
+        lsof -ti:3000,3001 | xargs kill -9 2>/dev/null || true
+        sleep 1
+    fi
+}
+
 # --- New multi-word command parsing for wallet actions ---
-if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]]; then
+if [[ "$1" == "segwit-desc" || "$1" == "legacy-desc" || "$1" == "nested-desc" || "$1" == "taproot-desc" || "$1" == "segwit-empty" || "$1" == "legacy-empty" || "$1" == "nested-empty" || "$1" == "taproot-empty" || "$1" == "charlie" || "$1" == "miner" || "$1" == "legacy-address" || "$1" == "p2sh-address" || "$1" == "segwit-address" || "$1" == "taproot-address" ]]; then
     WALLET="$1"
     SUBCMD="$2"
     shift 2
@@ -737,28 +772,28 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]
             if [ -z "$DESTINATION_WALLET" ] || [ ${#AMOUNTS[@]} -eq 0 ]; then
                 echo "Usage: $0 $WALLET sending <destination_wallet> <amount1> [amount2] [amount3] ..."
                 echo "       $0 $WALLET sending <destination_wallet> max  # Drain wallet"
-                echo "Available destinations: alice, bob, charlie, miner"
+                echo "Available destinations: segwit-desc, segwit-empty, legacy-desc, legacy-empty, nested-desc, nested-empty, taproot-desc, taproot-empty, charlie, miner"
                 echo "Examples:"
-                echo "  $0 $WALLET sending bob 0.1 0.2 0.05    # Send three separate transactions"
-                echo "  $0 $WALLET sending alice max           # Drain wallet to alice"
+                echo "  $0 $WALLET sending segwit-empty 0.1 0.2 0.05  # Send three separate transactions"
+                echo "  $0 $WALLET sending miner max                  # Drain wallet to miner"
                 exit 1
             fi
             
             # Validate destination wallet (all wallets can be destinations)
             case "$DESTINATION_WALLET" in
-                alice|bob|charlie|miner)
+                segwit-desc|legacy-desc|nested-desc|taproot-desc|segwit-empty|legacy-empty|nested-empty|taproot-empty|charlie|miner|legacy-address|p2sh-address|segwit-address|taproot-address)
                     ;;
                 *)
                     echo "❌ Invalid destination wallet: $DESTINATION_WALLET"
-                    echo "Available destinations: alice, bob, charlie, miner"
+                    echo "Available destinations: segwit-desc, segwit-empty, legacy-desc, legacy-empty, nested-desc, nested-empty, taproot-desc, taproot-empty, charlie, miner, legacy-address, p2sh-address, segwit-address, taproot-address"
                     exit 1
                     ;;
             esac
             
-            # Special validation: miner can only send to alice, bob, charlie (not to itself)
+            # Special validation: miner cannot send to itself
             if [ "$WALLET" == "miner" ] && [ "$DESTINATION_WALLET" == "miner" ]; then
                 echo "❌ Miner wallet cannot send to itself"
-                echo "Miner can send to: alice, bob, charlie"
+                echo "Miner can send to: segwit-desc, segwit-empty, charlie, etc."
                 exit 1
             fi
             
@@ -766,30 +801,87 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]
             btc loadwallet "$WALLET" 2>/dev/null || true
             btc loadwallet "$DESTINATION_WALLET" 2>/dev/null || true
             
+            # Helper: get target address for destination wallet
+            # For addr-* wallets, reuse the existing address (single-address wallets)
+            # For regular wallets, generate a new address each time
+            get_target_address() {
+                local dest="$1"
+                case "$dest" in
+                    *-address)
+                        # Single-address wallets: reuse the existing address
+                        local addr_list
+                        addr_list=$(btc_wallet "$dest" listreceivedbyaddress 0 true)
+                        echo "$addr_list" | jq -r '.[0].address'
+                        ;;
+                    *)
+                        btc_wallet "$dest" getnewaddress "" "$(get_address_type "$dest")"
+                        ;;
+                esac
+            }
+
+            # Helper: send from wallet with correct change address type
+            send_from_wallet() {
+                local wallet="$1"
+                local target="$2"
+                local amount="$3"
+                local subtract_fee="${4:-false}"
+                local addr_type
+                addr_type=$(get_address_type "$wallet")
+
+                case "$wallet" in
+                    *-address)
+                        # Use 'send' RPC with change routed back to the wallet's own address
+                        local own_addr
+                        own_addr=$(btc_wallet "$wallet" listreceivedbyaddress 0 true | jq -r '.[0].address')
+                        local send_opts="{\"change_address\": \"$own_addr\"}"
+                        if [ "$subtract_fee" = "true" ]; then
+                            send_opts="{\"change_address\": \"$own_addr\", \"subtract_fee_from_outputs\": [0]}"
+                        fi
+                        btc_wallet "$wallet" send "{\"$target\": $amount}" null "unset" null "$send_opts" | jq -r '.txid'
+                        ;;
+                    *)
+                        if [ "$addr_type" != "bech32" ]; then
+                            # Non-default address type: use 'send' RPC with change_type
+                            local send_opts="{\"change_type\": \"$addr_type\"}"
+                            if [ "$subtract_fee" = "true" ]; then
+                                send_opts="{\"change_type\": \"$addr_type\", \"subtract_fee_from_outputs\": [0]}"
+                            fi
+                            btc_wallet "$wallet" send "{\"$target\": $amount}" null "unset" null "$send_opts" | jq -r '.txid'
+                        else
+                            if [ "$subtract_fee" = "true" ]; then
+                                btc_wallet "$wallet" sendtoaddress "$target" "$amount" "" "" true
+                            else
+                                btc_wallet "$wallet" sendtoaddress "$target" "$amount"
+                            fi
+                        fi
+                        ;;
+                esac
+            }
+
             # Handle max amount (drain wallet) - single transaction
             if [ "${AMOUNTS[0]}" == "max" ] && [ ${#AMOUNTS[@]} -eq 1 ]; then
                 # Get target address from destination wallet
-                TARGET_ADDRESS=$(btc_wallet "$DESTINATION_WALLET" getnewaddress)
+                TARGET_ADDRESS=$(get_target_address "$DESTINATION_WALLET")
                 # Get current balance
                 CURRENT_BALANCE=$(btc_wallet "$WALLET" getbalance)
                 echo "🎯 Draining $WALLET wallet ($CURRENT_BALANCE BTC) to $DESTINATION_WALLET address: $TARGET_ADDRESS"
                 # Use subtractfeefromamount to send everything minus fees
-                TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$CURRENT_BALANCE" "" "" true)
+                TXID=$(send_from_wallet "$WALLET" "$TARGET_ADDRESS" "$CURRENT_BALANCE" true)
                 echo "✅ Transaction sent: $TXID"
                 echo "💡 Use '$0 mine' to confirm transaction"
                 exit 0
             fi
-            
+
             # Handle multiple amounts - separate transaction for each amount
             echo "🎯 Sending ${#AMOUNTS[@]} separate transactions from $WALLET to $DESTINATION_WALLET"
             TXIDS=()
             for i in "${!AMOUNTS[@]}"; do
                 AMOUNT="${AMOUNTS[$i]}"
-                # Get a new target address for each transaction
-                TARGET_ADDRESS=$(btc_wallet "$DESTINATION_WALLET" getnewaddress)
-                
+                # Get target address (reuses existing for addr-* wallets)
+                TARGET_ADDRESS=$(get_target_address "$DESTINATION_WALLET")
+
                 echo "  📤 Transaction $((i+1))/${#AMOUNTS[@]}: Sending $AMOUNT BTC to address $TARGET_ADDRESS"
-                TXID=$(btc_wallet "$WALLET" sendtoaddress "$TARGET_ADDRESS" "$AMOUNT")
+                TXID=$(send_from_wallet "$WALLET" "$TARGET_ADDRESS" "$AMOUNT")
                 TXIDS+=("$TXID")
                 echo "     ✅ Transaction $((i+1)) sent: $TXID"
             done
@@ -819,7 +911,7 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]
             ;;
         address)
             btc loadwallet "$WALLET" 2>/dev/null || true
-            ADDRESS=$(btc_wallet "$WALLET" getnewaddress)
+            ADDRESS=$(btc_wallet "$WALLET" getnewaddress "" "$(get_address_type "$WALLET")")
             echo "New $WALLET address: $ADDRESS"
             exit 0
             ;;
@@ -880,7 +972,7 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]
             
             # Check if wallet exists
             if ! btc_wallet "$WALLET" getwalletinfo >/dev/null 2>&1; then
-                echo "❌ $WALLET wallet not found. Run '$0 create-wallets' first"
+                echo "❌ $WALLET wallet not found. Run '$0 init' first"
                 exit 1
             fi
             
@@ -916,7 +1008,7 @@ if [[ "$1" == "alice" || "$1" == "bob" || "$1" == "charlie" || "$1" == "miner" ]
             echo "   💰 Total: $TOTAL_AMOUNT BTC → $CONSOLIDATE_AMOUNT BTC (0.0001 BTC fee)"
             
             # Get new change address for consolidation (internal keychain)
-            CONSOLIDATE_ADDRESS=$(btc_wallet "$WALLET" getrawchangeaddress)
+            CONSOLIDATE_ADDRESS=$(btc_wallet "$WALLET" getrawchangeaddress "$(get_address_type "$WALLET")")
             echo "   🎯 Consolidating to: $CONSOLIDATE_ADDRESS"
             
             # Create raw transaction
@@ -984,8 +1076,7 @@ case "$1" in
         fi
 
         # Kill running backend and frontend
-        echo "Killing processes on ports 3000 and 3001..."
-        lsof -ti:3000,3001 | xargs kill -9 2>/dev/null || true
+        kill_servers
 
         # Set values based on mode
         if [[ "$MODE" == "self-hosted" ]]; then
@@ -1096,112 +1187,124 @@ case "$1" in
         fi
         echo "Set BITCOIN_NETWORK=regtest in your environment"
         echo ""
-        echo "💡 Next: $0 create-wallets (creates Alice with 1 BTC distributed)"
+        echo "💡 Next: $0 init (creates wallets and adds to backend)"
         ;;
     
-    "create-wallets")
-        echo "🏦 Setting up Alice, Bob and Miner wallets..."
-        
+    "init")
+        # Start infrastructure if not already running
+        if ! btc getblockchaininfo > /dev/null 2>&1; then
+            echo "🔧 Bitcoin Core not running — starting infrastructure first..."
+            $0 start
+            echo ""
+        fi
+
+        echo "🏦 Setting up development wallets..."
+
         # Check if Bitcoin Core is running
         if ! btc getblockchaininfo > /dev/null 2>&1; then
-            echo "❌ Bitcoin Core is not running. Run '$0 start' first."
+            echo "❌ Bitcoin Core is not running."
             exit 1
         fi
         
-        # Create Alice wallet (deterministic)
-        echo "📋 Creating Alice wallet..."
-        btc unloadwallet "alice" 2>/dev/null || true
-        
-        set +e  # Temporarily disable exit on error
-        CREATE_RESULT=$(btc -named createwallet wallet_name="alice" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1)
-        CREATE_EXIT_CODE=$?
-        set -e
-        
-        if echo "$CREATE_RESULT" | grep -q "already exists"; then
-            echo "   ✅ Alice wallet exists, loading..."
-            btc loadwallet "alice" >/dev/null 2>&1 || true
-        elif [ $CREATE_EXIT_CODE -eq 0 ]; then
-            echo "   ✅ Alice blank wallet created"
-            
-            # Import deterministic descriptors for Alice (regtest vprv keys)
-            btc_alice importdescriptors '[
-              {
-                "desc": "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/0/*)#5asejmkj",
-                "timestamp": "now",
-                "active": true,
-                "internal": false,
-                "range": [0, 999]
-              },
-              {
-                "desc": "wpkh(tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw/84h/1h/0h/1/*)#9f4c0wx2",
-                "timestamp": "now",
-                "active": true,
-                "internal": true,
-                "range": [0, 999]
-              }
-            ]' >/dev/null 2>&1
-            echo "   ✅ Alice wallet seeded with deterministic descriptors"
-        else
-            echo "   ❌ Failed to create Alice wallet: $CREATE_RESULT"
-            exit 1
-        fi
-        
-        # Get Alice descriptor and convert to multipath format
-        # This creates a descriptor compatible with the backend API requirement
-        ALICE_DESCRIPTORS=$(btc_alice listdescriptors)
-        ALICE_RECEIVE_DESC=$(echo "$ALICE_DESCRIPTORS" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
-        ALICE_MULTIPATH_RAW=$(echo "$ALICE_RECEIVE_DESC" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
-        # Get proper checksum for multipath descriptor from Bitcoin Core
-        ALICE_CHECKSUM_INFO=$(btc getdescriptorinfo "$ALICE_MULTIPATH_RAW")
-        ALICE_CHECKSUM=$(echo "$ALICE_CHECKSUM_INFO" | jq -r '.checksum')
-        ALICE_DESCRIPTOR="$ALICE_MULTIPATH_RAW#$ALICE_CHECKSUM"
-        
-        # Create Bob wallet (deterministic)
-        echo "📋 Creating Bob wallet..."
-        btc unloadwallet "bob" 2>/dev/null || true
-        
-        set +e  # Temporarily disable exit on error
-        CREATE_RESULT=$(btc -named createwallet wallet_name="bob" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1)
-        CREATE_EXIT_CODE=$?
-        set -e
-        
-        if echo "$CREATE_RESULT" | grep -q "already exists"; then
-            echo "   ✅ Bob wallet exists, loading..."
-            btc loadwallet "bob" >/dev/null 2>&1 || true
-        elif [ $CREATE_EXIT_CODE -eq 0 ]; then
-            echo "   ✅ Bob blank wallet created"
-            
-            # Import deterministic descriptors for Bob (regtest vprv keys)
-            btc_bob importdescriptors '[
-              {
-                "desc": "wpkh(tprv8ZgxMBicQKsPd3nsWkJrKQgXk22UnGFHFPDWNCeTjvzeY9LjRYdi3RNX1NfkCwj4mD1YTsNPCCtGPTTQkxn14oLKNg6vuVkChn55qa5rC7K/84h/1h/0h/0/*)#y872gtkp",
-                "timestamp": "now",
-                "active": true,
-                "internal": false,
-                "range": [0, 999]
-              },
-              {
-                "desc": "wpkh(tprv8ZgxMBicQKsPd3nsWkJrKQgXk22UnGFHFPDWNCeTjvzeY9LjRYdi3RNX1NfkCwj4mD1YTsNPCCtGPTTQkxn14oLKNg6vuVkChn55qa5rC7K/84h/1h/0h/1/*)#4nmt47xe",
-                "timestamp": "now",
-                "active": true,
-                "internal": true,
-                "range": [0, 999]
-              }
-            ]' >/dev/null 2>&1
-            echo "   ✅ Bob wallet seeded with deterministic descriptors"
-        else
-            echo "   ❌ Failed to create Bob wallet: $CREATE_RESULT"
-            exit 1
-        fi
-        
-        # Get Bob descriptor and address
-        BOB_DESCRIPTORS=$(btc_wallet bob listdescriptors)
-        BOB_RECEIVE_DESC=$(echo "$BOB_DESCRIPTORS" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
-        BOB_MULTIPATH_RAW=$(echo "$BOB_RECEIVE_DESC" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
-        # Get proper checksum for multipath descriptor from Bitcoin Core
-        BOB_CHECKSUM_INFO=$(btc getdescriptorinfo "$BOB_MULTIPATH_RAW")
-        BOB_CHECKSUM=$(echo "$BOB_CHECKSUM_INFO" | jq -r '.checksum')
-        BOB_DESCRIPTOR="$BOB_MULTIPATH_RAW#$BOB_CHECKSUM"
+        # Shared tprv keys for deterministic wallets
+        FUNDED_TPRV="tprv8ZgxMBicQKsPe6D3wxZPHxy7JEMBwjxiimYXSvM8aRaqZmDvU7Jec5c8aSB8rCzFmAP6aEjPhUmiXm2KB7XUzkApX2prmDHcQsUQY5DsxJw"
+        EMPTY_TPRV="tprv8ZgxMBicQKsPd3nsWkJrKQgXk22UnGFHFPDWNCeTjvzeY9LjRYdi3RNX1NfkCwj4mD1YTsNPCCtGPTTQkxn14oLKNg6vuVkChn55qa5rC7K"
+
+        # Helper: create a descriptor wallet with a given name, tprv, descriptor wrapper, and BIP path
+        create_descriptor_wallet() {
+            local wallet_name="$1"
+            local tprv="$2"
+            local wrapper="$3"   # e.g. "wpkh" "pkh" "sh_wpkh" "tr"
+            local bip_path="$4"  # e.g. "84h/1h/0h"
+
+            echo "📋 Creating $wallet_name wallet..."
+            btc unloadwallet "$wallet_name" 2>/dev/null || true
+
+            set +e
+            CREATE_RESULT=$(btc -named createwallet wallet_name="$wallet_name" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1)
+            CREATE_EXIT_CODE=$?
+            set -e
+
+            if echo "$CREATE_RESULT" | grep -q "already exists"; then
+                echo "   ✅ $wallet_name wallet exists, loading..."
+                btc loadwallet "$wallet_name" >/dev/null 2>&1 || true
+            elif [ $CREATE_EXIT_CODE -eq 0 ]; then
+                echo "   ✅ $wallet_name blank wallet created"
+
+                # Build raw descriptors (without checksum) based on wrapper type
+                local ext_raw int_raw
+                case "$wrapper" in
+                    wpkh)
+                        ext_raw="wpkh($tprv/$bip_path/0/*)"
+                        int_raw="wpkh($tprv/$bip_path/1/*)"
+                        ;;
+                    pkh)
+                        ext_raw="pkh($tprv/$bip_path/0/*)"
+                        int_raw="pkh($tprv/$bip_path/1/*)"
+                        ;;
+                    sh_wpkh)
+                        ext_raw="sh(wpkh($tprv/$bip_path/0/*))"
+                        int_raw="sh(wpkh($tprv/$bip_path/1/*))"
+                        ;;
+                    tr)
+                        ext_raw="tr($tprv/$bip_path/0/*)"
+                        int_raw="tr($tprv/$bip_path/1/*)"
+                        ;;
+                esac
+
+                # Compute checksums at runtime
+                local ext_checksum int_checksum
+                ext_checksum=$(btc getdescriptorinfo "$ext_raw" | jq -r '.checksum')
+                int_checksum=$(btc getdescriptorinfo "$int_raw" | jq -r '.checksum')
+
+                btc_wallet "$wallet_name" importdescriptors "[
+                  {\"desc\": \"${ext_raw}#${ext_checksum}\", \"timestamp\": \"now\", \"active\": true, \"internal\": false, \"range\": [0, 999]},
+                  {\"desc\": \"${int_raw}#${int_checksum}\", \"timestamp\": \"now\", \"active\": true, \"internal\": true, \"range\": [0, 999]}
+                ]" >/dev/null 2>&1
+                echo "   ✅ $wallet_name wallet seeded with deterministic descriptors"
+            else
+                echo "   ❌ Failed to create $wallet_name wallet: $CREATE_RESULT"
+                exit 1
+            fi
+        }
+
+        # Helper: extract multipath descriptor for a wallet given its descriptor prefix filter
+        get_multipath_descriptor() {
+            local wallet_name="$1"
+            local jq_filter="$2"  # jq select filter for the receive descriptor
+
+            local descriptors receive_desc multipath_raw checksum_info checksum
+            descriptors=$(btc_wallet "$wallet_name" listdescriptors)
+            receive_desc=$(echo "$descriptors" | jq -r ".descriptors[] | select($jq_filter) | .desc")
+            multipath_raw=$(echo "$receive_desc" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
+            checksum_info=$(btc getdescriptorinfo "$multipath_raw")
+            checksum=$(echo "$checksum_info" | jq -r '.checksum')
+            echo "$multipath_raw#$checksum"
+        }
+
+        # Create funded descriptor wallets (using FUNDED_TPRV)
+        create_descriptor_wallet "segwit-desc"  "$FUNDED_TPRV" "wpkh"    "84h/1h/0h"
+        create_descriptor_wallet "legacy-desc"  "$FUNDED_TPRV" "pkh"     "44h/1h/0h"
+        create_descriptor_wallet "nested-desc"  "$FUNDED_TPRV" "sh_wpkh" "49h/1h/0h"
+        create_descriptor_wallet "taproot-desc" "$FUNDED_TPRV" "tr"      "86h/1h/0h"
+
+        # Get multipath descriptors for funded wallets
+        SEGWIT_DESC_DESCRIPTOR=$(get_multipath_descriptor "segwit-desc" '.desc | startswith("wpkh(") and contains("/0/*")')
+        LEGACY_DESC_DESCRIPTOR=$(get_multipath_descriptor "legacy-desc" '.desc | startswith("pkh(") and contains("/0/*")')
+        NESTED_DESC_DESCRIPTOR=$(get_multipath_descriptor "nested-desc" '.desc | startswith("sh(wpkh(") and contains("/0/*")')
+        TAPROOT_DESC_DESCRIPTOR=$(get_multipath_descriptor "taproot-desc" '.desc | startswith("tr(") and contains("/0/*")')
+
+        # Create empty descriptor wallets (using EMPTY_TPRV)
+        create_descriptor_wallet "segwit-empty"  "$EMPTY_TPRV" "wpkh"    "84h/1h/0h"
+        create_descriptor_wallet "legacy-empty"  "$EMPTY_TPRV" "pkh"     "44h/1h/0h"
+        create_descriptor_wallet "nested-empty"  "$EMPTY_TPRV" "sh_wpkh" "49h/1h/0h"
+        create_descriptor_wallet "taproot-empty" "$EMPTY_TPRV" "tr"      "86h/1h/0h"
+
+        # Get multipath descriptors for empty wallets
+        SEGWIT_EMPTY_DESCRIPTOR=$(get_multipath_descriptor "segwit-empty" '.desc | startswith("wpkh(") and contains("/0/*")')
+        LEGACY_EMPTY_DESCRIPTOR=$(get_multipath_descriptor "legacy-empty" '.desc | startswith("pkh(") and contains("/0/*")')
+        NESTED_EMPTY_DESCRIPTOR=$(get_multipath_descriptor "nested-empty" '.desc | startswith("sh(wpkh(") and contains("/0/*")')
+        TAPROOT_EMPTY_DESCRIPTOR=$(get_multipath_descriptor "taproot-empty" '.desc | startswith("tr(") and contains("/0/*")')
         
         # Create Charlie wallet (deterministic)
         echo "📋 Creating Charlie wallet..."
@@ -1312,49 +1415,44 @@ case "$1" in
         # Get a fresh address for mining (only used for background operations)
         MINER_ADDRESS=$(btc_wallet miner getnewaddress)
         
-        # Fund Alice wallet with distributed strategy
-        echo "💰 Funding Alice wallet..."
+        # Fund descriptor wallets
+        echo "💰 Funding descriptor wallets..."
         BLOCK_COUNT=$(btc getblockcount 2>/dev/null || echo "0")
-        
+
         if [ "$BLOCK_COUNT" -lt 104 ]; then
-            echo "   ⛏️  Mining blocks and transferring funds to Alice..."
+            echo "   ⛏️  Mining blocks and transferring funds..."
             # Mine 103 blocks to Miner (150 BTC total)
             btc generatetoaddress 103 "$MINER_ADDRESS" >/dev/null 2>&1
-            
-            # Generate Alice addresses for distributed funding
-            echo "   📍 Generating addresses for distributed funding..."
-            
-            # Build sendmany recipients object
+
+            # Fund segwit-desc with distributed strategy (1 BTC across 31 addresses)
+            echo "   📍 Generating addresses for segwit-desc distributed funding..."
             RECIPIENTS="{"
-            
-            # 1 address with 0.5 BTC
-            ALICE_ADDR_5=$(btc_wallet alice getnewaddress)
-            RECIPIENTS="${RECIPIENTS}\"$ALICE_ADDR_5\":0.5"
-            
-            # 5 addresses with 0.05 BTC each
+            SEGWIT_ADDR_5=$(btc_wallet "segwit-desc" getnewaddress)
+            RECIPIENTS="${RECIPIENTS}\"$SEGWIT_ADDR_5\":0.5"
             for i in {1..5}; do
-                ALICE_ADDR_05=$(btc_wallet alice getnewaddress)
-                RECIPIENTS="${RECIPIENTS},\"$ALICE_ADDR_05\":0.05"
+                SEGWIT_ADDR_05=$(btc_wallet "segwit-desc" getnewaddress)
+                RECIPIENTS="${RECIPIENTS},\"$SEGWIT_ADDR_05\":0.05"
             done
-            
-            # 25 addresses with 0.01 BTC each
             for i in {1..25}; do
-                ALICE_ADDR_01=$(btc_wallet alice getnewaddress)
-                RECIPIENTS="${RECIPIENTS},\"$ALICE_ADDR_01\":0.01"
+                SEGWIT_ADDR_01=$(btc_wallet "segwit-desc" getnewaddress)
+                RECIPIENTS="${RECIPIENTS},\"$SEGWIT_ADDR_01\":0.01"
             done
-            
             RECIPIENTS="${RECIPIENTS}}"
-            
-            # Send 1 BTC distributed across multiple addresses in one transaction
             echo "   💸 Creating single transaction with multiple outputs..."
             echo "   📊 Distribution: 1×0.5 BTC + 5×0.05 BTC + 25×0.01 BTC = 1 BTC across 31 addresses"
-            TXID=$(btc_miner sendmany "" "$RECIPIENTS")
-            
-            # Mine 1 block to confirm Alice's transaction
+            btc_miner sendmany "" "$RECIPIENTS" >/dev/null 2>&1
             btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
-            echo "   ✅ Alice funded with 1 BTC (distributed across 31 addresses)"
+            echo "   ✅ segwit-desc funded with 1 BTC (distributed across 31 addresses)"
+
+            # Fund legacy-desc, nested-desc, taproot-desc with 0.123 BTC each
+            for FUNDED_WALLET in legacy-desc nested-desc taproot-desc; do
+                FUNDED_ADDR=$(btc_wallet "$FUNDED_WALLET" getnewaddress "" "$(get_address_type "$FUNDED_WALLET")")
+                btc_miner sendtoaddress "$FUNDED_ADDR" 0.123 >/dev/null 2>&1
+                echo "   ✅ $FUNDED_WALLET funded with 0.123 BTC"
+            done
+            btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
         else
-            echo "   ✅ Alice already funded"
+            echo "   ✅ Descriptor wallets already funded"
         fi
         
         # Fund Charlie wallet at index 250
@@ -1400,52 +1498,173 @@ case "$1" in
             btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
             echo "   ✅ Bacon funded with 0.1 BTC"
 
-            # Create transaction history by exchanging with Alice
+            # Create transaction history by exchanging with segwit-desc
             echo "   📜 Creating transaction history..."
 
-            # Bacon sends 0.02 BTC to Alice
-            ALICE_ADDR=$(btc_wallet alice getnewaddress)
-            BACON_TX2=$(btc_wallet bacon sendtoaddress "$ALICE_ADDR" 0.02)
+            # Bacon sends 0.02 BTC to segwit-desc
+            SEGWIT_ADDR=$(btc_wallet "segwit-desc" getnewaddress)
+            BACON_TX2=$(btc_wallet bacon sendtoaddress "$SEGWIT_ADDR" 0.02)
             btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
-            echo "   ✅ Bacon → Alice: 0.02 BTC"
+            echo "   ✅ Bacon → segwit-desc: 0.02 BTC"
 
-            # Alice sends 0.015 BTC back to Bacon
+            # segwit-desc sends 0.015 BTC back to Bacon
             BACON_ADDR2=$(btc_wallet bacon getnewaddress)
-            ALICE_TX1=$(btc_wallet alice sendtoaddress "$BACON_ADDR2" 0.015)
+            SEGWIT_TX1=$(btc_wallet "segwit-desc" sendtoaddress "$BACON_ADDR2" 0.015)
             btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
-            echo "   ✅ Alice → Bacon: 0.015 BTC"
+            echo "   ✅ segwit-desc → Bacon: 0.015 BTC"
 
-            # Bacon sends 0.01 BTC to Alice again
-            ALICE_ADDR2=$(btc_wallet alice getnewaddress)
-            BACON_TX3=$(btc_wallet bacon sendtoaddress "$ALICE_ADDR2" 0.01)
+            # Bacon sends 0.01 BTC to segwit-desc again
+            SEGWIT_ADDR2=$(btc_wallet "segwit-desc" getnewaddress)
+            BACON_TX3=$(btc_wallet bacon sendtoaddress "$SEGWIT_ADDR2" 0.01)
             btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
-            echo "   ✅ Bacon → Alice: 0.01 BTC"
+            echo "   ✅ Bacon → segwit-desc: 0.01 BTC"
 
             echo "   ✅ Transaction history created (4 transactions)"
         else
             echo "   ✅ Bacon already funded"
         fi
 
-        # Show final balances
-        ALICE_BALANCE=$(btc_wallet alice getbalance)
-        CHARLIE_BALANCE=$(btc_wallet charlie getbalance)
-        BACON_BALANCE=$(btc_wallet bacon getbalance)
-        echo "   💰 Alice balance: $ALICE_BALANCE BTC"
-        echo "   💰 Charlie balance: $CHARLIE_BALANCE BTC"
-        echo "   💰 Bacon balance: $BACON_BALANCE BTC"
+        # Create single-address wallets (one per address type, for testing address monitoring)
+        echo "📋 Creating single-address wallets..."
+        ADDR_TYPES=("legacy" "p2sh-segwit" "bech32" "bech32m")
+        ADDR_LABELS=("P2PKH legacy" "P2SH nested segwit" "P2WPKH native segwit" "P2TR taproot")
+        ADDR_WALLET_NAMES=("legacy-address" "p2sh-address" "segwit-address" "taproot-address")
 
+        for i in "${!ADDR_TYPES[@]}"; do
+            ADDR_TYPE="${ADDR_TYPES[$i]}"
+            ADDR_LABEL="${ADDR_LABELS[$i]}"
+            ADDR_WALLET_NAME="${ADDR_WALLET_NAMES[$i]}"
+
+            set +e
+            CREATE_RESULT=$(btc -named createwallet wallet_name="$ADDR_WALLET_NAME" descriptors=true 2>&1)
+            CREATE_EXIT_CODE=$?
+            set -e
+
+            if echo "$CREATE_RESULT" | grep -q "already exists"; then
+                btc loadwallet "$ADDR_WALLET_NAME" >/dev/null 2>&1 || true
+            elif [ $CREATE_EXIT_CODE -ne 0 ]; then
+                echo "   ❌ Failed to create $ADDR_WALLET_NAME: $CREATE_RESULT"
+                continue
+            fi
+
+            # Check if already funded
+            ADDR_BALANCE=$(btc_wallet "$ADDR_WALLET_NAME" getbalance 2>/dev/null || echo "0")
+            if [ "$(echo "$ADDR_BALANCE == 0" | bc -l 2>/dev/null || echo "1")" -eq 1 ]; then
+                ADDRESS=$(btc_wallet "$ADDR_WALLET_NAME" getnewaddress "" "$ADDR_TYPE")
+                btc_miner sendtoaddress "$ADDRESS" 0.123 > /dev/null
+                echo "   ✅ $ADDR_WALLET_NAME ($ADDR_LABEL): $ADDRESS — funded 0.123 BTC"
+            else
+                echo "   ✅ $ADDR_WALLET_NAME already funded ($ADDR_BALANCE BTC)"
+            fi
+        done
+
+        # Mine to confirm address wallet funding
+        btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+
+        # Show final balances
         echo ""
-        echo "🎉 Alice, Bob, Charlie, and Bacon wallets setup complete!"
+        echo "🎉 All wallets setup complete!"
         echo ""
-        echo "📱 Add these descriptors to your wallet app to follow along:"
-        echo "   👩 Alice Wallet (funded - 1 BTC):    $ALICE_DESCRIPTOR"
-        echo "   👨 Bob Wallet (unfunded):             $BOB_DESCRIPTOR"
-        echo "   🎭 Charlie Wallet (funded - 0.5 BTC): $CHARLIE_DESCRIPTOR"
-        echo "   🥓 Bacon Wallet (demo - ~0.08 BTC):   $BACON_DESCRIPTOR"
+        echo "📱 Funded descriptor wallets:"
+        echo "   segwit-desc  (wpkh, 1 BTC distributed):  $SEGWIT_DESC_DESCRIPTOR"
+        echo "   legacy-desc  (pkh, 0.123 BTC):           $LEGACY_DESC_DESCRIPTOR"
+        echo "   nested-desc  (sh(wpkh), 0.123 BTC):      $NESTED_DESC_DESCRIPTOR"
+        echo "   taproot-desc (tr, 0.123 BTC):             $TAPROOT_DESC_DESCRIPTOR"
         echo ""
-        echo "💡 Wallets are ready - addresses will be derived automatically by your backend"
+        echo "📱 Empty descriptor wallets:"
+        echo "   segwit-empty  (wpkh):     $SEGWIT_EMPTY_DESCRIPTOR"
+        echo "   legacy-empty  (pkh):      $LEGACY_EMPTY_DESCRIPTOR"
+        echo "   nested-empty  (sh(wpkh)): $NESTED_EMPTY_DESCRIPTOR"
+        echo "   taproot-empty (tr):       $TAPROOT_EMPTY_DESCRIPTOR"
         echo ""
-        echo "💡 Next: $0 add-wallets-to-backend (requires backend running)"
+        echo "📱 Other wallets:"
+        echo "   🎭 Charlie (funded - 0.5 BTC at index 250): $CHARLIE_DESCRIPTOR"
+        echo "   🥓 Bacon (demo - ~0.08 BTC):                $BACON_DESCRIPTOR"
+        echo ""
+        echo "📍 Single addresses (for address monitoring):"
+        for i in "${!ADDR_WALLET_NAMES[@]}"; do
+            ADDR_WALLET_NAME="${ADDR_WALLET_NAMES[$i]}"
+            ADDR_LABEL="${ADDR_LABELS[$i]}"
+            btc loadwallet "$ADDR_WALLET_NAME" >/dev/null 2>&1 || true
+            ADDR_LIST=$(btc_wallet "$ADDR_WALLET_NAME" listreceivedbyaddress 0 true)
+            ADDRESS=$(echo "$ADDR_LIST" | jq -r '.[0].address')
+            ADDR_BALANCE=$(btc_wallet "$ADDR_WALLET_NAME" getbalance)
+            echo "   🔍 $ADDR_WALLET_NAME ($ADDR_LABEL): $ADDRESS ($ADDR_BALANCE BTC)"
+        done
+        echo ""
+
+        # Add wallets to backend
+        BACKEND_URL="http://localhost:3000"
+        echo ""
+        if curl -s --connect-timeout 2 --max-time 5 "$BACKEND_URL/api/wallets" > /dev/null 2>&1; then
+            read -p "Add wallets to backend? (self-hosted mode only) (Y/n): " -n 1 -r
+            echo
+        else
+            echo "⚠️  Backend not running at $BACKEND_URL — it must be running to add wallets."
+            echo "   Start it with:  cd ../backend && cargo run"
+            echo "   Note: This only works in self-hosted mode (unauthenticated API)."
+            echo ""
+            read -p "Press Enter when the backend is running, or type 'n' to skip: " -n 1 -r
+            echo
+        fi
+
+        if [[ $REPLY =~ ^[Nn]$ ]]; then
+            echo "💡 You can add wallets later with: $0 add-wallets-to-backend"
+            exit 0
+        fi
+
+        echo "🔍 Checking backend at $BACKEND_URL..."
+        if curl -s --connect-timeout 5 --max-time 10 "$BACKEND_URL/api/wallets" > /dev/null 2>&1; then
+            echo "✅ Backend is running — adding wallets..."
+            echo ""
+
+            # Helper to add a wallet to the backend
+            add_wallet_to_backend() {
+                local name="$1"
+                local descriptor="$2"
+                local emoji="$3"
+
+                RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/wallets" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"name\":\"$name\",\"descriptor\":\"$descriptor\"}")
+
+                if echo "$RESPONSE" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
+                    CHECKSUM=$(echo "$RESPONSE" | jq -r '.wallet.checksum')
+                    echo "   $emoji $name added (checksum: $CHECKSUM)"
+                    return 0
+                else
+                    ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error // "unknown error"')
+                    echo "   $emoji $name: $ERROR_MSG"
+                    return 1
+                fi
+            }
+
+            add_wallet_to_backend "segwit-desc" "$SEGWIT_DESC_DESCRIPTOR" "📱"
+            add_wallet_to_backend "legacy-desc" "$LEGACY_DESC_DESCRIPTOR" "📱"
+            add_wallet_to_backend "nested-desc" "$NESTED_DESC_DESCRIPTOR" "📱"
+            add_wallet_to_backend "taproot-desc" "$TAPROOT_DESC_DESCRIPTOR" "📱"
+            add_wallet_to_backend "segwit-empty" "$SEGWIT_EMPTY_DESCRIPTOR" "📱"
+            add_wallet_to_backend "legacy-empty" "$LEGACY_EMPTY_DESCRIPTOR" "📱"
+            add_wallet_to_backend "nested-empty" "$NESTED_EMPTY_DESCRIPTOR" "📱"
+            add_wallet_to_backend "taproot-empty" "$TAPROOT_EMPTY_DESCRIPTOR" "📱"
+            add_wallet_to_backend "Charlie" "$CHARLIE_DESCRIPTOR" "🎭"
+
+            # Add single-address wallets
+            for i in "${!ADDR_WALLET_NAMES[@]}"; do
+                ADDR_WALLET_NAME="${ADDR_WALLET_NAMES[$i]}"
+                ADDR_LABEL="${ADDR_LABELS[$i]}"
+                btc loadwallet "$ADDR_WALLET_NAME" >/dev/null 2>&1 || true
+                ADDR_LIST=$(btc_wallet "$ADDR_WALLET_NAME" listreceivedbyaddress 0 true)
+                ADDRESS=$(echo "$ADDR_LIST" | jq -r '.[0].address')
+                add_wallet_to_backend "$ADDR_WALLET_NAME" "$ADDRESS" "🔍"
+            done
+
+            echo ""
+            echo "🎉 Init complete! Check http://localhost:3001"
+        else
+            echo "⚠️  Backend not running — wallets not added to database"
+            echo "💡 Start the backend and run: $0 add-wallets-to-backend"
+        fi
         ;;
         
     "stop")
@@ -1466,11 +1685,20 @@ case "$1" in
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo "Resetting environment..."
 
+            # Kill backend and frontend first so they don't hold database locks
+            kill_servers
+
             # Try to unload wallets before reset (if Bitcoin is running)
             if btc getblockchaininfo > /dev/null 2>&1; then
                 echo "Unloading test wallets..."
-                btc unloadwallet "alice" 2>/dev/null || true
-                btc unloadwallet "bob" 2>/dev/null || true
+                btc unloadwallet "segwit-desc" 2>/dev/null || true
+                btc unloadwallet "legacy-desc" 2>/dev/null || true
+                btc unloadwallet "nested-desc" 2>/dev/null || true
+                btc unloadwallet "taproot-desc" 2>/dev/null || true
+                btc unloadwallet "segwit-empty" 2>/dev/null || true
+                btc unloadwallet "legacy-empty" 2>/dev/null || true
+                btc unloadwallet "nested-empty" 2>/dev/null || true
+                btc unloadwallet "taproot-empty" 2>/dev/null || true
                 btc unloadwallet "charlie" 2>/dev/null || true
                 btc unloadwallet "bacon" 2>/dev/null || true
                 btc unloadwallet "miner" 2>/dev/null || true
@@ -1587,7 +1815,6 @@ case "$1" in
     "mempool-status")
         echo "=== Mempool Status ==="
         if btc getblockchaininfo > /dev/null 2>&1; then
-            btc loadwallet "alice" 2>/dev/null || true
             MEMPOOL_SIZE=$(btc getmempoolinfo | grep '"size"' | cut -d':' -f2 | tr -d ' ,')
             MEMPOOL_BYTES=$(btc getmempoolinfo | grep '"bytes"' | cut -d':' -f2 | tr -d ' ,')
             echo "Mempool transactions: $MEMPOOL_SIZE"
@@ -1614,14 +1841,23 @@ case "$1" in
         if btc getblockchaininfo > /dev/null 2>&1; then
             echo "Bitcoin Core: ✅ Running"
             echo "Block count: $(btc getblockcount)"
-            btc loadwallet "alice" 2>/dev/null || true
-            btc loadwallet "bob" 2>/dev/null || true
+            btc loadwallet "segwit-desc" 2>/dev/null || true
+            btc loadwallet "legacy-desc" 2>/dev/null || true
+            btc loadwallet "nested-desc" 2>/dev/null || true
+            btc loadwallet "taproot-desc" 2>/dev/null || true
+            btc loadwallet "segwit-empty" 2>/dev/null || true
             btc loadwallet "charlie" 2>/dev/null || true
             btc loadwallet "miner" 2>/dev/null || true
-            echo "Alice wallet balance: $(btc_alice getbalance) BTC (funded - distributed across addresses)"
-            echo "Bob wallet balance: $(btc_bob getbalance) BTC (unfunded)"
-            echo "Charlie wallet balance: $(btc_charlie getbalance) BTC (funded - 0.5 BTC at index 250)"
-            echo "Miner wallet balance: $(btc_miner getbalance) BTC (background infrastructure)"
+            echo "Funded descriptor wallets:"
+            echo "  segwit-desc:  $(btc_segwit_desc getbalance) BTC (wpkh - distributed)"
+            echo "  legacy-desc:  $(btc_legacy_desc getbalance) BTC (pkh)"
+            echo "  nested-desc:  $(btc_nested_desc getbalance) BTC (sh(wpkh))"
+            echo "  taproot-desc: $(btc_taproot_desc getbalance) BTC (tr)"
+            echo "Empty descriptor wallets:"
+            echo "  segwit-empty:  $(btc_segwit_empty getbalance) BTC (wpkh)"
+            echo "Other wallets:"
+            echo "  charlie: $(btc_charlie getbalance) BTC (funded - 0.5 BTC at index 250)"
+            echo "  miner:   $(btc_miner getbalance) BTC (background infrastructure)"
             echo "Network: $(btc getblockchaininfo | grep '"chain"' | cut -d'"' -f4)"
             
             # Add mempool info to status
@@ -1659,7 +1895,7 @@ case "$1" in
     
     "add-wallets-to-backend")
         BACKEND_URL=${2:-"http://localhost:3000"}
-        echo "Adding Alice, Bob, and Charlie wallets to backend at $BACKEND_URL..."
+        echo "Adding descriptor wallets to backend at $BACKEND_URL..."
 
         # Check if backend is running
         echo "🔍 Checking if backend is running..."
@@ -1675,123 +1911,84 @@ case "$1" in
             exit 1
         fi
         echo "✅ Backend is running"
-        
-        # Get the descriptors from the Bitcoin wallets
+
+        # Helper: extract multipath descriptor for a wallet given its descriptor prefix filter
+        _get_multipath_descriptor() {
+            local wallet_name="$1"
+            local jq_filter="$2"
+            local descriptors receive_desc multipath_raw checksum_info checksum
+            descriptors=$(btc_wallet "$wallet_name" listdescriptors)
+            receive_desc=$(echo "$descriptors" | jq -r ".descriptors[] | select($jq_filter) | .desc")
+            multipath_raw=$(echo "$receive_desc" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
+            checksum_info=$(btc getdescriptorinfo "$multipath_raw")
+            checksum=$(echo "$checksum_info" | jq -r '.checksum')
+            echo "$multipath_raw#$checksum"
+        }
+
+        # Helper: add wallet to backend
+        _add_wallet() {
+            local name="$1"
+            local descriptor="$2"
+            echo "📤 Adding $name..."
+            local response
+            response=$(curl -s -X POST "$BACKEND_URL/api/wallets" \
+                -H "Content-Type: application/json" \
+                -d "{\"name\":\"$name\",\"descriptor\":\"$descriptor\"}")
+            if echo "$response" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
+                local checksum
+                checksum=$(echo "$response" | jq -r '.wallet.checksum')
+                echo "   ✅ $name added (checksum: $checksum)"
+                return 0
+            else
+                local error_msg
+                error_msg=$(echo "$response" | jq -r '.error // "unknown error"')
+                echo "   ❌ $name: $error_msg"
+                return 1
+            fi
+        }
+
+        # Load and extract descriptors for all wallets
         echo "📋 Getting wallet descriptors..."
-        btc loadwallet "alice" 2>/dev/null || true
-        btc loadwallet "bob" 2>/dev/null || true
-        btc loadwallet "charlie" 2>/dev/null || true
-        
-        # Get Alice descriptor and convert to multipath format
-        # 1. Get raw descriptor from Bitcoin Core wallet  
-        # 2. Convert /0/* to /<0;1>/* for multipath support
-        # 3. Remove old checksum (new one calculated by backend)
-        # Note: Skip getdescriptorinfo as it reverts multipath format to single-path
-        ALICE_DESCRIPTORS=$(btc_wallet alice listdescriptors)
-        ALICE_RECEIVE_DESC=$(echo "$ALICE_DESCRIPTORS" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
-        ALICE_MULTIPATH_RAW=$(echo "$ALICE_RECEIVE_DESC" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
-        # Get proper checksum for multipath descriptor from Bitcoin Core
-        ALICE_CHECKSUM_INFO=$(btc getdescriptorinfo "$ALICE_MULTIPATH_RAW")
-        ALICE_CHECKSUM=$(echo "$ALICE_CHECKSUM_INFO" | jq -r '.checksum')
-        ALICE_DESCRIPTOR="$ALICE_MULTIPATH_RAW#$ALICE_CHECKSUM"
-        
-        # Get Bob descriptor and convert to multipath format (same process as Alice)
-        BOB_DESCRIPTORS=$(btc_wallet bob listdescriptors)
-        BOB_RECEIVE_DESC=$(echo "$BOB_DESCRIPTORS" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
-        BOB_MULTIPATH_RAW=$(echo "$BOB_RECEIVE_DESC" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
-        # Get proper checksum for multipath descriptor from Bitcoin Core
-        BOB_CHECKSUM_INFO=$(btc getdescriptorinfo "$BOB_MULTIPATH_RAW")
-        BOB_CHECKSUM=$(echo "$BOB_CHECKSUM_INFO" | jq -r '.checksum')
-        BOB_DESCRIPTOR="$BOB_MULTIPATH_RAW#$BOB_CHECKSUM"
-        
-        # Get Charlie descriptor and convert to multipath format (same process as Alice and Bob)
-        CHARLIE_DESCRIPTORS=$(btc_wallet charlie listdescriptors)
-        CHARLIE_RECEIVE_DESC=$(echo "$CHARLIE_DESCRIPTORS" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
-        CHARLIE_MULTIPATH_RAW=$(echo "$CHARLIE_RECEIVE_DESC" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
-        # Get proper checksum for multipath descriptor from Bitcoin Core
-        CHARLIE_CHECKSUM_INFO=$(btc getdescriptorinfo "$CHARLIE_MULTIPATH_RAW")
-        CHARLIE_CHECKSUM=$(echo "$CHARLIE_CHECKSUM_INFO" | jq -r '.checksum')
-        CHARLIE_DESCRIPTOR="$CHARLIE_MULTIPATH_RAW#$CHARLIE_CHECKSUM"
-        
-        echo "👩 Alice descriptor: $ALICE_DESCRIPTOR"
-        echo "👨 Bob descriptor: $BOB_DESCRIPTOR"
-        echo "🎭 Charlie descriptor: $CHARLIE_DESCRIPTOR"
-        
-        # Add Alice wallet to backend
-        echo "📤 Adding Alice wallet to backend..."
-        ALICE_RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/wallets" \
-            -H "Content-Type: application/json" \
-            -d "{\"name\":\"Alice (Regtest)\",\"descriptor\":\"$ALICE_DESCRIPTOR\"}")
-        
-        if echo "$ALICE_RESPONSE" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
-            ALICE_ID=$(echo "$ALICE_RESPONSE" | jq -r '.wallet.checksum')
-            echo "✅ Alice wallet added with checksum: $ALICE_ID"
-            ALICE_SUCCESS=true
-        else
-            echo "❌ Failed to add Alice wallet"
-            if echo "$ALICE_RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
-                ERROR_MSG=$(echo "$ALICE_RESPONSE" | jq -r '.error')
-                echo "   Error: $ERROR_MSG"
-            else
-                echo "   Response: $ALICE_RESPONSE"
-            fi
-            ALICE_SUCCESS=false
-        fi
-        
-        # Add Bob wallet to backend
-        echo "📤 Adding Bob wallet to backend..."
-        BOB_RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/wallets" \
-            -H "Content-Type: application/json" \
-            -d "{\"name\":\"Bob (Regtest)\",\"descriptor\":\"$BOB_DESCRIPTOR\"}")
-        
-        if echo "$BOB_RESPONSE" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
-            BOB_ID=$(echo "$BOB_RESPONSE" | jq -r '.wallet.checksum')
-            echo "✅ Bob wallet added with checksum: $BOB_ID"
-            BOB_SUCCESS=true
-        else
-            echo "❌ Failed to add Bob wallet"
-            if echo "$BOB_RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
-                ERROR_MSG=$(echo "$BOB_RESPONSE" | jq -r '.error')
-                echo "   Error: $ERROR_MSG"
-            else
-                echo "   Response: $BOB_RESPONSE"
-            fi
-            BOB_SUCCESS=false
-        fi
-        
-        # Add Charlie wallet to backend
-        echo "📤 Adding Charlie wallet to backend..."
-        CHARLIE_RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/wallets" \
-            -H "Content-Type: application/json" \
-            -d "{\"name\":\"Charlie (Regtest)\",\"descriptor\":\"$CHARLIE_DESCRIPTOR\"}")
-        
-        if echo "$CHARLIE_RESPONSE" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
-            CHARLIE_ID=$(echo "$CHARLIE_RESPONSE" | jq -r '.wallet.checksum')
-            echo "✅ Charlie wallet added with checksum: $CHARLIE_ID"
-            CHARLIE_SUCCESS=true
-        else
-            echo "❌ Failed to add Charlie wallet"
-            if echo "$CHARLIE_RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
-                ERROR_MSG=$(echo "$CHARLIE_RESPONSE" | jq -r '.error')
-                echo "   Error: $ERROR_MSG"
-            else
-                echo "   Response: $CHARLIE_RESPONSE"
-            fi
-            CHARLIE_SUCCESS=false
-        fi
-        
-        echo ""
+        WALLET_CONFIGS=(
+            "segwit-desc|.desc | startswith(\"wpkh(\") and contains(\"/0/*\")"
+            "legacy-desc|.desc | startswith(\"pkh(\") and contains(\"/0/*\")"
+            "nested-desc|.desc | startswith(\"sh(wpkh(\") and contains(\"/0/*\")"
+            "taproot-desc|.desc | startswith(\"tr(\") and contains(\"/0/*\")"
+            "segwit-empty|.desc | startswith(\"wpkh(\") and contains(\"/0/*\")"
+            "legacy-empty|.desc | startswith(\"pkh(\") and contains(\"/0/*\")"
+            "nested-empty|.desc | startswith(\"sh(wpkh(\") and contains(\"/0/*\")"
+            "taproot-empty|.desc | startswith(\"tr(\") and contains(\"/0/*\")"
+        )
+
         SUCCESS_COUNT=0
-        [ "$ALICE_SUCCESS" = true ] && SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-        [ "$BOB_SUCCESS" = true ] && SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-        [ "$CHARLIE_SUCCESS" = true ] && SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-        
-        if [ "$SUCCESS_COUNT" -eq 3 ]; then
-            echo "🎉 All three wallets (Alice, Bob, Charlie) have been added to the backend!"
-            echo "Check your frontend at http://localhost:3000 to see them."
+        TOTAL_COUNT=${#WALLET_CONFIGS[@]}
+
+        for config in "${WALLET_CONFIGS[@]}"; do
+            IFS='|' read -r wallet_name jq_filter <<< "$config"
+            btc loadwallet "$wallet_name" 2>/dev/null || true
+            DESCRIPTOR=$(_get_multipath_descriptor "$wallet_name" "$jq_filter")
+            echo "   $wallet_name: $DESCRIPTOR"
+            if _add_wallet "$wallet_name" "$DESCRIPTOR"; then
+                SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            fi
+        done
+
+        # Also add Charlie
+        btc loadwallet "charlie" 2>/dev/null || true
+        CHARLIE_DESCRIPTOR=$(_get_multipath_descriptor "charlie" '.desc | startswith("wpkh(") and contains("/0/*")')
+        echo "   charlie: $CHARLIE_DESCRIPTOR"
+        if _add_wallet "Charlie" "$CHARLIE_DESCRIPTOR"; then
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+        fi
+        TOTAL_COUNT=$((TOTAL_COUNT + 1))
+
+        echo ""
+        if [ "$SUCCESS_COUNT" -eq "$TOTAL_COUNT" ]; then
+            echo "🎉 All $TOTAL_COUNT wallets have been added to the backend!"
+            echo "Check your frontend at http://localhost:3001 to see them."
         elif [ "$SUCCESS_COUNT" -gt 0 ]; then
-            echo "⚠️  Some wallets were added successfully, but there were errors."
-            echo "Check your frontend at http://localhost:3000 to see what was added."
+            echo "⚠️  $SUCCESS_COUNT/$TOTAL_COUNT wallets added successfully."
+            echo "Check your frontend at http://localhost:3001 to see what was added."
         else
             echo "❌ Failed to add wallets to the backend."
             echo "Please check the backend logs and try again."
@@ -1806,8 +2003,8 @@ case "$1" in
         WALLETS_RESPONSE=$(curl -s "$BACKEND_URL/api/wallets")
         
         if echo "$WALLETS_RESPONSE" | jq -e '.wallets' > /dev/null 2>&1; then
-            # Find and delete Alice, Bob, Charlie and Miner wallets
-            echo "$WALLETS_RESPONSE" | jq -r '.wallets[] | select(.name | test("Alice.*Regtest|Bob.*Regtest|Charlie.*Regtest|Miner.*Regtest")) | .checksum' | while read -r wallet_id; do
+            # Find and delete regtest wallets
+            echo "$WALLETS_RESPONSE" | jq -r '.wallets[] | select(.name | test("Regtest")) | .checksum' | while read -r wallet_id; do
                 if [ -n "$wallet_id" ]; then
                     echo "🗑️  Deleting wallet $wallet_id..."
                     DELETE_RESPONSE=$(curl -s -X DELETE "$BACKEND_URL/api/wallets/$wallet_id")
@@ -1850,8 +2047,7 @@ case "$1" in
         ;;
         
     "kill")
-        echo "🔪 Killing processes on ports 3000 and 3001..."
-        lsof -ti:3000,3001 | xargs kill -9 2>/dev/null || true
+        kill_servers
         echo "🎯 Port cleanup complete"
         ;;
         
@@ -1862,9 +2058,9 @@ case "$1" in
         echo ""
         echo "Environment Commands:"
         echo "  start               Start Bitcoin + Electrum + ntfy containers"
-        echo "  create-wallets      Create Alice, Bob, and Charlie wallets (run after start)"
+        echo "  init                Start infra, create wallets, add to backend"
         echo "  stop                Stop all containers"
-        echo "  restart             Restart all containers"  
+        echo "  restart             Restart all containers"
         echo "  reset               Stop containers and delete all data (includes database)"
         echo "  wipe-database       Remove all database folders (cloud & self-hosted)"
         echo "  kill                Kill processes on localhost ports 3000 and 3001"
@@ -1872,51 +2068,41 @@ case "$1" in
         echo "  status              Show environment status"
         echo "  mode <mode>         Switch between self-hosted and cloud modes"
         echo ""
-        echo "Alice Commands (funded wallet - 1 BTC distributed):"
-        echo "  alice balance                         Show Alice wallet balance"
-        echo "  alice address                         Generate new Alice address"
-        echo "  alice sending <wallet> <amt1> [amt2...] Send Bitcoin in multiple transactions (separate tx for each amount)"
-        echo "  alice sending <wallet> max            Drain wallet to destination (single transaction)"
-        echo "  alice sent <wallet> <amt1> [amt2...]  Send Bitcoin in multiple transactions and mine block to confirm"
-        echo "  alice sent <wallet> max               Drain wallet and mine block to confirm"
-        echo "  alice fund <addr> [amt]               Fund address from Alice (default: 1.0)"
-        echo "  alice rbf <txid>                      Replace transaction with automatically calculated higher fee"
-        echo "  alice cpfp <txid>                     Create CPFP child transaction for Alice's unconfirmed output"
-        echo "  alice consolidate                     Consolidate 2 smallest UTXOs to new receive address"
+        echo "Funded Descriptor Wallets:"
+        echo "  segwit-desc  — wpkh (Native SegWit), 1 BTC distributed across 31 addresses"
+        echo "  legacy-desc  — pkh (Legacy P2PKH), 0.123 BTC"
+        echo "  nested-desc  — sh(wpkh) (Nested SegWit), 0.123 BTC"
+        echo "  taproot-desc — tr (Taproot), 0.123 BTC"
         echo ""
-        echo "Bob Commands (unfunded wallet):"
-        echo "  bob balance                           Show Bob wallet balance"
-        echo "  bob address                           Generate new Bob address"
-        echo "  bob sending <wallet> <amt1> [amt2...] Send Bitcoin in multiple transactions (separate tx for each amount)"
-        echo "  bob sending <wallet> max              Drain wallet to destination (single transaction)"
-        echo "  bob sent <wallet> <amt1> [amt2...]    Send Bitcoin in multiple transactions and mine block to confirm"
-        echo "  bob sent <wallet> max                 Drain wallet and mine block to confirm"
-        echo "  bob rbf <txid>                        Replace transaction with automatically calculated higher fee"
-        echo "  bob cpfp <txid>                       Create CPFP child transaction for Bob's unconfirmed output"
-        echo "  bob consolidate                       Consolidate 2 smallest UTXOs to new receive address"
+        echo "Empty Descriptor Wallets:"
+        echo "  segwit-empty  — wpkh (Native SegWit), unfunded"
+        echo "  legacy-empty  — pkh (Legacy P2PKH), unfunded"
+        echo "  nested-empty  — sh(wpkh) (Nested SegWit), unfunded"
+        echo "  taproot-empty — tr (Taproot), unfunded"
         echo ""
-        echo "Charlie Commands (funded wallet - 0.5 BTC at index 250):"
-        echo "  charlie balance                       Show Charlie wallet balance"
-        echo "  charlie address                       Generate new Charlie address"
-        echo "  charlie sending <wallet> <amt1> [amt2...] Send Bitcoin in multiple transactions (separate tx for each amount)"
-        echo "  charlie sending <wallet> max         Drain wallet to destination (single transaction)"
-        echo "  charlie sent <wallet> <amt1> [amt2...]    Send Bitcoin in multiple transactions and mine block to confirm"
-        echo "  charlie sent <wallet> max             Drain wallet and mine block to confirm"
-        echo "  charlie fund <addr> [amt]             Fund address from Charlie (default: 1.0)"
-        echo "  charlie rbf <txid>                    Replace transaction with automatically calculated higher fee"
-        echo "  charlie cpfp <txid>                   Create CPFP child transaction for Charlie's unconfirmed output"
-        echo "  charlie consolidate                   Consolidate 2 smallest UTXOs to new receive address"
+        echo "Wallet Commands (works for any wallet above, plus charlie and miner):"
+        echo "  <wallet> balance                         Show wallet balance"
+        echo "  <wallet> address                         Generate new address"
+        echo "  <wallet> sending <dest> <amt1> [amt2...] Send Bitcoin (separate tx per amount)"
+        echo "  <wallet> sending <dest> max              Drain wallet to destination"
+        echo "  <wallet> sent <dest> <amt1> [amt2...]    Send and mine block to confirm"
+        echo "  <wallet> sent <dest> max                 Drain wallet and mine block to confirm"
+        echo "  <wallet> fund <addr> [amt]               Fund address (default: 1.0)"
+        echo "  <wallet> rbf <txid>                      Replace transaction with higher fee"
+        echo "  <wallet> cpfp <txid>                     Create CPFP child transaction"
+        echo "  <wallet> consolidate                     Consolidate 2 smallest UTXOs"
         echo ""
-        echo "Miner Commands (heavily funded wallet - for refunding drained wallets):"
-        echo "  miner balance                         Show Miner wallet balance"
-        echo "  miner address                         Generate new Miner address"
-        echo "  miner sending <wallet> <amt1> [amt2...] Send Bitcoin in multiple transactions (separate tx for each amount)"
-        echo "  miner sending <wallet> max            Drain wallet to destination (single transaction)"
-        echo "  miner sent <wallet> <amt1> [amt2...]  Send Bitcoin in multiple transactions and mine block to confirm"
-        echo "  miner sent <wallet> max               Drain wallet and mine block to confirm"
-        echo "  miner fund <addr> [amt]               Fund address from Miner (default: 1.0)"
-        echo "  miner rbf <txid>                      Replace transaction with automatically calculated higher fee"
-        echo "  miner cpfp <txid>                     Create CPFP child transaction for Miner's unconfirmed output"
+        echo "Other Wallets:"
+        echo "  charlie — wpkh, funded 0.5 BTC at address index 250 (deep scan testing)"
+        echo "  miner   — heavily funded, for refunding drained wallets"
+        echo ""
+        echo "Single-Address Wallets (created by init, one address per type):"
+        echo "  legacy-address sending <wallet> <amt>  Send from P2PKH address"
+        echo "  p2sh-address sending <wallet> <amt>    Send from P2SH-P2WPKH address"
+        echo "  segwit-address sending <wallet> <amt>  Send from P2WPKH address"
+        echo "  taproot-address sending <wallet> <amt> Send from P2TR address"
+        echo "  *-address balance                      Show balance"
+        echo "  *-address address                      Show address"
         echo ""
         echo "Mining Commands:"
         echo "  mine [blocks]           Mine blocks to Miner wallet (default: 1)"
@@ -1930,31 +2116,29 @@ case "$1" in
         echo "  run-tests <address>          Run comprehensive test suite with wallet address"
         echo ""
         echo "Backend Integration:"
-        echo "  add-wallets-to-backend [url]    Add Alice/Bob/Charlie wallets to backend (default: http://localhost:3000)"
+        echo "  add-wallets-to-backend [url]    Add wallets to backend (also done by init)"
         echo "  remove-wallets-from-backend [url] Remove regtest wallets from backend"
         echo ""
         echo "Examples:"
-        echo "  $0 start                             # Start the environment"
-        echo "  $0 create-wallets                    # Create Alice/Bob/Charlie wallets (Alice gets 1 BTC distributed, Charlie gets 0.5 BTC at index 250)"
-        echo "  $0 add-wallets-to-backend            # Add Alice/Bob/Charlie to your backend"
-        echo "  $0 mine 6                            # Mine 6 blocks"
-        echo "  $0 alice sending bob 0.5             # Send single 0.5 BTC transaction from Alice to Bob"
-        echo "  $0 alice sending bob 0.1 0.2 0.05    # Send three separate transactions from Alice to Bob"
-        echo "  $0 alice sent bob 0.5                # Send 0.5 BTC from Alice to Bob and mine block"
-        echo "  $0 alice sent bob 0.1 0.2 0.05       # Send three transactions from Alice to Bob and mine block"
-        echo "  $0 alice sending miner max           # Drain Alice wallet to miner"
-        echo "  $0 miner sending alice 1.0           # Refund Alice wallet from miner"
-        echo "  $0 alice rbf <txid>                  # Replace transaction with automatic fee bump (Alice)"
-        echo "  $0 bob sending alice 0.01            # Send 0.01 BTC from Bob to Alice"
-        echo "  $0 alice cpfp <txid>                 # Alice creates CPFP child for parent transaction"
-        echo "  $0 alice consolidate                 # Consolidate Alice's 2 smallest UTXOs"
-        echo "  $0 charlie sending alice 0.1 0.05 0.02 # Send three transactions from Charlie to Alice (tests high index)"
-        echo "  $0 mine 1                            # Mine 1 block (confirms pending transactions)"
-        echo "  $0 mempool-status                    # Check mempool"
-        echo "  $0 get-mempool-txid 0                # Get first transaction from mempool"
-        echo "  $0 mempool-purge restart             # Purge mempool via node restart"
-        echo "  $0 reorg                             # 1-block reorganization"
-        echo "  $0 run-tests bcrt1q...               # Run full test suite with wallet address"
-        echo "  $0 reset                             # Reset everything (includes backend cleanup)"
+        echo "  $0 start                                        # Start the environment"
+        echo "  $0 init                                         # Create wallets + add to backend"
+        echo "  $0 mine 6                                       # Mine 6 blocks"
+        echo "  $0 segwit-desc sending segwit-empty 0.5         # Send 0.5 BTC"
+        echo "  $0 segwit-desc sending segwit-empty 0.1 0.2     # Send two separate transactions"
+        echo "  $0 segwit-desc sent segwit-empty 0.5            # Send and mine block to confirm"
+        echo "  $0 segwit-desc sending miner max                # Drain segwit-desc wallet to miner"
+        echo "  $0 miner sending segwit-desc 1.0                # Refund segwit-desc from miner"
+        echo "  $0 segwit-desc rbf <txid>                       # Replace transaction with fee bump"
+        echo "  $0 segwit-desc cpfp <txid>                      # Create CPFP child transaction"
+        echo "  $0 segwit-desc consolidate                      # Consolidate 2 smallest UTXOs"
+        echo "  $0 legacy-desc sending legacy-empty 0.01        # Send between legacy wallets"
+        echo "  $0 charlie sending segwit-desc 0.1 0.05 0.02   # Send from Charlie (tests high index)"
+        echo "  $0 mine 1                                       # Mine 1 block (confirms pending)"
+        echo "  $0 mempool-status                               # Check mempool"
+        echo "  $0 get-mempool-txid 0                           # Get first transaction from mempool"
+        echo "  $0 mempool-purge restart                        # Purge mempool via node restart"
+        echo "  $0 reorg                                        # 1-block reorganization"
+        echo "  $0 run-tests bcrt1q...                          # Run full test suite with wallet address"
+        echo "  $0 reset                                        # Reset everything (includes backend cleanup)"
         ;;
 esac

@@ -43,7 +43,6 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     baconWallet,
     handleNavigateToChoose,
     handleSelectWallet,
-    handleSkipToForm,
     handleSelectSampleWallet,
     getGuideSteps,
   } = useWalletWizard({ slug, network, t: t as unknown as { raw: (key: string) => unknown } })
@@ -150,8 +149,8 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
         isSelfHostedMode={isSelfHostedMode}
         isFirstWallet={isFirstWallet}
         onSelectWallet={handleSelectWallet}
-        onSkipToForm={handleSkipToForm}
         onSelectSampleWallet={handleSelectSampleWallet}
+        onWalletCreated={handleWalletCreated}
         t={t}
         tNav={tNav}
       />

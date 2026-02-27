@@ -2,8 +2,11 @@
 
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Lightbulb } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Lightbulb } from "lucide-react"
 import { walletGuides, type WalletGuide } from "@/lib/wallet-guides"
+import { AddWalletForm } from "@/components/add-wallet-form"
+import { Wallet } from "@/types"
 import { WizardBreadcrumb, WizardStep } from "./wizard-breadcrumb"
 
 interface WalletTypeSelectorProps {
@@ -13,8 +16,8 @@ interface WalletTypeSelectorProps {
   isSelfHostedMode: boolean
   isFirstWallet: boolean
   onSelectWallet: (wallet: WalletGuide) => void
-  onSkipToForm: () => void
   onSelectSampleWallet: () => void
+  onWalletCreated: (wallet: Wallet) => void
   t: (key: string, params?: Record<string, string>) => string
   tNav: (key: string) => string
 }
@@ -26,8 +29,8 @@ export function WalletTypeSelector({
   isSelfHostedMode,
   isFirstWallet,
   onSelectWallet,
-  onSkipToForm,
   onSelectSampleWallet,
+  onWalletCreated,
   t,
   tNav,
 }: WalletTypeSelectorProps) {
@@ -41,11 +44,9 @@ export function WalletTypeSelector({
         tNav={tNav}
       />
 
-      <div className="max-w-3xl mx-auto space-y-8">
+      <div className="max-w-3xl mx-auto space-y-10">
+        {/* Form section */}
         <div className="text-center space-y-2">
-          <p className="text-muted-foreground text-lg">
-            {t('add.wizard.chooseWallet')}
-          </p>
           <p className="text-muted-foreground text-sm">
             {t('add.wizard.keysStaySafe')}
           </p>
@@ -69,40 +70,47 @@ export function WalletTypeSelector({
           </div>
         )}
 
-        {/* Wallet grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {walletGuides.map((wallet) => (
-            <button
-              key={wallet.id}
-              onClick={() => onSelectWallet(wallet)}
-              className="flex flex-col items-center gap-3 p-6 rounded-xl border hover:bg-accent/5 hover:border-accent transition-all text-center group"
-            >
-              <div className="w-16 h-16 flex items-center justify-center">
-                <Image
-                  src={wallet.logoSmall}
-                  alt={wallet.name}
-                  width={48}
-                  height={48}
-                  className="object-contain"
-                />
-              </div>
-              <div>
-                <div className="font-medium">{wallet.name}</div>
-                <div className="text-xs text-muted-foreground capitalize">{t(`add.wizard.walletType.${wallet.type}`)}</div>
-              </div>
-            </button>
-          ))}
-        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <AddWalletForm
+              isFirstWallet={isFirstWallet}
+              onWalletCreated={onWalletCreated}
+            />
+          </CardContent>
+        </Card>
 
-        {/* Skip to form option */}
-        <div className="text-center pt-4 border-t">
-          <button
-            onClick={onSkipToForm}
-            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1 text-sm"
-          >
-            {t('add.wizard.haveDescriptor')}
-            <ChevronRight size={16} />
-          </button>
+        {/* Guides section */}
+        <div className="space-y-6">
+          <div className="text-center pt-4 border-t">
+            <p className="text-muted-foreground text-sm">
+              {t('add.wizard.guidesPrompt')}
+            </p>
+          </div>
+
+          {/* Wallet grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {walletGuides.map((wallet) => (
+              <button
+                key={wallet.id}
+                onClick={() => onSelectWallet(wallet)}
+                className="flex flex-col items-center gap-3 p-6 rounded-xl border hover:bg-accent/5 hover:border-accent transition-all text-center group"
+              >
+                <div className="w-16 h-16 flex items-center justify-center">
+                  <Image
+                    src={wallet.logoSmall}
+                    alt={wallet.name}
+                    width={48}
+                    height={48}
+                    className="object-contain"
+                  />
+                </div>
+                <div>
+                  <div className="font-medium">{wallet.name}</div>
+                  <div className="text-xs text-muted-foreground capitalize">{t(`add.wizard.walletType.${wallet.type}`)}</div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

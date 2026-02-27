@@ -178,6 +178,11 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                     <CardTitle className={`text-lg truncate min-w-0 ${isInactive ? 'text-muted-foreground line-through' : ''}`} title={wallet.name}>
                       {wallet.name}
                     </CardTitle>
+                    {wallet.wallet_type === 'address' && (
+                      <Badge variant="secondary" className="text-xs flex-shrink-0">
+                        {t('card.addressWatch')}
+                      </Badge>
+                    )}
                   </div>
                   {isInactive && (
                     <Badge variant="outline" className="text-xs text-orange-600 border-orange-600 bg-orange-50 w-fit">

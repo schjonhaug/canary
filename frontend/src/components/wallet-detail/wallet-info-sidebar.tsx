@@ -1,10 +1,11 @@
 "use client"
 
-import { Plus, Trash2 } from "lucide-react"
+import { Plus } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { WalletContactsList } from "@/components/wallet-contacts-list"
 import { BalanceAlertsList } from "@/components/balance-alerts-list"
+import { WalletDetailsSection } from "@/components/wallet-detail/wallet-details-section"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 import type { Wallet, Contact, BalanceAlert } from "@/types"
@@ -33,7 +34,7 @@ export function WalletInfoSidebar({
   const { formatBitcoinAmount, formatFiatAmount } = useFormatters()
 
   return (
-    <div className="lg:col-span-1">
+    <div className="lg:col-span-1 space-y-4">
       <Card>
         <CardContent className="space-y-6">
           {/* Balance Section */}
@@ -85,19 +86,16 @@ export function WalletInfoSidebar({
             />
           </div>
 
-          {/* Delete Button */}
-          {showActions && (
-            <div className="pt-2 border-t flex justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onDeleteClick}
-                className="text-muted-foreground hover:text-red-600"
-              >
-                <Trash2 size={16} />
-              </Button>
-            </div>
-          )}
+        </CardContent>
+      </Card>
+
+      {/* Wallet Details */}
+      <Card>
+        <CardContent>
+          <WalletDetailsSection
+            wallet={wallet}
+            onDeleteClick={showActions ? onDeleteClick : undefined}
+          />
         </CardContent>
       </Card>
     </div>

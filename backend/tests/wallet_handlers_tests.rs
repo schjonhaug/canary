@@ -762,3 +762,250 @@ async fn test_delete_wallet_not_found() {
         "Expected 404 NOT_FOUND for nonexistent wallet delete"
     );
 }
+
+// =============================================================================
+// POST /api/wallets - Address Wallet Tests
+// =============================================================================
+
+/// Derive a regtest address of the given script type from the test tpub.
+fn derive_regtest_address(script_type: &str, index: u32) -> String {
+    use bdk_wallet::keys::DescriptorPublicKey;
+    use miniscript::descriptor::Descriptor;
+
+    let tpub = VALID_TESTNET_XPUB;
+
+    let desc_str = match script_type {
+        "p2pkh" => format!("pkh({}/0/*)", tpub),
+        "p2sh" => format!("sh(wpkh({}/0/*))", tpub),
+        "p2wpkh" => format!("wpkh({}/0/*)", tpub),
+        "p2tr" => format!("tr({}/0/*)", tpub),
+        _ => panic!("unsupported script type: {}", script_type),
+    };
+
+    let desc: Descriptor<DescriptorPublicKey> = desc_str.parse().unwrap();
+    let derived = desc
+        .at_derivation_index(index)
+        .expect("derivation should succeed");
+    let addr = derived
+        .address(bdk_wallet::bitcoin::Network::Regtest)
+        .expect("address derivation should succeed");
+    addr.to_string()
+}
+
+#[tokio::test]
+async fn test_create_address_wallet_p2wpkh() {
+    let (app, _temp_dir) = create_test_app().await;
+    let addr = derive_regtest_address("p2wpkh", 0);
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "SegWit Address",
+                "descriptor": addr
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::CREATED,
+        "Expected 201 CREATED for P2WPKH address wallet"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    let wallet = &body["wallet"];
+    assert_eq!(wallet["wallet_type"], "address");
+    assert_eq!(wallet["status"], "ready", "Address wallet should be ready immediately");
+}
+
+#[tokio::test]
+async fn test_create_address_wallet_p2tr() {
+    let (app, _temp_dir) = create_test_app().await;
+    let addr = derive_regtest_address("p2tr", 0);
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Taproot Address",
+                "descriptor": addr
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::CREATED,
+        "Expected 201 CREATED for P2TR address wallet"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    let wallet = &body["wallet"];
+    assert_eq!(wallet["wallet_type"], "address");
+    assert_eq!(wallet["status"], "ready", "Address wallet should be ready immediately");
+}
+
+#[tokio::test]
+async fn test_create_address_wallet_p2pkh() {
+    let (app, _temp_dir) = create_test_app().await;
+    let addr = derive_regtest_address("p2pkh", 0);
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Legacy Address",
+                "descriptor": addr
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::CREATED,
+        "Expected 201 CREATED for P2PKH address wallet"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    let wallet = &body["wallet"];
+    assert_eq!(wallet["wallet_type"], "address");
+    assert_eq!(wallet["status"], "ready", "Address wallet should be ready immediately");
+}
+
+#[tokio::test]
+async fn test_create_address_wallet_p2sh() {
+    let (app, _temp_dir) = create_test_app().await;
+    let addr = derive_regtest_address("p2sh", 0);
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "P2SH Address",
+                "descriptor": addr
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::CREATED,
+        "Expected 201 CREATED for P2SH address wallet"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    let wallet = &body["wallet"];
+    assert_eq!(wallet["wallet_type"], "address");
+    assert_eq!(wallet["status"], "ready", "Address wallet should be ready immediately");
+}
+
+#[tokio::test]
+async fn test_create_address_wallet_duplicate_address() {
+    let (app, _temp_dir) = create_test_app().await;
+    let addr = derive_regtest_address("p2wpkh", 5);
+
+    // Create first address wallet
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "First Address Watch",
+                "descriptor": addr
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    // Try to create duplicate
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Duplicate Address Watch",
+                "descriptor": addr
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::CONFLICT,
+        "Expected 409 CONFLICT for duplicate address"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    let error = body["error"].as_str().unwrap();
+    assert!(
+        error.contains("already being watched"),
+        "Error should mention address is already being watched: {}",
+        error
+    );
+}
+
+#[tokio::test]
+async fn test_create_address_wallet_network_mismatch() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    // Use a mainnet P2WPKH address on regtest app
+    let mainnet_addr = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Mainnet Address",
+                "descriptor": mainnet_addr
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Expected 400 BAD_REQUEST for mainnet address on regtest"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    let error = body["error"].as_str().unwrap();
+    assert!(
+        error.contains("regtest") || error.contains("network"),
+        "Error should mention network mismatch: {}",
+        error
+    );
+}

@@ -41,6 +41,19 @@ export const XPUB_REGEX = /^[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{107,108}$/
  * - pkh: Public Key Hash (P2PKH)
  * - tr: Taproot (P2TR)
  */
+/**
+ * Bitcoin address pre-filter pattern (loose, for UI toggling)
+ *
+ * Matches common Bitcoin address formats:
+ * - P2PKH: 1... (mainnet), m/n... (testnet/regtest)
+ * - P2SH: 3... (mainnet), 2... (testnet/regtest)
+ * - Bech32: bc1... (mainnet), tb1... (testnet), bcrt1... (regtest)
+ *
+ * This is intentionally permissive - the backend does authoritative validation
+ * with proper checksum verification via bitcoin::Address::from_str().
+ */
+export const BITCOIN_ADDRESS_REGEX = /^(1[1-9A-HJ-NP-Za-km-z]{25,34}|3[1-9A-HJ-NP-Za-km-z]{25,34}|bc1[a-zA-HJ-NP-Z0-9]{25,87}|[mn2][1-9A-HJ-NP-Za-km-z]{25,34}|tb1[a-zA-HJ-NP-Z0-9]{25,87}|bcrt1[a-zA-HJ-NP-Z0-9]{25,87})$/i
+
 export const DESCRIPTOR_REGEX = /^(wpkh|wsh|sh|pkh|tr)\(/
 
 /**
@@ -72,10 +85,78 @@ export function isValidDescriptor(input: string): boolean {
 }
 
 /**
+ * Check if input looks like a Bitcoin address (loose pre-filter for UI)
+ * Backend does authoritative validation with proper checksum verification.
+ */
+export function isValidBitcoinAddress(input: string): boolean {
+  return BITCOIN_ADDRESS_REGEX.test(input.trim())
+}
+
+/**
  * Check if input is a valid email address format
  */
 export function isValidEmail(input: string): boolean {
   return EMAIL_REGEX.test(input.trim())
+}
+
+// =============================================================================
+// Script Type Detection
+// =============================================================================
+
+/**
+ * Extract script type from an output descriptor prefix.
+ * Returns a script type key (e.g. 'p2wpkh', 'p2tr') or empty string if unknown.
+ */
+export function getDescriptorScriptType(input: string): string {
+  const trimmed = input.trim()
+  if (trimmed.startsWith('sh(wpkh(')) return 'p2sh'
+  if (trimmed.startsWith('wpkh(')) return 'p2wpkh'
+  if (trimmed.startsWith('wsh(')) return 'p2wsh'
+  if (trimmed.startsWith('sh(')) return 'p2sh'
+  if (trimmed.startsWith('pkh(')) return 'p2pkh'
+  if (trimmed.startsWith('tr(')) return 'p2tr'
+  return ''
+}
+
+/**
+ * Extract signing type from a descriptor string.
+ * Returns e.g. "2-of-3" for multisig descriptors, or null for single-sig.
+ */
+export function getDescriptorSigningType(descriptor: string): string | null {
+  const match = descriptor.match(/(?:sorted)?multi(?:_a)?\((\d+)/)
+  if (!match) return null
+
+  const m = parseInt(match[1], 10)
+  const multiStart = descriptor.indexOf(match[0])
+  const content = descriptor.slice(multiStart)
+
+  let depth = 0
+  let keyCount = 0
+  let pastM = false
+  for (const char of content) {
+    if (char === '(') depth++
+    if (char === ')') { depth--; if (depth === 0) break }
+    if (char === ',' && depth === 1) {
+      if (!pastM) { pastM = true } else { keyCount++ }
+    }
+  }
+  if (pastM) keyCount++
+
+  if (keyCount > 0) return `${m}-of-${keyCount}`
+  return null
+}
+
+/**
+ * Infer script type from a Bitcoin address prefix.
+ * Returns a script type key or empty string if unknown.
+ */
+export function getAddressScriptType(address: string): string {
+  const trimmed = address.trim()
+  if (trimmed.startsWith('bc1p') || trimmed.startsWith('tb1p') || trimmed.startsWith('bcrt1p')) return 'p2tr'
+  if (trimmed.startsWith('bc1q') || trimmed.startsWith('tb1q') || trimmed.startsWith('bcrt1q')) return 'p2wpkh'
+  if (trimmed.startsWith('3') || trimmed.startsWith('2')) return 'p2sh'
+  if (trimmed.startsWith('1') || trimmed.startsWith('m') || trimmed.startsWith('n')) return 'p2pkh'
+  return ''
 }
 
 // =============================================================================

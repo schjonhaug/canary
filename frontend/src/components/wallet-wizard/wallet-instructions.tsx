@@ -69,6 +69,7 @@ export function WalletInstructions({
               isFirstWallet={isFirstWallet}
               onWalletCreated={onWalletCreated}
               autoFocusDescriptor={false}
+              outputType={selectedWallet.outputType}
             />
           </CardContent>
         </Card>

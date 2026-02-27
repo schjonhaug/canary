@@ -98,7 +98,7 @@
       },
       "security": {
         "title": "安全なウォッチオンリービットコイン監視",
-        "description": "XPUBまたはディスクリプタを使用したビットコインウォレットへのウォッチオンリーアクセス - 秘密鍵には一切触れません"
+        "description": "XPUB、ディスクリプタ、または個別アドレスを使用したウォッチオンリーのビットコイン監視 - 秘密鍵には一切触れません"
       },
       "sync": {
         "title": "リアルタイムビットコインウォレット同期",
@@ -141,19 +141,19 @@
       "items": {
         "whatIsCanary": {
           "question": "Canaryビットコインウォレット監視とは何ですか？",
-          "answer": "Canaryは、XPUBまたはディスクリプタを使用してビットコインウォレットを監視し、メール、SMS、プッシュ通知を通じてすべてのトランザクションの即時アラートを送信するプロフェッショナルなビットコインウォレット監視および通知サービスです。コールドストレージ、ハードウェアウォレット、ウォッチオンリーのビットコインアドレスの監視に最適です。"
+          "answer": "Canaryは、XPUB、ディスクリプタ、または個別アドレスを使用してビットコインウォレットを監視し、メール、SMS、プッシュ通知を通じてすべてのトランザクションの即時アラートを送信するプロフェッショナルなビットコイン監視および通知サービスです。コールドストレージ、ハードウェアウォレット、個別のビットコインアドレスの監視に最適です。"
         },
         "howDoesItWork": {
           "question": "秘密鍵なしでビットコインウォレット監視はどのように機能しますか？",
-          "answer": "Canaryは、ウォッチオンリーのビットコイン監視のためにウォレットのXPUB（拡張公開鍵）またはディスクリプタを使用します。これにより、ビットコインアドレスを追跡してトランザクションを検出するための読み取り専用アクセスが得られます。秘密鍵にアクセスすることはなく、ビットコインを移動することもできません - コールドストレージ監視の完全なセキュリティを保証します。"
+          "answer": "Canaryは、ウォッチオンリー監視のためにウォレットのXPUB（拡張公開鍵）、ディスクリプタ、または単一のビットコインアドレスを使用します。これにより、ビットコインアドレスを追跡してトランザクションを検出するための読み取り専用アクセスが得られます。秘密鍵にアクセスすることはなく、ビットコインを移動することもできません - コールドストレージ監視の完全なセキュリティを保証します。"
         },
         "whatIsXpub": {
           "question": "XPUBウォレット監視とは何ですか？",
-          "answer": "XPUB監視により、秘密鍵を公開せずにビットコインウォレットのすべてのアドレスを追跡できます。ウォレットのXPUBまたはディスクリプタを提供することで、Canaryは無制限のアドレスを監視し、あらゆる深さ（200以上のアドレスの深さでも）でトランザクションを検出し、ビットコインが移動したときに即座に通知できます。"
+          "answer": "XPUB監視により、秘密鍵を公開せずにビットコインウォレットのすべてのアドレスを追跡できます。ウォレットのXPUBまたはディスクリプタを提供することで、Canaryは無制限のアドレスを監視し、あらゆる深さ（200以上のアドレスの深さでも）でトランザクションを検出し、ビットコインが移動したときに即座に通知できます。完全なウォレット監視が不要な場合は、単一のビットコインアドレスを直接追跡することもできます。"
         },
         "coldStorage": {
           "question": "ビットコインコールドストレージウォレットを監視できますか？",
-          "answer": "はい！Canaryはビットコインコールドストレージ監視に最適です。LedgerやTrezorなどのハードウェアウォレット、ペーパーウォレット、その他のコールドストレージソリューションを使用している場合でも、XPUBまたはディスクリプタを提供するだけで、即時通知付きの安全なウォッチオンリー監視が可能です。"
+          "answer": "はい！Canaryはビットコインコールドストレージ監視に最適です。LedgerやTrezorなどのハードウェアウォレット、ペーパーウォレット、その他のコールドストレージソリューションを使用している場合でも、XPUBまたはディスクリプタを提供するだけで、即時通知付きの安全なウォッチオンリー監視が可能です。寄付アドレスや一回限りの支払いアドレスなど、個別のアドレスを追跡することもできます。"
         },
         "notificationSpeed": {
           "question": "ビットコイントランザクション通知はどのくらい速いですか？",
@@ -161,7 +161,7 @@
         },
         "walletTypes": {
           "question": "どのビットコインウォレットタイプがサポートされていますか？",
-          "answer": "Canaryは、Native SegWit（P2WPKH）、Legacy（P2PKH）、Nested SegWit（P2SH）、Taproot（P2TR）アドレスを含むすべての主要なビットコインウォレットタイプをサポートしています。XPUBからウォレットタイプを自動検出するか、手動で指定できます。マルチシグネチャおよびハードウェアウォレット監視は完全にサポートされています。"
+          "answer": "Canaryは、Native SegWit（P2WPKH）、Legacy（P2PKH）、Nested SegWit（P2SH）、Taproot（P2TR）を含むすべての主要なビットコインウォレットタイプをサポートしています。XPUBからウォレットタイプを自動検出するか、手動で指定できます。あらゆるタイプの個別アドレスも直接追跡できます。マルチシグネチャおよびハードウェアウォレット監視は完全にサポートされています。"
         },
         "whyCanary": {
           "question": "なぜCanaryという名前なのですか？",
@@ -169,7 +169,7 @@
         },
         "noBlockchain": {
           "question": "ブロックチェーンをダウンロードせずにビットコインを追跡できますか？",
-          "answer": "はい！Canaryはプロフェッショナルなエレクトラムサーバーに接続してビットコインブロックチェーンを監視します。フルノードを実行したりブロックチェーンをダウンロードする必要はありません - XPUBを提供するだけで、すべてのビットコインウォレットアクティビティの即時通知を受け取り始めることができます。"
+          "answer": "はい！Canaryはプロフェッショナルなエレクトラムサーバーに接続してビットコインブロックチェーンを監視します。フルノードを実行したりブロックチェーンをダウンロードする必要はありません - XPUBまたは単一のビットコインアドレスを提供するだけで、すべてのビットコインアクティビティの即時通知を受け取り始めることができます。"
         },
         "balanceAlerts": {
           "question": "ビットコイン残高アラートはどのように機能しますか？",
@@ -359,7 +359,7 @@
     }
   },
   "wallets": {
-    "title": "マイウォレット",
+    "title": "ウォレット",
     "summary": "合計残高{balance}の{count}個のウォレットを追跡中",
     "onboarding": {
       "trial": {
@@ -403,14 +403,19 @@
       "inactiveTierLimit": "このウォレットはサブスクリプションの制限を超えており、自動同期されません",
       "balance": "残高",
       "lastActivity": "最終活動: {date}",
-      "noRecentActivity": "最近の活動なし"
+      "noRecentActivity": "最近の活動なし",
+      "addressWatch": "アドレス"
     },
     "add": {
       "title": "ウォレットを追加",
       "nameLabel": "ウォレット名",
       "namePlaceholder": "マイビットコインウォレット",
-      "descriptorLabel": "ウォレットディスクリプタまたはXPUB",
-      "descriptorPlaceholder": "wpkh([fingerprint/84'/0'/0']xpub.../0/*)",
+      "descriptorLabel": {
+        "any": "Output Descriptor, XPUB, or Address",
+        "descriptor": "Output Descriptor",
+        "xpub": "XPUB",
+        "both": "Output Descriptor or XPUB"
+      },
       "descriptorHint": "ウォレットの出力ディスクリプタまたはXPUBを入力してください。スクリプトタイプは自動検出されます。",
       "advancedSettings": "詳細設定",
       "scriptType": {
@@ -426,6 +431,7 @@
         "p2pkhFresh": "レガシー (1...) - 最も古い",
         "p2tr": "Taproot (bc1p...)",
         "p2trFresh": "Taproot (bc1p...) - モダン",
+        "p2wsh": "SegWit Script",
         "detectedHint": "スクリプトタイプはディスクリプタから検出され、変更できません",
         "requiredHint": "新しいXPUBウォレットにはスクリプトタイプが必要です"
       },
@@ -453,11 +459,10 @@
         "scriptTypeRequired": "新しいXPUBウォレットにはスクリプトタイプが必要です"
       },
       "wizard": {
-        "chooseWallet": "どのウォレットをお使いですか？出力ディスクリプタまたはXPUBのエクスポート方法をご案内します。",
         "keysStaySafe": "Canaryはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
         "tryBaconWallet": "初めてですか？まずサンプルウォレットでCanaryの動作を確認してください。",
         "useBaconWallet": "Baconウォレットを使用",
-        "haveDescriptor": "出力ディスクリプタまたはXPUBを持っています",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "{walletName}からディスクリプタをエクスポートするには、以下の手順に従ってください",
         "pasteXpub": "下にXPUBを貼り付けてください。",
         "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。",
@@ -542,6 +547,22 @@
       "transactions": "トランザクション",
       "contacts": "連絡先",
       "balanceAlerts": "残高アラート",
+      "walletDetails": "ウォレットの詳細",
+      "descriptorLabel": "Output Descriptor",
+      "addressLabel": "アドレス",
+      "scriptType": "スクリプトタイプ",
+      "scriptTypeLabels": {
+        "p2wpkh": "Native SegWit",
+        "p2sh": "Nested SegWit",
+        "p2pkh": "Legacy",
+        "p2tr": "Taproot",
+        "p2wsh": "SegWit Script"
+      },
+      "signing": "署名",
+      "singleSig": "Single-sig",
+      "multisig": "{scheme} Multisig",
+      "added": "追加済み",
+      "copied": "コピーしました！",
       "noTransactions": "トランザクションがありません",
       "pendingSync": "ウォレットを同期中...",
       "lastSync": "最終同期",
@@ -971,6 +992,7 @@
       "wallet_not_found": "ウォレットが見つかりません。",
       "wallet_name_required": "ウォレット名を空にすることはできません。",
       "wallet_already_exists": "このウォレットは既に追加されています。オーナーに連絡先として追加してもらってください。",
+      "address_already_watched": "このアドレスは既に監視されています。",
       "access_denied": "このリソースへのアクセス権がありません。",
       "contact_limit_reached": "このウォレットの連絡先上限に達しました。追加するにはアップグレードしてください。",
       "invalid_phone_number": "無効な電話番号です。国番号を含めてください（例: +81...）。",
