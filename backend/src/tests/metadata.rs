@@ -372,8 +372,7 @@ fn test_twilio_locale_all_languages_are_valid() {
 // Cross-wallet verification tests
 // ============================
 
-use crate::metadata::types::{EventType, TransactionInsert};
-use crate::metadata::ProviderType;
+use crate::metadata::{EventType, ProviderType, TransactionInsert};
 
 #[tokio::test]
 async fn test_cross_wallet_verification_same_user_sms() {
