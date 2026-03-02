@@ -356,6 +356,10 @@
       "BMD": "バミューダドル",
       "KWD": "クウェートディナール",
       "MMK": "ミャンマーチャット"
+    },
+    "donation": {
+      "title": "寄付",
+      "description": "Canaryの継続的な開発を支援する"
     }
   },
   "wallets": {
@@ -1078,5 +1082,11 @@
     "description": "読み取り専用のデモウォレットを表示しています。すべての機能は閲覧のみです。",
     "signUp": "登録して自分のウォレットを作成",
     "dismiss": "バナーを閉じる"
+  },
+  "donation": {
+    "title": "Canaryを支援する",
+    "description": "継続的な開発資金にご協力ください",
+    "oneTime": "一度限りの寄付",
+    "recurring": "月額$5"
   }
 }

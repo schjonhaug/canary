@@ -356,6 +356,10 @@
       "BMD": "Dólar bermudeño",
       "KWD": "Dinar kuwaití",
       "MMK": "Kyat birmano"
+    },
+    "donation": {
+      "title": "Donaciones",
+      "description": "Apoya el desarrollo continuo de Canary"
     }
   },
   "wallets": {
@@ -1078,5 +1082,11 @@
     "description": "Estás viendo una billetera demo de solo lectura. Todas las funciones son solo para visualización.",
     "signUp": "Regístrate para crear tu propia billetera",
     "dismiss": "Cerrar banner"
+  },
+  "donation": {
+    "title": "Apoya a Canary",
+    "description": "Ayuda a financiar el desarrollo continuo",
+    "oneTime": "Donación única",
+    "recurring": "$5/mes"
   }
 }

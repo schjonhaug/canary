@@ -356,6 +356,10 @@
         "error": "Kunde inte skicka testavisering",
         "errorWithDetail": "Kunde inte skicka testavisering: {detail}"
       }
+    },
+    "donation": {
+      "title": "Donationer",
+      "description": "Stöd pågående Canary-utveckling"
     }
   },
   "wallets": {
@@ -1078,5 +1082,11 @@
     "description": "Du tittar på en skrivskyddad demoplånbok. Alla funktioner är endast för visning.",
     "signUp": "Registrera dig för att skapa din egen plånbok",
     "dismiss": "Stäng banner"
+  },
+  "donation": {
+    "title": "Stöd Canary",
+    "description": "Hjälp till att finansiera pågående utveckling",
+    "oneTime": "Engångsdonation",
+    "recurring": "$5/månad"
   }
 }

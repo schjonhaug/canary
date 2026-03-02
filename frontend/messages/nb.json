@@ -356,6 +356,10 @@
         "error": "Kunne ikke sende testvarsel",
         "errorWithDetail": "Kunne ikke sende testvarsel: {detail}"
       }
+    },
+    "donation": {
+      "title": "Donasjoner",
+      "description": "Støtt løpende Canary-utvikling"
     }
   },
   "wallets": {
@@ -1078,5 +1082,11 @@
     "description": "Du ser på en skrivebeskyttet demo-lommebok. Alle funksjoner er kun for visning.",
     "signUp": "Registrer deg for å opprette din egen lommebok",
     "dismiss": "Lukk banner"
+  },
+  "donation": {
+    "title": "Støtt Canary",
+    "description": "Hjelp til med å finansiere løpende utvikling",
+    "oneTime": "Engangsdonasjon",
+    "recurring": "$5/måned"
   }
 }

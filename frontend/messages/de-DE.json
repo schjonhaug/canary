@@ -356,6 +356,10 @@
       "BMD": "Bermuda-Dollar",
       "KWD": "Kuwait-Dinar",
       "MMK": "Myanmarischer Kyat"
+    },
+    "donation": {
+      "title": "Spenden",
+      "description": "Unterstützen Sie die fortlaufende Entwicklung von Canary"
     }
   },
   "wallets": {
@@ -1078,5 +1082,11 @@
     "description": "Sie sehen eine schreibgeschützte Demo-Wallet. Alle Funktionen sind nur zur Ansicht.",
     "signUp": "Registrieren Sie sich, um Ihre eigene Wallet zu erstellen",
     "dismiss": "Banner schließen"
+  },
+  "donation": {
+    "title": "Canary unterstützen",
+    "description": "Helfen Sie mit, die fortlaufende Entwicklung zu finanzieren",
+    "oneTime": "Einmalige Spende",
+    "recurring": "5 $/Monat"
   }
 }

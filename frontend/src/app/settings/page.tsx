@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl"
 import { useUserPreferences } from "@/hooks/useUserPreferences"
 import { RegionalSettings } from "@/components/settings/regional-settings"
 import { NtfyServerSettings } from "@/components/settings/ntfy-server-settings"
+import { DonationSettings } from "@/components/settings/donation-settings"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -77,6 +78,10 @@ export default function SettingsPage() {
             onNtfySettingsSave={preferences.handleNtfySettingsSave}
             onClearNtfySettingsErrors={preferences.clearNtfySettingsErrors}
           />
+        )}
+
+        {!isCloudMode && (
+          <DonationSettings />
         )}
       </div>
     </div>

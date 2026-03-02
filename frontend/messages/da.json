@@ -356,6 +356,10 @@
         "error": "Kunne ikke sende testnotifikation",
         "errorWithDetail": "Kunne ikke sende testnotifikation: {detail}"
       }
+    },
+    "donation": {
+      "title": "Donationer",
+      "description": "Støt den løbende udvikling af Canary"
     }
   },
   "wallets": {
@@ -1078,5 +1082,11 @@
     "description": "Du får vist en skrivebeskyttet demo-wallet. Alle funktioner er kun til visning.",
     "signUp": "Tilmeld dig for at oprette din egen wallet",
     "dismiss": "Luk banner"
+  },
+  "donation": {
+    "title": "Støt Canary",
+    "description": "Hjælp med at finansiere løbende udvikling",
+    "oneTime": "Engangsdonation",
+    "recurring": "5$/måned"
   }
 }

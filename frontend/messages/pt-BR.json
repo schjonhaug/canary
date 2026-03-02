@@ -356,6 +356,10 @@
       "BMD": "Dólar das Bermudas",
       "KWD": "Dinar kuwaitiano",
       "MMK": "Kyat birmanês"
+    },
+    "donation": {
+      "title": "Doações",
+      "description": "Apoie o desenvolvimento contínuo do Canary"
     }
   },
   "wallets": {
@@ -1078,5 +1082,11 @@
     "description": "Você está visualizando uma carteira demo somente leitura. Todos os recursos são apenas para visualização.",
     "signUp": "Cadastre-se para criar sua própria carteira",
     "dismiss": "Fechar banner"
+  },
+  "donation": {
+    "title": "Apoie o Canary",
+    "description": "Ajude a financiar o desenvolvimento contínuo",
+    "oneTime": "Doação única",
+    "recurring": "$5/mês"
   }
 }
