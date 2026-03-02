@@ -560,7 +560,7 @@
       },
       "signing": "Signering",
       "singleSig": "Single-sig",
-      "multisig": "{scheme} Multisig",
+      "multisig": "{m}-af-{n} Multisig",
       "added": "Tilføjet",
       "copied": "Kopieret!",
       "noTransactions": "Ingen transaktioner endnu",

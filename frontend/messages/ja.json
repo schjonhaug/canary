@@ -560,7 +560,7 @@
       },
       "signing": "署名",
       "singleSig": "Single-sig",
-      "multisig": "{scheme} Multisig",
+      "multisig": "{n}中{m} マルチシグ",
       "added": "追加済み",
       "copied": "コピーしました！",
       "noTransactions": "トランザクションがありません",

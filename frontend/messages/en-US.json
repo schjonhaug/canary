@@ -560,7 +560,7 @@
       },
       "signing": "Signing",
       "singleSig": "Single-sig",
-      "multisig": "{scheme} Multisig",
+      "multisig": "{m}-of-{n} Multisig",
       "added": "Added",
       "copied": "Copied!",
       "noTransactions": "No transactions yet",
