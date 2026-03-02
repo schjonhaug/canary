@@ -125,50 +125,69 @@ function getErrorTypeFromStatus(status: number): ApiErrorType {
 }
 
 
-// Cache for the SVG content to avoid re-fetching
-let cachedSvgContent: string | null = null
+export type WalletType = 'descriptor' | 'address'
 
-// Cache for processed SVGs by color to avoid re-processing
+// Cache for raw SVG content per wallet type to avoid re-fetching
+const rawSvgCache = new Map<WalletType, string>()
+
+// Cache for processed SVGs by type+color to avoid re-processing
 const processedSvgCache = new Map<string, string>()
 
-// Synchronous function to get cached SVG if available
-export function getCachedCanarySvg(hexColor: string): string | null {
-  return processedSvgCache.get(hexColor) || null
+function svgCacheKey(hexColor: string, walletType: WalletType): string {
+  return `${walletType}:${hexColor}`
 }
 
-export async function loadCanarySvg(hexColor: string): Promise<string> {
+function svgPathForType(walletType: WalletType): string {
+  return walletType === 'address' ? '/images/feather.svg' : '/images/canary.svg'
+}
+
+// Synchronous function to get cached SVG if available
+export function getCachedWalletSvg(hexColor: string, walletType: WalletType = 'descriptor'): string | null {
+  return processedSvgCache.get(svgCacheKey(hexColor, walletType)) || null
+}
+
+export async function loadWalletSvg(hexColor: string, walletType: WalletType = 'descriptor'): Promise<string> {
+  const key = svgCacheKey(hexColor, walletType)
+
   // Return cached processed SVG if available
-  if (processedSvgCache.has(hexColor)) {
-    return processedSvgCache.get(hexColor)!
+  if (processedSvgCache.has(key)) {
+    return processedSvgCache.get(key)!
   }
-  
-  // Load SVG content if not cached
-  if (!cachedSvgContent) {
+
+  // Load SVG content if not cached for this wallet type
+  if (!rawSvgCache.has(walletType)) {
     try {
-      const response = await fetch('/images/canary.svg')
+      const response = await fetch(svgPathForType(walletType))
       if (!response.ok) {
         throw new Error('Failed to load SVG')
       }
-      cachedSvgContent = await response.text()
+      rawSvgCache.set(walletType, await response.text())
     } catch (error) {
-      console.error('Error loading canary SVG:', error)
-      const fallback = '<div>⚠️</div>' // Fallback if SVG fails to load
-      processedSvgCache.set(hexColor, fallback)
+      console.error(`Error loading ${walletType} SVG:`, error)
+      const fallback = '<div>⚠️</div>'
+      processedSvgCache.set(key, fallback)
       return fallback
     }
   }
-  
-  // Replace colors in the SVG content
-  const processedSvg = cachedSvgContent
-    .replace(/#F6C919/g, hexColor)  // Replace yellow with provided hex color
-    .replace(/#73C2DE/g, 'transparent')    // Make blue transparent
-    .replace(/width="691"/g, 'width="24"')  // Resize to 24x24
-    .replace(/height="595"/g, 'height="24"')
-  
-  // Cache the processed SVG
-  processedSvgCache.set(hexColor, processedSvg)
-  
+
+  const rawSvg = rawSvgCache.get(walletType)!
+
+  // Replace colors and resize root <svg> element only
+  const processedSvg = rawSvg
+    .replace(/#F6C919/g, hexColor)           // Replace yellow with provided hex color
+    .replace(/#73C2DE/g, 'transparent')      // Make blue transparent (canary only)
+    .replace(/^(<svg\s[^>]*?)width="\d+"/, '$1width="24"')   // Resize root <svg> to 24x24
+    .replace(/^(<svg\s[^>]*?)height="\d+"/, '$1height="24"')
+
+  processedSvgCache.set(key, processedSvg)
+
   return processedSvg
+}
+
+/** Reset SVG caches — exposed for test isolation only */
+export function resetSvgCaches(): void {
+  rawSvgCache.clear()
+  processedSvgCache.clear()
 }
 
 // Bitcoin amount formatting for balances (no trailing zeros)

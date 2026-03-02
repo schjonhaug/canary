@@ -9,11 +9,7 @@ import { UserDropdown } from "@/components/user-dropdown"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
 
-interface AppHeaderProps {
-  customLogo?: string
-}
-
-export function AppHeader({ customLogo }: AppHeaderProps) {
+export function AppHeader() {
   const { isCloudMode, user } = useAuth()
   const pathname = usePathname()
   const tNav = useTranslations('nav')
@@ -31,20 +27,13 @@ export function AppHeader({ customLogo }: AppHeaderProps) {
     <div className="mb-4 sm:mb-6 flex items-center justify-between">
       <Link href="/" className="flex items-center gap-2 sm:gap-4 hover:opacity-80 transition-opacity">
         <div className="relative w-10 h-10 sm:w-12 sm:h-12">
-          {customLogo ? (
-            <div
-              className="absolute inset-0 w-full h-full [&>svg]:w-full [&>svg]:h-full [&>svg]:transition-all [&>svg]:duration-500 [&>svg]:ease-in-out animate-in fade-in-0 duration-500"
-              dangerouslySetInnerHTML={{ __html: customLogo }}
-            />
-          ) : (
-            <Image
-              src="/images/canary.svg"
-              alt="Canary Logo"
-              width={48}
-              height={48}
-              className="absolute inset-0 h-10 w-10 sm:h-12 sm:w-12 transition-all duration-500 ease-in-out animate-in fade-in-0 duration-500"
-            />
-          )}
+          <Image
+            src="/images/canary.svg"
+            alt="Canary Logo"
+            width={48}
+            height={48}
+            className="absolute inset-0 h-10 w-10 sm:h-12 sm:w-12"
+          />
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">Canary</h1>
       </Link>
