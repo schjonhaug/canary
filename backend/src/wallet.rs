@@ -134,10 +134,7 @@ impl WalletCreationService {
             .descriptor_exists_for_user(descriptor, user_id)
             .await?
         {
-            let existing_wallets = self
-                .metadata_db
-                .get_wallets_for_user(Some(user_id))
-                .await?;
+            let existing_wallets = self.metadata_db.get_wallets_for_user(Some(user_id)).await?;
             let existing_checksum = existing_wallets
                 .iter()
                 .find(|w| w.descriptor == descriptor)
@@ -169,11 +166,6 @@ impl WalletCreationService {
             )
             .await?;
 
-        // Mark as ready immediately (no BDK wallet file needed, no pending state)
-        self.metadata_db
-            .update_wallet_status(&checksum, "ready")
-            .await?;
-
         let wallet_metadata = self
             .metadata_db
             .get_wallet_by_checksum(&checksum)
@@ -189,11 +181,14 @@ impl WalletCreationService {
         let checksum_clone = checksum.clone();
 
         tokio::spawn(async move {
-            let sync_service =
-                crate::sync::WalletSyncService::new(metadata_db, notification_sender, config);
+            let sync_service = crate::sync::WalletSyncService::new(
+                metadata_db.clone(),
+                notification_sender,
+                config,
+            );
             // suppress_notifications=true: this is the initial sync, so all transactions
             // are historical and should not trigger alerts to contacts
-            if let Err(e) = sync_service
+            match sync_service
                 .sync_address_watch(
                     &checksum_clone,
                     &descriptor_clone,
@@ -202,12 +197,29 @@ impl WalletCreationService {
                 )
                 .await
             {
-                error!(
-                    "[{}] Initial watch sync failed: {}",
-                    checksum_clone, e
-                );
-            } else {
-                debug!("[{}] Initial watch sync completed", checksum_clone);
+                Ok(true) => {
+                    // Mark as ready only after successful sync
+                    if let Err(e) = metadata_db
+                        .update_wallet_status_if_not_deleted(&checksum_clone, "ready")
+                        .await
+                    {
+                        warn!(
+                            "[{}] Failed to promote wallet to ready: {}",
+                            checksum_clone, e
+                        );
+                    }
+                    debug!("[{}] Initial watch sync completed", checksum_clone);
+                }
+                Ok(false) => {
+                    debug!(
+                        "[{}] No Electrum client yet, wallet stays pending",
+                        checksum_clone
+                    );
+                }
+                Err(e) => {
+                    error!("[{}] Initial watch sync failed: {}", checksum_clone, e);
+                    // Stays "pending" — periodic sync will retry
+                }
             }
         });
 
@@ -236,9 +248,7 @@ impl WalletCreationService {
 
         // Check if input is a raw public key (P2PK watch)
         if XpubConverter::is_bitcoin_public_key(descriptor_str) {
-            return self
-                .create_from_pubkey(name, descriptor_str, user_id)
-                .await;
+            return self.create_from_pubkey(name, descriptor_str, user_id).await;
         }
 
         // Check if input is a single Bitcoin address
@@ -696,76 +706,78 @@ impl WalletManager {
                     "[{}] Warning: Failed to full scan wallet during background creation: {}",
                     ctx.checksum, e
                 );
-            } else {
-                // Persist after sync
-                if let Err(e) = wallet.persist(&mut db) {
-                    error!(
-                        "[{}] Warning: Failed to persist wallet after sync: {}",
-                        ctx.checksum, e
+                // Leave wallet as "pending" — periodic sync will retry
+                return Ok(());
+            }
+
+            // Persist after sync
+            if let Err(e) = wallet.persist(&mut db) {
+                error!(
+                    "[{}] Warning: Failed to persist wallet after sync: {}",
+                    ctx.checksum, e
+                );
+            }
+
+            // Deep scanning for existing wallets with no funds (only if stop_gap is auto)
+            if !ctx.is_fresh_wallet
+                && wallet.balance().total().to_sat() == 0
+                && stop_gap.unwrap_or("auto") == "auto"
+            {
+                debug!(
+                    "[{}] No funds found in initial scan, starting deep scan...",
+                    ctx.checksum
+                );
+
+                // Deep scan in batches up to 500 addresses (only for auto mode)
+                for batch in 1..=5 {
+                    let reveal_to = batch * 100;
+                    debug!(
+                        "[{}] Deep scan batch {}: checking addresses up to index {}",
+                        ctx.checksum, batch, reveal_to
                     );
+
+                    // Reveal more addresses for both keychains
+                    let ext_revealed: Vec<_> = wallet
+                        .reveal_addresses_to(bdk_wallet::KeychainKind::External, reveal_to)
+                        .collect();
+                    let int_revealed: Vec<_> = wallet
+                        .reveal_addresses_to(bdk_wallet::KeychainKind::Internal, reveal_to)
+                        .collect();
+
+                    debug!(
+                        "[{}] Revealed {} external, {} internal addresses (total: {} each)",
+                        ctx.checksum,
+                        ext_revealed.len(),
+                        int_revealed.len(),
+                        reveal_to + 1
+                    );
+
+                    // Sync the newly revealed addresses
+                    if let Err(e) = client.sync_wallet(&mut wallet).await {
+                        error!(
+                            "[{}] Warning: Failed to sync during deep scan batch {}: {}",
+                            ctx.checksum, batch, e
+                        );
+                        break;
+                    }
+
+                    // Check if we found any activity - if so, we should continue scanning
+                    let current_balance = wallet.balance().total().to_sat();
+                    if current_balance > 0 {
+                        debug!(
+                            "[{}] Found activity during deep scan! Balance: {} sats",
+                            ctx.checksum, current_balance
+                        );
+                        // Continue scanning to find all transactions
+                    }
                 }
 
-                // Deep scanning for existing wallets with no funds (only if stop_gap is auto)
-                if !ctx.is_fresh_wallet
-                    && wallet.balance().total().to_sat() == 0
-                    && stop_gap.unwrap_or("auto") == "auto"
-                {
-                    debug!(
-                        "[{}] No funds found in initial scan, starting deep scan...",
-                        ctx.checksum
+                // Final persistence after deep scanning
+                if let Err(e) = wallet.persist(&mut db) {
+                    error!(
+                        "[{}] Warning: Failed to persist after deep scan: {}",
+                        ctx.checksum, e
                     );
-
-                    // Deep scan in batches up to 500 addresses (only for auto mode)
-                    for batch in 1..=5 {
-                        let reveal_to = batch * 100;
-                        debug!(
-                            "[{}] Deep scan batch {}: checking addresses up to index {}",
-                            ctx.checksum, batch, reveal_to
-                        );
-
-                        // Reveal more addresses for both keychains
-                        let ext_revealed: Vec<_> = wallet
-                            .reveal_addresses_to(bdk_wallet::KeychainKind::External, reveal_to)
-                            .collect();
-                        let int_revealed: Vec<_> = wallet
-                            .reveal_addresses_to(bdk_wallet::KeychainKind::Internal, reveal_to)
-                            .collect();
-
-                        debug!(
-                            "[{}] Revealed {} external, {} internal addresses (total: {} each)",
-                            ctx.checksum,
-                            ext_revealed.len(),
-                            int_revealed.len(),
-                            reveal_to + 1
-                        );
-
-                        // Sync the newly revealed addresses
-                        if let Err(e) = client.sync_wallet(&mut wallet).await {
-                            error!(
-                                "[{}] Warning: Failed to sync during deep scan batch {}: {}",
-                                ctx.checksum, batch, e
-                            );
-                            break;
-                        }
-
-                        // Check if we found any activity - if so, we should continue scanning
-                        let current_balance = wallet.balance().total().to_sat();
-                        if current_balance > 0 {
-                            debug!(
-                                "[{}] Found activity during deep scan! Balance: {} sats",
-                                ctx.checksum, current_balance
-                            );
-                            // Continue scanning to find all transactions
-                        }
-                    }
-
-                    // Final persistence after deep scanning
-                    if let Err(e) = wallet.persist(&mut db) {
-                        error!(
-                            "[{}] Warning: Failed to persist after deep scan: {}",
-                            ctx.checksum, e
-                        );
-                    }
                 }
             }
         }
@@ -1053,7 +1065,7 @@ impl WalletManager {
                             .map_err(|e| anyhow!("Failed to acquire semaphore: {}", e))?;
 
                         let sync_service = crate::sync::WalletSyncService::new(
-                            metadata_db,
+                            metadata_db.clone(),
                             notification_sender,
                             config,
                         );
@@ -1062,37 +1074,77 @@ impl WalletManager {
                             watchers.iter().map(|w| w.checksum.clone()).collect();
 
                         if watcher_count == 1 {
-                            // Single watcher — ongoing background sync, notifications enabled
+                            let is_pending = watchers[0].status == "pending";
+                            // Single watcher — suppress notifications on first sync to avoid
+                            // alerting on historical transactions
                             match sync_service
                                 .sync_address_watch(
                                     &checksums[0],
                                     &descriptor,
                                     electrum_manager.as_deref(),
-                                    false, // ongoing sync — send notifications for new txs
+                                    is_pending, // suppress on first sync for pending wallets
                                 )
                                 .await
                             {
-                                Ok(_) => Ok(watcher_count),
+                                Ok(true) => {
+                                    // Promote pending watcher to ready
+                                    if is_pending {
+                                        if let Err(e) = metadata_db
+                                            .update_wallet_status_if_not_deleted(
+                                                &checksums[0],
+                                                "ready",
+                                            )
+                                            .await
+                                        {
+                                            warn!(
+                                                "Failed to promote address watch {} to ready: {}",
+                                                checksums[0], e
+                                            );
+                                        }
+                                    }
+                                    Ok(watcher_count)
+                                }
+                                Ok(false) => Ok(watcher_count), // No Electrum client, skip
                                 Err(e) => {
-                                    warn!(
-                                        "Failed to sync address watch {}: {}",
-                                        checksums[0], e
-                                    );
+                                    warn!("Failed to sync address watch {}: {}", checksums[0], e);
                                     Err(e)
                                 }
                             }
                         } else {
-                            // Multiple watchers — ongoing background sync, notifications enabled
+                            let has_pending =
+                                watchers.iter().any(|w| w.status == "pending");
+                            // Multiple watchers — suppress notifications if any are pending
+                            // to avoid alerting on historical transactions
                             match sync_service
                                 .sync_address_watch_group(
                                     &checksums,
                                     &descriptor,
                                     electrum_manager.as_deref(),
-                                    false, // ongoing sync — send notifications for new txs
+                                    has_pending, // suppress on first sync for pending wallets
                                 )
                                 .await
                             {
-                                Ok(_) => Ok(watcher_count),
+                                Ok(true) => {
+                                    // Promote any pending watchers to ready
+                                    for w in &watchers {
+                                        if w.status == "pending" {
+                                            if let Err(e) = metadata_db
+                                                .update_wallet_status_if_not_deleted(
+                                                    &w.checksum,
+                                                    "ready",
+                                                )
+                                                .await
+                                            {
+                                                warn!(
+                                                    "Failed to promote address watch {} to ready: {}",
+                                                    w.checksum, e
+                                                );
+                                            }
+                                        }
+                                    }
+                                    Ok(watcher_count)
+                                }
+                                Ok(false) => Ok(watcher_count), // No Electrum client, skip
                                 Err(e) => {
                                     warn!(
                                         "Failed to sync address watch group ({}): {}",
@@ -1236,6 +1288,7 @@ impl WalletManager {
                     let (wallet, conn) = &mut *wallet_data;
 
                     // Create sync service with config for mode-based retry logic
+                    let metadata_db_ref = metadata_db.clone();
                     let sync_service =
                         WalletSyncService::new(metadata_db, notification_sender, config);
 
@@ -1248,7 +1301,7 @@ impl WalletManager {
                         )
                         .await
                     {
-                        Ok(_) => {
+                        Ok(true) => {
                             // Persist wallet changes back to disk (wallet stays in memory)
                             if let Err(e) = wallet.persist(conn) {
                                 error!(
@@ -1257,12 +1310,32 @@ impl WalletManager {
                                 );
                             }
 
+                            // Promote pending wallet to ready after first successful sync
+                            if wallet_metadata.status == "pending" {
+                                if let Err(e) = metadata_db_ref
+                                    .update_wallet_status_if_not_deleted(
+                                        &wallet_metadata.checksum,
+                                        "ready",
+                                    )
+                                    .await
+                                {
+                                    warn!(
+                                        "Failed to promote wallet {} to ready: {}",
+                                        wallet_metadata.name, e
+                                    );
+                                }
+                            }
+
                             let sync_duration = wallet_start.elapsed();
                             debug!(
                                 "✅ Synced wallet {} in {:.2}s (from memory)",
                                 wallet_metadata.name,
                                 sync_duration.as_secs_f64()
                             );
+                            Ok(wallet_metadata.name)
+                        }
+                        Ok(false) => {
+                            // No Electrum client available, skip
                             Ok(wallet_metadata.name)
                         }
                         Err(e) => {

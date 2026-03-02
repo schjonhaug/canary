@@ -178,7 +178,8 @@ mod tests {
 
     #[test]
     fn test_extract_pubkey_from_descriptor_rejects_addr() {
-        let result = extract_pubkey_from_descriptor("addr(1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)#checksum");
+        let result =
+            extract_pubkey_from_descriptor("addr(1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)#checksum");
         assert!(result.is_none());
     }
 
@@ -191,7 +192,8 @@ mod tests {
 
     #[test]
     fn test_extract_address_from_descriptor_valid() {
-        let result = extract_address_from_descriptor("addr(1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)#abc123");
+        let result =
+            extract_address_from_descriptor("addr(1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)#abc123");
         assert_eq!(
             result,
             Some("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string())

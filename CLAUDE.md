@@ -355,5 +355,7 @@ SQLite with 22 migrations (`backend/migrations/001-022`). Key tables: `users`, `
 
 Always build both the frontend and backend and run and verify all tests before committing. In case of errors, they need to be fixed.
 
+Never amend existing commits. Always create new commits for follow-up changes, review feedback fixes, etc. Only amend if explicitly asked to.
+
 ---
 *Last updated: February 2026*

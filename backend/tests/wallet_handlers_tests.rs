@@ -821,7 +821,10 @@ async fn test_create_address_wallet_p2wpkh() {
     let body = body_to_json(response.into_body()).await;
     let wallet = &body["wallet"];
     assert_eq!(wallet["wallet_type"], "address");
-    assert_eq!(wallet["status"], "ready", "Address wallet should be ready immediately");
+    assert_eq!(
+        wallet["status"], "pending",
+        "Address wallet should be pending until first sync"
+    );
 }
 
 #[tokio::test]
@@ -853,7 +856,10 @@ async fn test_create_address_wallet_p2tr() {
     let body = body_to_json(response.into_body()).await;
     let wallet = &body["wallet"];
     assert_eq!(wallet["wallet_type"], "address");
-    assert_eq!(wallet["status"], "ready", "Address wallet should be ready immediately");
+    assert_eq!(
+        wallet["status"], "pending",
+        "Address wallet should be pending until first sync"
+    );
 }
 
 #[tokio::test]
@@ -885,7 +891,10 @@ async fn test_create_address_wallet_p2pkh() {
     let body = body_to_json(response.into_body()).await;
     let wallet = &body["wallet"];
     assert_eq!(wallet["wallet_type"], "address");
-    assert_eq!(wallet["status"], "ready", "Address wallet should be ready immediately");
+    assert_eq!(
+        wallet["status"], "pending",
+        "Address wallet should be pending until first sync"
+    );
 }
 
 #[tokio::test]
@@ -917,7 +926,10 @@ async fn test_create_address_wallet_p2sh() {
     let body = body_to_json(response.into_body()).await;
     let wallet = &body["wallet"];
     assert_eq!(wallet["wallet_type"], "address");
-    assert_eq!(wallet["status"], "ready", "Address wallet should be ready immediately");
+    assert_eq!(
+        wallet["status"], "pending",
+        "Address wallet should be pending until first sync"
+    );
 }
 
 #[tokio::test]
