@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
+concurrency:
+  group: 'codex-review-${{ github.event.pull_request.number }}'
+  cancel-in-progress: true
+
 jobs:
   codex:
     runs-on: ubuntu-latest
@@ -75,12 +79,35 @@ jobs:
         with:
           github-token: ${{ github.token }}
           script: |
-            const header = '## 🤖 Codex Code Review\n\n';
-            await github.rest.issues.createComment({
+            const body = '## 🤖 Codex Code Review\n\n' + process.env.CODEX_FINAL_MESSAGE;
+
+            // Check for existing comment
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: header + process.env.CODEX_FINAL_MESSAGE,
             });
+
+            const existingComment = comments.find(c =>
+              c.body?.includes('🤖 Codex Code Review')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body,
+              });
+              console.log('Updated existing Codex comment');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: body,
+              });
+              console.log('Created new Codex comment');
+            }
         env:
           CODEX_FINAL_MESSAGE: ${{ needs.codex.outputs.final_message }}
