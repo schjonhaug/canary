@@ -184,6 +184,12 @@ export async function loadWalletSvg(hexColor: string, walletType: WalletType = '
   return processedSvg
 }
 
+/** Reset SVG caches — exposed for test isolation only */
+export function resetSvgCaches(): void {
+  rawSvgCache.clear()
+  processedSvgCache.clear()
+}
+
 // Bitcoin amount formatting for balances (no trailing zeros)
 export function formatBitcoinAmount(sats: number | null | undefined, locale: string): string {
   if (sats === null || sats === undefined) return "0 BTC"

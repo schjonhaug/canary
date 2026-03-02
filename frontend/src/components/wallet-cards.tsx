@@ -12,6 +12,39 @@ import { useFormatters } from "@/hooks/useFormatters"
 
 import { Wallet } from "../types"
 
+// Component for loading SVG with synchronous cache to prevent flickering
+const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
+  const cachedSvg = getCachedWalletSvg(wallet.hex_color, wallet.wallet_type)
+  const [svgContent, setSvgContent] = useState<string>(cachedSvg || '')
+
+  useEffect(() => {
+    if (cachedSvg) {
+      return
+    }
+
+    let isMounted = true
+
+    loadWalletSvg(wallet.hex_color, wallet.wallet_type).then(content => {
+      if (isMounted) {
+        setSvgContent(content)
+      }
+    })
+
+    return () => { isMounted = false }
+  }, [wallet.hex_color, wallet.wallet_type, cachedSvg])
+
+  return (
+    <div
+      className="w-6 h-6 flex-shrink-0"
+      role="img"
+      aria-label={wallet.wallet_type === 'address' ? 'Address wallet' : 'Descriptor wallet'}
+      dangerouslySetInnerHTML={{ __html: svgContent }}
+    />
+  )
+})
+
+WalletIcon.displayName = 'WalletIcon'
+
 interface WalletCardsProps {
   wallets: Wallet[]
   error: string | null
@@ -33,40 +66,6 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
       setHasReceivedData(true)
     }
   }, [lastUpdate])
-
-  // Component for loading SVG with synchronous cache to prevent flickering
-  const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
-    // Try to get cached SVG first (synchronous)
-    const cachedSvg = getCachedWalletSvg(wallet.hex_color, wallet.wallet_type as 'descriptor' | 'address')
-    const [svgContent, setSvgContent] = useState<string>(cachedSvg || '')
-
-    useEffect(() => {
-      // If we already have cached content, don't reload
-      if (cachedSvg) {
-        return
-      }
-
-      let isMounted = true
-
-      loadWalletSvg(wallet.hex_color, wallet.wallet_type as 'descriptor' | 'address').then(content => {
-        if (isMounted) {
-          setSvgContent(content)
-        }
-      })
-
-      return () => { isMounted = false }
-    }, [wallet.hex_color, wallet.wallet_type, cachedSvg])
-    
-    return (
-      <div 
-        className="w-6 h-6 flex-shrink-0"
-        dangerouslySetInnerHTML={{ __html: svgContent }}
-      />
-    )
-  })
-  
-  WalletIcon.displayName = 'WalletIcon'
-
 
   if (!hasReceivedData) {
     return (
