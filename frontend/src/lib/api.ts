@@ -412,6 +412,11 @@ class ApiClient {
     })
   }
 
+  // Config API methods
+  async getConfig(): Promise<{ mempool_url: string | null; mempool_port: number | null }> {
+    return this.request<{ mempool_url: string | null; mempool_port: number | null }>('/api/config')
+  }
+
   async sendTestNtfyNotification(topic: string): Promise<{ success: boolean; error?: string }> {
     return this.request<{ success: boolean; error?: string }>('/api/ntfy/test', {
       method: 'POST',

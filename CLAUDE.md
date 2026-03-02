@@ -73,6 +73,7 @@ canary/
 │   │   │   ├── wallet.rs     # Wallet CRUD operations
 │   │   │   ├── contact.rs    # Contact management
 │   │   │   ├── billing.rs    # Stripe integration
+│   │   │   ├── config.rs     # Public app config (mempool URL)
 │   │   │   └── ...           # Other domain handlers
 │   │   ├── models/           # Request/response DTOs
 │   │   │   ├── mod.rs
@@ -157,6 +158,9 @@ canary/
 - **Atomic Updates**: PUT operations use database transactions to prevent data loss
 - **Verification Persistence**: Completed verifications are marked with timestamps, not deleted
 
+### Application Config
+- `GET /api/config` - Get public application configuration (mempool URL/port for self-hosted mode)
+
 ### Blockchain Data
 - `GET /api/block-headers/current` - Get current block header from database
 
@@ -203,6 +207,12 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Mainnet: ssl://electrum.blockstream.info:50002
 - Sync intervals: Tier-based (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
 - Frontend polling: 60 seconds (configurable via NEXT_PUBLIC_SYNC_INTERVAL)
+
+**Mempool Explorer (self-hosted only):**
+- `CANARY_MEMPOOL_URL` - Full URL to custom Mempool instance (e.g., `http://umbrel.local:3006`)
+- `CANARY_MEMPOOL_PORT` - Auto-detected by Umbrel `exports.sh` when Mempool app is installed
+- Default: `https://mempool.space` when neither is set
+- Cloud mode always uses `mempool.space` regardless of configuration
 
 ## Key Features
 

@@ -4,6 +4,7 @@ mod auth;
 mod balance_alerts;
 mod billing;
 mod blockchain;
+mod config;
 mod contact;
 mod contact_verification;
 mod notifications;
@@ -23,6 +24,7 @@ pub use billing::{
     get_billing_status, get_checkout_session_details, handle_stripe_webhook,
 };
 pub use blockchain::{get_current_block_header, get_exchange_rates};
+pub use config::get_config;
 pub use contact::{
     create_wallet_contact, delete_wallet_contact, get_wallet_contacts, update_wallet_contact,
 };

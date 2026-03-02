@@ -4,12 +4,12 @@ use crate::handlers::{
     create_stripe_checkout_session, create_stripe_customer_portal, create_wallet_balance_alert,
     create_wallet_contact, create_wallet_non_blocking, delete_balance_alert, delete_wallet,
     delete_wallet_contact, demo_login, forgot_password, get_billing_pricing, get_billing_status,
-    get_checkout_session_details, get_current_block_header, get_exchange_rates, get_providers,
-    get_user_preferences, get_wallet, get_wallet_balance_alerts, get_wallet_contacts,
-    get_wallet_detail, get_wallets_list, handle_stripe_webhook, login, logout, me, register,
-    reset_password, send_contact_verification, send_test_ntfy_notification, submit_contact_form,
-    update_user, update_user_preferences, update_wallet, update_wallet_contact, verify_contact,
-    verify_email,
+    get_checkout_session_details, get_config, get_current_block_header, get_exchange_rates,
+    get_providers, get_user_preferences, get_wallet, get_wallet_balance_alerts,
+    get_wallet_contacts, get_wallet_detail, get_wallets_list, handle_stripe_webhook, login, logout,
+    me, register, reset_password, send_contact_verification, send_test_ntfy_notification,
+    submit_contact_form, update_user, update_user_preferences, update_wallet,
+    update_wallet_contact, verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
@@ -348,6 +348,8 @@ pub fn create_router_with_services(
             "/balance-alerts/{alert_id}",
             axum::routing::delete(delete_balance_alert),
         )
+        // Public configuration route (no auth required)
+        .route("/config", get(get_config))
         // Blockchain data routes (no auth required)
         .route("/block-headers/current", get(get_current_block_header))
         .route("/exchange-rates", get(get_exchange_rates))
