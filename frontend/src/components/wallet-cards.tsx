@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { loadCanarySvg, getCachedCanarySvg } from "@/lib/utils"
+import { loadWalletSvg, getCachedWalletSvg } from "@/lib/utils"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 
@@ -37,25 +37,25 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
   // Component for loading SVG with synchronous cache to prevent flickering
   const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
     // Try to get cached SVG first (synchronous)
-    const cachedSvg = getCachedCanarySvg(wallet.hex_color)
+    const cachedSvg = getCachedWalletSvg(wallet.hex_color, wallet.wallet_type as 'descriptor' | 'address')
     const [svgContent, setSvgContent] = useState<string>(cachedSvg || '')
-    
+
     useEffect(() => {
       // If we already have cached content, don't reload
       if (cachedSvg) {
         return
       }
-      
+
       let isMounted = true
-      
-      loadCanarySvg(wallet.hex_color).then(content => {
+
+      loadWalletSvg(wallet.hex_color, wallet.wallet_type as 'descriptor' | 'address').then(content => {
         if (isMounted) {
           setSvgContent(content)
         }
       })
-      
+
       return () => { isMounted = false }
-    }, [wallet.hex_color, cachedSvg])
+    }, [wallet.hex_color, wallet.wallet_type, cachedSvg])
     
     return (
       <div 
@@ -178,11 +178,6 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                     <CardTitle className={`text-lg truncate min-w-0 ${isInactive ? 'text-muted-foreground line-through' : ''}`} title={wallet.name}>
                       {wallet.name}
                     </CardTitle>
-                    {wallet.wallet_type === 'address' && (
-                      <Badge variant="secondary" className="text-xs flex-shrink-0">
-                        {t('card.addressWatch')}
-                      </Badge>
-                    )}
                   </div>
                   {isInactive && (
                     <Badge variant="outline" className="text-xs text-orange-600 border-orange-600 bg-orange-50 w-fit">
