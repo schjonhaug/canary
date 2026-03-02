@@ -638,6 +638,141 @@ async fn test_cross_wallet_verification_sms_exact_match() {
 }
 
 // ============================
+// Subscription limit tests
+// ============================
+
+#[tokio::test]
+async fn test_deleted_wallets_excluded_from_subscription_limits() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    // Create a user with 3 wallets (simulating Team tier with 5-wallet limit)
+    let user_id = db
+        .create_user(
+            "test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            false,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet1 = db
+        .insert_wallet("Wallet 1", "descriptor1", &user_id)
+        .await
+        .unwrap();
+
+    // Small delay to ensure different created_at timestamps
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+    let wallet2 = db
+        .insert_wallet("Wallet 2", "descriptor2", &user_id)
+        .await
+        .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+    let wallet3 = db
+        .insert_wallet("Wallet 3", "descriptor3", &user_id)
+        .await
+        .unwrap();
+
+    // Soft-delete wallets 1 and 2
+    db.mark_wallet_as_deleted(&wallet1).await.unwrap();
+    db.mark_wallet_as_deleted(&wallet2).await.unwrap();
+
+    // get_wallets_for_user_oldest_first (used by apply_subscription_limits)
+    // should exclude deleted wallets
+    let wallets = db
+        .get_wallets_for_user_oldest_first(&user_id)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        wallets.len(),
+        1,
+        "Should only return non-deleted wallets"
+    );
+    assert_eq!(
+        wallets[0].checksum, wallet3,
+        "The only remaining wallet should be wallet3"
+    );
+}
+
+#[tokio::test]
+async fn test_deleted_wallets_do_not_consume_limit_slots() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    // Simulate the reported bug scenario:
+    // User on Personal tier (1 wallet limit) with deleted wallets
+    let user_id = db
+        .create_user(
+            "andreas@example.com",
+            "hashedpassword",
+            Some("Andreas"),
+            false,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    // Create 3 wallets in order
+    let wallet1 = db
+        .insert_wallet("Old Wallet 1", "desc1", &user_id)
+        .await
+        .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+    let wallet2 = db
+        .insert_wallet("Old Wallet 2", "desc2", &user_id)
+        .await
+        .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+    let wallet3 = db
+        .insert_wallet("Current Wallet", "desc3", &user_id)
+        .await
+        .unwrap();
+
+    // Delete the first two (they were created earlier, so they'd occupy slots 0 and 1)
+    db.mark_wallet_as_deleted(&wallet1).await.unwrap();
+    db.mark_wallet_as_deleted(&wallet2).await.unwrap();
+
+    // Now apply Personal tier limits (max 1 wallet)
+    // The remaining wallet3 should be at index 0 and active
+    let wallets = db
+        .get_wallets_for_user_oldest_first(&user_id)
+        .await
+        .unwrap();
+
+    assert_eq!(wallets.len(), 1);
+
+    // Simulate what apply_subscription_limits does: activate first N wallets
+    let wallet_limit: usize = 1; // Personal tier
+    for (index, wallet) in wallets.iter().enumerate() {
+        let should_be_active = index < wallet_limit;
+        db.update_wallet_active_status(&wallet.checksum, should_be_active)
+            .await
+            .unwrap();
+    }
+
+    // Verify wallet3 is active (it's the only non-deleted wallet, within limit)
+    let wallets = db
+        .get_wallets_for_user_oldest_first(&user_id)
+        .await
+        .unwrap();
+    assert!(
+        wallets[0].is_active,
+        "Wallet3 should be active since deleted wallets no longer consume limit slots"
+    );
+    assert_eq!(wallets[0].checksum, wallet3);
+}
+
+// ============================
 // Transaction ordering tests
 // ============================
 

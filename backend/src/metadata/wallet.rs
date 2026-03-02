@@ -352,7 +352,7 @@ impl MetadataDb {
                                w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
                         FROM wallets w
                         LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
-                        WHERE w.user_id = ?1
+                        WHERE w.user_id = ?1 AND w.status != 'deleted'
                         GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.status, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
                         ORDER BY w.created_at ASC"; // Oldest first for subscription limits
 
