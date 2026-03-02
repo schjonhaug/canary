@@ -61,7 +61,7 @@ function getScriptType(wallet: Wallet): string {
 function parseToUnixTimestamp(dateStr: string): number | undefined {
   // SQLite timestamps are UTC without timezone indicator (e.g. "2025-09-03 13:26:11.944")
   // Convert to ISO 8601 for cross-browser parsing (Safari rejects "... UTC" format)
-  const match = dateStr.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})/)
+  const match = dateStr.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(?:\.\d+)?$/)
   const date = match
     ? new Date(`${match[1]}T${match[2]}Z`)
     : new Date(dateStr)
