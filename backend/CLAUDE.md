@@ -82,6 +82,7 @@ src/
     balance_alerts.rs       # Balance alert CRUD handlers
     billing.rs              # Stripe checkout, portal, webhook, pricing handlers
     blockchain.rs           # Block headers, exchange rates handlers
+    config.rs               # Public application config handler (mempool URL)
     contact.rs              # Contact CRUD handlers
     contact_verification.rs # Send verification, verify handlers
     notifications.rs        # Notification-related handlers
@@ -201,6 +202,10 @@ TWILIO_SENDER_ID=Canary
 # Email provider (Resend)
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=notifications@canarybitcoin.com
+
+# Mempool explorer (self-hosted only)
+# CANARY_MEMPOOL_URL=http://umbrel.local:3006  # Full URL to custom instance
+# CANARY_MEMPOOL_PORT=3006                     # Auto-detected on Umbrel via exports.sh
 ```
 
 ### Frontend Environment Variables

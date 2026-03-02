@@ -13,11 +13,10 @@ async function resolveMempoolUrl(): Promise<string> {
     const config = await api.getConfig()
 
     if (config.mempool_url) {
-      // Full URL provided (e.g., CANARY_MEMPOOL_URL=http://mempool.local:3006)
       return config.mempool_url.replace(/\/$/, "")
     }
 
-    if (config.mempool_port && typeof window !== "undefined") {
+    if (config.mempool_port) {
       // Port-only (Umbrel auto-detection): use browser's hostname + port
       return `${window.location.protocol}//${window.location.hostname}:${config.mempool_port}`
     }
@@ -41,10 +40,27 @@ export function useMempoolUrl(): string {
       fetchPromise = resolveMempoolUrl()
     }
 
-    fetchPromise.then((url) => {
-      cachedMempoolUrl = url
-      setMempoolUrl(url)
-    })
+    let isMounted = true
+
+    fetchPromise
+      .then((url) => {
+        // Only cache if we got a non-default result; retry on next mount otherwise
+        if (url !== DEFAULT_MEMPOOL_URL) {
+          cachedMempoolUrl = url
+        } else {
+          fetchPromise = null
+        }
+        if (isMounted) {
+          setMempoolUrl(url)
+        }
+      })
+      .catch(() => {
+        fetchPromise = null
+      })
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   return mempoolUrl

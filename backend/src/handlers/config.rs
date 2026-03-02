@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 #[derive(Serialize)]
 pub struct ConfigResponse {
-    pub mempool_url: Option<String>,
-    pub mempool_port: Option<u16>,
+    mempool_url: Option<String>,
+    mempool_port: Option<u16>,
 }
 
 /// GET /api/config - Returns public application configuration

@@ -188,7 +188,17 @@ impl AppConfig {
         let jwt_secret = std::env::var("JWT_SECRET").ok();
 
         // Load mempool configuration (optional)
-        let mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok();
+        let mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok().and_then(|url| {
+            if url.starts_with("http://") || url.starts_with("https://") {
+                Some(url)
+            } else {
+                eprintln!(
+                    "⚠️  CANARY_MEMPOOL_URL must start with http:// or https://: '{}' — ignoring",
+                    url
+                );
+                None
+            }
+        });
         let mempool_port = std::env::var("CANARY_MEMPOOL_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
@@ -441,6 +451,18 @@ impl AppConfig {
             mempool_url: None,
             mempool_port: None,
         }
+    }
+
+    /// Set mempool URL on a test config (builder pattern)
+    pub fn with_mempool_url(mut self, url: Option<String>) -> Self {
+        self.mempool_url = url;
+        self
+    }
+
+    /// Set mempool port on a test config (builder pattern)
+    pub fn with_mempool_port(mut self, port: Option<u16>) -> Self {
+        self.mempool_port = port;
+        self
     }
 }
 
