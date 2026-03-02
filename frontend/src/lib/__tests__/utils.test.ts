@@ -81,6 +81,17 @@ describe('loadWalletSvg / getCachedWalletSvg', () => {
     expect(result).not.toContain('height="595"')
   })
 
+  it('only resizes root svg element, not child elements', async () => {
+    const svgWithChild = '<svg width="100" height="200"><rect width="50" height="50"/></svg>'
+    ;(global.fetch as jest.Mock).mockResolvedValue({ ok: true, text: async () => svgWithChild })
+
+    const result = await loadWalletSvg('#FF0000', 'descriptor')
+
+    expect(result).toMatch(/^<svg width="24" height="24"/)
+    expect(result).toContain('width="50"')
+    expect(result).toContain('height="50"')
+  })
+
   it('makes blue transparent in canary SVG', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValue({ ok: true, text: async () => canarySvg })
 

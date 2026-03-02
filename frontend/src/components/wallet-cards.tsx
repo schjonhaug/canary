@@ -15,7 +15,7 @@ import { Wallet } from "../types"
 // Component for loading SVG with synchronous cache to prevent flickering
 const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
   const cachedSvg = getCachedWalletSvg(wallet.hex_color, wallet.wallet_type)
-  const [svgContent, setSvgContent] = useState<string>(cachedSvg || '')
+  const [asyncSvg, setAsyncSvg] = useState<string>('')
 
   useEffect(() => {
     if (cachedSvg) {
@@ -24,11 +24,9 @@ const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
 
     let isMounted = true
 
-    loadWalletSvg(wallet.hex_color, wallet.wallet_type).then(content => {
-      if (isMounted) {
-        setSvgContent(content)
-      }
-    })
+    loadWalletSvg(wallet.hex_color, wallet.wallet_type)
+      .then(content => { if (isMounted) setAsyncSvg(content) })
+      .catch(() => {})
 
     return () => { isMounted = false }
   }, [wallet.hex_color, wallet.wallet_type, cachedSvg])
@@ -38,7 +36,7 @@ const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
       className="w-6 h-6 flex-shrink-0"
       role="img"
       aria-label={wallet.wallet_type === 'address' ? 'Address wallet' : 'Descriptor wallet'}
-      dangerouslySetInnerHTML={{ __html: svgContent }}
+      dangerouslySetInnerHTML={{ __html: cachedSvg || asyncSvg }}
     />
   )
 })

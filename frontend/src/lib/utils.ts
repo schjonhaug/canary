@@ -172,12 +172,12 @@ export async function loadWalletSvg(hexColor: string, walletType: WalletType = '
 
   const rawSvg = rawSvgCache.get(walletType)!
 
-  // Replace colors and resize
+  // Replace colors and resize root <svg> element only
   const processedSvg = rawSvg
     .replace(/#F6C919/g, hexColor)           // Replace yellow with provided hex color
     .replace(/#73C2DE/g, 'transparent')      // Make blue transparent (canary only)
-    .replace(/width="\d+"/g, 'width="24"')   // Resize to 24x24
-    .replace(/height="\d+"/g, 'height="24"')
+    .replace(/^(<svg\s[^>]*?)width="\d+"/, '$1width="24"')   // Resize root <svg> to 24x24
+    .replace(/^(<svg\s[^>]*?)height="\d+"/, '$1height="24"')
 
   processedSvgCache.set(key, processedSvg)
 
