@@ -1496,6 +1496,7 @@ impl WalletSyncService {
         wallet_checksum: &str,
         descriptor: &str,
         electrum_manager: Option<&ElectrumClientManager>,
+        suppress_notifications: bool,
     ) -> Result<bool> {
         let sync_start = Instant::now();
         debug!("[{}] Starting address-based sync", wallet_checksum);
@@ -1578,13 +1579,15 @@ impl WalletSyncService {
                             .await?;
 
                         // Send confirmation notification
-                        if let Some(updated_tx) = self
-                            .metadata_db
-                            .get_transaction_by_txid(wallet_checksum, &txid_str)
-                            .await?
-                        {
-                            self.send_confirmed_transaction_notification(&updated_tx)
-                                .await?;
+                        if !suppress_notifications {
+                            if let Some(updated_tx) = self
+                                .metadata_db
+                                .get_transaction_by_txid(wallet_checksum, &txid_str)
+                                .await?
+                            {
+                                self.send_confirmed_transaction_notification(&updated_tx)
+                                    .await?;
+                            }
                         }
 
                         has_changes = true;
@@ -1704,16 +1707,19 @@ impl WalletSyncService {
             };
 
             self.metadata_db.insert_transaction(&transaction).await?;
-            self.send_new_transaction_notification(&transaction).await?;
+            if !suppress_notifications {
+                self.send_new_transaction_notification(&transaction).await?;
+            }
 
             has_changes = true;
             info!(
-                "[{}] New address watch tx: {} ({:?}, {} sats, {})",
+                "[{}] New address watch tx: {} ({:?}, {} sats, {}{})",
                 wallet_checksum,
                 txid_str,
                 event_type,
                 amount,
-                if is_confirmed { "confirmed" } else { "pending" }
+                if is_confirmed { "confirmed" } else { "pending" },
+                if suppress_notifications { ", notifications suppressed" } else { "" }
             );
         }
 
@@ -1730,12 +1736,14 @@ impl WalletSyncService {
             .update_wallet_last_synced(wallet_checksum)
             .await;
 
-        // Check balance alerts
-        if let Err(e) = self
-            .check_balance_alerts(wallet_checksum, total_balance)
-            .await
-        {
-            warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+        // Check balance alerts (skip during initial sync to avoid spurious alerts)
+        if !suppress_notifications {
+            if let Err(e) = self
+                .check_balance_alerts(wallet_checksum, total_balance)
+                .await
+            {
+                warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+            }
         }
 
         let sync_duration = sync_start.elapsed();
@@ -1764,6 +1772,7 @@ impl WalletSyncService {
         wallet_checksums: &[String],
         descriptor: &str,
         electrum_manager: Option<&ElectrumClientManager>,
+        suppress_notifications: bool,
     ) -> Result<bool> {
         let sync_start = Instant::now();
         info!(
@@ -1865,13 +1874,15 @@ impl WalletSyncService {
                                 )
                                 .await?;
 
-                            if let Some(updated_tx) = self
-                                .metadata_db
-                                .get_transaction_by_txid(wallet_checksum, &txid_str)
-                                .await?
-                            {
-                                self.send_confirmed_transaction_notification(&updated_tx)
-                                    .await?;
+                            if !suppress_notifications {
+                                if let Some(updated_tx) = self
+                                    .metadata_db
+                                    .get_transaction_by_txid(wallet_checksum, &txid_str)
+                                    .await?
+                                {
+                                    self.send_confirmed_transaction_notification(&updated_tx)
+                                        .await?;
+                                }
                             }
 
                             has_changes = true;
@@ -1990,16 +2001,19 @@ impl WalletSyncService {
                 };
 
                 self.metadata_db.insert_transaction(&transaction).await?;
-                self.send_new_transaction_notification(&transaction).await?;
+                if !suppress_notifications {
+                    self.send_new_transaction_notification(&transaction).await?;
+                }
 
                 has_changes = true;
                 info!(
-                    "[{}] New address watch tx: {} ({:?}, {} sats, {})",
+                    "[{}] New address watch tx: {} ({:?}, {} sats, {}{})",
                     wallet_checksum,
                     txid_str,
                     event_type,
                     amount,
-                    if is_confirmed { "confirmed" } else { "pending" }
+                    if is_confirmed { "confirmed" } else { "pending" },
+                    if suppress_notifications { ", notifications suppressed" } else { "" }
                 );
             }
 
@@ -2014,12 +2028,14 @@ impl WalletSyncService {
                 .update_wallet_last_synced(wallet_checksum)
                 .await;
 
-            // Check balance alerts for this watcher
-            if let Err(e) = self
-                .check_balance_alerts(wallet_checksum, total_balance)
-                .await
-            {
-                warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+            // Check balance alerts for this watcher (skip during initial sync)
+            if !suppress_notifications {
+                if let Err(e) = self
+                    .check_balance_alerts(wallet_checksum, total_balance)
+                    .await
+                {
+                    warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+                }
             }
 
             if has_changes {

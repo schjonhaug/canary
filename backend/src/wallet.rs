@@ -191,11 +191,14 @@ impl WalletCreationService {
         tokio::spawn(async move {
             let sync_service =
                 crate::sync::WalletSyncService::new(metadata_db, notification_sender, config);
+            // suppress_notifications=true: this is the initial sync, so all transactions
+            // are historical and should not trigger alerts to contacts
             if let Err(e) = sync_service
                 .sync_address_watch(
                     &checksum_clone,
                     &descriptor_clone,
                     electrum_manager.as_deref(),
+                    true,
                 )
                 .await
             {
@@ -1059,12 +1062,13 @@ impl WalletManager {
                             watchers.iter().map(|w| w.checksum.clone()).collect();
 
                         if watcher_count == 1 {
-                            // Single watcher — use existing method
+                            // Single watcher — ongoing background sync, notifications enabled
                             match sync_service
                                 .sync_address_watch(
                                     &checksums[0],
                                     &descriptor,
                                     electrum_manager.as_deref(),
+                                    false, // ongoing sync — send notifications for new txs
                                 )
                                 .await
                             {
@@ -1078,12 +1082,13 @@ impl WalletManager {
                                 }
                             }
                         } else {
-                            // Multiple watchers — query Electrum once, fan out results
+                            // Multiple watchers — ongoing background sync, notifications enabled
                             match sync_service
                                 .sync_address_watch_group(
                                     &checksums,
                                     &descriptor,
                                     electrum_manager.as_deref(),
+                                    false, // ongoing sync — send notifications for new txs
                                 )
                                 .await
                             {
