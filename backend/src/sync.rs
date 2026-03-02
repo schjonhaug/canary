@@ -1501,10 +1501,8 @@ impl WalletSyncService {
         let sync_start = Instant::now();
         debug!("[{}] Starting address-based sync", wallet_checksum);
 
-        let script = Self::script_from_watch_descriptor(
-            descriptor,
-            self.config.network.to_bdk_network(),
-        )?;
+        let script =
+            Self::script_from_watch_descriptor(descriptor, self.config.network.to_bdk_network())?;
 
         // Get Electrum client
         let client = match electrum_manager {
@@ -1781,10 +1779,8 @@ impl WalletSyncService {
             descriptor
         );
 
-        let script = Self::script_from_watch_descriptor(
-            descriptor,
-            self.config.network.to_bdk_network(),
-        )?;
+        let script =
+            Self::script_from_watch_descriptor(descriptor, self.config.network.to_bdk_network())?;
 
         // Get Electrum client
         let client = match electrum_manager {
@@ -1852,9 +1848,7 @@ impl WalletSyncService {
                                         .await
                                     {
                                         Ok(header) => header.timestamp,
-                                        Err(_) if hist_entry.height == 0 => {
-                                            GENESIS_BLOCK_TIMESTAMP
-                                        }
+                                        Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
                                         Err(_) => std::time::SystemTime::now()
                                             .duration_since(std::time::UNIX_EPOCH)
                                             .unwrap()
@@ -1958,22 +1952,18 @@ impl WalletSyncService {
                     .as_secs();
 
                 let (confirmed_at, block_height) = if is_confirmed {
-                    let timestamp =
-                        match block_header_cache.get(&(hist_entry.height as u32)) {
-                            Some(&ts) => ts,
-                            None => {
-                                let ts =
-                                    match client.get_block_header(hist_entry.height as u32).await {
-                                        Ok(header) => header.timestamp,
-                                        Err(_) if hist_entry.height == 0 => {
-                                            GENESIS_BLOCK_TIMESTAMP
-                                        }
-                                        Err(_) => now,
-                                    };
-                                block_header_cache.insert(hist_entry.height as u32, ts);
-                                ts
-                            }
-                        };
+                    let timestamp = match block_header_cache.get(&(hist_entry.height as u32)) {
+                        Some(&ts) => ts,
+                        None => {
+                            let ts = match client.get_block_header(hist_entry.height as u32).await {
+                                Ok(header) => header.timestamp,
+                                Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
+                                Err(_) => now,
+                            };
+                            block_header_cache.insert(hist_entry.height as u32, ts);
+                            ts
+                        }
+                    };
                     (Some(timestamp), Some(hist_entry.height as u32))
                 } else {
                     (None, None)

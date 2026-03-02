@@ -197,12 +197,24 @@ impl WalletCreationService {
                 )
                 .await
             {
-                Ok(_) => {
+                Ok(true) => {
                     // Mark as ready only after successful sync
-                    let _ = metadata_db
+                    if let Err(e) = metadata_db
                         .update_wallet_status_if_not_deleted(&checksum_clone, "ready")
-                        .await;
+                        .await
+                    {
+                        warn!(
+                            "[{}] Failed to promote wallet to ready: {}",
+                            checksum_clone, e
+                        );
+                    }
                     debug!("[{}] Initial watch sync completed", checksum_clone);
+                }
+                Ok(false) => {
+                    debug!(
+                        "[{}] No Electrum client yet, wallet stays pending",
+                        checksum_clone
+                    );
                 }
                 Err(e) => {
                     error!("[{}] Initial watch sync failed: {}", checksum_clone, e);
@@ -1062,58 +1074,77 @@ impl WalletManager {
                             watchers.iter().map(|w| w.checksum.clone()).collect();
 
                         if watcher_count == 1 {
-                            // Single watcher — ongoing background sync, notifications enabled
+                            let is_pending = watchers[0].status == "pending";
+                            // Single watcher — suppress notifications on first sync to avoid
+                            // alerting on historical transactions
                             match sync_service
                                 .sync_address_watch(
                                     &checksums[0],
                                     &descriptor,
                                     electrum_manager.as_deref(),
-                                    false, // ongoing sync — send notifications for new txs
+                                    is_pending, // suppress on first sync for pending wallets
                                 )
                                 .await
                             {
-                                Ok(_) => {
+                                Ok(true) => {
                                     // Promote pending watcher to ready
-                                    if watchers[0].status == "pending" {
-                                        let _ = metadata_db
+                                    if is_pending {
+                                        if let Err(e) = metadata_db
                                             .update_wallet_status_if_not_deleted(
                                                 &checksums[0],
                                                 "ready",
                                             )
-                                            .await;
+                                            .await
+                                        {
+                                            warn!(
+                                                "Failed to promote address watch {} to ready: {}",
+                                                checksums[0], e
+                                            );
+                                        }
                                     }
                                     Ok(watcher_count)
                                 }
+                                Ok(false) => Ok(watcher_count), // No Electrum client, skip
                                 Err(e) => {
                                     warn!("Failed to sync address watch {}: {}", checksums[0], e);
                                     Err(e)
                                 }
                             }
                         } else {
-                            // Multiple watchers — ongoing background sync, notifications enabled
+                            let has_pending =
+                                watchers.iter().any(|w| w.status == "pending");
+                            // Multiple watchers — suppress notifications if any are pending
+                            // to avoid alerting on historical transactions
                             match sync_service
                                 .sync_address_watch_group(
                                     &checksums,
                                     &descriptor,
                                     electrum_manager.as_deref(),
-                                    false, // ongoing sync — send notifications for new txs
+                                    has_pending, // suppress on first sync for pending wallets
                                 )
                                 .await
                             {
-                                Ok(_) => {
+                                Ok(true) => {
                                     // Promote any pending watchers to ready
                                     for w in &watchers {
                                         if w.status == "pending" {
-                                            let _ = metadata_db
+                                            if let Err(e) = metadata_db
                                                 .update_wallet_status_if_not_deleted(
                                                     &w.checksum,
                                                     "ready",
                                                 )
-                                                .await;
+                                                .await
+                                            {
+                                                warn!(
+                                                    "Failed to promote address watch {} to ready: {}",
+                                                    w.checksum, e
+                                                );
+                                            }
                                         }
                                     }
                                     Ok(watcher_count)
                                 }
+                                Ok(false) => Ok(watcher_count), // No Electrum client, skip
                                 Err(e) => {
                                     warn!(
                                         "Failed to sync address watch group ({}): {}",
@@ -1270,7 +1301,7 @@ impl WalletManager {
                         )
                         .await
                     {
-                        Ok(_) => {
+                        Ok(true) => {
                             // Persist wallet changes back to disk (wallet stays in memory)
                             if let Err(e) = wallet.persist(conn) {
                                 error!(
@@ -1281,12 +1312,18 @@ impl WalletManager {
 
                             // Promote pending wallet to ready after first successful sync
                             if wallet_metadata.status == "pending" {
-                                let _ = metadata_db_ref
+                                if let Err(e) = metadata_db_ref
                                     .update_wallet_status_if_not_deleted(
                                         &wallet_metadata.checksum,
                                         "ready",
                                     )
-                                    .await;
+                                    .await
+                                {
+                                    warn!(
+                                        "Failed to promote wallet {} to ready: {}",
+                                        wallet_metadata.name, e
+                                    );
+                                }
                             }
 
                             let sync_duration = wallet_start.elapsed();
@@ -1295,6 +1332,10 @@ impl WalletManager {
                                 wallet_metadata.name,
                                 sync_duration.as_secs_f64()
                             );
+                            Ok(wallet_metadata.name)
+                        }
+                        Ok(false) => {
+                            // No Electrum client available, skip
                             Ok(wallet_metadata.name)
                         }
                         Err(e) => {

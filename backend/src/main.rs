@@ -421,8 +421,7 @@ async fn main() -> anyhow::Result<()> {
             for wallet in &existing_wallets {
                 let is_old_genesis =
                     wallet.name == genesis_name && wallet.descriptor.starts_with("addr(");
-                let should_delete =
-                    retired_names.contains(&wallet.name.as_str()) || is_old_genesis;
+                let should_delete = retired_names.contains(&wallet.name.as_str()) || is_old_genesis;
                 if should_delete {
                     println!(
                         "🔄 Removing old demo wallet '{}' (checksum: {})",

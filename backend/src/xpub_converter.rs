@@ -157,8 +157,7 @@ impl XpubConverter {
     pub fn pubkey_to_descriptor(pubkey: &str) -> Result<String> {
         let pubkey_trimmed = pubkey.trim();
         // Validate the public key first
-        PublicKey::from_str(pubkey_trimmed)
-            .map_err(|e| anyhow!("Invalid public key: {}", e))?;
+        PublicKey::from_str(pubkey_trimmed).map_err(|e| anyhow!("Invalid public key: {}", e))?;
         let descriptor_without_checksum = format!("pk({})", pubkey_trimmed);
         let checksum = desc_checksum(&descriptor_without_checksum)
             .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
@@ -288,7 +287,11 @@ mod tests {
     #[test]
     fn test_validate_descriptor_network_bypasses_pubkey() {
         // Public keys are network-agnostic, should pass on any network
-        assert!(XpubConverter::validate_descriptor_network(GENESIS_PUBKEY, Network::Bitcoin).is_ok());
-        assert!(XpubConverter::validate_descriptor_network(GENESIS_PUBKEY, Network::Testnet).is_ok());
+        assert!(
+            XpubConverter::validate_descriptor_network(GENESIS_PUBKEY, Network::Bitcoin).is_ok()
+        );
+        assert!(
+            XpubConverter::validate_descriptor_network(GENESIS_PUBKEY, Network::Testnet).is_ok()
+        );
     }
 }
