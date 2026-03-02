@@ -1736,12 +1736,14 @@ impl WalletSyncService {
             .update_wallet_last_synced(wallet_checksum)
             .await;
 
-        // Check balance alerts
-        if let Err(e) = self
-            .check_balance_alerts(wallet_checksum, total_balance)
-            .await
-        {
-            warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+        // Check balance alerts (skip during initial sync to avoid spurious alerts)
+        if !suppress_notifications {
+            if let Err(e) = self
+                .check_balance_alerts(wallet_checksum, total_balance)
+                .await
+            {
+                warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+            }
         }
 
         let sync_duration = sync_start.elapsed();
@@ -2026,12 +2028,14 @@ impl WalletSyncService {
                 .update_wallet_last_synced(wallet_checksum)
                 .await;
 
-            // Check balance alerts for this watcher
-            if let Err(e) = self
-                .check_balance_alerts(wallet_checksum, total_balance)
-                .await
-            {
-                warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+            // Check balance alerts for this watcher (skip during initial sync)
+            if !suppress_notifications {
+                if let Err(e) = self
+                    .check_balance_alerts(wallet_checksum, total_balance)
+                    .await
+                {
+                    warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
+                }
             }
 
             if has_changes {

@@ -1062,13 +1062,13 @@ impl WalletManager {
                             watchers.iter().map(|w| w.checksum.clone()).collect();
 
                         if watcher_count == 1 {
-                            // Single watcher — use existing method
+                            // Single watcher — ongoing background sync, notifications enabled
                             match sync_service
                                 .sync_address_watch(
                                     &checksums[0],
                                     &descriptor,
                                     electrum_manager.as_deref(),
-                                    false,
+                                    false, // ongoing sync — send notifications for new txs
                                 )
                                 .await
                             {
@@ -1082,13 +1082,13 @@ impl WalletManager {
                                 }
                             }
                         } else {
-                            // Multiple watchers — query Electrum once, fan out results
+                            // Multiple watchers — ongoing background sync, notifications enabled
                             match sync_service
                                 .sync_address_watch_group(
                                     &checksums,
                                     &descriptor,
                                     electrum_manager.as_deref(),
-                                    false,
+                                    false, // ongoing sync — send notifications for new txs
                                 )
                                 .await
                             {
