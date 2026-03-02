@@ -113,6 +113,10 @@ pub struct AppConfig {
     pub frontend_url: Option<String>,
     /// JWT secret for authentication (only used in cloud mode)
     jwt_secret: Option<String>,
+    /// Custom Mempool URL (e.g., http://umbrel.local:3006)
+    mempool_url: Option<String>,
+    /// Mempool port for auto-detected Umbrel integration
+    mempool_port: Option<u16>,
 }
 
 impl AppConfig {
@@ -183,6 +187,12 @@ impl AppConfig {
         // Load JWT secret (only used in cloud mode)
         let jwt_secret = std::env::var("JWT_SECRET").ok();
 
+        // Load mempool configuration (optional)
+        let mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok();
+        let mempool_port = std::env::var("CANARY_MEMPOOL_PORT")
+            .ok()
+            .and_then(|s| s.parse().ok());
+
         Ok(AppConfig {
             network,
             electrum_url,
@@ -191,6 +201,8 @@ impl AppConfig {
             operating_mode,
             frontend_url,
             jwt_secret,
+            mempool_url,
+            mempool_port,
         })
     }
 
@@ -224,6 +236,16 @@ impl AppConfig {
         self.jwt_secret
             .as_deref()
             .ok_or("JWT_SECRET required for cloud mode - check your .env file")
+    }
+
+    /// Get the custom Mempool URL, if configured
+    pub fn mempool_url(&self) -> Option<&str> {
+        self.mempool_url.as_deref()
+    }
+
+    /// Get the auto-detected Mempool port (Umbrel integration)
+    pub fn mempool_port(&self) -> Option<u16> {
+        self.mempool_port
     }
 
     /// Check if ntfy provider should be enabled
@@ -416,6 +438,8 @@ impl AppConfig {
             operating_mode,
             frontend_url,
             jwt_secret,
+            mempool_url: None,
+            mempool_port: None,
         }
     }
 }
@@ -474,6 +498,8 @@ mod tests {
             operating_mode: OperatingMode::Cloud, // Default for tests
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: Some("test-jwt-secret".to_string()),
+            mempool_url: None,
+            mempool_port: None,
         }
     }
 
@@ -486,6 +512,8 @@ mod tests {
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: Some("test-jwt-secret".to_string()),
+            mempool_url: None,
+            mempool_port: None,
         }
     }
 
@@ -498,6 +526,8 @@ mod tests {
             operating_mode: OperatingMode::SelfHosted,
             frontend_url: None,
             jwt_secret: None, // Not used in self-hosted mode
+            mempool_url: None,
+            mempool_port: None,
         }
     }
 
@@ -654,6 +684,8 @@ mod tests {
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: Some("test-jwt-secret".to_string()),
+            mempool_url: None,
+            mempool_port: None,
         };
         assert_eq!(config.electrum_url(), "ssl://custom.electrum.server:50002");
     }
@@ -706,6 +738,8 @@ mod tests {
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: None, // Missing JWT secret
+            mempool_url: None,
+            mempool_port: None,
         };
         assert_eq!(
             config.get_jwt_secret().unwrap_err(),

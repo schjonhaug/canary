@@ -19,6 +19,7 @@ import {
 import { Transaction } from "../types"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
+import { useMempoolUrl } from "@/hooks/useMempoolUrl"
 
 interface TransactionCardProps {
   transaction: Transaction
@@ -29,6 +30,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
   const [isExpanded, setIsExpanded] = useState(false)
   const t = useTranslations('transactions')
   const { formatTransactionAmount, formatDateTime } = useFormatters()
+  const mempoolBaseUrl = useMempoolUrl()
 
   const getUniqueProviderSummary = (notifications: typeof transaction.notification_status) => {
     if (!notifications || notifications.length === 0) return null
@@ -307,7 +309,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                 <div className="flex items-center gap-3 text-sm">
                   <span className="font-medium min-w-[80px]">{t('details.txid')}:</span>
                   <a
-                    href={`https://mempool.space/tx/${transaction.txid}`}
+                    href={`${mempoolBaseUrl}/tx/${transaction.txid}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-mono text-xs text-blue-600 hover:text-blue-800 underline"
@@ -326,7 +328,7 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
                   <div className="flex items-center gap-3 text-sm">
                     <span className="font-medium min-w-[80px]">{t('details.replacedBy')}:</span>
                     <a
-                      href={`https://mempool.space/tx/${transaction.replaced_by_txid}`}
+                      href={`${mempoolBaseUrl}/tx/${transaction.replaced_by_txid}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-xs text-orange-600 hover:text-orange-800 underline"

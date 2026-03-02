@@ -5,6 +5,7 @@ import { Mail, MessageCircle, Bell, XCircle, ArrowRight } from "lucide-react"
 import { Transaction } from "../types"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
+import { useMempoolUrl } from "@/hooks/useMempoolUrl"
 
 interface ProviderIconProps {
   providerType: string
@@ -32,6 +33,7 @@ interface TransactionDetailsProps {
 export function TransactionDetails({ transaction, isExpanded }: TransactionDetailsProps) {
   const t = useTranslations('transactions')
   const { formatTransactionAmount, formatDateTime } = useFormatters()
+  const mempoolBaseUrl = useMempoolUrl()
 
   const renderNotificationGroup = (notifications: NonNullable<Transaction['notification_status']>) => {
     // Group notifications by contact name to avoid repetition
@@ -110,7 +112,7 @@ export function TransactionDetails({ transaction, isExpanded }: TransactionDetai
             <div className="flex items-center gap-3 text-sm">
               <span className="font-medium min-w-[80px]">{t('details.txid')}:</span>
               <a
-                href={`https://mempool.space/tx/${transaction.txid}`}
+                href={`${mempoolBaseUrl}/tx/${transaction.txid}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono text-xs text-blue-600 hover:text-blue-800 underline"
@@ -129,7 +131,7 @@ export function TransactionDetails({ transaction, isExpanded }: TransactionDetai
               <div className="flex items-center gap-3 text-sm">
                 <span className="font-medium min-w-[80px]">{t('details.replacedBy')}:</span>
                 <a
-                  href={`https://mempool.space/tx/${transaction.replaced_by_txid}`}
+                  href={`${mempoolBaseUrl}/tx/${transaction.replaced_by_txid}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-mono text-xs text-orange-600 hover:text-orange-800 underline"
