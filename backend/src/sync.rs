@@ -1717,7 +1717,11 @@ impl WalletSyncService {
                 event_type,
                 amount,
                 if is_confirmed { "confirmed" } else { "pending" },
-                if suppress_notifications { ", notifications suppressed" } else { "" }
+                if suppress_notifications {
+                    ", notifications suppressed"
+                } else {
+                    ""
+                }
             );
         }
 
@@ -2003,7 +2007,11 @@ impl WalletSyncService {
                     event_type,
                     amount,
                     if is_confirmed { "confirmed" } else { "pending" },
-                    if suppress_notifications { ", notifications suppressed" } else { "" }
+                    if suppress_notifications {
+                        ", notifications suppressed"
+                    } else {
+                        ""
+                    }
                 );
             }
 
