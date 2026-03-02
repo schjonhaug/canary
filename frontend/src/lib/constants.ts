@@ -120,9 +120,9 @@ export function getDescriptorScriptType(input: string): string {
 
 /**
  * Extract signing type from a descriptor string.
- * Returns e.g. "2-of-3" for multisig descriptors, or null for single-sig.
+ * Returns { m, n } for multisig descriptors (e.g. { m: 2, n: 3 }), or null for single-sig.
  */
-export function getDescriptorSigningType(descriptor: string): string | null {
+export function getDescriptorSigningType(descriptor: string): { m: number; n: number } | null {
   const match = descriptor.match(/(?:sorted)?multi(?:_a)?\((\d+)/)
   if (!match) return null
 
@@ -142,7 +142,7 @@ export function getDescriptorSigningType(descriptor: string): string | null {
   }
   if (pastM) keyCount++
 
-  if (keyCount > 0) return `${m}-of-${keyCount}`
+  if (keyCount > 0) return { m, n: keyCount }
   return null
 }
 

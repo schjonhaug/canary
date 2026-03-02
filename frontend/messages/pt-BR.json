@@ -560,7 +560,7 @@
       },
       "signing": "Assinatura",
       "singleSig": "Single-sig",
-      "multisig": "{scheme} Multisig",
+      "multisig": "{m}-de-{n} Multisig",
       "added": "Adicionado",
       "copied": "Copiado!",
       "noTransactions": "Sem transações ainda",

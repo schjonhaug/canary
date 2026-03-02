@@ -214,11 +214,11 @@ export function formatDateTime(dateTime: string | number, locale: string): strin
     // Convert Unix timestamp to milliseconds
     date = new Date(dateTime * 1000)
   } else {
-    // SQLite timestamps are in UTC but without timezone indicator
-    // Need to explicitly treat them as UTC
-    if (dateTime.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-      // Format: "2025-09-03 13:26:11" - treat as UTC
-      date = new Date(dateTime + ' UTC')
+    // SQLite timestamps are UTC without timezone indicator (e.g. "2025-09-03 13:26:11")
+    // Convert to ISO 8601 for cross-browser parsing (Safari rejects "... UTC" format)
+    const sqliteMatch = dateTime.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(?:\.\d+)?$/)
+    if (sqliteMatch) {
+      date = new Date(`${sqliteMatch[1]}T${sqliteMatch[2]}Z`)
     } else {
       date = new Date(dateTime)
     }

@@ -59,9 +59,11 @@ function getScriptType(wallet: Wallet): string {
  * Handles "YYYY-MM-DD HH:MM:SS.mmm" format (UTC without timezone indicator).
  */
 function parseToUnixTimestamp(dateStr: string): number | undefined {
-  // SQLite timestamps are UTC but without timezone indicator
-  const date = dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)
-    ? new Date(dateStr + " UTC")
+  // SQLite timestamps are UTC without timezone indicator (e.g. "2025-09-03 13:26:11.944")
+  // Convert to ISO 8601 for cross-browser parsing (Safari rejects "... UTC" format)
+  const match = dateStr.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(?:\.\d+)?$/)
+  const date = match
+    ? new Date(`${match[1]}T${match[2]}Z`)
     : new Date(dateStr)
   const ts = date.getTime()
   return isNaN(ts) ? undefined : Math.floor(ts / 1000)
@@ -148,7 +150,7 @@ export function WalletDetailsSection({ wallet, onDeleteClick }: WalletDetailsSec
             </div>
             <div className="text-sm">
               {signingType
-                ? t("detail.multisig", { scheme: signingType })
+                ? t("detail.multisig", { m: signingType.m, n: signingType.n })
                 : t("detail.singleSig")}
             </div>
           </div>
