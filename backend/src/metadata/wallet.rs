@@ -448,7 +448,7 @@ impl MetadataDb {
                         w.last_activity, w.last_synced_at, w.status, w.user_id, w.created_at, w.wallet_type
                  FROM wallets w
                  JOIN users u ON w.user_id = u.id
-                 WHERE w.is_active = 1 AND w.status = 'ready'
+                 WHERE w.is_active = 1 AND w.status IN ('ready', 'pending')
                    AND u.subscription_tier = ?1
                    AND (
                     -- Admin users bypass all subscription checks
