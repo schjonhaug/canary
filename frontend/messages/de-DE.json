@@ -1088,5 +1088,10 @@
     "description": "Helfen Sie mit, die fortlaufende Entwicklung zu finanzieren",
     "oneTime": "Einmalige Spende",
     "recurring": "5 $/Monat"
+  },
+  "thankYou": {
+    "title": "Vielen Dank für Ihre Spende!",
+    "description": "Ihre Unterstützung hilft, die Weiterentwicklung von Canary zu finanzieren.",
+    "backToSettings": "Zurück zu den Einstellungen"
   }
 }

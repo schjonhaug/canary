@@ -1088,5 +1088,10 @@
     "description": "Hjælp med at finansiere løbende udvikling",
     "oneTime": "Engangsdonation",
     "recurring": "5$/måned"
+  },
+  "thankYou": {
+    "title": "Tak for din donation!",
+    "description": "Din støtte hjælper med at finansiere den fortsatte udvikling af Canary.",
+    "backToSettings": "Tilbage til indstillinger"
   }
 }

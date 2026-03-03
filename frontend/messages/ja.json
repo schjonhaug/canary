@@ -1088,5 +1088,10 @@
     "description": "継続的な開発資金にご協力ください",
     "oneTime": "一度限りの寄付",
     "recurring": "月額$5"
+  },
+  "thankYou": {
+    "title": "ご寄付ありがとうございます！",
+    "description": "皆様のご支援がCanaryの継続的な開発を支えています。",
+    "backToSettings": "設定に戻る"
   }
 }
