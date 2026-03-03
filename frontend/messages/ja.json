@@ -356,10 +356,6 @@
       "BMD": "バミューダドル",
       "KWD": "クウェートディナール",
       "MMK": "ミャンマーチャット"
-    },
-    "donation": {
-      "title": "寄付",
-      "description": "Canaryの継続的な開発を支援する"
     }
   },
   "wallets": {
@@ -1029,7 +1025,8 @@
   "footer": {
     "logoAlt": "Canaryロゴ",
     "appName": "Canary",
-    "blockInfo": "ブロック {height}"
+    "blockInfo": "ブロック {height}",
+    "donations": "寄付"
   },
   "subscriptionSuccess": {
     "loading": "お支払い詳細を読み込み中...",
@@ -1092,6 +1089,6 @@
   "thankYou": {
     "title": "ご寄付ありがとうございます！",
     "description": "皆様のご支援がCanaryの継続的な開発を支えています。",
-    "backToSettings": "設定に戻る"
+    "backToDonations": "寄付に戻る"
   }
 }

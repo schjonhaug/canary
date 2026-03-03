@@ -3,7 +3,7 @@
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 
-export default function ThankYouLayout({
+export default function DonationsLayout({
   children,
 }: {
   children: React.ReactNode

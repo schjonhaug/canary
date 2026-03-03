@@ -356,10 +356,6 @@
       "BMD": "Dólar das Bermudas",
       "KWD": "Dinar kuwaitiano",
       "MMK": "Kyat birmanês"
-    },
-    "donation": {
-      "title": "Doações",
-      "description": "Apoie o desenvolvimento contínuo do Canary"
     }
   },
   "wallets": {
@@ -1029,7 +1025,8 @@
   "footer": {
     "logoAlt": "Logo do Canary",
     "appName": "Canary",
-    "blockInfo": "Bloco {height}"
+    "blockInfo": "Bloco {height}",
+    "donations": "Doações"
   },
   "subscriptionSuccess": {
     "loading": "Carregando detalhes do pagamento...",
@@ -1092,6 +1089,6 @@
   "thankYou": {
     "title": "Obrigado pela sua doação!",
     "description": "Seu apoio ajuda a financiar o desenvolvimento contínuo do Canary.",
-    "backToSettings": "Voltar para as Configurações"
+    "backToDonations": "Voltar para Doações"
   }
 }

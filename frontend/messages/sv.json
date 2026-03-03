@@ -356,10 +356,6 @@
         "error": "Kunde inte skicka testavisering",
         "errorWithDetail": "Kunde inte skicka testavisering: {detail}"
       }
-    },
-    "donation": {
-      "title": "Donationer",
-      "description": "Stöd pågående Canary-utveckling"
     }
   },
   "wallets": {
@@ -1029,7 +1025,8 @@
   "footer": {
     "logoAlt": "Canary-logotyp",
     "appName": "Canary",
-    "blockInfo": "Block {height}"
+    "blockInfo": "Block {height}",
+    "donations": "Donationer"
   },
   "subscriptionSuccess": {
     "loading": "Laddar betalningsdetaljer...",
@@ -1092,6 +1089,6 @@
   "thankYou": {
     "title": "Tack för din donation!",
     "description": "Ditt stöd hjälper till att finansiera den fortsatta utvecklingen av Canary.",
-    "backToSettings": "Tillbaka till inställningar"
+    "backToDonations": "Tillbaka till donationer"
   }
 }

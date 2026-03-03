@@ -1,12 +1,13 @@
 "use client"
 
 import Image from "next/image"
-import { Github } from "lucide-react"
+import { Github, Heart } from "lucide-react"
 import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { useRelativeTime } from "@/hooks/useRelativeTime"
 import { useFormatters } from "@/hooks/useFormatters"
 import { useAuth } from "@/contexts/auth-context"
 import { BuildInfo } from "./build-info"
+import Link from "next/link"
 import { useTranslations } from "next-intl"
 
 export function AppFooter() {
@@ -40,16 +41,25 @@ export function AppFooter() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          {!isCloudMode && (
+            <Link
+              href="/donations"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Heart className="h-4 w-4" />
+              {t('donations')}
+            </Link>
+          )}
           {!isCloudMode && (
             <a
               href="https://github.com/schjonhaug/canary"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="GitHub"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Github className="h-5 w-5" />
+              <Github className="h-4 w-4" />
+              GitHub
             </a>
           )}
           {isCloudMode && <BuildInfo />}

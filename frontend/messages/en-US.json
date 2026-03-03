@@ -356,10 +356,6 @@
         "error": "Failed to send test notification",
         "errorWithDetail": "Failed to send test notification: {detail}"
       }
-    },
-    "donation": {
-      "title": "Donations",
-      "description": "Support ongoing Canary development"
     }
   },
   "wallets": {
@@ -1029,7 +1025,8 @@
   "footer": {
     "logoAlt": "Canary Logo",
     "appName": "Canary",
-    "blockInfo": "Block {height}"
+    "blockInfo": "Block {height}",
+    "donations": "Donations"
   },
   "subscriptionSuccess": {
     "loading": "Loading payment details...",
@@ -1092,6 +1089,6 @@
   "thankYou": {
     "title": "Thank you for your donation!",
     "description": "Your support helps fund the continued development of Canary.",
-    "backToSettings": "Back to Settings"
+    "backToDonations": "Back to Donations"
   }
 }
