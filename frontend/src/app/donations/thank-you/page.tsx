@@ -2,10 +2,15 @@
 
 import { Heart } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useAuth } from "@/contexts/auth-context"
+import { notFound } from "next/navigation"
 import Link from "next/link"
 
 export default function ThankYouPage() {
   const t = useTranslations("thankYou")
+  const { isCloudMode } = useAuth()
+
+  if (isCloudMode) notFound()
 
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">

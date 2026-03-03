@@ -3,9 +3,14 @@
 import { Heart } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { useTranslations } from "next-intl"
+import { useAuth } from "@/contexts/auth-context"
+import { notFound } from "next/navigation"
 
 export default function DonationsPage() {
   const t = useTranslations("donation")
+  const { isCloudMode } = useAuth()
+
+  if (isCloudMode) notFound()
 
   return (
     <div className="max-w-2xl mx-auto py-16">
