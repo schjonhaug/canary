@@ -1025,7 +1025,8 @@
   "footer": {
     "logoAlt": "Canary Logo",
     "appName": "Canary",
-    "blockInfo": "Blok {height}"
+    "blockInfo": "Blok {height}",
+    "donations": "Donationer"
   },
   "subscriptionSuccess": {
     "loading": "Indlæser betalingsoplysninger...",
@@ -1078,5 +1079,22 @@
     "description": "Du får vist en skrivebeskyttet demo-wallet. Alle funktioner er kun til visning.",
     "signUp": "Tilmeld dig for at oprette din egen wallet",
     "dismiss": "Luk banner"
+  },
+  "donation": {
+    "title": "Støt Canary",
+    "description": "Canary er skabt til den suveræne bitcoiner, der vil vide præcis, hvornår deres sats flytter sig – uden at bede om nogens tilladelse. Din donation hjælper med at holde det gratis og under aktiv udvikling.",
+    "oneTimeTitle": "Engangsdonation",
+    "oneTimeDescription": "Giv et engangsbidrag på et valgfrit beløb. Hvert lille bidrag hjælper og er meget værdsat.",
+    "oneTime": "Donér én gang",
+    "recurringTitle": "Løbende støtte",
+    "recurringDescription": "Bliv månedlig støtter og hjælp med at sikre, at Canary forbliver aktivt vedligeholdt.",
+    "recurring": "$5/måned",
+    "emailNote": "Den tilbagevendende betaling beder om en e-mailadresse. Din e-mail bruges til at sende kvitteringer og lade dig administrere din donation. Donationer bliver aldrig knyttet til dit Canary-forbrug eller din konto.",
+    "paymentNote": "Alle donationer behandles sikkert via BTCPay Server. Bitcoin og Lightning accepteres."
+  },
+  "thankYou": {
+    "title": "Tak for din donation!",
+    "description": "Din støtte hjælper med at finansiere den fortsatte udvikling af Canary.",
+    "backToDonations": "Tilbage til donationer"
   }
 }

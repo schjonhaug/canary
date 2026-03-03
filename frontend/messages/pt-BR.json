@@ -1025,7 +1025,8 @@
   "footer": {
     "logoAlt": "Logo do Canary",
     "appName": "Canary",
-    "blockInfo": "Bloco {height}"
+    "blockInfo": "Bloco {height}",
+    "donations": "Doações"
   },
   "subscriptionSuccess": {
     "loading": "Carregando detalhes do pagamento...",
@@ -1078,5 +1079,22 @@
     "description": "Você está visualizando uma carteira demo somente leitura. Todos os recursos são apenas para visualização.",
     "signUp": "Cadastre-se para criar sua própria carteira",
     "dismiss": "Fechar banner"
+  },
+  "donation": {
+    "title": "Apoie o Canary",
+    "description": "O Canary foi feito para o bitcoiner soberano que quer saber exatamente quando seus sats se movem — sem pedir permissão a ninguém. Sua doação ajuda a mantê-lo gratuito e em desenvolvimento ativo.",
+    "oneTimeTitle": "Doação única",
+    "oneTimeDescription": "Faça uma contribuição única de qualquer valor. Cada pequena ajuda conta e é muito apreciada.",
+    "oneTime": "Doe uma vez",
+    "recurringTitle": "Suporte contínuo",
+    "recurringDescription": "Torne-se um apoiador mensal e ajude a garantir que o Canary continue sendo mantido ativamente.",
+    "recurring": "$5/mês",
+    "emailNote": "O checkout recorrente solicita um endereço de e-mail. Seu e-mail é usado para enviar recibos e permitir que você gerencie sua doação. As doações nunca são vinculadas ao seu uso ou conta do Canary.",
+    "paymentNote": "Todas as doações são processadas com segurança via BTCPay Server. Aceitamos Bitcoin e Lightning."
+  },
+  "thankYou": {
+    "title": "Obrigado por sua doação!",
+    "description": "Seu apoio ajuda a financiar o desenvolvimento contínuo do Canary.",
+    "backToDonations": "Voltar para Doações"
   }
 }

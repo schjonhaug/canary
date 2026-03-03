@@ -1025,7 +1025,8 @@
   "footer": {
     "logoAlt": "Canaryロゴ",
     "appName": "Canary",
-    "blockInfo": "ブロック {height}"
+    "blockInfo": "ブロック {height}",
+    "donations": "寄付"
   },
   "subscriptionSuccess": {
     "loading": "お支払い詳細を読み込み中...",
@@ -1078,5 +1079,22 @@
     "description": "読み取り専用のデモウォレットを表示しています。すべての機能は閲覧のみです。",
     "signUp": "登録して自分のウォレットを作成",
     "dismiss": "バナーを閉じる"
+  },
+  "donation": {
+    "title": "Canaryを支援する",
+    "description": "Canaryは、誰の許可も得ることなく、自分のサトシがいつ移動したかを正確に把握したい自己主権型ビットコイナーのために作られました。あなたの寄付は、このプロジェクトを無料で提供し続け、積極的に開発を進めるための助けとなります。",
+    "oneTimeTitle": "1回限りの寄付",
+    "oneTimeDescription": "金額を問わず、1回限りの寄付を行うことができます。どのようなご支援も大変励みになります。",
+    "oneTime": "1回寄付する",
+    "recurringTitle": "継続的な支援",
+    "recurringDescription": "マンスリーサポーターになって、Canaryが継続的にメンテナンスされるようご支援ください。",
+    "recurring": "月額5ドル",
+    "emailNote": "継続的な寄付の手続きでは、メールアドレスの入力が必要です。入力されたメールアドレスは、領収書の送付や寄付の管理に使用されます。寄付が Canary の利用状況やアカウントと紐付けられることはありません。",
+    "paymentNote": "すべての寄付はBTCPay Serverを通じて安全に処理されます。ビットコインおよびライトニングネットワークに対応しています。"
+  },
+  "thankYou": {
+    "title": "ご寄付ありがとうございます！",
+    "description": "皆様のご支援は、Canaryの継続的な開発に役立てられます。",
+    "backToDonations": "寄付ページに戻る"
   }
 }

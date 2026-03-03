@@ -1025,7 +1025,8 @@
   "footer": {
     "logoAlt": "Canary-logo",
     "appName": "Canary",
-    "blockInfo": "Blokk {height}"
+    "blockInfo": "Blokk {height}",
+    "donations": "Donasjoner"
   },
   "subscriptionSuccess": {
     "loading": "Laster betalingsdetaljer...",
@@ -1078,5 +1079,22 @@
     "description": "Du ser på en skrivebeskyttet demo-lommebok. Alle funksjoner er kun for visning.",
     "signUp": "Registrer deg for å opprette din egen lommebok",
     "dismiss": "Lukk banner"
+  },
+  "donation": {
+    "title": "Støtt Canary",
+    "description": "Canary er laget for den selvstendige bitcoineren som vil vite nøyaktig når satsene deres beveger seg – uten å spørre noen om tillatelse. Donasjonen din bidrar til å holde det gratis og under aktiv utvikling.",
+    "oneTimeTitle": "Engangsdonasjon",
+    "oneTimeDescription": "Gi et engangsbidrag på et valgfritt beløp. Alle bidrag hjelper og settes stor pris på.",
+    "oneTime": "Doner én gang",
+    "recurringTitle": "Løpende støtte",
+    "recurringDescription": "Bli en månedlig støttespiller og bidra til at Canary forblir aktivt vedlikeholdt.",
+    "recurring": "$5/måned",
+    "emailNote": "Betalingsløsningen for faste bidrag ber om en e-postadresse. E-posten din brukes til å sende kvitteringer og lar deg administrere donasjonen din. Donasjoner blir aldri koblet til din bruk av Canary eller kontoen din.",
+    "paymentNote": "Alle donasjoner behandles sikkert via BTCPay Server. Bitcoin og Lightning aksepteres."
+  },
+  "thankYou": {
+    "title": "Takk for din donasjon!",
+    "description": "Din støtte bidrar til å finansiere videreutviklingen av Canary.",
+    "backToDonations": "Tilbake til donasjoner"
   }
 }

@@ -1025,7 +1025,8 @@
   "footer": {
     "logoAlt": "Canary-logotyp",
     "appName": "Canary",
-    "blockInfo": "Block {height}"
+    "blockInfo": "Block {height}",
+    "donations": "Donationer"
   },
   "subscriptionSuccess": {
     "loading": "Laddar betalningsdetaljer...",
@@ -1078,5 +1079,22 @@
     "description": "Du tittar på en skrivskyddad demoplånbok. Alla funktioner är endast för visning.",
     "signUp": "Registrera dig för att skapa din egen plånbok",
     "dismiss": "Stäng banner"
+  },
+  "donation": {
+    "title": "Stöd Canary",
+    "description": "Canary är skapad för den självständiga bitcoinanvändaren som vill veta exakt när deras sats flyttas — utan att be om någons tillåtelse. Din donation hjälper till att hålla det gratis och under aktiv utveckling.",
+    "oneTimeTitle": "Engångsdonation",
+    "oneTimeDescription": "Ge ett engångsbidrag på valfritt belopp. Varje bidrag hjälper och uppskattas verkligen.",
+    "oneTime": "Donera en gång",
+    "recurringTitle": "Löpande stöd",
+    "recurringDescription": "Bli månadsgivare och hjälp till att säkerställa att Canary förblir aktivt underhållen.",
+    "recurring": "$5/månad",
+    "emailNote": "Den återkommande utcheckningen ber om en e-postadress. Din e-post används för att skicka kvitton och för att låta dig hantera din donation. Donationer kopplas aldrig till din användning av Canary eller ditt konto.",
+    "paymentNote": "Alla donationer behandlas säkert via BTCPay Server. Bitcoin och Lightning accepteras."
+  },
+  "thankYou": {
+    "title": "Tack för din donation!",
+    "description": "Ditt stöd bidrar till att finansiera den fortsatta utvecklingen av Canary.",
+    "backToDonations": "Tillbaka till donationer"
   }
 }
