@@ -1082,13 +1082,14 @@
   },
   "donation": {
     "title": "Support Canary",
-    "description": "Canary is built and maintained independently. Your donation helps fund continued development, infrastructure, and new features.",
+    "description": "Canary is made for the self-sovereign bitcoiner who wants to know exactly when their sats move — without asking anyone's permission. Your donation helps keep it free and actively developed.",
     "oneTimeTitle": "One-time donation",
     "oneTimeDescription": "Make a one-time contribution of any amount. Every bit helps and is greatly appreciated.",
     "oneTime": "Donate once",
     "recurringTitle": "Ongoing support",
     "recurringDescription": "Become a monthly supporter and help ensure Canary stays actively maintained.",
     "recurring": "$5/month",
+    "emailNote": "The recurring checkout asks for an email address. Your email is used to send receipts and to let you manage your donation. Donations are never linked to your Canary usage or account.",
     "paymentNote": "All donations are processed securely via BTCPay Server. Bitcoin and Lightning accepted."
   },
   "thankYou": {

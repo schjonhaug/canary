@@ -1082,18 +1082,19 @@
   },
   "donation": {
     "title": "Stöd Canary",
-    "description": "Canary byggs och underhålls oberoende. Din donation hjälper till att finansiera fortsatt utveckling, infrastruktur och nya funktioner.",
+    "description": "Canary är skapad för den självständiga bitcoinanvändaren som vill veta exakt när deras sats flyttas — utan att be om någons tillåtelse. Din donation hjälper till att hålla det gratis och under aktiv utveckling.",
     "oneTimeTitle": "Engångsdonation",
-    "oneTimeDescription": "Gör en engångsinsats av valfritt belopp. Allt hjälper och uppskattas mycket.",
+    "oneTimeDescription": "Ge ett engångsbidrag på valfritt belopp. Varje bidrag hjälper och uppskattas verkligen.",
     "oneTime": "Donera en gång",
-    "recurringTitle": "Fortlöpande stöd",
-    "recurringDescription": "Bli en månatlig supporter och hjälp till att säkerställa att Canary aktivt underhålls.",
+    "recurringTitle": "Löpande stöd",
+    "recurringDescription": "Bli månadsgivare och hjälp till att säkerställa att Canary förblir aktivt underhållen.",
     "recurring": "$5/månad",
+    "emailNote": "Den återkommande utcheckningen ber om en e-postadress. Din e-post används för att skicka kvitton och för att låta dig hantera din donation. Donationer kopplas aldrig till din användning av Canary eller ditt konto.",
     "paymentNote": "Alla donationer behandlas säkert via BTCPay Server. Bitcoin och Lightning accepteras."
   },
   "thankYou": {
     "title": "Tack för din donation!",
-    "description": "Ditt stöd hjälper till att finansiera den fortsatta utvecklingen av Canary.",
+    "description": "Ditt stöd bidrar till att finansiera den fortsatta utvecklingen av Canary.",
     "backToDonations": "Tillbaka till donationer"
   }
 }

@@ -1082,17 +1082,18 @@
   },
   "donation": {
     "title": "Apoie o Canary",
-    "description": "O Canary é construído e mantido de forma independente. Sua doação ajuda a financiar o desenvolvimento contínuo, a infraestrutura e novos recursos.",
+    "description": "O Canary foi feito para o bitcoiner soberano que quer saber exatamente quando seus sats se movem — sem pedir permissão a ninguém. Sua doação ajuda a mantê-lo gratuito e em desenvolvimento ativo.",
     "oneTimeTitle": "Doação única",
-    "oneTimeDescription": "Faça uma contribuição única de qualquer valor. Cada ajuda é muito valiosa e apreciada.",
-    "oneTime": "Doar uma vez",
+    "oneTimeDescription": "Faça uma contribuição única de qualquer valor. Cada pequena ajuda conta e é muito apreciada.",
+    "oneTime": "Doe uma vez",
     "recurringTitle": "Suporte contínuo",
-    "recurringDescription": "Torne-se um apoiador mensal e ajude a garantir que o Canary permaneça ativamente mantido.",
+    "recurringDescription": "Torne-se um apoiador mensal e ajude a garantir que o Canary continue sendo mantido ativamente.",
     "recurring": "$5/mês",
-    "paymentNote": "Todas as doações são processadas com segurança via BTCPay Server. Bitcoin e Lightning aceitos."
+    "emailNote": "O checkout recorrente solicita um endereço de e-mail. Seu e-mail é usado para enviar recibos e permitir que você gerencie sua doação. As doações nunca são vinculadas ao seu uso ou conta do Canary.",
+    "paymentNote": "Todas as doações são processadas com segurança via BTCPay Server. Aceitamos Bitcoin e Lightning."
   },
   "thankYou": {
-    "title": "Obrigado pela sua doação!",
+    "title": "Obrigado por sua doação!",
     "description": "Seu apoio ajuda a financiar o desenvolvimento contínuo do Canary.",
     "backToDonations": "Voltar para Doações"
   }

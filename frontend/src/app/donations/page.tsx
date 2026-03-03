@@ -19,9 +19,9 @@ export default function DonationsPage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="flex flex-col flex-1">
             <h2 className="font-semibold text-lg mb-2">{t("oneTimeTitle")}</h2>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-sm text-muted-foreground mb-4 flex-1">
               {t("oneTimeDescription")}
             </p>
             <a
@@ -36,9 +36,9 @@ export default function DonationsPage() {
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="flex flex-col flex-1">
             <h2 className="font-semibold text-lg mb-2">{t("recurringTitle")}</h2>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-sm text-muted-foreground mb-4 flex-1">
               {t("recurringDescription")}
             </p>
             <a
@@ -52,6 +52,10 @@ export default function DonationsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <p className="text-xs text-muted-foreground mt-4">
+        {t("emailNote")}
+      </p>
 
       <p className="text-sm text-muted-foreground text-center mt-8">
         {t("paymentNote")}

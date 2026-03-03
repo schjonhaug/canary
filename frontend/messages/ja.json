@@ -1082,18 +1082,19 @@
   },
   "donation": {
     "title": "Canaryを支援する",
-    "description": "Canaryは独立して構築・保守されています。皆様からのご寄付は、継続的な開発、インフラ、新機能の資金源となります。",
-    "oneTimeTitle": "一回限りの寄付",
-    "oneTimeDescription": "任意の金額で一度限りの寄付をしてください。どんな小さなことでも助けになり、大変感謝いたします。",
-    "oneTime": "一度寄付する",
+    "description": "Canaryは、誰の許可も得ることなく、自分のサトシがいつ移動したかを正確に把握したい自己主権型ビットコイナーのために作られました。あなたの寄付は、このプロジェクトを無料で提供し続け、積極的に開発を進めるための助けとなります。",
+    "oneTimeTitle": "1回限りの寄付",
+    "oneTimeDescription": "金額を問わず、1回限りの寄付を行うことができます。どのようなご支援も大変励みになります。",
+    "oneTime": "1回寄付する",
     "recurringTitle": "継続的な支援",
-    "recurringDescription": "月額サポーターになり、Canaryが積極的にメンテナンスされ続けるようご支援ください。",
-    "recurring": "月額$5",
-    "paymentNote": "すべての寄付はBTCPay Serverを通じて安全に処理されます。BitcoinとLightningが利用可能です。"
+    "recurringDescription": "マンスリーサポーターになって、Canaryが継続的にメンテナンスされるようご支援ください。",
+    "recurring": "月額5ドル",
+    "emailNote": "継続的な寄付の手続きでは、メールアドレスの入力が必要です。入力されたメールアドレスは、領収書の送付や寄付の管理に使用されます。寄付が Canary の利用状況やアカウントと紐付けられることはありません。",
+    "paymentNote": "すべての寄付はBTCPay Serverを通じて安全に処理されます。ビットコインおよびライトニングネットワークに対応しています。"
   },
   "thankYou": {
     "title": "ご寄付ありがとうございます！",
-    "description": "皆様のご支援がCanaryの継続的な開発を支えています。",
-    "backToDonations": "寄付に戻る"
+    "description": "皆様のご支援は、Canaryの継続的な開発に役立てられます。",
+    "backToDonations": "寄付ページに戻る"
   }
 }
