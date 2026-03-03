@@ -1082,9 +1082,14 @@
   },
   "donation": {
     "title": "Canaryを支援する",
-    "description": "継続的な開発資金にご協力ください",
-    "oneTime": "一度限りの寄付",
-    "recurring": "月額$5"
+    "description": "Canaryは独立して構築・保守されています。皆様からのご寄付は、継続的な開発、インフラ、新機能の資金源となります。",
+    "oneTimeTitle": "一回限りの寄付",
+    "oneTimeDescription": "任意の金額で一度限りの寄付をしてください。どんな小さなことでも助けになり、大変感謝いたします。",
+    "oneTime": "一度寄付する",
+    "recurringTitle": "継続的な支援",
+    "recurringDescription": "月額サポーターになり、Canaryが積極的にメンテナンスされ続けるようご支援ください。",
+    "recurring": "月額$5",
+    "paymentNote": "すべての寄付はBTCPay Serverを通じて安全に処理されます。BitcoinとLightningが利用可能です。"
   },
   "thankYou": {
     "title": "ご寄付ありがとうございます！",

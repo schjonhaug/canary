@@ -1082,9 +1082,14 @@
   },
   "donation": {
     "title": "Stöd Canary",
-    "description": "Hjälp till att finansiera pågående utveckling",
-    "oneTime": "Engångsdonation",
-    "recurring": "$5/månad"
+    "description": "Canary byggs och underhålls oberoende. Din donation hjälper till att finansiera fortsatt utveckling, infrastruktur och nya funktioner.",
+    "oneTimeTitle": "Engångsdonation",
+    "oneTimeDescription": "Gör en engångsinsats av valfritt belopp. Allt hjälper och uppskattas mycket.",
+    "oneTime": "Donera en gång",
+    "recurringTitle": "Fortlöpande stöd",
+    "recurringDescription": "Bli en månatlig supporter och hjälp till att säkerställa att Canary aktivt underhålls.",
+    "recurring": "$5/månad",
+    "paymentNote": "Alla donationer behandlas säkert via BTCPay Server. Bitcoin och Lightning accepteras."
   },
   "thankYou": {
     "title": "Tack för din donation!",

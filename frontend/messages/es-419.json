@@ -1082,9 +1082,14 @@
   },
   "donation": {
     "title": "Apoya a Canary",
-    "description": "Ayuda a financiar el desarrollo continuo",
-    "oneTime": "Donación única",
-    "recurring": "$5/mes"
+    "description": "Canary es desarrollado y mantenido de forma independiente. Tu donación ayuda a financiar el desarrollo continuo, la infraestructura y nuevas funcionalidades.",
+    "oneTimeTitle": "Donación única",
+    "oneTimeDescription": "Realiza una contribución única de cualquier monto. Cada aportación ayuda y es muy apreciada.",
+    "oneTime": "Donar una vez",
+    "recurringTitle": "Apoyo continuo",
+    "recurringDescription": "Conviértete en un contribuyente mensual y ayuda a asegurar que Canary se mantenga activamente.",
+    "recurring": "$5/mes",
+    "paymentNote": "Todas las donaciones se procesan de forma segura a través de BTCPay Server. Bitcoin y Lightning aceptados."
   },
   "thankYou": {
     "title": "¡Gracias por tu donación!",
