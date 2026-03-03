@@ -689,11 +689,7 @@ async fn test_deleted_wallets_excluded_from_subscription_limits() {
         .await
         .unwrap();
 
-    assert_eq!(
-        wallets.len(),
-        1,
-        "Should only return non-deleted wallets"
-    );
+    assert_eq!(wallets.len(), 1, "Should only return non-deleted wallets");
     assert_eq!(
         wallets[0].checksum, wallet3,
         "The only remaining wallet should be wallet3"

@@ -1090,6 +1090,11 @@
     "recurringDescription": "Devenez un donateur mensuel et aidez à garantir que Canary reste activement maintenu.",
     "recurring": "5 $/mois",
     "emailNote": "Le paiement récurrent demande une adresse e-mail. Votre e-mail est utilisé pour envoyer des reçus et vous permettre de gérer votre don. Les dons ne sont jamais liés à votre utilisation ou à votre compte Canary.",
-    "paymentNote": "Tous les dons sont traités de manière sécurisée via BTCPay Server. Bitcoin et Lightning acceptés."
+    "paymentNote": "Tous les dons sont traités de manière sécurisée via BTCPay Server. Bitcoin et Lightning acceptés.",
+    "thankYou": {
+      "title": "Merci pour votre don !",
+      "description": "Votre soutien aide à financer le développement continu de Canary.",
+      "backToHome": "Retour à l'accueil"
+    }
   }
 }

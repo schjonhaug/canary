@@ -3,13 +3,13 @@ use crate::electrum::ElectrumClientManager;
 use crate::handlers::{
     create_stripe_checkout_session, create_stripe_customer_portal, create_wallet_balance_alert,
     create_wallet_contact, create_wallet_non_blocking, delete_balance_alert, delete_wallet,
-    delete_wallet_contact, demo_login, forgot_password, get_billing_pricing, get_billing_status,
-    get_checkout_session_details, get_config, get_current_block_header, get_exchange_rates,
-    get_providers, get_user_preferences, get_wallet, get_wallet_balance_alerts,
-    get_wallet_contacts, get_wallet_detail, get_wallets_list, handle_stripe_webhook, login, logout,
-    me, register, reset_password, send_contact_verification, send_test_ntfy_notification,
-    submit_contact_form, update_user, update_user_preferences, update_wallet,
-    update_wallet_contact, verify_contact, verify_email,
+    delete_wallet_contact, demo_login, donate_one_time, donate_recurring, forgot_password,
+    get_billing_pricing, get_billing_status, get_checkout_session_details, get_config,
+    get_current_block_header, get_exchange_rates, get_providers, get_user_preferences, get_wallet,
+    get_wallet_balance_alerts, get_wallet_contacts, get_wallet_detail, get_wallets_list,
+    handle_stripe_webhook, login, logout, me, register, reset_password, send_contact_verification,
+    send_test_ntfy_notification, submit_contact_form, update_user, update_user_preferences,
+    update_wallet, update_wallet_contact, verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
@@ -193,6 +193,7 @@ pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
 pub type ElectrumClientManagerState = Option<Arc<ElectrumClientManager>>;
+pub type BtcPayClientState = Option<Arc<crate::btcpay_client::BtcPayClient>>;
 
 /// Unified application state for all handlers.
 /// Contains all state components and implements FromRef for each,
@@ -204,6 +205,7 @@ pub struct AppState {
     pub stripe_billing: StripeBillingState,
     pub config: ConfigState,
     pub electrum_manager: ElectrumClientManagerState,
+    pub btcpay_client: BtcPayClientState,
 }
 
 // FromRef implementations allow extractors to access individual state components
@@ -235,6 +237,12 @@ impl FromRef<AppState> for ConfigState {
 impl FromRef<AppState> for ElectrumClientManagerState {
     fn from_ref(state: &AppState) -> Self {
         state.electrum_manager.clone()
+    }
+}
+
+impl FromRef<AppState> for BtcPayClientState {
+    fn from_ref(state: &AppState) -> Self {
+        state.btcpay_client.clone()
     }
 }
 
@@ -308,6 +316,20 @@ pub fn create_router_with_services(
 ) -> Router {
     // Build CORS layer before moving config into Arc
     let cors_layer = build_cors_layer(&config);
+
+    // Build BtcPayClient once at startup if configured
+    let btcpay_client = if config.is_btcpay_enabled() {
+        Some(crate::btcpay_client::BtcPayClient::new(
+            config.btcpay_url().unwrap().to_string(),
+            config.btcpay_api_key().unwrap().to_string(),
+            config.btcpay_store_id().unwrap().to_string(),
+            config.btcpay_offering_id().map(|s| s.to_string()),
+            config.btcpay_plan_id().map(|s| s.to_string()),
+        ))
+    } else {
+        None
+    };
+
     let config_state = Arc::new(config);
 
     // Create unified AppState for handlers that use the AuthenticatedUser extractor
@@ -317,6 +339,7 @@ pub fn create_router_with_services(
         stripe_billing: stripe_billing.clone(),
         config: config_state.clone(),
         electrum_manager,
+        btcpay_client: btcpay_client.map(Arc::new),
     };
 
     // Routes using unified AppState with domain handlers
@@ -406,7 +429,20 @@ pub fn create_router_with_services(
         Router::new() // Empty router if Stripe not configured
     };
 
-    let api_routes = app_state_routes.merge(provider_routes).merge(stripe_routes);
+    // Donation routes - BTCPay redirect endpoints (no auth required)
+    let donation_routes = if config_state.is_btcpay_enabled() {
+        Router::new()
+            .route("/donations/one-time", get(donate_one_time))
+            .route("/donations/recurring", get(donate_recurring))
+            .with_state(app_state.clone())
+    } else {
+        Router::new()
+    };
+
+    let api_routes = app_state_routes
+        .merge(provider_routes)
+        .merge(stripe_routes)
+        .merge(donation_routes);
 
     Router::new().nest("/api", api_routes).layer(cors_layer)
 }

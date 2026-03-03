@@ -8,6 +8,7 @@ i18n!("locales", fallback = "en-US");
 mod admin_notifications;
 mod api;
 mod auth;
+mod btcpay_client;
 mod config;
 mod electrum;
 mod email_provider;
@@ -123,6 +124,16 @@ async fn main() -> anyhow::Result<()> {
         println!("   - Single-user mode (no authentication)");
         println!("   - No billing/subscriptions");
         println!("   - ntfy-only notifications");
+    }
+
+    // Log BTCPay Server status
+    if config.is_btcpay_enabled() {
+        println!(
+            "💰 BTCPay Server: enabled ({})",
+            config.btcpay_url().unwrap()
+        );
+    } else {
+        println!("💰 BTCPay Server: not configured (donation endpoints disabled)");
     }
 
     // Validate required configuration for the selected mode

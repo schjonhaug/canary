@@ -3,14 +3,13 @@
 import { Heart } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { useTranslations } from "next-intl"
-import { useAuth } from "@/contexts/auth-context"
-import { notFound } from "next/navigation"
 
 export default function DonationsPage() {
   const t = useTranslations("donation")
-  const { isCloudMode } = useAuth()
 
-  if (isCloudMode) notFound()
+  const donationsBaseUrl = process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://canarybitcoin.com"
 
   return (
     <div className="max-w-2xl mx-auto py-16">
@@ -30,9 +29,7 @@ export default function DonationsPage() {
               {t("oneTimeDescription")}
             </p>
             <a
-              href="https://btcpay.enogtjue.no/api/v1/invoices?storeId=DeKGGFNsD2aTzRrxHVNXHycinXw8KGaZY5xDCUUa7xJz"
-              target="_blank"
-              rel="noopener noreferrer"
+              href={`${donationsBaseUrl}/api/donations/one-time`}
               className="inline-block w-full rounded-md border border-border bg-background px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-accent"
             >
               {t("oneTime")}
@@ -47,9 +44,7 @@ export default function DonationsPage() {
               {t("recurringDescription")}
             </p>
             <a
-              href="https://btcpay.enogtjue.no/plan-checkout/plancheckout_2rLnKuMUnyCrDbKoxv"
-              target="_blank"
-              rel="noopener noreferrer"
+              href={`${donationsBaseUrl}/api/donations/recurring`}
               className="inline-block w-full rounded-md bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               {t("recurring")}

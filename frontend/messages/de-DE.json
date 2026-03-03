@@ -1090,6 +1090,11 @@
     "recurringDescription": "Werde monatlicher Unterstützer und trage dazu bei, dass Canary aktiv gepflegt wird.",
     "recurring": "$5/Monat",
     "emailNote": "Der wiederkehrende Bezahlvorgang fragt nach einer E-Mail-Adresse. Deine E-Mail wird verwendet, um Quittungen zu senden und dir die Verwaltung deiner Spende zu ermöglichen. Spenden werden niemals mit deiner Canary-Nutzung oder deinem Konto verknüpft.",
-    "paymentNote": "Alle Spenden werden sicher über BTCPay Server abgewickelt. Bitcoin und Lightning werden akzeptiert."
+    "paymentNote": "Alle Spenden werden sicher über BTCPay Server abgewickelt. Bitcoin und Lightning werden akzeptiert.",
+    "thankYou": {
+      "title": "Vielen Dank für deine Spende!",
+      "description": "Deine Unterstützung hilft dabei, die weitere Entwicklung von Canary zu finanzieren.",
+      "backToHome": "Zurück zur Startseite"
+    }
   }
 }

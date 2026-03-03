@@ -117,6 +117,16 @@ pub struct AppConfig {
     mempool_url: Option<String>,
     /// Mempool port for auto-detected Umbrel integration
     mempool_port: Option<u16>,
+    /// BTCPay Server URL (e.g., https://btcpay.enogtjue.no)
+    btcpay_url: Option<String>,
+    /// BTCPay Server API key
+    btcpay_api_key: Option<String>,
+    /// BTCPay Server store ID
+    btcpay_store_id: Option<String>,
+    /// BTCPay Server offering ID (for recurring plan checkouts)
+    btcpay_offering_id: Option<String>,
+    /// BTCPay Server plan ID (for recurring plan checkouts)
+    btcpay_plan_id: Option<String>,
 }
 
 impl AppConfig {
@@ -203,6 +213,13 @@ impl AppConfig {
             .ok()
             .and_then(|s| s.parse().ok());
 
+        // Load BTCPay configuration (optional, cloud mode only)
+        let btcpay_url = std::env::var("BTCPAY_URL").ok();
+        let btcpay_api_key = std::env::var("BTCPAY_API_KEY").ok();
+        let btcpay_store_id = std::env::var("BTCPAY_STORE_ID").ok();
+        let btcpay_offering_id = std::env::var("BTCPAY_OFFERING_ID").ok();
+        let btcpay_plan_id = std::env::var("BTCPAY_PLAN_ID").ok();
+
         Ok(AppConfig {
             network,
             electrum_url,
@@ -213,6 +230,11 @@ impl AppConfig {
             jwt_secret,
             mempool_url,
             mempool_port,
+            btcpay_url,
+            btcpay_api_key,
+            btcpay_store_id,
+            btcpay_offering_id,
+            btcpay_plan_id,
         })
     }
 
@@ -256,6 +278,36 @@ impl AppConfig {
     /// Get the auto-detected Mempool port (Umbrel integration)
     pub fn mempool_port(&self) -> Option<u16> {
         self.mempool_port
+    }
+
+    /// Check if BTCPay Server integration is fully configured
+    pub fn is_btcpay_enabled(&self) -> bool {
+        self.btcpay_url.is_some() && self.btcpay_api_key.is_some() && self.btcpay_store_id.is_some()
+    }
+
+    /// Get BTCPay Server URL
+    pub fn btcpay_url(&self) -> Option<&str> {
+        self.btcpay_url.as_deref()
+    }
+
+    /// Get BTCPay Server API key
+    pub fn btcpay_api_key(&self) -> Option<&str> {
+        self.btcpay_api_key.as_deref()
+    }
+
+    /// Get BTCPay Server store ID
+    pub fn btcpay_store_id(&self) -> Option<&str> {
+        self.btcpay_store_id.as_deref()
+    }
+
+    /// Get BTCPay Server offering ID (for recurring plan checkouts)
+    pub fn btcpay_offering_id(&self) -> Option<&str> {
+        self.btcpay_offering_id.as_deref()
+    }
+
+    /// Get BTCPay Server plan ID (for recurring plan checkouts)
+    pub fn btcpay_plan_id(&self) -> Option<&str> {
+        self.btcpay_plan_id.as_deref()
     }
 
     /// Check if ntfy provider should be enabled
@@ -344,6 +396,23 @@ impl AppConfig {
         // Frontend URL is required for email links
         if std::env::var("FRONTEND_URL").is_err() {
             missing.push("FRONTEND_URL - Required for email links and CORS security");
+        }
+
+        // BTCPay Server configuration is required for donation redirects
+        if std::env::var("BTCPAY_URL").is_err() {
+            missing.push("BTCPAY_URL - Required for donation page redirects");
+        }
+        if std::env::var("BTCPAY_API_KEY").is_err() {
+            missing.push("BTCPAY_API_KEY - Required for donation page redirects");
+        }
+        if std::env::var("BTCPAY_STORE_ID").is_err() {
+            missing.push("BTCPAY_STORE_ID - Required for donation page redirects");
+        }
+        if std::env::var("BTCPAY_OFFERING_ID").is_err() {
+            missing.push("BTCPAY_OFFERING_ID - Required for recurring donation redirects");
+        }
+        if std::env::var("BTCPAY_PLAN_ID").is_err() {
+            missing.push("BTCPAY_PLAN_ID - Required for recurring donation redirects");
         }
 
         if missing.is_empty() {
@@ -450,6 +519,11 @@ impl AppConfig {
             jwt_secret,
             mempool_url: None,
             mempool_port: None,
+            btcpay_url: None,
+            btcpay_api_key: None,
+            btcpay_store_id: None,
+            btcpay_offering_id: None,
+            btcpay_plan_id: None,
         }
     }
 
@@ -462,6 +536,23 @@ impl AppConfig {
     /// Set mempool port on a test config (builder pattern)
     pub fn with_mempool_port(mut self, port: Option<u16>) -> Self {
         self.mempool_port = port;
+        self
+    }
+
+    /// Set BTCPay config on a test config (builder pattern)
+    pub fn with_btcpay(
+        mut self,
+        url: Option<String>,
+        api_key: Option<String>,
+        store_id: Option<String>,
+        offering_id: Option<String>,
+        plan_id: Option<String>,
+    ) -> Self {
+        self.btcpay_url = url;
+        self.btcpay_api_key = api_key;
+        self.btcpay_store_id = store_id;
+        self.btcpay_offering_id = offering_id;
+        self.btcpay_plan_id = plan_id;
         self
     }
 }
@@ -522,6 +613,11 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             mempool_url: None,
             mempool_port: None,
+            btcpay_url: None,
+            btcpay_api_key: None,
+            btcpay_store_id: None,
+            btcpay_offering_id: None,
+            btcpay_plan_id: None,
         }
     }
 
@@ -536,6 +632,11 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             mempool_url: None,
             mempool_port: None,
+            btcpay_url: None,
+            btcpay_api_key: None,
+            btcpay_store_id: None,
+            btcpay_offering_id: None,
+            btcpay_plan_id: None,
         }
     }
 
@@ -550,6 +651,11 @@ mod tests {
             jwt_secret: None, // Not used in self-hosted mode
             mempool_url: None,
             mempool_port: None,
+            btcpay_url: None,
+            btcpay_api_key: None,
+            btcpay_store_id: None,
+            btcpay_offering_id: None,
+            btcpay_plan_id: None,
         }
     }
 
@@ -708,6 +814,11 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             mempool_url: None,
             mempool_port: None,
+            btcpay_url: None,
+            btcpay_api_key: None,
+            btcpay_store_id: None,
+            btcpay_offering_id: None,
+            btcpay_plan_id: None,
         };
         assert_eq!(config.electrum_url(), "ssl://custom.electrum.server:50002");
     }
@@ -762,6 +873,11 @@ mod tests {
             jwt_secret: None, // Missing JWT secret
             mempool_url: None,
             mempool_port: None,
+            btcpay_url: None,
+            btcpay_api_key: None,
+            btcpay_store_id: None,
+            btcpay_offering_id: None,
+            btcpay_plan_id: None,
         };
         assert_eq!(
             config.get_jwt_secret().unwrap_err(),
