@@ -1091,5 +1091,10 @@
     "recurring": "$5/mês",
     "emailNote": "O checkout recorrente solicita um endereço de e-mail. Seu e-mail é usado para enviar recibos e permitir que você gerencie sua doação. As doações nunca são vinculadas ao seu uso ou conta do Canary.",
     "paymentNote": "Todas as doações são processadas com segurança via BTCPay Server. Aceitamos Bitcoin e Lightning."
+  },
+  "thankYou": {
+    "title": "Obrigado por sua doação!",
+    "description": "Seu apoio ajuda a financiar o desenvolvimento contínuo do Canary.",
+    "backToHome": "Voltar para o início"
   }
 }

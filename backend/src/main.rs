@@ -8,6 +8,7 @@ i18n!("locales", fallback = "en-US");
 mod admin_notifications;
 mod api;
 mod auth;
+mod btcpay_client;
 mod config;
 mod electrum;
 mod email_provider;

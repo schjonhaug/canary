@@ -41,7 +41,75 @@ services:
       - NTFY_ENABLE_LOGIN=true
     command: serve
 
+  postgres:
+    image: postgres:16
+    container_name: postgres-regtest
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nbxplorer:
+    image: nicolasdorier/nbxplorer:2.6.0
+    container_name: nbxplorer-regtest
+    restart: unless-stopped
+    depends_on:
+      bitcoind:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      NBXPLORER_NETWORK: regtest
+      NBXPLORER_CHAINS: btc
+      NBXPLORER_BTCRPCURL: http://bitcoind:8332/
+      NBXPLORER_BTCRPCUSER: bitcoin
+      NBXPLORER_BTCRPCPASSWORD: bitcoin
+      NBXPLORER_BTCNODEENDPOINT: bitcoind:18444
+      NBXPLORER_BIND: 0.0.0.0:32838
+      NBXPLORER_POSTGRES: User ID=postgres;Host=postgres;Port=5432;Database=nbxplorer
+      NBXPLORER_SIGNALFILESDIR: /datadir
+    volumes:
+      - nbxplorer_datadir:/datadir
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/32838'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+
+  btcpayserver:
+    image: btcpayserver/btcpayserver:2.3.5
+    container_name: btcpay-regtest
+    restart: unless-stopped
+    depends_on:
+      nbxplorer:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "14142:14142"
+    environment:
+      BTCPAY_NETWORK: regtest
+      BTCPAY_ROOTPATH: /
+      BTCPAY_BTCEXPLORERURL: http://nbxplorer:32838/
+      BTCPAY_POSTGRES: User ID=postgres;Host=postgres;Port=5432;Database=btcpayserver
+      BTCPAY_BIND: 0.0.0.0:14142
+      BTCPAY_EXPLORERPOSTGRES: User ID=postgres;Host=postgres;Port=5432;Database=nbxplorer
+      BTCPAY_CHEATMODE: 1
+    volumes:
+      - btcpay_data:/datadir
+      - nbxplorer_datadir:/root/.nbxplorer
+
 volumes:
   bitcoin_data:
   fulcrum_data:
   ntfy_data:
+  postgres_data:
+  nbxplorer_datadir:
+  btcpay_data:

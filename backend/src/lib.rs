@@ -11,6 +11,7 @@ i18n!("locales", fallback = "en-US");
 pub mod admin_notifications;
 pub mod api;
 pub mod auth;
+pub mod btcpay_client;
 pub mod config;
 pub mod electrum;
 pub mod email_provider;

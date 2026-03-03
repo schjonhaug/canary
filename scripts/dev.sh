@@ -779,13 +779,19 @@ if [[ "$1" == "segwit-desc" || "$1" == "legacy-desc" || "$1" == "nested-desc" ||
                 exit 1
             fi
             
-            # Validate destination wallet (all wallets can be destinations)
+            # Validate destination: wallet name or raw Bitcoin address
+            RAW_ADDRESS=""
             case "$DESTINATION_WALLET" in
                 segwit-desc|legacy-desc|nested-desc|taproot-desc|segwit-empty|legacy-empty|nested-empty|taproot-empty|charlie|miner|legacy-address|p2sh-address|segwit-address|taproot-address)
                     ;;
+                bcrt1*|tb1*|bc1*|[13mn]*)
+                    # Raw Bitcoin address
+                    RAW_ADDRESS="$DESTINATION_WALLET"
+                    ;;
                 *)
-                    echo "❌ Invalid destination wallet: $DESTINATION_WALLET"
-                    echo "Available destinations: segwit-desc, segwit-empty, legacy-desc, legacy-empty, nested-desc, nested-empty, taproot-desc, taproot-empty, charlie, miner, legacy-address, p2sh-address, segwit-address, taproot-address"
+                    echo "❌ Invalid destination: $DESTINATION_WALLET"
+                    echo "Use a wallet name or a raw Bitcoin address (bcrt1..., tb1..., bc1...)"
+                    echo "Available wallets: segwit-desc, segwit-empty, legacy-desc, legacy-empty, nested-desc, nested-empty, taproot-desc, taproot-empty, charlie, miner, legacy-address, p2sh-address, segwit-address, taproot-address"
                     exit 1
                     ;;
             esac
@@ -799,13 +805,20 @@ if [[ "$1" == "segwit-desc" || "$1" == "legacy-desc" || "$1" == "nested-desc" ||
             
             # Load source and destination wallets
             btc loadwallet "$WALLET" 2>/dev/null || true
-            btc loadwallet "$DESTINATION_WALLET" 2>/dev/null || true
-            
+            if [ -z "$RAW_ADDRESS" ]; then
+                btc loadwallet "$DESTINATION_WALLET" 2>/dev/null || true
+            fi
+
             # Helper: get target address for destination wallet
+            # For raw addresses, return as-is
             # For addr-* wallets, reuse the existing address (single-address wallets)
             # For regular wallets, generate a new address each time
             get_target_address() {
                 local dest="$1"
+                if [ -n "$RAW_ADDRESS" ]; then
+                    echo "$RAW_ADDRESS"
+                    return
+                fi
                 case "$dest" in
                     *-address)
                         # Single-address wallets: reuse the existing address
@@ -1593,6 +1606,10 @@ case "$1" in
         done
         echo ""
 
+        # Set up BTCPay Server (before backend starts, so .env has correct values)
+        echo ""
+        $0 btcpay-setup
+
         # Add wallets to backend
         BACKEND_URL="http://localhost:3000"
         echo ""
@@ -2050,7 +2067,158 @@ case "$1" in
         kill_servers
         echo "🎯 Port cleanup complete"
         ;;
-        
+
+    "btcpay-setup")
+        BTCPAY=http://localhost:14142
+
+        echo "Waiting for BTCPay Server to be ready..."
+        for i in $(seq 1 60); do
+            if curl -sf "$BTCPAY/api/v1/health" > /dev/null 2>&1; then
+                echo "✅ BTCPay Server is ready"
+                break
+            fi
+            if [ "$i" -eq 60 ]; then
+                echo "❌ BTCPay Server did not become ready in time"
+                echo "   Check logs with: docker-compose logs btcpayserver"
+                exit 1
+            fi
+            sleep 2
+        done
+
+        # Give BTCPay a moment to fully initialize after health check passes
+        sleep 3
+
+        # Create admin user (first user on fresh instance, no auth needed)
+        echo "Creating admin user..."
+        USER_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BTCPAY/api/v1/users" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"admin@test.com","password":"password123","isAdministrator":true}')
+        USER_HTTP_CODE=$(echo "$USER_RESPONSE" | tail -1)
+        USER_BODY=$(echo "$USER_RESPONSE" | sed '$d')
+        if [ "$USER_HTTP_CODE" -lt 200 ] || [ "$USER_HTTP_CODE" -ge 300 ]; then
+            echo "❌ Failed to create admin user (HTTP $USER_HTTP_CODE)"
+            echo "   Response: $USER_BODY"
+            echo "   If re-running after reset, make sure docker-compose down -v was used"
+            exit 1
+        fi
+        echo "✅ Admin user created"
+
+        # Create API key with needed permissions
+        echo "Creating API key..."
+        APIKEY_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BTCPAY/api/v1/api-keys" \
+            -H "Content-Type: application/json" \
+            -u "admin@test.com:password123" \
+            -d '{"permissions":["unrestricted"]}')
+        APIKEY_HTTP_CODE=$(echo "$APIKEY_RESPONSE" | tail -1)
+        APIKEY_BODY=$(echo "$APIKEY_RESPONSE" | sed '$d')
+        if [ "$APIKEY_HTTP_CODE" -lt 200 ] || [ "$APIKEY_HTTP_CODE" -ge 300 ]; then
+            echo "❌ Failed to create API key (HTTP $APIKEY_HTTP_CODE)"
+            echo "   Response: $APIKEY_BODY"
+            exit 1
+        fi
+        API_KEY=$(echo "$APIKEY_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['apiKey'])")
+        echo "✅ API key created"
+
+        # Create store
+        echo "Creating store..."
+        STORE_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BTCPAY/api/v1/stores" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token $API_KEY" \
+            -d '{"name":"Canary Dev Store"}')
+        STORE_HTTP_CODE=$(echo "$STORE_RESPONSE" | tail -1)
+        STORE_BODY=$(echo "$STORE_RESPONSE" | sed '$d')
+        if [ "$STORE_HTTP_CODE" -lt 200 ] || [ "$STORE_HTTP_CODE" -ge 300 ]; then
+            echo "❌ Failed to create store (HTTP $STORE_HTTP_CODE)"
+            echo "   Response: $STORE_BODY"
+            exit 1
+        fi
+        STORE_ID=$(echo "$STORE_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+        echo "✅ Store created: $STORE_ID"
+
+        # Generate on-chain wallet for the store
+        echo "Generating store wallet..."
+        WALLET_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BTCPAY/api/v1/stores/$STORE_ID/payment-methods/BTC-CHAIN/wallet/generate" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token $API_KEY" \
+            -d '{"savePrivateKeys":true,"scriptPubKeyType":"Segwit"}')
+        WALLET_HTTP_CODE=$(echo "$WALLET_RESPONSE" | tail -1)
+        WALLET_BODY=$(echo "$WALLET_RESPONSE" | sed '$d')
+        if [ "$WALLET_HTTP_CODE" -lt 200 ] || [ "$WALLET_HTTP_CODE" -ge 300 ]; then
+            echo "❌ Failed to generate store wallet (HTTP $WALLET_HTTP_CODE)"
+            echo "   Response: $WALLET_BODY"
+            exit 1
+        fi
+        echo "✅ Store wallet generated"
+
+        # Create offering for recurring donations
+        echo "Creating subscription offering..."
+        OFFERING_RESPONSE=$(curl -sf -X POST "$BTCPAY/api/v1/stores/$STORE_ID/offerings" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token $API_KEY" \
+            -d '{"appName":"Canary Donations"}')
+        if [ $? -ne 0 ]; then
+            echo "⚠️  Failed to create offering (subscription API may not be available in this BTCPay version)"
+            echo "   One-time donations will still work. Recurring donations require manual BTCPay setup."
+            OFFERING_ID=""
+            PLAN_ID=""
+        else
+            OFFERING_ID=$(echo "$OFFERING_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+            echo "✅ Offering created: $OFFERING_ID"
+
+            # Create plan under offering
+            echo "Creating subscription plan..."
+            PLAN_RESPONSE=$(curl -sf -X POST "$BTCPAY/api/v1/stores/$STORE_ID/offerings/$OFFERING_ID/plans" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: token $API_KEY" \
+                -d '{"name":"Monthly Supporter","currency":"USD","price":"5","recurringType":"Monthly"}')
+            if [ $? -ne 0 ]; then
+                echo "⚠️  Failed to create plan"
+                PLAN_ID=""
+            else
+                PLAN_ID=$(echo "$PLAN_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+                echo "✅ Plan created: $PLAN_ID"
+            fi
+        fi
+
+        # Write BTCPay env vars to the active backend .env
+        BACKEND_ENV="../backend/.env"
+        if [[ -f "$BACKEND_ENV" ]]; then
+            # Remove any existing BTCPAY_ lines
+            sed -i '' '/^BTCPAY_/d' "$BACKEND_ENV"
+            sed -i '' '/^# BTCPay Server (auto-configured/d' "$BACKEND_ENV"
+
+            # Append new values
+            echo "" >> "$BACKEND_ENV"
+            echo "# BTCPay Server (auto-configured by dev.sh btcpay-setup)" >> "$BACKEND_ENV"
+            echo "BTCPAY_URL=http://localhost:14142" >> "$BACKEND_ENV"
+            echo "BTCPAY_API_KEY=$API_KEY" >> "$BACKEND_ENV"
+            echo "BTCPAY_STORE_ID=$STORE_ID" >> "$BACKEND_ENV"
+            if [ -n "$OFFERING_ID" ]; then
+                echo "BTCPAY_OFFERING_ID=$OFFERING_ID" >> "$BACKEND_ENV"
+            fi
+            if [ -n "$PLAN_ID" ]; then
+                echo "BTCPAY_PLAN_ID=$PLAN_ID" >> "$BACKEND_ENV"
+            fi
+
+            echo "✅ BTCPay config written to $BACKEND_ENV"
+        else
+            echo "⚠️  $BACKEND_ENV not found — printing env vars instead:"
+            echo ""
+            echo "BTCPAY_URL=http://localhost:14142"
+            echo "BTCPAY_API_KEY=$API_KEY"
+            echo "BTCPAY_STORE_ID=$STORE_ID"
+            if [ -n "$OFFERING_ID" ]; then
+                echo "BTCPAY_OFFERING_ID=$OFFERING_ID"
+            fi
+            if [ -n "$PLAN_ID" ]; then
+                echo "BTCPAY_PLAN_ID=$PLAN_ID"
+            fi
+        fi
+
+        echo ""
+        echo "BTCPay admin UI: http://localhost:14142 (admin@test.com / password123)"
+        ;;
+
     *)
         echo "Bitcoin regtest Docker development utilities"
         echo ""
@@ -2067,6 +2235,7 @@ case "$1" in
         echo "  logs [service]      Show logs (bitcoin/electrum or all)"
         echo "  status              Show environment status"
         echo "  mode <mode>         Switch between self-hosted and cloud modes"
+        echo "  btcpay-setup        Set up BTCPay Server (admin, store, API key)"
         echo ""
         echo "Funded Descriptor Wallets:"
         echo "  segwit-desc  — wpkh (Native SegWit), 1 BTC distributed across 31 addresses"
