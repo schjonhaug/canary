@@ -87,6 +87,7 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       method: request.method,
       headers,
       body,
+      redirect: 'manual',
       signal: AbortSignal.timeout(30_000),
     });
 
