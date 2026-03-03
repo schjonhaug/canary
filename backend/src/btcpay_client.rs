@@ -13,7 +13,7 @@ struct PlanCheckoutResponse {
     url: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BtcPayClient {
     client: reqwest::Client,
     base_url: String,
@@ -21,6 +21,18 @@ pub struct BtcPayClient {
     store_id: String,
     offering_id: Option<String>,
     plan_id: Option<String>,
+}
+
+impl std::fmt::Debug for BtcPayClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BtcPayClient")
+            .field("base_url", &self.base_url)
+            .field("api_key", &"[REDACTED]")
+            .field("store_id", &self.store_id)
+            .field("offering_id", &self.offering_id)
+            .field("plan_id", &self.plan_id)
+            .finish()
+    }
 }
 
 impl BtcPayClient {
