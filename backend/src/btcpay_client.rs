@@ -1,5 +1,6 @@
 use anyhow::Result;
 use serde::Deserialize;
+use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,8 +31,13 @@ impl BtcPayClient {
         offering_id: Option<String>,
         plan_id: Option<String>,
     ) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .expect("Failed to build HTTP client");
+
         Self {
-            client: reqwest::Client::new(),
+            client,
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key,
             store_id,

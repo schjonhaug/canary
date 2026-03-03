@@ -193,6 +193,7 @@ pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
 pub type ElectrumClientManagerState = Option<Arc<ElectrumClientManager>>;
+pub type BtcPayClientState = Arc<Option<crate::btcpay_client::BtcPayClient>>;
 
 /// Unified application state for all handlers.
 /// Contains all state components and implements FromRef for each,
@@ -204,6 +205,7 @@ pub struct AppState {
     pub stripe_billing: StripeBillingState,
     pub config: ConfigState,
     pub electrum_manager: ElectrumClientManagerState,
+    pub btcpay_client: BtcPayClientState,
 }
 
 // FromRef implementations allow extractors to access individual state components
@@ -235,6 +237,12 @@ impl FromRef<AppState> for ConfigState {
 impl FromRef<AppState> for ElectrumClientManagerState {
     fn from_ref(state: &AppState) -> Self {
         state.electrum_manager.clone()
+    }
+}
+
+impl FromRef<AppState> for BtcPayClientState {
+    fn from_ref(state: &AppState) -> Self {
+        state.btcpay_client.clone()
     }
 }
 
@@ -308,6 +316,20 @@ pub fn create_router_with_services(
 ) -> Router {
     // Build CORS layer before moving config into Arc
     let cors_layer = build_cors_layer(&config);
+
+    // Build BtcPayClient once at startup if configured
+    let btcpay_client = if config.is_btcpay_enabled() {
+        Some(crate::btcpay_client::BtcPayClient::new(
+            config.btcpay_url().unwrap().to_string(),
+            config.btcpay_api_key().unwrap().to_string(),
+            config.btcpay_store_id().unwrap().to_string(),
+            config.btcpay_offering_id().map(|s| s.to_string()),
+            config.btcpay_plan_id().map(|s| s.to_string()),
+        ))
+    } else {
+        None
+    };
+
     let config_state = Arc::new(config);
 
     // Create unified AppState for handlers that use the AuthenticatedUser extractor
@@ -317,6 +339,7 @@ pub fn create_router_with_services(
         stripe_billing: stripe_billing.clone(),
         config: config_state.clone(),
         electrum_manager,
+        btcpay_client: Arc::new(btcpay_client),
     };
 
     // Routes using unified AppState with domain handlers

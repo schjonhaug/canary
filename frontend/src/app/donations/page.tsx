@@ -3,13 +3,9 @@
 import { Heart } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { useTranslations } from "next-intl"
-import { useAuth } from "@/contexts/auth-context"
-import { notFound } from "next/navigation"
+
 export default function DonationsPage() {
   const t = useTranslations("donation")
-  const { isCloudMode } = useAuth()
-
-  if (isCloudMode) notFound()
 
   const donationsBaseUrl = process.env.NODE_ENV === "development"
     ? "http://localhost:3000"
