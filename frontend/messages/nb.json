@@ -1090,11 +1090,11 @@
     "recurringDescription": "Bli en månedlig støttespiller og bidra til at Canary forblir aktivt vedlikeholdt.",
     "recurring": "$5/måned",
     "emailNote": "Betalingsløsningen for faste bidrag ber om en e-postadresse. E-posten din brukes til å sende kvitteringer og lar deg administrere donasjonen din. Donasjoner blir aldri koblet til din bruk av Canary eller kontoen din.",
-    "paymentNote": "Alle donasjoner behandles sikkert via BTCPay Server. Bitcoin og Lightning aksepteres."
-  },
-  "thankYou": {
-    "title": "Takk for din donasjon!",
-    "description": "Din støtte bidrar til å finansiere videreutviklingen av Canary.",
-    "backToHome": "Tilbake til forsiden"
+    "paymentNote": "Alle donasjoner behandles sikkert via BTCPay Server. Bitcoin og Lightning aksepteres.",
+    "thankYou": {
+      "title": "Takk for din donasjon!",
+      "description": "Din støtte bidrar til å finansiere videreutviklingen av Canary.",
+      "backToHome": "Tilbake til forsiden"
+    }
   }
 }

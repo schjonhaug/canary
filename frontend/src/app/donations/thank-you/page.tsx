@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import Link from "next/link"
 
 export default function ThankYouPage() {
-  const t = useTranslations("thankYou")
+  const t = useTranslations("donation.thankYou")
 
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">

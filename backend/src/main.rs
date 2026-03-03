@@ -126,6 +126,16 @@ async fn main() -> anyhow::Result<()> {
         println!("   - ntfy-only notifications");
     }
 
+    // Log BTCPay Server status
+    if config.is_btcpay_enabled() {
+        println!(
+            "💰 BTCPay Server: enabled ({})",
+            config.btcpay_url().unwrap()
+        );
+    } else {
+        println!("💰 BTCPay Server: not configured (donation endpoints disabled)");
+    }
+
     // Validate required configuration for the selected mode
     if let Err(error) = config.validate_required_config() {
         eprintln!("❌ Configuration validation failed:");

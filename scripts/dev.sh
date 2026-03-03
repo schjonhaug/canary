@@ -2095,13 +2095,15 @@ case "$1" in
             -d '{"email":"admin@test.com","password":"password123","isAdministrator":true}')
         USER_HTTP_CODE=$(echo "$USER_RESPONSE" | tail -1)
         USER_BODY=$(echo "$USER_RESPONSE" | sed '$d')
-        if [ "$USER_HTTP_CODE" -lt 200 ] || [ "$USER_HTTP_CODE" -ge 300 ]; then
+        if [ "$USER_HTTP_CODE" -ge 200 ] && [ "$USER_HTTP_CODE" -lt 300 ]; then
+            echo "✅ Admin user created"
+        elif [ "$USER_HTTP_CODE" -eq 422 ]; then
+            echo "✅ Admin user already exists, continuing..."
+        else
             echo "❌ Failed to create admin user (HTTP $USER_HTTP_CODE)"
             echo "   Response: $USER_BODY"
-            echo "   If re-running after reset, make sure docker-compose down -v was used"
             exit 1
         fi
-        echo "✅ Admin user created"
 
         # Create API key with needed permissions
         echo "Creating API key..."

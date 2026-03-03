@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod address;
 #[cfg(test)]
+mod donations;
+#[cfg(test)]
 mod message_formatter;
 #[cfg(test)]
 mod metadata;

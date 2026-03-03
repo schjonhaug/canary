@@ -4,7 +4,7 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 
-fn redirect_response(url: &str) -> Response {
+pub(crate) fn redirect_response(url: &str) -> Response {
     let mut headers = HeaderMap::new();
     match url.parse() {
         Ok(value) => {
@@ -18,7 +18,7 @@ fn redirect_response(url: &str) -> Response {
     }
 }
 
-fn thank_you_url(config: &AppConfig) -> String {
+pub(crate) fn thank_you_url(config: &AppConfig) -> String {
     let frontend_url = config.frontend_url().unwrap_or("https://canarybitcoin.com");
     format!("{}/donations/thank-you", frontend_url.trim_end_matches('/'))
 }
@@ -27,7 +27,7 @@ pub async fn donate_one_time(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
 ) -> Response {
-    let client = match &*btcpay {
+    let client = match &btcpay {
         Some(c) => c,
         None => {
             return (StatusCode::SERVICE_UNAVAILABLE, "BTCPay not configured").into_response();
@@ -49,7 +49,7 @@ pub async fn donate_recurring(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
 ) -> Response {
-    let client = match &*btcpay {
+    let client = match &btcpay {
         Some(c) => c,
         None => {
             return (StatusCode::SERVICE_UNAVAILABLE, "BTCPay not configured").into_response();

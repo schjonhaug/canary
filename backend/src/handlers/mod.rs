@@ -7,7 +7,7 @@ mod blockchain;
 mod config;
 mod contact;
 mod contact_verification;
-mod donations;
+pub(crate) mod donations;
 mod notifications;
 mod providers;
 mod user_preferences;

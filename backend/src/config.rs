@@ -538,6 +538,23 @@ impl AppConfig {
         self.mempool_port = port;
         self
     }
+
+    /// Set BTCPay config on a test config (builder pattern)
+    pub fn with_btcpay(
+        mut self,
+        url: Option<String>,
+        api_key: Option<String>,
+        store_id: Option<String>,
+        offering_id: Option<String>,
+        plan_id: Option<String>,
+    ) -> Self {
+        self.btcpay_url = url;
+        self.btcpay_api_key = api_key;
+        self.btcpay_store_id = store_id;
+        self.btcpay_offering_id = offering_id;
+        self.btcpay_plan_id = plan_id;
+        self
+    }
 }
 
 #[cfg(test)]

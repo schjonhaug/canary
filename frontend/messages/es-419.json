@@ -1090,11 +1090,11 @@
     "recurringDescription": "Conviértete en un seguidor mensual y ayuda a garantizar que Canary se mantenga activamente.",
     "recurring": "$5/mes",
     "emailNote": "El proceso de pago recurrente solicita una dirección de correo electrónico. Tu correo electrónico se utiliza para enviar recibos y para permitirte administrar tu donación. Las donaciones nunca se vinculan con tu uso o cuenta de Canary.",
-    "paymentNote": "Todas las donaciones se procesan de forma segura a través de BTCPay Server. Se acepta Bitcoin y Lightning."
-  },
-  "thankYou": {
-    "title": "¡Gracias por tu donación!",
-    "description": "Tu apoyo ayuda a financiar el desarrollo continuo de Canary.",
-    "backToHome": "Volver al inicio"
+    "paymentNote": "Todas las donaciones se procesan de forma segura a través de BTCPay Server. Se acepta Bitcoin y Lightning.",
+    "thankYou": {
+      "title": "¡Gracias por tu donación!",
+      "description": "Tu apoyo ayuda a financiar el desarrollo continuo de Canary.",
+      "backToHome": "Volver al inicio"
+    }
   }
 }

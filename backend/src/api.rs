@@ -193,7 +193,7 @@ pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
 pub type ElectrumClientManagerState = Option<Arc<ElectrumClientManager>>;
-pub type BtcPayClientState = Arc<Option<crate::btcpay_client::BtcPayClient>>;
+pub type BtcPayClientState = Option<Arc<crate::btcpay_client::BtcPayClient>>;
 
 /// Unified application state for all handlers.
 /// Contains all state components and implements FromRef for each,
@@ -339,7 +339,7 @@ pub fn create_router_with_services(
         stripe_billing: stripe_billing.clone(),
         config: config_state.clone(),
         electrum_manager,
-        btcpay_client: Arc::new(btcpay_client),
+        btcpay_client: btcpay_client.map(Arc::new),
     };
 
     // Routes using unified AppState with domain handlers
