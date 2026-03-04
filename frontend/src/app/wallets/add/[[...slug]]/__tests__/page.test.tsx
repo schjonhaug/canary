@@ -226,6 +226,28 @@ describe('AddWalletPage', () => {
       // Bacon should not be shown since it's already added
       expect(screen.queryByText('Use Bacon Wallet')).not.toBeInTheDocument()
     })
+
+    it('hides sample prompt when all sample wallets are added', async () => {
+      walletsContextMockValue = {
+        ...defaultWalletsContextMock,
+        wallets: [
+          { checksum: 'bacon123', name: 'Bacon' },
+          { checksum: 'satoshi123', name: 'Satoshi (Genesis)' },
+        ] as never[],
+      }
+
+      await act(async () => {
+        renderWithSlug(undefined)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Sparrow')).toBeInTheDocument()
+      })
+
+      expect(screen.queryByText(/Try with a sample wallet/)).not.toBeInTheDocument()
+      expect(screen.queryByText('Use Bacon Wallet')).not.toBeInTheDocument()
+      expect(screen.queryByText('Use Satoshi Genesis Address')).not.toBeInTheDocument()
+    })
   })
 
   describe('Cloud Mode', () => {

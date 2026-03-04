@@ -17,7 +17,6 @@ interface UseWalletWizardReturn {
   sampleWallet: { name: string; descriptor: string } | undefined
   handleNavigateToChoose: () => void
   handleSelectWallet: (wallet: WalletGuide) => void
-  handleSkipToForm: () => void
   getGuideSteps: (walletId: string) => string[]
 }
 
@@ -69,10 +68,6 @@ export function useWalletWizard({ slug, network, t }: UseWalletWizardOptions): U
     router.push(`/wallets/add/${wallet.id}`)
   }, [router])
 
-  const handleSkipToForm = useCallback(() => {
-    router.push('/wallets/add/form')
-  }, [router])
-
   // Helper to get translated guide steps
   const getGuideSteps = useCallback((walletId: string): string[] => {
     try {
@@ -94,7 +89,6 @@ export function useWalletWizard({ slug, network, t }: UseWalletWizardOptions): U
     sampleWallet,
     handleNavigateToChoose,
     handleSelectWallet,
-    handleSkipToForm,
     getGuideSteps,
   }
 }
