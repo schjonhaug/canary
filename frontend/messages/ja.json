@@ -1097,7 +1097,7 @@
     "thankYou": {
       "title": "ご寄付ありがとうございます！",
       "description": "皆様のご支援は、Canaryの継続的な開発に役立てられます。",
-      "backToHome": "ホームに戻る"
+      "closeTab": "このタブを閉じてCanaryに戻ることができます。"
     }
   }
 }

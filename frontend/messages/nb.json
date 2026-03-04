@@ -1097,7 +1097,7 @@
     "thankYou": {
       "title": "Takk for din donasjon!",
       "description": "Din støtte bidrar til å finansiere videreutviklingen av Canary.",
-      "backToHome": "Tilbake til forsiden"
+      "closeTab": "Du kan lukke denne fanen for å gå tilbake til Canary."
     }
   }
 }

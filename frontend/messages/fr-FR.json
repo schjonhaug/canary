@@ -1097,7 +1097,7 @@
     "thankYou": {
       "title": "Merci pour votre don !",
       "description": "Votre soutien aide à financer le développement continu de Canary.",
-      "backToHome": "Retour à l'accueil"
+      "closeTab": "Vous pouvez fermer cet onglet pour revenir à Canary."
     }
   }
 }
