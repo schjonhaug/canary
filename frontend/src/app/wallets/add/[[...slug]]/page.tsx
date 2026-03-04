@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useWalletsContext } from "@/contexts/wallets-context"
 import { api } from "@/lib/api"
 import { hasReachedWalletLimit } from "@/lib/utils"
+import { SAMPLE_WALLETS } from "@/components/add-wallet-form"
 import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { useWalletWizard } from "@/hooks/useWalletWizard"
 import { Wallet } from "@/types"
@@ -39,8 +40,8 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const {
     step,
     selectedWallet,
-    isBaconWallet,
-    baconWallet,
+    isSampleWallet,
+    sampleWallet,
     handleNavigateToChoose,
     handleSelectWallet,
     handleSelectSampleWallet,
@@ -94,6 +95,9 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   }
 
   const isFirstWallet = walletCount === 0
+  const sampleWalletNames = SAMPLE_WALLETS.map(sw => sw.name)
+  const hasOnlySampleWallets = wallets.every(w => sampleWalletNames.includes(w.name))
+  const showSampleWallets = isSelfHostedMode && hasOnlySampleWallets
   const hasPaidSubscription = billingStatus?.subscription_status === 'active' && !!billingStatus?.stripe_customer_id
 
   // Loading state
@@ -146,11 +150,12 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
         selectedWallet={selectedWallet}
         step={step}
         onNavigateToChoose={handleNavigateToChoose}
-        isSelfHostedMode={isSelfHostedMode}
+        showSampleWallets={showSampleWallets}
         isFirstWallet={isFirstWallet}
         onSelectWallet={handleSelectWallet}
-        onSelectSampleWallet={handleSelectSampleWallet}
         onWalletCreated={handleWalletCreated}
+        wallets={wallets}
+        network={network}
         t={t}
         tNav={tNav}
       />
@@ -179,9 +184,9 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
       selectedWallet={selectedWallet}
       step={step}
       onNavigateToChoose={handleNavigateToChoose}
-      isBaconWallet={isBaconWallet}
+      isSampleWallet={isSampleWallet}
       isFirstWallet={isFirstWallet}
-      baconWallet={baconWallet}
+      sampleWallet={sampleWallet}
       onWalletCreated={handleWalletCreated}
       t={t}
       tNav={tNav}

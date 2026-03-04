@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { walletGuides, type WalletGuide } from "@/lib/wallet-guides"
-import { SAMPLE_WALLET_SLUG, SAMPLE_WALLETS } from "@/components/add-wallet-form"
+import { SAMPLE_WALLETS, isSampleWalletSlug, getSampleWalletForNetwork } from "@/components/add-wallet-form"
 import type { WizardStep } from "@/components/wallet-wizard/wizard-breadcrumb"
 
 interface UseWalletWizardOptions {
@@ -13,35 +13,38 @@ interface UseWalletWizardOptions {
 interface UseWalletWizardReturn {
   step: WizardStep
   selectedWallet: WalletGuide | null
-  isBaconWallet: boolean
-  baconWallet: { name: string; descriptor: string }
+  isSampleWallet: boolean
+  sampleWallet: { name: string; descriptor: string } | undefined
   handleNavigateToChoose: () => void
   handleSelectWallet: (wallet: WalletGuide) => void
   handleSkipToForm: () => void
-  handleSelectSampleWallet: () => void
+  handleSelectSampleWallet: (slug: string) => void
   getGuideSteps: (walletId: string) => string[]
 }
 
 export function useWalletWizard({ slug, network, t }: UseWalletWizardOptions): UseWalletWizardReturn {
   const router = useRouter()
 
-  // Get bacon wallet for current network
-  const baconWallet = SAMPLE_WALLETS[network as keyof typeof SAMPLE_WALLETS] || SAMPLE_WALLETS.mainnet
+  // Check if we're using any sample wallet
+  const isSampleWallet = slug?.[0] != null && isSampleWalletSlug(slug[0])
 
-  // Check if we're using the Bacon sample wallet
-  const isBaconWallet = slug?.[0] === SAMPLE_WALLET_SLUG
+  // Get sample wallet data for current network
+  const sampleWallet = useMemo(() => {
+    if (!isSampleWallet || !slug?.[0]) return undefined
+    return getSampleWalletForNetwork(slug[0], network)
+  }, [isSampleWallet, slug, network])
 
   // Derive selected wallet from URL
   const selectedWallet = useMemo(() => {
     if (!slug || slug.length === 0) return null
-    if (slug[0] === 'form' || slug[0] === SAMPLE_WALLET_SLUG) return null
+    if (slug[0] === 'form' || isSampleWalletSlug(slug[0])) return null
     return walletGuides.find(w => w.id === slug[0]) || null
   }, [slug])
 
   // Derive current step from URL
   const step: WizardStep = useMemo(() => {
     if (!slug || slug.length === 0) return 'choose'
-    if (slug[0] === 'form' || slug[0] === SAMPLE_WALLET_SLUG) return 'form'
+    if (slug[0] === 'form' || isSampleWalletSlug(slug[0])) return 'form'
     if (selectedWallet) return 'instructions'
     return 'choose'
   }, [slug, selectedWallet])
@@ -49,7 +52,7 @@ export function useWalletWizard({ slug, network, t }: UseWalletWizardOptions): U
   // Redirect invalid wallet IDs to clean choose URL
   // Also redirect legacy /wallets/add/{wallet-id}/form URLs to /wallets/add/{wallet-id}
   useEffect(() => {
-    if (slug && slug.length > 0 && slug[0] !== 'form' && slug[0] !== SAMPLE_WALLET_SLUG && !selectedWallet) {
+    if (slug && slug.length > 0 && slug[0] !== 'form' && !isSampleWalletSlug(slug[0]) && !selectedWallet) {
       router.replace('/wallets/add')
     }
     // Redirect legacy /wallets/add/{wallet-id}/form to /wallets/add/{wallet-id}
@@ -71,8 +74,8 @@ export function useWalletWizard({ slug, network, t }: UseWalletWizardOptions): U
     router.push('/wallets/add/form')
   }, [router])
 
-  const handleSelectSampleWallet = useCallback(() => {
-    router.push(`/wallets/add/${SAMPLE_WALLET_SLUG}`)
+  const handleSelectSampleWallet = useCallback((sampleSlug: string) => {
+    router.push(`/wallets/add/${sampleSlug}`)
   }, [router])
 
   // Helper to get translated guide steps
@@ -92,8 +95,8 @@ export function useWalletWizard({ slug, network, t }: UseWalletWizardOptions): U
   return {
     step,
     selectedWallet,
-    isBaconWallet,
-    baconWallet,
+    isSampleWallet,
+    sampleWallet,
     handleNavigateToChoose,
     handleSelectWallet,
     handleSkipToForm,

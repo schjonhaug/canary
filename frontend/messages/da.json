@@ -460,13 +460,16 @@
       },
       "wizard": {
         "keysStaySafe": "Canary har kun brug for dette til at overvåge dine transaktioner. Dine private nøgler forbliver sikre i din wallet.",
-        "tryBaconWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary fungerer.",
-        "useBaconWallet": "Brug Bacon Wallet",
+        "trySampleWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary fungerer.",
+        "sampleWallets": {
+          "bacon": "Brug Bacon Wallet",
+          "satoshi-genesis": "Brug Satoshi Genesis-adresse"
+        },
         "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Følg disse trin for at eksportere din descriptor fra {walletName}",
         "pasteXpub": "Indsæt din XPUB nedenfor.",
         "pasteDescriptor": "Indsæt din output descriptor eller XPUB nedenfor.",
-        "baconPrefilled": "Vi har udfyldt Bacon eksempel-wallet for dig. Klik blot på Tilføj Wallet for at fortsætte.",
+        "samplePrefilled": "Vi har udfyldt {name} eksempel-wallet for dig. Klik blot på Tilføj Wallet for at fortsætte.",
         "enterDetails": "Indtast detaljer",
         "walletType": {
           "software": "software",
