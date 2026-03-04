@@ -465,7 +465,7 @@
           "bacon": "Bruk Bacon-lommebok",
           "satoshi-genesis": "Bruk Satoshi Genesis-adresse"
         },
-        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
+        "guidesPrompt": "Usikker på hvordan du henter output-deskriptorer eller XPUB-er? Følg veiledningene våre nedenfor:",
         "exportSteps": "Følg disse trinnene for å eksportere deskriptoren fra {walletName}",
         "pasteXpub": "Lim inn XPUB nedenfor.",
         "pasteDescriptor": "Lim inn output-deskriptoren eller XPUB nedenfor.",

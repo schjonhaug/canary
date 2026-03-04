@@ -465,7 +465,7 @@
           "bacon": "Använd Bacon Wallet",
           "satoshi-genesis": "Använd Satoshi Genesis-adress"
         },
-        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
+        "guidesPrompt": "Osäker på hur du hittar output descriptors eller XPUB:ar? Följ våra guider nedan:",
         "exportSteps": "Följ dessa steg för att exportera din deskriptor från {walletName}",
         "pasteXpub": "Klistra in din XPUB nedan.",
         "pasteDescriptor": "Klistra in din utdata-deskriptor eller XPUB nedan.",

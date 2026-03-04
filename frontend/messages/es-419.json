@@ -465,7 +465,7 @@
           "bacon": "Usar Billetera Bacon",
           "satoshi-genesis": "Usar Dirección Satoshi Genesis"
         },
-        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
+        "guidesPrompt": "¿No estás seguro de cómo obtener descriptores de salida o XPUBs? Sigue nuestras guías a continuación:",
         "exportSteps": "Sigue estos pasos para exportar tu descriptor desde {walletName}",
         "pasteXpub": "Pega tu XPUB abajo.",
         "pasteDescriptor": "Pega tu descriptor de salida o XPUB abajo.",
