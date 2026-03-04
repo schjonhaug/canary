@@ -1,8 +1,14 @@
 use crate::api::BtcPayClientState;
 use crate::config::AppConfig;
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+pub struct DonationParams {
+    locale: Option<String>,
+}
 
 pub(crate) fn redirect_response(url: &str) -> Response {
     let mut headers = HeaderMap::new();
@@ -18,14 +24,19 @@ pub(crate) fn redirect_response(url: &str) -> Response {
     }
 }
 
-pub(crate) fn thank_you_url(config: &AppConfig) -> String {
+pub(crate) fn thank_you_url(config: &AppConfig, locale: Option<&str>) -> String {
     let frontend_url = config.frontend_url().unwrap_or("https://canarybitcoin.com");
-    format!("{}/donations/thank-you", frontend_url.trim_end_matches('/'))
+    let base = format!("{}/donations/thank-you", frontend_url.trim_end_matches('/'));
+    match locale {
+        Some(l) => format!("{}?locale={}", base, l),
+        None => base,
+    }
 }
 
 pub async fn donate_one_time(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
+    Query(params): Query<DonationParams>,
 ) -> Response {
     let client = match &btcpay {
         Some(c) => c,
@@ -34,7 +45,7 @@ pub async fn donate_one_time(
         }
     };
 
-    let redirect_url = thank_you_url(&config);
+    let redirect_url = thank_you_url(&config, params.locale.as_deref());
 
     match client.create_invoice(&redirect_url).await {
         Ok(checkout_link) => redirect_response(&checkout_link),
@@ -48,6 +59,7 @@ pub async fn donate_one_time(
 pub async fn donate_recurring(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
+    Query(params): Query<DonationParams>,
 ) -> Response {
     let client = match &btcpay {
         Some(c) => c,
@@ -56,7 +68,7 @@ pub async fn donate_recurring(
         }
     };
 
-    let redirect_url = thank_you_url(&config);
+    let redirect_url = thank_you_url(&config, params.locale.as_deref());
 
     match client.create_plan_checkout(&redirect_url).await {
         Ok(checkout_url) => redirect_response(&checkout_url),

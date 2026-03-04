@@ -1095,8 +1095,14 @@
     "emailNote": "Le paiement récurrent demande une adresse e-mail. Votre e-mail est utilisé pour envoyer des reçus et vous permettre de gérer votre don. Les dons ne sont jamais liés à votre utilisation ou à votre compte Canary.",
     "paymentNote": "Tous les dons sont traités de manière sécurisée via BTCPay Server. Bitcoin et Lightning acceptés.",
     "thankYou": {
-      "title": "Merci pour votre don !",
-      "description": "Votre soutien aide à financer le développement continu de Canary.",
+      "oneTime": {
+        "title": "Merci pour votre don !",
+        "description": "Votre soutien aide à financer le développement continu de Canary."
+      },
+      "recurring": {
+        "title": "Merci pour votre soutien continu !",
+        "description": "Votre contribution régulière aide à pérenniser le développement continu de Canary."
+      },
       "closeTab": "Vous pouvez fermer cet onglet pour revenir à Canary."
     }
   }

@@ -36,6 +36,21 @@ function detectLocale(acceptLanguage: string | null): Locale {
 }
 
 export function proxy(request: NextRequest) {
+  // If a locale query param is present and valid, use it to override the locale.
+  // This allows external redirects (e.g. BTCPay) to preserve the user's locale.
+  const localeParam = request.nextUrl.searchParams.get('locale')
+  if (localeParam && locales.includes(localeParam as Locale)) {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-locale-override', localeParam)
+    const response = NextResponse.next({ request: { headers: requestHeaders } })
+    response.cookies.set('locale', localeParam as Locale, {
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      path: '/',
+      sameSite: 'lax',
+    })
+    return response
+  }
+
   const localeCookie = request.cookies.get('locale')?.value
 
   // Already has a valid locale preference

@@ -1095,8 +1095,14 @@
     "emailNote": "Den återkommande utcheckningen ber om en e-postadress. Din e-post används för att skicka kvitton och för att låta dig hantera din donation. Donationer kopplas aldrig till din användning av Canary eller ditt konto.",
     "paymentNote": "Alla donationer behandlas säkert via BTCPay Server. Bitcoin och Lightning accepteras.",
     "thankYou": {
-      "title": "Tack för din donation!",
-      "description": "Ditt stöd bidrar till att finansiera den fortsatta utvecklingen av Canary.",
+      "oneTime": {
+        "title": "Tack för din donation!",
+        "description": "Ditt stöd bidrar till att finansiera den fortsatta utvecklingen av Canary."
+      },
+      "recurring": {
+        "title": "Tack för ditt löpande stöd!",
+        "description": "Ditt regelbundna bidrag bidrar till att upprätthålla den fortsatta utvecklingen av Canary."
+      },
       "closeTab": "Du kan stänga den här fliken för att återgå till Canary."
     }
   }

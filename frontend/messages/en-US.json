@@ -1095,8 +1095,14 @@
     "emailNote": "The recurring checkout asks for an email address. Your email is used to send receipts and to let you manage your donation. Donations are never linked to your Canary usage or account.",
     "paymentNote": "All donations are processed securely via BTCPay Server. Bitcoin and Lightning accepted.",
     "thankYou": {
-      "title": "Thank you for your donation!",
-      "description": "Your support helps fund the continued development of Canary.",
+      "oneTime": {
+        "title": "Thank you for your donation!",
+        "description": "Your support helps fund the continued development of Canary."
+      },
+      "recurring": {
+        "title": "Thank you for your ongoing support!",
+        "description": "Your recurring contribution helps sustain the continued development of Canary."
+      },
       "closeTab": "You can close this tab to return to Canary."
     }
   }
