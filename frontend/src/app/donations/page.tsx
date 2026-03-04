@@ -3,6 +3,8 @@
 import { Heart } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { useTranslations } from "next-intl"
+import { AppHeader } from "@/components/app-header"
+import { AppFooter } from "@/components/app-footer"
 
 export default function DonationsPage() {
   const t = useTranslations("donation")
@@ -12,6 +14,8 @@ export default function DonationsPage() {
     : "https://canarybitcoin.com"
 
   return (
+    <>
+    <AppHeader />
     <div className="max-w-2xl mx-auto py-16">
       <div className="text-center mb-10">
         <Heart className="h-10 w-10 text-primary mx-auto mb-4" />
@@ -30,6 +34,8 @@ export default function DonationsPage() {
             </p>
             <a
               href={`${donationsBaseUrl}/api/donations/one-time`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-block w-full rounded-md border border-border bg-background px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-accent"
             >
               {t("oneTime")}
@@ -45,6 +51,8 @@ export default function DonationsPage() {
             </p>
             <a
               href={`${donationsBaseUrl}/api/donations/recurring`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-block w-full rounded-md bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               {t("recurring")}
@@ -61,5 +69,7 @@ export default function DonationsPage() {
         {t("paymentNote")}
       </p>
     </div>
+    <AppFooter />
+    </>
   )
 }
