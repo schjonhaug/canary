@@ -44,7 +44,6 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     sampleWallet,
     handleNavigateToChoose,
     handleSelectWallet,
-    handleSelectSampleWallet,
     getGuideSteps,
   } = useWalletWizard({ slug, network, t: t as unknown as { raw: (key: string) => unknown } })
 

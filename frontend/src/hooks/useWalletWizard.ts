@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { walletGuides, type WalletGuide } from "@/lib/wallet-guides"
-import { SAMPLE_WALLETS, isSampleWalletSlug, getSampleWalletForNetwork } from "@/components/add-wallet-form"
+import { isSampleWalletSlug, getSampleWalletForNetwork } from "@/components/add-wallet-form"
 import type { WizardStep } from "@/components/wallet-wizard/wizard-breadcrumb"
 
 interface UseWalletWizardOptions {
@@ -18,7 +18,6 @@ interface UseWalletWizardReturn {
   handleNavigateToChoose: () => void
   handleSelectWallet: (wallet: WalletGuide) => void
   handleSkipToForm: () => void
-  handleSelectSampleWallet: (slug: string) => void
   getGuideSteps: (walletId: string) => string[]
 }
 
@@ -74,10 +73,6 @@ export function useWalletWizard({ slug, network, t }: UseWalletWizardOptions): U
     router.push('/wallets/add/form')
   }, [router])
 
-  const handleSelectSampleWallet = useCallback((sampleSlug: string) => {
-    router.push(`/wallets/add/${sampleSlug}`)
-  }, [router])
-
   // Helper to get translated guide steps
   const getGuideSteps = useCallback((walletId: string): string[] => {
     try {
@@ -100,7 +95,6 @@ export function useWalletWizard({ slug, network, t }: UseWalletWizardOptions): U
     handleNavigateToChoose,
     handleSelectWallet,
     handleSkipToForm,
-    handleSelectSampleWallet,
     getGuideSteps,
   }
 }
