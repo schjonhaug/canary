@@ -1096,8 +1096,7 @@
     "paymentNote": "Alle donasjoner behandles sikkert via BTCPay Server. Bitcoin og Lightning aksepteres.",
     "thankYou": {
       "title": "Takk for din donasjon!",
-      "description": "Din støtte bidrar til å finansiere videreutviklingen av Canary.",
-      "backToHome": "Tilbake til forsiden"
+      "description": "Din støtte bidrar til å finansiere videreutviklingen av Canary."
     }
   }
 }

@@ -15,8 +15,8 @@ export default function DonationsPage() {
 
   return (
     <>
-    <AppHeader />
-    <div className="max-w-2xl mx-auto py-16">
+      <AppHeader />
+      <div className="max-w-2xl mx-auto py-16">
       <div className="text-center mb-10">
         <Heart className="h-10 w-10 text-primary mx-auto mb-4" />
         <h1 className="text-3xl font-bold mb-3">{t("title")}</h1>
@@ -68,8 +68,8 @@ export default function DonationsPage() {
       <p className="text-sm text-muted-foreground text-center mt-8">
         {t("paymentNote")}
       </p>
-    </div>
-    <AppFooter />
+      </div>
+      <AppFooter />
     </>
   )
 }
