@@ -1096,7 +1096,8 @@
     "paymentNote": "All donations are processed securely via BTCPay Server. Bitcoin and Lightning accepted.",
     "thankYou": {
       "title": "Thank you for your donation!",
-      "description": "Your support helps fund the continued development of Canary."
+      "description": "Your support helps fund the continued development of Canary.",
+      "closeTab": "You can close this tab to return to Canary."
     }
   }
 }
