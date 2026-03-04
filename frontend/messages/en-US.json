@@ -460,13 +460,16 @@
       },
       "wizard": {
         "keysStaySafe": "Canary only needs your output descriptor, XPUB, or address to monitor your transactions. Your private keys stay safe in your wallet.",
-        "tryBaconWallet": "New here? Try with a sample wallet first to see how Canary works.",
-        "useBaconWallet": "Use Bacon Wallet",
+        "trySampleWallet": "New here? Try with a sample wallet first to see how Canary works.",
+        "sampleWallets": {
+          "bacon": "Use Bacon Wallet",
+          "satoshi-genesis": "Use Satoshi Genesis Address"
+        },
         "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
         "exportSteps": "Follow these steps to export your descriptor from {walletName}",
         "pasteXpub": "Paste your XPUB below.",
         "pasteDescriptor": "Paste your output descriptor or XPUB below.",
-        "baconPrefilled": "We've prefilled the Bacon sample wallet for you. Just click Add Wallet to continue.",
+        "samplePrefilled": "We've prefilled the {name} sample wallet for you. Just click Add Wallet to continue.",
         "enterDetails": "Enter Details",
         "walletType": {
           "software": "software",

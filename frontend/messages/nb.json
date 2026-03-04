@@ -460,13 +460,16 @@
       },
       "wizard": {
         "keysStaySafe": "Canary trenger bare dette for å overvåke transaksjonene dine. Dine private nøkler forblir trygge i lommeboken din.",
-        "tryBaconWallet": "Ny her? Prøv med en prøvelommebok først for å se hvordan Canary fungerer.",
-        "useBaconWallet": "Bruk Bacon-lommebok",
-        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
+        "trySampleWallet": "Ny her? Prøv med en prøvelommebok først for å se hvordan Canary fungerer.",
+        "sampleWallets": {
+          "bacon": "Bruk Bacon-lommebok",
+          "satoshi-genesis": "Bruk Satoshi Genesis-adresse"
+        },
+        "guidesPrompt": "Usikker på hvordan du henter output-deskriptorer eller XPUB-er? Følg veiledningene våre nedenfor:",
         "exportSteps": "Følg disse trinnene for å eksportere deskriptoren fra {walletName}",
         "pasteXpub": "Lim inn XPUB nedenfor.",
         "pasteDescriptor": "Lim inn output-deskriptoren eller XPUB nedenfor.",
-        "baconPrefilled": "Vi har forhåndsutfylt Bacon-prøvelommeboken for deg. Bare klikk på Legg til lommebok for å fortsette.",
+        "samplePrefilled": "Vi har forhåndsutfylt {name}-prøvelommeboken for deg. Bare klikk på Legg til lommebok for å fortsette.",
         "enterDetails": "Skriv inn detaljer",
         "walletType": {
           "software": "programvare",

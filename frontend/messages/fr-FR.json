@@ -460,13 +460,16 @@
       },
       "wizard": {
         "keysStaySafe": "Canary n'a besoin de cela que pour surveiller vos transactions. Vos clés privées restent en sécurité dans votre portefeuille.",
-        "tryBaconWallet": "Nouveau ici ? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary.",
-        "useBaconWallet": "Utiliser le portefeuille Bacon",
-        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
+        "trySampleWallet": "Nouveau ici ? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary.",
+        "sampleWallets": {
+          "bacon": "Utiliser le portefeuille Bacon",
+          "satoshi-genesis": "Utiliser l'adresse Satoshi Genesis"
+        },
+        "guidesPrompt": "Vous ne savez pas comment obtenir des descripteurs de sortie ou des XPUBs ? Suivez nos guides ci-dessous :",
         "exportSteps": "Suivez ces étapes pour exporter votre descripteur depuis {walletName}",
         "pasteXpub": "Collez votre XPUB ci-dessous.",
         "pasteDescriptor": "Collez votre descripteur de sortie ou XPUB ci-dessous.",
-        "baconPrefilled": "Nous avons prérempli le portefeuille exemple Bacon pour vous. Cliquez simplement sur Ajouter le portefeuille pour continuer.",
+        "samplePrefilled": "Nous avons prérempli le portefeuille exemple {name} pour vous. Cliquez simplement sur Ajouter le portefeuille pour continuer.",
         "enterDetails": "Entrer les détails",
         "walletType": {
           "software": "logiciel",

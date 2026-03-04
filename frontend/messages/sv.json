@@ -460,13 +460,16 @@
       },
       "wizard": {
         "keysStaySafe": "Canary behöver bara detta för att övervaka dina transaktioner. Dina privata nycklar förblir säkra i din plånbok.",
-        "tryBaconWallet": "Ny här? Prova med en exempelplånbok först för att se hur Canary fungerar.",
-        "useBaconWallet": "Använd Bacon Wallet",
-        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
+        "trySampleWallet": "Ny här? Prova med en exempelplånbok först för att se hur Canary fungerar.",
+        "sampleWallets": {
+          "bacon": "Använd Bacon Wallet",
+          "satoshi-genesis": "Använd Satoshi Genesis-adress"
+        },
+        "guidesPrompt": "Osäker på hur du hittar output descriptors eller XPUB:ar? Följ våra guider nedan:",
         "exportSteps": "Följ dessa steg för att exportera din deskriptor från {walletName}",
         "pasteXpub": "Klistra in din XPUB nedan.",
         "pasteDescriptor": "Klistra in din utdata-deskriptor eller XPUB nedan.",
-        "baconPrefilled": "Vi har fyllt i Bacon-exempelplånboken åt dig. Klicka bara på Lägg till plånbok för att fortsätta.",
+        "samplePrefilled": "Vi har fyllt i {name}-exempelplånboken åt dig. Klicka bara på Lägg till plånbok för att fortsätta.",
         "enterDetails": "Ange detaljer",
         "walletType": {
           "software": "mjukvara",

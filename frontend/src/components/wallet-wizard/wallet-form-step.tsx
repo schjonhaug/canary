@@ -10,9 +10,9 @@ interface WalletFormStepProps {
   selectedWallet: WalletGuide | null
   step: WizardStep
   onNavigateToChoose: () => void
-  isBaconWallet: boolean
+  isSampleWallet: boolean
   isFirstWallet: boolean
-  baconWallet: { name: string; descriptor: string }
+  sampleWallet: { name: string; descriptor: string } | undefined
   onWalletCreated: (wallet: Wallet) => void
   t: (key: string, params?: Record<string, string>) => string
   tNav: (key: string) => string
@@ -22,9 +22,9 @@ export function WalletFormStep({
   selectedWallet,
   step,
   onNavigateToChoose,
-  isBaconWallet,
+  isSampleWallet,
   isFirstWallet,
-  baconWallet,
+  sampleWallet,
   onWalletCreated,
   t,
   tNav,
@@ -42,8 +42,8 @@ export function WalletFormStep({
       <div className="max-w-xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <p className="text-muted-foreground">
-            {isBaconWallet
-              ? t('add.wizard.baconPrefilled')
+            {isSampleWallet && sampleWallet
+              ? t('add.wizard.samplePrefilled', { name: sampleWallet.name })
               : (selectedWallet?.outputType === 'xpub' ? t('add.wizard.pasteXpub') : t('add.wizard.pasteDescriptor'))
             }
           </p>
@@ -55,8 +55,8 @@ export function WalletFormStep({
               isFirstWallet={isFirstWallet}
               onWalletCreated={onWalletCreated}
               autoFocusDescriptor={false}
-              initialName={isBaconWallet ? baconWallet.name : undefined}
-              initialDescriptor={isBaconWallet ? baconWallet.descriptor : undefined}
+              initialName={isSampleWallet && sampleWallet ? sampleWallet.name : undefined}
+              initialDescriptor={isSampleWallet && sampleWallet ? sampleWallet.descriptor : undefined}
               outputType={selectedWallet?.outputType}
             />
           </CardContent>

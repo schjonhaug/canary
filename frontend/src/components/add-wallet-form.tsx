@@ -18,23 +18,51 @@ import { Wallet } from "@/types"
 import { XPUB_REGEX, DESCRIPTOR_REGEX, isValidBitcoinAddress, getDescriptorScriptType } from "@/lib/constants"
 import { useTranslations } from "next-intl"
 
-// Slug for the sample wallet route
-export const SAMPLE_WALLET_SLUG = 'bacon'
+type NetworkKey = 'mainnet' | 'testnet' | 'regtest'
 
-// Well-known "bacon" test wallet (12x "bacon" as BIP39 mnemonic)
-export const SAMPLE_WALLETS: Record<'mainnet' | 'testnet' | 'regtest', { name: string; descriptor: string }> = {
-  mainnet: {
+export interface SampleWallet {
+  slug: string
+  name: string
+  descriptor: string // Default descriptor (mainnet, or network-agnostic for raw pubkeys)
+  networkOverrides?: Partial<Record<NetworkKey, { descriptor: string }>>
+}
+
+// Satoshi's genesis block coinbase public key (uncompressed, network-agnostic)
+const GENESIS_PUBKEY = "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f"
+
+export const SAMPLE_WALLETS: SampleWallet[] = [
+  {
+    slug: 'bacon',
     name: "Bacon",
     descriptor: "wpkh([00000000/84h/0h/0h]xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K/<0;1>/*)#4jhrljfg",
+    networkOverrides: {
+      testnet: { descriptor: "wpkh([9a6a2580/84h/1h/0h]tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#4laqdwct" },
+      regtest: { descriptor: "wpkh([9a6a2580/84h/1h/0h]tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#4laqdwct" },
+    },
   },
-  testnet: {
-    name: "Bacon",
-    descriptor: "wpkh([9a6a2580/84h/1h/0h]tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#4laqdwct",
+  {
+    slug: 'satoshi-genesis',
+    name: "Satoshi (Genesis)",
+    descriptor: GENESIS_PUBKEY,
+    networkOverrides: {
+      regtest: { descriptor: "bcrt1q20lu6ldqtssq7y7ewarlamlzldnmyk5w4n3e97" },
+    },
+    // testnet: uses default descriptor (same raw pubkey, network-agnostic, will be empty)
   },
-  regtest: {
-    name: "Bacon",
-    descriptor: "wpkh([9a6a2580/84h/1h/0h]tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)#4laqdwct",
-  },
+]
+
+export function isSampleWalletSlug(slug: string): boolean {
+  return SAMPLE_WALLETS.some(w => w.slug === slug)
+}
+
+export function getSampleWalletForNetwork(slug: string, network: string): { name: string; descriptor: string } | undefined {
+  const wallet = SAMPLE_WALLETS.find(w => w.slug === slug)
+  if (!wallet) return undefined
+  const override = wallet.networkOverrides?.[network as NetworkKey]
+  return {
+    name: wallet.name,
+    descriptor: override?.descriptor ?? wallet.descriptor,
+  }
 }
 
 interface AddWalletFormProps {

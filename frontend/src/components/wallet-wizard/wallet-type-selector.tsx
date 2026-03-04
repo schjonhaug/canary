@@ -1,11 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Lightbulb } from "lucide-react"
 import { walletGuides, type WalletGuide } from "@/lib/wallet-guides"
-import { AddWalletForm } from "@/components/add-wallet-form"
+import { AddWalletForm, SAMPLE_WALLETS, getSampleWalletForNetwork } from "@/components/add-wallet-form"
 import { Wallet } from "@/types"
 import { WizardBreadcrumb, WizardStep } from "./wizard-breadcrumb"
 
@@ -13,11 +14,12 @@ interface WalletTypeSelectorProps {
   selectedWallet: WalletGuide | null
   step: WizardStep
   onNavigateToChoose: () => void
-  isSelfHostedMode: boolean
+  showSampleWallets: boolean
   isFirstWallet: boolean
   onSelectWallet: (wallet: WalletGuide) => void
-  onSelectSampleWallet: () => void
   onWalletCreated: (wallet: Wallet) => void
+  wallets: Wallet[]
+  network: string
   t: (key: string, params?: Record<string, string>) => string
   tNav: (key: string) => string
 }
@@ -26,14 +28,26 @@ export function WalletTypeSelector({
   selectedWallet,
   step,
   onNavigateToChoose,
-  isSelfHostedMode,
+  showSampleWallets,
   isFirstWallet,
   onSelectWallet,
-  onSelectSampleWallet,
   onWalletCreated,
+  wallets,
+  network,
   t,
   tNav,
 }: WalletTypeSelectorProps) {
+  const [selectedSampleSlug, setSelectedSampleSlug] = useState<string | null>(null)
+
+  // Filter out sample wallets that have already been added
+  const addedWalletNames = new Set(wallets.map(w => w.name))
+  const availableSampleWallets = SAMPLE_WALLETS.filter(sw => !addedWalletNames.has(sw.name))
+
+  // Resolve selected sample wallet for current network
+  const selectedSample = selectedSampleSlug
+    ? getSampleWalletForNetwork(selectedSampleSlug, network)
+    : undefined
+
   return (
     <div className="space-y-6">
       <WizardBreadcrumb
@@ -52,21 +66,33 @@ export function WalletTypeSelector({
           </p>
         </div>
 
-        {/* Bacon sample wallet for self-hosted first wallet */}
-        {isSelfHostedMode && isFirstWallet && (
-          <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0" />
-            <p className="text-sm text-amber-700 dark:text-amber-300 flex-1">
-              {t('add.wizard.tryBaconWallet')}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onSelectSampleWallet}
-              className="shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
-            >
-              {t('add.wizard.useBaconWallet')}
-            </Button>
+        {/* Sample wallets prompt */}
+        {showSampleWallets && availableSampleWallets.length > 0 && (
+          <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-3">
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                {selectedSample
+                  ? t('add.wizard.samplePrefilled', { name: selectedSample.name })
+                  : t('add.wizard.trySampleWallet')
+                }
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {availableSampleWallets.map((wallet) => (
+                  <Button
+                    key={wallet.slug}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedSampleSlug(wallet.slug)}
+                    className={`shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 ${
+                      selectedSampleSlug === wallet.slug ? 'bg-amber-100 dark:bg-amber-900/50' : ''
+                    }`}
+                  >
+                    {t(`add.wizard.sampleWallets.${wallet.slug}`)}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -75,6 +101,8 @@ export function WalletTypeSelector({
             <AddWalletForm
               isFirstWallet={isFirstWallet}
               onWalletCreated={onWalletCreated}
+              initialName={selectedSample?.name}
+              initialDescriptor={selectedSample?.descriptor}
             />
           </CardContent>
         </Card>

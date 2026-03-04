@@ -1,7 +1,7 @@
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AddWalletPage from '../page'
-import { SAMPLE_WALLET_SLUG } from '@/components/add-wallet-form'
+import { SAMPLE_WALLETS } from '@/components/add-wallet-form'
 // Import ApiError from utils to use in tests
 import { ApiError } from '../../../../../lib/utils'
 
@@ -142,7 +142,7 @@ describe('AddWalletPage', () => {
 
     it('shows form with prefilled data for bacon wallet', async () => {
       await act(async () => {
-        renderWithSlug([SAMPLE_WALLET_SLUG])
+        renderWithSlug([SAMPLE_WALLETS[0].slug])
       })
 
       await waitFor(() => {
@@ -176,7 +176,7 @@ describe('AddWalletPage', () => {
       }
     })
 
-    it('shows Bacon wallet option for first wallet', async () => {
+    it('shows sample wallet options for first wallet', async () => {
       walletsContextMockValue = { ...defaultWalletsContextMock, wallets: [] }
 
       await act(async () => {
@@ -187,10 +187,11 @@ describe('AddWalletPage', () => {
         expect(screen.getByText('Use Bacon Wallet')).toBeInTheDocument()
       })
 
+      expect(screen.getByText('Use Satoshi Genesis Address')).toBeInTheDocument()
       expect(screen.getByText(/Try with a sample wallet/)).toBeInTheDocument()
     })
 
-    it('hides Bacon wallet option when wallets exist', async () => {
+    it('hides sample wallet options when non-sample wallets exist', async () => {
       walletsContextMockValue = {
         ...defaultWalletsContextMock,
         wallets: [{ checksum: 'test', name: 'Test Wallet' }] as never[],
@@ -205,6 +206,47 @@ describe('AddWalletPage', () => {
       })
 
       expect(screen.queryByText('Use Bacon Wallet')).not.toBeInTheDocument()
+      expect(screen.queryByText('Use Satoshi Genesis Address')).not.toBeInTheDocument()
+    })
+
+    it('still shows remaining sample wallets when one sample wallet is added', async () => {
+      walletsContextMockValue = {
+        ...defaultWalletsContextMock,
+        wallets: [{ checksum: 'bacon123', name: 'Bacon' }] as never[],
+      }
+
+      await act(async () => {
+        renderWithSlug(undefined)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Use Satoshi Genesis Address')).toBeInTheDocument()
+      })
+
+      // Bacon should not be shown since it's already added
+      expect(screen.queryByText('Use Bacon Wallet')).not.toBeInTheDocument()
+    })
+
+    it('hides sample prompt when all sample wallets are added', async () => {
+      walletsContextMockValue = {
+        ...defaultWalletsContextMock,
+        wallets: [
+          { checksum: 'bacon123', name: 'Bacon' },
+          { checksum: 'satoshi123', name: 'Satoshi (Genesis)' },
+        ] as never[],
+      }
+
+      await act(async () => {
+        renderWithSlug(undefined)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Sparrow')).toBeInTheDocument()
+      })
+
+      expect(screen.queryByText(/Try with a sample wallet/)).not.toBeInTheDocument()
+      expect(screen.queryByText('Use Bacon Wallet')).not.toBeInTheDocument()
+      expect(screen.queryByText('Use Satoshi Genesis Address')).not.toBeInTheDocument()
     })
   })
 
@@ -223,7 +265,7 @@ describe('AddWalletPage', () => {
       }
     })
 
-    it('hides Bacon wallet option in cloud mode', async () => {
+    it('hides sample wallet options in cloud mode', async () => {
       walletsContextMockValue = { ...defaultWalletsContextMock, wallets: [] }
 
       await act(async () => {
@@ -235,6 +277,7 @@ describe('AddWalletPage', () => {
       })
 
       expect(screen.queryByText('Use Bacon Wallet')).not.toBeInTheDocument()
+      expect(screen.queryByText('Use Satoshi Genesis Address')).not.toBeInTheDocument()
     })
 
     it('shows upgrade prompt when wallet limit reached', async () => {
@@ -285,7 +328,7 @@ describe('AddWalletPage', () => {
       expect(screen.getByText('Sparrow')).toBeInTheDocument()
     })
 
-    it('navigates to bacon form when Bacon wallet is clicked', async () => {
+    it('fills form inline when Bacon wallet is clicked', async () => {
       const user = userEvent.setup()
       walletsContextMockValue = { ...defaultWalletsContextMock, wallets: [] }
 
@@ -299,7 +342,34 @@ describe('AddWalletPage', () => {
 
       await user.click(screen.getByText('Use Bacon Wallet'))
 
-      expect(mockPush).toHaveBeenCalledWith(`/wallets/add/${SAMPLE_WALLET_SLUG}`)
+      // Form should be filled inline, no navigation
+      expect(mockPush).not.toHaveBeenCalled()
+      const nameInput = screen.getByLabelText('Wallet Name') as HTMLInputElement
+      await waitFor(() => {
+        expect(nameInput.value).toBe('Bacon')
+      })
+    })
+
+    it('fills form inline when Satoshi Genesis is clicked', async () => {
+      const user = userEvent.setup()
+      walletsContextMockValue = { ...defaultWalletsContextMock, wallets: [] }
+
+      await act(async () => {
+        renderWithSlug(undefined)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Use Satoshi Genesis Address')).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByText('Use Satoshi Genesis Address'))
+
+      // Form should be filled inline, no navigation
+      expect(mockPush).not.toHaveBeenCalled()
+      const nameInput = screen.getByLabelText('Wallet Name') as HTMLInputElement
+      await waitFor(() => {
+        expect(nameInput.value).toBe('Satoshi (Genesis)')
+      })
     })
   })
 

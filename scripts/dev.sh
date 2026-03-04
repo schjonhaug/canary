@@ -1537,6 +1537,54 @@ case "$1" in
             echo "   ✅ Bacon already funded"
         fi
 
+        # Create Satoshi (Genesis) wallet (deterministic single-address - for sample wallet onboarding)
+        # Mimics prod where the raw Satoshi pubkey creates a single-address pk() wallet
+        SATOSHI_GENESIS_TPRV="tprv8ZgxMBicQKsPeZjnkSokuUQsdrWJ83bXz4Eqm1aVDkDSSJ9BqHGMsjxpBEb3n6V9X3u6ThQQ1dmsvigtXWxvP8YJL9FST4DighMqnHtmFTo"
+        # Deterministic first address derived from this tprv (BIP84 path 84h/1h/0h/0/0)
+        SATOSHI_GENESIS_ADDRESS="bcrt1q20lu6ldqtssq7y7ewarlamlzldnmyk5w4n3e97"
+        echo "📋 Creating Satoshi (Genesis) wallet..."
+        btc unloadwallet "satoshi-genesis" 2>/dev/null || true
+
+        set +e
+        CREATE_RESULT=$(btc -named createwallet wallet_name="satoshi-genesis" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1)
+        CREATE_EXIT_CODE=$?
+        set -e
+
+        if echo "$CREATE_RESULT" | grep -q "already exists"; then
+            echo "   ✅ Satoshi (Genesis) wallet exists, loading..."
+            btc loadwallet "satoshi-genesis" >/dev/null 2>&1 || true
+        elif [ $CREATE_EXIT_CODE -eq 0 ]; then
+            echo "   ✅ Satoshi (Genesis) blank wallet created"
+
+            # Import deterministic descriptors (needed to own the address for funding)
+            SATOSHI_EXT_RAW="wpkh($SATOSHI_GENESIS_TPRV/84h/1h/0h/0/*)"
+            SATOSHI_INT_RAW="wpkh($SATOSHI_GENESIS_TPRV/84h/1h/0h/1/*)"
+            SATOSHI_EXT_CHECKSUM=$(btc getdescriptorinfo "$SATOSHI_EXT_RAW" | jq -r '.checksum')
+            SATOSHI_INT_CHECKSUM=$(btc getdescriptorinfo "$SATOSHI_INT_RAW" | jq -r '.checksum')
+
+            btc_wallet "satoshi-genesis" importdescriptors "[
+              {\"desc\": \"${SATOSHI_EXT_RAW}#${SATOSHI_EXT_CHECKSUM}\", \"timestamp\": \"now\", \"active\": true, \"internal\": false, \"range\": [0, 999]},
+              {\"desc\": \"${SATOSHI_INT_RAW}#${SATOSHI_INT_CHECKSUM}\", \"timestamp\": \"now\", \"active\": true, \"internal\": true, \"range\": [0, 999]}
+            ]" >/dev/null 2>&1
+            echo "   ✅ Satoshi (Genesis) wallet seeded with deterministic descriptors"
+        else
+            echo "   ❌ Failed to create Satoshi (Genesis) wallet: $CREATE_RESULT"
+            exit 1
+        fi
+
+        # Fund Satoshi (Genesis) wallet at its deterministic first address
+        echo "💰 Funding Satoshi (Genesis) wallet..."
+        SATOSHI_GENESIS_BALANCE=$(btc_wallet "satoshi-genesis" getbalance 2>/dev/null || echo "0")
+
+        if [ "$(echo "$SATOSHI_GENESIS_BALANCE == 0" | bc -l 2>/dev/null || echo "1")" -eq 1 ]; then
+            echo "   💸 Sending 0.5 BTC to Satoshi (Genesis) address..."
+            btc_miner sendtoaddress "$SATOSHI_GENESIS_ADDRESS" 0.5 >/dev/null 2>&1
+            btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+            echo "   ✅ Satoshi (Genesis) funded with 0.5 BTC at $SATOSHI_GENESIS_ADDRESS"
+        else
+            echo "   ✅ Satoshi (Genesis) already funded"
+        fi
+
         # Create single-address wallets (one per address type, for testing address monitoring)
         echo "📋 Creating single-address wallets..."
         ADDR_TYPES=("legacy" "p2sh-segwit" "bech32" "bech32m")
@@ -1591,8 +1639,9 @@ case "$1" in
         echo "   taproot-empty (tr):       $TAPROOT_EMPTY_DESCRIPTOR"
         echo ""
         echo "📱 Other wallets:"
-        echo "   🎭 Charlie (funded - 0.5 BTC at index 250): $CHARLIE_DESCRIPTOR"
-        echo "   🥓 Bacon (demo - ~0.08 BTC):                $BACON_DESCRIPTOR"
+        echo "   🎭 Charlie (funded - 0.5 BTC at index 250):  $CHARLIE_DESCRIPTOR"
+        echo "   🥓 Bacon (demo - ~0.08 BTC):                 $BACON_DESCRIPTOR"
+        echo "   🪙 Satoshi Genesis (sample - 0.5 BTC):       $SATOSHI_GENESIS_ADDRESS"
         echo ""
         echo "📍 Single addresses (for address monitoring):"
         for i in "${!ADDR_WALLET_NAMES[@]}"; do
@@ -1718,6 +1767,7 @@ case "$1" in
                 btc unloadwallet "taproot-empty" 2>/dev/null || true
                 btc unloadwallet "charlie" 2>/dev/null || true
                 btc unloadwallet "bacon" 2>/dev/null || true
+                btc unloadwallet "satoshi-genesis" 2>/dev/null || true
                 btc unloadwallet "miner" 2>/dev/null || true
             fi
             
