@@ -2062,6 +2062,136 @@ case "$1" in
         fi
         ;;
     
+    "create-stress-wallet")
+        TX_COUNT=${2:-""}
+        if [ -z "$TX_COUNT" ]; then
+            echo "Usage: $0 create-stress-wallet <tx_count>"
+            echo "Example: $0 create-stress-wallet 1000"
+            exit 1
+        fi
+        WALLET_NAME="stress-${TX_COUNT}tx"
+
+        echo "Creating stress-test wallet '$WALLET_NAME' with $TX_COUNT transactions..."
+        echo ""
+
+        # Create the stress wallet (non-blank, Bitcoin Core generates keys)
+        echo "1/4 Creating wallet..."
+        btc unloadwallet "$WALLET_NAME" 2>/dev/null || true
+
+        set +e
+        CREATE_RESULT=$(btc -named createwallet wallet_name="$WALLET_NAME" disable_private_keys=false blank=false passphrase="" avoid_reuse=false descriptors=true 2>&1)
+        CREATE_EXIT_CODE=$?
+        set -e
+
+        if echo "$CREATE_RESULT" | grep -q "already exists"; then
+            echo "   Wallet exists, loading..."
+            btc loadwallet "$WALLET_NAME" >/dev/null 2>&1 || true
+        elif [ $CREATE_EXIT_CODE -eq 0 ]; then
+            echo "   Wallet created"
+        else
+            echo "   Failed to create wallet: $CREATE_RESULT"
+            exit 1
+        fi
+
+        # Get multipath descriptor for backend registration
+        STRESS_DESCRIPTORS=$(btc_wallet "$WALLET_NAME" listdescriptors)
+        STRESS_RECEIVE_DESC=$(echo "$STRESS_DESCRIPTORS" | jq -r '.descriptors[] | select(.desc | startswith("wpkh(") and contains("/0/*")) | .desc')
+        STRESS_MULTIPATH_RAW=$(echo "$STRESS_RECEIVE_DESC" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
+        STRESS_CHECKSUM_INFO=$(btc getdescriptorinfo "$STRESS_MULTIPATH_RAW")
+        STRESS_CHECKSUM=$(echo "$STRESS_CHECKSUM_INFO" | jq -r '.checksum')
+        STRESS_DESCRIPTOR="$STRESS_MULTIPATH_RAW#$STRESS_CHECKSUM"
+        echo "   Descriptor: $STRESS_DESCRIPTOR"
+
+        # Ensure miner wallet is loaded and funded
+        echo ""
+        echo "2/4 Ensuring miner is funded..."
+        btc loadwallet "miner" 2>/dev/null || true
+        MINER_ADDRESS=$(btc_miner getnewaddress)
+        MINER_BALANCE=$(btc_miner getbalance)
+        echo "   Miner balance: $MINER_BALANCE BTC"
+
+        # We need enough funds: ~TX_COUNT * 0.001 BTC plus fees
+        # Mine more blocks if needed (each block gives 50 BTC on regtest)
+        NEEDED_BTC=$(echo "scale=2; $TX_COUNT * 0.002" | bc -l)
+        if [ "$(echo "$MINER_BALANCE < $NEEDED_BTC" | bc -l)" -eq 1 ]; then
+            BLOCKS_NEEDED=$(echo "($NEEDED_BTC - $MINER_BALANCE) / 50 + 2" | bc)
+            echo "   Mining $BLOCKS_NEEDED more blocks for funds..."
+            btc generatetoaddress "$BLOCKS_NEEDED" "$MINER_ADDRESS" >/dev/null 2>&1
+            MINER_BALANCE=$(btc_miner getbalance)
+            echo "   Miner balance now: $MINER_BALANCE BTC"
+        fi
+
+        # Initial funding: send a chunk to the stress wallet
+        echo ""
+        echo "3/4 Initial funding..."
+        INITIAL_FUND=$(echo "scale=8; $TX_COUNT * 0.002" | bc -l)
+        STRESS_ADDR=$(btc_wallet "$WALLET_NAME" getnewaddress)
+        btc_miner sendtoaddress "$STRESS_ADDR" "$INITIAL_FUND" >/dev/null 2>&1
+        btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+        echo "   Funded with $INITIAL_FUND BTC"
+
+        # Generate transactions in batches
+        echo ""
+        echo "4/4 Generating $TX_COUNT transactions..."
+        echo "   (mining a block every 25 transactions to keep UTXOs confirmed)"
+        echo ""
+
+        COMPLETED=0
+        BATCH_SIZE=25
+        START_TIME=$(date +%s)
+
+        while [ $COMPLETED -lt $TX_COUNT ]; do
+            # Calculate how many txs in this batch
+            REMAINING=$((TX_COUNT - COMPLETED))
+            CURRENT_BATCH=$((REMAINING < BATCH_SIZE ? REMAINING : BATCH_SIZE))
+
+            # Send transactions: stress wallet sends small amounts back to miner
+            for i in $(seq 1 $CURRENT_BATCH); do
+                DEST_ADDR=$(btc_miner getnewaddress)
+                # Send a small amount (0.0001 BTC = 10,000 sats), subtract fee from amount
+                if ! btc_wallet "$WALLET_NAME" sendtoaddress "$DEST_ADDR" 0.0001 "" "" true >/dev/null 2>&1; then
+                    # If send fails (insufficient funds), refund from miner
+                    REFUND_ADDR=$(btc_wallet "$WALLET_NAME" getnewaddress)
+                    btc_miner sendtoaddress "$REFUND_ADDR" 0.5 >/dev/null 2>&1
+                    btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+                    # Retry the send
+                    btc_wallet "$WALLET_NAME" sendtoaddress "$DEST_ADDR" 0.0001 "" "" true >/dev/null 2>&1 || true
+                fi
+            done
+
+            # Mine a block to confirm and make change outputs spendable
+            btc generatetoaddress 1 "$MINER_ADDRESS" >/dev/null 2>&1
+
+            COMPLETED=$((COMPLETED + CURRENT_BATCH))
+            ELAPSED=$(($(date +%s) - START_TIME))
+            if [ $ELAPSED -gt 0 ]; then
+                RATE=$((COMPLETED / ELAPSED))
+                if [ $RATE -gt 0 ]; then
+                    ETA=$(( (TX_COUNT - COMPLETED) / RATE ))
+                else
+                    ETA="?"
+                fi
+                echo "   [${COMPLETED}/${TX_COUNT}] ~${RATE} tx/s, ETA: ${ETA}s"
+            else
+                echo "   [${COMPLETED}/${TX_COUNT}]"
+            fi
+        done
+
+        TOTAL_TIME=$(($(date +%s) - START_TIME))
+        FINAL_BALANCE=$(btc_wallet "$WALLET_NAME" getbalance)
+        TX_LIST_COUNT=$(btc_wallet "$WALLET_NAME" listtransactions "*" 999999 | jq 'length')
+
+        echo ""
+        echo "Stress wallet '$WALLET_NAME' ready!"
+        echo "   Transactions: $TX_LIST_COUNT"
+        echo "   Balance: $FINAL_BALANCE BTC"
+        echo "   Time: ${TOTAL_TIME}s"
+        echo "   Descriptor: $STRESS_DESCRIPTOR"
+        echo ""
+        echo "To add to backend:"
+        echo "   curl -X POST http://localhost:3000/api/wallets -H 'Content-Type: application/json' -d '{\"name\":\"$WALLET_NAME\",\"descriptor\":\"$STRESS_DESCRIPTOR\"}'"
+        ;;
+
     "remove-wallets-from-backend")
         BACKEND_URL=${2:-"http://localhost:3000"}
         echo "Removing regtest wallets from backend at $BACKEND_URL..."
@@ -2335,6 +2465,9 @@ case "$1" in
         echo "  mempool-purge [method]       Purge mempool using method (restart/double-spend/low-fee)"
         echo "  reorg                        Blockchain reorganization (1 block)"
         echo "  run-tests <address>          Run comprehensive test suite with wallet address"
+        echo ""
+        echo "Stress Testing:"
+        echo "  create-stress-wallet <count>    Create wallet with N transactions (e.g. 1000)"
         echo ""
         echo "Backend Integration:"
         echo "  add-wallets-to-backend [url]    Add wallets to backend (also done by init)"
