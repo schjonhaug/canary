@@ -723,9 +723,9 @@ impl WalletSyncService {
 
             // Get all transactions from BDK with full details for input comparison
             let all_bdk_txs: Vec<_> = wallet.tx_graph().full_txs().collect();
-            let bdk_tx_map: std::collections::HashMap<String, _> = all_bdk_txs
+            let bdk_tx_map: std::collections::HashMap<Txid, _> = all_bdk_txs
                 .iter()
-                .map(|tx| (tx.txid.to_string(), tx))
+                .map(|tx| (tx.txid, tx))
                 .collect();
 
             for conflicted_txid in &conflicted_txids {
@@ -733,8 +733,9 @@ impl WalletSyncService {
                 if let Some(pending_tx) = existing_tx_map.get(conflicted_txid) {
                     if pending_tx.transaction_status == "pending" {
                         // Find the conflicted transaction's inputs
-                        let conflicted_tx_inputs: Option<Vec<_>> = bdk_tx_map
-                            .get(conflicted_txid.as_str())
+                        let conflicted_tx_inputs: Option<Vec<_>> = Txid::from_str(conflicted_txid)
+                            .ok()
+                            .and_then(|txid| bdk_tx_map.get(&txid))
                             .map(|tx| {
                                 tx.tx
                                     .input
@@ -756,7 +757,9 @@ impl WalletSyncService {
                                 }
 
                                 // Check if this canonical transaction shares any inputs with the conflicted one
-                                if let Some(canonical_tx) = bdk_tx_map.get(canonical_txid.as_str())
+                                if let Some(canonical_tx) = Txid::from_str(canonical_txid)
+                                    .ok()
+                                    .and_then(|txid| bdk_tx_map.get(&txid))
                                 {
                                     let canonical_inputs: Vec<_> = canonical_tx
                                         .tx
@@ -1139,15 +1142,15 @@ impl WalletSyncService {
 
         // Get all BDK transactions with full details
         let all_bdk_txs: Vec<_> = wallet.tx_graph().full_txs().collect();
-        let bdk_tx_map: std::collections::HashMap<String, _> = all_bdk_txs
+        let bdk_tx_map: std::collections::HashMap<Txid, _> = all_bdk_txs
             .iter()
-            .map(|tx| (tx.txid.to_string(), tx))
+            .map(|tx| (tx.txid, tx))
             .collect();
 
         // Build a map of unconfirmed transaction outputs: (txid, vout) -> txid
         let mut unconfirmed_outputs: HashMap<(String, u32), String> = HashMap::new();
         for (txid, _, _, _, _, _) in &unconfirmed_txs {
-            if let Some(bdk_tx) = bdk_tx_map.get(txid.as_str()) {
+            if let Some(bdk_tx) = Txid::from_str(txid).ok().and_then(|t| bdk_tx_map.get(&t)) {
                 for (vout, _) in bdk_tx.tx.output.iter().enumerate() {
                     unconfirmed_outputs.insert((txid.clone(), vout as u32), txid.clone());
                 }
@@ -1156,7 +1159,7 @@ impl WalletSyncService {
 
         // Check each unconfirmed transaction to see if it spends from another unconfirmed transaction
         for (child_txid, _, _, _, _, _) in &unconfirmed_txs {
-            if let Some(bdk_tx) = bdk_tx_map.get(child_txid.as_str()) {
+            if let Some(bdk_tx) = Txid::from_str(child_txid).ok().and_then(|t| bdk_tx_map.get(&t)) {
                 // Check each input of this transaction
                 for input in &bdk_tx.tx.input {
                     let prev_txid = input.previous_output.txid.to_string();
@@ -1539,10 +1542,6 @@ impl WalletSyncService {
             .metadata_db
             .get_transactions_by_wallet_checksum(wallet_checksum, None)
             .await?;
-        let existing_txids: std::collections::HashSet<String> = existing_transactions
-            .iter()
-            .map(|tx| tx.txid.clone())
-            .collect();
         let existing_tx_map: std::collections::HashMap<&str, &_> = existing_transactions
             .iter()
             .map(|tx| (tx.txid.as_str(), tx))
@@ -1554,7 +1553,7 @@ impl WalletSyncService {
         for hist_entry in &history {
             let txid_str = hist_entry.tx_hash.to_string();
 
-            if existing_txids.contains(&txid_str) {
+            if existing_tx_map.contains_key(txid_str.as_str()) {
                 // Check if an existing pending transaction got confirmed
                 if is_tx_confirmed(hist_entry.height, &txid_str) {
                     if let Some(_existing) = existing_tx_map
@@ -1830,10 +1829,6 @@ impl WalletSyncService {
                 .metadata_db
                 .get_transactions_by_wallet_checksum(wallet_checksum, None)
                 .await?;
-            let existing_txids: std::collections::HashSet<String> = existing_transactions
-                .iter()
-                .map(|tx| tx.txid.clone())
-                .collect();
             let existing_tx_map: std::collections::HashMap<&str, &_> = existing_transactions
                 .iter()
                 .map(|tx| (tx.txid.as_str(), tx))
@@ -1844,7 +1839,7 @@ impl WalletSyncService {
             for hist_entry in &history {
                 let txid_str = hist_entry.tx_hash.to_string();
 
-                if existing_txids.contains(&txid_str) {
+                if existing_tx_map.contains_key(txid_str.as_str()) {
                     // Check if an existing pending transaction got confirmed
                     if is_tx_confirmed(hist_entry.height, &txid_str) {
                         if let Some(_existing) = existing_tx_map
