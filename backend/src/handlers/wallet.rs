@@ -810,7 +810,7 @@ pub async fn get_wallet_detail(
     // Get transactions - no mutex blocking!
     let transactions = match app_services
         .metadata_db
-        .get_transactions_by_wallet_checksum(&wallet.checksum, None)
+        .get_transactions_by_wallet_checksum(&wallet.checksum, None, true)
         .await
     {
         Ok(transactions) => transactions,

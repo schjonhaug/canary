@@ -401,7 +401,7 @@ impl WalletSyncService {
         // Get existing transactions sorted chronologically (oldest first for balance calculation)
         let existing_transactions = self
             .metadata_db
-            .get_transactions_by_wallet_checksum(wallet_checksum, None)
+            .get_transactions_by_wallet_checksum(wallet_checksum, None, false)
             .await?;
         debug!(
             "[{}] Loaded {} existing transactions from metadata in {:.2?}",
@@ -1550,7 +1550,7 @@ impl WalletSyncService {
         // Get existing transactions from our database
         let existing_transactions = self
             .metadata_db
-            .get_transactions_by_wallet_checksum(wallet_checksum, None)
+            .get_transactions_by_wallet_checksum(wallet_checksum, None, false)
             .await?;
         let existing_tx_map: std::collections::HashMap<&str, &_> = existing_transactions
             .iter()
@@ -1834,7 +1834,7 @@ impl WalletSyncService {
             // Get existing transactions for THIS watcher
             let existing_transactions = self
                 .metadata_db
-                .get_transactions_by_wallet_checksum(wallet_checksum, None)
+                .get_transactions_by_wallet_checksum(wallet_checksum, None, false)
                 .await?;
             let existing_tx_map: std::collections::HashMap<&str, &_> = existing_transactions
                 .iter()

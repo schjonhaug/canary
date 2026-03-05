@@ -105,6 +105,7 @@ impl MetadataDb {
         &self,
         wallet_checksum: &str,
         limit: Option<usize>,
+        include_notifications: bool,
     ) -> Result<Vec<TransactionWithWallet>> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
@@ -139,43 +140,63 @@ impl MetadataDb {
                     transaction_status: row.get(10)?,
                     replaced_by_txid: row.get(11)?,
                     replaced_at: row.get(12)?,
-                    notification_status: vec![], // Will be populated below
+                    notification_status: vec![],
                 })
             })?;
 
-            let mut transactions = Vec::new();
-            for transaction in transaction_iter {
-                let mut tx = transaction?;
+            let mut transactions: Vec<TransactionWithWallet> = transaction_iter
+                .collect::<std::result::Result<Vec<_>, _>>()?;
 
-                // Get notification status for this transaction
+            if include_notifications && !transactions.is_empty() {
+                // Single query for all notifications for this wallet, filtered in Rust.
+                // This avoids the SQLite variable limit (SQLITE_MAX_VARIABLE_NUMBER)
+                // that would be hit with a large IN (?, ?, ...) clause.
+                // Note: message_content is intentionally excluded (not part of NotificationStatus).
                 let mut notification_stmt = conn.prepare(
-                    "SELECT nl.contact_name_snapshot, nl.provider_name, nl.status, nl.error_message,
-                            nl.notification_target_snapshot, nl.provider_type_snapshot, nl.created_at, nl.message_content, nl.notification_type
+                    "SELECT nl.transaction_txid, nl.contact_name_snapshot, nl.provider_name, nl.status,
+                            nl.error_message, nl.notification_target_snapshot, nl.provider_type_snapshot,
+                            nl.created_at, nl.notification_type
                      FROM notification_logs nl
-                     WHERE nl.transaction_txid = ?1 AND nl.transaction_wallet_checksum = ?2
+                     WHERE nl.transaction_wallet_checksum = ?1
                      ORDER BY nl.created_at ASC"
                 )?;
 
-                let notification_iter = notification_stmt.query_map([&tx.txid, &tx.wallet_checksum], |row| {
-                    let notification_type: String = row.get(8)?;
+                // txid_set ensures we only attach notifications to transactions in the
+                // current result set, important when `limit` trims the full list.
+                let txid_set: std::collections::HashSet<&str> =
+                    transactions.iter().map(|tx| tx.txid.as_str()).collect();
 
-                    Ok(NotificationStatus {
-                        contact_name: row.get::<_, Option<String>>(0)?.unwrap_or("Unknown".to_string()),
-                        provider_name: row.get(1)?,
-                        status: row.get(2)?,
-                        error_message: row.get(3)?,
-                        notification_target: row.get(4)?,
-                        provider_type: row.get(5)?,
-                        created_at: row.get(6)?,
+                let notification_iter = notification_stmt.query_map([&checksum], |row| {
+                    let txid: String = row.get(0)?;
+                    let notification_type: String = row.get(8)?;
+                    Ok((txid, NotificationStatus {
+                        contact_name: row.get::<_, Option<String>>(1)?.unwrap_or("Unknown".to_string()),
+                        provider_name: row.get(2)?,
+                        status: row.get(3)?,
+                        error_message: row.get(4)?,
+                        notification_target: row.get(5)?,
+                        provider_type: row.get(6)?,
+                        created_at: row.get(7)?,
                         notification_type,
-                    })
+                    }))
                 })?;
 
+                // Group notifications by txid, filtering to only fetched transactions
+                let mut notifications_map: std::collections::HashMap<String, Vec<NotificationStatus>> =
+                    std::collections::HashMap::new();
                 for notification in notification_iter {
-                    tx.notification_status.push(notification?);
+                    let (txid, status) = notification?;
+                    if txid_set.contains(txid.as_str()) {
+                        notifications_map.entry(txid).or_default().push(status);
+                    }
                 }
 
-                transactions.push(tx);
+                // Attach notifications to transactions
+                for tx in &mut transactions {
+                    if let Some(notifications) = notifications_map.remove(&tx.txid) {
+                        tx.notification_status = notifications;
+                    }
+                }
             }
 
             Ok(transactions)
