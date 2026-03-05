@@ -851,7 +851,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
     .unwrap();
 
     let transactions = db
-        .get_transactions_by_wallet_checksum(&wallet_checksum, None)
+        .get_transactions_by_wallet_checksum(&wallet_checksum, None, false)
         .await
         .unwrap();
 

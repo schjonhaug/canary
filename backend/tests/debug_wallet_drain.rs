@@ -95,7 +95,7 @@ async fn debug_wallet_drain_detection() {
 
     // Check initial events
     let initial_events = metadata_db
-        .get_transactions_by_wallet_checksum(&bob_checksum, None)
+        .get_transactions_by_wallet_checksum(&bob_checksum, None, false)
         .await
         .expect("Failed to get initial events");
 
@@ -130,7 +130,7 @@ async fn debug_wallet_drain_detection() {
 
     // Check events after drain
     let post_drain_events = metadata_db
-        .get_transactions_by_wallet_checksum(&bob_checksum, None)
+        .get_transactions_by_wallet_checksum(&bob_checksum, None, false)
         .await
         .expect("Failed to get post-drain events");
 
@@ -193,7 +193,7 @@ async fn debug_wallet_drain_detection() {
     sleep(Duration::from_millis(2000)).await;
 
     let final_events = metadata_db
-        .get_transactions_by_wallet_checksum(&bob_checksum, None)
+        .get_transactions_by_wallet_checksum(&bob_checksum, None, false)
         .await
         .expect("Failed to get final events");
 

@@ -1519,7 +1519,7 @@ volumes:
     ) -> Result<Vec<TransactionWithWallet>, Box<dyn std::error::Error>> {
         let transactions = self
             .metadata_db
-            .get_transactions_by_wallet_checksum(wallet_checksum, None)
+            .get_transactions_by_wallet_checksum(wallet_checksum, None, false)
             .await?;
         Ok(transactions)
     }
