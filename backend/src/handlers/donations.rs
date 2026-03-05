@@ -5,9 +5,22 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 
+const SUPPORTED_LOCALES: &[&str] = &[
+    "en-US", "nb", "es-419", "pt-BR", "de-DE", "fr-FR", "ja", "da", "sv",
+];
+
 #[derive(Deserialize)]
 pub struct DonationParams {
     locale: Option<String>,
+}
+
+impl DonationParams {
+    /// Return the locale only if it matches a supported value.
+    fn validated_locale(&self) -> Option<&str> {
+        self.locale
+            .as_deref()
+            .filter(|l| SUPPORTED_LOCALES.contains(l))
+    }
 }
 
 pub(crate) fn redirect_response(url: &str) -> Response {
@@ -45,7 +58,7 @@ pub async fn donate_one_time(
         }
     };
 
-    let redirect_url = thank_you_url(&config, params.locale.as_deref());
+    let redirect_url = thank_you_url(&config, params.validated_locale());
 
     match client.create_invoice(&redirect_url).await {
         Ok(checkout_link) => redirect_response(&checkout_link),
@@ -68,7 +81,7 @@ pub async fn donate_recurring(
         }
     };
 
-    let redirect_url = thank_you_url(&config, params.locale.as_deref());
+    let redirect_url = thank_you_url(&config, params.validated_locale());
 
     match client.create_plan_checkout(&redirect_url).await {
         Ok(checkout_url) => redirect_response(&checkout_url),
