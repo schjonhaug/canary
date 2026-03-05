@@ -923,21 +923,22 @@ async fn test_include_notifications_batches_correctly() {
     }
 
     // Insert notification logs directly via SQL (avoids needing contacts/methods)
+    // Explicit created_at timestamps ensure deterministic ORDER BY created_at ASC
     {
         let conn = db.pool.get().unwrap();
         conn.execute(
-            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)
-             VALUES ('log1', 'tx_a', ?1, 'ntfy', 'sent', 'msg1', 'confirmed', 'Alice', 'topic1', 'ntfy')",
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot, created_at)
+             VALUES ('log1', 'tx_a', ?1, 'ntfy', 'sent', 'msg1', 'confirmed', 'Alice', 'topic1', 'ntfy', '2025-01-01 00:00:01')",
             [&wallet_checksum],
         ).unwrap();
         conn.execute(
-            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)
-             VALUES ('log2', 'tx_a', ?1, 'email', 'sent', 'msg2', 'confirmed', 'Bob', 'bob@example.com', 'email')",
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot, created_at)
+             VALUES ('log2', 'tx_a', ?1, 'email', 'sent', 'msg2', 'confirmed', 'Bob', 'bob@example.com', 'email', '2025-01-01 00:00:02')",
             [&wallet_checksum],
         ).unwrap();
         conn.execute(
-            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)
-             VALUES ('log3', 'tx_b', ?1, 'sms', 'failed', 'msg3', 'pending', 'Charlie', '+1234567890', 'sms')",
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot, created_at)
+             VALUES ('log3', 'tx_b', ?1, 'sms', 'failed', 'msg3', 'pending', 'Charlie', '+1234567890', 'sms', '2025-01-01 00:00:03')",
             [&wallet_checksum],
         ).unwrap();
     }

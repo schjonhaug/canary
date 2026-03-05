@@ -154,7 +154,7 @@ impl MetadataDb {
                 let mut notification_stmt = conn.prepare(
                     "SELECT nl.transaction_txid, nl.contact_name_snapshot, nl.provider_name, nl.status,
                             nl.error_message, nl.notification_target_snapshot, nl.provider_type_snapshot,
-                            nl.created_at, nl.message_content, nl.notification_type
+                            nl.created_at, nl.notification_type
                      FROM notification_logs nl
                      WHERE nl.transaction_wallet_checksum = ?1
                      ORDER BY nl.created_at ASC"
@@ -165,7 +165,7 @@ impl MetadataDb {
 
                 let notification_iter = notification_stmt.query_map([&checksum], |row| {
                     let txid: String = row.get(0)?;
-                    let notification_type: String = row.get(9)?;
+                    let notification_type: String = row.get(8)?;
                     Ok((txid, NotificationStatus {
                         contact_name: row.get::<_, Option<String>>(1)?.unwrap_or("Unknown".to_string()),
                         provider_name: row.get(2)?,
