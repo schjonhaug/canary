@@ -31,24 +31,17 @@ function detectLocale(acceptLanguage: string | null): Locale {
 }
 
 export default getRequestConfig(async () => {
-  const headerStore = await headers()
   const cookieStore = await cookies()
-
-  // Check for locale override from query param (set by middleware)
-  const localeOverride = headerStore.get('x-locale-override') as Locale | null
+  const cookieLocale = cookieStore.get('locale')?.value as Locale | undefined
 
   let locale: Locale
-  if (localeOverride && locales.includes(localeOverride)) {
-    locale = localeOverride
+  if (cookieLocale && locales.includes(cookieLocale)) {
+    locale = cookieLocale
   } else {
-    const cookieLocale = cookieStore.get('locale')?.value as Locale | undefined
-    if (cookieLocale && locales.includes(cookieLocale)) {
-      locale = cookieLocale
-    } else {
-      // No cookie yet - detect from Accept-Language header (first visit)
-      const acceptLanguage = headerStore.get('accept-language')
-      locale = detectLocale(acceptLanguage)
-    }
+    // No cookie yet - detect from Accept-Language header (first visit)
+    const headerStore = await headers()
+    const acceptLanguage = headerStore.get('accept-language')
+    locale = detectLocale(acceptLanguage)
   }
 
   return {
