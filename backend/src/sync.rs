@@ -722,9 +722,9 @@ impl WalletSyncService {
             );
 
             // Get all transactions from BDK with full details for input comparison
-            let all_bdk_txs: Vec<_> = wallet.tx_graph().full_txs().collect();
-            let bdk_tx_map: std::collections::HashMap<Txid, _> = all_bdk_txs
-                .iter()
+            let bdk_tx_map: std::collections::HashMap<Txid, _> = wallet
+                .tx_graph()
+                .full_txs()
                 .map(|tx| (tx.txid, tx))
                 .collect();
 
@@ -734,6 +734,7 @@ impl WalletSyncService {
                     if pending_tx.transaction_status == "pending" {
                         // Find the conflicted transaction's inputs
                         let conflicted_tx_inputs: Option<Vec<_>> = Txid::from_str(conflicted_txid)
+                            .map_err(|e| warn!("[{}] Failed to parse conflicted txid {}: {}", wallet_checksum, conflicted_txid, e))
                             .ok()
                             .and_then(|txid| bdk_tx_map.get(&txid))
                             .map(|tx| {
@@ -758,6 +759,7 @@ impl WalletSyncService {
 
                                 // Check if this canonical transaction shares any inputs with the conflicted one
                                 if let Some(canonical_tx) = Txid::from_str(canonical_txid)
+                                    .map_err(|e| warn!("[{}] Failed to parse canonical txid {}: {}", wallet_checksum, canonical_txid, e))
                                     .ok()
                                     .and_then(|txid| bdk_tx_map.get(&txid))
                                 {
@@ -1141,16 +1143,20 @@ impl WalletSyncService {
         }
 
         // Get all BDK transactions with full details
-        let all_bdk_txs: Vec<_> = wallet.tx_graph().full_txs().collect();
-        let bdk_tx_map: std::collections::HashMap<Txid, _> = all_bdk_txs
-            .iter()
+        let bdk_tx_map: std::collections::HashMap<Txid, _> = wallet
+            .tx_graph()
+            .full_txs()
             .map(|tx| (tx.txid, tx))
             .collect();
 
         // Build a map of unconfirmed transaction outputs: (txid, vout) -> txid
         let mut unconfirmed_outputs: HashMap<(String, u32), String> = HashMap::new();
         for (txid, _, _, _, _, _) in &unconfirmed_txs {
-            if let Some(bdk_tx) = Txid::from_str(txid).ok().and_then(|t| bdk_tx_map.get(&t)) {
+            if let Some(bdk_tx) = Txid::from_str(txid)
+                .map_err(|e| warn!("[{}] Failed to parse txid {}: {}", wallet_checksum, txid, e))
+                .ok()
+                .and_then(|t| bdk_tx_map.get(&t))
+            {
                 for (vout, _) in bdk_tx.tx.output.iter().enumerate() {
                     unconfirmed_outputs.insert((txid.clone(), vout as u32), txid.clone());
                 }
@@ -1159,7 +1165,11 @@ impl WalletSyncService {
 
         // Check each unconfirmed transaction to see if it spends from another unconfirmed transaction
         for (child_txid, _, _, _, _, _) in &unconfirmed_txs {
-            if let Some(bdk_tx) = Txid::from_str(child_txid).ok().and_then(|t| bdk_tx_map.get(&t)) {
+            if let Some(bdk_tx) = Txid::from_str(child_txid)
+                .map_err(|e| warn!("[{}] Failed to parse child txid {}: {}", wallet_checksum, child_txid, e))
+                .ok()
+                .and_then(|t| bdk_tx_map.get(&t))
+            {
                 // Check each input of this transaction
                 for input in &bdk_tx.tx.input {
                     let prev_txid = input.previous_output.txid.to_string();
@@ -1553,51 +1563,48 @@ impl WalletSyncService {
         for hist_entry in &history {
             let txid_str = hist_entry.tx_hash.to_string();
 
-            if existing_tx_map.contains_key(txid_str.as_str()) {
+            if let Some(existing) = existing_tx_map.get(txid_str.as_str()) {
                 // Check if an existing pending transaction got confirmed
-                if is_tx_confirmed(hist_entry.height, &txid_str) {
-                    if let Some(_existing) = existing_tx_map
-                        .get(txid_str.as_str())
-                        .filter(|tx| tx.block_height.is_none())
-                    {
-                        // Transaction just confirmed
-                        let confirmed_at =
-                            match client.get_block_header(hist_entry.height as u32).await {
-                                Ok(header) => header.timestamp,
-                                Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                                Err(_) => std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_secs(),
-                            };
+                if is_tx_confirmed(hist_entry.height, &txid_str)
+                    && existing.block_height.is_none()
+                {
+                    // Transaction just confirmed
+                    let confirmed_at =
+                        match client.get_block_header(hist_entry.height as u32).await {
+                            Ok(header) => header.timestamp,
+                            Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
+                            Err(_) => std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs(),
+                        };
 
-                        self.metadata_db
-                            .update_transaction_confirmation(
-                                wallet_checksum,
-                                &txid_str,
-                                hist_entry.height as u32,
-                                confirmed_at,
-                            )
-                            .await?;
+                    self.metadata_db
+                        .update_transaction_confirmation(
+                            wallet_checksum,
+                            &txid_str,
+                            hist_entry.height as u32,
+                            confirmed_at,
+                        )
+                        .await?;
 
-                        // Send confirmation notification
-                        if !suppress_notifications {
-                            if let Some(updated_tx) = self
-                                .metadata_db
-                                .get_transaction_by_txid(wallet_checksum, &txid_str)
-                                .await?
-                            {
-                                self.send_confirmed_transaction_notification(&updated_tx)
-                                    .await?;
-                            }
+                    // Send confirmation notification
+                    if !suppress_notifications {
+                        if let Some(updated_tx) = self
+                            .metadata_db
+                            .get_transaction_by_txid(wallet_checksum, &txid_str)
+                            .await?
+                        {
+                            self.send_confirmed_transaction_notification(&updated_tx)
+                                .await?;
                         }
-
-                        has_changes = true;
-                        debug!(
-                            "[{}] Address watch tx confirmed: {} at height {}",
-                            wallet_checksum, txid_str, hist_entry.height
-                        );
                     }
+
+                    has_changes = true;
+                    debug!(
+                        "[{}] Address watch tx confirmed: {} at height {}",
+                        wallet_checksum, txid_str, hist_entry.height
+                    );
                 }
                 continue;
             }
@@ -1839,56 +1846,53 @@ impl WalletSyncService {
             for hist_entry in &history {
                 let txid_str = hist_entry.tx_hash.to_string();
 
-                if existing_tx_map.contains_key(txid_str.as_str()) {
+                if let Some(existing) = existing_tx_map.get(txid_str.as_str()) {
                     // Check if an existing pending transaction got confirmed
-                    if is_tx_confirmed(hist_entry.height, &txid_str) {
-                        if let Some(_existing) = existing_tx_map
-                            .get(txid_str.as_str())
-                            .filter(|tx| tx.block_height.is_none())
+                    if is_tx_confirmed(hist_entry.height, &txid_str)
+                        && existing.block_height.is_none()
+                    {
+                        let confirmed_at = match block_header_cache
+                            .get(&(hist_entry.height as u32))
                         {
-                            let confirmed_at = match block_header_cache
-                                .get(&(hist_entry.height as u32))
-                            {
-                                Some(&ts) => ts,
-                                None => {
-                                    let ts = match client
-                                        .get_block_header(hist_entry.height as u32)
-                                        .await
-                                    {
-                                        Ok(header) => header.timestamp,
-                                        Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                                        Err(_) => std::time::SystemTime::now()
-                                            .duration_since(std::time::UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs(),
-                                    };
-                                    block_header_cache.insert(hist_entry.height as u32, ts);
-                                    ts
-                                }
-                            };
-
-                            self.metadata_db
-                                .update_transaction_confirmation(
-                                    wallet_checksum,
-                                    &txid_str,
-                                    hist_entry.height as u32,
-                                    confirmed_at,
-                                )
-                                .await?;
-
-                            if !suppress_notifications {
-                                if let Some(updated_tx) = self
-                                    .metadata_db
-                                    .get_transaction_by_txid(wallet_checksum, &txid_str)
-                                    .await?
+                            Some(&ts) => ts,
+                            None => {
+                                let ts = match client
+                                    .get_block_header(hist_entry.height as u32)
+                                    .await
                                 {
-                                    self.send_confirmed_transaction_notification(&updated_tx)
-                                        .await?;
-                                }
+                                    Ok(header) => header.timestamp,
+                                    Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
+                                    Err(_) => std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                };
+                                block_header_cache.insert(hist_entry.height as u32, ts);
+                                ts
                             }
+                        };
 
-                            has_changes = true;
+                        self.metadata_db
+                            .update_transaction_confirmation(
+                                wallet_checksum,
+                                &txid_str,
+                                hist_entry.height as u32,
+                                confirmed_at,
+                            )
+                            .await?;
+
+                        if !suppress_notifications {
+                            if let Some(updated_tx) = self
+                                .metadata_db
+                                .get_transaction_by_txid(wallet_checksum, &txid_str)
+                                .await?
+                            {
+                                self.send_confirmed_transaction_notification(&updated_tx)
+                                    .await?;
+                            }
                         }
+
+                        has_changes = true;
                     }
                     continue;
                 }
