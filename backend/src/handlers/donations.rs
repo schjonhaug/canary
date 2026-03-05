@@ -1,27 +1,8 @@
 use crate::api::BtcPayClientState;
 use crate::config::AppConfig;
-use axum::extract::{Query, State};
+use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use serde::Deserialize;
-
-const SUPPORTED_LOCALES: &[&str] = &[
-    "en-US", "nb", "es-419", "pt-BR", "de-DE", "fr-FR", "ja", "da", "sv",
-];
-
-#[derive(Deserialize)]
-pub struct DonationParams {
-    locale: Option<String>,
-}
-
-impl DonationParams {
-    /// Return the locale only if it matches a supported value.
-    fn validated_locale(&self) -> Option<&str> {
-        self.locale
-            .as_deref()
-            .filter(|l| SUPPORTED_LOCALES.contains(l))
-    }
-}
 
 pub(crate) fn redirect_response(url: &str) -> Response {
     let mut headers = HeaderMap::new();
@@ -37,19 +18,14 @@ pub(crate) fn redirect_response(url: &str) -> Response {
     }
 }
 
-pub(crate) fn thank_you_url(config: &AppConfig, locale: Option<&str>) -> String {
+pub(crate) fn thank_you_url(config: &AppConfig) -> String {
     let frontend_url = config.frontend_url().unwrap_or("https://canarybitcoin.com");
-    let base = format!("{}/donations/thank-you", frontend_url.trim_end_matches('/'));
-    match locale {
-        Some(l) => format!("{}?locale={}", base, l),
-        None => base,
-    }
+    format!("{}/donations/thank-you", frontend_url.trim_end_matches('/'))
 }
 
 pub async fn donate_one_time(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
-    Query(params): Query<DonationParams>,
 ) -> Response {
     let client = match &btcpay {
         Some(c) => c,
@@ -58,7 +34,7 @@ pub async fn donate_one_time(
         }
     };
 
-    let redirect_url = thank_you_url(&config, params.validated_locale());
+    let redirect_url = thank_you_url(&config);
 
     match client.create_invoice(&redirect_url).await {
         Ok(checkout_link) => redirect_response(&checkout_link),
@@ -72,7 +48,6 @@ pub async fn donate_one_time(
 pub async fn donate_recurring(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
-    Query(params): Query<DonationParams>,
 ) -> Response {
     let client = match &btcpay {
         Some(c) => c,
@@ -81,7 +56,7 @@ pub async fn donate_recurring(
         }
     };
 
-    let redirect_url = thank_you_url(&config, params.validated_locale());
+    let redirect_url = thank_you_url(&config);
 
     match client.create_plan_checkout(&redirect_url).await {
         Ok(checkout_url) => redirect_response(&checkout_url),
