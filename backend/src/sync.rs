@@ -569,7 +569,11 @@ impl WalletSyncService {
         // Get ALL transactions (including non-canonical/conflicted ones) for RBF detection
         let canonical_txids: std::collections::HashSet<Txid> = canonical_transactions_data
             .iter()
-            .filter_map(|(txid, _, _, _, _, _)| Txid::from_str(txid).ok())
+            .filter_map(|(txid, _, _, _, _, _)| {
+                Txid::from_str(txid)
+                    .inspect_err(|e| warn!("[{}] Failed to parse canonical txid {}: {}", wallet_checksum, txid, e))
+                    .ok()
+            })
             .collect();
 
         // Find transactions that exist in full graph but NOT in canonical set (these are conflicted/replaced)
