@@ -567,19 +567,16 @@ impl WalletSyncService {
         }
 
         // Get ALL transactions (including non-canonical/conflicted ones) for RBF detection
-        let all_txs_from_bdk: Vec<String> = wallet
-            .tx_graph()
-            .full_txs()
-            .map(|tx| tx.txid.to_string())
-            .collect();
-        let canonical_txids: Vec<String> = canonical_transactions_data
+        let canonical_txids: std::collections::HashSet<Txid> = canonical_transactions_data
             .iter()
-            .map(|(txid, _, _, _, _, _)| txid.clone())
+            .filter_map(|(txid, _, _, _, _, _)| Txid::from_str(txid).ok())
             .collect();
 
         // Find transactions that exist in full graph but NOT in canonical set (these are conflicted/replaced)
-        let conflicted_txids: Vec<String> = all_txs_from_bdk
-            .into_iter()
+        let conflicted_txids: Vec<Txid> = wallet
+            .tx_graph()
+            .full_txs()
+            .map(|tx| tx.txid)
             .filter(|txid| !canonical_txids.contains(txid))
             .collect();
 
@@ -729,14 +726,13 @@ impl WalletSyncService {
                 .collect();
 
             for conflicted_txid in &conflicted_txids {
+                let conflicted_txid_str = conflicted_txid.to_string();
                 // Check if this conflicted transaction is in our pending transactions using in-memory lookup
-                if let Some(pending_tx) = existing_tx_map.get(conflicted_txid) {
+                if let Some(pending_tx) = existing_tx_map.get(&conflicted_txid_str) {
                     if pending_tx.transaction_status == "pending" {
                         // Find the conflicted transaction's inputs
-                        let conflicted_tx_inputs: Option<Vec<_>> = Txid::from_str(conflicted_txid)
-                            .map_err(|e| warn!("[{}] Failed to parse conflicted txid {}: {}", wallet_checksum, conflicted_txid, e))
-                            .ok()
-                            .and_then(|txid| bdk_tx_map.get(&txid))
+                        let conflicted_tx_inputs: Option<Vec<_>> = bdk_tx_map
+                            .get(conflicted_txid)
                             .map(|tx| {
                                 tx.tx
                                     .input
@@ -759,7 +755,7 @@ impl WalletSyncService {
 
                                 // Check if this canonical transaction shares any inputs with the conflicted one
                                 if let Some(canonical_tx) = Txid::from_str(canonical_txid)
-                                    .map_err(|e| warn!("[{}] Failed to parse canonical txid {}: {}", wallet_checksum, canonical_txid, e))
+                                    .inspect_err(|e| warn!("[{}] Failed to parse canonical txid {}: {}", wallet_checksum, canonical_txid, e))
                                     .ok()
                                     .and_then(|txid| bdk_tx_map.get(&txid))
                                 {
@@ -798,7 +794,7 @@ impl WalletSyncService {
                                             .metadata_db
                                             .mark_transaction_replaced(
                                                 wallet_checksum,
-                                                conflicted_txid,
+                                                &conflicted_txid_str,
                                                 canonical_txid,
                                             )
                                             .await?;
@@ -1153,7 +1149,7 @@ impl WalletSyncService {
         let mut unconfirmed_outputs: HashMap<(String, u32), String> = HashMap::new();
         for (txid, _, _, _, _, _) in &unconfirmed_txs {
             if let Some(bdk_tx) = Txid::from_str(txid)
-                .map_err(|e| warn!("[{}] Failed to parse txid {}: {}", wallet_checksum, txid, e))
+                .inspect_err(|e| warn!("[{}] Failed to parse txid {}: {}", wallet_checksum, txid, e))
                 .ok()
                 .and_then(|t| bdk_tx_map.get(&t))
             {
@@ -1166,7 +1162,7 @@ impl WalletSyncService {
         // Check each unconfirmed transaction to see if it spends from another unconfirmed transaction
         for (child_txid, _, _, _, _, _) in &unconfirmed_txs {
             if let Some(bdk_tx) = Txid::from_str(child_txid)
-                .map_err(|e| warn!("[{}] Failed to parse child txid {}: {}", wallet_checksum, child_txid, e))
+                .inspect_err(|e| warn!("[{}] Failed to parse child txid {}: {}", wallet_checksum, child_txid, e))
                 .ok()
                 .and_then(|t| bdk_tx_map.get(&t))
             {
