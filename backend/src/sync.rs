@@ -447,9 +447,8 @@ impl WalletSyncService {
                 let is_confirmed = tx_item.chain_position.is_confirmed();
 
                 // Preserve existing timestamp if transaction already exists, otherwise use current time
-                let first_seen_at = existing_transactions
-                    .iter()
-                    .find(|tx| tx.txid == txid)
+                let first_seen_at = existing_tx_map
+                    .get(&txid)
                     .map(|tx| tx.first_seen_at)
                     .unwrap_or_else(|| {
                         std::time::SystemTime::now()
@@ -490,7 +489,7 @@ impl WalletSyncService {
             ) = tx_data;
 
             // Check if this is an existing transaction
-            let existing_tx = existing_transactions.iter().find(|tx| tx.txid == *txid);
+            let existing_tx = existing_tx_map.get(txid).copied();
 
             if let Some(existing) = existing_tx {
                 // Existing transaction - check if it's transitioning from pending to confirmed
@@ -724,15 +723,18 @@ impl WalletSyncService {
 
             // Get all transactions from BDK with full details for input comparison
             let all_bdk_txs: Vec<_> = wallet.tx_graph().full_txs().collect();
+            let bdk_tx_map: std::collections::HashMap<String, _> = all_bdk_txs
+                .iter()
+                .map(|tx| (tx.txid.to_string(), tx))
+                .collect();
 
             for conflicted_txid in &conflicted_txids {
                 // Check if this conflicted transaction is in our pending transactions using in-memory lookup
                 if let Some(pending_tx) = existing_tx_map.get(conflicted_txid) {
                     if pending_tx.transaction_status == "pending" {
                         // Find the conflicted transaction's inputs
-                        let conflicted_tx_inputs: Option<Vec<_>> = all_bdk_txs
-                            .iter()
-                            .find(|tx| tx.txid.to_string() == *conflicted_txid)
+                        let conflicted_tx_inputs: Option<Vec<_>> = bdk_tx_map
+                            .get(conflicted_txid.as_str())
                             .map(|tx| {
                                 tx.tx
                                     .input
@@ -754,9 +756,7 @@ impl WalletSyncService {
                                 }
 
                                 // Check if this canonical transaction shares any inputs with the conflicted one
-                                if let Some(canonical_tx) = all_bdk_txs
-                                    .iter()
-                                    .find(|tx| tx.txid.to_string() == *canonical_txid)
+                                if let Some(canonical_tx) = bdk_tx_map.get(canonical_txid.as_str())
                                 {
                                     let canonical_inputs: Vec<_> = canonical_tx
                                         .tx
@@ -1139,11 +1139,15 @@ impl WalletSyncService {
 
         // Get all BDK transactions with full details
         let all_bdk_txs: Vec<_> = wallet.tx_graph().full_txs().collect();
+        let bdk_tx_map: std::collections::HashMap<String, _> = all_bdk_txs
+            .iter()
+            .map(|tx| (tx.txid.to_string(), tx))
+            .collect();
 
         // Build a map of unconfirmed transaction outputs: (txid, vout) -> txid
         let mut unconfirmed_outputs: HashMap<(String, u32), String> = HashMap::new();
         for (txid, _, _, _, _, _) in &unconfirmed_txs {
-            if let Some(bdk_tx) = all_bdk_txs.iter().find(|tx| tx.txid.to_string() == *txid) {
+            if let Some(bdk_tx) = bdk_tx_map.get(txid.as_str()) {
                 for (vout, _) in bdk_tx.tx.output.iter().enumerate() {
                     unconfirmed_outputs.insert((txid.clone(), vout as u32), txid.clone());
                 }
@@ -1152,10 +1156,7 @@ impl WalletSyncService {
 
         // Check each unconfirmed transaction to see if it spends from another unconfirmed transaction
         for (child_txid, _, _, _, _, _) in &unconfirmed_txs {
-            if let Some(bdk_tx) = all_bdk_txs
-                .iter()
-                .find(|tx| tx.txid.to_string() == *child_txid)
-            {
+            if let Some(bdk_tx) = bdk_tx_map.get(child_txid.as_str()) {
                 // Check each input of this transaction
                 for input in &bdk_tx.tx.input {
                     let prev_txid = input.previous_output.txid.to_string();
@@ -1542,6 +1543,10 @@ impl WalletSyncService {
             .iter()
             .map(|tx| tx.txid.clone())
             .collect();
+        let existing_tx_map: std::collections::HashMap<&str, &_> = existing_transactions
+            .iter()
+            .map(|tx| (tx.txid.as_str(), tx))
+            .collect();
 
         let mut has_changes = false;
 
@@ -1552,9 +1557,9 @@ impl WalletSyncService {
             if existing_txids.contains(&txid_str) {
                 // Check if an existing pending transaction got confirmed
                 if is_tx_confirmed(hist_entry.height, &txid_str) {
-                    if let Some(_existing) = existing_transactions
-                        .iter()
-                        .find(|tx| tx.txid == txid_str && tx.block_height.is_none())
+                    if let Some(_existing) = existing_tx_map
+                        .get(txid_str.as_str())
+                        .filter(|tx| tx.block_height.is_none())
                     {
                         // Transaction just confirmed
                         let confirmed_at =
@@ -1829,6 +1834,10 @@ impl WalletSyncService {
                 .iter()
                 .map(|tx| tx.txid.clone())
                 .collect();
+            let existing_tx_map: std::collections::HashMap<&str, &_> = existing_transactions
+                .iter()
+                .map(|tx| (tx.txid.as_str(), tx))
+                .collect();
 
             let mut has_changes = false;
 
@@ -1838,9 +1847,9 @@ impl WalletSyncService {
                 if existing_txids.contains(&txid_str) {
                     // Check if an existing pending transaction got confirmed
                     if is_tx_confirmed(hist_entry.height, &txid_str) {
-                        if let Some(_existing) = existing_transactions
-                            .iter()
-                            .find(|tx| tx.txid == txid_str && tx.block_height.is_none())
+                        if let Some(_existing) = existing_tx_map
+                            .get(txid_str.as_str())
+                            .filter(|tx| tx.block_height.is_none())
                         {
                             let confirmed_at = match block_header_cache
                                 .get(&(hist_entry.height as u32))
