@@ -2,12 +2,13 @@
 
 import { Heart } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import { useTranslations } from "next-intl"
+import { useTranslations, useLocale } from "next-intl"
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 
 export default function DonationsPage() {
   const t = useTranslations("donation")
+  const locale = useLocale()
 
   // Points to the backend API which handles BTCPay redirects.
   // In development this is localhost:3000 (backend), not localhost:3001 (frontend dev server).
@@ -35,7 +36,7 @@ export default function DonationsPage() {
                 {t("oneTimeDescription")}
               </p>
               <a
-                href={`${donationsBaseUrl}/api/donations/one-time`}
+                href={`${donationsBaseUrl}/api/donations/one-time?locale=${locale}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block w-full rounded-md border border-border bg-background px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-accent"
@@ -52,7 +53,7 @@ export default function DonationsPage() {
                 {t("recurringDescription")}
               </p>
               <a
-                href={`${donationsBaseUrl}/api/donations/recurring`}
+                href={`${donationsBaseUrl}/api/donations/recurring?locale=${locale}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block w-full rounded-md bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"

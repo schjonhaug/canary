@@ -117,7 +117,7 @@ fn test_thank_you_url_with_frontend_url() {
 
     let config = test_config();
     assert_eq!(
-        thank_you_url(&config),
+        thank_you_url(&config, None),
         "http://localhost:3001/donations/thank-you"
     );
 }
@@ -136,7 +136,7 @@ fn test_thank_you_url_strips_trailing_slash() {
         None,
     );
     assert_eq!(
-        thank_you_url(&config),
+        thank_you_url(&config, None),
         "http://localhost:3001/donations/thank-you"
     );
 }
@@ -155,7 +155,29 @@ fn test_thank_you_url_fallback_without_frontend_url() {
         None,
     );
     assert_eq!(
-        thank_you_url(&config),
+        thank_you_url(&config, None),
         "https://canarybitcoin.com/donations/thank-you"
+    );
+}
+
+#[test]
+fn test_thank_you_url_with_locale() {
+    use crate::handlers::donations::thank_you_url;
+
+    let config = test_config();
+    assert_eq!(
+        thank_you_url(&config, Some("nb")),
+        "http://localhost:3001/donations/thank-you?locale=nb"
+    );
+}
+
+#[test]
+fn test_thank_you_url_without_locale() {
+    use crate::handlers::donations::thank_you_url;
+
+    let config = test_config();
+    assert_eq!(
+        thank_you_url(&config, None),
+        "http://localhost:3001/donations/thank-you"
     );
 }

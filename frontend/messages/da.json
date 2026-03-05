@@ -1095,8 +1095,14 @@
     "emailNote": "Den tilbagevendende betaling beder om en e-mailadresse. Din e-mail bruges til at sende kvitteringer og lade dig administrere din donation. Donationer bliver aldrig knyttet til dit Canary-forbrug eller din konto.",
     "paymentNote": "Alle donationer behandles sikkert via BTCPay Server. Bitcoin og Lightning accepteres.",
     "thankYou": {
-      "title": "Tak for din donation!",
-      "description": "Din støtte hjælper med at finansiere den fortsatte udvikling af Canary.",
+      "oneTime": {
+        "title": "Tak for din donation!",
+        "description": "Din støtte hjælper med at finansiere den fortsatte udvikling af Canary."
+      },
+      "recurring": {
+        "title": "Tak for din løbende støtte!",
+        "description": "Dit faste bidrag hjælper med at opretholde den fortsatte udvikling af Canary."
+      },
       "closeTab": "Du kan lukke denne fane for at vende tilbage til Canary."
     }
   }
