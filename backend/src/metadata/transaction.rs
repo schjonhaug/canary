@@ -151,6 +151,7 @@ impl MetadataDb {
                 // Single query for all notifications for this wallet, filtered in Rust.
                 // This avoids the SQLite variable limit (SQLITE_MAX_VARIABLE_NUMBER)
                 // that would be hit with a large IN (?, ?, ...) clause.
+                // Note: message_content is intentionally excluded (not part of NotificationStatus).
                 let mut notification_stmt = conn.prepare(
                     "SELECT nl.transaction_txid, nl.contact_name_snapshot, nl.provider_name, nl.status,
                             nl.error_message, nl.notification_target_snapshot, nl.provider_type_snapshot,
@@ -160,6 +161,8 @@ impl MetadataDb {
                      ORDER BY nl.created_at ASC"
                 )?;
 
+                // txid_set ensures we only attach notifications to transactions in the
+                // current result set, important when `limit` trims the full list.
                 let txid_set: std::collections::HashSet<&str> =
                     transactions.iter().map(|tx| tx.txid.as_str()).collect();
 
