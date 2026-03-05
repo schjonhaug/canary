@@ -148,30 +148,22 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
 
             if include_notifications && !transactions.is_empty() {
-                // Batch query: fetch all notification logs for this wallet's transactions at once
-                let placeholders = transactions.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                let sql = format!(
+                // Single query for all notifications for this wallet, filtered in Rust.
+                // This avoids the SQLite variable limit (SQLITE_MAX_VARIABLE_NUMBER)
+                // that would be hit with a large IN (?, ?, ...) clause.
+                let mut notification_stmt = conn.prepare(
                     "SELECT nl.transaction_txid, nl.contact_name_snapshot, nl.provider_name, nl.status,
                             nl.error_message, nl.notification_target_snapshot, nl.provider_type_snapshot,
                             nl.created_at, nl.message_content, nl.notification_type
                      FROM notification_logs nl
                      WHERE nl.transaction_wallet_checksum = ?1
-                       AND nl.transaction_txid IN ({})
-                     ORDER BY nl.created_at ASC",
-                    placeholders
-                );
+                     ORDER BY nl.created_at ASC"
+                )?;
 
-                let mut notification_stmt = conn.prepare(&sql)?;
+                let txid_set: std::collections::HashSet<&str> =
+                    transactions.iter().map(|tx| tx.txid.as_str()).collect();
 
-                // Build params: first is wallet checksum, then all txids
-                let mut param_values: Vec<Box<dyn bdk_wallet::rusqlite::types::ToSql>> = Vec::with_capacity(1 + transactions.len());
-                param_values.push(Box::new(checksum.clone()));
-                for tx in &transactions {
-                    param_values.push(Box::new(tx.txid.clone()));
-                }
-                let params: Vec<&dyn bdk_wallet::rusqlite::types::ToSql> = param_values.iter().map(|p| p.as_ref()).collect();
-
-                let notification_iter = notification_stmt.query_map(params.as_slice(), |row| {
+                let notification_iter = notification_stmt.query_map([&checksum], |row| {
                     let txid: String = row.get(0)?;
                     let notification_type: String = row.get(9)?;
                     Ok((txid, NotificationStatus {
@@ -186,12 +178,14 @@ impl MetadataDb {
                     }))
                 })?;
 
-                // Group notifications by txid
+                // Group notifications by txid, filtering to only fetched transactions
                 let mut notifications_map: std::collections::HashMap<String, Vec<NotificationStatus>> =
                     std::collections::HashMap::new();
                 for notification in notification_iter {
                     let (txid, status) = notification?;
-                    notifications_map.entry(txid).or_default().push(status);
+                    if txid_set.contains(txid.as_str()) {
+                        notifications_map.entry(txid).or_default().push(status);
+                    }
                 }
 
                 // Attach notifications to transactions

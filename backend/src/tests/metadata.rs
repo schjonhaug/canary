@@ -874,3 +874,101 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         "Old confirmed transaction should appear last despite recent first_seen_at"
     );
 }
+
+// ============================
+// Notification batching tests
+// ============================
+
+#[tokio::test]
+async fn test_include_notifications_batches_correctly() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "notif-test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Notif Wallet", "descriptor_notif", &user_id)
+        .await
+        .unwrap();
+
+    let now = 1740000000u64;
+
+    // Insert two transactions
+    for (i, txid) in ["tx_a", "tx_b"].iter().enumerate() {
+        db.insert_transaction(&TransactionInsert {
+            txid: txid.to_string(),
+            wallet_checksum: wallet_checksum.clone(),
+            transaction_type: EventType::Receive,
+            amount_sats: 1000 * (i as i64 + 1),
+            fee_sats: None,
+            block_height: Some(100 + i as u32),
+            first_seen_at: now + i as u64,
+            confirmed_at: Some(now + i as u64),
+            parent_txid: None,
+            transaction_status: "confirmed".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+    }
+
+    // Insert notification logs directly via SQL (avoids needing contacts/methods)
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)
+             VALUES ('log1', 'tx_a', ?1, 'ntfy', 'sent', 'msg1', 'confirmed', 'Alice', 'topic1', 'ntfy')",
+            [&wallet_checksum],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)
+             VALUES ('log2', 'tx_a', ?1, 'email', 'sent', 'msg2', 'confirmed', 'Bob', 'bob@example.com', 'email')",
+            [&wallet_checksum],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)
+             VALUES ('log3', 'tx_b', ?1, 'sms', 'failed', 'msg3', 'pending', 'Charlie', '+1234567890', 'sms')",
+            [&wallet_checksum],
+        ).unwrap();
+    }
+
+    // Without notifications
+    let txs = db
+        .get_transactions_by_wallet_checksum(&wallet_checksum, None, false)
+        .await
+        .unwrap();
+    assert_eq!(txs.len(), 2);
+    for tx in &txs {
+        assert!(tx.notification_status.is_empty(), "Should have no notifications when include_notifications=false");
+    }
+
+    // With notifications
+    let txs = db
+        .get_transactions_by_wallet_checksum(&wallet_checksum, None, true)
+        .await
+        .unwrap();
+    assert_eq!(txs.len(), 2);
+
+    let tx_a = txs.iter().find(|t| t.txid == "tx_a").unwrap();
+    let tx_b = txs.iter().find(|t| t.txid == "tx_b").unwrap();
+
+    assert_eq!(tx_a.notification_status.len(), 2, "tx_a should have 2 notifications");
+    assert_eq!(tx_a.notification_status[0].contact_name, "Alice");
+    assert_eq!(tx_a.notification_status[0].provider_name, "ntfy");
+    assert_eq!(tx_a.notification_status[1].contact_name, "Bob");
+    assert_eq!(tx_a.notification_status[1].provider_name, "email");
+
+    assert_eq!(tx_b.notification_status.len(), 1, "tx_b should have 1 notification");
+    assert_eq!(tx_b.notification_status[0].contact_name, "Charlie");
+    assert_eq!(tx_b.notification_status[0].status, "failed");
+}
