@@ -79,7 +79,11 @@ is_raw_bitcoin_address() {
         return 0
     fi
 
-    if [[ "$address" =~ ^[123mn2][1-9A-HJ-NP-Za-km-z]{25,62}$ ]]; then
+    if [[ "$address" =~ ^[13][1-9A-HJ-NP-Za-km-z]{25,62}$ ]]; then
+        return 0
+    fi
+
+    if [[ "$address" =~ ^[mn2][1-9A-HJ-NP-Za-km-z]{25,62}$ ]]; then
         return 0
     fi
 
@@ -193,6 +197,8 @@ mine_blocks() {
 }
 
 kill_servers() {
+    require_tools lsof
+
     if lsof -ti:3000,3001 > /dev/null 2>&1; then
         local pids
         pids=$(lsof -ti:3000,3001 | sort -u)
