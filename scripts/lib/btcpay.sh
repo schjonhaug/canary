@@ -2,6 +2,7 @@ cmd_btcpay_setup() {
     local btcpay="http://localhost:14142"
     local i user_response user_http_code user_body apikey_response apikey_http_code apikey_body api_key store_response store_http_code store_body store_id wallet_response wallet_http_code wallet_body offering_response offering_id plan_response plan_id backend_env
 
+    require_tools jq sed
     echo "Waiting for BTCPay Server to be ready..."
     for i in $(seq 1 60); do
         if curl -sf "$btcpay/api/v1/health" > /dev/null 2>&1; then
@@ -45,7 +46,7 @@ cmd_btcpay_setup() {
         echo "   Response: $apikey_body"
         exit 1
     fi
-    api_key=$(echo "$apikey_body" | python3 -c "import sys,json; print(json.load(sys.stdin)['apiKey'])")
+    api_key=$(echo "$apikey_body" | jq -r '.apiKey')
     echo "✅ API key created"
 
     echo "Creating store..."
@@ -60,7 +61,7 @@ cmd_btcpay_setup() {
         echo "   Response: $store_body"
         exit 1
     fi
-    store_id=$(echo "$store_body" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+    store_id=$(echo "$store_body" | jq -r '.id')
     echo "✅ Store created: $store_id"
 
     echo "Generating store wallet..."
@@ -88,7 +89,7 @@ cmd_btcpay_setup() {
         offering_id=""
         plan_id=""
     else
-        offering_id=$(echo "$offering_response" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+        offering_id=$(echo "$offering_response" | jq -r '.id')
         echo "✅ Offering created: $offering_id"
         echo "Creating subscription plan..."
         plan_response=$(curl -sf -X POST "$btcpay/api/v1/stores/$store_id/offerings/$offering_id/plans" \
@@ -99,15 +100,16 @@ cmd_btcpay_setup() {
             echo "⚠️  Failed to create plan"
             plan_id=""
         else
-            plan_id=$(echo "$plan_response" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+            plan_id=$(echo "$plan_response" | jq -r '.id')
             echo "✅ Plan created: $plan_id"
         fi
     fi
 
+    # Development-only credentials for the local BTCPay container.
     backend_env="../backend/.env"
     if [ -f "$backend_env" ]; then
-        sed -i '' '/^BTCPAY_/d' "$backend_env"
-        sed -i '' '/^# BTCPay Server (auto-configured/d' "$backend_env"
+        sed_in_place '/^BTCPAY_/d' "$backend_env"
+        sed_in_place '/^# BTCPay Server (auto-configured/d' "$backend_env"
         echo "" >> "$backend_env"
         echo "# BTCPay Server (auto-configured by dev.sh btcpay-setup)" >> "$backend_env"
         echo "BTCPAY_URL=http://localhost:14142" >> "$backend_env"

@@ -22,27 +22,33 @@ send_from_wallet() {
     local target="$2"
     local amount="$3"
     local subtract_fee="${4:-false}"
-    local addr_type
+    local addr_type response send_opts own_addr
 
     addr_type=$(get_address_type "$wallet")
     case "$wallet" in
         *-address)
-            local own_addr send_opts
             own_addr=$(get_single_address_wallet_address "$wallet")
             send_opts="{\"change_address\": \"$own_addr\"}"
             if [ "$subtract_fee" = "true" ]; then
                 send_opts="{\"change_address\": \"$own_addr\", \"subtract_fee_from_outputs\": [0]}"
             fi
-            btc_wallet "$wallet" send "{\"$target\": $amount}" null "unset" null "$send_opts" | jq -r '.txid'
+            response=$(btc_wallet "$wallet" send "{\"$target\": $amount}" null "unset" null "$send_opts" 2>&1) || {
+                echo "❌ Failed to send from $wallet: $response" >&2
+                return 1
+            }
+            echo "$response" | jq -r '.txid'
             ;;
         *)
             if [ "$addr_type" != "bech32" ]; then
-                local send_opts
                 send_opts="{\"change_type\": \"$addr_type\"}"
                 if [ "$subtract_fee" = "true" ]; then
                     send_opts="{\"change_type\": \"$addr_type\", \"subtract_fee_from_outputs\": [0]}"
                 fi
-                btc_wallet "$wallet" send "{\"$target\": $amount}" null "unset" null "$send_opts" | jq -r '.txid'
+                response=$(btc_wallet "$wallet" send "{\"$target\": $amount}" null "unset" null "$send_opts" 2>&1) || {
+                    echo "❌ Failed to send from $wallet: $response" >&2
+                    return 1
+                }
+                echo "$response" | jq -r '.txid'
             else
                 if [ "$subtract_fee" = "true" ]; then
                     btc_wallet "$wallet" sendtoaddress "$target" "$amount" "" "" true
@@ -54,7 +60,7 @@ send_from_wallet() {
     esac
 }
 
-cmd_wallet_sending() {
+wallet_sending_impl() {
     local wallet="$1"
     shift
     local destination_wallet="$1"
@@ -69,7 +75,7 @@ cmd_wallet_sending() {
         echo "Examples:"
         echo "  $0 $wallet sending segwit-empty 0.1 0.2 0.05  # Send three separate transactions"
         echo "  $0 $wallet sending miner max                  # Drain wallet to miner"
-        exit 1
+        return 1
     fi
 
     if is_wallet_name "$destination_wallet"; then
@@ -80,13 +86,13 @@ cmd_wallet_sending() {
         echo "❌ Invalid destination: $destination_wallet"
         echo "Use a wallet name or a raw Bitcoin address (bcrt1..., tb1..., bc1...)"
         echo "Available wallets: segwit-desc, segwit-empty, legacy-desc, legacy-empty, nested-desc, nested-empty, taproot-desc, taproot-empty, charlie, miner, legacy-address, p2sh-address, segwit-address, taproot-address"
-        exit 1
+        return 1
     fi
 
     if [ "$wallet" = "miner" ] && [ "$destination_wallet" = "miner" ]; then
         echo "❌ Miner wallet cannot send to itself"
         echo "Miner can send to: segwit-desc, segwit-empty, charlie, etc."
-        exit 1
+        return 1
     fi
 
     load_wallet_if_needed "$wallet"
@@ -99,10 +105,10 @@ cmd_wallet_sending() {
         target_address=$(get_target_address "$destination_wallet" "$raw_address")
         current_balance=$(btc_wallet "$wallet" getbalance)
         echo "🎯 Draining $wallet wallet ($current_balance BTC) to $destination_wallet address: $target_address"
-        txid=$(send_from_wallet "$wallet" "$target_address" "$current_balance" true)
+        txid=$(send_from_wallet "$wallet" "$target_address" "$current_balance" true) || return 1
         echo "✅ Transaction sent: $txid"
         echo "💡 Use '$0 mine' to confirm transaction"
-        exit 0
+        return 0
     fi
 
     echo "🎯 Sending ${#amounts[@]} separate transactions from $wallet to $destination_wallet"
@@ -112,7 +118,7 @@ cmd_wallet_sending() {
         amount="${amounts[$i]}"
         target_address=$(get_target_address "$destination_wallet" "$raw_address")
         echo "  📤 Transaction $((i+1))/${#amounts[@]}: Sending $amount BTC to address $target_address"
-        txid=$(send_from_wallet "$wallet" "$target_address" "$amount")
+        txid=$(send_from_wallet "$wallet" "$target_address" "$amount") || return 1
         txids+=("$txid")
         echo "     ✅ Transaction $((i+1)) sent: $txid"
     done
@@ -123,17 +129,22 @@ cmd_wallet_sending() {
         echo "  $((i+1)). ${amounts[$i]} BTC → ${txids[$i]}"
     done
     echo "💡 Use '$0 mine' to confirm all transactions"
-    exit 0
+    return 0
+}
+
+cmd_wallet_sending() {
+    wallet_sending_impl "$@"
+    return $?
 }
 
 cmd_wallet_sent() {
     local wallet="$1"
     shift
-    "$0" "$wallet" sending "$@"
+    wallet_sending_impl "$wallet" "$@" || return $?
     echo "⛏️  Mining 1 block to confirm all transactions..."
     mine_blocks 1
     echo "✅ All transactions confirmed in block"
-    exit 0
+    return 0
 }
 
 cmd_wallet_balance() {
@@ -142,7 +153,7 @@ cmd_wallet_balance() {
     local balance
     balance=$(btc_wallet "$wallet" getbalance)
     echo "$wallet wallet balance: $balance BTC"
-    exit 0
+    return 0
 }
 
 cmd_wallet_address() {
@@ -151,7 +162,7 @@ cmd_wallet_address() {
     local address
     address=$(btc_wallet "$wallet" getnewaddress "" "$(get_address_type "$wallet")")
     echo "New $wallet address: $address"
-    exit 0
+    return 0
 }
 
 cmd_wallet_fund() {
@@ -160,7 +171,7 @@ cmd_wallet_fund() {
     local amount="${3:-1.0}"
     if [ -z "$target_address" ]; then
         echo "Usage: $0 $wallet fund <address> [amount=1.0]"
-        exit 1
+        return 1
     fi
     load_wallet_if_needed "$wallet"
     echo "Funding address $target_address with $amount BTC from $wallet..."
@@ -168,7 +179,7 @@ cmd_wallet_fund() {
     txid=$(btc_wallet "$wallet" sendtoaddress "$target_address" "$amount")
     echo "Transaction: $txid"
     echo "💡 Use '$0 mine' to confirm transaction"
-    exit 0
+    return 0
 }
 
 cmd_wallet_rbf() {
@@ -176,7 +187,7 @@ cmd_wallet_rbf() {
     local txid="$2"
     if [ -z "$txid" ]; then
         echo "Usage: $0 $wallet rbf <txid>"
-        exit 1
+        return 1
     fi
     echo "🔄 Bumping fee for transaction $txid (automatic fee calculation)..."
     load_wallet_if_needed "$wallet"
@@ -200,7 +211,7 @@ cmd_wallet_rbf() {
         echo "   - Transaction was not RBF-enabled"
         echo "   - Fee rate not higher than original"
     fi
-    exit 0
+    return 0
 }
 
 cmd_wallet_consolidate() {
@@ -210,7 +221,7 @@ cmd_wallet_consolidate() {
 
     if ! btc_wallet "$wallet" getwalletinfo >/dev/null 2>&1; then
         echo "❌ $wallet wallet not found. Run '$0 init' first"
-        exit 1
+        return 1
     fi
 
     local utxos utxo_count utxo1 utxo2 amount1 amount2 txid1 txid2 vout1 vout2 total_amount consolidate_amount consolidate_address inputs outputs raw_tx signed_tx signed_hex sign_complete consolidate_txid
@@ -219,7 +230,7 @@ cmd_wallet_consolidate() {
     if [ "$utxo_count" -lt 2 ]; then
         echo "❌ $wallet needs at least 2 UTXOs to consolidate. Current UTXOs: $utxo_count"
         echo "💡 Fund $wallet with multiple transactions first"
-        exit 1
+        return 1
     fi
 
     utxo1=$(echo "$utxos" | head -1)
@@ -247,7 +258,7 @@ cmd_wallet_consolidate() {
     raw_tx=$(btc_wallet "$wallet" createrawtransaction "$inputs" "$outputs")
     if [ -z "$raw_tx" ]; then
         echo "❌ Failed to create raw transaction"
-        exit 1
+        return 1
     fi
 
     echo "   ✍️  Signing transaction..."
@@ -257,14 +268,14 @@ cmd_wallet_consolidate() {
     if [ "$sign_complete" != "true" ]; then
         echo "❌ Failed to sign transaction"
         echo "Signing result: $signed_tx"
-        exit 1
+        return 1
     fi
 
     echo "   📡 Broadcasting consolidation transaction..."
     consolidate_txid=$(btc sendrawtransaction "$signed_hex")
     if [ -z "$consolidate_txid" ]; then
         echo "❌ Failed to broadcast transaction"
-        exit 1
+        return 1
     fi
 
     echo "   ✅ Consolidation transaction created: $consolidate_txid"
@@ -278,7 +289,7 @@ cmd_wallet_consolidate() {
     echo "   Fee:     0.0001 BTC"
     echo ""
     echo "💡 Use '$0 mine 1' to confirm the consolidation"
-    exit 0
+    return 0
 }
 
 handle_wallet_command() {
@@ -311,14 +322,15 @@ handle_wallet_command() {
             ;;
         cpfp)
             cpfp_for_wallet "$wallet" "$1"
-            exit 0
             ;;
         consolidate)
             cmd_wallet_consolidate "$wallet"
             ;;
         *)
             echo "Unknown subcommand for $wallet: $subcmd"
-            exit 1
+            return 1
             ;;
     esac
+
+    return $?
 }

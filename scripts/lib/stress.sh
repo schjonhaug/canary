@@ -1,13 +1,21 @@
 cmd_create_stress_wallet() {
+    require_tools jq bc
     local tx_count="${1:-}"
+    local wallet_name
+    local stress_descriptors stress_receive_desc stress_multipath_raw stress_checksum_info stress_checksum stress_descriptor
+    local miner_address miner_balance needed_btc blocks_needed
+    local initial_fund stress_addr
+    local completed batch_size start_time remaining current_batch
+    local i dest_addr refund_addr elapsed rate eta
+    local total_time final_balance tx_list_count
+
     if [ -z "$tx_count" ]; then
         echo "Usage: $0 create-stress-wallet <tx_count>"
         echo "Example: $0 create-stress-wallet 1000"
         exit 1
     fi
 
-    local wallet_name="stress-${tx_count}tx"
-    local stress_descriptors stress_receive_desc stress_multipath_raw stress_checksum_info stress_checksum stress_descriptor miner_address miner_balance needed_btc blocks_needed initial_fund stress_addr completed batch_size start_time remaining current_batch i dest_addr refund_addr elapsed rate eta total_time final_balance tx_list_count
+    wallet_name="stress-${tx_count}tx"
 
     echo "Creating stress-test wallet '$wallet_name' with $tx_count transactions..."
     echo ""

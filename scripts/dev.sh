@@ -31,6 +31,8 @@ required_libs=(
     init.sh
 )
 
+# Keep this order stable: downstream modules depend on helpers, and init/help
+# expect the command modules to already be available when sourced.
 for lib in "${required_libs[@]}"; do
     lib_path="$LIB_DIR/$lib"
     if [ ! -f "$lib_path" ]; then
@@ -41,8 +43,9 @@ for lib in "${required_libs[@]}"; do
     source "$lib_path"
 done
 
-if handle_wallet_command "$@"; then
-    exit 0
+if is_wallet_name "${1:-}"; then
+    handle_wallet_command "$@"
+    exit $?
 fi
 
 case "$1" in
@@ -74,8 +77,7 @@ case "$1" in
         cmd_reconsider_block "$2"
         ;;
     get-mempool-txid)
-        txid=$(get_mempool_txid "${2:-0}")
-        if [ $? -eq 0 ]; then
+        if txid=$(get_mempool_txid "${2:-0}"); then
             echo "$txid"
         fi
         ;;

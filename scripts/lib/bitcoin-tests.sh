@@ -1,137 +1,142 @@
 cpfp_for_wallet() {
-    WALLET="$1"
-    PARENT_TXID="$2"
-    if [ -z "$PARENT_TXID" ]; then
-        echo "Usage: $0 $WALLET cpfp <parent_txid>"
+    local wallet="$1"
+    local parent_txid="$2"
+    if [ -z "$parent_txid" ]; then
+        echo "Usage: $0 $wallet cpfp <parent_txid>"
         exit 1
     fi
-    if ! btc_wallet "$WALLET" getwalletinfo >/dev/null 2>&1; then
-        echo "❌ $WALLET wallet not found. Run '$0 init' first"
+    if ! btc_wallet "$wallet" getwalletinfo >/dev/null 2>&1; then
+        echo "❌ $wallet wallet not found. Run '$0 init' first"
         exit 1
     fi
-    WALLET_BALANCE=$(btc_wallet "$WALLET" getbalance)
-    echo "💰 $WALLET wallet balance: $WALLET_BALANCE BTC (confirmed)"
-    if [ "$(echo "$WALLET_BALANCE < 0.001" | bc -l)" -eq 1 ]; then
-        echo "❌ $WALLET needs confirmed funds for CPFP fees. Current balance: $WALLET_BALANCE BTC"
-        echo "💡 Fund $WALLET first with: $0 miner sending $WALLET 0.01 && $0 mine 1"
+    local wallet_balance
+    wallet_balance=$(btc_wallet "$wallet" getbalance)
+    echo "💰 $wallet wallet balance: $wallet_balance BTC (confirmed)"
+    if [ "$(compare_decimal "$wallet_balance < 0.001")" -eq 1 ]; then
+        echo "❌ $wallet needs confirmed funds for CPFP fees. Current balance: $wallet_balance BTC"
+        echo "💡 Fund $wallet first with: $0 miner sending $wallet 0.01 && $0 mine 1"
         exit 1
     fi
-    echo "👶 Creating CPFP child transaction ($WALLET spends unconfirmed output)..."
-    PARENT_IN_WALLET=$(btc_wallet "$WALLET" gettransaction "$PARENT_TXID" 2>/dev/null || echo "not found")
-    if [ "$PARENT_IN_WALLET" = "not found" ]; then
-        echo "❌ Parent transaction not found in $WALLET wallet"
+    echo "👶 Creating CPFP child transaction ($wallet spends unconfirmed output)..."
+    local parent_in_wallet
+    parent_in_wallet=$(btc_wallet "$wallet" gettransaction "$parent_txid" 2>/dev/null || echo "not found")
+    if [ "$parent_in_wallet" = "not found" ]; then
+        echo "❌ Parent transaction not found in $wallet wallet"
         exit 1
     fi
-    PARENT_CONFIRMATIONS=$(echo "$PARENT_IN_WALLET" | jq -r '.confirmations')
-    PARENT_AMOUNT=$(echo "$PARENT_IN_WALLET" | jq -r '.amount')
-    if [ "$PARENT_CONFIRMATIONS" -gt 0 ]; then
-        echo "❌ Parent transaction is already confirmed ($PARENT_CONFIRMATIONS confirmations)"
+    local parent_confirmations parent_amount
+    parent_confirmations=$(echo "$parent_in_wallet" | jq -r '.confirmations')
+    parent_amount=$(echo "$parent_in_wallet" | jq -r '.amount')
+    if [ "$parent_confirmations" -gt 0 ]; then
+        echo "❌ Parent transaction is already confirmed ($parent_confirmations confirmations)"
         echo "💡 CPFP only works on unconfirmed transactions"
         exit 1
     fi
-    echo "   ✅ Parent transaction found in $WALLET wallet (unconfirmed)"
-    echo "   💰 Parent amount: $PARENT_AMOUNT BTC"
-    PARENT_RAW=$(btc getrawtransaction "$PARENT_TXID" true)
-    WALLET_OUTPUTS=()
-    TOTAL_WALLET_AMOUNT=0
-    OUTPUT_COUNT=$(echo "$PARENT_RAW" | jq '.vout | length')
-    for ((i=0; i<OUTPUT_COUNT; i++)); do
-        OUTPUT_ADDRESS=$(echo "$PARENT_RAW" | jq -r ".vout[$i].scriptPubKey.address")
-        OUTPUT_VALUE=$(echo "$PARENT_RAW" | jq -r ".vout[$i].value")
-        if btc_wallet "$WALLET" getaddressinfo "$OUTPUT_ADDRESS" 2>/dev/null | jq -r '.ismine' | grep -q "true"; then
-            WALLET_OUTPUTS+=("$i:$OUTPUT_VALUE")
-            TOTAL_WALLET_AMOUNT=$(echo "scale=8; $TOTAL_WALLET_AMOUNT + $OUTPUT_VALUE" | bc -l)
-            echo "   📍 Found $WALLET's output $i: $OUTPUT_VALUE BTC at $OUTPUT_ADDRESS"
+    echo "   ✅ Parent transaction found in $wallet wallet (unconfirmed)"
+    echo "   💰 Parent amount: $parent_amount BTC"
+    local parent_raw wallet_outputs total_wallet_amount output_count i output_address output_value
+    parent_raw=$(btc getrawtransaction "$parent_txid" true)
+    wallet_outputs=()
+    total_wallet_amount=0
+    output_count=$(echo "$parent_raw" | jq '.vout | length')
+    for ((i=0; i<output_count; i++)); do
+        output_address=$(echo "$parent_raw" | jq -r ".vout[$i].scriptPubKey.address")
+        output_value=$(echo "$parent_raw" | jq -r ".vout[$i].value")
+        if btc_wallet "$wallet" getaddressinfo "$output_address" 2>/dev/null | jq -r '.ismine' | grep -q "true"; then
+            wallet_outputs+=("$i:$output_value")
+            total_wallet_amount=$(echo "scale=8; $total_wallet_amount + $output_value" | bc -l)
+            echo "   📍 Found $wallet's output $i: $output_value BTC at $output_address"
         fi
     done
-    if [ ${#WALLET_OUTPUTS[@]} -eq 0 ]; then
-        echo "❌ No outputs in parent transaction belong to $WALLET's wallet"
+    if [ ${#wallet_outputs[@]} -eq 0 ]; then
+        echo "❌ No outputs in parent transaction belong to $wallet's wallet"
         exit 1
     fi
-    HALF_AMOUNT=$(echo "scale=8; $TOTAL_WALLET_AMOUNT * 0.5" | bc -l)
-    if [ "$(echo "$HALF_AMOUNT > 0.005" | bc -l)" -eq 1 ]; then
-        DYNAMIC_FEE=0.005
+    local half_amount dynamic_fee min_fee_flexible min_fee_absolute min_fee child_amount_raw child_amount min_child_amount change_address inputs output_index outputs raw_tx signed_tx signed_hex sign_complete child_txid mempool_size
+    half_amount=$(echo "scale=8; $total_wallet_amount * 0.5" | bc -l)
+    if [ "$(compare_decimal "$half_amount > 0.005")" -eq 1 ]; then
+        dynamic_fee=0.005
     else
-        DYNAMIC_FEE=$HALF_AMOUNT
+        dynamic_fee=$half_amount
     fi
-    MIN_FEE_FLEXIBLE=$(echo "scale=8; $TOTAL_WALLET_AMOUNT * 0.8" | bc -l)
-    MIN_FEE_ABSOLUTE=0.00001
-    if [ "$(echo "$MIN_FEE_FLEXIBLE < $MIN_FEE_ABSOLUTE" | bc -l)" -eq 1 ]; then
-        MIN_FEE=$MIN_FEE_FLEXIBLE
+    min_fee_flexible=$(echo "scale=8; $total_wallet_amount * 0.8" | bc -l)
+    min_fee_absolute=0.00001
+    if [ "$(compare_decimal "$min_fee_flexible < $min_fee_absolute")" -eq 1 ]; then
+        min_fee=$min_fee_flexible
     else
-        MIN_FEE=$MIN_FEE_ABSOLUTE
+        min_fee=$min_fee_absolute
     fi
-    if [ "$(echo "$DYNAMIC_FEE < $MIN_FEE" | bc -l)" -eq 1 ]; then
-        DYNAMIC_FEE=$MIN_FEE
+    if [ "$(compare_decimal "$dynamic_fee < $min_fee")" -eq 1 ]; then
+        dynamic_fee=$min_fee
     fi
-    CHILD_AMOUNT_RAW=$(echo "scale=8; $TOTAL_WALLET_AMOUNT - $DYNAMIC_FEE" | bc -l)
-    CHILD_AMOUNT=$(echo "$CHILD_AMOUNT_RAW" | sed 's/^\./0./')
-    MIN_CHILD_AMOUNT=0.00001
-    if [ "$(echo "$CHILD_AMOUNT < $MIN_CHILD_AMOUNT" | bc -l)" -eq 1 ]; then
-        echo "❌ Child amount too small: $CHILD_AMOUNT BTC (need at least $MIN_CHILD_AMOUNT BTC after fees)"
-        echo "   Available: $TOTAL_WALLET_AMOUNT BTC, Required fee: $DYNAMIC_FEE BTC"
+    child_amount_raw=$(echo "scale=8; $total_wallet_amount - $dynamic_fee" | bc -l)
+    child_amount=$(echo "$child_amount_raw" | sed 's/^\./0./')
+    min_child_amount=0.00001
+    if [ "$(compare_decimal "$child_amount < $min_child_amount")" -eq 1 ]; then
+        echo "❌ Child amount too small: $child_amount BTC (need at least $min_child_amount BTC after fees)"
+        echo "   Available: $total_wallet_amount BTC, Required fee: $dynamic_fee BTC"
         exit 1
     fi
-    CHANGE_ADDRESS=$(btc_wallet "$WALLET" getnewaddress "" "$(get_address_type "$WALLET")")
-    echo "   🔍 Creating CPFP child spending $TOTAL_WALLET_AMOUNT BTC → $CHILD_AMOUNT BTC ($DYNAMIC_FEE BTC fee)"
-    echo "   🎯 Target: $CHANGE_ADDRESS"
-    INPUTS="["
-    for i in "${!WALLET_OUTPUTS[@]}"; do
-        OUTPUT_INDEX=$(echo "${WALLET_OUTPUTS[$i]}" | cut -d':' -f1)
+    change_address=$(btc_wallet "$wallet" getnewaddress "" "$(get_address_type "$wallet")")
+    echo "   🔍 Creating CPFP child spending $total_wallet_amount BTC → $child_amount BTC ($dynamic_fee BTC fee)"
+    echo "   🎯 Target: $change_address"
+    inputs="["
+    for i in "${!wallet_outputs[@]}"; do
+        output_index=$(echo "${wallet_outputs[$i]}" | cut -d':' -f1)
         if [ "$i" -gt 0 ]; then
-            INPUTS+=","
+            inputs+=","
         fi
-        INPUTS+="{\"txid\":\"$PARENT_TXID\",\"vout\":$OUTPUT_INDEX}"
+        inputs+="{\"txid\":\"$parent_txid\",\"vout\":$output_index}"
     done
-    INPUTS+="]"
-    OUTPUTS="{\"$CHANGE_ADDRESS\":$CHILD_AMOUNT}"
+    inputs+="]"
+    outputs="{\"$change_address\":$child_amount}"
     echo "   🔧 Creating raw transaction..."
-    RAW_TX=$(btc_wallet "$WALLET" createrawtransaction "$INPUTS" "$OUTPUTS")
-    if [ -z "$RAW_TX" ]; then
+    raw_tx=$(btc_wallet "$wallet" createrawtransaction "$inputs" "$outputs")
+    if [ -z "$raw_tx" ]; then
         echo "❌ Failed to create raw transaction"
         exit 1
     fi
     echo "   ✍️  Signing transaction..."
-    SIGNED_TX=$(btc_wallet "$WALLET" signrawtransactionwithwallet "$RAW_TX")
-    SIGNED_HEX=$(echo "$SIGNED_TX" | jq -r '.hex')
-    SIGN_COMPLETE=$(echo "$SIGNED_TX" | jq -r '.complete')
-    if [ "$SIGN_COMPLETE" != "true" ]; then
+    signed_tx=$(btc_wallet "$wallet" signrawtransactionwithwallet "$raw_tx")
+    signed_hex=$(echo "$signed_tx" | jq -r '.hex')
+    sign_complete=$(echo "$signed_tx" | jq -r '.complete')
+    if [ "$sign_complete" != "true" ]; then
         echo "❌ Failed to sign transaction"
-        echo "Signing result: $SIGNED_TX"
+        echo "Signing result: $signed_tx"
         exit 1
     fi
     echo "   📡 Broadcasting CPFP child transaction..."
-    CHILD_TXID=$(btc sendrawtransaction "$SIGNED_HEX")
-    if [ -z "$CHILD_TXID" ]; then
+    child_txid=$(btc sendrawtransaction "$signed_hex")
+    if [ -z "$child_txid" ]; then
         echo "❌ Failed to create child transaction"
-        echo "   $WALLET balance (confirmed): $(btc_wallet "$WALLET" getbalance)"
-        echo "   $WALLET balance (unconfirmed): $(btc_wallet "$WALLET" getbalance "*" 0)"
+        echo "   $wallet balance (confirmed): $(btc_wallet "$wallet" getbalance)"
+        echo "   $wallet balance (unconfirmed): $(btc_wallet "$wallet" getbalance "*" 0)"
         exit 1
     fi
-    echo "   ✅ Child transaction created: $CHILD_TXID"
-    echo "   💰 Amount: $CHILD_AMOUNT BTC (high fee: $DYNAMIC_FEE BTC)"
-    echo "   🎯 Target: $CHANGE_ADDRESS ($WALLET change address)"
+    echo "   ✅ Child transaction created: $child_txid"
+    echo "   💰 Amount: $child_amount BTC (high fee: $dynamic_fee BTC)"
+    echo "   🎯 Target: $change_address ($wallet change address)"
     echo ""
     echo "🔗 CPFP Relationship Created:"
-    echo "   👨 Parent: $PARENT_TXID ($WALLET → $WALLET, stuck due to low fee)"
-    echo "   👶 Child:  $CHILD_TXID ($WALLET → $WALLET, high fee accelerates parent)"
+    echo "   👨 Parent: $parent_txid ($wallet → $wallet, stuck due to low fee)"
+    echo "   👶 Child:  $child_txid ($wallet → $wallet, high fee accelerates parent)"
     echo ""
     echo "📊 Current mempool status:"
-    MEMPOOL_SIZE=$(btc getmempoolinfo | grep '"size"' | cut -d':' -f2 | tr -d ' ,')
-    echo "   Transactions in mempool: $MEMPOOL_SIZE"
+    mempool_size=$(btc getmempoolinfo | grep '"size"' | cut -d':' -f2 | tr -d ' ,')
+    echo "   Transactions in mempool: $mempool_size"
     echo ""
     echo "🔍 Transaction Details:"
-    echo "Parent transaction ($WALLET wallet view):"
-    btc_wallet "$WALLET" gettransaction "$PARENT_TXID" | jq -r '"   Fee: " + (.fee | tostring) + " BTC, Confirmations: " + (.confirmations | tostring)'
+    echo "Parent transaction ($wallet wallet view):"
+    btc_wallet "$wallet" gettransaction "$parent_txid" | jq -r '"   Fee: " + (.fee | tostring) + " BTC, Confirmations: " + (.confirmations | tostring)'
     echo ""
-    echo "Child transaction ($WALLET wallet view):"
-    btc_wallet "$WALLET" gettransaction "$CHILD_TXID" | jq -r '"   Fee: " + (.fee | tostring) + " BTC, Confirmations: " + (.confirmations | tostring)'
+    echo "Child transaction ($wallet wallet view):"
+    btc_wallet "$wallet" gettransaction "$child_txid" | jq -r '"   Fee: " + (.fee | tostring) + " BTC, Confirmations: " + (.confirmations | tostring)'
     echo ""
     echo "🎉 CPFP test scenario complete!"
     echo ""
     echo "📱 Check your application to see:"
     echo "   - Both transactions appear in mempool"
-    echo "   - $WALLET's balance shows pending amounts"
+    echo "   - $wallet's balance shows pending amounts"
     echo "   - CPFP relationship should be detected"
     echo ""
     echo "⛏️  Mine blocks to confirm both transactions:"

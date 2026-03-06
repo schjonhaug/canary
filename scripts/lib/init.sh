@@ -49,7 +49,40 @@ create_descriptor_wallet() {
     fi
 }
 
+create_or_load_wallet() {
+    local wallet_name="$1"
+    local blank="${2:-true}"
+    local status_prefix="${3:-$wallet_name}"
+
+    echo "📋 Creating $status_prefix wallet..."
+    btc unloadwallet "$wallet_name" 2>/dev/null || true
+
+    set +e
+    CREATE_RESULT=$(btc -named createwallet wallet_name="$wallet_name" disable_private_keys=false blank="$blank" passphrase="" avoid_reuse=false descriptors=true 2>&1)
+    CREATE_EXIT_CODE=$?
+    set -e
+
+    if echo "$CREATE_RESULT" | grep -q "already exists"; then
+        echo "   ✅ $status_prefix wallet exists, loading..."
+        load_wallet_if_needed "$wallet_name"
+        return 0
+    fi
+
+    if [ "$CREATE_EXIT_CODE" -eq 0 ]; then
+        if [ "$blank" = "true" ]; then
+            echo "   ✅ $status_prefix blank wallet created"
+        else
+            echo "   ✅ $status_prefix wallet created"
+        fi
+        return 0
+    fi
+
+    echo "   ❌ Failed to create $status_prefix wallet: $CREATE_RESULT"
+    exit 1
+}
+
 cmd_init() {
+    require_tools jq bc curl
     if ! btc getblockchaininfo > /dev/null 2>&1; then
         echo "🔧 Bitcoin Core not running — starting infrastructure first..."
         "$0" start
@@ -84,22 +117,10 @@ cmd_init() {
     nested_empty_descriptor=$(get_wallet_descriptor "nested-empty" '.desc | startswith("sh(wpkh(") and contains("/0/*")')
     taproot_empty_descriptor=$(get_wallet_descriptor "taproot-empty" '.desc | startswith("tr(") and contains("/0/*")')
 
-    echo "📋 Creating Charlie wallet..."
-    btc unloadwallet "charlie" 2>/dev/null || true
-    set +e
-    CREATE_RESULT=$(btc -named createwallet wallet_name="charlie" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1)
-    CREATE_EXIT_CODE=$?
-    set -e
-    if echo "$CREATE_RESULT" | grep -q "already exists"; then
-        echo "   ✅ Charlie wallet exists, loading..."
-        load_wallet_if_needed "charlie"
-    elif [ "$CREATE_EXIT_CODE" -eq 0 ]; then
-        echo "   ✅ Charlie blank wallet created"
+    create_or_load_wallet "charlie" "true" "Charlie"
+    if ! btc_wallet "charlie" listdescriptors | jq -e '.descriptors[] | select(.desc | startswith("wpkh("))' >/dev/null 2>&1; then
         btc_charlie importdescriptors '[{"desc": "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/84h/1h/0h/0/*)#pe5sgqha", "timestamp": "now", "active": true, "internal": false, "range": [0, 999]}, {"desc": "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/84h/1h/0h/1/*)#sd334489", "timestamp": "now", "active": true, "internal": true, "range": [0, 999]}]' >/dev/null 2>&1
         echo "   ✅ Charlie wallet seeded with deterministic descriptors"
-    else
-        echo "   ❌ Failed to create Charlie wallet: $CREATE_RESULT"
-        exit 1
     fi
     charlie_descriptors=$(btc_wallet charlie listdescriptors)
     charlie_receive_desc=$(echo "$charlie_descriptors" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
@@ -108,17 +129,8 @@ cmd_init() {
     charlie_checksum=$(echo "$charlie_checksum_info" | jq -r '.checksum')
     charlie_descriptor="$charlie_multipath_raw#$charlie_checksum"
 
-    echo "📋 Creating Bacon wallet..."
-    btc unloadwallet "bacon" 2>/dev/null || true
-    set +e
-    CREATE_RESULT=$(btc -named createwallet wallet_name="bacon" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1)
-    CREATE_EXIT_CODE=$?
-    set -e
-    if echo "$CREATE_RESULT" | grep -q "already exists"; then
-        echo "   ✅ Bacon wallet exists, loading..."
-        load_wallet_if_needed "bacon"
-    elif [ "$CREATE_EXIT_CODE" -eq 0 ]; then
-        echo "   ✅ Bacon blank wallet created"
+    create_or_load_wallet "bacon" "true" "Bacon"
+    if ! btc_wallet "bacon" listdescriptors | jq -e '.descriptors[] | select(.desc | startswith("wpkh("))' >/dev/null 2>&1; then
         btc_wallet bacon importdescriptors '[
           {
             "desc": "wpkh(tprv8ZgxMBicQKsPeh9dSitM82FU7Fz3ZgPkKmmovAr2aqwauAMVgjcEkZBb2etBtRPZ8XYVm7shxcKwVaDus7T5kauJXVsqAfzM4Tty13rRjAG/84h/1h/0h/0/*)#ggkkr2kq",
@@ -136,9 +148,6 @@ cmd_init() {
           }
         ]' >/dev/null 2>&1
         echo "   ✅ Bacon wallet seeded with deterministic descriptors"
-    else
-        echo "   ❌ Failed to create Bacon wallet: $CREATE_RESULT"
-        exit 1
     fi
     bacon_descriptors=$(btc_wallet bacon listdescriptors)
     bacon_receive_desc=$(echo "$bacon_descriptors" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
@@ -147,21 +156,7 @@ cmd_init() {
     bacon_checksum=$(echo "$bacon_checksum_info" | jq -r '.checksum')
     bacon_descriptor="$bacon_multipath_raw#$bacon_checksum"
 
-    echo "📋 Creating Miner wallet..."
-    btc unloadwallet "miner" 2>/dev/null || true
-    set +e
-    CREATE_RESULT=$(btc -named createwallet wallet_name="miner" disable_private_keys=false blank=false passphrase="" avoid_reuse=false descriptors=true 2>&1)
-    CREATE_EXIT_CODE=$?
-    set -e
-    if echo "$CREATE_RESULT" | grep -q "already exists"; then
-        echo "   ✅ Miner wallet exists, loading..."
-        load_wallet_if_needed "miner"
-    elif [ "$CREATE_EXIT_CODE" -eq 0 ]; then
-        echo "   ✅ Miner wallet created"
-    else
-        echo "   ❌ Failed to create Miner wallet: $CREATE_RESULT"
-        exit 1
-    fi
+    create_or_load_wallet "miner" "false" "Miner"
     miner_descriptors=$(btc_wallet miner listdescriptors)
     miner_receive_desc=$(echo "$miner_descriptors" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
     miner_multipath_raw=$(echo "$miner_receive_desc" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')
@@ -205,7 +200,7 @@ cmd_init() {
 
     echo "💰 Funding Charlie wallet at index 250..."
     charlie_balance=$(btc_wallet charlie getbalance 2>/dev/null || echo "0")
-    if [ "$(echo "$charlie_balance == 0" | bc -l 2>/dev/null || echo "1")" -eq 1 ]; then
+    if [ "$(compare_decimal "$charlie_balance == 0")" -eq 1 ]; then
         local addr charlie_addr_250 i charlie_txid
         echo "   📍 Generating addresses up to index 250..."
         for i in {0..250}; do
@@ -229,7 +224,7 @@ cmd_init() {
 
     echo "💰 Funding Bacon wallet (for demo account)..."
     bacon_balance=$(btc_wallet bacon getbalance 2>/dev/null || echo "0")
-    if [ "$(echo "$bacon_balance == 0" | bc -l 2>/dev/null || echo "1")" -eq 1 ]; then
+    if [ "$(compare_decimal "$bacon_balance == 0")" -eq 1 ]; then
         local bacon_addr bacon_addr2 segwit_addr segwit_addr2
         echo "   💸 Sending 0.1 BTC to Bacon wallet..."
         bacon_addr=$(btc_wallet bacon getnewaddress)
@@ -256,17 +251,8 @@ cmd_init() {
 
     satoshi_genesis_tprv="tprv8ZgxMBicQKsPeZjnkSokuUQsdrWJ83bXz4Eqm1aVDkDSSJ9BqHGMsjxpBEb3n6V9X3u6ThQQ1dmsvigtXWxvP8YJL9FST4DighMqnHtmFTo"
     satoshi_genesis_address="bcrt1q20lu6ldqtssq7y7ewarlamlzldnmyk5w4n3e97"
-    echo "📋 Creating Satoshi (Genesis) wallet..."
-    btc unloadwallet "satoshi-genesis" 2>/dev/null || true
-    set +e
-    CREATE_RESULT=$(btc -named createwallet wallet_name="satoshi-genesis" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1)
-    CREATE_EXIT_CODE=$?
-    set -e
-    if echo "$CREATE_RESULT" | grep -q "already exists"; then
-        echo "   ✅ Satoshi (Genesis) wallet exists, loading..."
-        load_wallet_if_needed "satoshi-genesis"
-    elif [ "$CREATE_EXIT_CODE" -eq 0 ]; then
-        echo "   ✅ Satoshi (Genesis) blank wallet created"
+    create_or_load_wallet "satoshi-genesis" "true" "Satoshi (Genesis)"
+    if ! btc_wallet "satoshi-genesis" listdescriptors | jq -e '.descriptors[] | select(.desc | startswith("wpkh("))' >/dev/null 2>&1; then
         local satoshi_ext_raw satoshi_int_raw satoshi_ext_checksum satoshi_int_checksum
         satoshi_ext_raw="wpkh($satoshi_genesis_tprv/84h/1h/0h/0/*)"
         satoshi_int_raw="wpkh($satoshi_genesis_tprv/84h/1h/0h/1/*)"
@@ -277,14 +263,11 @@ cmd_init() {
           {\"desc\": \"${satoshi_int_raw}#${satoshi_int_checksum}\", \"timestamp\": \"now\", \"active\": true, \"internal\": true, \"range\": [0, 999]}
         ]" >/dev/null 2>&1
         echo "   ✅ Satoshi (Genesis) wallet seeded with deterministic descriptors"
-    else
-        echo "   ❌ Failed to create Satoshi (Genesis) wallet: $CREATE_RESULT"
-        exit 1
     fi
 
     echo "💰 Funding Satoshi (Genesis) wallet..."
     satoshi_genesis_balance=$(btc_wallet "satoshi-genesis" getbalance 2>/dev/null || echo "0")
-    if [ "$(echo "$satoshi_genesis_balance == 0" | bc -l 2>/dev/null || echo "1")" -eq 1 ]; then
+    if [ "$(compare_decimal "$satoshi_genesis_balance == 0")" -eq 1 ]; then
         echo "   💸 Sending 0.5 BTC to Satoshi (Genesis) address..."
         btc_miner sendtoaddress "$satoshi_genesis_address" 0.5 >/dev/null 2>&1
         btc generatetoaddress 1 "$miner_address" >/dev/null 2>&1
@@ -313,7 +296,7 @@ cmd_init() {
             continue
         fi
         addr_balance=$(btc_wallet "$addr_wallet_name" getbalance 2>/dev/null || echo "0")
-        if [ "$(echo "$addr_balance == 0" | bc -l 2>/dev/null || echo "1")" -eq 1 ]; then
+        if [ "$(compare_decimal "$addr_balance == 0")" -eq 1 ]; then
             address=$(btc_wallet "$addr_wallet_name" getnewaddress "" "$addr_type")
             btc_miner sendtoaddress "$address" 0.123 > /dev/null
             echo "   ✅ $addr_wallet_name ($addr_label): $address — funded 0.123 BTC"
@@ -360,15 +343,21 @@ cmd_init() {
     backend_url="http://localhost:3000"
     echo ""
     if curl -s --connect-timeout 2 --max-time 5 "$backend_url/api/wallets" > /dev/null 2>&1; then
-        read -p "Add wallets to backend? (self-hosted mode only) (Y/n): " -n 1 -r reply
-        echo
+        if prompt_to_continue "Add wallets to backend? (self-hosted mode only) (Y/n): " "yes"; then
+            reply="Y"
+        else
+            reply="n"
+        fi
     else
         echo "⚠️  Backend not running at $backend_url — it must be running to add wallets."
         echo "   Start it with:  cd ../backend && cargo run"
         echo "   Note: This only works in self-hosted mode (unauthenticated API)."
         echo ""
-        read -p "Press Enter when the backend is running, or type 'n' to skip: " -n 1 -r reply
-        echo
+        if prompt_to_continue "Press Enter when the backend is running, or type 'n' to skip: " "no"; then
+            reply="Y"
+        else
+            reply="n"
+        fi
     fi
     if [[ $reply =~ ^[Nn]$ ]]; then
         echo "💡 You can add wallets later with: $0 add-wallets-to-backend"

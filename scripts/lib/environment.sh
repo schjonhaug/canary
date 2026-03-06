@@ -2,6 +2,7 @@ cmd_mode() {
     local mode="$1"
     local data_dir backend_env frontend_env
 
+    require_tools sed
     if [[ "$mode" != "self-hosted" && "$mode" != "cloud" ]]; then
         echo "Usage: $0 mode [self-hosted|cloud]"
         echo "  self-hosted - Single-user mode without authentication"
@@ -18,8 +19,8 @@ cmd_mode() {
 
     backend_env="../backend/.env"
     if [[ -f "$backend_env" ]]; then
-        sed -i '' "s/^CANARY_MODE=.*/CANARY_MODE=$mode/" "$backend_env"
-        sed -i '' "s|^CANARY_DATA_DIR=.*|CANARY_DATA_DIR=$data_dir|" "$backend_env"
+        sed_in_place "s/^CANARY_MODE=.*/CANARY_MODE=$mode/" "$backend_env"
+        sed_in_place "s|^CANARY_DATA_DIR=.*|CANARY_DATA_DIR=$data_dir|" "$backend_env"
         echo "Updated $backend_env:"
         echo "  CANARY_MODE=$mode"
         echo "  CANARY_DATA_DIR=$data_dir"
@@ -29,7 +30,7 @@ cmd_mode() {
 
     frontend_env="../frontend/.env.local"
     if [[ -f "$frontend_env" ]]; then
-        sed -i '' "s/^NEXT_PUBLIC_CANARY_MODE=.*/NEXT_PUBLIC_CANARY_MODE=$mode/" "$frontend_env"
+        sed_in_place "s/^NEXT_PUBLIC_CANARY_MODE=.*/NEXT_PUBLIC_CANARY_MODE=$mode/" "$frontend_env"
         echo "Updated $frontend_env:"
         echo "  NEXT_PUBLIC_CANARY_MODE=$mode"
     else
@@ -42,13 +43,14 @@ cmd_mode() {
 }
 
 cmd_start() {
+    require_tools docker-compose curl nc
     echo "Starting Bitcoin regtest environment with Docker..."
     docker-compose up -d
 
     echo "Waiting for Bitcoin Core to start..."
     local timeout=60
     while [ "$timeout" -gt 0 ]; do
-        if docker exec bitcoind-regtest bitcoin-cli -rpcuser=bitcoin -rpcpassword=bitcoin -rpcport=8332 getblockchaininfo > /dev/null 2>&1; then
+        if btc getblockchaininfo > /dev/null 2>&1; then
             echo "✅ Bitcoin Core is ready"
             break
         fi

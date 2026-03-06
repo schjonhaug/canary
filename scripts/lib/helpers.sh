@@ -63,7 +63,7 @@ get_address_type() {
 
 is_wallet_name() {
     case "$1" in
-        segwit-desc|legacy-desc|nested-desc|taproot-desc|segwit-empty|legacy-empty|nested-empty|taproot-empty|charlie|miner|legacy-address|p2sh-address|segwit-address|taproot-address)
+        segwit-desc|legacy-desc|nested-desc|taproot-desc|segwit-empty|legacy-empty|nested-empty|taproot-empty|charlie|bacon|miner|legacy-address|p2sh-address|segwit-address|taproot-address)
             return 0
             ;;
         *)
@@ -85,6 +85,50 @@ is_raw_bitcoin_address() {
 
 load_wallet_if_needed() {
     btc loadwallet "$1" 2>/dev/null || true
+}
+
+require_tools() {
+    local tool
+    for tool in "$@"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "Missing required tool: $tool" >&2
+            exit 1
+        fi
+    done
+}
+
+compare_decimal() {
+    local expression="$1"
+    require_tools bc
+    echo "$expression" | bc -l
+}
+
+is_interactive_shell() {
+    [ -t 0 ] && [ -t 1 ]
+}
+
+prompt_to_continue() {
+    local prompt="$1"
+    local default_answer="${2:-yes}"
+    local reply
+
+    if [ "${CANARY_AUTO_YES:-}" = "1" ] || [ "${CANARY_AUTO_YES:-}" = "true" ]; then
+        return 0
+    fi
+
+    if ! is_interactive_shell; then
+        [ "$default_answer" = "yes" ]
+        return
+    fi
+
+    read -p "$prompt" -n 1 -r reply
+    echo
+    if [ -z "$reply" ]; then
+        [ "$default_answer" = "yes" ]
+        return
+    fi
+
+    [[ $reply =~ ^[Yy]$ ]]
 }
 
 get_single_address_wallet_address() {
@@ -116,11 +160,13 @@ backend_add_wallet() {
     local name="$2"
     local descriptor="$3"
     local emoji="${4:-📤}"
-    local response
+    local response payload
 
+    require_tools jq
+    payload=$(jq -n --arg name "$name" --arg descriptor "$descriptor" '{name: $name, descriptor: $descriptor}')
     response=$(curl -s -X POST "$backend_url/api/wallets" \
         -H "Content-Type: application/json" \
-        -d "{\"name\":\"$name\",\"descriptor\":\"$descriptor\"}")
+        -d "$payload")
 
     if echo "$response" | jq -e '.wallet.checksum' > /dev/null 2>&1; then
         local checksum
@@ -145,8 +191,25 @@ mine_blocks() {
 
 kill_servers() {
     if lsof -ti:3000,3001 > /dev/null 2>&1; then
+        local pids
+        pids=$(lsof -ti:3000,3001 | sort -u)
         echo "🔪 Stopping backend/frontend (ports 3000, 3001)..."
-        lsof -ti:3000,3001 | xargs kill -9 2>/dev/null || true
+        if [ -n "$pids" ]; then
+            echo "$pids" | xargs kill 2>/dev/null || true
+            sleep 1
+            echo "$pids" | xargs kill -9 2>/dev/null || true
+        fi
         sleep 1
+    fi
+}
+
+sed_in_place() {
+    local expression="$1"
+    local file="$2"
+
+    if sed --version >/dev/null 2>&1; then
+        sed -i "$expression" "$file"
+    else
+        sed -i '' "$expression" "$file"
     fi
 }
