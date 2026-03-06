@@ -51,7 +51,7 @@ cmd_create_stress_wallet() {
     echo "   Miner balance: $miner_balance BTC"
 
     needed_btc=$(echo "scale=2; $tx_count * 0.002" | bc -l)
-    if [ "$(echo "$miner_balance < $needed_btc" | bc -l)" -eq 1 ]; then
+    if [ "$(compare_decimal "$miner_balance < $needed_btc")" -eq 1 ]; then
         blocks_needed=$(echo "($needed_btc - $miner_balance) / 50 + 2" | bc)
         echo "   Mining $blocks_needed more blocks for funds..."
         btc generatetoaddress "$blocks_needed" "$miner_address" >/dev/null 2>&1

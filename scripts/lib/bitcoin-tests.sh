@@ -122,7 +122,7 @@ cpfp_for_wallet() {
     echo "   👶 Child:  $child_txid ($wallet → $wallet, high fee accelerates parent)"
     echo ""
     echo "📊 Current mempool status:"
-    mempool_size=$(btc getmempoolinfo | grep '"size"' | cut -d':' -f2 | tr -d ' ,')
+    mempool_size=$(btc getmempoolinfo | jq -r '.size')
     echo "   Transactions in mempool: $mempool_size"
     echo ""
     echo "🔍 Transaction Details:"

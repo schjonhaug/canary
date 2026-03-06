@@ -303,6 +303,10 @@ handle_wallet_command() {
 
     shift 2
     case "$subcmd" in
+        "")
+            echo "Usage: $0 $wallet <sending|sent|balance|address|fund|rbf|cpfp|consolidate> [args]"
+            return 1
+            ;;
         sending)
             cmd_wallet_sending "$wallet" "$@"
             ;;

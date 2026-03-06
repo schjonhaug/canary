@@ -8,7 +8,7 @@ cmd_add_wallets_to_backend() {
         echo "💡 To start the backend:"
         echo "   1. Open a new terminal"
         echo "   2. cd ../backend"
-        echo "   3. BITCOIN_NETWORK=regtest cargo run"
+        echo "   3. CANARY_NETWORK=regtest cargo run"
         echo ""
         echo "   Then run this command again."
         exit 1
