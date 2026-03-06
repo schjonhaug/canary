@@ -592,12 +592,15 @@
     },
     "delete": {
       "title": "Slett lommebok",
-      "description": "Er du sikker på at du vil slette denne lommeboken? Denne handlingen kan ikke angres."
+      "description": "Er du sikker på at du vil slette denne lommeboken? Denne handlingen kan ikke angres.",
+      "failed": "Kunne ikke slette lommebok"
     },
     "edit": {
       "title": "Rediger lommebok",
       "nameLabel": "Lommeboknavn",
-      "submit": "Lagre endringer"
+      "submit": "Lagre endringer",
+      "failed": "Kunne ikke oppdatere lommeboknavn",
+      "emptyName": "Lommeboknavn kan ikke være tomt"
     }
   },
   "contacts": {
@@ -634,7 +637,8 @@
         "emailHint": "Skriv inn gyldig e-postadresse"
       },
       "submit": "Opprett kontakt",
-      "submitting": "Behandler..."
+      "submitting": "Behandler...",
+      "saveFailed": "Kunne ikke lagre kontakt"
     },
     "edit": {
       "title": "Rediger kontakt",
@@ -643,7 +647,8 @@
     },
     "delete": {
       "title": "Slett kontakt",
-      "description": "Er du sikker på at du vil slette denne kontakten? <bold>{name}</bold> vil ikke lenger motta varsler."
+      "description": "Er du sikker på at du vil slette denne kontakten? <bold>{name}</bold> vil ikke lenger motta varsler.",
+      "failed": "Kunne ikke slette kontakt"
     },
     "verification": {
       "codeLabel": "Verifiseringskode",

@@ -592,12 +592,15 @@
     },
     "delete": {
       "title": "Wallet löschen",
-      "description": "Sind Sie sicher, dass Sie diese Wallet löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+      "description": "Sind Sie sicher, dass Sie diese Wallet löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "failed": "Wallet konnte nicht gelöscht werden"
     },
     "edit": {
       "title": "Wallet bearbeiten",
       "nameLabel": "Wallet-Name",
-      "submit": "Änderungen speichern"
+      "submit": "Änderungen speichern",
+      "failed": "Wallet-Name konnte nicht aktualisiert werden",
+      "emptyName": "Wallet-Name darf nicht leer sein"
     }
   },
   "contacts": {
@@ -634,7 +637,8 @@
         "emailHint": "Gültige E-Mail-Adresse eingeben"
       },
       "submit": "Kontakt erstellen",
-      "submitting": "Verarbeite..."
+      "submitting": "Verarbeite...",
+      "saveFailed": "Kontakt konnte nicht gespeichert werden"
     },
     "edit": {
       "title": "Kontakt bearbeiten",
@@ -643,7 +647,8 @@
     },
     "delete": {
       "title": "Kontakt löschen",
-      "description": "Sind Sie sicher, dass Sie diesen Kontakt löschen möchten? <bold>{name}</bold> erhält keine Benachrichtigungen mehr."
+      "description": "Sind Sie sicher, dass Sie diesen Kontakt löschen möchten? <bold>{name}</bold> erhält keine Benachrichtigungen mehr.",
+      "failed": "Kontakt konnte nicht gelöscht werden"
     },
     "verification": {
       "codeLabel": "Bestätigungscode",

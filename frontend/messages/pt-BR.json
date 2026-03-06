@@ -592,12 +592,15 @@
     },
     "delete": {
       "title": "Excluir Carteira",
-      "description": "Tem certeza de que deseja excluir esta carteira? Esta ação não pode ser desfeita."
+      "description": "Tem certeza de que deseja excluir esta carteira? Esta ação não pode ser desfeita.",
+      "failed": "Falha ao excluir a carteira"
     },
     "edit": {
       "title": "Editar Carteira",
       "nameLabel": "Nome da Carteira",
-      "submit": "Salvar Alterações"
+      "submit": "Salvar Alterações",
+      "failed": "Falha ao atualizar o nome da carteira",
+      "emptyName": "O nome da carteira não pode estar vazio"
     }
   },
   "contacts": {
@@ -634,7 +637,8 @@
         "emailHint": "Digite um endereço de email válido"
       },
       "submit": "Criar contato",
-      "submitting": "Processando..."
+      "submitting": "Processando...",
+      "saveFailed": "Falha ao salvar o contato"
     },
     "edit": {
       "title": "Editar contato",
@@ -643,7 +647,8 @@
     },
     "delete": {
       "title": "Excluir contato",
-      "description": "Tem certeza de que deseja excluir este contato? <bold>{name}</bold> não receberá mais notificações."
+      "description": "Tem certeza de que deseja excluir este contato? <bold>{name}</bold> não receberá mais notificações.",
+      "failed": "Falha ao excluir o contato"
     },
     "verification": {
       "codeLabel": "Código de verificação",

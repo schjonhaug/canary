@@ -592,12 +592,15 @@
     },
     "delete": {
       "title": "Ta bort plånbok",
-      "description": "Är du säker på att du vill ta bort den här plånboken? Denna åtgärd kan inte ångras."
+      "description": "Är du säker på att du vill ta bort den här plånboken? Denna åtgärd kan inte ångras.",
+      "failed": "Misslyckades med att ta bort plånbok"
     },
     "edit": {
       "title": "Redigera plånbok",
       "nameLabel": "Namn på plånbok",
-      "submit": "Spara ändringar"
+      "submit": "Spara ändringar",
+      "failed": "Misslyckades med att uppdatera plånbokens namn",
+      "emptyName": "Plånbokens namn får inte vara tomt"
     }
   },
   "contacts": {
@@ -634,7 +637,8 @@
         "emailHint": "Ange en giltig e-postadress"
       },
       "submit": "Skapa kontakt",
-      "submitting": "Bearbetar..."
+      "submitting": "Bearbetar...",
+      "saveFailed": "Misslyckades med att spara kontakt"
     },
     "edit": {
       "title": "Redigera kontakt",
@@ -643,7 +647,8 @@
     },
     "delete": {
       "title": "Radera kontakt",
-      "description": "Är du säker på att du vill radera denna kontakt? <bold>{name}</bold> kommer inte längre att få aviseringar."
+      "description": "Är du säker på att du vill radera denna kontakt? <bold>{name}</bold> kommer inte längre att få aviseringar.",
+      "failed": "Misslyckades med att ta bort kontakt"
     },
     "verification": {
       "codeLabel": "Verifieringskod",

@@ -592,12 +592,15 @@
     },
     "delete": {
       "title": "ウォレットを削除",
-      "description": "このウォレットを削除してもよろしいですか？この操作は取り消せません。"
+      "description": "このウォレットを削除してもよろしいですか？この操作は取り消せません。",
+      "failed": "ウォレットの削除に失敗しました"
     },
     "edit": {
       "title": "ウォレットを編集",
       "nameLabel": "ウォレット名",
-      "submit": "変更を保存"
+      "submit": "変更を保存",
+      "failed": "ウォレット名の更新に失敗しました",
+      "emptyName": "ウォレット名は空にできません"
     }
   },
   "contacts": {
@@ -634,7 +637,8 @@
         "emailHint": "有効なメールアドレスを入力"
       },
       "submit": "連絡先を作成",
-      "submitting": "処理中..."
+      "submitting": "処理中...",
+      "saveFailed": "連絡先の保存に失敗しました"
     },
     "edit": {
       "title": "連絡先を編集",
@@ -643,7 +647,8 @@
     },
     "delete": {
       "title": "連絡先を削除",
-      "description": "この連絡先を削除してもよろしいですか？<bold>{name}</bold>には通知が届かなくなります。"
+      "description": "この連絡先を削除してもよろしいですか？<bold>{name}</bold>には通知が届かなくなります。",
+      "failed": "連絡先の削除に失敗しました"
     },
     "verification": {
       "codeLabel": "確認コード",

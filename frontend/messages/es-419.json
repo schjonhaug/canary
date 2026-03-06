@@ -592,12 +592,15 @@
     },
     "delete": {
       "title": "Eliminar Billetera",
-      "description": "¿Estás seguro de que deseas eliminar esta billetera? Esta acción no se puede deshacer."
+      "description": "¿Estás seguro de que deseas eliminar esta billetera? Esta acción no se puede deshacer.",
+      "failed": "Error al eliminar la billetera"
     },
     "edit": {
       "title": "Editar Billetera",
       "nameLabel": "Nombre de Billetera",
-      "submit": "Guardar Cambios"
+      "submit": "Guardar Cambios",
+      "failed": "Error al actualizar el nombre de la billetera",
+      "emptyName": "El nombre de la billetera no puede estar vacío"
     }
   },
   "contacts": {
@@ -634,7 +637,8 @@
         "emailHint": "Ingresa una dirección de email válida"
       },
       "submit": "Crear contacto",
-      "submitting": "Procesando..."
+      "submitting": "Procesando...",
+      "saveFailed": "Error al guardar el contacto"
     },
     "edit": {
       "title": "Editar contacto",
@@ -643,7 +647,8 @@
     },
     "delete": {
       "title": "Eliminar contacto",
-      "description": "¿Estás seguro de que deseas eliminar este contacto? <bold>{name}</bold> ya no recibirá notificaciones."
+      "description": "¿Estás seguro de que deseas eliminar este contacto? <bold>{name}</bold> ya no recibirá notificaciones.",
+      "failed": "Error al eliminar el contacto"
     },
     "verification": {
       "codeLabel": "Código de verificación",

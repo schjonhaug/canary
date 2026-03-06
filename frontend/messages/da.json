@@ -592,12 +592,15 @@
     },
     "delete": {
       "title": "Slet Wallet",
-      "description": "Er du sikker på, at du vil slette denne wallet? Denne handling kan ikke fortrydes."
+      "description": "Er du sikker på, at du vil slette denne wallet? Denne handling kan ikke fortrydes.",
+      "failed": "Kunne ikke slette wallet"
     },
     "edit": {
       "title": "Rediger Wallet",
       "nameLabel": "Wallet Navn",
-      "submit": "Gem ændringer"
+      "submit": "Gem ændringer",
+      "failed": "Kunne ikke opdatere wallet-navn",
+      "emptyName": "Wallet-navn må ikke være tomt"
     }
   },
   "contacts": {
@@ -634,7 +637,8 @@
         "emailHint": "Indtast gyldig e-mailadresse"
       },
       "submit": "Opret kontakt",
-      "submitting": "Behandler..."
+      "submitting": "Behandler...",
+      "saveFailed": "Kunne ikke gemme kontakt"
     },
     "edit": {
       "title": "Rediger kontakt",
@@ -643,7 +647,8 @@
     },
     "delete": {
       "title": "Slet kontakt",
-      "description": "Er du sikker på, at du vil slette denne kontakt? <bold>{name}</bold> vil ikke længere modtage notifikationer."
+      "description": "Er du sikker på, at du vil slette denne kontakt? <bold>{name}</bold> vil ikke længere modtage notifikationer.",
+      "failed": "Kunne ikke slette kontakt"
     },
     "verification": {
       "codeLabel": "Verifikationskode",

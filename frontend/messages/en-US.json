@@ -592,12 +592,15 @@
     },
     "delete": {
       "title": "Delete Wallet",
-      "description": "Are you sure you want to delete this wallet? This action cannot be undone."
+      "description": "Are you sure you want to delete this wallet? This action cannot be undone.",
+      "failed": "Failed to delete wallet"
     },
     "edit": {
       "title": "Edit Wallet",
       "nameLabel": "Wallet Name",
-      "submit": "Save Changes"
+      "submit": "Save Changes",
+      "failed": "Failed to update wallet name",
+      "emptyName": "Wallet name cannot be empty"
     }
   },
   "contacts": {
@@ -634,7 +637,8 @@
         "emailHint": "Enter valid email address"
       },
       "submit": "Create Contact",
-      "submitting": "Processing..."
+      "submitting": "Processing...",
+      "saveFailed": "Failed to save contact"
     },
     "edit": {
       "title": "Edit Contact",
@@ -643,7 +647,8 @@
     },
     "delete": {
       "title": "Delete Contact",
-      "description": "Are you sure you want to delete this contact? <bold>{name}</bold> will no longer receive notifications."
+      "description": "Are you sure you want to delete this contact? <bold>{name}</bold> will no longer receive notifications.",
+      "failed": "Failed to delete contact"
     },
     "verification": {
       "codeLabel": "Verification Code",

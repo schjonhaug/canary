@@ -11,8 +11,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { ApiError } from "../lib/api"
 import { Contact } from "../types"
 import { useTranslations } from "next-intl"
+import { getTranslatedApiError } from "@/lib/utils"
 
 interface DeleteContactModalProps {
   contact: Contact | null
@@ -31,6 +33,7 @@ export function DeleteContactModal({
   const [error, setError] = useState<string | null>(null)
   const t = useTranslations('contacts')
   const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
 
   const handleDelete = async () => {
     if (!contact) return
@@ -42,7 +45,7 @@ export function DeleteContactModal({
       await onConfirmDelete()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete contact")
+      setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('delete.failed'))
     } finally {
       setIsDeleting(false)
     }

@@ -13,13 +13,14 @@ import {
   TrendingDown,
   Target
 } from "lucide-react"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
 import { BalanceAlert, CreateBalanceAlertRequest } from "@/types"
 import {
   satsToBtc,
   btcToSats,
   parseBtcInput,
-  getBtcPlaceholder
+  getBtcPlaceholder,
+  getTranslatedApiError
 } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
@@ -58,6 +59,7 @@ export function BalanceAlertsList({
   const { user, isCloudMode } = useAuth()
   const t = useTranslations('balanceAlerts')
   const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
   const { formatFiatAmount, formatBtcAmount } = useFormatters()
 
   // Use local state for optimistic updates
@@ -135,12 +137,9 @@ export function BalanceAlertsList({
           alert_type: alertType
         }
 
-        const newAlert = await api.createBalanceAlert(walletChecksum, alertData)
-        setLocalAlerts(prev => [...prev, newAlert])
-        setShowCreateForm(false)
-        setThresholdInput('')
+        await submitAlert(alertData)
       } catch (err) {
-        setError(err instanceof Error ? err.message : t('errors.createFailed'))
+        setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('errors.createFailed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -180,16 +179,20 @@ export function BalanceAlertsList({
           threshold_fiat_amount: thresholdFiat
         }
 
-        const newAlert = await api.createBalanceAlert(walletChecksum, alertData)
-        setLocalAlerts(prev => [...prev, newAlert])
-        setShowCreateForm(false)
-        setThresholdInput('')
+        await submitAlert(alertData)
       } catch (err) {
-        setError(err instanceof Error ? err.message : t('errors.createFailed'))
+        setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('errors.createFailed'))
       } finally {
         setIsSubmitting(false)
       }
     }
+  }
+
+  const submitAlert = async (alertData: CreateBalanceAlertRequest) => {
+    const newAlert = await api.createBalanceAlert(walletChecksum, alertData)
+    setLocalAlerts(prev => [...prev, newAlert])
+    setShowCreateForm(false)
+    setThresholdInput('')
   }
 
   const handleDeleteAlert = async (alertId: string) => {
@@ -198,7 +201,7 @@ export function BalanceAlertsList({
       setLocalAlerts(prev => prev.filter(alert => alert.id !== alertId))
       setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.deleteFailed'))
+      setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('errors.deleteFailed'))
     }
   }
 
