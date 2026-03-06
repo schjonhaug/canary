@@ -8,6 +8,7 @@ cmd_create_stress_wallet() {
     local completed batch_size start_time remaining current_batch
     local i dest_addr refund_addr elapsed rate eta
     local total_time final_balance tx_list_count
+    local create_result create_exit_code=0
 
     if [ -z "$tx_count" ]; then
         echo "Usage: $0 create-stress-wallet <tx_count>"
@@ -22,18 +23,15 @@ cmd_create_stress_wallet() {
     echo "1/4 Creating wallet..."
     btc unloadwallet "$wallet_name" 2>/dev/null || true
 
-    set +e
-    CREATE_RESULT=$(btc -named createwallet wallet_name="$wallet_name" disable_private_keys=false blank=false passphrase="" avoid_reuse=false descriptors=true 2>&1)
-    CREATE_EXIT_CODE=$?
-    set -e
+    create_result=$(btc -named createwallet wallet_name="$wallet_name" disable_private_keys=false blank=false passphrase="" avoid_reuse=false descriptors=true 2>&1) || create_exit_code=$?
 
-    if echo "$CREATE_RESULT" | grep -q "already exists"; then
+    if echo "$create_result" | grep -q "already exists"; then
         echo "   Wallet exists, loading..."
         load_wallet_if_needed "$wallet_name"
-    elif [ "$CREATE_EXIT_CODE" -eq 0 ]; then
+    elif [ "$create_exit_code" -eq 0 ]; then
         echo "   Wallet created"
     else
-        echo "   Failed to create wallet: $CREATE_RESULT"
+        echo "   Failed to create wallet: $create_result"
         exit 1
     fi
 

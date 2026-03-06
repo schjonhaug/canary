@@ -131,9 +131,7 @@ cmd_restart() {
 
 cmd_reset() {
     echo "⚠️  This will stop containers and delete all blockchain data AND database data!"
-    read -p "Are you sure? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    if ! prompt_to_continue "Are you sure? (y/N): " "no"; then
         echo "Reset cancelled"
         return
     fi

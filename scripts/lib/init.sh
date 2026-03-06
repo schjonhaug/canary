@@ -3,19 +3,17 @@ create_descriptor_wallet() {
     local tprv="$2"
     local wrapper="$3"
     local bip_path="$4"
+    local create_result create_exit_code=0
 
     echo "📋 Creating $wallet_name wallet..."
     btc unloadwallet "$wallet_name" 2>/dev/null || true
 
-    set +e
-    CREATE_RESULT=$(btc -named createwallet wallet_name="$wallet_name" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1)
-    CREATE_EXIT_CODE=$?
-    set -e
+    create_result=$(btc -named createwallet wallet_name="$wallet_name" disable_private_keys=false blank=true passphrase="" avoid_reuse=false descriptors=true 2>&1) || create_exit_code=$?
 
-    if echo "$CREATE_RESULT" | grep -q "already exists"; then
+    if echo "$create_result" | grep -q "already exists"; then
         echo "   ✅ $wallet_name wallet exists, loading..."
         load_wallet_if_needed "$wallet_name"
-    elif [ "$CREATE_EXIT_CODE" -eq 0 ]; then
+    elif [ "$create_exit_code" -eq 0 ]; then
         echo "   ✅ $wallet_name blank wallet created"
         local ext_raw int_raw ext_checksum int_checksum
         case "$wrapper" in
@@ -44,7 +42,7 @@ create_descriptor_wallet() {
         ]" >/dev/null 2>&1
         echo "   ✅ $wallet_name wallet seeded with deterministic descriptors"
     else
-        echo "   ❌ Failed to create $wallet_name wallet: $CREATE_RESULT"
+        echo "   ❌ Failed to create $wallet_name wallet: $create_result"
         exit 1
     fi
 }
@@ -53,22 +51,20 @@ create_or_load_wallet() {
     local wallet_name="$1"
     local blank="${2:-true}"
     local status_prefix="${3:-$wallet_name}"
+    local create_result create_exit_code=0
 
     echo "📋 Creating $status_prefix wallet..."
     btc unloadwallet "$wallet_name" 2>/dev/null || true
 
-    set +e
-    CREATE_RESULT=$(btc -named createwallet wallet_name="$wallet_name" disable_private_keys=false blank="$blank" passphrase="" avoid_reuse=false descriptors=true 2>&1)
-    CREATE_EXIT_CODE=$?
-    set -e
+    create_result=$(btc -named createwallet wallet_name="$wallet_name" disable_private_keys=false blank="$blank" passphrase="" avoid_reuse=false descriptors=true 2>&1) || create_exit_code=$?
 
-    if echo "$CREATE_RESULT" | grep -q "already exists"; then
+    if echo "$create_result" | grep -q "already exists"; then
         echo "   ✅ $status_prefix wallet exists, loading..."
         load_wallet_if_needed "$wallet_name"
         return 0
     fi
 
-    if [ "$CREATE_EXIT_CODE" -eq 0 ]; then
+    if [ "$create_exit_code" -eq 0 ]; then
         if [ "$blank" = "true" ]; then
             echo "   ✅ $status_prefix blank wallet created"
         else
@@ -77,7 +73,7 @@ create_or_load_wallet() {
         return 0
     fi
 
-    echo "   ❌ Failed to create $status_prefix wallet: $CREATE_RESULT"
+    echo "   ❌ Failed to create $status_prefix wallet: $create_result"
     exit 1
 }
 
