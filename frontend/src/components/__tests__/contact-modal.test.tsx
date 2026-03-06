@@ -682,7 +682,7 @@ describe('ContactModal', () => {
       })
       
       // Mock createContact to return duplicate conflict error
-      mockApi.createContact.mockRejectedValue(new ApiError("Duplicate notification targets: Email 'your@email.com' is already used by contact 'John'", 'server', 409, 'duplicate_notification_targets'))
+      mockApi.createContact.mockRejectedValue(new ApiError("Duplicate notification targets: Email 'your@email.com' is already used by contact 'John'", 'conflict', 409, 'duplicate_notification_targets'))
       
       await act(async () => {
         render(<ContactModal {...defaultProps} />)
@@ -711,7 +711,7 @@ describe('ContactModal', () => {
       const user = userEvent.setup()
 
       // Mock createContact to return duplicate conflict error
-      mockApi.createContact.mockRejectedValue(new ApiError("Duplicate notification targets: Phone number '+4712345678' is already used by contact 'Alice'", 'server', 409, 'duplicate_notification_targets'))
+      mockApi.createContact.mockRejectedValue(new ApiError("Duplicate notification targets: Phone number '+4712345678' is already used by contact 'Alice'", 'conflict', 409, 'duplicate_notification_targets'))
       
       await act(async () => {
         render(<ContactModal {...defaultProps} />)

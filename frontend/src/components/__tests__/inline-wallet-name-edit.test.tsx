@@ -2,12 +2,16 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { InlineWalletNameEdit } from '../inline-wallet-name-edit'
 
-// Mock the api module
-jest.mock('../../lib/api', () => ({
-  api: {
-    updateWallet: jest.fn(),
-  },
-}))
+// Mock the api module but keep ApiError from the real module
+jest.mock('../../lib/api', () => {
+  const actual = jest.requireActual('../../lib/api')
+  return {
+    ApiError: actual.ApiError,
+    api: {
+      updateWallet: jest.fn(),
+    },
+  }
+})
 
 // Mock the useAuth hook
 jest.mock('../../contexts/auth-context', () => ({
@@ -148,7 +152,7 @@ describe('InlineWalletNameEdit', () => {
     expect(screen.queryByDisplayValue('Test Wallet')).not.toBeInTheDocument()
   })
 
-  it('shows error message when update fails', async () => {
+  it('shows translated error message when update fails', async () => {
     mockApi.updateWallet.mockRejectedValue(new Error('Update failed'))
     
     render(<InlineWalletNameEdit {...defaultProps} />)
@@ -165,7 +169,7 @@ describe('InlineWalletNameEdit', () => {
     fireEvent.click(saveButton)
     
     await waitFor(() => {
-      expect(screen.getByText('Update failed')).toBeInTheDocument()
+      expect(screen.getByText('Failed to update wallet name')).toBeInTheDocument()
     })
   })
 

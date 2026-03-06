@@ -13,7 +13,7 @@ import {
   TrendingDown,
   Target
 } from "lucide-react"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
 import { BalanceAlert, CreateBalanceAlertRequest } from "@/types"
 import {
   satsToBtc,
@@ -139,7 +139,7 @@ export function BalanceAlertsList({
 
         await submitAlert(alertData)
       } catch (err) {
-        setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('errors.createFailed'))
+        setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('errors.createFailed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -181,7 +181,7 @@ export function BalanceAlertsList({
 
         await submitAlert(alertData)
       } catch (err) {
-        setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('errors.createFailed'))
+        setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('errors.createFailed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -201,7 +201,7 @@ export function BalanceAlertsList({
       setLocalAlerts(prev => prev.filter(alert => alert.id !== alertId))
       setError(null)
     } catch (err) {
-      setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('errors.deleteFailed'))
+      setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('errors.deleteFailed'))
     }
   }
 

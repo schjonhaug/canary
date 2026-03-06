@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { ApiError } from "../lib/api"
 import { Wallet } from "../types"
 import { useTranslations } from "next-intl"
 import { getTranslatedApiError } from "@/lib/utils"
@@ -44,7 +45,7 @@ export function DeleteWalletModal({
       await onConfirmDelete()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('delete.failed'))
+      setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('delete.failed'))
     } finally {
       setIsDeleting(false)
     }

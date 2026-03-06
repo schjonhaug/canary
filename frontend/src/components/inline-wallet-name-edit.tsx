@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Edit, Check, X } from "lucide-react"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
 import { getTranslatedApiError } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
@@ -58,7 +58,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
         onNameUpdated(name.trim())
       }
     } catch (err) {
-      setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('edit.failed'))
+      setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('edit.failed'))
     } finally {
       setIsUpdating(false)
     }
