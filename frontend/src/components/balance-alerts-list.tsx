@@ -19,7 +19,8 @@ import {
   satsToBtc,
   btcToSats,
   parseBtcInput,
-  getBtcPlaceholder
+  getBtcPlaceholder,
+  getTranslatedApiError
 } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
@@ -58,6 +59,7 @@ export function BalanceAlertsList({
   const { user, isCloudMode } = useAuth()
   const t = useTranslations('balanceAlerts')
   const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
   const { formatFiatAmount, formatBtcAmount } = useFormatters()
 
   // Use local state for optimistic updates
@@ -140,7 +142,7 @@ export function BalanceAlertsList({
         setShowCreateForm(false)
         setThresholdInput('')
       } catch (err) {
-        setError(err instanceof Error ? err.message : t('errors.createFailed'))
+        setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('errors.createFailed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -185,7 +187,7 @@ export function BalanceAlertsList({
         setShowCreateForm(false)
         setThresholdInput('')
       } catch (err) {
-        setError(err instanceof Error ? err.message : t('errors.createFailed'))
+        setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('errors.createFailed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -198,7 +200,7 @@ export function BalanceAlertsList({
       setLocalAlerts(prev => prev.filter(alert => alert.id !== alertId))
       setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.deleteFailed'))
+      setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('errors.deleteFailed'))
     }
   }
 

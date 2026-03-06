@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Edit, Check, X } from "lucide-react"
 import { api } from "@/lib/api"
+import { getTranslatedApiError } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
+import { useTranslations } from "next-intl"
 
 interface InlineWalletNameEditProps {
   walletChecksum: string
@@ -20,6 +22,8 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
   const [isUpdating, setIsUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { user, isCloudMode } = useAuth()
+  const t = useTranslations('wallets')
+  const tApiErrors = useTranslations('errors.api')
 
   const handleEdit = () => {
     setIsEditing(true)
@@ -35,7 +39,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError("Wallet name cannot be empty")
+      setError(t('edit.emptyName'))
       return
     }
 
@@ -54,7 +58,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
         onNameUpdated(name.trim())
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update wallet name')
+      setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('edit.failed'))
     } finally {
       setIsUpdating(false)
     }

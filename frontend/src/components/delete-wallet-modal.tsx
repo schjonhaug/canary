@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Wallet } from "../types"
 import { useTranslations } from "next-intl"
+import { getTranslatedApiError } from "@/lib/utils"
 
 interface DeleteWalletModalProps {
   wallet: Wallet | null
@@ -31,6 +32,7 @@ export function DeleteWalletModal({
   const [error, setError] = useState<string | null>(null)
   const t = useTranslations('wallets')
   const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
 
   const handleDelete = async () => {
     if (!wallet) return
@@ -42,7 +44,7 @@ export function DeleteWalletModal({
       await onConfirmDelete()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete wallet")
+      setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('delete.failed'))
     } finally {
       setIsDeleting(false)
     }
