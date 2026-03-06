@@ -16,7 +16,7 @@ export default function DonationsPage() {
     : "https://canarybitcoin.com"
 
   return (
-    <>
+    <div className="max-w-6xl mx-auto px-4 py-8">
       <AppHeader />
       <div className="max-w-2xl mx-auto px-4 py-16">
         <div className="text-center mb-10">
@@ -72,6 +72,6 @@ export default function DonationsPage() {
         </p>
       </div>
       <AppFooter />
-    </>
+    </div>
   )
 }
