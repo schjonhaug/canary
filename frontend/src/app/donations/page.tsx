@@ -14,7 +14,7 @@ export default function DonationsPage() {
     : "https://canarybitcoin.com"
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-16">
+    <div className="max-w-2xl mx-auto py-16">
       <div className="text-center mb-10">
         <Heart className="h-10 w-10 text-primary mx-auto mb-4" />
         <h1 className="text-3xl font-bold mb-3">{t("title")}</h1>
