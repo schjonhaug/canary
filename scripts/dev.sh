@@ -27,6 +27,7 @@ required_libs=(
     backend.sh
     environment.sh
     btcpay.sh
+    stress.sh
     init.sh
 )
 
@@ -95,6 +96,9 @@ case "$1" in
         ;;
     add-wallets-to-backend)
         cmd_add_wallets_to_backend "$2"
+        ;;
+    create-stress-wallet)
+        cmd_create_stress_wallet "$2"
         ;;
     remove-wallets-from-backend)
         cmd_remove_wallets_from_backend "$2"
