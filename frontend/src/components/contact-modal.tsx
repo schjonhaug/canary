@@ -321,7 +321,7 @@ export function ContactModal({
           setError(getTranslatedApiError(err, tApiErrors))
         }
       } else {
-        setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('form.saveFailed'))
+        setError(t('form.saveFailed'))
       }
     } finally {
       setIsSubmitting(false)
