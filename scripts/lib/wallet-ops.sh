@@ -210,6 +210,7 @@ cmd_wallet_rbf() {
         echo "   - Transaction already confirmed"
         echo "   - Transaction was not RBF-enabled"
         echo "   - Fee rate not higher than original"
+        return 1
     fi
     return 0
 }

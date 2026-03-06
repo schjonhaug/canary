@@ -65,10 +65,11 @@ cmd_remove_wallets_from_backend() {
     local backend_url="${1:-http://localhost:3000}"
     echo "Removing regtest wallets from backend at $backend_url..."
     local wallets_response
+    local wallet_pattern='^(segwit|legacy|nested|taproot)-(desc|empty|address)$|^p2sh-address$|^Charlie$|^stress-[0-9]+tx$'
     wallets_response=$(curl -s "$backend_url/api/wallets")
 
     if echo "$wallets_response" | jq -e '.wallets' > /dev/null 2>&1; then
-        echo "$wallets_response" | jq -r '.wallets[] | select(.name | test("Regtest")) | .checksum' | while read -r wallet_id; do
+        echo "$wallets_response" | jq -r --arg wallet_pattern "$wallet_pattern" '.wallets[] | select(.name | test($wallet_pattern)) | .checksum' | while read -r wallet_id; do
             if [ -n "$wallet_id" ]; then
                 echo "🗑️  Deleting wallet $wallet_id..."
                 local delete_response

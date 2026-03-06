@@ -73,14 +73,17 @@ is_wallet_name() {
 }
 
 is_raw_bitcoin_address() {
-    case "$1" in
-        bcrt1*|tb1*|bc1*|[13mn]*)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
-    esac
+    local address="$1"
+
+    if [[ "$address" =~ ^(bc1|tb1|bcrt1)[ac-hj-np-z02-9]{11,87}$ ]]; then
+        return 0
+    fi
+
+    if [[ "$address" =~ ^[123mn2][1-9A-HJ-NP-Za-km-z]{25,62}$ ]]; then
+        return 0
+    fi
+
+    return 1
 }
 
 load_wallet_if_needed() {
