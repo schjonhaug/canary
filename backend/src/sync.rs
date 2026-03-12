@@ -412,11 +412,11 @@ impl WalletSyncService {
 
         // Create HashMap for O(1) transaction lookups to avoid individual database queries
         let existing_tx_map: std::collections::HashMap<
-            String,
+            &str,
             &crate::metadata::TransactionWithWallet,
         > = existing_transactions
             .iter()
-            .map(|tx| (tx.txid.clone(), tx))
+            .map(|tx| (tx.txid.as_str(), tx))
             .collect();
 
         // Sort existing transactions by first_seen_at ASC (oldest first) for proper balance calculation
@@ -448,7 +448,7 @@ impl WalletSyncService {
 
                 // Preserve existing timestamp if transaction already exists, otherwise use current time
                 let first_seen_at = existing_tx_map
-                    .get(&txid)
+                    .get(txid.as_str())
                     .map(|tx| tx.first_seen_at)
                     .unwrap_or_else(|| {
                         std::time::SystemTime::now()
@@ -489,7 +489,7 @@ impl WalletSyncService {
             ) = tx_data;
 
             // Check if this is an existing transaction
-            let existing_tx = existing_tx_map.get(txid).copied();
+            let existing_tx = existing_tx_map.get(txid.as_str()).copied();
 
             if let Some(existing) = existing_tx {
                 // Existing transaction - check if it's transitioning from pending to confirmed
@@ -612,7 +612,7 @@ impl WalletSyncService {
             &all_transactions
         {
             // Check if we already know about this transaction using in-memory lookup
-            let existing_tx = existing_tx_map.get(txid);
+            let existing_tx = existing_tx_map.get(txid.as_str());
 
             match existing_tx {
                 None => {
@@ -732,7 +732,7 @@ impl WalletSyncService {
             for conflicted_txid in &conflicted_txids {
                 let conflicted_txid_str = conflicted_txid.to_string();
                 // Check if this conflicted transaction is in our pending transactions using in-memory lookup
-                if let Some(pending_tx) = existing_tx_map.get(&conflicted_txid_str) {
+                if let Some(pending_tx) = existing_tx_map.get(conflicted_txid_str.as_str()) {
                     if pending_tx.transaction_status == "pending" {
                         // Find the conflicted transaction's inputs
                         let conflicted_tx_inputs: Option<Vec<_>> = bdk_tx_map
