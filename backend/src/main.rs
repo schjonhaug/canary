@@ -1216,13 +1216,17 @@ async fn main() -> anyhow::Result<()> {
                 }
                 Ok(violations) => {
                     tracing::warn!("Foreign key violations found: {}", violations.len());
-                    for v in &violations {
+                    let display_count = violations.len().min(10);
+                    for v in &violations[..display_count] {
                         tracing::warn!(
                             "  FK violation: table={}, rowid={}, parent={}",
                             v.table,
                             v.rowid,
                             v.parent
                         );
+                    }
+                    if violations.len() > 10 {
+                        tracing::warn!("  ... and {} more FK violations", violations.len() - 10);
                     }
                 }
                 Err(e) => tracing::warn!("Failed to check foreign keys: {}", e),
@@ -1242,6 +1246,12 @@ async fn main() -> anyhow::Result<()> {
                     total_orphans += records.len();
                 }
             }
+            if let Ok(records) = startup_db.find_orphaned_notification_logs().await {
+                if !records.is_empty() {
+                    tracing::warn!("Found {} orphaned notification logs", records.len());
+                    total_orphans += records.len();
+                }
+            }
             if let Ok(records) = startup_db.find_orphaned_transactions().await {
                 if !records.is_empty() {
                     tracing::warn!("Found {} orphaned transactions", records.len());
@@ -1251,6 +1261,12 @@ async fn main() -> anyhow::Result<()> {
             if let Ok(records) = startup_db.find_orphaned_balance_alerts().await {
                 if !records.is_empty() {
                     tracing::warn!("Found {} orphaned balance alerts", records.len());
+                    total_orphans += records.len();
+                }
+            }
+            if let Ok(records) = startup_db.find_orphaned_balance_alert_notification_logs().await {
+                if !records.is_empty() {
+                    tracing::warn!("Found {} orphaned balance alert notification logs", records.len());
                     total_orphans += records.len();
                 }
             }

@@ -18,12 +18,12 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
 
     // Pool health (synchronous, no DB query)
     let pool_report = db.check_pool_health();
-    let pool_status = if pool_report.idle_connections > 0 {
-        "healthy"
-    } else if pool_report.total_connections < pool_report.max_connections {
-        "degraded"
+    let pool_status = if pool_report.idle_connections == 0
+        && pool_report.total_connections == pool_report.max_connections
+    {
+        "saturated"
     } else {
-        "exhausted"
+        "healthy"
     };
 
     // Schema version
@@ -73,12 +73,49 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
     };
 
     // Orphaned records
-    let orphaned_contacts = db.find_orphaned_contacts().await.map(|r| r.len()).unwrap_or(0);
-    let orphaned_methods = db.find_orphaned_notification_methods().await.map(|r| r.len()).unwrap_or(0);
-    let orphaned_logs = db.find_orphaned_notification_logs().await.map(|r| r.len()).unwrap_or(0);
-    let orphaned_txs = db.find_orphaned_transactions().await.map(|r| r.len()).unwrap_or(0);
-    let orphaned_alerts = db.find_orphaned_balance_alerts().await.map(|r| r.len()).unwrap_or(0);
-    let total_orphans = orphaned_contacts + orphaned_methods + orphaned_logs + orphaned_txs + orphaned_alerts;
+    let orphaned_contacts = db.find_orphaned_contacts().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Orphaned contacts check failed: {}", e))),
+        )
+            .into_response()
+    })?.len();
+    let orphaned_methods = db.find_orphaned_notification_methods().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Orphaned notification methods check failed: {}", e))),
+        )
+            .into_response()
+    })?.len();
+    let orphaned_logs = db.find_orphaned_notification_logs().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Orphaned notification logs check failed: {}", e))),
+        )
+            .into_response()
+    })?.len();
+    let orphaned_txs = db.find_orphaned_transactions().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Orphaned transactions check failed: {}", e))),
+        )
+            .into_response()
+    })?.len();
+    let orphaned_alerts = db.find_orphaned_balance_alerts().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Orphaned balance alerts check failed: {}", e))),
+        )
+            .into_response()
+    })?.len();
+    let orphaned_alert_logs = db.find_orphaned_balance_alert_notification_logs().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Orphaned balance alert notification logs check failed: {}", e))),
+        )
+            .into_response()
+    })?.len();
+    let total_orphans = orphaned_contacts + orphaned_methods + orphaned_logs + orphaned_txs + orphaned_alerts + orphaned_alert_logs;
 
     let orphaned_records = OrphanedRecordsReport {
         status: if total_orphans == 0 { "pass" } else { "warn" }.to_string(),
@@ -87,17 +124,22 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
         notification_logs: orphaned_logs,
         transactions: orphaned_txs,
         balance_alerts: orphaned_alerts,
+        balance_alert_notification_logs: orphaned_alert_logs,
         total: total_orphans,
     };
 
     // Duplicates
-    let dup_contacts = db.find_duplicate_contacts().await.map(|r| r.len()).unwrap_or(0);
-    let dup_methods = db.find_duplicate_notification_methods().await.map(|r| r.len()).unwrap_or(0);
-    let total_dups = dup_contacts + dup_methods;
+    let dup_methods = db.find_duplicate_notification_methods().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Duplicate notification methods check failed: {}", e))),
+        )
+            .into_response()
+    })?.len();
+    let total_dups = dup_methods;
 
     let duplicates = DuplicatesReport {
         status: if total_dups == 0 { "pass" } else { "warn" }.to_string(),
-        duplicate_contacts: dup_contacts,
         duplicate_notification_methods: dup_methods,
         total: total_dups,
     };
@@ -165,54 +207,53 @@ pub async fn run_integrity_check(
             .into_response();
     }
 
-    let health = match build_health_report(&app_services).await {
-        Ok(report) => report,
-        Err(err_response) => return err_response,
-    };
-
     let cleanup = if request.auto_fix {
         info!("Running database auto-fix cleanup...");
         let db = &app_services.metadata_db;
 
-        let contacts_deleted = db.cleanup_orphaned_contacts().await.unwrap_or_else(|e| {
-            warn!("Failed to clean orphaned contacts: {}", e);
-            0
-        });
-        let methods_deleted = db.cleanup_orphaned_notification_methods().await.unwrap_or_else(|e| {
-            warn!("Failed to clean orphaned notification methods: {}", e);
-            0
-        });
-        let logs_deleted = db.cleanup_orphaned_notification_logs().await.unwrap_or_else(|e| {
-            warn!("Failed to clean orphaned notification logs: {}", e);
-            0
-        });
-        let txs_deleted = db.cleanup_orphaned_transactions().await.unwrap_or_else(|e| {
-            warn!("Failed to clean orphaned transactions: {}", e);
-            0
-        });
-        let alerts_deleted = db.cleanup_orphaned_balance_alerts().await.unwrap_or_else(|e| {
-            warn!("Failed to clean orphaned balance alerts: {}", e);
-            0
-        });
+        match db.run_cleanup().await {
+            Ok(counts) => {
+                let total = counts.contacts_deleted
+                    + counts.methods_deleted
+                    + counts.logs_deleted
+                    + counts.alert_logs_deleted
+                    + counts.alerts_deleted
+                    + counts.transactions_deleted;
+                if total > 0 {
+                    info!(
+                        "Database cleanup complete: {} records deleted (contacts={}, methods={}, logs={}, alert_logs={}, alerts={}, transactions={})",
+                        total, counts.contacts_deleted, counts.methods_deleted, counts.logs_deleted,
+                        counts.alert_logs_deleted, counts.alerts_deleted, counts.transactions_deleted
+                    );
+                }
 
-        let total = contacts_deleted + methods_deleted + logs_deleted + txs_deleted + alerts_deleted;
-        if total > 0 {
-            info!(
-                "Database cleanup complete: {} records deleted (contacts={}, methods={}, logs={}, transactions={}, alerts={})",
-                total, contacts_deleted, methods_deleted, logs_deleted, txs_deleted, alerts_deleted
-            );
+                Some(CleanupReport {
+                    orphaned_contacts_deleted: counts.contacts_deleted,
+                    orphaned_methods_deleted: counts.methods_deleted,
+                    orphaned_logs_deleted: counts.logs_deleted,
+                    orphaned_balance_alert_notification_logs_deleted: counts.alert_logs_deleted,
+                    orphaned_alerts_deleted: counts.alerts_deleted,
+                    orphaned_transactions_deleted: counts.transactions_deleted,
+                    total_deleted: total,
+                })
+            }
+            Err(e) => {
+                warn!("Database cleanup failed: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new(format!("Database cleanup failed: {}", e))),
+                )
+                    .into_response();
+            }
         }
-
-        Some(CleanupReport {
-            orphaned_contacts_deleted: contacts_deleted,
-            orphaned_methods_deleted: methods_deleted,
-            orphaned_logs_deleted: logs_deleted,
-            orphaned_transactions_deleted: txs_deleted,
-            orphaned_alerts_deleted: alerts_deleted,
-            total_deleted: total,
-        })
     } else {
         None
+    };
+
+    // Build health report after cleanup so it reflects the post-cleanup state
+    let health = match build_health_report(&app_services).await {
+        Ok(report) => report,
+        Err(err_response) => return err_response,
     };
 
     Json(IntegrityReportResponse { health, cleanup }).into_response()

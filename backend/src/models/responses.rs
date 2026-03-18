@@ -49,13 +49,13 @@ pub struct OrphanedRecordsReport {
     pub notification_logs: usize,
     pub transactions: usize,
     pub balance_alerts: usize,
+    pub balance_alert_notification_logs: usize,
     pub total: usize,
 }
 
 #[derive(Serialize)]
 pub struct DuplicatesReport {
     pub status: String,
-    pub duplicate_contacts: usize,
     pub duplicate_notification_methods: usize,
     pub total: usize,
 }
@@ -73,8 +73,9 @@ pub struct CleanupReport {
     pub orphaned_contacts_deleted: usize,
     pub orphaned_methods_deleted: usize,
     pub orphaned_logs_deleted: usize,
-    pub orphaned_transactions_deleted: usize,
+    pub orphaned_balance_alert_notification_logs_deleted: usize,
     pub orphaned_alerts_deleted: usize,
+    pub orphaned_transactions_deleted: usize,
     pub total_deleted: usize,
 }
 
