@@ -22,6 +22,8 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
         && pool_report.total_connections == pool_report.max_connections
     {
         "saturated"
+    } else if pool_report.idle_connections == 0 && pool_report.total_connections > 0 {
+        "busy"
     } else {
         "healthy"
     };
@@ -115,18 +117,17 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
         )
             .into_response()
     })?.len();
-    let total_dups = dup_methods;
 
     let duplicates = DuplicatesReport {
-        status: if total_dups == 0 { "pass" } else { "warn" }.to_string(),
+        status: if dup_methods == 0 { "pass" } else { "warn" }.to_string(),
         duplicate_notification_methods: dup_methods,
-        total: total_dups,
+        total: dup_methods,
     };
 
     // Overall status
     let overall = if !sqlite_ok || !fk_violations.is_empty() {
         "unhealthy"
-    } else if total_orphans > 0 || total_dups > 0 || pool_status != "healthy" {
+    } else if total_orphans > 0 || dup_methods > 0 || pool_status != "healthy" {
         "degraded"
     } else {
         "healthy"
@@ -189,7 +190,7 @@ pub async fn run_integrity_check(
     let auto_fix = request.map(|r| r.auto_fix).unwrap_or(false);
 
     let cleanup = if auto_fix {
-        info!("Admin user {} triggered database auto-fix cleanup", user.user_id);
+        warn!("Admin user {} triggered database auto-fix cleanup", user.user_id);
         let db = &app_services.metadata_db;
 
         match db.run_cleanup().await {

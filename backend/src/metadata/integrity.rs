@@ -284,7 +284,8 @@ impl MetadataDb {
                 "DELETE FROM contacts WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = contacts.wallet_checksum AND w.status != 'deleted')",
                 [],
             )?;
-            // Phase 4: Re-run log cleanup to catch logs that were SET NULL in phase 2
+            // Phase 4: Re-run log cleanup to catch logs whose methods were valid
+            // during phase 1 but were deleted as orphans in phase 2
             let logs_deleted_phase2 = tx.execute(
                 "DELETE FROM notification_logs WHERE notification_method_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = notification_logs.notification_method_id)",
                 [],
