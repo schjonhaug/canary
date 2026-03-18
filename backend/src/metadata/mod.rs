@@ -1,6 +1,7 @@
 mod alert;
 mod contact;
 mod db;
+pub(crate) mod integrity;
 mod pool;
 mod transaction;
 mod types;

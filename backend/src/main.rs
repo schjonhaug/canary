@@ -1198,6 +1198,74 @@ async fn main() -> anyhow::Result<()> {
         println!("🔓 Self-hosted mode: Skipping subscription limit enforcement");
     }
 
+    // Run database integrity checks in the background at startup
+    {
+        let startup_db = app_services.metadata_db.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            tracing::info!("Running startup database integrity checks...");
+
+            match startup_db.get_schema_version().await {
+                Ok(version) => tracing::info!("Database schema version: {}", version),
+                Err(e) => tracing::warn!("Failed to check schema version: {}", e),
+            }
+
+            match startup_db.check_foreign_keys().await {
+                Ok(violations) if violations.is_empty() => {
+                    tracing::debug!("Foreign key check: OK");
+                }
+                Ok(violations) => {
+                    tracing::warn!("Foreign key violations found: {}", violations.len());
+                    for v in &violations {
+                        tracing::warn!(
+                            "  FK violation: table={}, rowid={}, parent={}",
+                            v.table,
+                            v.rowid,
+                            v.parent
+                        );
+                    }
+                }
+                Err(e) => tracing::warn!("Failed to check foreign keys: {}", e),
+            }
+
+            let mut total_orphans = 0usize;
+
+            if let Ok(records) = startup_db.find_orphaned_contacts().await {
+                if !records.is_empty() {
+                    tracing::warn!("Found {} orphaned contacts", records.len());
+                    total_orphans += records.len();
+                }
+            }
+            if let Ok(records) = startup_db.find_orphaned_notification_methods().await {
+                if !records.is_empty() {
+                    tracing::warn!("Found {} orphaned notification methods", records.len());
+                    total_orphans += records.len();
+                }
+            }
+            if let Ok(records) = startup_db.find_orphaned_transactions().await {
+                if !records.is_empty() {
+                    tracing::warn!("Found {} orphaned transactions", records.len());
+                    total_orphans += records.len();
+                }
+            }
+            if let Ok(records) = startup_db.find_orphaned_balance_alerts().await {
+                if !records.is_empty() {
+                    tracing::warn!("Found {} orphaned balance alerts", records.len());
+                    total_orphans += records.len();
+                }
+            }
+
+            if total_orphans == 0 {
+                tracing::info!("Database integrity check completed: no issues found");
+            } else {
+                tracing::warn!(
+                    "Database integrity check completed: {} orphaned records found. Use POST /api/admin/database/integrity with auto_fix:true to clean up.",
+                    total_orphans
+                );
+            }
+        });
+    }
+
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);
 

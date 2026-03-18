@@ -4,6 +4,80 @@ use crate::metadata::{BalanceAlert, WalletMetadata};
 use crate::notifications::ProviderInfo;
 use serde::{Deserialize, Serialize};
 
+// ============================
+// DATABASE HEALTH & INTEGRITY
+// ============================
+
+#[derive(Serialize)]
+pub struct DatabaseHealthResponse {
+    pub status: String,
+    pub schema_version: String,
+    pub pool: PoolHealth,
+    pub checks: IntegrityChecks,
+    pub timestamp: String,
+}
+
+#[derive(Serialize)]
+pub struct PoolHealth {
+    pub total_connections: u32,
+    pub idle_connections: u32,
+    pub max_connections: u32,
+    pub status: String,
+}
+
+#[derive(Serialize)]
+pub struct IntegrityChecks {
+    pub sqlite_integrity: CheckResult,
+    pub foreign_keys: CheckResult,
+    pub orphaned_records: OrphanedRecordsReport,
+    pub duplicates: DuplicatesReport,
+}
+
+#[derive(Serialize)]
+pub struct CheckResult {
+    pub status: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub details: Vec<String>,
+}
+
+#[derive(Serialize)]
+pub struct OrphanedRecordsReport {
+    pub status: String,
+    pub contacts: usize,
+    pub notification_methods: usize,
+    pub notification_logs: usize,
+    pub transactions: usize,
+    pub balance_alerts: usize,
+    pub total: usize,
+}
+
+#[derive(Serialize)]
+pub struct DuplicatesReport {
+    pub status: String,
+    pub duplicate_contacts: usize,
+    pub duplicate_notification_methods: usize,
+    pub total: usize,
+}
+
+#[derive(Serialize)]
+pub struct IntegrityReportResponse {
+    #[serde(flatten)]
+    pub health: DatabaseHealthResponse,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cleanup: Option<CleanupReport>,
+}
+
+#[derive(Serialize)]
+pub struct CleanupReport {
+    pub orphaned_contacts_deleted: usize,
+    pub orphaned_methods_deleted: usize,
+    pub orphaned_logs_deleted: usize,
+    pub orphaned_transactions_deleted: usize,
+    pub orphaned_alerts_deleted: usize,
+    pub total_deleted: usize,
+}
+
 #[derive(Serialize)]
 pub struct CreateWalletResponse {
     /// Success message
