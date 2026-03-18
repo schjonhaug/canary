@@ -3,6 +3,7 @@ use anyhow::Result;
 use tokio::task::spawn_blocking;
 
 /// Pool health statistics
+#[derive(Debug)]
 pub struct PoolHealthReport {
     pub total_connections: u32,
     pub idle_connections: u32,
@@ -10,6 +11,7 @@ pub struct PoolHealthReport {
 }
 
 /// A foreign key violation found by PRAGMA foreign_key_check
+#[derive(Debug)]
 pub struct ForeignKeyViolation {
     pub table: String,
     pub rowid: i64,
@@ -17,18 +19,21 @@ pub struct ForeignKeyViolation {
 }
 
 /// An orphaned record referencing a non-existent parent
+#[derive(Debug)]
 pub struct OrphanedRecord {
     pub id: String,
     pub parent_ref: String,
 }
 
 /// A set of duplicate records
+#[derive(Debug)]
 pub struct DuplicateRecord {
     pub key: String,
     pub count: usize,
 }
 
 /// Results of a transactional cleanup operation
+#[derive(Debug)]
 pub struct CleanupCounts {
     pub contacts_deleted: usize,
     pub methods_deleted: usize,
@@ -52,6 +57,8 @@ impl MetadataDb {
         }
     }
 
+    /// Returns the latest migration filename prefix (e.g. "025_add_something")
+    /// via lexicographic MAX. Works correctly as long as prefixes are zero-padded.
     pub async fn get_schema_version(&self) -> Result<String> {
         let pool = self.pool.clone();
         spawn_blocking(move || -> Result<String> {
@@ -66,6 +73,8 @@ impl MetadataDb {
         .await?
     }
 
+    /// Uses PRAGMA quick_check (faster than integrity_check, skips some B-tree
+    /// page content verification). Suitable for routine health checks.
     pub async fn check_sqlite_integrity(&self) -> Result<Vec<String>> {
         let pool = self.pool.clone();
         spawn_blocking(move || -> Result<Vec<String>> {
@@ -208,6 +217,9 @@ impl MetadataDb {
         .await?
     }
 
+    /// Safety net: this FK has ON DELETE CASCADE so orphans shouldn't exist under
+    /// normal operation, but checks for any that slipped through (e.g. if FK
+    /// enforcement was temporarily disabled).
     pub async fn find_orphaned_balance_alert_notification_logs(&self) -> Result<Vec<OrphanedRecord>> {
         let pool = self.pool.clone();
         spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
@@ -285,7 +297,9 @@ impl MetadataDb {
                 [],
             )?;
             // Phase 4: Re-run log cleanup to catch logs whose methods were valid
-            // during phase 1 but were deleted as orphans in phase 2
+            // during phase 1 but were deleted as orphans in phase 2.
+            // Note: Logs where notification_method_id was SET NULL by phase 2's
+            // CASCADE are intentionally preserved as audit/history records.
             let logs_deleted_phase2 = tx.execute(
                 "DELETE FROM notification_logs WHERE notification_method_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = notification_logs.notification_method_id)",
                 [],

@@ -207,6 +207,8 @@ pub async fn run_integrity_check(
                         total, counts.contacts_deleted, counts.methods_deleted, counts.logs_deleted,
                         counts.alert_logs_deleted, counts.alerts_deleted, counts.transactions_deleted
                     );
+                } else {
+                    info!("Database cleanup complete: no orphaned records found");
                 }
 
                 Some(CleanupReport {
