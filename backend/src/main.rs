@@ -1202,7 +1202,6 @@ async fn main() -> anyhow::Result<()> {
     {
         let startup_db = app_services.metadata_db.clone();
         tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             tracing::info!("Running startup database integrity checks...");
 
             match startup_db.get_schema_version().await {

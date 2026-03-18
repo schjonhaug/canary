@@ -72,49 +72,28 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
             .collect(),
     };
 
-    // Orphaned records
-    let orphaned_contacts = db.find_orphaned_contacts().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Orphaned contacts check failed: {}", e))),
-        )
-            .into_response()
-    })?.len();
-    let orphaned_methods = db.find_orphaned_notification_methods().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Orphaned notification methods check failed: {}", e))),
-        )
-            .into_response()
-    })?.len();
-    let orphaned_logs = db.find_orphaned_notification_logs().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Orphaned notification logs check failed: {}", e))),
-        )
-            .into_response()
-    })?.len();
-    let orphaned_txs = db.find_orphaned_transactions().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Orphaned transactions check failed: {}", e))),
-        )
-            .into_response()
-    })?.len();
-    let orphaned_alerts = db.find_orphaned_balance_alerts().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Orphaned balance alerts check failed: {}", e))),
-        )
-            .into_response()
-    })?.len();
-    let orphaned_alert_logs = db.find_orphaned_balance_alert_notification_logs().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Orphaned balance alert notification logs check failed: {}", e))),
-        )
-            .into_response()
-    })?.len();
+    // Orphaned records (run concurrently)
+    let (orphaned_contacts_r, orphaned_methods_r, orphaned_logs_r, orphaned_txs_r, orphaned_alerts_r, orphaned_alert_logs_r) =
+        tokio::try_join!(
+            db.find_orphaned_contacts(),
+            db.find_orphaned_notification_methods(),
+            db.find_orphaned_notification_logs(),
+            db.find_orphaned_transactions(),
+            db.find_orphaned_balance_alerts(),
+            db.find_orphaned_balance_alert_notification_logs(),
+        ).map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Orphan check failed: {}", e))),
+            )
+                .into_response()
+        })?;
+    let orphaned_contacts = orphaned_contacts_r.len();
+    let orphaned_methods = orphaned_methods_r.len();
+    let orphaned_logs = orphaned_logs_r.len();
+    let orphaned_txs = orphaned_txs_r.len();
+    let orphaned_alerts = orphaned_alerts_r.len();
+    let orphaned_alert_logs = orphaned_alert_logs_r.len();
     let total_orphans = orphaned_contacts + orphaned_methods + orphaned_logs + orphaned_txs + orphaned_alerts + orphaned_alert_logs;
 
     let orphaned_records = OrphanedRecordsReport {
@@ -197,7 +176,7 @@ pub async fn get_database_health(
 pub async fn run_integrity_check(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
-    Json(request): Json<IntegrityCheckRequest>,
+    request: Option<Json<IntegrityCheckRequest>>,
 ) -> Response {
     if !user.is_admin {
         return (
@@ -207,8 +186,10 @@ pub async fn run_integrity_check(
             .into_response();
     }
 
-    let cleanup = if request.auto_fix {
-        info!("Running database auto-fix cleanup...");
+    let auto_fix = request.map(|r| r.auto_fix).unwrap_or(false);
+
+    let cleanup = if auto_fix {
+        info!("Admin user {} triggered database auto-fix cleanup", user.user_id);
         let db = &app_services.metadata_db;
 
         match db.run_cleanup().await {

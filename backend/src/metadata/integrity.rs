@@ -268,27 +268,39 @@ impl MetadataDb {
             let mut conn = pool.get()?;
             let tx = conn.transaction()?;
 
-            // Delete in correct dependency order (children before parents)
-            let logs_deleted = tx.execute(
+            // Phase 1: Delete orphaned leaf records (notification_logs with missing methods)
+            let logs_deleted_phase1 = tx.execute(
                 "DELETE FROM notification_logs WHERE notification_method_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = notification_logs.notification_method_id)",
                 [],
             )?;
+            // Phase 2: Delete orphaned methods (missing contacts)
+            // This may NULL out notification_logs.notification_method_id via ON DELETE SET NULL
             let methods_deleted = tx.execute(
                 "DELETE FROM contact_notification_methods WHERE NOT EXISTS (SELECT 1 FROM contacts c WHERE c.id = contact_notification_methods.contact_id)",
                 [],
             )?;
+            // Phase 3: Delete orphaned contacts (missing or soft-deleted wallets)
             let contacts_deleted = tx.execute(
                 "DELETE FROM contacts WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = contacts.wallet_checksum AND w.status != 'deleted')",
                 [],
             )?;
+            // Phase 4: Re-run log cleanup to catch logs that were SET NULL in phase 2
+            let logs_deleted_phase2 = tx.execute(
+                "DELETE FROM notification_logs WHERE notification_method_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = notification_logs.notification_method_id)",
+                [],
+            )?;
+            let logs_deleted = logs_deleted_phase1 + logs_deleted_phase2;
+            // Phase 5: Delete orphaned balance alert notification logs
             let alert_logs_deleted = tx.execute(
                 "DELETE FROM balance_alert_notification_logs WHERE NOT EXISTS (SELECT 1 FROM balance_alerts ba WHERE ba.id = balance_alert_notification_logs.balance_alert_id)",
                 [],
             )?;
+            // Phase 6: Delete orphaned balance alerts
             let alerts_deleted = tx.execute(
                 "DELETE FROM balance_alerts WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = balance_alerts.wallet_checksum AND w.status != 'deleted')",
                 [],
             )?;
+            // Phase 7: Delete orphaned transactions
             let txs_deleted = tx.execute(
                 "DELETE FROM transaction_events WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = transaction_events.wallet_checksum AND w.status != 'deleted')",
                 [],
