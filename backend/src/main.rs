@@ -1198,6 +1198,108 @@ async fn main() -> anyhow::Result<()> {
         println!("🔓 Self-hosted mode: Skipping subscription limit enforcement");
     }
 
+    // Run database integrity checks in the background at startup
+    {
+        let startup_db = app_services.metadata_db.clone();
+        tokio::spawn(async move {
+            tracing::info!("Running startup database integrity checks...");
+
+            match startup_db.get_schema_version().await {
+                Ok(version) => tracing::info!("Database schema version: {}", version),
+                Err(e) => tracing::warn!("Failed to check schema version: {}", e),
+            }
+
+            match startup_db.check_foreign_keys().await {
+                Ok(violations) if violations.is_empty() => {
+                    tracing::debug!("Foreign key check: OK");
+                }
+                Ok(violations) => {
+                    tracing::warn!("Foreign key violations found: {}", violations.len());
+                    let display_count = violations.len().min(10);
+                    for v in &violations[..display_count] {
+                        tracing::warn!(
+                            "  FK violation: table={}, rowid={:?}, parent={}",
+                            v.table,
+                            v.rowid,
+                            v.parent
+                        );
+                    }
+                    if violations.len() > 10 {
+                        tracing::warn!("  ... and {} more FK violations", violations.len() - 10);
+                    }
+                }
+                Err(e) => tracing::warn!("Failed to check foreign keys: {}", e),
+            }
+
+            let mut total_orphans = 0usize;
+
+            let mut check_failed = false;
+
+            match startup_db.find_orphaned_contacts().await {
+                Ok(records) if !records.is_empty() => {
+                    tracing::warn!("Found {} orphaned contacts", records.len());
+                    total_orphans += records.len();
+                }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned contacts: {}", e); check_failed = true; }
+            }
+            match startup_db.find_orphaned_notification_methods().await {
+                Ok(records) if !records.is_empty() => {
+                    tracing::warn!("Found {} orphaned notification methods", records.len());
+                    total_orphans += records.len();
+                }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned notification methods: {}", e); check_failed = true; }
+            }
+            match startup_db.find_orphaned_notification_logs().await {
+                Ok(records) if !records.is_empty() => {
+                    tracing::warn!("Found {} orphaned notification logs", records.len());
+                    total_orphans += records.len();
+                }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned notification logs: {}", e); check_failed = true; }
+            }
+            match startup_db.find_orphaned_transactions().await {
+                Ok(records) if !records.is_empty() => {
+                    tracing::warn!("Found {} orphaned transactions", records.len());
+                    total_orphans += records.len();
+                }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned transactions: {}", e); check_failed = true; }
+            }
+            match startup_db.find_orphaned_balance_alerts().await {
+                Ok(records) if !records.is_empty() => {
+                    tracing::warn!("Found {} orphaned balance alerts", records.len());
+                    total_orphans += records.len();
+                }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned balance alerts: {}", e); check_failed = true; }
+            }
+            match startup_db.find_orphaned_balance_alert_notification_logs().await {
+                Ok(records) if !records.is_empty() => {
+                    tracing::warn!("Found {} orphaned balance alert notification logs", records.len());
+                    total_orphans += records.len();
+                }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned balance alert notification logs: {}", e); check_failed = true; }
+            }
+
+            if check_failed {
+                tracing::warn!(
+                    "Database integrity check completed with errors: {} orphaned records found (some checks failed)",
+                    total_orphans
+                );
+            } else if total_orphans == 0 {
+                tracing::info!("Database integrity check completed: no issues found");
+            } else {
+                tracing::warn!(
+                    "Database integrity check completed: {} orphaned records found. Use POST /api/admin/database/integrity with auto_fix:true to clean up.",
+                    total_orphans
+                );
+            }
+        });
+    }
+
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);
 

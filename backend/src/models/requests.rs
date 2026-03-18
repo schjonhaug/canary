@@ -118,3 +118,9 @@ pub struct TestNtfyRequest {
     /// The ntfy topic to send the test notification to
     pub topic: String,
 }
+
+#[derive(Deserialize)]
+pub struct IntegrityCheckRequest {
+    #[serde(default)]
+    pub auto_fix: bool,
+}

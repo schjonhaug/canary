@@ -1,6 +1,7 @@
 mod alert;
 mod contact;
 mod db;
+mod integrity;
 mod pool;
 mod transaction;
 mod types;
