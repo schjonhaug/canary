@@ -1234,44 +1234,63 @@ async fn main() -> anyhow::Result<()> {
 
             let mut total_orphans = 0usize;
 
-            if let Ok(records) = startup_db.find_orphaned_contacts().await {
-                if !records.is_empty() {
+            let mut check_failed = false;
+
+            match startup_db.find_orphaned_contacts().await {
+                Ok(records) if !records.is_empty() => {
                     tracing::warn!("Found {} orphaned contacts", records.len());
                     total_orphans += records.len();
                 }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned contacts: {}", e); check_failed = true; }
             }
-            if let Ok(records) = startup_db.find_orphaned_notification_methods().await {
-                if !records.is_empty() {
+            match startup_db.find_orphaned_notification_methods().await {
+                Ok(records) if !records.is_empty() => {
                     tracing::warn!("Found {} orphaned notification methods", records.len());
                     total_orphans += records.len();
                 }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned notification methods: {}", e); check_failed = true; }
             }
-            if let Ok(records) = startup_db.find_orphaned_notification_logs().await {
-                if !records.is_empty() {
+            match startup_db.find_orphaned_notification_logs().await {
+                Ok(records) if !records.is_empty() => {
                     tracing::warn!("Found {} orphaned notification logs", records.len());
                     total_orphans += records.len();
                 }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned notification logs: {}", e); check_failed = true; }
             }
-            if let Ok(records) = startup_db.find_orphaned_transactions().await {
-                if !records.is_empty() {
+            match startup_db.find_orphaned_transactions().await {
+                Ok(records) if !records.is_empty() => {
                     tracing::warn!("Found {} orphaned transactions", records.len());
                     total_orphans += records.len();
                 }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned transactions: {}", e); check_failed = true; }
             }
-            if let Ok(records) = startup_db.find_orphaned_balance_alerts().await {
-                if !records.is_empty() {
+            match startup_db.find_orphaned_balance_alerts().await {
+                Ok(records) if !records.is_empty() => {
                     tracing::warn!("Found {} orphaned balance alerts", records.len());
                     total_orphans += records.len();
                 }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned balance alerts: {}", e); check_failed = true; }
             }
-            if let Ok(records) = startup_db.find_orphaned_balance_alert_notification_logs().await {
-                if !records.is_empty() {
+            match startup_db.find_orphaned_balance_alert_notification_logs().await {
+                Ok(records) if !records.is_empty() => {
                     tracing::warn!("Found {} orphaned balance alert notification logs", records.len());
                     total_orphans += records.len();
                 }
+                Ok(_) => {}
+                Err(e) => { tracing::warn!("Failed to check orphaned balance alert notification logs: {}", e); check_failed = true; }
             }
 
-            if total_orphans == 0 {
+            if check_failed {
+                tracing::warn!(
+                    "Database integrity check completed with errors: {} orphaned records found (some checks failed)",
+                    total_orphans
+                );
+            } else if total_orphans == 0 {
                 tracing::info!("Database integrity check completed: no issues found");
             } else {
                 tracing::warn!(

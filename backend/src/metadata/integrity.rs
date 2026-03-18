@@ -238,9 +238,9 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<DuplicateRecord>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT contact_id || ':' || provider_type || ':' || target AS key, COUNT(*) AS cnt
+                "SELECT contact_id || ':' || provider_type || ':' || notification_target AS key, COUNT(*) AS cnt
                  FROM contact_notification_methods
-                 GROUP BY contact_id, provider_type, target
+                 GROUP BY contact_id, provider_type, notification_target
                  HAVING COUNT(*) > 1",
             )?;
             let records: Vec<DuplicateRecord> = stmt
