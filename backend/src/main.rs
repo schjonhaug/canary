@@ -1218,7 +1218,7 @@ async fn main() -> anyhow::Result<()> {
                     let display_count = violations.len().min(10);
                     for v in &violations[..display_count] {
                         tracing::warn!(
-                            "  FK violation: table={}, rowid={}, parent={}",
+                            "  FK violation: table={}, rowid={:?}, parent={}",
                             v.table,
                             v.rowid,
                             v.parent

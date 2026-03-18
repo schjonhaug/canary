@@ -10,11 +10,12 @@ pub struct PoolHealthReport {
     pub max_connections: u32,
 }
 
-/// A foreign key violation found by PRAGMA foreign_key_check
+/// A foreign key violation found by PRAGMA foreign_key_check.
+/// `rowid` is Option because WITHOUT ROWID tables return NULL.
 #[derive(Debug)]
 pub struct ForeignKeyViolation {
     pub table: String,
-    pub rowid: i64,
+    pub rowid: Option<i64>,
     pub parent: String,
 }
 

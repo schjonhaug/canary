@@ -70,7 +70,10 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
         },
         details: fk_violations
             .iter()
-            .map(|v| format!("table={}, rowid={}, parent={}", v.table, v.rowid, v.parent))
+            .map(|v| match v.rowid {
+                Some(rowid) => format!("table={}, rowid={}, parent={}", v.table, rowid, v.parent),
+                None => format!("table={}, parent={}", v.table, v.parent),
+            })
             .collect(),
     };
 

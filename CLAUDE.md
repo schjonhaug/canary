@@ -189,6 +189,12 @@ canary/
 - **Normalized Database**: Separate tables for contacts and notification methods for extensibility
 - Generic notification logs with delivery status tracking for all providers
 
+### Database Health & Integrity (Admin only)
+- `GET /api/health/database` - Database health report (pool status, SQLite integrity, FK violations, orphaned records, duplicates)
+- `POST /api/admin/database/integrity` - Full integrity check with optional auto-fix cleanup (accepts `{"auto_fix": true}` or empty body)
+- **Startup Checks**: Background integrity checks run on application startup and log warnings for any issues found
+- **Transactional Cleanup**: Auto-fix deletes orphaned records in correct dependency order within a single transaction
+
 ## Network Configuration
 Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 
