@@ -228,7 +228,7 @@ pub async fn run_integrity_check(
                 warn!("Database cleanup failed: {}", e);
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!("Database cleanup failed: {}", e))),
+                    Json(ErrorResponse::coded("database_cleanup_failed", format!("Database cleanup failed: {}", e))),
                 )
                     .into_response();
             }

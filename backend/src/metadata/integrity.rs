@@ -306,13 +306,22 @@ impl MetadataDb {
             Err(e) => tracing::warn!("Failed to check foreign keys: {}", e),
         }
 
-        let orphan_checks: Vec<(&str, _)> = vec![
-            ("contacts", self.find_orphaned_contacts().await),
-            ("notification methods", self.find_orphaned_notification_methods().await),
-            ("notification logs", self.find_orphaned_notification_logs().await),
-            ("transactions", self.find_orphaned_transactions().await),
-            ("balance alerts", self.find_orphaned_balance_alerts().await),
-            ("balance alert notification logs", self.find_orphaned_balance_alert_notification_logs().await),
+        let (contacts_r, methods_r, logs_r, txs_r, alerts_r, alert_logs_r) = tokio::join!(
+            self.find_orphaned_contacts(),
+            self.find_orphaned_notification_methods(),
+            self.find_orphaned_notification_logs(),
+            self.find_orphaned_transactions(),
+            self.find_orphaned_balance_alerts(),
+            self.find_orphaned_balance_alert_notification_logs(),
+        );
+
+        let orphan_checks: [(&str, Result<Vec<_>, _>); 6] = [
+            ("contacts", contacts_r),
+            ("notification methods", methods_r),
+            ("notification logs", logs_r),
+            ("transactions", txs_r),
+            ("balance alerts", alerts_r),
+            ("balance alert notification logs", alert_logs_r),
         ];
 
         let mut total_orphans = 0usize;
@@ -375,21 +384,20 @@ impl MetadataDb {
                 "DELETE FROM contacts WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = contacts.wallet_checksum AND w.status != 'deleted')",
                 [],
             )?;
-            // Note: No Phase 4 needed. Phase 2 deletes orphaned methods, and
-            // notification_logs.notification_method_id has ON DELETE SET NULL,
-            // so those logs are preserved as audit records with NULL method_id.
+            // Notification logs with NULL method_id (set by ON DELETE SET NULL
+            // from phase 2) are intentionally preserved as audit records.
             let logs_deleted = logs_deleted_phase1;
-            // Phase 5: Delete orphaned balance alert notification logs
+            // Phase 4: Delete orphaned balance alert notification logs
             let alert_logs_deleted = tx.execute(
                 "DELETE FROM balance_alert_notification_logs WHERE NOT EXISTS (SELECT 1 FROM balance_alerts ba WHERE ba.id = balance_alert_notification_logs.balance_alert_id)",
                 [],
             )?;
-            // Phase 6: Delete orphaned balance alerts
+            // Phase 5: Delete orphaned balance alerts
             let alerts_deleted = tx.execute(
                 "DELETE FROM balance_alerts WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = balance_alerts.wallet_checksum AND w.status != 'deleted')",
                 [],
             )?;
-            // Phase 7: Delete orphaned transactions (composite PK: txid, wallet_checksum)
+            // Phase 6: Delete orphaned transactions (composite PK: txid, wallet_checksum)
             let txs_deleted = tx.execute(
                 "DELETE FROM transactions WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = transactions.wallet_checksum AND w.status != 'deleted')",
                 [],
