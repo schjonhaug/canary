@@ -180,9 +180,10 @@ impl MetadataDb {
         let pool = self.pool.clone();
         spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
             let conn = pool.get()?;
+            // transactions table uses composite PK (txid, wallet_checksum)
             let mut stmt = conn.prepare(
-                "SELECT te.id, te.wallet_checksum FROM transaction_events te
-                 WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = te.wallet_checksum AND w.status != 'deleted')",
+                "SELECT t.txid || ':' || t.wallet_checksum, t.wallet_checksum FROM transactions t
+                 WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = t.wallet_checksum AND w.status != 'deleted')",
             )?;
             let records: Vec<OrphanedRecord> = stmt
                 .query_map([], |row| {
@@ -270,6 +271,92 @@ impl MetadataDb {
     }
 
     // ============================
+    // STARTUP DIAGNOSTICS
+    // ============================
+
+    /// Run lightweight integrity checks suitable for application startup.
+    /// Logs warnings for any issues found but never fails the startup.
+    pub async fn run_startup_checks(&self) {
+        tracing::info!("Running startup database integrity checks...");
+
+        match self.get_schema_version().await {
+            Ok(version) => tracing::info!("Database schema version: {}", version),
+            Err(e) => tracing::warn!("Failed to check schema version: {}", e),
+        }
+
+        match self.check_foreign_keys().await {
+            Ok(violations) if violations.is_empty() => {
+                tracing::debug!("Foreign key check: OK");
+            }
+            Ok(violations) => {
+                tracing::warn!("Foreign key violations found: {}", violations.len());
+                let display_count = violations.len().min(10);
+                for v in &violations[..display_count] {
+                    tracing::warn!(
+                        "  FK violation: table={}, rowid={:?}, parent={}",
+                        v.table,
+                        v.rowid,
+                        v.parent
+                    );
+                }
+                if violations.len() > 10 {
+                    tracing::warn!("  ... and {} more FK violations", violations.len() - 10);
+                }
+            }
+            Err(e) => tracing::warn!("Failed to check foreign keys: {}", e),
+        }
+
+        let (contacts_r, methods_r, logs_r, txs_r, alerts_r, alert_logs_r) = tokio::join!(
+            self.find_orphaned_contacts(),
+            self.find_orphaned_notification_methods(),
+            self.find_orphaned_notification_logs(),
+            self.find_orphaned_transactions(),
+            self.find_orphaned_balance_alerts(),
+            self.find_orphaned_balance_alert_notification_logs(),
+        );
+
+        let orphan_checks: [(&str, Result<Vec<_>, _>); 6] = [
+            ("contacts", contacts_r),
+            ("notification methods", methods_r),
+            ("notification logs", logs_r),
+            ("transactions", txs_r),
+            ("balance alerts", alerts_r),
+            ("balance alert notification logs", alert_logs_r),
+        ];
+
+        let mut total_orphans = 0usize;
+        let mut check_failed = false;
+
+        for (name, result) in orphan_checks {
+            match result {
+                Ok(records) if !records.is_empty() => {
+                    tracing::warn!("Found {} orphaned {}", records.len(), name);
+                    total_orphans += records.len();
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!("Failed to check orphaned {}: {}", name, e);
+                    check_failed = true;
+                }
+            }
+        }
+
+        if check_failed {
+            tracing::warn!(
+                "Database integrity check completed with errors: {} orphaned records found (some checks failed)",
+                total_orphans
+            );
+        } else if total_orphans == 0 {
+            tracing::info!("Database integrity check completed: no issues found");
+        } else {
+            tracing::warn!(
+                "Database integrity check completed: {} orphaned records found. Use POST /api/admin/database/integrity with auto_fix:true to clean up.",
+                total_orphans
+            );
+        }
+    }
+
+    // ============================
     // CLEANUP OPERATIONS
     // ============================
 
@@ -297,28 +384,22 @@ impl MetadataDb {
                 "DELETE FROM contacts WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = contacts.wallet_checksum AND w.status != 'deleted')",
                 [],
             )?;
-            // Phase 4: Re-run log cleanup to catch logs whose methods were valid
-            // during phase 1 but were deleted as orphans in phase 2.
-            // Note: Logs where notification_method_id was SET NULL by phase 2's
-            // CASCADE are intentionally preserved as audit/history records.
-            let logs_deleted_phase2 = tx.execute(
-                "DELETE FROM notification_logs WHERE notification_method_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = notification_logs.notification_method_id)",
-                [],
-            )?;
-            let logs_deleted = logs_deleted_phase1 + logs_deleted_phase2;
-            // Phase 5: Delete orphaned balance alert notification logs
+            // Notification logs with NULL method_id (set by ON DELETE SET NULL
+            // from phase 2) are intentionally preserved as audit records.
+            let logs_deleted = logs_deleted_phase1;
+            // Phase 4: Delete orphaned balance alert notification logs
             let alert_logs_deleted = tx.execute(
                 "DELETE FROM balance_alert_notification_logs WHERE NOT EXISTS (SELECT 1 FROM balance_alerts ba WHERE ba.id = balance_alert_notification_logs.balance_alert_id)",
                 [],
             )?;
-            // Phase 6: Delete orphaned balance alerts
+            // Phase 5: Delete orphaned balance alerts
             let alerts_deleted = tx.execute(
                 "DELETE FROM balance_alerts WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = balance_alerts.wallet_checksum AND w.status != 'deleted')",
                 [],
             )?;
-            // Phase 7: Delete orphaned transactions
+            // Phase 6: Delete orphaned transactions (composite PK: txid, wallet_checksum)
             let txs_deleted = tx.execute(
-                "DELETE FROM transaction_events WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = transaction_events.wallet_checksum AND w.status != 'deleted')",
+                "DELETE FROM transactions WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = transactions.wallet_checksum AND w.status != 'deleted')",
                 [],
             )?;
 
