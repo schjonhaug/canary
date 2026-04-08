@@ -273,6 +273,7 @@ export function Transactions({
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                     const transaction = filteredTransactions[virtualRow.index]
                     const isExpanded = expandedRows.has(transaction.txid)
+                    const detailsId = `transaction-details-${transaction.txid}`
                     const notificationSummary = getUniqueProviderSummary(
                       transaction.notification_status,
                     )
@@ -289,6 +290,8 @@ export function Transactions({
                       >
                         <button
                           type="button"
+                          aria-controls={detailsId}
+                          aria-expanded={isExpanded}
                           className={`grid w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 ${
                             walletsCount > 1
                               ? "grid-cols-[180px_140px_minmax(0,1fr)_140px_32px]"
@@ -383,12 +386,14 @@ export function Transactions({
                           </span>
                         </button>
 
-                        <div className={isExpanded ? "block" : "hidden"}>
-                          <TransactionDetails
-                            transaction={transaction}
-                            isExpanded={isExpanded}
-                          />
-                        </div>
+                        {isExpanded && (
+                          <div id={detailsId}>
+                            <TransactionDetails
+                              transaction={transaction}
+                              isExpanded={isExpanded}
+                            />
+                          </div>
+                        )}
                       </div>
                     )
                   })}
