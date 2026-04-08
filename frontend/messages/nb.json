@@ -39,8 +39,7 @@
     "name": "Navn",
     "new": "Ny",
     "backToWallets": "Tilbake til lommebøker",
-    "backToSignIn": "Tilbake til innlogging",
-    "selfHostedMode": "Selvhostet modus"
+    "backToSignIn": "Tilbake til innlogging"
   },
   "nav": {
     "signIn": "Logg inn",
@@ -54,9 +53,6 @@
   },
   "contactPage": {
     "title": "Kontakt",
-    "selfHosted": {
-      "description": "Kontaktskjema er ikke tilgjengelig i selvhostet modus."
-    },
     "form": {
       "title": "Ta kontakt",
       "description": "Har du et spørsmål eller tilbakemelding? Vi vil gjerne høre fra deg.",
@@ -919,9 +915,6 @@
   },
   "subscriptionPage": {
     "title": "Abonnement",
-    "selfHosted": {
-      "description": "Abonnementsfakturering er ikke tilgjengelig i selvhostet modus."
-    },
     "loading": "Laster faktureringsinformasjon...",
     "notSignedIn": {
       "message": "Du må være logget inn for å administrere abonnementet ditt.",

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { notFound, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,13 +27,9 @@ export default function SignUpPage() {
   const { register, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
-  // Registration is not available in self-hosted mode
-  useEffect(() => {
-    if (isSelfHostedMode) {
-      router.push('/sign-in')
-    }
-  }, [isSelfHostedMode, router])
-
+  if (isSelfHostedMode) {
+    notFound()
+  }
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -53,12 +49,6 @@ export default function SignUpPage() {
       setIsLoading(false)
     }
   }
-
-  // Don't render anything while redirecting in self-hosted mode
-  if (isSelfHostedMode) {
-    return null
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">

@@ -39,8 +39,7 @@
     "name": "Nom",
     "new": "Nouveau",
     "backToWallets": "Retour aux Portefeuilles",
-    "backToSignIn": "Retour à la connexion",
-    "selfHostedMode": "Mode Auto-hébergé"
+    "backToSignIn": "Retour à la connexion"
   },
   "nav": {
     "signIn": "Se connecter",
@@ -54,9 +53,6 @@
   },
   "contactPage": {
     "title": "Contact",
-    "selfHosted": {
-      "description": "Le formulaire de contact n'est pas disponible en mode auto-hébergé."
-    },
     "form": {
       "title": "Contactez-nous",
       "description": "Vous avez une question ou un commentaire ? Nous serions ravis de vous entendre.",
@@ -919,9 +915,6 @@
   },
   "subscriptionPage": {
     "title": "Abonnement",
-    "selfHosted": {
-      "description": "La facturation d'abonnement n'est pas disponible en mode auto-hébergé."
-    },
     "loading": "Chargement des informations de facturation...",
     "notSignedIn": {
       "message": "Vous devez être connecté pour gérer votre abonnement.",

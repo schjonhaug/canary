@@ -39,8 +39,7 @@
     "name": "Nome",
     "new": "Novo",
     "backToWallets": "Voltar para Carteiras",
-    "backToSignIn": "Voltar para entrar",
-    "selfHostedMode": "Modo Auto-hospedado"
+    "backToSignIn": "Voltar para entrar"
   },
   "nav": {
     "signIn": "Entrar",
@@ -54,9 +53,6 @@
   },
   "contactPage": {
     "title": "Contato",
-    "selfHosted": {
-      "description": "O formulário de contato não está disponível no modo auto-hospedado."
-    },
     "form": {
       "title": "Entre em Contato",
       "description": "Tem alguma pergunta ou feedback? Adoraríamos ouvir de você.",
@@ -919,9 +915,6 @@
   },
   "subscriptionPage": {
     "title": "Assinatura",
-    "selfHosted": {
-      "description": "A cobrança de assinatura não está disponível no modo auto-hospedado."
-    },
     "loading": "Carregando informações de cobrança...",
     "notSignedIn": {
       "message": "Você precisa estar conectado para gerenciar sua assinatura.",

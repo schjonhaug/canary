@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { notFound, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,10 +27,14 @@ export default function SignInPage() {
 
   // Redirect authenticated users to wallets
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isSelfHostedMode && isAuthenticated) {
       router.push('/wallets')
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isSelfHostedMode, router])
+
+  if (isSelfHostedMode) {
+    notFound()
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,12 +72,10 @@ export default function SignInPage() {
       setIsLoading(false)
     }
   }
-
   // Don't render anything while redirecting authenticated users
   if (isAuthenticated) {
     return null
   }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">

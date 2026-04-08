@@ -39,8 +39,7 @@
     "name": "Name",
     "new": "New",
     "backToWallets": "Back to Wallets",
-    "backToSignIn": "Back to sign in",
-    "selfHostedMode": "Self-Hosted Mode"
+    "backToSignIn": "Back to sign in"
   },
   "nav": {
     "signIn": "Sign in",
@@ -54,9 +53,6 @@
   },
   "contactPage": {
     "title": "Contact",
-    "selfHosted": {
-      "description": "Contact form is not available in self-hosted mode."
-    },
     "form": {
       "title": "Get in Touch",
       "description": "Have a question or feedback? We'd love to hear from you.",
@@ -919,9 +915,6 @@
   },
   "subscriptionPage": {
     "title": "Subscription",
-    "selfHosted": {
-      "description": "Subscription billing is not available in self-hosted mode."
-    },
     "loading": "Loading billing information...",
     "notSignedIn": {
       "message": "You need to be signed in to manage your subscription.",

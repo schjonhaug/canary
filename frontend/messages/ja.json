@@ -39,8 +39,7 @@
     "name": "名前",
     "new": "新規",
     "backToWallets": "ウォレットに戻る",
-    "backToSignIn": "ログインに戻る",
-    "selfHostedMode": "セルフホストモード"
+    "backToSignIn": "ログインに戻る"
   },
   "nav": {
     "signIn": "ログイン",
@@ -54,9 +53,6 @@
   },
   "contactPage": {
     "title": "お問い合わせ",
-    "selfHosted": {
-      "description": "セルフホストモードではお問い合わせフォームは利用できません。"
-    },
     "form": {
       "title": "お問い合わせ",
       "description": "ご質問やフィードバックがありますか？お気軽にご連絡ください。",
@@ -919,9 +915,6 @@
   },
   "subscriptionPage": {
     "title": "サブスクリプション",
-    "selfHosted": {
-      "description": "セルフホストモードでは、サブスクリプション課金は利用できません。"
-    },
     "loading": "請求情報を読み込み中...",
     "notSignedIn": {
       "message": "サブスクリプションを管理するにはサインインが必要です。",

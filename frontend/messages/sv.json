@@ -39,8 +39,7 @@
     "name": "Namn",
     "new": "Ny",
     "backToWallets": "Tillbaka till plånböcker",
-    "backToSignIn": "Tillbaka till inloggning",
-    "selfHostedMode": "Självvärdläge"
+    "backToSignIn": "Tillbaka till inloggning"
   },
   "nav": {
     "signIn": "Logga in",
@@ -54,9 +53,6 @@
   },
   "contactPage": {
     "title": "Kontakt",
-    "selfHosted": {
-      "description": "Kontaktformulär är inte tillgängligt i självvärdläge."
-    },
     "form": {
       "title": "Hör av dig",
       "description": "Har du en fråga eller feedback? Vi vill gärna höra från dig.",
@@ -919,9 +915,6 @@
   },
   "subscriptionPage": {
     "title": "Prenumeration",
-    "selfHosted": {
-      "description": "Prenumerationsfakturering är inte tillgänglig i självhostat läge."
-    },
     "loading": "Laddar faktureringsinformation...",
     "notSignedIn": {
       "message": "Du måste vara inloggad för att hantera din prenumeration.",

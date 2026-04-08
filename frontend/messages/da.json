@@ -39,8 +39,7 @@
     "name": "Navn",
     "new": "Ny",
     "backToWallets": "Tilbage til wallets",
-    "backToSignIn": "Tilbage til log ind",
-    "selfHostedMode": "Self-Hosted tilstand"
+    "backToSignIn": "Tilbage til log ind"
   },
   "nav": {
     "signIn": "Log ind",
@@ -54,9 +53,6 @@
   },
   "contactPage": {
     "title": "Kontakt",
-    "selfHosted": {
-      "description": "Kontaktformularen er ikke tilgængelig i self-hosted tilstand."
-    },
     "form": {
       "title": "Kontakt os",
       "description": "Har du et spørgsmål eller feedback? Vi vil meget gerne høre fra dig.",
@@ -919,9 +915,6 @@
   },
   "subscriptionPage": {
     "title": "Abonnement",
-    "selfHosted": {
-      "description": "Abonnementsfakturering er ikke tilgængelig i self-hosted tilstand."
-    },
     "loading": "Indlæser faktureringsoplysninger...",
     "notSignedIn": {
       "message": "Du skal være logget ind for at administrere dit abonnement.",

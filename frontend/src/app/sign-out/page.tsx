@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect } from 'react'
+import { notFound } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 
 export default function SignOutPage() {
-  const { logout } = useAuth()
+  const { logout, isSelfHostedMode } = useAuth()
 
   useEffect(() => {
     const performSignOut = async () => {
@@ -20,6 +21,10 @@ export default function SignOutPage() {
 
     performSignOut()
   }, [logout])
+
+  if (isSelfHostedMode) {
+    notFound()
+  }
 
   return null
 }
