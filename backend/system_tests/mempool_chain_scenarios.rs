@@ -63,7 +63,7 @@ async fn test_chain_of_unconfirmed_transactions() {
         "Bob should have at least 1 pending Receive after tx1 (mempool detection)"
     );
 
-    // Step 2: Send second transaction (unconfirmed, spends from Alice's change of tx1)
+    // Step 2: Send second transaction (unconfirmed, may spend from Alice's change of tx1)
     println!("⚡ Step 2: Alice sends 0.1 BTC to Bob again (unconfirmed)");
     let txid2 = env
         .send_transaction("alice", "bob", "0.1")
@@ -128,26 +128,36 @@ async fn test_chain_of_unconfirmed_transactions() {
         );
     }
 
-    // Bob should have 2 Receive transactions (one for each send)
+    // Bob should have gained exactly 2 new Receive transactions (delta-based)
     let bob_confirmed_receives: Vec<_> = final_bob_txs
         .iter()
         .filter(|t| t.transaction_type == EventType::Receive && t.transaction_status == "confirmed")
         .collect();
-    assert!(
-        bob_confirmed_receives.len() >= 2,
-        "Bob should have at least 2 confirmed Receive transactions, got {}",
-        bob_confirmed_receives.len()
+    let initial_bob_receives = initial_bob_txs
+        .iter()
+        .filter(|t| t.transaction_type == EventType::Receive)
+        .count();
+    let new_bob_receives = bob_confirmed_receives.len() - initial_bob_receives;
+    assert_eq!(
+        new_bob_receives, 2,
+        "Bob should have gained exactly 2 new confirmed Receive transactions, got {}",
+        new_bob_receives
     );
 
-    // Alice should have 2 Send transactions
+    // Alice should have gained exactly 2 new Send transactions (delta-based)
     let alice_confirmed_sends: Vec<_> = final_alice_txs
         .iter()
         .filter(|t| t.transaction_type == EventType::Send && t.transaction_status == "confirmed")
         .collect();
-    assert!(
-        alice_confirmed_sends.len() >= 2,
-        "Alice should have at least 2 confirmed Send transactions, got {}",
-        alice_confirmed_sends.len()
+    let initial_alice_sends = initial_alice_txs
+        .iter()
+        .filter(|t| t.transaction_type == EventType::Send)
+        .count();
+    let new_alice_sends = alice_confirmed_sends.len() - initial_alice_sends;
+    assert_eq!(
+        new_alice_sends, 2,
+        "Alice should have gained exactly 2 new confirmed Send transactions, got {}",
+        new_alice_sends
     );
 
     // All transactions should now be confirmed (no pending ones left)

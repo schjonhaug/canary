@@ -1142,6 +1142,10 @@ volumes:
         println!("✅ Alice funded with 1.0 BTC (index 0)");
         println!("✅ Charlie funded with 0.5 BTC (index 250)");
         println!("✅ Bob unfunded (for testing receive scenarios)");
+
+        // Wait for Fulcrum to sync with Bitcoin Core before proceeding
+        Self::wait_for_fulcrum_sync_after_mining(&bitcoin_container_name, 0).await?;
+
         Ok(())
     }
 
@@ -1680,6 +1684,18 @@ volumes:
             )
             .await,
         );
+
+        // Wait for wallets to be ready after recreation
+        let checksums: Vec<&str> = if self.charlie_checksum.is_empty() {
+            vec![self.alice_checksum.as_str(), self.bob_checksum.as_str()]
+        } else {
+            vec![
+                self.alice_checksum.as_str(),
+                self.bob_checksum.as_str(),
+                self.charlie_checksum.as_str(),
+            ]
+        };
+        Self::wait_for_wallets_ready(&self.metadata_db, &checksums).await?;
 
         println!("✅ WalletManager recreated successfully");
         Ok(())

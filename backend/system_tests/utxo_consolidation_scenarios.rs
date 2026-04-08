@@ -143,9 +143,9 @@ async fn test_utxo_consolidation_send_all_to_bob() {
         consolidation_amount as f64 / 100_000_000.0
     );
 
-    // Should be close to 45_000_000 sats (0.45 BTC) minus fees
+    // Should be close to 45_000_000 sats (0.45 BTC) minus small fee
     assert!(
-        consolidation_amount > 44_000_000 && consolidation_amount < 46_000_000,
+        consolidation_amount >= 44_900_000 && consolidation_amount <= 45_010_000,
         "Consolidation amount should be approximately 0.45 BTC (got {} sats)",
         consolidation_amount
     );

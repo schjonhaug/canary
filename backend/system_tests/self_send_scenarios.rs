@@ -67,9 +67,11 @@ async fn test_self_send_partial() {
         .filter(|t| t.txid == self_send_txid)
         .collect();
 
-    assert!(
-        !self_send_events.is_empty(),
-        "Self-send transaction should be recorded"
+    assert_eq!(
+        self_send_events.len(),
+        1,
+        "Self-send should produce exactly 1 event (not separate Send + Receive), got {}",
+        self_send_events.len()
     );
 
     // The system classifies self-sends as Send with amount = (sent - received) = fee
@@ -158,9 +160,11 @@ async fn test_self_send_full_amount() {
         .filter(|t| t.txid == self_send_txid)
         .collect();
 
-    assert!(
-        !self_send_events.is_empty(),
-        "Self-send (max) transaction should be recorded"
+    assert_eq!(
+        self_send_events.len(),
+        1,
+        "Full self-send should produce exactly 1 event, got {}",
+        self_send_events.len()
     );
 
     let self_send = &self_send_events[0];
