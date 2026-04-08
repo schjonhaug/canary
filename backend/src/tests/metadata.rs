@@ -946,6 +946,74 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
     );
 }
 
+#[tokio::test]
+async fn test_wallet_last_activity_prefers_confirmed_at() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-last-activity@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Test Wallet", "descriptor1", &user_id)
+        .await
+        .unwrap();
+
+    let now = 1740000000u64;
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_old_confirmed".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 5_000_000_000,
+        fee_sats: None,
+        block_height: Some(1),
+        first_seen_at: now,
+        confirmed_at: Some(1231006505),
+        parent_txid: None,
+        transaction_status: "confirmed".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_recent_confirmed".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 1000,
+        fee_sats: None,
+        block_height: Some(800000),
+        first_seen_at: now - 100,
+        confirmed_at: Some(now - 50),
+        parent_txid: None,
+        transaction_status: "confirmed".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    let wallets = db.get_wallets_for_user(Some(&user_id)).await.unwrap();
+    let expected_last_activity = (now - 50).to_string();
+
+    assert_eq!(wallets.len(), 1);
+    assert_eq!(
+        wallets[0].last_activity.as_deref(),
+        Some(expected_last_activity.as_str()),
+        "Wallet last_activity should use the latest confirmed_at value, not first_seen_at"
+    );
+}
+
 // ============================
 // Notification batching tests
 // ============================
