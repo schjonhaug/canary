@@ -3,7 +3,7 @@ use super::types::*;
 use crate::config::AppConfig;
 use crate::subscription::SubscriptionTier;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension};
+use bdk_wallet::rusqlite::{params, OptionalExtension, TransactionBehavior};
 use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
@@ -956,6 +956,104 @@ impl MetadataDb {
     // ============================
     // LOGIN RATE LIMITING
     // ============================
+
+    /// Check and record a rate-limited auth endpoint attempt.
+    /// Returns Ok(true) when the request should proceed and Ok(false) when blocked.
+    pub async fn check_auth_rate_limit(
+        &self,
+        scope: &str,
+        identifier: &str,
+        max_attempts: i64,
+        window_minutes: i64,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let scope = scope.to_string();
+        let identifier = identifier.trim().to_lowercase();
+        let now = chrono::Utc::now();
+        let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
+        let window_start = (now - chrono::Duration::minutes(window_minutes))
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+        let blocked_until = (now + chrono::Duration::minutes(window_minutes))
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let mut conn = pool.get()?;
+            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+
+            let existing: Option<(i64, String, Option<String>)> = tx
+                .prepare(
+                    "SELECT attempt_count, first_attempt_at, blocked_until
+                     FROM auth_rate_limits
+                     WHERE scope = ?1 AND identifier = ?2",
+                )?
+                .query_row(params![&scope, &identifier], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                })
+                .optional()?;
+
+            let allowed = match existing {
+                Some((_, _, Some(blocked))) if blocked > now_str => false,
+                Some((_, _, Some(_))) => {
+                    tx.execute(
+                        "UPDATE auth_rate_limits
+                         SET attempt_count = 1, first_attempt_at = ?3, blocked_until = NULL
+                         WHERE scope = ?1 AND identifier = ?2",
+                        params![&scope, &identifier, &now_str],
+                    )?;
+                    true
+                }
+                Some((attempt_count, first_attempt_at, _)) if first_attempt_at >= window_start => {
+                    let next_attempt_count = attempt_count + 1;
+                    if next_attempt_count > max_attempts {
+                        tx.execute(
+                            "UPDATE auth_rate_limits
+                             SET attempt_count = ?3, first_attempt_at = ?4, blocked_until = ?5
+                             WHERE scope = ?1 AND identifier = ?2",
+                            params![
+                                &scope,
+                                &identifier,
+                                max_attempts,
+                                &now_str,
+                                &blocked_until
+                            ],
+                        )?;
+                        false
+                    } else {
+                        tx.execute(
+                            "UPDATE auth_rate_limits
+                             SET attempt_count = ?3, blocked_until = NULL
+                             WHERE scope = ?1 AND identifier = ?2",
+                            params![&scope, &identifier, next_attempt_count],
+                        )?;
+                        true
+                    }
+                }
+                Some(_) => {
+                    tx.execute(
+                        "UPDATE auth_rate_limits
+                         SET attempt_count = 1, first_attempt_at = ?3, blocked_until = NULL
+                         WHERE scope = ?1 AND identifier = ?2",
+                        params![&scope, &identifier, &now_str],
+                    )?;
+                    true
+                }
+                None => {
+                    tx.execute(
+                        "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at)
+                         VALUES (?1, ?2, 1, ?3)",
+                        params![&scope, &identifier, &now_str],
+                    )?;
+                    true
+                }
+            };
+
+            tx.commit()?;
+            Ok(allowed)
+        })
+        .await?
+    }
 
     /// Check if an account is currently locked due to too many failed login attempts
     /// Returns the lockout end time if locked, None if not locked

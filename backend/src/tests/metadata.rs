@@ -1055,3 +1055,158 @@ async fn test_include_notifications_batches_correctly() {
     assert_eq!(tx_b.notification_status[0].contact_name, "Charlie");
     assert_eq!(tx_b.notification_status[0].status, "failed");
 }
+
+#[tokio::test]
+async fn test_auth_rate_limit_blocks_after_threshold_within_window() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(!db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_is_scoped_by_endpoint_and_identifier() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    for _ in 0..4 {
+        let _ = db
+            .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
+            .await
+            .unwrap();
+    }
+
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("forgot_password", "other@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_normalizes_identifier() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    assert!(db
+        .check_auth_rate_limit("register", " Person@Example.com ", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "PERSON@EXAMPLE.COM", 3, 60)
+        .await
+        .unwrap());
+    assert!(!db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_resets_after_block_expires() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let now = chrono::Utc::now();
+    let stale_first_attempt = (now - chrono::Duration::minutes(5))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+    let expired_block = (now - chrono::Duration::minutes(1))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at, blocked_until)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                "forgot_password",
+                "person@example.com",
+                3,
+                &stale_first_attempt,
+                &expired_block,
+            ),
+        )
+        .unwrap();
+    }
+
+    assert!(db
+        .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_stays_blocked_until_expiry() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let now = chrono::Utc::now();
+    let first_attempt = now.format("%Y-%m-%d %H:%M:%S").to_string();
+    let future_block = (now + chrono::Duration::minutes(10))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at, blocked_until)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                "forgot_password",
+                "person@example.com",
+                3,
+                &first_attempt,
+                &future_block,
+            ),
+        )
+        .unwrap();
+    }
+
+    assert!(!db
+        .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_resets_after_window_expires() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let expired_first_attempt = (chrono::Utc::now() - chrono::Duration::minutes(61))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at, blocked_until)
+             VALUES (?1, ?2, ?3, ?4, NULL)",
+            ("register", "person@example.com", 3, &expired_first_attempt),
+        )
+        .unwrap();
+    }
+
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
