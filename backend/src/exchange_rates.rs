@@ -38,6 +38,11 @@ const EXCHANGE_RATE_RETRY_BASE_DELAY: Duration = Duration::from_secs(2);
 const EXCHANGE_RATE_REFRESH_INTERVAL: Duration = Duration::from_secs(600);
 const COINGECKO_API_BASE_URL: &str = "https://api.coingecko.com";
 
+enum FetchRatesError {
+    Retryable(anyhow::Error),
+    NonRetryable(anyhow::Error),
+}
+
 pub struct ExchangeRateService {
     metadata_db: Arc<MetadataDb>,
     client: reqwest::Client,
@@ -59,7 +64,7 @@ impl ExchangeRateService {
         reqwest::Client::builder()
             .timeout(EXCHANGE_RATE_REQUEST_TIMEOUT)
             .build()
-            .unwrap_or_default()
+            .expect("failed to build exchange rate HTTP client")
     }
 
     #[cfg(test)]
@@ -186,12 +191,10 @@ impl ExchangeRateService {
                     eprintln!("Fetched {} exchange rates", rates.len());
                     return Ok(rates);
                 }
-                Err(error) => {
-                    let should_retry =
-                        Self::is_retryable_error(&error) && attempt < EXCHANGE_RATE_MAX_ATTEMPTS;
+                Err(FetchRatesError::Retryable(error)) => {
                     last_error = Some(error);
 
-                    if should_retry {
+                    if attempt < EXCHANGE_RATE_MAX_ATTEMPTS {
                         let delay = self.retry_delay(attempt);
                         if let Some(error) = &last_error {
                             eprintln!(
@@ -206,6 +209,10 @@ impl ExchangeRateService {
                     } else {
                         break;
                     }
+                }
+                Err(FetchRatesError::NonRetryable(error)) => {
+                    last_error = Some(error);
+                    break;
                 }
             }
         }
@@ -236,7 +243,10 @@ impl ExchangeRateService {
         Ok(())
     }
 
-    async fn fetch_rates_once(&self, url: &str) -> Result<HashMap<String, ExchangeRate>> {
+    async fn fetch_rates_once(
+        &self,
+        url: &str,
+    ) -> std::result::Result<HashMap<String, ExchangeRate>, FetchRatesError> {
         let response = self
             .client
             .get(url)
@@ -246,7 +256,18 @@ impl ExchangeRateService {
             )
             .send()
             .await
-            .context("Failed to fetch exchange rates")?;
+            .map_err(|error| {
+                let error = anyhow::Error::new(error).context("Failed to fetch exchange rates");
+                if error
+                    .chain()
+                    .filter_map(|cause| cause.downcast_ref::<reqwest::Error>())
+                    .any(|reqwest_error| reqwest_error.is_timeout() || reqwest_error.is_connect())
+                {
+                    FetchRatesError::Retryable(error)
+                } else {
+                    FetchRatesError::NonRetryable(error)
+                }
+            })?;
 
         let status = response.status();
         if !status.is_success() {
@@ -261,24 +282,27 @@ impl ExchangeRateService {
             );
 
             if Self::is_retryable_status(status) {
-                return Err(anyhow::anyhow!(message).context("Retryable exchange rate API failure"));
+                return Err(FetchRatesError::Retryable(anyhow::anyhow!(message)));
             }
 
-            anyhow::bail!(message);
+            return Err(FetchRatesError::NonRetryable(anyhow::anyhow!(message)));
         }
 
         let body = response
             .text()
             .await
-            .context("Failed to read exchange rates response body")?;
+            .context("Failed to read exchange rates response body")
+            .map_err(FetchRatesError::NonRetryable)?;
 
-        let data: CoinGeckoResponse = serde_json::from_str(&body).with_context(|| {
-            format!(
-                "Failed to parse exchange rates response (HTTP {}): {}",
-                status.as_u16(),
-                body.chars().take(500).collect::<String>()
-            )
-        })?;
+        let data: CoinGeckoResponse = serde_json::from_str(&body)
+            .with_context(|| {
+                format!(
+                    "Failed to parse exchange rates response (HTTP {}): {}",
+                    status.as_u16(),
+                    body.chars().take(500).collect::<String>()
+                )
+            })
+            .map_err(FetchRatesError::NonRetryable)?;
 
         let now = Utc::now();
         let mut rates = HashMap::new();
@@ -300,16 +324,6 @@ impl ExchangeRateService {
 
     fn is_retryable_status(status: reqwest::StatusCode) -> bool {
         status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error()
-    }
-
-    fn is_retryable_error(error: &anyhow::Error) -> bool {
-        error
-            .chain()
-            .filter_map(|cause| cause.downcast_ref::<reqwest::Error>())
-            .any(|reqwest_error| reqwest_error.is_timeout() || reqwest_error.is_connect())
-            || error
-                .to_string()
-                .contains("Retryable exchange rate API failure")
     }
 
     fn retry_delay(&self, attempt: u32) -> Duration {
