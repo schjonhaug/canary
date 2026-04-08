@@ -177,6 +177,10 @@ pub struct BillingStatusResponse {
     pub subscription_started_at: Option<String>,
     /// Subscription end date (for cancelled subscriptions)
     pub subscription_ends_at: Option<String>,
+    /// Active billing provider for cloud mode
+    pub billing_provider: Option<String>,
+    /// Whether the current provider supports in-app management links
+    pub can_manage_billing: bool,
     /// Stripe customer ID
     pub stripe_customer_id: Option<String>,
     /// Current wallet count

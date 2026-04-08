@@ -1,6 +1,32 @@
 use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::Network;
 use clap::{Parser, ValueEnum};
+use std::str::FromStr;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BillingProvider {
+    Stripe,
+    BtcPay,
+}
+
+impl BillingProvider {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BillingProvider::Stripe => "stripe",
+            BillingProvider::BtcPay => "btcpay",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BtcPayPlanConfig {
+    pub offering_id: String,
+    pub personal_plan_id: String,
+    pub team_plan_id: String,
+    pub currency: String,
+    pub personal_monthly_price: i64,
+    pub team_monthly_price: i64,
+}
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum NetworkConfig {
@@ -338,6 +364,23 @@ impl AppConfig {
         self.btcpay_url.is_some() && self.btcpay_api_key.is_some() && self.btcpay_store_id.is_some()
     }
 
+    /// Check if Stripe billing is configured
+    pub fn is_stripe_enabled(&self) -> bool {
+        std::env::var("STRIPE_SECRET_KEY").is_ok() && std::env::var("STRIPE_WEBHOOK_SECRET").is_ok()
+    }
+
+    /// Determine which cloud billing provider should be used.
+    /// Stripe wins if both are configured so existing deployments stay unchanged.
+    pub fn active_billing_provider(&self) -> Option<BillingProvider> {
+        if self.is_stripe_enabled() {
+            Some(BillingProvider::Stripe)
+        } else if self.btcpay_cloud_plan_config().is_some() {
+            Some(BillingProvider::BtcPay)
+        } else {
+            None
+        }
+    }
+
     /// Get BTCPay Server URL
     pub fn btcpay_url(&self) -> Option<&str> {
         self.btcpay_url.as_deref()
@@ -361,6 +404,38 @@ impl AppConfig {
     /// Get BTCPay Server plan ID (for recurring plan checkouts)
     pub fn btcpay_plan_id(&self) -> Option<&str> {
         self.btcpay_plan_id.as_deref()
+    }
+
+    pub fn btcpay_cloud_plan_config(&self) -> Option<BtcPayPlanConfig> {
+        if !self.is_btcpay_enabled() {
+            return None;
+        }
+
+        let offering_id = std::env::var("BTCPAY_CLOUD_OFFERING_ID")
+            .ok()
+            .or_else(|| self.btcpay_offering_id().map(|value| value.to_string()))?;
+        let personal_plan_id = std::env::var("BTCPAY_CLOUD_PERSONAL_PLAN_ID").ok()?;
+        let team_plan_id = std::env::var("BTCPAY_CLOUD_TEAM_PLAN_ID").ok()?;
+        let currency = std::env::var("BTCPAY_CLOUD_CURRENCY")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "USD".to_string())
+            .to_uppercase();
+        let personal_monthly_price = std::env::var("BTCPAY_CLOUD_PERSONAL_PRICE")
+            .ok()
+            .and_then(|value| i64::from_str(&value).ok())?;
+        let team_monthly_price = std::env::var("BTCPAY_CLOUD_TEAM_PRICE")
+            .ok()
+            .and_then(|value| i64::from_str(&value).ok())?;
+
+        Some(BtcPayPlanConfig {
+            offering_id,
+            personal_plan_id,
+            team_plan_id,
+            currency,
+            personal_monthly_price,
+            team_monthly_price,
+        })
     }
 
     /// Check if ntfy provider should be enabled
@@ -413,12 +488,11 @@ impl AppConfig {
             missing.push("JWT_SECRET - Required for user authentication");
         }
 
-        // Stripe configuration is required for billing
-        if std::env::var("STRIPE_SECRET_KEY").is_err() {
-            missing.push("STRIPE_SECRET_KEY - Required for subscription billing");
-        }
-        if std::env::var("STRIPE_WEBHOOK_SECRET").is_err() {
-            missing.push("STRIPE_WEBHOOK_SECRET - Required for webhook verification");
+        // Billing configuration is required in cloud mode.
+        if !self.is_stripe_enabled() && self.btcpay_cloud_plan_config().is_none() {
+            missing.push(
+                "Either Stripe billing (STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET) or BTCPay cloud billing (BTCPAY_CLOUD_* plan config) must be configured",
+            );
         }
 
         // Twilio configuration is required for SMS notifications

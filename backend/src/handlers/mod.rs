@@ -23,8 +23,9 @@ pub use balance_alerts::{
     create_wallet_balance_alert, delete_balance_alert, get_wallet_balance_alerts,
 };
 pub use billing::{
-    create_stripe_checkout_session, create_stripe_customer_portal, get_billing_pricing,
-    get_billing_status, get_checkout_session_details, handle_stripe_webhook,
+    create_checkout_session, create_customer_portal, create_stripe_checkout_session,
+    create_stripe_customer_portal, get_billing_pricing, get_billing_status,
+    get_checkout_session_details, handle_stripe_webhook,
 };
 pub use blockchain::{get_current_block_header, get_exchange_rates};
 pub use config::get_config;

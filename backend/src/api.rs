@@ -1,16 +1,16 @@
 use crate::config::AppConfig;
 use crate::electrum::ElectrumClientManager;
 use crate::handlers::{
-    create_stripe_checkout_session, create_stripe_customer_portal, create_wallet_balance_alert,
-    create_wallet_contact, create_wallet_non_blocking, delete_balance_alert, delete_wallet,
-    delete_wallet_contact, demo_login, donate_one_time, donate_recurring, forgot_password,
-    get_billing_pricing, get_billing_status, get_checkout_session_details, get_config,
-    get_current_block_header, get_database_health, get_exchange_rates, get_providers,
-    get_user_preferences, get_wallet, get_wallet_balance_alerts, get_wallet_contacts,
-    get_wallet_detail, get_wallets_list, handle_stripe_webhook, login, logout, me, register,
-    reset_password, run_integrity_check, send_contact_verification, send_test_ntfy_notification,
-    submit_contact_form, update_user, update_user_preferences, update_wallet,
-    update_wallet_contact, verify_contact, verify_email,
+    create_checkout_session, create_customer_portal, create_stripe_checkout_session,
+    create_stripe_customer_portal, create_wallet_balance_alert, create_wallet_contact,
+    create_wallet_non_blocking, delete_balance_alert, delete_wallet, delete_wallet_contact,
+    demo_login, donate_one_time, donate_recurring, forgot_password, get_billing_pricing,
+    get_billing_status, get_checkout_session_details, get_config, get_current_block_header,
+    get_database_health, get_exchange_rates, get_providers, get_user_preferences, get_wallet,
+    get_wallet_balance_alerts, get_wallet_contacts, get_wallet_detail, get_wallets_list,
+    handle_stripe_webhook, login, logout, me, register, reset_password, run_integrity_check,
+    send_contact_verification, send_test_ntfy_notification, submit_contact_form, update_user,
+    update_user_preferences, update_wallet, update_wallet_contact, verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
@@ -325,6 +325,7 @@ pub fn create_router_with_services(
             config.btcpay_store_id().unwrap().to_string(),
             config.btcpay_offering_id().map(|s| s.to_string()),
             config.btcpay_plan_id().map(|s| s.to_string()),
+            config.btcpay_cloud_plan_config(),
         ))
     } else {
         None
@@ -403,6 +404,10 @@ pub fn create_router_with_services(
         .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
         // Billing status route (authenticated)
         .route("/billing/status", get(get_billing_status))
+        .route("/billing/checkout", post(create_checkout_session))
+        .route("/billing/portal", post(create_customer_portal))
+        .route("/billing/pricing", get(get_billing_pricing))
+        .route("/billing/session/{session_id}", get(get_checkout_session_details))
         // Test notification route (self-hosted only)
         .route("/ntfy/test", post(send_test_ntfy_notification))
         // Database health & integrity (admin only)
@@ -422,11 +427,6 @@ pub fn create_router_with_services(
             .route("/stripe/portal", post(create_stripe_customer_portal))
             // Unauthenticated routes
             .route("/stripe/webhook", post(handle_stripe_webhook))
-            .route("/billing/pricing", get(get_billing_pricing))
-            .route(
-                "/billing/session/{session_id}",
-                get(get_checkout_session_details),
-            )
             .with_state(app_state.clone())
     } else {
         Router::new() // Empty router if Stripe not configured

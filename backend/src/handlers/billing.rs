@@ -1,6 +1,7 @@
-//! Stripe billing and subscription management handlers
+//! Billing and subscription management handlers
 
-use crate::api::{AppServicesState, ConfigState, StripeBillingState};
+use crate::api::{AppServicesState, BtcPayClientState, ConfigState, StripeBillingState};
+use crate::config::BillingProvider;
 use crate::extractors::AuthenticatedUser;
 use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
 use crate::metadata::SubscriptionUpdateParams;
@@ -17,11 +18,12 @@ use axum::{
 use std::sync::Arc;
 use tracing::info;
 
-/// Create a Stripe checkout session for subscription
-pub async fn create_stripe_checkout_session(
+/// Create a billing checkout session for subscription
+pub async fn create_checkout_session(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
+    State(btcpay): State<BtcPayClientState>,
     State(config): State<ConfigState>,
     Json(payload): Json<CreateCheckoutSessionRequest>,
 ) -> Response {
@@ -57,18 +59,6 @@ pub async fn create_stripe_checkout_session(
         Err(response) => return response,
     };
 
-    // Get Stripe billing from state
-    let stripe_billing = match stripe_billing.as_ref() {
-        Some(billing) => billing.as_ref(),
-        None => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Stripe billing not initialized")),
-            )
-                .into_response();
-        }
-    };
-
     // Create checkout session with configurable URLs
     let is_yearly = payload.is_yearly.unwrap_or(false);
     let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
@@ -88,16 +78,69 @@ pub async fn create_stripe_checkout_session(
     );
     let cancel_url = format!("{}/subscription?cancelled=true", frontend_url);
 
-    let result = stripe_billing
-        .create_checkout_session(
-            &user_record.id,
-            tier,
-            billing_cycle,
-            &success_url,
-            &cancel_url,
-            &app_services.metadata_db,
-        )
-        .await;
+    let result = match config.active_billing_provider() {
+        Some(BillingProvider::Stripe) => {
+            let stripe_billing = match stripe_billing.as_ref() {
+                Some(billing) => billing.as_ref(),
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Stripe billing not initialized")),
+                    )
+                        .into_response();
+                }
+            };
+
+            stripe_billing
+                .create_checkout_session(
+                    &user_record.id,
+                    tier,
+                    billing_cycle,
+                    &success_url,
+                    &cancel_url,
+                    &app_services.metadata_db,
+                )
+                .await
+        }
+        Some(BillingProvider::BtcPay) => {
+            if is_yearly {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "unsupported_billing_period",
+                        "BTCPay cloud billing currently supports monthly plans only",
+                    )),
+                )
+                    .into_response();
+            }
+
+            let btcpay = match btcpay.as_ref() {
+                Some(client) => client.as_ref(),
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("BTCPay billing not initialized")),
+                    )
+                        .into_response();
+                }
+            };
+
+            let redirect_url = format!(
+                "{}/subscription?success=true&provider=btcpay&tier={}&billing_period=monthly",
+                frontend_url,
+                tier.as_str()
+            );
+
+            btcpay
+                .create_cloud_subscription_checkout(tier, &redirect_url)
+                .await
+                .map(|url| crate::stripe_billing::CheckoutSessionResponse {
+                    url,
+                    session_id: format!("btcpay-{}", tier.as_str()),
+                })
+        }
+        None => Err(anyhow::anyhow!("No billing provider configured")),
+    };
 
     let elapsed = start_time.elapsed();
     info!("create_stripe_checkout_session completed in {:?}", elapsed);
@@ -115,14 +158,26 @@ pub async fn create_stripe_checkout_session(
     }
 }
 
-/// Create a Stripe customer portal session
-pub async fn create_stripe_customer_portal(
+/// Create a customer billing management session when the provider supports it
+pub async fn create_customer_portal(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
+    State(config): State<ConfigState>,
     Json(payload): Json<CreateCustomerPortalRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
+
+    if config.active_billing_provider() != Some(BillingProvider::Stripe) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "billing_management_unavailable",
+                "The active billing provider does not support in-app subscription management yet",
+            )),
+        )
+            .into_response();
+    }
 
     // Get user record
     let user_record = match get_user_or_error(
@@ -307,6 +362,10 @@ pub async fn get_billing_status(
         trial_ends_at: user_record.trial_ends_at,
         subscription_started_at: user_record.subscription_started_at,
         subscription_ends_at: user_record.subscription_ends_at,
+        billing_provider: config
+            .active_billing_provider()
+            .map(|provider| provider.as_str().to_string()),
+        can_manage_billing: config.active_billing_provider() == Some(BillingProvider::Stripe),
         stripe_customer_id: user_record.stripe_customer_id,
         wallet_count,
         contact_count,
@@ -319,22 +378,60 @@ pub async fn get_billing_status(
     (StatusCode::OK, Json(response)).into_response()
 }
 
-/// Get pricing information from Stripe (no auth required)
-pub async fn get_billing_pricing(State(stripe_billing): State<StripeBillingState>) -> Response {
-    // Get Stripe billing from state
-    let stripe_billing = match stripe_billing.as_ref() {
-        Some(billing) => billing.as_ref(),
+/// Get pricing information from the active billing provider (no auth required)
+pub async fn get_billing_pricing(
+    State(stripe_billing): State<StripeBillingState>,
+    State(btcpay): State<BtcPayClientState>,
+    State(config): State<ConfigState>,
+) -> Response {
+    let pricing = match config.active_billing_provider() {
+        Some(BillingProvider::Stripe) => {
+            let stripe_billing = match stripe_billing.as_ref() {
+                Some(billing) => billing.as_ref(),
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Stripe billing not initialized")),
+                    )
+                        .into_response();
+                }
+            };
+            stripe_billing.get_pricing_for_frontend()
+        }
+        Some(BillingProvider::BtcPay) => {
+            let btcpay = match btcpay.as_ref() {
+                Some(client) => client.as_ref(),
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("BTCPay billing not initialized")),
+                    )
+                        .into_response();
+                }
+            };
+
+            match btcpay.get_cloud_pricing_for_frontend() {
+                Ok(pricing) => pricing,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new(format!(
+                            "Failed to load BTCPay pricing: {}",
+                            e
+                        ))),
+                    )
+                        .into_response();
+                }
+            }
+        }
         None => {
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Stripe billing not initialized")),
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse::new("No billing provider configured")),
             )
                 .into_response();
         }
     };
-
-    // Get cached pricing information (instant!)
-    let pricing = stripe_billing.get_pricing_for_frontend();
     (StatusCode::OK, Json(pricing)).into_response()
 }
 
@@ -619,8 +716,20 @@ pub async fn handle_stripe_webhook(
 pub async fn get_checkout_session_details(
     AuthenticatedUser(_user): AuthenticatedUser,
     State(stripe_billing): State<StripeBillingState>,
+    State(config): State<ConfigState>,
     Path(session_id): Path<String>,
 ) -> Response {
+    if config.active_billing_provider() != Some(BillingProvider::Stripe) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "checkout_session_unsupported",
+                "Checkout session lookups are only available for Stripe",
+            )),
+        )
+            .into_response();
+    }
+
     // Get Stripe billing from state
     let stripe_billing = match stripe_billing.as_ref() {
         Some(billing) => billing.as_ref(),
@@ -645,4 +754,33 @@ pub async fn get_checkout_session_details(
         )
             .into_response(),
     }
+}
+
+pub async fn create_stripe_checkout_session(
+    authenticated_user: AuthenticatedUser,
+    app_services: State<AppServicesState>,
+    stripe_billing: State<StripeBillingState>,
+    btcpay: State<BtcPayClientState>,
+    config: State<ConfigState>,
+    payload: Json<CreateCheckoutSessionRequest>,
+) -> Response {
+    create_checkout_session(
+        authenticated_user,
+        app_services,
+        stripe_billing,
+        btcpay,
+        config,
+        payload,
+    )
+    .await
+}
+
+pub async fn create_stripe_customer_portal(
+    authenticated_user: AuthenticatedUser,
+    app_services: State<AppServicesState>,
+    stripe_billing: State<StripeBillingState>,
+    config: State<ConfigState>,
+    payload: Json<CreateCustomerPortalRequest>,
+) -> Response {
+    create_customer_portal(authenticated_user, app_services, stripe_billing, config, payload).await
 }

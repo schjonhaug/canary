@@ -274,7 +274,7 @@ class ApiClient {
   }
 
   async createCheckoutSession(tier: string, isYearly: boolean = false): Promise<{ url: string }> {
-    return this.request<{ url: string }>('/api/stripe/checkout', {
+    return this.request<{ url: string }>('/api/billing/checkout', {
       method: 'POST',
       body: JSON.stringify({ tier, is_yearly: isYearly }),
     })
@@ -297,7 +297,7 @@ class ApiClient {
   }
 
   async createCustomerPortalSession(returnUrl: string): Promise<{ url: string }> {
-    return this.request<{ url: string }>('/api/stripe/portal', {
+    return this.request<{ url: string }>('/api/billing/portal', {
       method: 'POST',
       body: JSON.stringify({ return_url: returnUrl }),
     })
@@ -310,6 +310,8 @@ class ApiClient {
     trial_ends_at?: string,
     subscription_started_at?: string,
     subscription_ends_at?: string,
+    billing_provider?: string,
+    can_manage_billing?: boolean,
     stripe_customer_id?: string,
     wallet_count: number,
     contact_count: number,
@@ -326,6 +328,8 @@ class ApiClient {
       trial_ends_at?: string,
       subscription_started_at?: string,
       subscription_ends_at?: string,
+      billing_provider?: string,
+      can_manage_billing?: boolean,
       stripe_customer_id?: string,
       wallet_count: number,
       contact_count: number,

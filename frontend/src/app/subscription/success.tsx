@@ -17,6 +17,9 @@ import { useTranslations, useLocale } from "next-intl"
 export default function BillingSuccessPage() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session')
+  const provider = searchParams.get('provider')
+  const tierFromParams = searchParams.get('tier')
+  const billingPeriodFromParams = searchParams.get('billing_period')
   const { refreshBillingStatus } = useAuth()
   const { pricing } = usePricing()
   const discountPercent = pricing?.yearly_discount_percent || 20
@@ -39,6 +42,22 @@ export default function BillingSuccessPage() {
 
     const fetchSessionDetails = async () => {
       if (!sessionId) {
+        if (provider === 'btcpay' && tierFromParams) {
+          if (!isMounted) return
+          setSessionDetails({
+            status: 'complete',
+            tier: tierFromParams,
+            billing_period: billingPeriodFromParams || 'monthly',
+          })
+          timeoutId = setTimeout(() => {
+            if (isMounted) {
+              refreshBillingStatus()
+            }
+          }, 2000)
+          setLoading(false)
+          return
+        }
+
         if (isMounted) {
           setError('no_session')
           setLoading(false)
@@ -76,7 +95,7 @@ export default function BillingSuccessPage() {
       isMounted = false
       clearTimeout(timeoutId)
     }
-  }, [sessionId, refreshBillingStatus])
+  }, [billingPeriodFromParams, provider, refreshBillingStatus, sessionId, tierFromParams])
 
   if (loading) {
     return (

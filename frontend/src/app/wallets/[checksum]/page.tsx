@@ -228,6 +228,7 @@ export default function WalletDetailPage() {
             billingStatus
               ? {
                   subscription_status: billingStatus.subscription_status,
+                  can_manage_billing: billingStatus.can_manage_billing,
                   stripe_customer_id: billingStatus.stripe_customer_id,
                 }
               : undefined
