@@ -1,7 +1,7 @@
 use super::pool::MetadataDb;
 use super::types::*;
 use anyhow::Result;
-use bdk_wallet::rusqlite::params;
+use bdk_wallet::rusqlite::{params, params_from_iter, types::Value};
 use tokio::task::spawn_blocking;
 use tracing::warn;
 
@@ -107,24 +107,69 @@ impl MetadataDb {
         limit: Option<usize>,
         include_notifications: bool,
     ) -> Result<Vec<TransactionWithWallet>> {
+        let page = self
+            .get_transactions_page_by_wallet_checksum(
+                wallet_checksum,
+                TransactionPageRequest {
+                    limit: limit.unwrap_or(10000),
+                    cursor: None,
+                    since_timestamp: None,
+                    include_notifications,
+                },
+            )
+            .await?;
+
+        Ok(page.transactions)
+    }
+
+    pub async fn get_transactions_page_by_wallet_checksum(
+        &self,
+        wallet_checksum: &str,
+        request: TransactionPageRequest,
+    ) -> Result<TransactionPage> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
-        let limit = limit.unwrap_or(10000); // Large default for sync operations
+        let limit = request.limit;
+        let include_notifications = request.include_notifications;
+        let cursor = request.cursor.clone();
+        let since_timestamp = request.since_timestamp;
 
-        spawn_blocking(move || -> Result<Vec<TransactionWithWallet>> {
+        spawn_blocking(move || -> Result<TransactionPage> {
             let conn = pool.get()?;
-
-            // First get transactions
-            let mut stmt = conn.prepare(
+            let sort_timestamp_expr = "COALESCE(t.confirmed_at, t.first_seen_at)";
+            let change_timestamp_expr = "MAX(COALESCE(t.confirmed_at, t.first_seen_at), COALESCE(t.replaced_at, 0))";
+            let mut query = format!(
                 "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.parent_txid, t.transaction_status, t.replaced_by_txid, t.replaced_at
                  FROM transactions t
                  JOIN wallets w ON t.wallet_checksum = w.checksum
-                 WHERE t.wallet_checksum = ?1
-                 ORDER BY COALESCE(t.confirmed_at, t.first_seen_at) DESC, t.txid DESC
-                 LIMIT ?2"
-            )?;
+                 WHERE t.wallet_checksum = ?"
+            );
+            let mut query_params = vec![Value::from(checksum.clone())];
 
-            let transaction_iter = stmt.query_map([&checksum, &limit.to_string()], |row| {
+            if let Some(since_timestamp) = since_timestamp {
+                query.push_str(&format!(" AND {} >= ?", change_timestamp_expr));
+                query_params.push(Value::from(since_timestamp as i64));
+            }
+
+            if let Some(cursor) = &cursor {
+                query.push_str(&format!(
+                    " AND ({} < ? OR ({} = ? AND t.txid < ?))",
+                    sort_timestamp_expr, sort_timestamp_expr
+                ));
+                query_params.push(Value::from(cursor.sort_timestamp as i64));
+                query_params.push(Value::from(cursor.sort_timestamp as i64));
+                query_params.push(Value::from(cursor.txid.clone()));
+            }
+
+            query.push_str(&format!(
+                " ORDER BY {} DESC, t.txid DESC LIMIT ?",
+                sort_timestamp_expr
+            ));
+            query_params.push(Value::from((limit + 1) as i64));
+
+            let mut stmt = conn.prepare(&query)?;
+
+            let transaction_iter = stmt.query_map(params_from_iter(query_params), |row| {
                 Ok(TransactionWithWallet {
                     txid: row.get(0)?,
                     wallet_checksum: row.get(1)?,
@@ -146,6 +191,19 @@ impl MetadataDb {
 
             let mut transactions: Vec<TransactionWithWallet> = transaction_iter
                 .collect::<std::result::Result<Vec<_>, _>>()?;
+
+            let has_more = transactions.len() > limit;
+            if has_more {
+                transactions.truncate(limit);
+            }
+            let next_cursor = if has_more {
+                transactions.last().map(|transaction| TransactionCursor {
+                    sort_timestamp: transaction.detail_sort_timestamp(),
+                    txid: transaction.txid.clone(),
+                })
+            } else {
+                None
+            };
 
             if include_notifications && !transactions.is_empty() {
                 // Single query for all notifications for this wallet, filtered in Rust.
@@ -199,7 +257,12 @@ impl MetadataDb {
                 }
             }
 
-            Ok(transactions)
+            Ok(TransactionPage {
+                transactions,
+                next_cursor,
+                has_more,
+                applied_since_timestamp: since_timestamp,
+            })
         }).await?
     }
 

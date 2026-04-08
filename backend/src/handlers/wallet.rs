@@ -8,17 +8,21 @@ use crate::handlers::helpers::{
     check_resource_limit, get_user_or_error, verify_wallet_access, DatabaseErrorMessage,
     ResourceLimit,
 };
-use crate::metadata::{ProviderType, WalletDetailResponse};
+use crate::metadata::{
+    ProviderType, TransactionCursor, TransactionPageRequest, WalletDetailPagination,
+    WalletDetailResponse,
+};
 use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
 };
 use crate::stripe_billing::StripeBilling;
 use crate::xpub_converter::XpubConverter;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json, Response},
 };
+use serde::Deserialize;
 use std::sync::{Arc, LazyLock};
 use tracing::{debug, info, warn};
 
@@ -31,6 +35,16 @@ const ELECTRUM_UNAVAILABLE_ERROR: &str = "Electrum server is unavailable. Please
 
 /// Type alias for Stripe billing state
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
+
+const DEFAULT_WALLET_DETAIL_PAGE_SIZE: usize = 100;
+const MAX_WALLET_DETAIL_PAGE_SIZE: usize = 250;
+
+#[derive(Debug, Deserialize, Default)]
+pub struct WalletDetailQueryParams {
+    pub cursor: Option<String>,
+    pub page_size: Option<usize>,
+    pub since_timestamp: Option<u64>,
+}
 
 /// Non-blocking wallet creation using AppServices (avoids WalletManager mutex)
 /// This resolves the regression where wallet creation was taking 30+ seconds
@@ -581,6 +595,7 @@ pub async fn get_wallets_list(
 pub async fn get_wallet_detail(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(checksum): Path<String>,
+    Query(query): Query<WalletDetailQueryParams>,
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // Get current timestamp
@@ -588,6 +603,29 @@ pub async fn get_wallet_detail(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
+    let page_size = query
+        .page_size
+        .unwrap_or(DEFAULT_WALLET_DETAIL_PAGE_SIZE)
+        .clamp(1, MAX_WALLET_DETAIL_PAGE_SIZE);
+    let cursor = match query.cursor.as_deref() {
+        Some(cursor) => match TransactionCursor::decode(cursor) {
+            Ok(cursor) => Some(cursor),
+            Err(error) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded("invalid_cursor", error.to_string())),
+                )
+                    .into_response();
+            }
+        },
+        None => None,
+    };
+    let page_request = TransactionPageRequest {
+        limit: page_size,
+        cursor,
+        since_timestamp: query.since_timestamp,
+        include_notifications: true,
+    };
 
     // Get the specific wallet - no mutex blocking!
     let wallet = match verify_wallet_access(
@@ -639,18 +677,24 @@ pub async fn get_wallet_detail(
             transactions: vec![], // Empty transactions for pending wallets
             contacts,
             balance_alerts,
+            pagination: WalletDetailPagination {
+                page_size,
+                next_cursor: None,
+                has_more: false,
+                applied_since_timestamp: query.since_timestamp,
+            },
         };
 
         return (StatusCode::OK, Json(wallet_detail)).into_response();
     }
 
     // Get transactions - no mutex blocking!
-    let transactions = match app_services
+    let transaction_page = match app_services
         .metadata_db
-        .get_transactions_by_wallet_checksum(&wallet.checksum, None, true)
+        .get_transactions_page_by_wallet_checksum(&wallet.checksum, page_request)
         .await
     {
-        Ok(transactions) => transactions,
+        Ok(transaction_page) => transaction_page,
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -712,9 +756,15 @@ pub async fn get_wallet_detail(
     let wallet_detail = WalletDetailResponse {
         timestamp,
         wallet: wallet_with_fiat,
-        transactions,
+        transactions: transaction_page.transactions,
         contacts,
         balance_alerts,
+        pagination: WalletDetailPagination {
+            page_size,
+            next_cursor: transaction_page.next_cursor.map(|cursor| cursor.encode()),
+            has_more: transaction_page.has_more,
+            applied_since_timestamp: transaction_page.applied_since_timestamp,
+        },
     };
 
     (StatusCode::OK, Json(wallet_detail)).into_response()

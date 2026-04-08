@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CheckCircle, Baby, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
@@ -26,13 +27,26 @@ interface TransactionsProps {
   isConnected: boolean
   error: string | null
   lastUpdate: number | null
+  hasMoreTransactions?: boolean
+  isLoadingMore?: boolean
+  onLoadMore?: () => void
   walletsCount?: number
 }
 
-export function Transactions({ selectedWalletChecksum, transactions, error, lastUpdate, walletsCount = 0 }: TransactionsProps) {
+export function Transactions({
+  selectedWalletChecksum,
+  transactions,
+  error,
+  lastUpdate,
+  hasMoreTransactions = false,
+  isLoadingMore = false,
+  onLoadMore,
+  walletsCount = 0,
+}: TransactionsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const t = useTranslations('transactions')
+  const tCommon = useTranslations('common')
   const { formatTransactionAmount, formatDateTime } = useFormatters()
 
   // Track when we've received data for the first time
@@ -54,8 +68,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
       return newSet
     })
   }
-
-
   // Filter transactions by selected wallet if one is selected
   const filteredTransactions = selectedWalletChecksum 
     ? transactions.filter(transaction => transaction.wallet_checksum === selectedWalletChecksum)
@@ -191,6 +203,14 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
                   showWalletName={walletsCount > 1}
                 />
               ))}
+
+              {hasMoreTransactions && onLoadMore && (
+                <div className="mt-4 flex justify-center">
+                  <Button variant="outline" onClick={onLoadMore} disabled={isLoadingMore}>
+                    {isLoadingMore ? tCommon('loading') : tCommon('next')}
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Desktop View - Table (visible on screens 768px and larger) */}
@@ -283,6 +303,14 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
             </TableBody>
               </Table>
             </div>
+
+            {hasMoreTransactions && onLoadMore && (
+              <div className="mt-4 flex justify-center">
+                <Button variant="outline" onClick={onLoadMore} disabled={isLoadingMore}>
+                  {isLoadingMore ? tCommon('loading') : tCommon('next')}
+                </Button>
+              </div>
+            )}
           </>
         )}
       </CardContent>
