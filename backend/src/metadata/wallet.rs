@@ -498,11 +498,7 @@ impl MetadataDb {
                         descriptor: row.get(2)?,
                         hex_color: row.get(3)?,
                         balance_total: row.get(4)?,
-                        last_activity: row
-                            .get::<_, Option<i64>>(5)
-                            .ok()
-                            .flatten()
-                            .map(|t| t.to_string()),
+                        last_activity: row.get::<_, Option<i64>>(5)?.map(|t| t.to_string()),
                         last_synced_at: row.get(6)?,
                         status: row.get(7)?,
                         contact_count: None, // Not counting contacts in this query
