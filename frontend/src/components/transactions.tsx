@@ -38,9 +38,9 @@ interface TransactionsProps {
   isLoadingMore?: boolean
   onLoadMore?: () => void
   walletsCount?: number
-  transactionNotifications: Record<string, NotificationStatus[]>
-  loadingTransactionNotifications: Record<string, boolean>
-  transactionNotificationErrors: Record<string, string | null>
+  transactionNotifications?: Record<string, NotificationStatus[]>
+  loadingTransactionNotifications?: Record<string, boolean>
+  transactionNotificationErrors?: Record<string, string | null>
   loadTransactionNotifications?: (walletChecksum: string, txid: string) => void
 }
 
@@ -89,11 +89,15 @@ export function Transactions({
     }
   }, [lastUpdate])
 
-  const filteredTransactions = selectedWalletChecksum
-    ? transactions.filter(
-        (transaction) => transaction.wallet_checksum === selectedWalletChecksum,
-      )
-    : transactions
+  const filteredTransactions = useMemo(
+    () =>
+      selectedWalletChecksum
+        ? transactions.filter(
+            (transaction) => transaction.wallet_checksum === selectedWalletChecksum,
+          )
+        : transactions,
+    [selectedWalletChecksum, transactions],
+  )
 
   const getUniqueProviderSummary = (notifications?: NotificationStatus[]) => {
     if (!notifications || notifications.length === 0) return null
@@ -175,7 +179,6 @@ export function Transactions({
 
   const toggleRowExpansion = (transaction: Transaction) => {
     const rowKey = getTransactionRowKey(transaction)
-    let shouldLoadNotifications = false
 
     setExpandedRows((prev) => {
       const next = new Set(prev)
@@ -183,14 +186,9 @@ export function Transactions({
         next.delete(rowKey)
       } else {
         next.add(rowKey)
-        shouldLoadNotifications = true
       }
       return next
     })
-
-    if (shouldLoadNotifications) {
-      loadTransactionNotifications(transaction.wallet_checksum, transaction.txid)
-    }
   }
 
   const getCardTitle = () => {

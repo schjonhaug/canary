@@ -140,4 +140,42 @@ describe('Transactions', () => {
     expect(screen.getByText('1000')).toBeInTheDocument()
     expect(screen.queryByText('1001')).not.toBeInTheDocument()
   })
+
+  it('only auto-loads notifications once per expansion when props are unchanged', () => {
+    const loadTransactionNotifications = jest.fn()
+
+    const { rerender } = render(
+      <Transactions
+        selectedWalletChecksum="wallet-1"
+        transactions={transactions}
+        isConnected
+        error={null}
+        lastUpdate={1001}
+        walletsCount={1}
+        loadTransactionNotifications={loadTransactionNotifications}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button'))
+
+    expect(loadTransactionNotifications).toHaveBeenCalledTimes(1)
+    expect(loadTransactionNotifications).toHaveBeenCalledWith(
+      'wallet-1',
+      transactions[0].txid,
+    )
+
+    rerender(
+      <Transactions
+        selectedWalletChecksum="wallet-1"
+        transactions={transactions}
+        isConnected
+        error={null}
+        lastUpdate={1001}
+        walletsCount={1}
+        loadTransactionNotifications={loadTransactionNotifications}
+      />,
+    )
+
+    expect(loadTransactionNotifications).toHaveBeenCalledTimes(1)
+  })
 })
