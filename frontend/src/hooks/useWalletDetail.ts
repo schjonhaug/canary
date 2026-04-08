@@ -85,6 +85,12 @@ export function useWalletDetail(walletChecksum: string | null) {
     return syncIntervalSeconds * 1000
   }, [billingStatus?.limits?.sync_interval_seconds])
 
+  const clearNotificationCaches = useCallback(() => {
+    setTransactionNotifications({})
+    setLoadingTransactionNotifications({})
+    setTransactionNotificationErrors({})
+  }, [])
+
   const pruneNotificationCaches = useCallback((nextTransactions: Transaction[]) => {
     const nextKeys = new Set(
       nextTransactions.map((transaction) =>
@@ -168,6 +174,7 @@ export function useWalletDetail(walletChecksum: string | null) {
 
       const nextTransactions = sortTransactions(data.transactions)
       applySharedData(data)
+      clearNotificationCaches()
       setTransactions(nextTransactions)
       pruneNotificationCaches(nextTransactions)
       historyCursorRef.current = data.pagination.next_cursor
@@ -178,7 +185,7 @@ export function useWalletDetail(walletChecksum: string | null) {
     } finally {
       setIsLoading(false)
     }
-  }, [applySharedData, handleRequestError, pruneNotificationCaches, requestWalletDetail])
+  }, [applySharedData, clearNotificationCaches, handleRequestError, pruneNotificationCaches, requestWalletDetail])
 
   const pollWalletDetail = useCallback(async () => {
     if (isPollingRef.current) {
@@ -207,6 +214,7 @@ export function useWalletDetail(walletChecksum: string | null) {
       }
 
       applySharedData(data)
+      clearNotificationCaches()
       if (data.transactions.length > 0) {
         const mergedTransactions = mergeTransactions(transactionsRef.current, data.transactions)
         setTransactions(mergedTransactions)
@@ -220,7 +228,7 @@ export function useWalletDetail(walletChecksum: string | null) {
     } finally {
       isPollingRef.current = false
     }
-  }, [applySharedData, fetchWalletDetail, handleRequestError, pruneNotificationCaches, requestWalletDetail])
+  }, [applySharedData, clearNotificationCaches, fetchWalletDetail, handleRequestError, pruneNotificationCaches, requestWalletDetail])
 
   const loadMoreTransactions = useCallback(async () => {
     if (!historyCursorRef.current || isLoadingMoreRef.current) {
@@ -300,17 +308,15 @@ export function useWalletDetail(walletChecksum: string | null) {
 
   useEffect(() => {
     setWallet(null)
-    setTransactions([])
-    setContacts([])
-    setBalanceAlerts([])
-    setLastUpdate(null)
-    setError(null)
-    setHasMoreTransactions(false)
-    setTransactionNotifications({})
-    setLoadingTransactionNotifications({})
-    setTransactionNotificationErrors({})
-    historyCursorRef.current = null
-    incrementalSinceTimestampRef.current = null
+      setTransactions([])
+      setContacts([])
+      setBalanceAlerts([])
+      setLastUpdate(null)
+      setError(null)
+      setHasMoreTransactions(false)
+      clearNotificationCaches()
+      historyCursorRef.current = null
+      incrementalSinceTimestampRef.current = null
 
     if (!walletChecksum) {
       return
@@ -328,7 +334,7 @@ export function useWalletDetail(walletChecksum: string | null) {
         clearInterval(pollingIntervalRef.current)
       }
     }
-  }, [fetchWalletDetail, walletChecksum, getPollingInterval, pollWalletDetail])
+  }, [clearNotificationCaches, fetchWalletDetail, walletChecksum, getPollingInterval, pollWalletDetail])
 
   return {
     wallet,
