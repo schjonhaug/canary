@@ -4,11 +4,14 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { api } from '@/lib/api'
+import { getTranslatedApiError } from '@/lib/utils'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 export default function VerifyEmailPage() {
   const t = useTranslations('auth.verifyEmail')
+  const tApiErrors = useTranslations('errors.api')
   const params = useParams()
   const router = useRouter()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -17,28 +20,19 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     const verifyEmail = async () => {
       try {
-        const response = await fetch(`/api/auth/verify-email/${params.token}`, {
-          method: 'GET',
-        })
-
-        if (response.ok) {
-          setStatus('success')
-          setMessage(t('successMessage'))
-        } else {
-          const errorData = await response.json()
-          setStatus('error')
-          setMessage(errorData.error || t('invalidToken'))
-        }
-      } catch {
+        await api.verifyEmail(String(params.token))
+        setStatus('success')
+        setMessage(t('successMessage'))
+      } catch (err) {
         setStatus('error')
-        setMessage(t('invalidToken'))
+        setMessage(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('invalidToken'))
       }
     }
 
     if (params.token) {
       verifyEmail()
     }
-  }, [params.token, t])
+  }, [params.token, t, tApiErrors])
 
   const handleContinue = () => {
     router.push('/sign-in')
