@@ -1,5 +1,5 @@
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
-use crate::metadata::{Language, MetadataDb};
+use crate::metadata::{EventType, Language, MetadataDb, TransactionInsert};
 use tempfile::tempdir;
 
 async fn create_test_db() -> (MetadataDb, tempfile::TempDir) {
@@ -274,6 +274,121 @@ async fn test_get_user_preferred_language_japanese() {
 }
 
 #[tokio::test]
+async fn test_transaction_ordering_expression_index_is_applied() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "perf@example.com",
+            "hashedpassword",
+            Some("Perf User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Perf Wallet", "wpkh(testkey)#perf01", &user_id)
+        .await
+        .unwrap();
+
+    for (txid, first_seen_at, confirmed_at) in [
+        ("tx-001", 1_700_000_001_u64, None),
+        ("tx-002", 1_700_000_002_u64, Some(1_700_000_020_u64)),
+        ("tx-003", 1_700_000_003_u64, Some(1_700_000_010_u64)),
+    ] {
+        db.insert_transaction(&TransactionInsert {
+            txid: txid.to_string(),
+            wallet_checksum: wallet_checksum.clone(),
+            transaction_type: EventType::Receive,
+            amount_sats: 50_000,
+            fee_sats: None,
+            block_height: confirmed_at.map(|_| 100),
+            first_seen_at,
+            confirmed_at,
+            parent_txid: None,
+            transaction_status: if confirmed_at.is_some() {
+                "confirmed".to_string()
+            } else {
+                "pending".to_string()
+            },
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+    }
+
+    let conn = db.pool.get().unwrap();
+
+    let index_names: Vec<String> = conn
+        .prepare("PRAGMA index_list('transactions')")
+        .unwrap()
+        .query_map([], |row| row.get(1))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert!(
+        index_names
+            .iter()
+            .any(|name| name == "idx_transactions_wallet_ordering"),
+        "Expected idx_transactions_wallet_ordering to exist, found {index_names:?}"
+    );
+
+    let ordered_txids: Vec<String> = conn
+        .prepare(
+            "SELECT t.txid
+             FROM transactions t
+             WHERE t.wallet_checksum = ?1
+             ORDER BY COALESCE(t.confirmed_at, t.first_seen_at) DESC, t.txid DESC",
+        )
+        .unwrap()
+        .query_map([wallet_checksum.as_str()], |row| row.get(0))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert_eq!(ordered_txids, vec!["tx-002", "tx-003", "tx-001"]);
+
+    // Column 3 is SQLite's human-readable plan detail.
+    let ordering_plan_details: Vec<String> = conn
+        .prepare(
+            "EXPLAIN QUERY PLAN
+             SELECT t.txid
+             FROM transactions t
+             WHERE t.wallet_checksum = ?1
+             ORDER BY COALESCE(t.confirmed_at, t.first_seen_at) DESC, t.txid DESC
+             LIMIT ?2",
+        )
+        .unwrap()
+        .query_map([wallet_checksum.as_str(), "50"], |row| row.get(3))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert!(
+        ordering_plan_details
+            .iter()
+            .all(|detail| !detail.contains("USE TEMP B-TREE FOR ORDER BY")),
+        "Expected ordering query plan to avoid temp sorting, found {ordering_plan_details:?}"
+    );
+
+    let last_activity: Option<i64> = conn
+        .query_row(
+            "SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at))
+             FROM transactions t
+             WHERE t.wallet_checksum = ?1",
+            [wallet_checksum.as_str()],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    assert_eq!(last_activity, Some(1_700_000_020));
+}
+
+#[tokio::test]
 async fn test_get_user_preferred_language_nonexistent_user() {
     let (db, _temp_dir) = create_test_db().await;
 
@@ -372,7 +487,7 @@ fn test_twilio_locale_all_languages_are_valid() {
 // Cross-wallet verification tests
 // ============================
 
-use crate::metadata::{EventType, ProviderType, TransactionInsert, TransactionPageRequest};
+use crate::metadata::{ProviderType, TransactionPageRequest};
 
 #[tokio::test]
 async fn test_cross_wallet_verification_same_user_sms() {
