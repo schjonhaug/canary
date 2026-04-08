@@ -18,6 +18,20 @@ use axum::{
 use std::sync::Arc;
 use tracing::info;
 
+fn active_billing_provider(
+    config: &crate::config::AppConfig,
+    stripe_billing: &StripeBillingState,
+    btcpay: &BtcPayClientState,
+) -> Option<BillingProvider> {
+    if stripe_billing.is_some() {
+        Some(BillingProvider::Stripe)
+    } else if btcpay.is_some() && config.btcpay_cloud_plan_config().is_some() {
+        Some(BillingProvider::BtcPay)
+    } else {
+        None
+    }
+}
+
 /// Create a billing checkout session for subscription
 pub async fn create_checkout_session(
     AuthenticatedUser(user): AuthenticatedUser,
@@ -78,7 +92,7 @@ pub async fn create_checkout_session(
     );
     let cancel_url = format!("{}/subscription?cancelled=true", frontend_url);
 
-    let result = match config.active_billing_provider() {
+    let result = match active_billing_provider(&config, &stripe_billing, &btcpay) {
         Some(BillingProvider::Stripe) => {
             let stripe_billing = match stripe_billing.as_ref() {
                 Some(billing) => billing.as_ref(),
@@ -160,12 +174,12 @@ pub async fn create_customer_portal(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
-    State(config): State<ConfigState>,
+    State(_config): State<ConfigState>,
     Json(payload): Json<CreateCustomerPortalRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
 
-    if config.active_billing_provider() != Some(BillingProvider::Stripe) {
+    if stripe_billing.is_none() {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
@@ -256,6 +270,8 @@ pub async fn create_customer_portal(
 pub async fn get_billing_status(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
+    State(stripe_billing): State<StripeBillingState>,
+    State(btcpay): State<BtcPayClientState>,
     State(config): State<Arc<crate::config::AppConfig>>,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -359,11 +375,9 @@ pub async fn get_billing_status(
         trial_ends_at: user_record.trial_ends_at,
         subscription_started_at: user_record.subscription_started_at,
         subscription_ends_at: user_record.subscription_ends_at,
-        billing_provider: config
-            .active_billing_provider()
+        billing_provider: active_billing_provider(&config, &stripe_billing, &btcpay)
             .map(|provider| provider.as_str().to_string()),
-        can_manage_billing: config.active_billing_provider() == Some(BillingProvider::Stripe)
-            && user_record.stripe_customer_id.is_some(),
+        can_manage_billing: stripe_billing.is_some() && user_record.stripe_customer_id.is_some(),
         stripe_customer_id: user_record.stripe_customer_id,
         wallet_count,
         contact_count,
@@ -382,7 +396,7 @@ pub async fn get_billing_pricing(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<ConfigState>,
 ) -> Response {
-    let pricing = match config.active_billing_provider() {
+    let pricing = match active_billing_provider(&config, &stripe_billing, &btcpay) {
         Some(BillingProvider::Stripe) => {
             let stripe_billing = match stripe_billing.as_ref() {
                 Some(billing) => billing.as_ref(),
@@ -714,10 +728,11 @@ pub async fn handle_stripe_webhook(
 pub async fn get_checkout_session_details(
     AuthenticatedUser(_user): AuthenticatedUser,
     State(stripe_billing): State<StripeBillingState>,
+    State(btcpay): State<BtcPayClientState>,
     State(config): State<ConfigState>,
     Path(session_id): Path<String>,
 ) -> Response {
-    if config.active_billing_provider() != Some(BillingProvider::Stripe) {
+    if active_billing_provider(&config, &stripe_billing, &btcpay) != Some(BillingProvider::Stripe) {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
