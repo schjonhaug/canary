@@ -803,11 +803,23 @@ async fn test_inactive_contacts_do_not_consume_limit_slots() {
         .await
         .unwrap();
 
-    let count = db
+    let active_count = db
+        .count_active_contacts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(
+        active_count, 1,
+        "Only active contacts should count toward limits"
+    );
+
+    let total_count = db
         .count_contacts_for_wallet(&wallet_checksum)
         .await
         .unwrap();
-    assert_eq!(count, 1, "Only active contacts should count toward limits");
+    assert_eq!(
+        total_count, 2,
+        "Total contact counts should include inactive rows"
+    );
 
     let contacts = db
         .get_contacts_with_notification_methods_filtered(&wallet_checksum, true)

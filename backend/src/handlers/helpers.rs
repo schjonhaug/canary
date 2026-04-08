@@ -175,7 +175,7 @@ pub(crate) async fn check_resource_limit(
         ResourceLimit::Contact { wallet_checksum } => {
             let contact_count = app_services
                 .metadata_db
-                .count_contacts_for_wallet(wallet_checksum)
+                .count_active_contacts_for_wallet(wallet_checksum)
                 .await
                 .map_err(|error| {
                     error_response(

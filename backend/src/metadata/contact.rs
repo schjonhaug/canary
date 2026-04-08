@@ -19,6 +19,22 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<usize> {
             let conn = pool.get()?;
             let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM contacts WHERE wallet_checksum = ?1",
+                params![checksum],
+                |row| row.get(0),
+            )?;
+            Ok(count as usize)
+        })
+        .await?
+    }
+
+    pub async fn count_active_contacts_for_wallet(&self, wallet_checksum: &str) -> Result<usize> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+
+        spawn_blocking(move || -> Result<usize> {
+            let conn = pool.get()?;
+            let count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM contacts WHERE wallet_checksum = ?1 AND is_active = 1",
                 params![checksum],
                 |row| row.get(0),
