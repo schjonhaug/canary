@@ -85,7 +85,7 @@ export default function WalletDetailPage() {
     refresh()
   }
 
-  const handleNameUpdated = (_newName: string) => {
+  const handleNameUpdated = () => {
     // Name was updated on backend by child component, refresh to get new data
     handleWalletUpdated()
   }

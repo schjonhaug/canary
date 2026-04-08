@@ -950,7 +950,10 @@ async fn test_include_notifications_batches_correctly() {
         .unwrap();
     assert_eq!(txs.len(), 2);
     for tx in &txs {
-        assert!(tx.notification_status.is_empty(), "Should have no notifications when include_notifications=false");
+        assert!(
+            tx.notification_status.is_empty(),
+            "Should have no notifications when include_notifications=false"
+        );
     }
 
     // With notifications
@@ -963,13 +966,21 @@ async fn test_include_notifications_batches_correctly() {
     let tx_a = txs.iter().find(|t| t.txid == "tx_a").unwrap();
     let tx_b = txs.iter().find(|t| t.txid == "tx_b").unwrap();
 
-    assert_eq!(tx_a.notification_status.len(), 2, "tx_a should have 2 notifications");
+    assert_eq!(
+        tx_a.notification_status.len(),
+        2,
+        "tx_a should have 2 notifications"
+    );
     assert_eq!(tx_a.notification_status[0].contact_name, "Alice");
     assert_eq!(tx_a.notification_status[0].provider_name, "ntfy");
     assert_eq!(tx_a.notification_status[1].contact_name, "Bob");
     assert_eq!(tx_a.notification_status[1].provider_name, "email");
 
-    assert_eq!(tx_b.notification_status.len(), 1, "tx_b should have 1 notification");
+    assert_eq!(
+        tx_b.notification_status.len(),
+        1,
+        "tx_b should have 1 notification"
+    );
     assert_eq!(tx_b.notification_status[0].contact_name, "Charlie");
     assert_eq!(tx_b.notification_status[0].status, "failed");
 }

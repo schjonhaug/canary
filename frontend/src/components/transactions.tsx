@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, Baby, Mail, MessageCircle, Bell, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
+import { CheckCircle, Baby, ChevronDown, ChevronRight, XCircle, Loader2, ArrowRight } from "lucide-react"
 import { Transaction } from "../types"
 import { TransactionCard } from "./transaction-card"
 import { TransactionDetails } from "./transaction-details"
@@ -53,47 +53,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
       }
       return newSet
     })
-  }
-
-  // Get unique provider types and icons for condensed view
-  const getUniqueProviderSummary = (notifications: typeof transactions[0]['notification_status']) => {
-    if (!notifications || notifications.length === 0) return null
-    
-    const providerCounts = notifications.reduce((acc, notification) => {
-      const providerType = notification.provider_type || notification.provider_name.toLowerCase()
-      acc[providerType] = (acc[providerType] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    const getProviderIcon = (providerType: string) => {
-      switch (providerType) {
-        case 'email':
-          return <Mail className="h-4 w-4" />
-        case 'sms':
-        case 'twilio':
-          return <MessageCircle className="h-4 w-4" />
-        case 'ntfy':
-        default:
-          return <Bell className="h-4 w-4" />
-      }
-    }
-
-    // Sort provider types for consistent order: email, sms, ntfy
-    const sortedProviderTypes = Object.keys(providerCounts).sort((a, b) => {
-      const order = { 'email': 1, 'sms': 2, 'twilio': 2, 'ntfy': 3 }
-      const aOrder = order[a as keyof typeof order] || 99
-      const bOrder = order[b as keyof typeof order] || 99
-      return aOrder - bOrder
-    })
-
-    return {
-      icons: sortedProviderTypes.map(providerType => ({
-        icon: getProviderIcon(providerType),
-        count: providerCounts[providerType],
-        type: providerType
-      })),
-      total: notifications.length
-    }
   }
 
 
@@ -250,7 +209,6 @@ export function Transactions({ selectedWalletChecksum, transactions, error, last
             <TableBody>
               {filteredTransactions.map((transaction) => {
                 const isExpanded = expandedRows.has(transaction.txid)
-                const notificationSummary = getUniqueProviderSummary(transaction.notification_status)
                 
                 return (
                   <React.Fragment key={transaction.txid}>

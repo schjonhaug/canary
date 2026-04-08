@@ -222,7 +222,9 @@ impl MetadataDb {
     /// Safety net: this FK has ON DELETE CASCADE so orphans shouldn't exist under
     /// normal operation, but checks for any that slipped through (e.g. if FK
     /// enforcement was temporarily disabled).
-    pub async fn find_orphaned_balance_alert_notification_logs(&self) -> Result<Vec<OrphanedRecord>> {
+    pub async fn find_orphaned_balance_alert_notification_logs(
+        &self,
+    ) -> Result<Vec<OrphanedRecord>> {
         let pool = self.pool.clone();
         spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
             let conn = pool.get()?;
