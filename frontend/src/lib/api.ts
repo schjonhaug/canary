@@ -1,4 +1,4 @@
-import { getApiBaseUrl, handleApiResponse, createNetworkError, ApiError } from './utils'
+import { getApiBaseUrl, handleApiResponse, createNetworkError } from './utils'
 
 // Re-export ApiError for convenience
 export { ApiError } from './utils'

@@ -15,7 +15,7 @@ import { getTranslatedApiError } from "@/lib/utils"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
-import { XPUB_REGEX, DESCRIPTOR_REGEX, isValidBitcoinAddress, getDescriptorScriptType } from "@/lib/constants"
+import { isValidXpub, isValidDescriptor, isValidBitcoinAddress, getDescriptorScriptType } from "@/lib/constants"
 import { useTranslations } from "next-intl"
 
 type NetworkKey = 'mainnet' | 'testnet' | 'regtest'
@@ -133,12 +133,12 @@ export function AddWalletForm({
 
   // Helper function to detect XPUB format (uses centralized pattern)
   const isXpubFormat = (input: string): boolean => {
-    return XPUB_REGEX.test(input.trim())
+    return isValidXpub(input)
   }
 
   // Helper function to detect output descriptor format (uses centralized pattern)
   const isDescriptorFormat = (input: string): boolean => {
-    return DESCRIPTOR_REGEX.test(input.trim())
+    return isValidDescriptor(input)
   }
 
   // Helper function to check if custom stop gap requires a specific script type

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
+import { getTranslatedApiError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +18,7 @@ import { useTranslations } from 'next-intl'
 export default function ForgotPasswordPage() {
   const t = useTranslations('auth.forgotPassword')
   const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -42,7 +44,11 @@ export default function ForgotPasswordPage() {
       setSuccess(true)
       setEmail('') // Clear the form
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send reset email')
+      if (err instanceof ApiError) {
+        setError(getTranslatedApiError(err, tApiErrors))
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to send reset email')
+      }
     } finally {
       setIsLoading(false)
     }

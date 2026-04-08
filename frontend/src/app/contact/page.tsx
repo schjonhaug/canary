@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuth } from '@/contexts/auth-context'
 import { api, ApiError } from '@/lib/api'
-import { EMAIL_REGEX, EMAIL_CONSTRAINTS, MESSAGE_CONSTRAINTS } from '@/lib/constants'
+import { EMAIL_CONSTRAINTS, MESSAGE_CONSTRAINTS, isValidEmail } from '@/lib/constants'
+import { getTranslatedApiError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,6 +19,7 @@ import Link from 'next/link'
 export default function ContactPage() {
   const t = useTranslations('contactPage')
   const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
   const { user, isAuthenticated, isSelfHostedMode } = useAuth()
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
@@ -37,7 +39,7 @@ export default function ContactPage() {
     if (!email.trim()) {
       return t('validation.emailRequired')
     }
-    if (!EMAIL_REGEX.test(email)) {
+    if (!isValidEmail(email)) {
       return t('validation.emailInvalid')
     }
     if (email.length > EMAIL_CONSTRAINTS.MAX_LENGTH) {
@@ -85,12 +87,9 @@ export default function ContactPage() {
       setMessage('') // Clear message on success, keep email
     } catch (err) {
       if (err instanceof ApiError) {
-        // Use user-friendly message for network/server errors, actual message for validation
-        setError(err.isNetworkError() || err.isServerError()
-          ? err.getUserFriendlyMessage()
-          : err.message)
+        setError(getTranslatedApiError(err, tApiErrors))
       } else {
-        setError(err instanceof Error ? err.message : t('errors.sendFailed'))
+        setError(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('errors.sendFailed'))
       }
     } finally {
       setIsLoading(false)
