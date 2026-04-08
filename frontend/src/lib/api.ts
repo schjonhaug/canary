@@ -2,7 +2,13 @@ import { getApiBaseUrl, handleApiResponse, createNetworkError } from './utils'
 
 // Re-export ApiError for convenience
 export { ApiError } from './utils'
-import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest } from '../types'
+import {
+  Wallet,
+  Contact,
+  BalanceAlert,
+  CreateBalanceAlertRequest,
+  WalletDetailResponse,
+} from '../types'
 
 export interface ProviderInfo {
   name: string
@@ -96,8 +102,8 @@ class ApiClient {
     return this.request<{ timestamp: number; wallets: Wallet[] }>('/api/wallets')
   }
 
-  async getWalletDetail(checksum: string): Promise<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }> {
-    return this.request<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }>(`/api/wallets/${checksum}/detail`)
+  async getWalletDetail(checksum: string): Promise<WalletDetailResponse> {
+    return this.request<WalletDetailResponse>(`/api/wallets/${checksum}/detail`)
   }
 
   // Contact API methods

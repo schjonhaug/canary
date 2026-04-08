@@ -372,7 +372,7 @@ fn test_twilio_locale_all_languages_are_valid() {
 // Cross-wallet verification tests
 // ============================
 
-use crate::metadata::{EventType, ProviderType, TransactionInsert};
+use crate::metadata::{EventType, ProviderType, TransactionInsert, TransactionPageRequest};
 
 #[tokio::test]
 async fn test_cross_wallet_verification_same_user_sms() {
@@ -976,9 +976,6 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
 
     let now = 1740000000u64;
 
-    // Wallet last_activity is computed with COALESCE(confirmed_at, first_seen_at):
-    // confirmed transactions should use confirmed_at, while pending ones fall back
-    // to first_seen_at.
     db.insert_transaction(&TransactionInsert {
         txid: "tx_old_confirmed".to_string(),
         wallet_checksum: wallet_checksum.clone(),
@@ -987,7 +984,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         fee_sats: None,
         block_height: Some(1),
         first_seen_at: now,
-        confirmed_at: Some(1231006505), // Bitcoin genesis block timestamp
+        confirmed_at: Some(1231006505),
         parent_txid: None,
         transaction_status: "confirmed".to_string(),
         replaced_by_txid: None,
@@ -1090,6 +1087,172 @@ async fn test_wallet_last_activity_falls_back_to_first_seen_at_for_pending_trans
         Some(expected_last_activity.as_str()),
         "Pending-only wallets should use first_seen_at as the last_activity fallback"
     );
+}
+
+#[tokio::test]
+async fn test_transaction_pagination_uses_cursor() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "cursor-test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Cursor Wallet", "descriptor_cursor", &user_id)
+        .await
+        .unwrap();
+
+    let base_timestamp = 1740000000u64;
+    for (offset, txid) in ["tx_c", "tx_b", "tx_a"].iter().enumerate() {
+        db.insert_transaction(&TransactionInsert {
+            txid: txid.to_string(),
+            wallet_checksum: wallet_checksum.clone(),
+            transaction_type: EventType::Receive,
+            amount_sats: 1_000 + offset as i64,
+            fee_sats: None,
+            block_height: Some(100 + offset as u32),
+            first_seen_at: base_timestamp + offset as u64,
+            confirmed_at: Some(base_timestamp + offset as u64),
+            parent_txid: None,
+            transaction_status: "confirmed".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+    }
+
+    let first_page = db
+        .get_transactions_page_by_wallet_checksum(
+            &wallet_checksum,
+            TransactionPageRequest {
+                limit: 2,
+                cursor: None,
+                since_timestamp: None,
+                include_notifications: false,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        first_page
+            .transactions
+            .iter()
+            .map(|transaction| transaction.txid.as_str())
+            .collect::<Vec<_>>(),
+        vec!["tx_a", "tx_b"]
+    );
+    assert!(first_page.has_more);
+
+    let second_page = db
+        .get_transactions_page_by_wallet_checksum(
+            &wallet_checksum,
+            TransactionPageRequest {
+                limit: 2,
+                cursor: first_page.next_cursor.clone(),
+                since_timestamp: None,
+                include_notifications: false,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        second_page
+            .transactions
+            .iter()
+            .map(|transaction| transaction.txid.as_str())
+            .collect::<Vec<_>>(),
+        vec!["tx_c"]
+    );
+    assert!(!second_page.has_more);
+}
+
+#[tokio::test]
+async fn test_transaction_pagination_since_timestamp_returns_changed_rows() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "since-test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Since Wallet", "descriptor_since", &user_id)
+        .await
+        .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_old".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 1_000,
+        fee_sats: None,
+        block_height: Some(100),
+        first_seen_at: 1_000,
+        confirmed_at: Some(1_000),
+        parent_txid: None,
+        transaction_status: "confirmed".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_replaced".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Send,
+        amount_sats: -2_000,
+        fee_sats: Some(200),
+        block_height: None,
+        first_seen_at: 1_100,
+        confirmed_at: None,
+        parent_txid: None,
+        transaction_status: "replaced".to_string(),
+        replaced_by_txid: Some("tx_replacement".to_string()),
+        replaced_at: Some(1_500),
+    })
+    .await
+    .unwrap();
+
+    let page = db
+        .get_transactions_page_by_wallet_checksum(
+            &wallet_checksum,
+            TransactionPageRequest {
+                limit: 10,
+                cursor: None,
+                since_timestamp: Some(1_200),
+                include_notifications: false,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        page.transactions
+            .iter()
+            .map(|transaction| transaction.txid.as_str())
+            .collect::<Vec<_>>(),
+        vec!["tx_replaced"]
+    );
+    assert_eq!(page.applied_since_timestamp, Some(1_200));
 }
 
 // ============================

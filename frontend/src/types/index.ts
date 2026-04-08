@@ -108,6 +108,15 @@ export interface WalletDetailResponse {
   wallet: Wallet
   transactions: Transaction[]
   contacts: Contact[]
+  balance_alerts: BalanceAlert[]
+  pagination: WalletDetailPagination
+}
+
+export interface WalletDetailPagination {
+  page_size: number
+  next_cursor: string | null
+  has_more: boolean
+  applied_since_timestamp: number | null
 }
 
 // Balance Alert Types

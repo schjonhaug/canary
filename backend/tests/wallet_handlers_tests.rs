@@ -12,6 +12,7 @@ use canary::{
     auth::AuthService,
     config::{AppConfig, NetworkConfig, OperatingMode},
     electrum::ElectrumClientManager,
+    metadata::{EventType, TransactionCursor, TransactionInsert},
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
@@ -37,6 +38,11 @@ const MAINNET_XPUB: &str =
 /// Test helper to create test application with self-hosted mode
 /// Returns (router, temp_dir) - temp_dir must be kept alive for test duration
 async fn create_test_app() -> (axum::Router, TempDir) {
+    let (router, temp_dir, _app_services) = create_test_app_with_services().await;
+    (router, temp_dir)
+}
+
+async fn create_test_app_with_services() -> (axum::Router, TempDir, Arc<AppServices>) {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
@@ -90,14 +96,14 @@ async fn create_test_app() -> (axum::Router, TempDir) {
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
 
     let router = create_router_with_services(
-        app_services,
+        app_services.clone(),
         notification_manager,
         stripe_billing,
         test_config,
         electrum_manager,
     );
 
-    (router, temp_dir)
+    (router, temp_dir, app_services)
 }
 
 /// Helper to parse response body as JSON
@@ -640,6 +646,76 @@ async fn test_get_wallet_detail_success() {
 }
 
 #[tokio::test]
+async fn test_get_wallet_detail_returns_pagination_metadata() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Paged Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap().to_string();
+    app_services
+        .metadata_db
+        .update_wallet_status(&checksum, "ready")
+        .await
+        .unwrap();
+
+    for (offset, txid) in ["tx_1", "tx_2"].iter().enumerate() {
+        app_services
+            .metadata_db
+            .insert_transaction(&TransactionInsert {
+                txid: txid.to_string(),
+                wallet_checksum: checksum.clone(),
+                transaction_type: EventType::Receive,
+                amount_sats: 1_000 + offset as i64,
+                fee_sats: None,
+                block_height: Some(100 + offset as u32),
+                first_seen_at: 1_000 + offset as u64,
+                confirmed_at: Some(1_000 + offset as u64),
+                parent_txid: None,
+                transaction_status: "confirmed".to_string(),
+                replaced_by_txid: None,
+                replaced_at: None,
+            })
+            .await
+            .unwrap();
+    }
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{}/detail?page_size=1", checksum))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let detail: WalletDetailResponse = serde_json::from_slice(&bytes).unwrap();
+
+    assert_eq!(detail.transactions.len(), 1);
+    assert!(detail.pagination.has_more);
+    assert!(detail.pagination.next_cursor.is_some());
+    assert_eq!(detail.pagination.page_size, 1);
+}
+
+#[tokio::test]
 async fn test_get_wallet_detail_not_found() {
     let (app, _temp_dir) = create_test_app().await;
 
@@ -655,6 +731,93 @@ async fn test_get_wallet_detail_not_found() {
         StatusCode::NOT_FOUND,
         "Expected 404 NOT_FOUND for nonexistent wallet detail"
     );
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_invalid_cursor() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets/nonexistent_checksum/detail?cursor=not-a-valid-cursor")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_cursor");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_out_of_range_since_timestamp() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/nonexistent_checksum/detail?since_timestamp={}",
+            u64::MAX
+        ))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_since_timestamp");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_out_of_range_cursor_timestamp() {
+    let (app, _temp_dir) = create_test_app().await;
+    let cursor = TransactionCursor {
+        sort_timestamp: u64::MAX,
+        txid: "a".repeat(64),
+    }
+    .encode();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/nonexistent_checksum/detail?cursor={}",
+            cursor
+        ))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_cursor");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_combined_cursor_and_since_timestamp() {
+    let (app, _temp_dir) = create_test_app().await;
+    let cursor = TransactionCursor {
+        sort_timestamp: 1,
+        txid: "a".repeat(64),
+    }
+    .encode();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/nonexistent_checksum/detail?cursor={}&since_timestamp=1",
+            cursor
+        ))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_pagination_mode");
 }
 
 // =============================================================================

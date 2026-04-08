@@ -59,9 +59,12 @@ export default function WalletDetailPage() {
     balanceAlerts,
     error,
     isLoading,
+    isLoadingMore,
     isConnected,
+    hasMoreTransactions,
     lastUpdate,
     refresh,
+    loadMoreTransactions,
   } = useWalletDetail(checksum)
 
   // Share wallet data with layout context for SVG loading
@@ -185,10 +188,14 @@ export default function WalletDetailPage() {
             {/* Transaction Events */}
             <div className="lg:col-span-2">
               <Transactions
+                selectedWalletChecksum={wallet?.checksum}
                 transactions={transactions}
                 isConnected={isConnected}
                 error={error}
                 lastUpdate={lastUpdate}
+                hasMoreTransactions={hasMoreTransactions}
+                isLoadingMore={isLoadingMore}
+                onLoadMore={loadMoreTransactions}
                 walletsCount={1}
               />
             </div>

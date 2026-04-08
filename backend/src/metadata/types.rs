@@ -1,4 +1,5 @@
 use crate::subscription::SubscriptionTier;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::num::Wrapping;
@@ -361,6 +362,63 @@ pub struct TransactionWithWallet {
     pub notification_status: Vec<NotificationStatus>,
 }
 
+impl TransactionWithWallet {
+    pub fn detail_sort_timestamp(&self) -> u64 {
+        self.confirmed_at.unwrap_or(self.first_seen_at)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct TransactionCursor {
+    pub sort_timestamp: u64,
+    pub txid: String,
+}
+
+impl TransactionCursor {
+    pub fn encode(&self) -> String {
+        URL_SAFE_NO_PAD.encode(format!("{}:{}", self.sort_timestamp, self.txid))
+    }
+
+    pub fn decode(cursor: &str) -> Result<Self, ParseError> {
+        let decoded = URL_SAFE_NO_PAD
+            .decode(cursor)
+            .map_err(|_| ParseError("Invalid cursor".to_string()))?;
+        let decoded =
+            String::from_utf8(decoded).map_err(|_| ParseError("Invalid cursor".to_string()))?;
+        let (sort_timestamp, txid) = decoded
+            .split_once(':')
+            .ok_or_else(|| ParseError("Invalid cursor".to_string()))?;
+        let sort_timestamp = sort_timestamp
+            .parse::<u64>()
+            .map_err(|_| ParseError("Invalid cursor".to_string()))?;
+
+        if txid.len() != 64 || !txid.chars().all(|character| character.is_ascii_hexdigit()) {
+            return Err(ParseError("Invalid cursor".to_string()));
+        }
+
+        Ok(Self {
+            sort_timestamp,
+            txid: txid.to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionPageRequest {
+    pub limit: usize,
+    pub cursor: Option<TransactionCursor>,
+    pub since_timestamp: Option<u64>,
+    pub include_notifications: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionPage {
+    pub transactions: Vec<TransactionWithWallet>,
+    pub next_cursor: Option<TransactionCursor>,
+    pub has_more: bool,
+    pub applied_since_timestamp: Option<u64>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NotificationStatus {
     pub contact_name: String,
@@ -386,6 +444,15 @@ pub struct WalletDetailResponse {
     pub transactions: Vec<TransactionWithWallet>,
     pub contacts: Vec<Contact>,
     pub balance_alerts: Vec<BalanceAlert>,
+    pub pagination: WalletDetailPagination,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WalletDetailPagination {
+    pub page_size: usize,
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
+    pub applied_since_timestamp: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
