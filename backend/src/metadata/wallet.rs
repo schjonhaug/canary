@@ -8,6 +8,7 @@ use tokio::task::spawn_blocking;
 struct WalletMetadataRowOptions {
     default_balance_total_to_zero: bool,
     default_contact_count_to_zero: bool,
+    default_is_active_to_true: bool,
 }
 
 fn map_wallet_metadata_row(
@@ -23,6 +24,11 @@ fn map_wallet_metadata_row(
         row.get(8).unwrap_or(Some(0))
     } else {
         Some(row.get(8)?)
+    };
+    let is_active = if options.default_is_active_to_true {
+        row.get::<_, i64>(10).unwrap_or(1) != 0
+    } else {
+        row.get::<_, i64>(10)? != 0
     };
 
     Ok(WalletMetadata {
@@ -40,7 +46,7 @@ fn map_wallet_metadata_row(
         status: row.get(7)?,
         contact_count,
         user_id: row.get(9)?,
-        is_active: row.get::<_, i64>(10).unwrap_or(1) != 0,
+        is_active,
         balance_fiat: None,
         fiat_currency: None,
         wallet_type: row
@@ -185,6 +191,7 @@ impl MetadataDb {
                     WalletMetadataRowOptions {
                         default_balance_total_to_zero: false,
                         default_contact_count_to_zero: false,
+                        default_is_active_to_true: true,
                     },
                 ),
             )
@@ -214,6 +221,7 @@ impl MetadataDb {
                     WalletMetadataRowOptions {
                         default_balance_total_to_zero: false,
                         default_contact_count_to_zero: false,
+                        default_is_active_to_true: true,
                     },
                 ),
             )
@@ -333,6 +341,7 @@ impl MetadataDb {
                     WalletMetadataRowOptions {
                         default_balance_total_to_zero: true,
                         default_contact_count_to_zero: false,
+                        default_is_active_to_true: true,
                     },
                 )
             })?;
@@ -372,6 +381,7 @@ impl MetadataDb {
                     WalletMetadataRowOptions {
                         default_balance_total_to_zero: true,
                         default_contact_count_to_zero: false,
+                        default_is_active_to_true: true,
                     },
                 )
             })?;
@@ -616,6 +626,7 @@ impl MetadataDb {
                     WalletMetadataRowOptions {
                         default_balance_total_to_zero: true,
                         default_contact_count_to_zero: true,
+                        default_is_active_to_true: false,
                     },
                 )
             })?;
@@ -656,6 +667,7 @@ impl MetadataDb {
                     WalletMetadataRowOptions {
                         default_balance_total_to_zero: true,
                         default_contact_count_to_zero: true,
+                        default_is_active_to_true: false,
                     },
                 )
             })?;
@@ -784,5 +796,92 @@ impl MetadataDb {
             Ok(())
         })
         .await?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bdk_wallet::rusqlite::Connection;
+
+    fn map_test_row(
+        balance_total_sql: &str,
+        contact_count_sql: &str,
+        is_active_sql: &str,
+        options: WalletMetadataRowOptions,
+    ) -> bdk_wallet::rusqlite::Result<WalletMetadata> {
+        let conn = Connection::open_in_memory().unwrap();
+        let query = format!(
+            "SELECT \
+                'checksum', 'name', 'descriptor', '#ff0000', '2026-01-01 00:00:00', \
+                {balance_total_sql}, 123, 'ready', {contact_count_sql}, 'user-1', {is_active_sql}, \
+                'descriptor', '2026-01-02 00:00:00'"
+        );
+
+        conn.query_row(&query, [], |row| map_wallet_metadata_row(row, options))
+    }
+
+    #[test]
+    fn map_wallet_metadata_row_defaults_optional_values_to_zero_when_requested() {
+        let wallet = map_test_row(
+            "NULL",
+            "'not-a-number'",
+            "1",
+            WalletMetadataRowOptions {
+                default_balance_total_to_zero: true,
+                default_contact_count_to_zero: true,
+                default_is_active_to_true: false,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(wallet.balance_total, Some(0));
+        assert_eq!(wallet.contact_count, Some(0));
+    }
+
+    #[test]
+    fn map_wallet_metadata_row_preserves_none_without_zero_defaults() {
+        let wallet = map_test_row(
+            "NULL",
+            "0",
+            "1",
+            WalletMetadataRowOptions {
+                default_balance_total_to_zero: false,
+                default_contact_count_to_zero: false,
+                default_is_active_to_true: true,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(wallet.balance_total, None);
+        assert_eq!(wallet.contact_count, Some(0));
+    }
+
+    #[test]
+    fn map_wallet_metadata_row_can_decode_is_active_strictly_or_with_fallback() {
+        let strict_result = map_test_row(
+            "0",
+            "0",
+            "NULL",
+            WalletMetadataRowOptions {
+                default_balance_total_to_zero: true,
+                default_contact_count_to_zero: true,
+                default_is_active_to_true: false,
+            },
+        );
+        let fallback_result = map_test_row(
+            "0",
+            "0",
+            "NULL",
+            WalletMetadataRowOptions {
+                default_balance_total_to_zero: true,
+                default_contact_count_to_zero: true,
+                default_is_active_to_true: true,
+            },
+        )
+        .unwrap();
+
+        assert!(strict_result.is_err());
+        assert!(fallback_result.is_active);
     }
 }
