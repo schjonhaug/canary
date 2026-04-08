@@ -348,10 +348,19 @@ export function ContactModal({
   const handleDeleteContact = async () => {
     if (!editContact) return
 
-    await api.deleteContact(walletChecksum, editContact.id)
-    handleClose()
-    if (onContactSaved) {
-      onContactSaved()
+    try {
+      await api.deleteContact(walletChecksum, editContact.id)
+      handleClose()
+      if (onContactSaved) {
+        onContactSaved()
+      }
+    } catch (err) {
+      setIsDeleteModalOpen(false)
+      if (err instanceof ApiError) {
+        setError(getTranslatedApiError(err, tApiErrors))
+      } else {
+        setError(t('form.saveFailed'))
+      }
     }
   }
 
@@ -601,7 +610,7 @@ export function ContactModal({
     </Button>
   )
 
-  return (
+  return (<>
     <ResponsiveModal open={isOpen} onOpenChange={handleClose}>
       <ResponsiveModalContent
         className="sm:max-w-md"
@@ -682,13 +691,14 @@ export function ContactModal({
           )}
         </ResponsiveModalFooter>
       </ResponsiveModalContent>
-
-      <DeleteContactModal
-        contact={editContact || null}
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirmDelete={handleDeleteContact}
-      />
     </ResponsiveModal>
+
+    <DeleteContactModal
+      contact={editContact || null}
+      isOpen={isDeleteModalOpen}
+      onClose={() => setIsDeleteModalOpen(false)}
+      onConfirmDelete={handleDeleteContact}
+    />
+  </>
   )
 }
