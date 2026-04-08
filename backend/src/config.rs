@@ -132,6 +132,16 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
+    fn require_non_empty_config<'a>(
+        value: Option<&'a str>,
+        missing_message: &'static str,
+    ) -> Result<&'a str, &'static str> {
+        value
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or(missing_message)
+    }
+
     pub fn load() -> Result<Self> {
         // Note: .env file is loaded at the start of main() before logging init
 
@@ -224,13 +234,23 @@ impl AppConfig {
         let btcpay_plan_id = std::env::var("BTCPAY_PLAN_ID").ok();
 
         if operating_mode == OperatingMode::SelfHosted {
-            if jwt_secret.is_none() {
+            if jwt_secret
+                .as_deref()
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .is_none()
+            {
                 return Err(anyhow!(
                     "JWT_SECRET required for self-hosted mode - check your .env file"
                 ));
             }
 
-            if self_hosted_admin_password.is_none() {
+            if self_hosted_admin_password
+                .as_deref()
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .is_none()
+            {
                 return Err(anyhow!(
                     "CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file"
                 ));
@@ -280,13 +300,14 @@ impl AppConfig {
     /// Get JWT secret for authentication.
     /// Returns an error if JWT_SECRET is not configured for the active mode.
     pub fn get_jwt_secret(&self) -> Result<&str, &'static str> {
-        self.jwt_secret
-            .as_deref()
-            .ok_or(if self.is_self_hosted_mode() {
+        Self::require_non_empty_config(
+            self.jwt_secret.as_deref(),
+            if self.is_self_hosted_mode() {
                 "JWT_SECRET required for self-hosted mode - check your .env file"
             } else {
                 "JWT_SECRET required for cloud mode - check your .env file"
-            })
+            },
+        )
     }
 
     /// Get the configured self-hosted admin password.
@@ -296,9 +317,10 @@ impl AppConfig {
             return Err("Self-hosted admin password is only available in self-hosted mode");
         }
 
-        self.self_hosted_admin_password
-            .as_deref()
-            .ok_or("CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file")
+        Self::require_non_empty_config(
+            self.self_hosted_admin_password.as_deref(),
+            "CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file",
+        )
     }
 
     /// Get the custom Mempool URL, if configured
@@ -957,6 +979,58 @@ mod tests {
         assert_eq!(
             config.get_self_hosted_admin_password().unwrap_err(),
             "Self-hosted admin password is only available in self-hosted mode"
+        );
+    }
+
+    #[test]
+    fn test_get_jwt_secret_rejects_blank_self_hosted_secret() {
+        let config = AppConfig {
+            network: NetworkConfig::Regtest,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: "./database".to_string(),
+            operating_mode: OperatingMode::SelfHosted,
+            frontend_url: None,
+            jwt_secret: Some("   ".to_string()),
+            self_hosted_admin_password: Some("self-hosted-password".to_string()),
+            mempool_url: None,
+            mempool_port: None,
+            btcpay_url: None,
+            btcpay_api_key: None,
+            btcpay_store_id: None,
+            btcpay_offering_id: None,
+            btcpay_plan_id: None,
+        };
+
+        assert_eq!(
+            config.get_jwt_secret().unwrap_err(),
+            "JWT_SECRET required for self-hosted mode - check your .env file"
+        );
+    }
+
+    #[test]
+    fn test_get_self_hosted_admin_password_rejects_blank_password() {
+        let config = AppConfig {
+            network: NetworkConfig::Regtest,
+            electrum_url: None,
+            bind_address: "127.0.0.1:3000".to_string(),
+            data_dir: "./database".to_string(),
+            operating_mode: OperatingMode::SelfHosted,
+            frontend_url: None,
+            jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
+            self_hosted_admin_password: Some("   ".to_string()),
+            mempool_url: None,
+            mempool_port: None,
+            btcpay_url: None,
+            btcpay_api_key: None,
+            btcpay_store_id: None,
+            btcpay_offering_id: None,
+            btcpay_plan_id: None,
+        };
+
+        assert_eq!(
+            config.get_self_hosted_admin_password().unwrap_err(),
+            "CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file"
         );
     }
 }

@@ -256,6 +256,105 @@ async fn test_create_wallet_network_mismatch() {
 }
 
 #[tokio::test]
+async fn test_self_hosted_register_is_forbidden() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/auth/register")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "email": "admin@local",
+                "password": "password123",
+                "name": "Admin"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(
+        body["error"].as_str().unwrap(),
+        "Registration is disabled in self-hosted mode"
+    );
+}
+
+#[tokio::test]
+async fn test_self_hosted_verify_email_is_forbidden() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/auth/verify-email/test-token")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(
+        body["error"].as_str().unwrap(),
+        "Email verification is unavailable in self-hosted mode"
+    );
+}
+
+#[tokio::test]
+async fn test_self_hosted_forgot_password_is_forbidden() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/auth/forgot-password")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "email": "admin@local"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(
+        body["error"].as_str().unwrap(),
+        "Password reset is unavailable in self-hosted mode"
+    );
+}
+
+#[tokio::test]
+async fn test_self_hosted_reset_password_is_forbidden() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/auth/reset-password/test-token")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "password": "new-password123"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(
+        body["error"].as_str().unwrap(),
+        "Password reset is unavailable in self-hosted mode"
+    );
+}
+
+#[tokio::test]
 async fn test_create_wallet_invalid_descriptor() {
     let (app, _temp_dir) = create_test_app().await;
 
