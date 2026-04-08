@@ -3,6 +3,7 @@
 use crate::api::AppServicesState;
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::handlers::helpers::verify_wallet_access;
 use crate::metadata::BalanceAlertType;
 use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest, ErrorResponse};
 use axum::{
@@ -18,36 +19,10 @@ pub async fn get_wallet_balance_alerts(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // Check if wallet exists and user has access
-    let wallet = match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&checksum)
-        .await
-    {
-        Ok(Some(wallet)) => wallet,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response()
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response()
-        }
+    let _wallet = match verify_wallet_access(&app_services, &user, &checksum).await {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
     };
-
-    // Check user permission (unless admin)
-    if !user.is_admin && wallet.user_id != user.user_id {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded("access_denied", "Access denied")),
-        )
-            .into_response();
-    }
 
     // Get all balance alerts for the wallet
     match app_services
@@ -80,36 +55,10 @@ pub async fn create_wallet_balance_alert(
     }
 
     // Check if wallet exists and user has access
-    let wallet = match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&checksum)
-        .await
-    {
-        Ok(Some(wallet)) => wallet,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response()
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response()
-        }
+    let wallet = match verify_wallet_access(&app_services, &user, &checksum).await {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
     };
-
-    // Check user permission (unless admin)
-    if !user.is_admin && wallet.user_id != user.user_id {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded("access_denied", "Access denied")),
-        )
-            .into_response();
-    }
 
     // Validate threshold type: exactly one must be provided (BTC OR fiat, not both or neither)
     let is_btc_threshold = request.threshold_sats.is_some();
