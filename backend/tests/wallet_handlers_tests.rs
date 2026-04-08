@@ -1,14 +1,15 @@
 //! Integration tests for wallet HTTP handlers
 //!
-//! Tests use self-hosted mode which provides a hardcoded admin user without JWT authentication.
+//! Tests use self-hosted mode with an authenticated built-in admin user.
 //! Run with: cargo test --test wallet_handlers_tests -- --test-threads=1
 
 use axum::{
     body::Body,
-    http::{Request, StatusCode},
+    http::{header::AUTHORIZATION, Request, StatusCode},
 };
 use canary::{
     api::{create_router_with_services, AppServices},
+    auth::AuthService,
     config::{AppConfig, NetworkConfig, OperatingMode},
     electrum::ElectrumClientManager,
     notifications::NotificationManager,
@@ -24,6 +25,7 @@ use tower::ServiceExt;
 
 // Test data - valid testnet descriptor from system tests
 const VALID_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)";
+const TEST_SELF_HOSTED_JWT_SECRET: &str = "test-self-hosted-jwt-secret";
 
 // Valid testnet XPUB (same key, no descriptor wrapper)
 const VALID_TESTNET_XPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
@@ -39,15 +41,15 @@ async fn create_test_app() -> (axum::Router, TempDir) {
     let temp_path = temp_dir.path().to_str().unwrap();
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
 
-    // Create test config with self-hosted mode (no auth required)
+    // Create test config with self-hosted mode
     let test_config = AppConfig::new_for_test(
         NetworkConfig::Regtest,
         Some("tcp://127.0.0.1:50001".to_string()),
         "127.0.0.1:3000".to_string(),
         temp_path.to_string(),
-        OperatingMode::SelfHosted, // Self-hosted = hardcoded admin user
+        OperatingMode::SelfHosted,
         None,
-        None, // No JWT secret needed for self-hosted mode
+        Some(TEST_SELF_HOSTED_JWT_SECRET.to_string()),
     );
 
     let (event_tx, _event_rx) =
@@ -104,6 +106,17 @@ async fn body_to_json(body: Body) -> Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
+fn authorized_request(request: Request<Body>) -> Request<Body> {
+    let token = AuthService::new(TEST_SELF_HOSTED_JWT_SECRET.to_string(), None)
+        .generate_token("foss-user", "admin@local", true, false)
+        .unwrap();
+    let (mut parts, body) = request.into_parts();
+    parts
+        .headers
+        .insert(AUTHORIZATION, format!("Bearer {}", token).parse().unwrap());
+    Request::from_parts(parts, body)
+}
+
 // =============================================================================
 // POST /api/wallets - Create Wallet Tests
 // =============================================================================
@@ -125,7 +138,7 @@ async fn test_create_wallet_success() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -162,7 +175,11 @@ async fn test_create_wallet_duplicate_descriptor() {
         .body(Body::from(create_request.to_string()))
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
     // Try to create duplicate wallet
@@ -179,7 +196,7 @@ async fn test_create_wallet_duplicate_descriptor() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -221,7 +238,7 @@ async fn test_create_wallet_network_mismatch() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -255,7 +272,7 @@ async fn test_create_wallet_invalid_descriptor() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -283,7 +300,7 @@ async fn test_create_wallet_xpub_fresh_no_script_type() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -319,7 +336,7 @@ async fn test_create_wallet_custom_stop_gap_without_script_type() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -351,7 +368,7 @@ async fn test_get_wallets_list_empty() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 
@@ -380,7 +397,11 @@ async fn test_get_wallets_list_with_wallets() {
         ))
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
     // Get wallets list
@@ -389,7 +410,7 @@ async fn test_get_wallets_list_with_wallets() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
@@ -421,7 +442,11 @@ async fn test_get_wallet_success() {
         ))
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
     let body = body_to_json(response.into_body()).await;
@@ -433,7 +458,7 @@ async fn test_get_wallet_success() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
@@ -452,7 +477,7 @@ async fn test_get_wallet_not_found() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -483,7 +508,11 @@ async fn test_get_wallet_detail_success() {
         ))
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
     let body = body_to_json(response.into_body()).await;
@@ -495,7 +524,7 @@ async fn test_get_wallet_detail_success() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
@@ -520,7 +549,7 @@ async fn test_get_wallet_detail_not_found() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -551,7 +580,11 @@ async fn test_update_wallet_success() {
         ))
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
     let body = body_to_json(response.into_body()).await;
@@ -570,7 +603,11 @@ async fn test_update_wallet_success() {
         ))
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
     // Verify the update
@@ -579,7 +616,7 @@ async fn test_update_wallet_success() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let wallet: WalletMetadata = serde_json::from_slice(&bytes).unwrap();
 
@@ -604,7 +641,11 @@ async fn test_update_wallet_empty_name() {
         ))
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
     let body = body_to_json(response.into_body()).await;
@@ -623,7 +664,7 @@ async fn test_update_wallet_empty_name() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -648,7 +689,7 @@ async fn test_update_wallet_not_found() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -679,7 +720,11 @@ async fn test_delete_wallet_success() {
         ))
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
     let body = body_to_json(response.into_body()).await;
@@ -692,7 +737,11 @@ async fn test_delete_wallet_success() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
 
     assert_eq!(
         response.status(),
@@ -717,7 +766,11 @@ async fn test_delete_wallet_success() {
             .body(Body::empty())
             .unwrap();
 
-        let response = app.clone().oneshot(request).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(authorized_request(request))
+            .await
+            .unwrap();
         assert_eq!(
             response.status(),
             StatusCode::OK,
@@ -754,7 +807,7 @@ async fn test_delete_wallet_not_found() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -810,7 +863,7 @@ async fn test_create_address_wallet_p2wpkh() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -845,7 +898,7 @@ async fn test_create_address_wallet_p2tr() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -880,7 +933,7 @@ async fn test_create_address_wallet_p2pkh() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -915,7 +968,7 @@ async fn test_create_address_wallet_p2sh() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -951,7 +1004,11 @@ async fn test_create_address_wallet_duplicate_address() {
         ))
         .unwrap();
 
-    let response = app.clone().oneshot(request).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
     // Try to create duplicate
@@ -968,7 +1025,7 @@ async fn test_create_address_wallet_duplicate_address() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -1005,7 +1062,7 @@ async fn test_create_address_wallet_network_mismatch() {
         ))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
 
     assert_eq!(
         response.status(),

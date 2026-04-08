@@ -77,6 +77,16 @@ pub async fn register(
     State(config): State<Arc<AppConfig>>,
     Json(request): Json<RegisterRequest>,
 ) -> Response {
+    if config.is_self_hosted_mode() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::new(
+                "Registration is disabled in self-hosted mode",
+            )),
+        )
+            .into_response();
+    }
+
     let start_time = std::time::Instant::now();
 
     // Validate email format
@@ -864,9 +874,20 @@ pub async fn demo_login(
 
 /// Email verification endpoint
 pub async fn verify_email(
+    State(config): State<Arc<AppConfig>>,
     State(app_services): State<AppServicesState>,
     Path(token): Path<String>,
 ) -> Response {
+    if config.is_self_hosted_mode() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::new(
+                "Email verification is unavailable in self-hosted mode",
+            )),
+        )
+            .into_response();
+    }
+
     let start_time = std::time::Instant::now();
 
     // Hash the incoming token for verification (tokens are stored hashed)
@@ -908,6 +929,16 @@ pub async fn forgot_password(
     State(config): State<Arc<AppConfig>>,
     Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
+    if config.is_self_hosted_mode() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::new(
+                "Password reset is unavailable in self-hosted mode",
+            )),
+        )
+            .into_response();
+    }
+
     let start_time = std::time::Instant::now();
 
     // Check if user exists - no mutex blocking!
@@ -1086,6 +1117,16 @@ pub async fn reset_password(
     Path(token): Path<String>,
     Json(request): Json<ResetPasswordRequest>,
 ) -> Response {
+    if config.is_self_hosted_mode() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::new(
+                "Password reset is unavailable in self-hosted mode",
+            )),
+        )
+            .into_response();
+    }
+
     let start_time = std::time::Instant::now();
 
     // Validate password strength

@@ -27,10 +27,10 @@ export default function SignUpPage() {
   const { register, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
-  // Redirect to wallets in self-hosted mode
+  // Registration is not available in self-hosted mode
   useEffect(() => {
     if (isSelfHostedMode) {
-      router.push('/wallets')
+      router.push('/sign-in')
     }
   }, [isSelfHostedMode, router])
 

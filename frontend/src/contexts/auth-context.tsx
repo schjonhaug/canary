@@ -140,25 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing session on mount by calling /api/auth/me
   // The HttpOnly cookie will be sent automatically with the request
   useEffect(() => {
-    // In self-hosted mode, set a default user and skip auth
-    if (isSelfHostedMode) {
-      setUser({
-        id: 1,
-        email: 'admin@local',
-        name: 'Admin',
-        is_admin: true,
-        is_demo: false,
-        email_verified: true,
-        subscription_tier: 'team' as const
-      })
-      setIsLoading(false)
-      return
-    }
-
-    // In cloud mode, check if we have a valid session by fetching user info
-    // The HttpOnly auth cookie will be sent automatically
+    // Check if we have a valid session by fetching user info.
+    // The HttpOnly auth cookie will be sent automatically.
     fetchUser()
-  }, [isSelfHostedMode, fetchUser])
+  }, [fetchUser])
 
   // Fetch billing status after user is loaded
   useEffect(() => {

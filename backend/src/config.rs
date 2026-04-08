@@ -111,8 +111,10 @@ pub struct AppConfig {
     pub data_dir: String,
     pub operating_mode: OperatingMode,
     pub frontend_url: Option<String>,
-    /// JWT secret for authentication (only used in cloud mode)
+    /// JWT secret for authentication
     jwt_secret: Option<String>,
+    /// Required password for the built-in self-hosted admin account
+    self_hosted_admin_password: Option<String>,
     /// Custom Mempool URL (e.g., http://umbrel.local:3006)
     mempool_url: Option<String>,
     /// Mempool port for auto-detected Umbrel integration
@@ -194,8 +196,9 @@ impl AppConfig {
         // Load frontend URL (optional in self-hosted mode, validated in cloud mode)
         let frontend_url = std::env::var("FRONTEND_URL").ok();
 
-        // Load JWT secret (only used in cloud mode)
+        // Load authentication configuration
         let jwt_secret = std::env::var("JWT_SECRET").ok();
+        let self_hosted_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
 
         // Load mempool configuration (optional)
         let mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok().and_then(|url| {
@@ -220,6 +223,20 @@ impl AppConfig {
         let btcpay_offering_id = std::env::var("BTCPAY_OFFERING_ID").ok();
         let btcpay_plan_id = std::env::var("BTCPAY_PLAN_ID").ok();
 
+        if operating_mode == OperatingMode::SelfHosted {
+            if jwt_secret.is_none() {
+                return Err(anyhow!(
+                    "JWT_SECRET required for self-hosted mode - check your .env file"
+                ));
+            }
+
+            if self_hosted_admin_password.is_none() {
+                return Err(anyhow!(
+                    "CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file"
+                ));
+            }
+        }
+
         Ok(AppConfig {
             network,
             electrum_url,
@@ -228,6 +245,7 @@ impl AppConfig {
             operating_mode,
             frontend_url,
             jwt_secret,
+            self_hosted_admin_password,
             mempool_url,
             mempool_port,
             btcpay_url,
@@ -248,7 +266,7 @@ impl AppConfig {
         self.operating_mode == OperatingMode::Cloud
     }
 
-    /// Check if running in self-hosted mode (single-user, no authentication or billing)
+    /// Check if running in self-hosted mode (single-user, no billing)
     pub fn is_self_hosted_mode(&self) -> bool {
         self.operating_mode == OperatingMode::SelfHosted
     }
@@ -259,15 +277,28 @@ impl AppConfig {
         self.frontend_url.as_deref()
     }
 
-    /// Get JWT secret for authentication (cloud mode only).
-    /// Returns error if called in self-hosted mode or if JWT_SECRET is not configured.
+    /// Get JWT secret for authentication.
+    /// Returns an error if JWT_SECRET is not configured for the active mode.
     pub fn get_jwt_secret(&self) -> Result<&str, &'static str> {
-        if self.is_self_hosted_mode() {
-            return Err("JWT authentication not available in self-hosted mode");
-        }
         self.jwt_secret
             .as_deref()
-            .ok_or("JWT_SECRET required for cloud mode - check your .env file")
+            .ok_or(if self.is_self_hosted_mode() {
+                "JWT_SECRET required for self-hosted mode - check your .env file"
+            } else {
+                "JWT_SECRET required for cloud mode - check your .env file"
+            })
+    }
+
+    /// Get the configured self-hosted admin password.
+    /// Returns an error when not running in self-hosted mode or when the password is missing.
+    pub fn get_self_hosted_admin_password(&self) -> Result<&str, &'static str> {
+        if !self.is_self_hosted_mode() {
+            return Err("Self-hosted admin password is only available in self-hosted mode");
+        }
+
+        self.self_hosted_admin_password
+            .as_deref()
+            .ok_or("CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file")
     }
 
     /// Get the custom Mempool URL, if configured
@@ -509,6 +540,17 @@ impl AppConfig {
         frontend_url: Option<String>,
         jwt_secret: Option<String>,
     ) -> Self {
+        let jwt_secret = if operating_mode == OperatingMode::SelfHosted {
+            Some(jwt_secret.unwrap_or_else(|| "test-self-hosted-jwt-secret".to_string()))
+        } else {
+            jwt_secret
+        };
+        let self_hosted_admin_password = if operating_mode == OperatingMode::SelfHosted {
+            Some("test-self-hosted-password".to_string())
+        } else {
+            None
+        };
+
         Self {
             network,
             electrum_url,
@@ -517,6 +559,7 @@ impl AppConfig {
             operating_mode,
             frontend_url,
             jwt_secret,
+            self_hosted_admin_password,
             mempool_url: None,
             mempool_port: None,
             btcpay_url: None,
@@ -611,6 +654,7 @@ mod tests {
             operating_mode: OperatingMode::Cloud, // Default for tests
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: Some("test-jwt-secret".to_string()),
+            self_hosted_admin_password: None,
             mempool_url: None,
             mempool_port: None,
             btcpay_url: None,
@@ -630,6 +674,7 @@ mod tests {
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: Some("test-jwt-secret".to_string()),
+            self_hosted_admin_password: None,
             mempool_url: None,
             mempool_port: None,
             btcpay_url: None,
@@ -648,7 +693,8 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::SelfHosted,
             frontend_url: None,
-            jwt_secret: None, // Not used in self-hosted mode
+            jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
+            self_hosted_admin_password: Some("self-hosted-password".to_string()),
             mempool_url: None,
             mempool_port: None,
             btcpay_url: None,
@@ -812,6 +858,7 @@ mod tests {
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: Some("test-jwt-secret".to_string()),
+            self_hosted_admin_password: None,
             mempool_url: None,
             mempool_port: None,
             btcpay_url: None,
@@ -871,6 +918,7 @@ mod tests {
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: None, // Missing JWT secret
+            self_hosted_admin_password: None,
             mempool_url: None,
             mempool_port: None,
             btcpay_url: None,
@@ -889,8 +937,26 @@ mod tests {
     fn test_get_jwt_secret_self_hosted_mode() {
         let config = test_config_self_hosted(NetworkConfig::Regtest);
         assert_eq!(
-            config.get_jwt_secret().unwrap_err(),
-            "JWT authentication not available in self-hosted mode"
+            config.get_jwt_secret().unwrap(),
+            "test-self-hosted-jwt-secret"
+        );
+    }
+
+    #[test]
+    fn test_get_self_hosted_admin_password_self_hosted_mode() {
+        let config = test_config_self_hosted(NetworkConfig::Regtest);
+        assert_eq!(
+            config.get_self_hosted_admin_password().unwrap(),
+            "self-hosted-password"
+        );
+    }
+
+    #[test]
+    fn test_get_self_hosted_admin_password_cloud_mode() {
+        let config = test_config(NetworkConfig::Regtest);
+        assert_eq!(
+            config.get_self_hosted_admin_password().unwrap_err(),
+            "Self-hosted admin password is only available in self-hosted mode"
         );
     }
 }

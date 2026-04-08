@@ -15,7 +15,7 @@ impl MetadataDb {
     pub(super) async fn initialize_user_for_mode(&self, config: &AppConfig) -> Result<()> {
         if config.is_self_hosted_mode() {
             // Self-hosted mode: Create hardcoded self-hosted user admin
-            self.ensure_self_hosted_user().await?;
+            self.ensure_self_hosted_user(config).await?;
         } else {
             // Cloud mode: Always create demo user (available on all networks)
             self.ensure_demo_user().await?;
@@ -30,8 +30,15 @@ impl MetadataDb {
         Ok(())
     }
 
-    async fn ensure_self_hosted_user(&self) -> Result<()> {
+    async fn ensure_self_hosted_user(&self, config: &AppConfig) -> Result<()> {
+        use crate::auth::AuthService;
+
         let pool = self.pool.clone();
+        let auth_service = AuthService::new("self-hosted-bootstrap".to_string(), None);
+        let admin_password = config
+            .get_self_hosted_admin_password()
+            .map_err(anyhow::Error::msg)?;
+        let password_hash = auth_service.hash_password(admin_password)?;
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -63,6 +70,11 @@ impl MetadataDb {
 
                 println!("✅ Created self-hosted user: admin@local with currency: {}", default_currency);
             }
+
+            conn.execute(
+                "UPDATE users SET password_hash = ?1, email_verified = 1, is_admin = 1, is_demo = 0 WHERE id = 'foss-user'",
+                params![&password_hash],
+            )?;
 
             Ok(())
         })

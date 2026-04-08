@@ -24,10 +24,10 @@ export default function ForgotPasswordPage() {
   const { isSelfHostedMode } = useAuth()
   const router = useRouter()
 
-  // Redirect to wallets in self-hosted mode
+  // Password reset is not available in self-hosted mode
   useEffect(() => {
     if (isSelfHostedMode) {
-      router.push('/wallets')
+      router.push('/sign-in')
     }
   }, [isSelfHostedMode, router])
 

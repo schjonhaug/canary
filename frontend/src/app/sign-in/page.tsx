@@ -22,15 +22,15 @@ export default function SignInPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login, isSelfHostedMode } = useAuth()
+  const { login, isAuthenticated, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
-  // Redirect to wallets in self-hosted mode
+  // Redirect authenticated users to wallets
   useEffect(() => {
-    if (isSelfHostedMode) {
+    if (isAuthenticated) {
       router.push('/wallets')
     }
-  }, [isSelfHostedMode, router])
+  }, [isAuthenticated, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,8 +69,8 @@ export default function SignInPage() {
     }
   }
 
-  // Don't render anything while redirecting in self-hosted mode
-  if (isSelfHostedMode) {
+  // Don't render anything while redirecting authenticated users
+  if (isAuthenticated) {
     return null
   }
 
@@ -172,28 +172,30 @@ export default function SignInPage() {
                 t('submit')
               )}
             </Button>
-            <div className="flex flex-col gap-2">
-              <Link href="/sign-up">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {t('noAccount')}
-                </Button>
-              </Link>
-              <Link href="/forgot-password">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {t('forgotPassword')}
-                </Button>
-              </Link>
-            </div>
+            {!isSelfHostedMode && (
+              <div className="flex flex-col gap-2">
+                <Link href="/sign-up">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {t('noAccount')}
+                  </Button>
+                </Link>
+                <Link href="/forgot-password">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {t('forgotPassword')}
+                  </Button>
+                </Link>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>
