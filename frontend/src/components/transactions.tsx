@@ -41,7 +41,7 @@ interface TransactionsProps {
   transactionNotifications: Record<string, NotificationStatus[]>
   loadingTransactionNotifications: Record<string, boolean>
   transactionNotificationErrors: Record<string, string | null>
-  loadTransactionNotifications: (walletChecksum: string, txid: string) => void
+  loadTransactionNotifications?: (walletChecksum: string, txid: string) => void
 }
 
 function getTransactionRowKey(transaction: Transaction) {
@@ -69,10 +69,10 @@ export function Transactions({
   isLoadingMore = false,
   onLoadMore,
   walletsCount = 0,
-  transactionNotifications,
-  loadingTransactionNotifications,
-  transactionNotificationErrors,
-  loadTransactionNotifications,
+  transactionNotifications = {},
+  loadingTransactionNotifications = {},
+  transactionNotificationErrors = {},
+  loadTransactionNotifications = () => {},
 }: TransactionsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
@@ -135,8 +135,6 @@ export function Transactions({
     }
   }
 
-  // TanStack Virtual is intentionally used here for large lists; the compiler warning is expected.
-  // eslint-disable-next-line react-hooks/incompatible-library
   const mobileVirtualizer = useVirtualizer({
     count: filteredTransactions.length,
     getScrollElement: () => mobileScrollRef.current,
@@ -148,8 +146,6 @@ export function Transactions({
     overscan: 4,
   })
 
-  // TanStack Virtual is intentionally used here for large lists; the compiler warning is expected.
-  // eslint-disable-next-line react-hooks/incompatible-library
   const desktopVirtualizer = useVirtualizer({
     count: filteredTransactions.length,
     getScrollElement: () => desktopScrollRef.current,
@@ -165,8 +161,8 @@ export function Transactions({
   })
 
   useEffect(() => {
-    mobileVirtualizer.measure()
-    desktopVirtualizer.measure()
+    mobileVirtualizer.measure?.()
+    desktopVirtualizer.measure?.()
   }, [expandedRows, filteredTransactions.length, mobileVirtualizer, desktopVirtualizer])
 
   useEffect(() => {
@@ -371,7 +367,7 @@ export function Transactions({
                     const transaction = filteredTransactions[virtualRow.index]
                     const rowKey = getTransactionRowKey(transaction)
                     const isExpanded = expandedRows.has(rowKey)
-                    const detailsId = `transaction-details-${rowKey}`
+                    const detailsId = `transaction-details-${transaction.txid}`
                     const notificationSummary = getUniqueProviderSummary(
                       transactionNotifications[rowKey],
                     )

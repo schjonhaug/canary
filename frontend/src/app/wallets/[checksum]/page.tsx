@@ -194,7 +194,6 @@ export default function WalletDetailPage() {
               <Transactions
                 selectedWalletChecksum={wallet?.checksum}
                 transactions={transactions}
-                isConnected={isConnected}
                 error={error}
                 lastUpdate={lastUpdate}
                 hasMoreTransactions={hasMoreTransactions}
