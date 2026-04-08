@@ -97,7 +97,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   const sampleWalletNames = SAMPLE_WALLETS.map(sw => sw.name)
   const hasOnlySampleWallets = wallets.every(w => sampleWalletNames.includes(w.name))
   const showSampleWallets = isSelfHostedMode && hasOnlySampleWallets
-  const hasPaidSubscription = billingStatus?.subscription_status === 'active' && !!billingStatus?.can_manage_billing
+  const hasPaidSubscription = billingStatus?.subscription_status === 'active'
 
   // Loading state
   if (authLoading || isLoadingWallets) {

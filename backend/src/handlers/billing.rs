@@ -782,5 +782,12 @@ pub async fn create_stripe_customer_portal(
     config: State<ConfigState>,
     payload: Json<CreateCustomerPortalRequest>,
 ) -> Response {
-    create_customer_portal(authenticated_user, app_services, stripe_billing, config, payload).await
+    create_customer_portal(
+        authenticated_user,
+        app_services,
+        stripe_billing,
+        config,
+        payload,
+    )
+    .await
 }

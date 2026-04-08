@@ -407,7 +407,10 @@ pub fn create_router_with_services(
         .route("/billing/checkout", post(create_checkout_session))
         .route("/billing/portal", post(create_customer_portal))
         .route("/billing/pricing", get(get_billing_pricing))
-        .route("/billing/session/{session_id}", get(get_checkout_session_details))
+        .route(
+            "/billing/session/{session_id}",
+            get(get_checkout_session_details),
+        )
         // Test notification route (self-hosted only)
         .route("/ntfy/test", post(send_test_ntfy_notification))
         // Database health & integrity (admin only)

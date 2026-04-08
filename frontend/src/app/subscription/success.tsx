@@ -45,7 +45,7 @@ export default function BillingSuccessPage() {
         if (provider === 'btcpay' && tierFromParams) {
           if (!isMounted) return
           setSessionDetails({
-            status: 'complete',
+            status: 'pending',
             tier: tierFromParams,
             billing_period: billingPeriodFromParams || 'monthly',
           })

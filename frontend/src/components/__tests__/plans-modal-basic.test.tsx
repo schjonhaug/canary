@@ -17,9 +17,11 @@ jest.mock('../../contexts/auth-context', () => ({
   }),
 }))
 
+const mockPlanComparison = jest.fn(() => <div data-testid="plan-comparison">Plan Comparison</div>)
+
 // Mock PlanComparison component
 jest.mock('../plan-comparison', () => ({
-  PlanComparison: () => <div data-testid="plan-comparison">Plan Comparison</div>,
+  PlanComparison: (props: unknown) => mockPlanComparison(props),
 }))
 
 describe('PlansModal Basic Functionality', () => {
@@ -30,6 +32,10 @@ describe('PlansModal Basic Functionality', () => {
   }
 
   describe('Modal Visibility', () => {
+    beforeEach(() => {
+      mockPlanComparison.mockClear()
+    })
+
     it('renders when open', () => {
       render(<PlansModal {...defaultProps} currentWalletCount={1} limitType="wallets" />)
       expect(screen.getByText('Wallet Limit Reached')).toBeInTheDocument()
@@ -135,6 +141,23 @@ describe('PlansModal Basic Functionality', () => {
     it('renders PlanComparison component', () => {
       render(<PlansModal {...defaultProps} currentWalletCount={1} />)
       expect(screen.getByTestId('plan-comparison')).toBeInTheDocument()
+    })
+
+    it('marks active BTCPay subscribers as paid even without billing management', () => {
+      render(
+        <PlansModal
+          {...defaultProps}
+          currentWalletCount={1}
+          billingStatus={{
+            subscription_status: 'active',
+            can_manage_billing: false,
+          }}
+        />
+      )
+
+      expect(mockPlanComparison).toHaveBeenCalled()
+      const lastCall = mockPlanComparison.mock.calls.at(-1)?.[0] as { hasPaidSubscription?: boolean }
+      expect(lastCall?.hasPaidSubscription).toBe(true)
     })
   })
 
