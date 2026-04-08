@@ -2,7 +2,9 @@ use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
     Contact, EventType, Language, NotificationMethod, ProviderType, TransactionNotification,
 };
-use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
+use crate::notifications::{
+    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+};
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rust_i18n::t;
@@ -65,139 +67,127 @@ impl NotificationProvider for NtfyProvider {
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
-        for contact in contacts {
-            // Find ntfy notification methods for this contact
-            let ntfy_methods: Vec<&NotificationMethod> = contact
-                .notification_methods
-                .iter()
-                .filter(|method| matches!(method.provider_type, ProviderType::Ntfy))
-                .collect();
+        for (_, method) in notification_methods_for_provider(contacts, &ProviderType::Ntfy) {
+            let message = MessageFormatter::create_localized_message(
+                notification,
+                wallet_name,
+                user_language,
+            );
 
-            for method in ntfy_methods {
-                let message = MessageFormatter::create_localized_message(
-                    notification,
-                    wallet_name,
-                    user_language,
-                );
+            // Extract priority for ntfy headers
+            let priority = match notification {
+                TransactionNotification::Pending(_) => "high",
+                TransactionNotification::Confirmed(_) => "default",
+                TransactionNotification::BalanceAlert(_) => "urgent",
+            };
 
-                // Extract priority for ntfy headers
-                let priority = match notification {
-                    TransactionNotification::Pending(_) => "high",
-                    TransactionNotification::Confirmed(_) => "default",
-                    TransactionNotification::BalanceAlert(_) => "urgent",
-                };
+            let topic = &method.notification_target;
+            let ntfy_url = format!("{}/{}", self.server_url, topic);
 
-                let topic = &method.notification_target;
-                let ntfy_url = format!("{}/{}", self.server_url, topic);
-
-                // Create localized title for push notification
-                // Note: t!() macro requires string literals, not variables, for compile-time translation lookup
-                let locale = user_language.as_str();
-                let localized_title = match notification {
-                    TransactionNotification::Pending(tx) => match tx.transaction_type {
-                        EventType::Receive => {
-                            format!(
-                                "{} - {}",
-                                t!("titles.receive.pending", locale = locale),
-                                wallet_name
-                            )
-                        }
-                        EventType::Send => {
-                            format!(
-                                "{} - {}",
-                                t!("titles.send.pending", locale = locale),
-                                wallet_name
-                            )
-                        }
-                    },
-                    TransactionNotification::Confirmed(tx) => match tx.transaction_type {
-                        EventType::Receive => {
-                            format!(
-                                "{} - {}",
-                                t!("titles.receive.confirmed", locale = locale),
-                                wallet_name
-                            )
-                        }
-                        EventType::Send => {
-                            format!(
-                                "{} - {}",
-                                t!("titles.send.confirmed", locale = locale),
-                                wallet_name
-                            )
-                        }
-                    },
-                    TransactionNotification::BalanceAlert(_) => {
+            // Create localized title for push notification
+            // Note: t!() macro requires string literals, not variables, for compile-time translation lookup
+            let locale = user_language.as_str();
+            let localized_title = match notification {
+                TransactionNotification::Pending(tx) => match tx.transaction_type {
+                    EventType::Receive => {
                         format!(
                             "{} - {}",
-                            t!("titles.balance_alert", locale = locale),
+                            t!("titles.receive.pending", locale = locale),
                             wallet_name
                         )
                     }
-                };
-
-                // Build the request with optional authentication
-                let mut request = self
-                    .client
-                    .post(&ntfy_url)
-                    .header("Content-Type", "text/plain; charset=utf-8")
-                    .header("Title", localized_title)
-                    .header("Priority", priority)
-                    .header(
-                        "Tags",
-                        match notification {
-                            TransactionNotification::Pending(tx)
-                            | TransactionNotification::Confirmed(tx) => {
-                                if tx.transaction_type == EventType::Receive {
-                                    "money_with_wings"
-                                } else {
-                                    "arrow_right"
-                                }
-                            }
-                            TransactionNotification::BalanceAlert(_) => "chart_with_upwards_trend",
-                        },
-                    );
-
-                // Add authentication header if configured
-                if let Some(auth_value) = self.auth_header() {
-                    request = request.header("Authorization", auth_value);
+                    EventType::Send => {
+                        format!(
+                            "{} - {}",
+                            t!("titles.send.pending", locale = locale),
+                            wallet_name
+                        )
+                    }
+                },
+                TransactionNotification::Confirmed(tx) => match tx.transaction_type {
+                    EventType::Receive => {
+                        format!(
+                            "{} - {}",
+                            t!("titles.receive.confirmed", locale = locale),
+                            wallet_name
+                        )
+                    }
+                    EventType::Send => {
+                        format!(
+                            "{} - {}",
+                            t!("titles.send.confirmed", locale = locale),
+                            wallet_name
+                        )
+                    }
+                },
+                TransactionNotification::BalanceAlert(_) => {
+                    format!(
+                        "{} - {}",
+                        t!("titles.balance_alert", locale = locale),
+                        wallet_name
+                    )
                 }
+            };
 
-                let result = match request.body(message.clone()).send().await {
-                    Ok(response) => {
-                        if response.status().is_success() {
-                            NotificationResult {
-                                success: true,
-                                provider_id: Some(format!(
-                                    "ntfy_{}",
-                                    chrono::Utc::now().timestamp()
-                                )),
-                                error_message: None,
-                            }
-                        } else {
-                            let error = format!(
-                                "HTTP {}: {}",
-                                response.status(),
-                                response.status().canonical_reason().unwrap_or("Unknown")
-                            );
-                            NotificationResult {
-                                success: false,
-                                provider_id: None,
-                                error_message: Some(error),
+            // Build the request with optional authentication
+            let mut request = self
+                .client
+                .post(&ntfy_url)
+                .header("Content-Type", "text/plain; charset=utf-8")
+                .header("Title", localized_title)
+                .header("Priority", priority)
+                .header(
+                    "Tags",
+                    match notification {
+                        TransactionNotification::Pending(tx)
+                        | TransactionNotification::Confirmed(tx) => {
+                            if tx.transaction_type == EventType::Receive {
+                                "money_with_wings"
+                            } else {
+                                "arrow_right"
                             }
                         }
-                    }
-                    Err(e) => {
-                        let error = format!("Request failed: {}", e);
+                        TransactionNotification::BalanceAlert(_) => "chart_with_upwards_trend",
+                    },
+                );
+
+            // Add authentication header if configured
+            if let Some(auth_value) = self.auth_header() {
+                request = request.header("Authorization", auth_value);
+            }
+
+            let result = match request.body(message.clone()).send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        NotificationResult {
+                            success: true,
+                            provider_id: Some(format!("ntfy_{}", chrono::Utc::now().timestamp())),
+                            error_message: None,
+                        }
+                    } else {
+                        let error = format!(
+                            "HTTP {}: {}",
+                            response.status(),
+                            response.status().canonical_reason().unwrap_or("Unknown")
+                        );
                         NotificationResult {
                             success: false,
                             provider_id: None,
                             error_message: Some(error),
                         }
                     }
-                };
+                }
+                Err(e) => {
+                    let error = format!("Request failed: {}", e);
+                    NotificationResult {
+                        success: false,
+                        provider_id: None,
+                        error_message: Some(error),
+                    }
+                }
+            };
 
-                results.push((method.clone(), result, message));
-            }
+            results.push((method.clone(), result, message));
         }
 
         results

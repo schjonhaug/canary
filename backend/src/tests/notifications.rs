@@ -5,7 +5,9 @@ use crate::metadata::{
 
 // Test language constant for all tests
 const TEST_LANGUAGE: Language = Language::English;
-use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
+use crate::notifications::{
+    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+};
 use crate::ntfy_provider::NtfyProvider;
 use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
@@ -63,6 +65,35 @@ async fn test_ntfy_provider_info() {
     assert_eq!(info.name, "ntfy");
     assert_eq!(info.display_name, "ntfy.sh Notifications");
     assert!(info.config_schema.is_object());
+}
+
+#[test]
+fn test_notification_methods_for_provider_filters_and_preserves_contacts() {
+    let mut alice = create_test_contact("Alice");
+    alice.notification_methods = vec![
+        create_notification_method(ProviderType::Email, "alice@example.com"),
+        create_notification_method(ProviderType::Sms, "+4711111111"),
+    ];
+
+    let mut bob = create_test_contact("Bob");
+    bob.notification_methods = vec![
+        create_notification_method(ProviderType::Email, "bob@example.com"),
+        create_notification_method(ProviderType::Ntfy, "bob-topic"),
+    ];
+
+    let contacts = vec![alice, bob];
+    let email_targets: Vec<(String, String)> =
+        notification_methods_for_provider(&contacts, &ProviderType::Email)
+            .map(|(contact, method)| (contact.name.clone(), method.notification_target.clone()))
+            .collect();
+
+    assert_eq!(
+        email_targets,
+        vec![
+            ("Alice".to_string(), "alice@example.com".to_string()),
+            ("Bob".to_string(), "bob@example.com".to_string()),
+        ]
+    );
 }
 
 #[tokio::test]

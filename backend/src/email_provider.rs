@@ -3,7 +3,9 @@ use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
     Contact, Language, NotificationMethod, ProviderType, TransactionNotification,
 };
-use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
+use crate::notifications::{
+    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+};
 use async_trait::async_trait;
 use rust_i18n::t;
 
@@ -44,27 +46,21 @@ impl NotificationProvider for EmailProvider {
         // If no email service configured, return early
         let Some(email_service) = &self.email_service else {
             // Return error for all email methods
-            for contact in contacts {
-                for method in contact
-                    .notification_methods
-                    .iter()
-                    .filter(|m| matches!(m.provider_type, ProviderType::Email))
-                {
-                    let message = MessageFormatter::create_localized_message(
-                        notification,
-                        wallet_name,
-                        user_language,
-                    );
-                    results.push((
-                        method.clone(),
-                        NotificationResult {
-                            success: false,
-                            provider_id: Some("email".to_string()),
-                            error_message: Some("Resend not configured".to_string()),
-                        },
-                        message,
-                    ));
-                }
+            for (_, method) in notification_methods_for_provider(contacts, &ProviderType::Email) {
+                let message = MessageFormatter::create_localized_message(
+                    notification,
+                    wallet_name,
+                    user_language,
+                );
+                results.push((
+                    method.clone(),
+                    NotificationResult {
+                        success: false,
+                        provider_id: Some("email".to_string()),
+                        error_message: Some("Resend not configured".to_string()),
+                    },
+                    message,
+                ));
             }
             return results;
         };
@@ -72,81 +68,72 @@ impl NotificationProvider for EmailProvider {
         // Collect all email data for batch sending
         let mut batch_data = Vec::new();
 
-        for contact in contacts {
-            let email_methods: Vec<&NotificationMethod> = contact
-                .notification_methods
-                .iter()
-                .filter(|method| matches!(method.provider_type, ProviderType::Email))
-                .collect();
+        for (contact, method) in notification_methods_for_provider(contacts, &ProviderType::Email) {
+            let message = MessageFormatter::create_localized_message(
+                notification,
+                wallet_name,
+                user_language,
+            );
 
-            for method in email_methods {
-                let message = MessageFormatter::create_localized_message(
-                    notification,
-                    wallet_name,
-                    user_language,
-                );
+            // Build email subject and body based on notification type
+            let subject = MessageFormatter::create_localized_email_subject(
+                notification,
+                wallet_name,
+                user_language,
+            );
 
-                // Build email subject and body based on notification type
-                let subject = MessageFormatter::create_localized_email_subject(
-                    notification,
-                    wallet_name,
-                    user_language,
-                );
+            let (html_body, text_body) = match notification {
+                TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
+                    let emoji = match tx.transaction_type {
+                        crate::metadata::EventType::Receive => "💸",
+                        crate::metadata::EventType::Send => "📤",
+                    };
 
-                let (html_body, text_body) = match notification {
-                    TransactionNotification::Pending(tx)
-                    | TransactionNotification::Confirmed(tx) => {
-                        let emoji = match tx.transaction_type {
-                            crate::metadata::EventType::Receive => "💸",
-                            crate::metadata::EventType::Send => "📤",
-                        };
+                    let html_body = Self::build_transaction_html(
+                        &subject,
+                        emoji,
+                        &contact.name,
+                        &message,
+                        user_language,
+                    );
 
-                        let html_body = Self::build_transaction_html(
-                            &subject,
-                            emoji,
-                            &contact.name,
-                            &message,
-                            user_language,
-                        );
+                    let text_body = Self::build_transaction_text(
+                        &subject,
+                        &contact.name,
+                        &message,
+                        user_language,
+                    );
 
-                        let text_body = Self::build_transaction_text(
-                            &subject,
-                            &contact.name,
-                            &message,
-                            user_language,
-                        );
+                    (html_body, text_body)
+                }
+                TransactionNotification::BalanceAlert(_) => {
+                    let html_body = Self::build_balance_alert_html(
+                        wallet_name,
+                        &contact.name,
+                        &message,
+                        user_language,
+                    );
+                    let text_body = Self::build_balance_alert_text(
+                        wallet_name,
+                        &contact.name,
+                        &message,
+                        user_language,
+                    );
+                    (html_body, text_body)
+                }
+            };
 
-                        (html_body, text_body)
-                    }
-                    TransactionNotification::BalanceAlert(_) => {
-                        let html_body = Self::build_balance_alert_html(
-                            wallet_name,
-                            &contact.name,
-                            &message,
-                            user_language,
-                        );
-                        let text_body = Self::build_balance_alert_text(
-                            wallet_name,
-                            &contact.name,
-                            &message,
-                            user_language,
-                        );
-                        (html_body, text_body)
-                    }
-                };
-
-                batch_data.push((
-                    method.clone(),
-                    message.clone(),
-                    BatchEmailRequest {
-                        to_email: method.notification_target.clone(),
-                        to_name: contact.name.clone(),
-                        subject,
-                        html_body,
-                        text_body,
-                    },
-                ));
-            }
+            batch_data.push((
+                method.clone(),
+                message.clone(),
+                BatchEmailRequest {
+                    to_email: method.notification_target.clone(),
+                    to_name: contact.name.clone(),
+                    subject,
+                    html_body,
+                    text_body,
+                },
+            ));
         }
 
         // If no emails to send, return empty
