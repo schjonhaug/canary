@@ -1055,6 +1055,99 @@ async fn test_get_transaction_notifications_forbidden_for_non_owner() {
     assert_eq!(body["error_code"], "access_denied");
 }
 
+#[tokio::test]
+async fn test_get_transaction_notifications_success_for_non_admin_owner() {
+    let (app, temp_dir, app_services) = create_test_app_with_services().await;
+    let temp_path = temp_dir.path().to_str().unwrap();
+    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let owner_email = "owner@example.com";
+    let owner_user_id = app_services
+        .metadata_db
+        .create_user(owner_email, "hash", Some("Owner User"), true, None, None)
+        .await
+        .unwrap();
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Notification Owner Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request_for_user(
+            request,
+            &owner_user_id,
+            owner_email,
+            false,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+
+    app_services
+        .metadata_db
+        .insert_transaction(&TransactionInsert {
+            txid: "owner-tx".to_string(),
+            wallet_checksum: checksum.to_string(),
+            transaction_type: EventType::Receive,
+            amount_sats: 25_000,
+            fee_sats: None,
+            block_height: Some(321),
+            first_seen_at: 1_740_000_000,
+            confirmed_at: Some(1_740_000_060),
+            parent_txid: None,
+            transaction_status: "confirmed".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+
+    {
+        let conn = Connection::open(&test_db_path).unwrap();
+        conn.execute(
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot, created_at)
+             VALUES ('owner-log-1', 'owner-tx', ?1, 'email', 'sent', 'msg', 'confirmed', 'Owner', 'owner@example.com', 'email', '2025-01-01 00:00:01')",
+            [checksum],
+        )
+        .unwrap();
+    }
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{}/transactions/{}/notifications",
+            checksum, "owner-tx"
+        ))
+        .body(Body::empty())
+        .unwrap();
+    let response = app
+        .oneshot(authorized_request_for_user(
+            request,
+            &owner_user_id,
+            owner_email,
+            false,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let notifications: Vec<canary::NotificationStatus> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(notifications.len(), 1);
+    assert_eq!(notifications[0].contact_name, "Owner");
+}
+
 // =============================================================================
 // PUT /api/wallets/{checksum} - Update Wallet Tests
 // =============================================================================

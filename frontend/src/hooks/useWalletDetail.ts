@@ -67,6 +67,10 @@ export function useWalletDetail(walletChecksum: string | null) {
   const transactionsRef = useRef<Transaction[]>([])
   const transactionNotificationsRef = useRef<Record<string, NotificationStatus[]>>({})
   const loadingTransactionNotificationsRef = useRef<Record<string, boolean>>({})
+  const activeWalletRef = useRef<string | null>(walletChecksum)
+  const isMountedRef = useRef(true)
+
+  activeWalletRef.current = walletChecksum
 
   useEffect(() => {
     transactionsRef.current = transactions
@@ -79,6 +83,12 @@ export function useWalletDetail(walletChecksum: string | null) {
   useEffect(() => {
     loadingTransactionNotificationsRef.current = loadingTransactionNotifications
   }, [loadingTransactionNotifications])
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const getPollingInterval = useCallback(() => {
     const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60
@@ -291,6 +301,8 @@ export function useWalletDetail(walletChecksum: string | null) {
     }
 
     const cacheKey = getTransactionCacheKey(transactionWalletChecksum, txid)
+    const isStaleRequest = () =>
+      !isMountedRef.current || activeWalletRef.current !== transactionWalletChecksum
 
     if (
       transactionNotificationsRef.current[cacheKey] ||
@@ -310,17 +322,26 @@ export function useWalletDetail(walletChecksum: string | null) {
 
     try {
       const notifications = await api.getTransactionNotifications(transactionWalletChecksum, txid)
+      if (isStaleRequest()) {
+        return
+      }
       setTransactionNotifications((prev) => ({
         ...prev,
         [cacheKey]: notifications,
       }))
     } catch (err) {
+      if (isStaleRequest()) {
+        return
+      }
       console.error('Failed to fetch transaction notifications:', err)
       setTransactionNotificationErrors((prev) => ({
         ...prev,
         [cacheKey]: 'Failed to load transaction notifications',
       }))
     } finally {
+      if (isStaleRequest()) {
+        return
+      }
       setLoadingTransactionNotifications((prev) => ({
         ...prev,
         [cacheKey]: false,

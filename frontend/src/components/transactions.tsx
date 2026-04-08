@@ -98,6 +98,16 @@ export function Transactions({
         : transactions,
     [selectedWalletChecksum, transactions],
   )
+  const transactionsByRowKey = useMemo(
+    () =>
+      new Map(
+        filteredTransactions.map((transaction) => [
+          getTransactionRowKey(transaction),
+          transaction,
+        ]),
+      ),
+    [filteredTransactions],
+  )
 
   const getUniqueProviderSummary = (notifications?: NotificationStatus[]) => {
     if (!notifications || notifications.length === 0) return null
@@ -170,12 +180,13 @@ export function Transactions({
   }, [expandedRows, filteredTransactions.length, mobileVirtualizer, desktopVirtualizer])
 
   useEffect(() => {
-    for (const transaction of filteredTransactions) {
-      if (expandedRows.has(getTransactionRowKey(transaction))) {
+    for (const rowKey of expandedRows) {
+      const transaction = transactionsByRowKey.get(rowKey)
+      if (transaction) {
         loadTransactionNotifications(transaction.wallet_checksum, transaction.txid)
       }
     }
-  }, [expandedRows, filteredTransactions, lastUpdate, loadTransactionNotifications])
+  }, [expandedRows, lastUpdate, loadTransactionNotifications, transactionsByRowKey])
 
   const toggleRowExpansion = (transaction: Transaction) => {
     const rowKey = getTransactionRowKey(transaction)
