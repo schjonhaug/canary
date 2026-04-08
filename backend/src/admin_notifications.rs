@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use reqwest::Client;
 
 pub struct AdminNotifications {
@@ -7,13 +9,16 @@ pub struct AdminNotifications {
 }
 
 impl AdminNotifications {
-    pub fn new() -> Self {
-        // Only enable admin notifications in cloud mode
+    pub fn is_enabled_for_env() -> bool {
         let is_cloud_mode = std::env::var("CANARY_MODE")
             .map(|m| m.to_lowercase() == "cloud")
             .unwrap_or(false);
 
-        let topic = if is_cloud_mode {
+        is_cloud_mode && std::env::var("ADMIN_NOTIFICATION_TOPIC").is_ok()
+    }
+
+    pub fn new() -> Self {
+        let topic = if Self::is_enabled_for_env() {
             std::env::var("ADMIN_NOTIFICATION_TOPIC").ok()
         } else {
             None
@@ -33,6 +38,22 @@ impl AdminNotifications {
 
     pub fn is_enabled(&self) -> bool {
         self.topic.is_some()
+    }
+
+    pub fn spawn_if_enabled<F, Fut>(notification_fn: F) -> bool
+    where
+        F: FnOnce(AdminNotifications) -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let admin_notifications = Self::new();
+        if !admin_notifications.is_enabled() {
+            return false;
+        }
+
+        tokio::spawn(async move {
+            notification_fn(admin_notifications).await;
+        });
+        true
     }
 
     pub async fn notify_user_signup(&self, email: &str, name: Option<&str>) {
