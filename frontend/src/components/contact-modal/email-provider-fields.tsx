@@ -72,7 +72,7 @@ export function EmailProviderFields({
           className={emailError ? 'border-red-500 focus:border-red-500' : ''}
         />
         {emailError && (
-          <div className="text-sm text-red-600 mt-1">
+          <div role="alert" className="text-sm text-red-600 mt-1">
             {emailError}
           </div>
         )}
@@ -127,7 +127,7 @@ export function EmailProviderFields({
               </Button>
             </div>
             {verificationError && (
-              <div className="text-sm text-red-600 mt-1">
+              <div role="alert" className="text-sm text-red-600 mt-1">
                 {verificationError}
               </div>
             )}
