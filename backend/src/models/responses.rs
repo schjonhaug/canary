@@ -114,6 +114,36 @@ impl ErrorResponse {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::ErrorResponse;
+    use serde_json::json;
+
+    #[test]
+    fn coded_error_response_serializes_error_code() {
+        let response = ErrorResponse::coded("foo", "bar");
+
+        let serialized = serde_json::to_value(&response).unwrap();
+
+        assert_eq!(
+            serialized,
+            json!({
+                "error": "bar",
+                "error_code": "foo"
+            })
+        );
+    }
+
+    #[test]
+    fn new_error_response_omits_error_code() {
+        let response = ErrorResponse::new("bar");
+
+        let serialized = serde_json::to_value(&response).unwrap();
+
+        assert_eq!(serialized, json!({ "error": "bar" }));
+    }
+}
+
 #[derive(Serialize)]
 pub struct BlockHeaderResponse {
     /// Block height
