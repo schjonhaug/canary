@@ -591,6 +591,26 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn has_active_session(&self, token_hash: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let token_hash = token_hash.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            let exists = conn.query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM sessions
+                    WHERE token_hash = ?1 AND expires_at >= ?2
+                )",
+                params![&token_hash, &current_time],
+                |row| row.get::<_, i64>(0),
+            )?;
+            Ok(exists != 0)
+        })
+        .await?
+    }
+
     pub async fn cleanup_expired_sessions(&self) -> Result<u64> {
         let pool = self.pool.clone();
 

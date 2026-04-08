@@ -1,6 +1,7 @@
 //! Custom Axum extractors for authentication
 
-use crate::auth::{authenticate_user, AuthUser};
+use crate::api::AppServicesState;
+use crate::auth::{authenticate_user, AuthError, AuthUser};
 use crate::config::AppConfig;
 use crate::handlers::extract_token_from_cookies;
 use crate::models::ErrorResponse;
@@ -29,12 +30,14 @@ pub struct AuthenticatedUser(pub AuthUser);
 impl<S> FromRequestParts<S> for AuthenticatedUser
 where
     Arc<AppConfig>: FromRef<S>,
+    AppServicesState: FromRef<S>,
     S: Send + Sync,
 {
     type Rejection = Response;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let config = <Arc<AppConfig> as FromRef<S>>::from_ref(state);
+        let app_services = <AppServicesState as FromRef<S>>::from_ref(state);
 
         let jwt_secret = config.get_jwt_secret().map_err(|e| {
             (
@@ -53,73 +56,31 @@ where
             .get("authorization")
             .and_then(|h| h.to_str().ok());
 
-        authenticate_user(auth_header, cookie_token.as_deref(), jwt_secret)
-            .map(AuthenticatedUser)
-            .map_err(|_| {
+        let metadata_db = config.is_cloud_mode().then_some(&app_services.metadata_db);
+
+        authenticate_user(
+            metadata_db,
+            auth_header,
+            cookie_token.as_deref(),
+            jwt_secret,
+        )
+        .await
+        .map(AuthenticatedUser)
+        .map_err(|err| match err {
+            AuthError::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse::new("Authentication required")),
+            )
+                .into_response(),
+            AuthError::Internal(inner) => {
+                tracing::error!("Session validation failed: {}", inner);
                 (
-                    StatusCode::UNAUTHORIZED,
-                    Json(ErrorResponse::new("Authentication required")),
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Authentication service unavailable")),
                 )
                     .into_response()
-            })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::auth::AuthService;
-    use crate::config::{AppConfig, NetworkConfig, OperatingMode};
-    use axum::http::Request;
-
-    #[tokio::test]
-    async fn self_hosted_mode_requires_authentication() {
-        let config = Arc::new(AppConfig::new_for_test(
-            NetworkConfig::Regtest,
-            None,
-            "127.0.0.1:3000".to_string(),
-            "./database".to_string(),
-            OperatingMode::SelfHosted,
-            None,
-            Some("test-self-hosted-jwt-secret".to_string()),
-        ));
-        let request = Request::builder().uri("/api/wallets").body(()).unwrap();
-        let (mut parts, _) = request.into_parts();
-
-        let result = AuthenticatedUser::from_request_parts(&mut parts, &config).await;
-
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn self_hosted_mode_accepts_valid_jwt() {
-        let jwt_secret = "test-self-hosted-jwt-secret";
-        let config = Arc::new(AppConfig::new_for_test(
-            NetworkConfig::Regtest,
-            None,
-            "127.0.0.1:3000".to_string(),
-            "./database".to_string(),
-            OperatingMode::SelfHosted,
-            None,
-            Some(jwt_secret.to_string()),
-        ));
-        let token = AuthService::new(jwt_secret.to_string(), None)
-            .generate_token("foss-user", "admin@local", true, false)
-            .unwrap();
-        let request = Request::builder()
-            .uri("/api/wallets")
-            .header("authorization", format!("Bearer {}", token))
-            .body(())
-            .unwrap();
-        let (mut parts, _) = request.into_parts();
-
-        let result = AuthenticatedUser::from_request_parts(&mut parts, &config)
-            .await
-            .unwrap();
-
-        assert_eq!(result.0.user_id, "foss-user");
-        assert!(result.0.is_admin);
-        assert!(!result.0.is_demo);
+            }
+        })
     }
 }
 

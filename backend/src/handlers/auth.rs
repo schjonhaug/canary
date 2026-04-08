@@ -1212,6 +1212,21 @@ pub async fn reset_password(
             .into_response();
     }
 
+    if let Err(e) = app_services
+        .metadata_db
+        .delete_user_sessions(&user_id)
+        .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!(
+                "Failed to revoke existing sessions: {}",
+                e
+            ))),
+        )
+            .into_response();
+    }
+
     let elapsed = start_time.elapsed();
     info!("reset_password completed in {:?}", elapsed);
 

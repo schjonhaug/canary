@@ -1,4 +1,5 @@
 use crate::email_service::EmailService;
+use crate::metadata::MetadataDb;
 use crate::metadata::TwilioConfig;
 use anyhow::{anyhow, Result};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
@@ -50,6 +51,30 @@ pub struct AuthUser {
     pub user_id: String, // UUIDv4
     pub is_admin: bool,
     pub is_demo: bool,
+}
+
+#[derive(Debug)]
+pub enum AuthError {
+    Unauthorized,
+    Internal(anyhow::Error),
+}
+
+impl std::fmt::Display for AuthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "Authentication required"),
+            Self::Internal(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl std::error::Error for AuthError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Unauthorized => None,
+            Self::Internal(err) => Some(err.root_cause()),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -404,25 +429,40 @@ impl AuthService {
 
 /// Authenticate user from either a cookie token or Authorization header
 /// Cookie token takes precedence over Authorization header for security
-pub fn authenticate_user(
+pub async fn authenticate_user(
+    metadata_db: Option<&MetadataDb>,
     auth_header: Option<&str>,
     cookie_token: Option<&str>,
     jwt_secret: &str,
-) -> Result<AuthUser> {
+) -> std::result::Result<AuthUser, AuthError> {
     // Try cookie token first (more secure), then fall back to Authorization header
     let token = if let Some(token) = cookie_token {
         token.to_string()
     } else if let Some(auth_header) = auth_header {
         if !auth_header.starts_with("Bearer ") {
-            return Err(anyhow!("Invalid authorization header format"));
+            return Err(AuthError::Unauthorized);
         }
         auth_header[7..].to_string()
     } else {
-        return Err(anyhow!("Authentication required"));
+        return Err(AuthError::Unauthorized);
     };
 
     let auth_service = AuthService::new(jwt_secret.to_string(), None);
-    let claims = auth_service.validate_token(&token)?;
+    let claims = auth_service
+        .validate_token(&token)
+        .map_err(|_| AuthError::Unauthorized)?;
+
+    if let Some(metadata_db) = metadata_db {
+        let token_hash = AuthService::hash_token(&token);
+        let has_session = metadata_db
+            .has_active_session(&token_hash)
+            .await
+            .map_err(AuthError::Internal)?;
+
+        if !has_session {
+            return Err(AuthError::Unauthorized);
+        }
+    }
 
     Ok(AuthUser {
         user_id: claims.sub,
