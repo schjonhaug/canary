@@ -352,6 +352,29 @@ async fn test_transaction_ordering_expression_index_is_applied() {
 
     assert_eq!(ordered_txids, vec!["tx-002", "tx-003", "tx-001"]);
 
+    // Column 3 is SQLite's human-readable plan detail.
+    let ordering_plan_details: Vec<String> = conn
+        .prepare(
+            "EXPLAIN QUERY PLAN
+             SELECT t.txid
+             FROM transactions t
+             WHERE t.wallet_checksum = ?1
+             ORDER BY COALESCE(t.confirmed_at, t.first_seen_at) DESC, t.txid DESC
+             LIMIT ?2",
+        )
+        .unwrap()
+        .query_map([wallet_checksum.as_str(), "50"], |row| row.get(3))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert!(
+        ordering_plan_details
+            .iter()
+            .all(|detail| !detail.contains("USE TEMP B-TREE FOR ORDER BY")),
+        "Expected ordering query plan to avoid temp sorting, found {ordering_plan_details:?}"
+    );
+
     let last_activity: Option<i64> = conn
         .query_row(
             "SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at))
