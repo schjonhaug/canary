@@ -1,11 +1,11 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { SUPPORT_EMAIL } from '@/lib/constants'
+import translations from '../../../../messages/en-US.json'
 import BillingCancelPage from '../cancel'
 
 jest.mock('next-intl', () => {
-  const React = require('react')
-  const translations = require('../../../../messages/en-US.json')
+  const react = jest.requireActual<typeof import('react')>('react')
 
   function getNestedValue(obj: unknown, path: string) {
     return path.split('.').reduce((current: Record<string, unknown> | undefined, key) => {
@@ -46,11 +46,11 @@ jest.mock('next-intl', () => {
     if (parts.length === 0) return interpolated
     if (parts.length === 1) return parts[0]
 
-    return React.createElement(
-      React.Fragment,
+    return react.createElement(
+      react.Fragment,
       null,
       ...parts.map((part: string | React.ReactElement, index: number) => (
-        React.isValidElement(part) ? React.cloneElement(part, { key: index }) : part
+        react.isValidElement(part) ? react.cloneElement(part, { key: index }) : part
       ))
     )
   }
