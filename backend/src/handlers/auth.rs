@@ -159,7 +159,6 @@ pub async fn register(
             &request.email,
             MAX_REGISTRATION_ATTEMPTS_PER_EMAIL,
             REGISTRATION_RATE_LIMIT_WINDOW_MINUTES,
-            REGISTRATION_RATE_LIMIT_BLOCK_MINUTES,
         )
         .await
     {
@@ -451,10 +450,8 @@ pub async fn register(
 // Rate limiting constants
 const MAX_REGISTRATION_ATTEMPTS_PER_EMAIL: i64 = 3;
 const REGISTRATION_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
-const REGISTRATION_RATE_LIMIT_BLOCK_MINUTES: i64 = 60;
 const MAX_FORGOT_PASSWORD_ATTEMPTS_PER_EMAIL: i64 = 3;
 const FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
-const FORGOT_PASSWORD_RATE_LIMIT_BLOCK_MINUTES: i64 = 60;
 const MAX_FAILED_ATTEMPTS_PER_EMAIL: i64 = 5; // Lock account after 5 failed attempts
 const ACCOUNT_LOCKOUT_MINUTES: i64 = 15; // How long to lock an account
 const REGISTRATION_RATE_LIMIT_SCOPE: &str = "register";
@@ -1022,7 +1019,6 @@ pub async fn forgot_password(
             &request.email,
             MAX_FORGOT_PASSWORD_ATTEMPTS_PER_EMAIL,
             FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MINUTES,
-            FORGOT_PASSWORD_RATE_LIMIT_BLOCK_MINUTES,
         )
         .await
     {

@@ -965,7 +965,6 @@ impl MetadataDb {
         identifier: &str,
         max_attempts: i64,
         window_minutes: i64,
-        block_duration_minutes: i64,
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let scope = scope.to_string();
@@ -975,7 +974,7 @@ impl MetadataDb {
         let window_start = (now - chrono::Duration::minutes(window_minutes))
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
-        let blocked_until = (now + chrono::Duration::minutes(block_duration_minutes))
+        let blocked_until = (now + chrono::Duration::minutes(window_minutes))
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
 
@@ -1005,7 +1004,7 @@ impl MetadataDb {
                     )?;
                     true
                 }
-                Some((attempt_count, first_attempt_at, _)) if first_attempt_at > window_start => {
+                Some((attempt_count, first_attempt_at, _)) if first_attempt_at >= window_start => {
                     let next_attempt_count = attempt_count + 1;
                     if next_attempt_count > max_attempts {
                         tx.execute(
