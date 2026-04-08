@@ -40,6 +40,10 @@ function getSortLabel(transaction: Transaction) {
   return Math.min(transaction.first_seen_at, transaction.confirmed_at || Infinity)
 }
 
+function normalizeProviderType(providerType?: string | null, providerName?: string) {
+  return (providerType || providerName || "ntfy").toLowerCase()
+}
+
 export function Transactions({
   selectedWalletChecksum,
   transactions,
@@ -82,8 +86,10 @@ export function Transactions({
     if (!notifications || notifications.length === 0) return null
 
     const providerCounts = notifications.reduce((acc, notification) => {
-      const providerType =
-        notification.provider_type || notification.provider_name.toLowerCase()
+      const providerType = normalizeProviderType(
+        notification.provider_type,
+        notification.provider_name,
+      )
       acc[providerType] = (acc[providerType] || 0) + 1
       return acc
     }, {} as Record<string, number>)
@@ -183,9 +189,14 @@ export function Transactions({
             {[1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="grid grid-cols-[180px_minmax(0,1fr)_140px_32px] items-center gap-3 rounded-md border px-4 py-3"
+                className={`grid items-center gap-3 rounded-md border px-4 py-3 ${
+                  walletsCount > 1
+                    ? "grid-cols-[180px_140px_minmax(0,1fr)_140px_32px]"
+                    : "grid-cols-[180px_minmax(0,1fr)_140px_32px]"
+                }`}
               >
                 <Skeleton className="h-4 w-28" />
+                {walletsCount > 1 && <Skeleton className="h-4 w-24" />}
                 <Skeleton className="h-6 w-28" />
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-4 w-4" />
