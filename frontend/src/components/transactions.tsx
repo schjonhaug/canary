@@ -41,8 +41,12 @@ const DESKTOP_GRID_COLUMNS_MULTI =
 const DESKTOP_GRID_COLUMNS_SINGLE =
   "grid-cols-[180px_minmax(0,1fr)_140px_32px]"
 
-function getSortLabel(transaction: Transaction) {
-  return transaction.confirmed_at ?? transaction.first_seen_at
+function getDisplayTimestamp(transaction: Transaction) {
+  if (transaction.confirmed_at === null) {
+    return transaction.first_seen_at
+  }
+
+  return Math.min(transaction.first_seen_at, transaction.confirmed_at)
 }
 
 function normalizeProviderType(providerType?: string | null, providerName?: string) {
@@ -318,7 +322,7 @@ export function Transactions({
                           onClick={() => toggleRowExpansion(transaction.txid)}
                         >
                           <span className="text-sm">
-                            {formatDateTime(getSortLabel(transaction))}
+                            {formatDateTime(getDisplayTimestamp(transaction))}
                           </span>
 
                           {walletsCount > 1 && (

@@ -124,4 +124,20 @@ describe('Transactions', () => {
 
     expect(onLoadMore).toHaveBeenCalledTimes(1)
   })
+
+  it('uses the earliest transaction timestamp in the desktop row', () => {
+    render(
+      <Transactions
+        selectedWalletChecksum="wallet-1"
+        transactions={transactions}
+        isConnected
+        error={null}
+        lastUpdate={1001}
+        walletsCount={1}
+      />,
+    )
+
+    expect(screen.getByText('1000')).toBeInTheDocument()
+    expect(screen.queryByText('1001')).not.toBeInTheDocument()
+  })
 })
