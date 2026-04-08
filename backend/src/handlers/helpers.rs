@@ -54,7 +54,11 @@ pub(crate) async fn verify_wallet_access(
     checksum: &str,
     error_style: DatabaseErrorMessage,
 ) -> Result<WalletMetadata, Response> {
-    let wallet = match app_services.metadata_db.get_wallet_by_checksum(checksum).await {
+    let wallet = match app_services
+        .metadata_db
+        .get_wallet_by_checksum(checksum)
+        .await
+    {
         Ok(Some(wallet)) => wallet,
         Ok(None) => {
             return Err(error_response(
@@ -133,6 +137,7 @@ pub(crate) async fn require_recent_verification(
     }
 }
 
+/// Enforce per-tier creation limits using the current persisted resource count.
 pub(crate) async fn check_resource_limit(
     app_services: &AppServicesState,
     config: &AppConfig,
