@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { notFound } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { api, ApiError } from '@/lib/api'
 import { getTranslatedApiError } from '@/lib/utils'
@@ -24,15 +24,10 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const { isSelfHostedMode } = useAuth()
-  const router = useRouter()
 
-  // Password reset is not available in self-hosted mode
-  useEffect(() => {
-    if (isSelfHostedMode) {
-      router.push('/sign-in')
-    }
-  }, [isSelfHostedMode, router])
-
+  if (isSelfHostedMode) {
+    notFound()
+  }
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -53,12 +48,6 @@ export default function ForgotPasswordPage() {
       setIsLoading(false)
     }
   }
-
-  // Don't render anything while redirecting in self-hosted mode
-  if (isSelfHostedMode) {
-    return null
-  }
-
   if (success) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">

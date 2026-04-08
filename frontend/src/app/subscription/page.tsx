@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { useSearchParams } from "next/navigation"
+import { notFound, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +36,10 @@ export default function SubscriptionPage() {
   if (isSuccess) return <BillingSuccessPage />
   if (isCancelled) return <BillingCancelPage />
 
+  if (isSelfHostedMode) {
+    notFound()
+  }
+
   const handleManageBilling = async () => {
     if (!billingStatus?.stripe_customer_id) return
 
@@ -49,31 +53,6 @@ export default function SubscriptionPage() {
     } finally {
       setIsPortalLoading(false)
     }
-  }
-
-
-  // Hide billing page in self-hosted mode
-  if (isSelfHostedMode) {
-    return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">{t('title')}</h2>
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>{tCommon('selfHostedMode')}</CardTitle>
-            <CardDescription>
-              {t('selfHosted.description')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/wallets">
-              <Button variant="outline" className="w-full">
-                {tCommon('backToWallets')}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
   }
 
   if (isLoading) {

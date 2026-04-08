@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { notFound, useRouter, useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { api, ApiError } from '@/lib/api'
 import { getTranslatedApiError } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
+import { useAuth } from '@/contexts/auth-context'
 
 export default function ResetPasswordPage() {
   const t = useTranslations('auth.resetPassword')
@@ -25,7 +26,12 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
   const router = useRouter()
   const params = useParams()
+  const { isSelfHostedMode } = useAuth()
   const token = params.token as string
+
+  if (isSelfHostedMode) {
+    notFound()
+  }
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -39,8 +39,7 @@
     "name": "Name",
     "new": "Neu",
     "backToWallets": "Zurück zu Wallets",
-    "backToSignIn": "Zurück zur Anmeldung",
-    "selfHostedMode": "Selbst gehosteter Modus"
+    "backToSignIn": "Zurück zur Anmeldung"
   },
   "nav": {
     "signIn": "Anmelden",
@@ -54,9 +53,6 @@
   },
   "contactPage": {
     "title": "Kontakt",
-    "selfHosted": {
-      "description": "Das Kontaktformular ist im selbst gehosteten Modus nicht verfügbar."
-    },
     "form": {
       "title": "Kontaktieren Sie uns",
       "description": "Haben Sie eine Frage oder Feedback? Wir würden gerne von Ihnen hören.",
@@ -919,9 +915,6 @@
   },
   "subscriptionPage": {
     "title": "Abonnement",
-    "selfHosted": {
-      "description": "Abonnement-Abrechnung ist im selbst gehosteten Modus nicht verfügbar."
-    },
     "loading": "Abrechnungsinformationen werden geladen...",
     "notSignedIn": {
       "message": "Sie müssen angemeldet sein, um Ihr Abonnement zu verwalten.",

@@ -39,8 +39,7 @@
     "name": "Nombre",
     "new": "Nuevo",
     "backToWallets": "Volver a Billeteras",
-    "backToSignIn": "Volver a iniciar sesión",
-    "selfHostedMode": "Modo Auto-alojado"
+    "backToSignIn": "Volver a iniciar sesión"
   },
   "nav": {
     "signIn": "Iniciar sesión",
@@ -54,9 +53,6 @@
   },
   "contactPage": {
     "title": "Contacto",
-    "selfHosted": {
-      "description": "El formulario de contacto no está disponible en modo auto-alojado."
-    },
     "form": {
       "title": "Contáctanos",
       "description": "¿Tienes una pregunta o comentario? Nos encantaría saber de ti.",
@@ -919,9 +915,6 @@
   },
   "subscriptionPage": {
     "title": "Suscripción",
-    "selfHosted": {
-      "description": "La facturación de suscripción no está disponible en modo autoalojado."
-    },
     "loading": "Cargando información de facturación...",
     "notSignedIn": {
       "message": "Debes iniciar sesión para administrar tu suscripción.",

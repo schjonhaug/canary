@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { useRouter } from 'next/navigation'
+import { notFound, useRouter } from 'next/navigation'
 
 export default function DemoPage() {
-  const { demoLogin, logout, isAuthenticated, user } = useAuth()
+  const { demoLogin, logout, isAuthenticated, isSelfHostedMode, user } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -38,6 +38,10 @@ export default function DemoPage() {
 
     performDemoLogin()
   }, [demoLogin, logout, isAuthenticated, user, router])
+
+  if (isSelfHostedMode) {
+    notFound()
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center">
