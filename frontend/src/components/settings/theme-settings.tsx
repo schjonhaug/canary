@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTheme } from "@/hooks/useTheme"
-import type { ThemePreference } from "@/lib/theme"
+import { isThemePreference, type ThemePreference } from "@/lib/theme"
 
 const themeIcons = {
   system: Monitor,
@@ -17,6 +17,12 @@ const themeIcons = {
 export function ThemeSettings() {
   const t = useTranslations("settings")
   const { mounted, preference, resolvedTheme, setPreference } = useTheme()
+
+  const handleThemeChange = (value: string) => {
+    if (isThemePreference(value)) {
+      setPreference(value)
+    }
+  }
 
   return (
     <Card>
@@ -30,7 +36,7 @@ export function ThemeSettings() {
       <CardContent className="space-y-4">
         <div>
           <Label htmlFor="theme">{t("appearance.themeLabel")}</Label>
-          <Select value={preference} onValueChange={(value) => setPreference(value as ThemePreference)}>
+          <Select value={preference} onValueChange={handleThemeChange}>
             <SelectTrigger id="theme" className="w-full max-w-xs">
               <SelectValue />
             </SelectTrigger>
