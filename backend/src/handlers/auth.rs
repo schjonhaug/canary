@@ -7,6 +7,7 @@ use crate::config::AppConfig;
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::extractors::AuthenticatedUser;
+use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
 use crate::models::{ContactFormRequest, ContactFormResponse, DemoLoginRequest, ErrorResponse};
 use axum::{
     extract::{Path, State},
@@ -1249,33 +1250,29 @@ pub async fn me(
     let start_time = std::time::Instant::now();
 
     // Get user info from database - no mutex blocking!
-    let user_info = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
-        Ok(Some(db_user)) => AuthUserResponse {
-            id: db_user.id,
-            email: db_user.email,
-            name: db_user.name,
-            is_admin: user.is_admin,
-            is_demo: user.is_demo,
-            email_verified: db_user.email_verified,
-            subscription_tier: db_user.subscription_tier,
-            created_at: db_user.created_at,
-            preferred_fiat_currency: db_user.preferred_fiat_currency,
-            preferred_language: db_user.preferred_language,
-        },
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new("User not found")),
-            )
-                .into_response();
-        }
-        Err(_) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Failed to get user info")),
-            )
-                .into_response();
-        }
+    let db_user = match get_user_or_error(
+        &app_services,
+        &user.user_id,
+        None,
+        "User not found",
+        DatabaseErrorMessage::Fixed("Failed to get user info"),
+    )
+    .await
+    {
+        Ok(db_user) => db_user,
+        Err(response) => return response,
+    };
+    let user_info = AuthUserResponse {
+        id: db_user.id,
+        email: db_user.email,
+        name: db_user.name,
+        is_admin: user.is_admin,
+        is_demo: user.is_demo,
+        email_verified: db_user.email_verified,
+        subscription_tier: db_user.subscription_tier,
+        created_at: db_user.created_at,
+        preferred_fiat_currency: db_user.preferred_fiat_currency,
+        preferred_language: db_user.preferred_language,
     };
 
     let elapsed = start_time.elapsed();
@@ -1318,33 +1315,29 @@ pub async fn update_user(
     }
 
     // Get updated user info - no mutex blocking!
-    let user_info = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
-        Ok(Some(db_user)) => AuthUserResponse {
-            id: db_user.id,
-            email: db_user.email,
-            name: db_user.name,
-            is_admin: user.is_admin,
-            is_demo: user.is_demo,
-            email_verified: db_user.email_verified,
-            subscription_tier: db_user.subscription_tier,
-            created_at: db_user.created_at,
-            preferred_fiat_currency: db_user.preferred_fiat_currency,
-            preferred_language: db_user.preferred_language,
-        },
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new("User not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to get user: {}", e))),
-            )
-                .into_response();
-        }
+    let db_user = match get_user_or_error(
+        &app_services,
+        &user.user_id,
+        None,
+        "User not found",
+        DatabaseErrorMessage::Prefix("Failed to get user"),
+    )
+    .await
+    {
+        Ok(db_user) => db_user,
+        Err(response) => return response,
+    };
+    let user_info = AuthUserResponse {
+        id: db_user.id,
+        email: db_user.email,
+        name: db_user.name,
+        is_admin: user.is_admin,
+        is_demo: user.is_demo,
+        email_verified: db_user.email_verified,
+        subscription_tier: db_user.subscription_tier,
+        created_at: db_user.created_at,
+        preferred_fiat_currency: db_user.preferred_fiat_currency,
+        preferred_language: db_user.preferred_language,
     };
 
     let elapsed = start_time.elapsed();

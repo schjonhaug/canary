@@ -4,7 +4,7 @@ use crate::admin_notifications::AdminNotifications;
 use crate::api::{AppServicesState, ElectrumClientManagerState};
 use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::handlers::helpers::verify_wallet_access;
+use crate::handlers::helpers::{get_user_or_error, verify_wallet_access, DatabaseErrorMessage};
 use crate::metadata::{ProviderType, WalletDetailResponse};
 use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
@@ -130,62 +130,52 @@ pub async fn create_wallet_non_blocking(
 
     // NON-BLOCKING: Use AppServices metadata_db directly (no wallet mutex)
     // Get user's subscription tier and check wallet limit
-    match app_services.metadata_db.get_user_by_id(&user.user_id).await {
-        Ok(Some(user_record)) => {
-            let bypass_limits = config.is_self_hosted_mode() || user_record.is_admin;
+    let user_record = match get_user_or_error(
+        &app_services,
+        &user.user_id,
+        None,
+        "User not found",
+        DatabaseErrorMessage::Prefix("Failed to get user information"),
+    )
+    .await
+    {
+        Ok(user_record) => user_record,
+        Err(response) => return response,
+    };
 
-            if !bypass_limits {
-                // Count existing wallets for the user
-                match app_services
-                    .metadata_db
-                    .count_wallets_for_user(&user.user_id)
-                    .await
+    let bypass_limits = config.is_self_hosted_mode() || user_record.is_admin;
+    if !bypass_limits {
+        // Count existing wallets for the user
+        match app_services
+            .metadata_db
+            .count_wallets_for_user(&user.user_id)
+            .await
+        {
+            Ok(wallet_count) => {
+                // Check limit based on subscription tier
+                let tier_limits = user_record.subscription_tier.limits_for_api();
+                if let Err(limit_err) = check_limit(wallet_count, tier_limits.max_wallets, "Wallet")
                 {
-                    Ok(wallet_count) => {
-                        // Check limit based on subscription tier
-                        let tier_limits = user_record.subscription_tier.limits_for_api();
-                        if let Err(limit_err) =
-                            check_limit(wallet_count, tier_limits.max_wallets, "Wallet")
-                        {
-                            return (
-                                StatusCode::FORBIDDEN,
-                                Json(ErrorResponse::coded(
-                                    "wallet_limit_reached",
-                                    limit_err.to_string(),
-                                )),
-                            )
-                                .into_response();
-                        }
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!(
-                                "Failed to check wallet limit: {}",
-                                e
-                            ))),
-                        )
-                            .into_response();
-                    }
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(ErrorResponse::coded(
+                            "wallet_limit_reached",
+                            limit_err.to_string(),
+                        )),
+                    )
+                        .into_response();
                 }
             }
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new("User not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to get user information: {}",
-                    e
-                ))),
-            )
-                .into_response();
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new(format!(
+                        "Failed to check wallet limit: {}",
+                        e
+                    ))),
+                )
+                    .into_response();
+            }
         }
     }
 
@@ -443,7 +433,14 @@ pub async fn delete_wallet(
 
     // NON-BLOCKING: Use AppServices metadata_db directly (no wallet mutex)
     // Check if wallet exists and belongs to user (or user is admin)
-    if let Err(response) = verify_wallet_access(&app_services, &user, &checksum).await {
+    if let Err(response) = verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
         return response;
     }
 
@@ -497,7 +494,14 @@ pub async fn update_wallet(
     let start_time = std::time::Instant::now();
 
     // Direct metadata access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(&app_services, &user, &checksum).await {
+    if let Err(response) = verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
         return response;
     }
 
@@ -531,10 +535,19 @@ pub async fn get_wallet(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // No mutex blocking! Direct access to metadata database
-    match verify_wallet_access(&app_services, &user, &checksum).await {
-        Ok(wallet) => (StatusCode::OK, Json(wallet)).into_response(),
-        Err(response) => response,
-    }
+    let wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Raw,
+    )
+    .await
+    {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
+
+    (StatusCode::OK, Json(wallet)).into_response()
 }
 
 /// Get list of all wallets for the authenticated user
@@ -593,7 +606,14 @@ pub async fn get_wallet_detail(
         .as_secs();
 
     // Get the specific wallet - no mutex blocking!
-    let wallet = match verify_wallet_access(&app_services, &user, &checksum).await {
+    let wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
         Ok(wallet) => wallet,
         Err(response) => return response,
     };
