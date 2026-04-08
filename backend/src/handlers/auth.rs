@@ -79,9 +79,8 @@ pub(crate) async fn update_password_and_revoke_sessions(
     password_hash: &str,
 ) -> Result<()> {
     metadata_db
-        .update_user_password(user_id, password_hash)
+        .update_user_password_and_revoke_sessions(user_id, password_hash)
         .await?;
-    metadata_db.delete_user_sessions(user_id).await?;
     Ok(())
 }
 

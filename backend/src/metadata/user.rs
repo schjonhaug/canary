@@ -765,6 +765,35 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn update_user_password_and_revoke_sessions(
+        &self,
+        user_id: &str,
+        password_hash: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let password_hash = password_hash.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            let tx = conn.unchecked_transaction()?;
+
+            tx.execute(
+                "UPDATE users SET password_hash = ?1 WHERE id = ?2",
+                params![&password_hash, &user_id],
+            )?;
+            tx.execute(
+                "DELETE FROM password_reset_tokens WHERE user_id = ?1",
+                params![&user_id],
+            )?;
+            tx.execute("DELETE FROM sessions WHERE user_id = ?1", params![&user_id])?;
+
+            tx.commit()?;
+            Ok(())
+        })
+        .await?
+    }
+
     // ============================
     // USER PREFERENCES
     // ============================
