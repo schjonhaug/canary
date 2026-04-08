@@ -16,6 +16,7 @@ const eslintConfig = [
     rules: {
       // Disable strict rule that wasn't enforced by next lint
       "react-hooks/set-state-in-effect": "off",
+      "react-hooks/incompatible-library": "off",
     },
   },
 ];

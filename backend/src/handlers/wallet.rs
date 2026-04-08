@@ -10,8 +10,7 @@ use crate::handlers::helpers::{
 };
 use crate::metadata::{
     ProviderType, TransactionCursor, TransactionPageRequest, TransactionSummary,
-    WalletDetailPagination,
-    WalletDetailResponse,
+    WalletDetailPagination, WalletDetailResponse,
 };
 use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,

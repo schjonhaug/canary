@@ -58,19 +58,15 @@ jest.mock('../../lib/api', () => ({
 }))
 
 jest.mock('../subscription/success', () => {
-  function MockSubscriptionSuccessPage() {
-    return <div>Billing Success</div>
-  }
-
-  return MockSubscriptionSuccessPage
+  const MockBillingSuccessPage = () => <div>Billing Success</div>
+  MockBillingSuccessPage.displayName = 'MockBillingSuccessPage'
+  return MockBillingSuccessPage
 })
 
 jest.mock('../subscription/cancel', () => {
-  function MockSubscriptionCancelPage() {
-    return <div>Billing Cancel</div>
-  }
-
-  return MockSubscriptionCancelPage
+  const MockBillingCancelPage = () => <div>Billing Cancel</div>
+  MockBillingCancelPage.displayName = 'MockBillingCancelPage'
+  return MockBillingCancelPage
 })
 
 describe('cloud-only pages in self-hosted mode', () => {
