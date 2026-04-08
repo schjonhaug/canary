@@ -60,7 +60,10 @@ fn is_tx_confirmed(network: Network, height: i32, txid: &Txid) -> bool {
 /// Convert a confirmed Electrum height into the persisted unsigned block height.
 /// Callers must only use this after `is_tx_confirmed(...)` returns true.
 fn confirmed_block_height(height: i32) -> u32 {
-    debug_assert!(height >= 0, "confirmed transactions must have a non-negative block height");
+    debug_assert!(
+        height >= 0,
+        "confirmed transactions must have a non-negative block height"
+    );
     u32::try_from(height).expect("confirmed transactions must have a non-negative block height")
 }
 
@@ -2179,15 +2182,21 @@ mod tests {
 
     #[test]
     fn test_is_tx_confirmed_mempool() {
-        let txid = Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX).unwrap();
+        let non_genesis_txid =
+            Txid::from_str("1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
+        let genesis_txid = Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX).unwrap();
 
-        assert!(!is_tx_confirmed(Network::Testnet, 0, &txid));
-        assert!(!is_tx_confirmed(Network::Regtest, 0, &txid));
+        assert!(!is_tx_confirmed(Network::Bitcoin, 0, &non_genesis_txid));
+        assert!(!is_tx_confirmed(Network::Testnet, 0, &genesis_txid));
+        assert!(!is_tx_confirmed(Network::Regtest, 0, &genesis_txid));
     }
 
     #[test]
     fn test_is_tx_confirmed_unconfirmed_parents() {
-        let txid = Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX).unwrap();
+        let txid =
+            Txid::from_str("1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
 
         assert!(!is_tx_confirmed(Network::Bitcoin, -1, &txid));
     }
