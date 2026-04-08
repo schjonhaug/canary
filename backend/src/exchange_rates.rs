@@ -316,7 +316,9 @@ impl ExchangeRateService {
     }
 
     fn classify_reqwest_error(error: reqwest::Error, context: &'static str) -> FetchRatesError {
-        let is_retryable = error.is_timeout() || error.is_connect();
+        let is_retryable = error.is_timeout()
+            || error.is_connect()
+            || (!error.is_builder() && !error.is_body() && !error.is_decode());
         let error = anyhow::Error::new(error).context(context);
 
         if is_retryable {
