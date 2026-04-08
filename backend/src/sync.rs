@@ -1569,6 +1569,7 @@ impl WalletSyncService {
 
     async fn fetch_address_watch_tx_state(
         &self,
+        wallet_checksum: &str,
         client: &ElectrumClient,
         script: &ScriptBuf,
         network: Network,
@@ -1578,7 +1579,7 @@ impl WalletSyncService {
         let tx = match client.transaction_get(txid).await {
             Ok(tx) => tx,
             Err(e) => {
-                warn!("[{}] Failed to fetch tx {}: {}", script, txid, e);
+                warn!("[{}] Failed to fetch tx {}: {}", wallet_checksum, txid, e);
                 return Ok(None);
             }
         };
@@ -1662,10 +1663,11 @@ impl WalletSyncService {
         let mut unconfirmed_outputs = std::collections::HashMap::new();
 
         for (txid, state) in tx_states.iter().filter(|(_, state)| !state.is_confirmed) {
+            let computed_txid = state.tx.compute_txid();
             for (vout, _) in state.tx.output.iter().enumerate() {
                 unconfirmed_outputs.insert(
                     OutPoint {
-                        txid: state.tx.compute_txid(),
+                        txid: computed_txid,
                         vout: vout as u32,
                     },
                     txid.clone(),
@@ -1852,6 +1854,7 @@ impl WalletSyncService {
 
             if let Some(state) = self
                 .fetch_address_watch_tx_state(
+                    "grouped-address-watch",
                     &client,
                     &script,
                     network,
@@ -1897,17 +1900,6 @@ impl WalletSyncService {
             let txid_str = hist_entry.tx_hash.to_string();
 
             if let Some(existing) = existing_tx_map.get(txid_str.as_str()) {
-                if let Some(parent_txid) = cpfp_relationships.get(&txid_str) {
-                    if existing.parent_txid.as_deref() != Some(parent_txid.as_str())
-                        && self
-                            .metadata_db
-                            .update_transaction_parent(wallet_checksum, &txid_str, parent_txid)
-                            .await?
-                    {
-                        has_changes = true;
-                    }
-                }
-
                 // Check if an existing pending transaction got confirmed
                 if is_tx_confirmed(network, hist_entry.height, &txid)
                     && existing.block_height.is_none()
@@ -2118,6 +2110,7 @@ impl WalletSyncService {
 
             if let Some(state) = self
                 .fetch_address_watch_tx_state(
+                    "grouped-address-watch",
                     &client,
                     &script,
                     network,
@@ -2182,17 +2175,6 @@ impl WalletSyncService {
                 let txid_str = hist_entry.tx_hash.to_string();
 
                 if let Some(existing) = existing_tx_map.get(txid_str.as_str()) {
-                    if let Some(parent_txid) = cpfp_relationships.get(&txid_str) {
-                        if existing.parent_txid.as_deref() != Some(parent_txid.as_str())
-                            && self
-                                .metadata_db
-                                .update_transaction_parent(wallet_checksum, &txid_str, parent_txid)
-                                .await?
-                        {
-                            has_changes = true;
-                        }
-                    }
-
                     // Check if an existing pending transaction got confirmed
                     if is_tx_confirmed(network, hist_entry.height, &txid)
                         && existing.block_height.is_none()
@@ -2246,6 +2228,7 @@ impl WalletSyncService {
                 let Some(state) = current_tx_states.get(&txid_str) else {
                     let Some(state) = self
                         .fetch_address_watch_tx_state(
+                            wallet_checksum,
                             &client,
                             &script,
                             network,
