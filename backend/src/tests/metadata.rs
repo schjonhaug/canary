@@ -967,13 +967,23 @@ async fn test_wallet_last_activity_prefers_confirmed_at() {
         .await
         .unwrap();
 
+    let empty_wallets = db.get_wallets_for_user(Some(&user_id)).await.unwrap();
+    assert_eq!(empty_wallets.len(), 1);
+    assert_eq!(
+        empty_wallets[0].last_activity, None,
+        "Wallet without transactions should have no last_activity"
+    );
+
     let now = 1740000000u64;
 
+    // Wallet last_activity is computed with COALESCE(confirmed_at, first_seen_at):
+    // confirmed transactions should use confirmed_at, while pending ones fall back
+    // to first_seen_at.
     db.insert_transaction(&TransactionInsert {
         txid: "tx_old_confirmed".to_string(),
         wallet_checksum: wallet_checksum.clone(),
         transaction_type: EventType::Receive,
-        amount_sats: 5_000_000_000,
+        amount_sats: 100_000,
         fee_sats: None,
         block_height: Some(1),
         first_seen_at: now,
@@ -997,6 +1007,23 @@ async fn test_wallet_last_activity_prefers_confirmed_at() {
         confirmed_at: Some(now - 50),
         parent_txid: None,
         transaction_status: "confirmed".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_pending_older".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 500,
+        fee_sats: None,
+        block_height: None,
+        first_seen_at: now - 200,
+        confirmed_at: None,
+        parent_txid: None,
+        transaction_status: "pending".to_string(),
         replaced_by_txid: None,
         replaced_at: None,
     })
