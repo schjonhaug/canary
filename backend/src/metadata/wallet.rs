@@ -452,7 +452,8 @@ impl MetadataDb {
 
             let mut stmt = conn.prepare(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.balance_total,
-                        w.last_activity, w.last_synced_at, w.status, w.user_id, w.created_at, w.wallet_type
+                        (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
+                        w.last_synced_at, w.status, w.user_id, w.created_at, w.wallet_type
                  FROM wallets w
                  JOIN users u ON w.user_id = u.id
                  WHERE w.is_active = 1 AND w.status IN ('ready', 'pending')
@@ -497,7 +498,11 @@ impl MetadataDb {
                         descriptor: row.get(2)?,
                         hex_color: row.get(3)?,
                         balance_total: row.get(4)?,
-                        last_activity: row.get(5)?,
+                        last_activity: row
+                            .get::<_, Option<i64>>(5)
+                            .ok()
+                            .flatten()
+                            .map(|t| t.to_string()),
                         last_synced_at: row.get(6)?,
                         status: row.get(7)?,
                         contact_count: None, // Not counting contacts in this query

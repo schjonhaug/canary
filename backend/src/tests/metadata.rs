@@ -1255,6 +1255,67 @@ async fn test_transaction_pagination_since_timestamp_returns_changed_rows() {
     assert_eq!(page.applied_since_timestamp, Some(1_200));
 }
 
+#[tokio::test]
+async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let empty_wallet_checksum = db
+        .insert_wallet("Empty Sync Wallet", "descriptor_sync_empty", "foss-user")
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Sync Wallet", "descriptor_sync", "foss-user")
+        .await
+        .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_sync_last_activity".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 1000,
+        fee_sats: None,
+        block_height: None,
+        first_seen_at: 1_740_000_123,
+        confirmed_at: None,
+        parent_txid: None,
+        transaction_status: "pending".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    let wallets = db
+        .get_wallets_for_tier_sync(
+            &crate::subscription::SubscriptionTier::Team,
+            &NetworkConfig::Regtest,
+        )
+        .await
+        .unwrap();
+
+    let empty_wallet = wallets
+        .iter()
+        .find(|wallet| wallet.checksum == empty_wallet_checksum)
+        .expect("empty wallet should be returned for sync");
+
+    assert_eq!(
+        empty_wallet.last_activity, None,
+        "wallets without transactions should have no derived last_activity"
+    );
+
+    let wallet = wallets
+        .into_iter()
+        .find(|wallet| wallet.checksum == wallet_checksum)
+        .expect("wallet should be returned for sync");
+
+    assert_eq!(
+        wallet.last_activity.as_deref(),
+        Some("1740000123"),
+        "sync query should derive last_activity from transactions instead of the stale wallets column"
+    );
+}
+
 // ============================
 // Notification batching tests
 // ============================
