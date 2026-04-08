@@ -649,23 +649,28 @@ async fn test_get_wallet_detail_success() {
 async fn test_get_wallet_detail_returns_pagination_metadata() {
     let (app, _temp_dir, app_services) = create_test_app_with_services().await;
 
-    let user_id = app_services
-        .metadata_db
-        .create_user(
-            "paged-wallet@example.com",
-            "hashedpassword",
-            Some("Paged Wallet User"),
-            true,
-            None,
-            None,
-        )
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Paged Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
         .await
         .unwrap();
-    let checksum = app_services
-        .metadata_db
-        .insert_wallet("Paged Wallet", "descriptor_paged", &user_id)
-        .await
-        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap().to_string();
     app_services
         .metadata_db
         .update_wallet_status(&checksum, "ready")
@@ -698,7 +703,7 @@ async fn test_get_wallet_detail_returns_pagination_metadata() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
