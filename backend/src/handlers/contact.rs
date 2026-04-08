@@ -1,5 +1,6 @@
 //! Contact management handlers
 
+use super::helpers::ApiResultExt;
 use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
@@ -108,25 +109,17 @@ pub async fn create_wallet_contact(
     };
 
     // Get user's subscription tier and check contact limit
-    let user_record = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
-        Ok(Some(record)) => record,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("user_not_found", "User not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to get user information: {}",
-                    e
-                ))),
-            )
-                .into_response();
-        }
+    let user_record = match app_services
+        .metadata_db
+        .get_user_by_id(&user.user_id)
+        .await
+        .to_api_result_with_code_and_error(
+            "user_not_found",
+            "User not found",
+            "Failed to get user information",
+        ) {
+        Ok(record) => record,
+        Err(response) => return response,
     };
 
     // Count existing contacts for the wallet and check limit unless limits are bypassed

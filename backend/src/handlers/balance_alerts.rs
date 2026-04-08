@@ -1,5 +1,6 @@
 //! Balance alert handlers
 
+use super::helpers::ApiResultExt;
 use crate::api::AppServicesState;
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
@@ -22,22 +23,10 @@ pub async fn get_wallet_balance_alerts(
         .metadata_db
         .get_wallet_by_checksum(&checksum)
         .await
+        .to_api_result_with_code("wallet_not_found", "Wallet not found")
     {
-        Ok(Some(wallet)) => wallet,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response()
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response()
-        }
+        Ok(wallet) => wallet,
+        Err(response) => return response,
     };
 
     // Check user permission (unless admin)
@@ -84,22 +73,10 @@ pub async fn create_wallet_balance_alert(
         .metadata_db
         .get_wallet_by_checksum(&checksum)
         .await
+        .to_api_result_with_code("wallet_not_found", "Wallet not found")
     {
-        Ok(Some(wallet)) => wallet,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response()
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response()
-        }
+        Ok(wallet) => wallet,
+        Err(response) => return response,
     };
 
     // Check user permission (unless admin)
