@@ -18,13 +18,12 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
 export function UserDropdown() {
-  const { user, isCloudMode, isSelfHostedMode } = useAuth()
+  const { user, isCloudMode } = useAuth()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const tNav = useTranslations('nav')
 
-  // In self-hosted mode or if no user, don't show anything
-  if (isSelfHostedMode || !user) {
+  if (!user) {
     return null
   }
 

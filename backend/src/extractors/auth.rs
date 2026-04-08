@@ -11,10 +11,9 @@ use axum::{
 };
 use std::sync::Arc;
 
-/// Custom extractor that handles authentication in both cloud and self-hosted modes.
+/// Custom extractor that validates authentication for both cloud and self-hosted modes.
 ///
-/// In self-hosted mode, returns a hardcoded admin user.
-/// In cloud mode, validates the JWT token from HttpOnly cookie (preferred) or Authorization header.
+/// Validates the JWT token from HttpOnly cookie (preferred) or Authorization header.
 ///
 /// # Usage
 /// ```rust,ignore
@@ -37,42 +36,90 @@ where
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let config = <Arc<AppConfig> as FromRef<S>>::from_ref(state);
 
-        if config.is_self_hosted_mode() {
-            // Self-hosted mode: return hardcoded admin user
-            Ok(AuthenticatedUser(AuthUser {
-                user_id: "foss-user".to_string(),
-                is_admin: true,
-                is_demo: false,
-            }))
-        } else {
-            // Cloud mode: authenticate using JWT from cookie (preferred) or Authorization header
-            let jwt_secret = config.get_jwt_secret().map_err(|e| {
+        let jwt_secret = config.get_jwt_secret().map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Configuration error: {}", e))),
+            )
+                .into_response()
+        })?;
+
+        // Extract token from cookie (HttpOnly, secure)
+        let cookie_token = extract_token_from_cookies(&parts.headers);
+
+        // Fall back to Authorization header for backwards compatibility
+        let auth_header = parts
+            .headers
+            .get("authorization")
+            .and_then(|h| h.to_str().ok());
+
+        authenticate_user(auth_header, cookie_token.as_deref(), jwt_secret)
+            .map(AuthenticatedUser)
+            .map_err(|_| {
                 (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!("Configuration error: {}", e))),
+                    StatusCode::UNAUTHORIZED,
+                    Json(ErrorResponse::new("Authentication required")),
                 )
                     .into_response()
-            })?;
+            })
+    }
+}
 
-            // Extract token from cookie (HttpOnly, secure)
-            let cookie_token = extract_token_from_cookies(&parts.headers);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::AuthService;
+    use crate::config::{AppConfig, NetworkConfig, OperatingMode};
+    use axum::http::Request;
 
-            // Fall back to Authorization header for backwards compatibility
-            let auth_header = parts
-                .headers
-                .get("authorization")
-                .and_then(|h| h.to_str().ok());
+    #[tokio::test]
+    async fn self_hosted_mode_requires_authentication() {
+        let config = Arc::new(AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            None,
+            "127.0.0.1:3000".to_string(),
+            "./database".to_string(),
+            OperatingMode::SelfHosted,
+            None,
+            Some("test-self-hosted-jwt-secret".to_string()),
+        ));
+        let request = Request::builder().uri("/api/wallets").body(()).unwrap();
+        let (mut parts, _) = request.into_parts();
 
-            authenticate_user(auth_header, cookie_token.as_deref(), jwt_secret)
-                .map(AuthenticatedUser)
-                .map_err(|_| {
-                    (
-                        StatusCode::UNAUTHORIZED,
-                        Json(ErrorResponse::new("Authentication required")),
-                    )
-                        .into_response()
-                })
-        }
+        let result = AuthenticatedUser::from_request_parts(&mut parts, &config).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn self_hosted_mode_accepts_valid_jwt() {
+        let jwt_secret = "test-self-hosted-jwt-secret";
+        let config = Arc::new(AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            None,
+            "127.0.0.1:3000".to_string(),
+            "./database".to_string(),
+            OperatingMode::SelfHosted,
+            None,
+            Some(jwt_secret.to_string()),
+        ));
+        let token = AuthService::new(jwt_secret.to_string(), None)
+            .generate_token("foss-user", "admin@local", true, false)
+            .unwrap();
+        let request = Request::builder()
+            .uri("/api/wallets")
+            .header("authorization", format!("Bearer {}", token))
+            .body(())
+            .unwrap();
+        let (mut parts, _) = request.into_parts();
+
+        let result = AuthenticatedUser::from_request_parts(&mut parts, &config)
+            .await
+            .unwrap();
+
+        assert_eq!(result.0.user_id, "foss-user");
+        assert!(result.0.is_admin);
+        assert!(!result.0.is_demo);
     }
 }
 

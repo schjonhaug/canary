@@ -13,9 +13,17 @@ export default function HomePage() {
   const tCommon = useTranslations('common')
 
   useEffect(() => {
-    // If user is authenticated or in self-hosted mode, redirect to wallets
-    if (!isLoading && (isAuthenticated || isSelfHostedMode)) {
+    if (isLoading) {
+      return
+    }
+
+    if (isAuthenticated) {
       router.push('/wallets')
+      return
+    }
+
+    if (isSelfHostedMode) {
+      router.push('/sign-in')
     }
   }, [isAuthenticated, isLoading, isSelfHostedMode, router])
 
@@ -31,7 +39,7 @@ export default function HomePage() {
     )
   }
 
-  // Self-hosted mode: show loading while useEffect handles the redirect
+  // Self-hosted mode: show loading while useEffect redirects to sign-in
   if (isSelfHostedMode) {
     return (
       <div className="flex h-screen items-center justify-center">

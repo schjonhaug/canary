@@ -16,7 +16,7 @@ export default function WalletsPage() {
   const t = useTranslations('wallets')
   const tCommon = useTranslations('common')
   const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading } = useWalletsContext()
-  const { isAuthenticated, isLoading: authLoading, user, isCloudMode, billingStatus } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user, billingStatus } = useAuth()
   const router = useRouter()
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
 
@@ -46,12 +46,12 @@ export default function WalletsPage() {
     return { amount: total, currency: firstCurrency }
   }
 
-  // Redirect unauthenticated users to sign-in when in cloud mode
+  // Redirect unauthenticated users to sign-in in all modes
   useEffect(() => {
-    if (isCloudMode && !authLoading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       router.push('/sign-in')
     }
-  }, [isCloudMode, isAuthenticated, authLoading, router])
+  }, [isAuthenticated, authLoading, router])
 
   // Show loading spinner while auth or wallets are loading
   if (authLoading || walletsLoading) {
@@ -65,12 +65,12 @@ export default function WalletsPage() {
     )
   }
 
-  // Return null while redirecting unauthenticated users in cloud mode
-  if (isCloudMode && !isAuthenticated) {
+  // Return null while redirecting unauthenticated users
+  if (!isAuthenticated) {
     return null
   }
 
-  // Show dashboard for authenticated users or in self-hosted mode
+  // Show dashboard for authenticated users
   return (
     <>
       {/* Connection Warning Banner */}
