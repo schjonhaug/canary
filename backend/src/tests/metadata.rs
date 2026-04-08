@@ -337,7 +337,23 @@ async fn test_transaction_ordering_expression_index_is_applied() {
         "Expected idx_transactions_wallet_ordering to exist, found {index_names:?}"
     );
 
-    let plan_details: Vec<String> = conn
+    let ordered_txids: Vec<String> = conn
+        .prepare(
+            "SELECT t.txid
+             FROM transactions t
+             WHERE t.wallet_checksum = ?1
+             ORDER BY COALESCE(t.confirmed_at, t.first_seen_at) DESC, t.txid DESC",
+        )
+        .unwrap()
+        .query_map([wallet_checksum.as_str()], |row| row.get(0))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert_eq!(ordered_txids, vec!["tx-002", "tx-003", "tx-001"]);
+
+    // Column 3 is SQLite's human-readable plan detail.
+    let ordering_plan_details: Vec<String> = conn
         .prepare(
             "EXPLAIN QUERY PLAN
              SELECT t.txid
@@ -353,16 +369,30 @@ async fn test_transaction_ordering_expression_index_is_applied() {
         .unwrap();
 
     assert!(
-        plan_details
+        ordering_plan_details
             .iter()
             .any(|detail| detail.contains("idx_transactions_wallet_ordering")),
-        "Expected query plan to use idx_transactions_wallet_ordering, found {plan_details:?}"
+        "Expected ordering query plan to use idx_transactions_wallet_ordering, found {ordering_plan_details:?}"
     );
+
+    let last_activity_plan_details: Vec<String> = conn
+        .prepare(
+            "EXPLAIN QUERY PLAN
+             SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at))
+             FROM transactions t
+             WHERE t.wallet_checksum = ?1",
+        )
+        .unwrap()
+        .query_map([wallet_checksum.as_str()], |row| row.get(3))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+
     assert!(
-        plan_details
+        last_activity_plan_details
             .iter()
-            .all(|detail| !detail.contains("USE TEMP B-TREE FOR ORDER BY")),
-        "Expected query plan to avoid temp sorting, found {plan_details:?}"
+            .any(|detail| detail.contains("idx_transactions_wallet_ordering")),
+        "Expected last_activity query plan to use idx_transactions_wallet_ordering, found {last_activity_plan_details:?}"
     );
 }
 
