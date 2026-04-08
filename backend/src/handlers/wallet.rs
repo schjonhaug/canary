@@ -4,6 +4,7 @@ use crate::admin_notifications::AdminNotifications;
 use crate::api::{AppServicesState, ElectrumClientManagerState};
 use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::handlers::helpers::verify_wallet_access;
 use crate::metadata::{ProviderType, WalletDetailResponse};
 use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
@@ -442,51 +443,8 @@ pub async fn delete_wallet(
 
     // NON-BLOCKING: Use AppServices metadata_db directly (no wallet mutex)
     // Check if wallet exists and belongs to user (or user is admin)
-    match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&checksum)
-        .await
-    {
-        Ok(Some(_)) => {
-            // Check ownership
-            if !user.is_admin {
-                match app_services
-                    .metadata_db
-                    .is_wallet_owned_by_user(&checksum, &user.user_id)
-                    .await
-                {
-                    Ok(true) => {} // User owns the wallet
-                    Ok(false) => {
-                        return (
-                            StatusCode::FORBIDDEN,
-                            Json(ErrorResponse::coded("access_denied", "Access denied")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!("Database error: {}", e))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response();
-        }
+    if let Err(response) = verify_wallet_access(&app_services, &user, &checksum).await {
+        return response;
     }
 
     // SOFT DELETE: Mark wallet as deleted instead of immediate deletion
@@ -539,51 +497,8 @@ pub async fn update_wallet(
     let start_time = std::time::Instant::now();
 
     // Direct metadata access - no mutex blocking!
-    match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&checksum)
-        .await
-    {
-        Ok(Some(_)) => {
-            // Check ownership
-            if !user.is_admin {
-                match app_services
-                    .metadata_db
-                    .is_wallet_owned_by_user(&checksum, &user.user_id)
-                    .await
-                {
-                    Ok(true) => {} // User owns the wallet
-                    Ok(false) => {
-                        return (
-                            StatusCode::FORBIDDEN,
-                            Json(ErrorResponse::coded("access_denied", "Access denied")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!("Database error: {}", e))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response();
-        }
+    if let Err(response) = verify_wallet_access(&app_services, &user, &checksum).await {
+        return response;
     }
 
     let update_result = app_services
@@ -616,49 +531,9 @@ pub async fn get_wallet(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // No mutex blocking! Direct access to metadata database
-    match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&checksum)
-        .await
-    {
-        Ok(Some(wallet)) => {
-            // Check if user has access to this wallet
-            if !user.is_admin {
-                match app_services
-                    .metadata_db
-                    .is_wallet_owned_by_user(&checksum, &user.user_id)
-                    .await
-                {
-                    Ok(true) => {} // User owns the wallet
-                    Ok(false) => {
-                        return (
-                            StatusCode::FORBIDDEN,
-                            Json(ErrorResponse::coded("access_denied", "Access denied")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!("Database error: {}", e))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-
-            (StatusCode::OK, Json(wallet)).into_response()
-        }
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(e.to_string())),
-        )
-            .into_response(),
+    match verify_wallet_access(&app_services, &user, &checksum).await {
+        Ok(wallet) => (StatusCode::OK, Json(wallet)).into_response(),
+        Err(response) => response,
     }
 }
 
@@ -718,52 +593,10 @@ pub async fn get_wallet_detail(
         .as_secs();
 
     // Get the specific wallet - no mutex blocking!
-    let wallet = match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&checksum)
-        .await
-    {
-        Ok(Some(wallet)) => wallet,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response();
-        }
+    let wallet = match verify_wallet_access(&app_services, &user, &checksum).await {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
     };
-
-    // Check if user has permission to access this wallet
-    if !user.is_admin {
-        match app_services
-            .metadata_db
-            .is_wallet_owned_by_user(&checksum, &user.user_id)
-            .await
-        {
-            Ok(true) => {} // User owns the wallet
-            Ok(false) => {
-                return (
-                    StatusCode::FORBIDDEN,
-                    Json(ErrorResponse::coded("access_denied", "Access denied")),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!("Database error: {}", e))),
-                )
-                    .into_response();
-            }
-        }
-    }
 
     // Check if wallet is pending - if so, return minimal data only
     if wallet.status == "pending" {

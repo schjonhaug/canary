@@ -3,6 +3,7 @@
 use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::handlers::helpers::verify_wallet_access;
 use crate::metadata::ProviderType;
 use crate::models::{
     validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
@@ -60,51 +61,9 @@ pub async fn create_wallet_contact(
     }
 
     // Direct metadata access - no mutex blocking!
-    let _wallet = match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&wallet_checksum)
-        .await
-    {
-        Ok(Some(wallet)) => {
-            if !user.is_admin {
-                match app_services
-                    .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
-                    .await
-                {
-                    Ok(true) => {} // User owns the wallet
-                    Ok(false) => {
-                        return (
-                            StatusCode::FORBIDDEN,
-                            Json(ErrorResponse::coded("access_denied", "Access denied")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!("Database error: {}", e))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            wallet
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
+    let _wallet = match verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
     };
 
     // Get user's subscription tier and check contact limit
@@ -414,50 +373,8 @@ pub async fn delete_wallet_contact(
     }
 
     // Direct metadata access - no mutex blocking!
-    match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&wallet_checksum)
-        .await
-    {
-        Ok(Some(_)) => {
-            if !user.is_admin {
-                match app_services
-                    .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
-                    .await
-                {
-                    Ok(true) => {} // User owns the wallet
-                    Ok(false) => {
-                        return (
-                            StatusCode::FORBIDDEN,
-                            Json(ErrorResponse::coded("access_denied", "Access denied")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!("Database error: {}", e))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response();
-        }
+    if let Err(response) = verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+        return response;
     }
 
     let delete_result = app_services
@@ -501,51 +418,9 @@ pub async fn update_wallet_contact(
     }
 
     // Check if wallet exists and user has access
-    let _wallet = match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&wallet_checksum)
-        .await
-    {
-        Ok(Some(wallet)) => {
-            if !user.is_admin {
-                match app_services
-                    .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
-                    .await
-                {
-                    Ok(true) => {} // User owns the wallet
-                    Ok(false) => {
-                        return (
-                            StatusCode::FORBIDDEN,
-                            Json(ErrorResponse::coded("access_denied", "Access denied")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!("Database error: {}", e))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            wallet
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
+    let _wallet = match verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
     };
 
     // Get existing contact to compare notification methods
@@ -888,50 +763,8 @@ pub async fn get_wallet_contacts(
     let start_time = std::time::Instant::now();
 
     // Direct metadata access - no mutex blocking!
-    match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&wallet_checksum)
-        .await
-    {
-        Ok(Some(_)) => {
-            if !user.is_admin {
-                match app_services
-                    .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
-                    .await
-                {
-                    Ok(true) => {} // User owns the wallet
-                    Ok(false) => {
-                        return (
-                            StatusCode::FORBIDDEN,
-                            Json(ErrorResponse::coded("access_denied", "Access denied")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!("Database error: {}", e))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
+    if let Err(response) = verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+        return response;
     }
 
     let contacts_result = app_services

@@ -4,6 +4,7 @@ use crate::api::AppServicesState;
 use crate::auth::{load_twilio_config_from_env, AuthService};
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
+use crate::handlers::helpers::verify_wallet_access;
 use crate::metadata::Language;
 use crate::models::{
     validate_phone_number, ErrorResponse, SendContactVerificationRequest, VerifyContactRequest,
@@ -35,50 +36,8 @@ pub async fn send_contact_verification(
         .unwrap_or(Language::English);
 
     // Check if wallet exists and user has access - no mutex blocking!
-    match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&wallet_checksum)
-        .await
-    {
-        Ok(Some(_)) => {
-            if !user.is_admin {
-                match app_services
-                    .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
-                    .await
-                {
-                    Ok(true) => {} // User owns the wallet
-                    Ok(false) => {
-                        return (
-                            StatusCode::FORBIDDEN,
-                            Json(ErrorResponse::coded("access_denied", "Access denied")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!("Database error: {}", e))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
+    if let Err(response) = verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+        return response;
     }
 
     // Determine verification type and validate input
@@ -567,50 +526,8 @@ pub async fn verify_contact(
     let start_time = std::time::Instant::now();
 
     // Check if wallet exists and user has access - no mutex blocking!
-    match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&wallet_checksum)
-        .await
-    {
-        Ok(Some(_)) => {
-            if !user.is_admin {
-                match app_services
-                    .metadata_db
-                    .is_wallet_owned_by_user(&wallet_checksum, &user.user_id)
-                    .await
-                {
-                    Ok(true) => {} // User owns the wallet
-                    Ok(false) => {
-                        return (
-                            StatusCode::FORBIDDEN,
-                            Json(ErrorResponse::coded("access_denied", "Access denied")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!("Database error: {}", e))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
+    if let Err(response) = verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+        return response;
     }
 
     // Determine what we're verifying and validate input
