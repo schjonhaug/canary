@@ -19,7 +19,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<usize> {
             let conn = pool.get()?;
             let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM contacts WHERE wallet_checksum = ?1",
+                "SELECT COUNT(*) FROM contacts WHERE wallet_checksum = ?1 AND is_active = 1",
                 params![checksum],
                 |row| row.get(0),
             )?;

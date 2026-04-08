@@ -768,6 +768,65 @@ async fn test_deleted_wallets_do_not_consume_limit_slots() {
     assert_eq!(wallets[0].checksum, wallet3);
 }
 
+#[tokio::test]
+async fn test_inactive_contacts_do_not_consume_limit_slots() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "contacts@example.com",
+            "hashedpassword",
+            Some("Contacts User"),
+            false,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Contacts Wallet", "descriptor", &user_id)
+        .await
+        .unwrap();
+
+    let active_contact_id = db
+        .insert_contact_with_notification_methods(&wallet_checksum, "Active Contact", vec![])
+        .await
+        .unwrap();
+
+    let inactive_contact_id = db
+        .insert_contact_with_notification_methods(&wallet_checksum, "Inactive Contact", vec![])
+        .await
+        .unwrap();
+
+    db.update_contact_active_status(&inactive_contact_id, false)
+        .await
+        .unwrap();
+
+    let count = db
+        .count_contacts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(count, 1, "Only active contacts should count toward limits");
+
+    let contacts = db
+        .get_contacts_with_notification_methods_filtered(&wallet_checksum, true)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        contacts.len(),
+        2,
+        "Inactive contacts should remain persisted"
+    );
+    assert!(contacts
+        .iter()
+        .any(|contact| contact.id.as_deref() == Some(&active_contact_id) && contact.is_active));
+    assert!(contacts
+        .iter()
+        .any(|contact| contact.id.as_deref() == Some(&inactive_contact_id) && !contact.is_active));
+}
+
 // ============================
 // Transaction ordering tests
 // ============================
