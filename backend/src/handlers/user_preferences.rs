@@ -53,6 +53,23 @@ pub async fn get_user_preferences(
                 .into_response();
         }
     };
+    let preferred_tx_explorer_id = match app_services
+        .metadata_db
+        .get_user_preferred_tx_explorer_id(&user.user_id)
+        .await
+    {
+        Ok(explorer_id) => explorer_id,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to get user preferences: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
 
     // Get ntfy authentication status (don't expose actual credentials)
     let (ntfy_has_access_token, ntfy_has_credentials, ntfy_username) = match app_services
@@ -70,6 +87,7 @@ pub async fn get_user_preferences(
 
     Json(UserPreferencesResponse {
         preferred_fiat_currency: currency,
+        preferred_tx_explorer_id,
         ntfy_server_url,
         ntfy_has_access_token,
         ntfy_has_credentials,
@@ -161,6 +179,35 @@ pub async fn update_user_preferences(
                 .into_response();
         }
     }
+
+    if let Some(ref preferred_tx_explorer_id) = request.preferred_tx_explorer_id {
+        let explorer_id_to_store = if preferred_tx_explorer_id.is_empty() {
+            None
+        } else {
+            Some(preferred_tx_explorer_id.as_str())
+        };
+
+        if let Err(e) = app_services
+            .metadata_db
+            .update_user_preferred_tx_explorer_id(&user.user_id, explorer_id_to_store)
+            .await
+        {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to update tx explorer preference: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    }
+
+    let current_preferred_tx_explorer_id = app_services
+        .metadata_db
+        .get_user_preferred_tx_explorer_id(&user.user_id)
+        .await
+        .unwrap_or(None);
 
     // Update ntfy_server_url if the field was provided in the request
     // Note: We check if the outer Option is Some (field was in JSON)
@@ -282,6 +329,7 @@ pub async fn update_user_preferences(
 
     Json(UserPreferencesResponse {
         preferred_fiat_currency: current_currency,
+        preferred_tx_explorer_id: current_preferred_tx_explorer_id,
         ntfy_server_url: current_ntfy_url,
         ntfy_has_access_token,
         ntfy_has_credentials,

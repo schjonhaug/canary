@@ -5,7 +5,8 @@ import { ArrowRight, Bell, Loader2, Mail, MessageCircle, XCircle } from "lucide-
 import { NotificationStatus, Transaction } from "../types"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
-import { useMempoolUrl } from "@/hooks/useMempoolUrl"
+import { useTxExplorer } from "@/hooks/useTxExplorer"
+import { buildTransactionExplorerUrl } from "@/lib/tx-explorers"
 
 interface ProviderIconProps {
   providerType: string
@@ -42,8 +43,8 @@ export function TransactionDetails({
 }: TransactionDetailsProps) {
   const t = useTranslations("transactions")
   const { formatTransactionAmount, formatDateTime } = useFormatters()
-  const mempoolBaseUrl = useMempoolUrl()
   const resolvedNotifications = notifications ?? transaction.notification_status ?? []
+  const txExplorer = useTxExplorer()
 
   const renderNotificationGroup = (notificationsToRender: NotificationStatus[]) => {
     const notificationsByContact = notificationsToRender.reduce((acc, notification) => {
@@ -128,11 +129,14 @@ export function TransactionDetails({
           <div className="flex items-center gap-3 text-sm">
             <span className="min-w-[80px] font-medium">{t("details.txid")}:</span>
             <a
-              href={`${mempoolBaseUrl}/tx/${transaction.txid}`}
+              href={buildTransactionExplorerUrl(txExplorer.baseUrl, transaction.txid)}
               target="_blank"
               rel="noopener noreferrer"
               className="font-mono text-xs text-blue-600 underline hover:text-blue-800"
-              title={t("tooltips.viewOnMempool", { txid: transaction.txid })}
+              title={t("tooltips.viewOnExplorer", {
+                txid: transaction.txid,
+                explorer: txExplorer.name,
+              })}
             >
               {transaction.txid.slice(0, 5)}...{transaction.txid.slice(-5)}
             </a>
@@ -149,11 +153,14 @@ export function TransactionDetails({
             <div className="flex items-center gap-3 text-sm">
               <span className="min-w-[80px] font-medium">{t("details.replacedBy")}:</span>
               <a
-                href={`${mempoolBaseUrl}/tx/${transaction.replaced_by_txid}`}
+                href={buildTransactionExplorerUrl(txExplorer.baseUrl, transaction.replaced_by_txid)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono text-xs text-orange-600 underline hover:text-orange-800"
-                title={t("tooltips.viewOnMempool", { txid: transaction.replaced_by_txid })}
+                title={t("tooltips.viewOnExplorer", {
+                  txid: transaction.replaced_by_txid,
+                  explorer: txExplorer.name,
+                })}
               >
                 {transaction.replaced_by_txid.slice(0, 5)}...
                 {transaction.replaced_by_txid.slice(-5)}

@@ -140,6 +140,7 @@ pub struct UpdateUserResponse {
 pub struct UpdateUserPreferencesRequest {
     pub preferred_fiat_currency: Option<String>,
     pub preferred_language: Option<String>,
+    pub preferred_tx_explorer_id: Option<String>,
     pub ntfy_server_url: Option<String>,
     /// Access token for ntfy Bearer authentication (mutually exclusive with username/password)
     pub ntfy_access_token: Option<String>,
@@ -152,6 +153,7 @@ pub struct UpdateUserPreferencesRequest {
 #[derive(Debug, Serialize)]
 pub struct UserPreferencesResponse {
     pub preferred_fiat_currency: String,
+    pub preferred_tx_explorer_id: Option<String>,
     pub ntfy_server_url: Option<String>,
     /// Whether ntfy access token is configured (token value is not exposed)
     pub ntfy_has_access_token: bool,

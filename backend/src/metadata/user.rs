@@ -869,6 +869,41 @@ impl MetadataDb {
         .await?
     }
 
+    /// Get user's preferred transaction explorer ID
+    pub async fn get_user_preferred_tx_explorer_id(&self, user_id: &str) -> Result<Option<String>> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        spawn_blocking(move || -> Result<Option<String>> {
+            let conn = pool.get()?;
+            let explorer_id: Option<Option<String>> = conn
+                .prepare("SELECT preferred_tx_explorer_id FROM users WHERE id = ?1")?
+                .query_row(params![user_id], |row| row.get(0))
+                .optional()?;
+            Ok(explorer_id.flatten())
+        })
+        .await?
+    }
+
+    /// Update user's preferred transaction explorer ID
+    pub async fn update_user_preferred_tx_explorer_id(
+        &self,
+        user_id: &str,
+        explorer_id: Option<&str>,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let explorer_id = explorer_id.map(|id| id.to_string());
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET preferred_tx_explorer_id = ?1 WHERE id = ?2",
+                params![explorer_id, user_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     /// Get user's preferred ntfy server URL (None means use env var or default)
     pub async fn get_user_ntfy_server_url(&self, user_id: &str) -> Result<Option<String>> {
         let pool = self.pool.clone();

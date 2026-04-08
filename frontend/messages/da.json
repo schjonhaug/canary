@@ -78,6 +78,11 @@
     },
     "errors": {
       "sendFailed": "Kunne ikke sende besked"
+    },
+    "txExplorer": {
+      "title": "Transaktionsudforsker",
+      "description": "Vælg hvilken udforsker Canary skal bruge til transaktionslinks.",
+      "note": "Det valgte mål bruges til transaktionslinks og erstatningstransaktioner i hele appen."
     }
   },
   "landing": {
@@ -808,7 +813,7 @@
       "notificationsFailed": "Nogle notifikationer fejlede",
       "cpfpChild": "Child-Pays-For-Parent (CPFP) - Barn af {txid}",
       "replacedByTx": "Erstattet af transaktion: {txid}",
-      "viewOnMempool": "Se {txid} på Mempool Space"
+      "viewOnExplorer": "Se {txid} på {explorer}"
     },
     "timeline": {
       "pending": "AFVENTER",

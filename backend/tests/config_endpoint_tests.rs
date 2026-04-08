@@ -4,7 +4,7 @@ use axum::{
 };
 use canary::{
     api::{create_router_with_services, AppServices},
-    config::{AppConfig, NetworkConfig, OperatingMode},
+    config::{AppConfig, NetworkConfig, OperatingMode, TxExplorerConfig},
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
 };
@@ -60,7 +60,7 @@ async fn body_to_json(body: Body) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn test_config_endpoint_self_hosted_with_mempool_url() {
+async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
     let config = AppConfig::new_for_test(
         NetworkConfig::Regtest,
         Some("tcp://127.0.0.1:50001".to_string()),
@@ -70,7 +70,12 @@ async fn test_config_endpoint_self_hosted_with_mempool_url() {
         None,
         None,
     )
-    .with_mempool_url(Some("http://umbrel.local:3006".to_string()));
+    .with_tx_explorers(vec![TxExplorerConfig {
+        id: "mempool".to_string(),
+        name: "Mempool".to_string(),
+        base_url: Some("http://umbrel.local:3006".to_string()),
+        port: None,
+    }]);
 
     let app = create_test_app_with_config(config).await;
 
@@ -83,12 +88,17 @@ async fn test_config_endpoint_self_hosted_with_mempool_url() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let body = body_to_json(response.into_body()).await;
-    assert_eq!(body["mempool_url"], "http://umbrel.local:3006");
-    assert!(body["mempool_port"].is_null());
+    assert_eq!(body["default_tx_explorer_id"], "mempool");
+    assert_eq!(body["tx_explorers"][0]["id"], "mempool");
+    assert_eq!(
+        body["tx_explorers"][0]["base_url"],
+        "http://umbrel.local:3006"
+    );
+    assert!(body["tx_explorers"][0]["port"].is_null());
 }
 
 #[tokio::test]
-async fn test_config_endpoint_self_hosted_with_mempool_port() {
+async fn test_config_endpoint_self_hosted_with_multiple_tx_explorers() {
     let config = AppConfig::new_for_test(
         NetworkConfig::Regtest,
         Some("tcp://127.0.0.1:50001".to_string()),
@@ -98,7 +108,20 @@ async fn test_config_endpoint_self_hosted_with_mempool_port() {
         None,
         None,
     )
-    .with_mempool_port(Some(3006));
+    .with_tx_explorers(vec![
+        TxExplorerConfig {
+            id: "mempool".to_string(),
+            name: "Mempool".to_string(),
+            base_url: None,
+            port: Some(3006),
+        },
+        TxExplorerConfig {
+            id: "bitfeed".to_string(),
+            name: "Bitfeed".to_string(),
+            base_url: None,
+            port: Some(8314),
+        },
+    ]);
 
     let app = create_test_app_with_config(config).await;
 
@@ -111,8 +134,10 @@ async fn test_config_endpoint_self_hosted_with_mempool_port() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let body = body_to_json(response.into_body()).await;
-    assert!(body["mempool_url"].is_null());
-    assert_eq!(body["mempool_port"], 3006);
+    assert_eq!(body["default_tx_explorer_id"], "mempool-space");
+    assert_eq!(body["tx_explorers"][0]["port"], 3006);
+    assert_eq!(body["tx_explorers"][1]["id"], "bitfeed");
+    assert_eq!(body["tx_explorers"][1]["port"], 8314);
 }
 
 #[tokio::test]
@@ -138,12 +163,12 @@ async fn test_config_endpoint_self_hosted_no_mempool_config() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let body = body_to_json(response.into_body()).await;
-    assert!(body["mempool_url"].is_null());
-    assert!(body["mempool_port"].is_null());
+    assert!(body["tx_explorers"].as_array().unwrap().is_empty());
+    assert_eq!(body["default_tx_explorer_id"], "mempool-space");
 }
 
 #[tokio::test]
-async fn test_config_endpoint_cloud_mode_ignores_mempool_config() {
+async fn test_config_endpoint_cloud_mode_ignores_self_hosted_tx_explorers() {
     let config = AppConfig::new_for_test(
         NetworkConfig::Regtest,
         Some("tcp://127.0.0.1:50001".to_string()),
@@ -153,8 +178,12 @@ async fn test_config_endpoint_cloud_mode_ignores_mempool_config() {
         Some("http://localhost:3001".to_string()),
         Some("test-jwt-secret".to_string()),
     )
-    .with_mempool_url(Some("http://umbrel.local:3006".to_string()))
-    .with_mempool_port(Some(3006));
+    .with_tx_explorers(vec![TxExplorerConfig {
+        id: "mempool".to_string(),
+        name: "Mempool".to_string(),
+        base_url: Some("http://umbrel.local:3006".to_string()),
+        port: None,
+    }]);
 
     let app = create_test_app_with_config(config).await;
 
@@ -167,7 +196,6 @@ async fn test_config_endpoint_cloud_mode_ignores_mempool_config() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let body = body_to_json(response.into_body()).await;
-    // Cloud mode should always return null regardless of config
-    assert!(body["mempool_url"].is_null());
-    assert!(body["mempool_port"].is_null());
+    assert!(body["tx_explorers"].as_array().unwrap().is_empty());
+    assert_eq!(body["default_tx_explorer_id"], "mempool-space");
 }
