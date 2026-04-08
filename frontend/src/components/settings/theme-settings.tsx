@@ -16,7 +16,7 @@ const themeIcons = {
 
 export function ThemeSettings() {
   const t = useTranslations("settings")
-  const { preference, resolvedTheme, setPreference } = useTheme()
+  const { mounted, preference, resolvedTheme, setPreference } = useTheme()
 
   return (
     <Card>
@@ -51,9 +51,13 @@ export function ThemeSettings() {
           </Select>
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          {t(`appearance.current.${resolvedTheme}`)}
-        </p>
+        {mounted ? (
+          <p className="text-sm text-muted-foreground">
+            {t(`appearance.current.${resolvedTheme}`)}
+          </p>
+        ) : (
+          <div aria-hidden="true" className="h-5" />
+        )}
       </CardContent>
     </Card>
   )

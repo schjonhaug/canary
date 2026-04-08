@@ -11,6 +11,7 @@ import {
 } from "@/lib/theme"
 
 interface UseThemeResult {
+  mounted: boolean
   preference: ThemePreference
   resolvedTheme: ResolvedTheme
   setPreference: (nextPreference: ThemePreference) => void
@@ -34,9 +35,14 @@ function getSystemPrefersDark(): boolean {
 }
 
 export function useTheme(): UseThemeResult {
+  const [mounted, setMounted] = useState(false)
   const [preference, setPreferenceState] = useState<ThemePreference>(() => getStoredThemePreference())
   const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => getSystemPrefersDark())
   const resolvedTheme = resolveTheme(preference, systemPrefersDark)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
@@ -46,10 +52,19 @@ export function useTheme(): UseThemeResult {
     }
 
     setSystemPrefersDark(mediaQuery.matches)
-    mediaQuery.addEventListener("change", handleSystemThemeChange)
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleSystemThemeChange)
+
+      return () => {
+        mediaQuery.removeEventListener("change", handleSystemThemeChange)
+      }
+    }
+
+    mediaQuery.addListener(handleSystemThemeChange)
 
     return () => {
-      mediaQuery.removeEventListener("change", handleSystemThemeChange)
+      mediaQuery.removeListener(handleSystemThemeChange)
     }
   }, [])
 
@@ -81,5 +96,5 @@ export function useTheme(): UseThemeResult {
     } catch {}
   }
 
-  return { preference, resolvedTheme, setPreference }
+  return { mounted, preference, resolvedTheme, setPreference }
 }

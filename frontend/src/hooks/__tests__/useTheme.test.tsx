@@ -8,10 +8,8 @@ describe("useTheme", () => {
   let systemPrefersDark = false
   let mediaListeners: Set<MediaListener>
 
-  beforeEach(() => {
-    systemPrefersDark = false
-    mediaListeners = new Set()
-    window.localStorage.clear()
+  function mockMatchMedia(options?: { legacyOnly?: boolean }) {
+    const legacyOnly = options?.legacyOnly ?? false
 
     Object.defineProperty(window, "matchMedia", {
       writable: true,
@@ -19,17 +17,32 @@ describe("useTheme", () => {
         matches: systemPrefersDark,
         media: query,
         onchange: null,
-        addEventListener: (_event: string, listener: MediaListener) => {
+        addEventListener: legacyOnly
+          ? undefined
+          : (_event: string, listener: MediaListener) => {
+              mediaListeners.add(listener)
+            },
+        removeEventListener: legacyOnly
+          ? undefined
+          : (_event: string, listener: MediaListener) => {
+              mediaListeners.delete(listener)
+            },
+        addListener: (listener: MediaListener) => {
           mediaListeners.add(listener)
         },
-        removeEventListener: (_event: string, listener: MediaListener) => {
+        removeListener: (listener: MediaListener) => {
           mediaListeners.delete(listener)
         },
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
         dispatchEvent: jest.fn(),
       })),
     })
+  }
+
+  beforeEach(() => {
+    systemPrefersDark = false
+    mediaListeners = new Set()
+    window.localStorage.clear()
+    mockMatchMedia()
   })
 
   afterEach(() => {
@@ -85,6 +98,18 @@ describe("useTheme", () => {
 
     await waitFor(() => {
       expect(result.current.preference).toBe("dark")
+      expect(result.current.resolvedTheme).toBe("dark")
+    })
+  })
+
+  it("falls back to the legacy MediaQueryList listener API", async () => {
+    mockMatchMedia({ legacyOnly: true })
+
+    const { result } = renderHook(() => useTheme())
+
+    emitSystemThemeChange(true)
+
+    await waitFor(() => {
       expect(result.current.resolvedTheme).toBe("dark")
     })
   })
