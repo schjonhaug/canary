@@ -305,7 +305,7 @@ export function Transactions({
             </div>
 
             {hasMoreTransactions && onLoadMore && (
-              <div className="mt-4 flex justify-center">
+              <div className="mt-4 hidden justify-center md:flex">
                 <Button variant="outline" onClick={onLoadMore} disabled={isLoadingMore}>
                   {isLoadingMore ? tCommon('loading') : tCommon('next')}
                 </Button>

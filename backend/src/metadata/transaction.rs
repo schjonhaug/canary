@@ -138,12 +138,12 @@ impl MetadataDb {
             let conn = pool.get()?;
             let sort_timestamp_expr = "COALESCE(t.confirmed_at, t.first_seen_at)";
             let change_timestamp_expr = "MAX(COALESCE(t.confirmed_at, t.first_seen_at), COALESCE(t.replaced_at, 0))";
-            let mut query = format!(
+            let mut query =
                 "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.parent_txid, t.transaction_status, t.replaced_by_txid, t.replaced_at
                  FROM transactions t
                  JOIN wallets w ON t.wallet_checksum = w.checksum
                  WHERE t.wallet_checksum = ?"
-            );
+                    .to_string();
             let mut query_params = vec![Value::from(checksum.clone())];
 
             if let Some(since_timestamp) = since_timestamp {

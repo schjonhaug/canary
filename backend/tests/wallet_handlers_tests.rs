@@ -12,7 +12,7 @@ use canary::{
     auth::AuthService,
     config::{AppConfig, NetworkConfig, OperatingMode},
     electrum::ElectrumClientManager,
-    metadata::{EventType, TransactionInsert},
+    metadata::{EventType, TransactionCursor, TransactionInsert},
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
@@ -731,6 +731,68 @@ async fn test_get_wallet_detail_not_found() {
         StatusCode::NOT_FOUND,
         "Expected 404 NOT_FOUND for nonexistent wallet detail"
     );
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_invalid_cursor() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets/nonexistent_checksum/detail?cursor=not-a-valid-cursor")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_cursor");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_out_of_range_since_timestamp() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/nonexistent_checksum/detail?since_timestamp={}",
+            u64::MAX
+        ))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_since_timestamp");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_out_of_range_cursor_timestamp() {
+    let (app, _temp_dir) = create_test_app().await;
+    let cursor = TransactionCursor {
+        sort_timestamp: u64::MAX,
+        txid: "txid".to_string(),
+    }
+    .encode();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/nonexistent_checksum/detail?cursor={}",
+            cursor
+        ))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_cursor");
 }
 
 // =============================================================================

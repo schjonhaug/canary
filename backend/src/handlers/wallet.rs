@@ -38,12 +38,24 @@ pub type StripeBillingState = Option<Arc<StripeBilling>>;
 
 const DEFAULT_WALLET_DETAIL_PAGE_SIZE: usize = 100;
 const MAX_WALLET_DETAIL_PAGE_SIZE: usize = 250;
+const MAX_SQL_TIMESTAMP: u64 = i64::MAX as u64;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct WalletDetailQueryParams {
     pub cursor: Option<String>,
     pub page_size: Option<usize>,
     pub since_timestamp: Option<u64>,
+}
+
+fn validate_sql_timestamp(timestamp: u64, code: &'static str) -> Result<(), ErrorResponse> {
+    if timestamp > MAX_SQL_TIMESTAMP {
+        return Err(ErrorResponse::coded(
+            code,
+            "Timestamp is out of range".to_string(),
+        ));
+    }
+
+    Ok(())
 }
 
 /// Non-blocking wallet creation using AppServices (avoids WalletManager mutex)
@@ -609,7 +621,14 @@ pub async fn get_wallet_detail(
         .clamp(1, MAX_WALLET_DETAIL_PAGE_SIZE);
     let cursor = match query.cursor.as_deref() {
         Some(cursor) => match TransactionCursor::decode(cursor) {
-            Ok(cursor) => Some(cursor),
+            Ok(cursor) => {
+                if let Err(error) = validate_sql_timestamp(cursor.sort_timestamp, "invalid_cursor")
+                {
+                    return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+                }
+
+                Some(cursor)
+            }
             Err(error) => {
                 return (
                     StatusCode::BAD_REQUEST,
@@ -620,6 +639,11 @@ pub async fn get_wallet_detail(
         },
         None => None,
     };
+    if let Some(since_timestamp) = query.since_timestamp {
+        if let Err(error) = validate_sql_timestamp(since_timestamp, "invalid_since_timestamp") {
+            return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+        }
+    }
     let page_request = TransactionPageRequest {
         limit: page_size,
         cursor,
