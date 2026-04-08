@@ -1142,6 +1142,10 @@ volumes:
         println!("✅ Alice funded with 1.0 BTC (index 0)");
         println!("✅ Charlie funded with 0.5 BTC (index 250)");
         println!("✅ Bob unfunded (for testing receive scenarios)");
+
+        // Wait for Fulcrum to sync with Bitcoin Core before proceeding
+        Self::wait_for_fulcrum_sync_after_mining(&bitcoin_container_name, 0).await?;
+
         Ok(())
     }
 
@@ -1585,6 +1589,186 @@ volumes:
         } else {
             Err(format!("Failed to parse bumpfee result: {}", result).into())
         }
+    }
+
+    /// Send a transaction to the same wallet (self-send)
+    pub async fn send_self_transaction(
+        &self,
+        wallet: &str,
+        amount: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        println!("💸 Self-sending {} BTC within {} wallet", amount, wallet);
+
+        let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
+
+        // Load wallet first
+        let _ = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[&format!("-rpcwallet={}", wallet), "loadwallet", wallet],
+        );
+
+        // Get a new address from the SAME wallet
+        let to_address = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[&format!("-rpcwallet={}", wallet), "getnewaddress"],
+        )?
+        .trim()
+        .trim_matches('"')
+        .to_string();
+
+        let mut send_args = vec![
+            format!("-rpcwallet={}", wallet),
+            "sendtoaddress".to_string(),
+            to_address,
+        ];
+
+        if amount == "max" {
+            let balance = Self::bitcoin_cli(
+                &bitcoin_container_name,
+                &[&format!("-rpcwallet={}", wallet), "getbalance"],
+            )?
+            .trim()
+            .to_string();
+            send_args.push(balance);
+            send_args.push("".to_string()); // comment
+            send_args.push("".to_string()); // comment_to
+            send_args.push("true".to_string()); // subtractfeefromamount
+        } else {
+            send_args.push(amount.to_string());
+        }
+
+        let send_args_str: Vec<&str> = send_args.iter().map(|s| s.as_str()).collect();
+        let txid = Self::bitcoin_cli(&bitcoin_container_name, &send_args_str)?
+            .trim()
+            .trim_matches('"')
+            .to_string();
+
+        println!("✅ Self-send transaction sent: {}", txid);
+        Ok(txid)
+    }
+
+    /// Recreate the WalletManager to simulate a service restart.
+    /// Uses the same database, wallet directory, and Fulcrum connection.
+    pub async fn recreate_wallet_manager(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("🔄 Recreating WalletManager (simulating service restart)...");
+
+        let wallet_dir = self.wallet_manager.wallet_dir.clone();
+        let network = self.wallet_manager.get_network();
+        let electrum_url = format!("tcp://127.0.0.1:{}", self.fulcrum_port);
+
+        // Get the database path from the temp dir
+        let db_path = self._temp_dir.path().join("test.db");
+
+        let test_config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            None,
+            "127.0.0.1:3000".to_string(),
+            self._temp_dir.path().to_string_lossy().to_string(),
+            OperatingMode::SelfHosted,
+            None,
+            None,
+        );
+
+        let (notification_sender, _notification_receiver) =
+            broadcast::channel::<TransactionNotification>(100);
+
+        // Drop old wallet_manager by replacing it
+        self.wallet_manager = Arc::new(
+            WalletManager::new(
+                notification_sender,
+                wallet_dir,
+                &db_path.to_string_lossy(),
+                network,
+                &electrum_url,
+                &test_config,
+            )
+            .await,
+        );
+
+        // Wait for wallets to be ready after recreation
+        let checksums: Vec<&str> = if self.charlie_checksum.is_empty() {
+            vec![self.alice_checksum.as_str(), self.bob_checksum.as_str()]
+        } else {
+            vec![
+                self.alice_checksum.as_str(),
+                self.bob_checksum.as_str(),
+                self.charlie_checksum.as_str(),
+            ]
+        };
+        Self::wait_for_wallets_ready(&self.metadata_db, &checksums).await?;
+
+        println!("✅ WalletManager recreated successfully");
+        Ok(())
+    }
+
+    /// Send a batch transaction to multiple recipients using sendmany
+    pub async fn send_batch_transaction(
+        &self,
+        from_wallet: &str,
+        recipients: &[(&str, &str)], // [(wallet_name, amount), ...]
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        println!(
+            "💸 Batch sending from {} to {} recipients",
+            from_wallet,
+            recipients.len()
+        );
+
+        let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
+
+        // Load source wallet
+        let _ = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[
+                &format!("-rpcwallet={}", from_wallet),
+                "loadwallet",
+                from_wallet,
+            ],
+        );
+
+        // Get fresh addresses for each recipient and build the JSON map using serde_json
+        let mut address_amounts = serde_json::Map::new();
+        for (recipient_wallet, amount) in recipients {
+            let address = Self::bitcoin_cli(
+                &bitcoin_container_name,
+                &[&format!("-rpcwallet={}", recipient_wallet), "getnewaddress"],
+            )?
+            .trim()
+            .trim_matches('"')
+            .to_string();
+
+            let amount_f64: f64 = amount
+                .parse()
+                .map_err(|e| format!("Invalid amount '{}': {}", amount, e))?;
+            address_amounts.insert(
+                address,
+                serde_json::Value::Number(
+                    serde_json::Number::from_f64(amount_f64)
+                        .ok_or("Invalid float for JSON number")?,
+                ),
+            );
+            println!(
+                "   {} -> {} ({} BTC)",
+                from_wallet, recipient_wallet, amount
+            );
+        }
+
+        let address_map = serde_json::Value::Object(address_amounts).to_string();
+
+        let txid = Self::bitcoin_cli(
+            &bitcoin_container_name,
+            &[
+                &format!("-rpcwallet={}", from_wallet),
+                "sendmany",
+                "",
+                &address_map,
+            ],
+        )?
+        .trim()
+        .trim_matches('"')
+        .to_string();
+
+        println!("✅ Batch transaction sent: {}", txid);
+        Ok(txid)
     }
 
     /// Send a simple transaction (non-RBF) - convenience wrapper
