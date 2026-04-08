@@ -828,9 +828,13 @@ pub async fn get_transaction_notifications(
                 .into_response();
         }
         Err(e) => {
+            warn!(
+                "Failed to load wallet {} while reading notifications: {}",
+                checksum, e
+            );
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new("Database error")),
             )
                 .into_response();
         }
@@ -851,9 +855,13 @@ pub async fn get_transaction_notifications(
                     .into_response();
             }
             Err(e) => {
+                warn!(
+                    "Failed to verify wallet {} ownership for user {}: {}",
+                    checksum, user.user_id, e
+                );
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!("Database error: {}", e))),
+                    Json(ErrorResponse::new("Database error")),
                 )
                     .into_response();
             }
@@ -877,9 +885,13 @@ pub async fn get_transaction_notifications(
                 .into_response();
         }
         Err(e) => {
+            warn!(
+                "Failed to load transaction {} for wallet {}: {}",
+                txid, wallet.checksum, e
+            );
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new("Database error")),
             )
                 .into_response();
         }
@@ -891,13 +903,18 @@ pub async fn get_transaction_notifications(
         .await
     {
         Ok(notifications) => (StatusCode::OK, Json(notifications)).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to get transaction notifications: {}",
-                e
-            ))),
-        )
-            .into_response(),
+        Err(e) => {
+            warn!(
+                "Failed to load notifications for transaction {} in wallet {}: {}",
+                txid, wallet.checksum, e
+            );
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    "Failed to get transaction notifications",
+                )),
+            )
+                .into_response()
+        }
     }
 }

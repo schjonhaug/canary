@@ -176,7 +176,6 @@ export function Transactions({
       }
     }
   }, [expandedRows, filteredTransactions, lastUpdate, loadTransactionNotifications])
-
   const toggleRowExpansion = (transaction: Transaction) => {
     const rowKey = getTransactionRowKey(transaction)
     let shouldLoadNotifications = false

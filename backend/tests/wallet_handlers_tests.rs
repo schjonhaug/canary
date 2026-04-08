@@ -921,6 +921,63 @@ async fn test_get_wallet_detail_omits_notification_status_and_endpoint_loads_it(
     assert_eq!(notifications[0].provider_name, "email");
 }
 
+#[tokio::test]
+async fn test_get_transaction_notifications_wallet_not_found() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets/nonexistent/transactions/abcd/notifications")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "wallet_not_found");
+}
+
+#[tokio::test]
+async fn test_get_transaction_notifications_transaction_not_found() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Notification Missing Tx Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{}/transactions/{}/notifications",
+            checksum, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ))
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "transaction_not_found");
+}
+
 // =============================================================================
 // PUT /api/wallets/{checksum} - Update Wallet Tests
 // =============================================================================

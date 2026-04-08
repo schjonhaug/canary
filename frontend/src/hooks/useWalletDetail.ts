@@ -13,6 +13,10 @@ import { api } from '../lib/api'
 const DEFAULT_PAGE_SIZE = 100
 const POLLING_PAGE_SIZE = 250
 
+function getTransactionCacheKey(walletChecksum: string, txid: string) {
+  return `${walletChecksum}:${txid}`
+}
+
 function getTransactionSortTimestamp(transaction: Transaction) {
   return transaction.confirmed_at ?? transaction.first_seen_at
 }
@@ -82,18 +86,22 @@ export function useWalletDetail(walletChecksum: string | null) {
   }, [billingStatus?.limits?.sync_interval_seconds])
 
   const pruneNotificationCaches = useCallback((nextTransactions: Transaction[]) => {
-    const nextTxids = new Set(nextTransactions.map((transaction) => transaction.txid))
+    const nextKeys = new Set(
+      nextTransactions.map((transaction) =>
+        getTransactionCacheKey(transaction.wallet_checksum, transaction.txid)
+      )
+    )
 
     setTransactionNotifications((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([txid]) => nextTxids.has(txid)))
+      Object.fromEntries(Object.entries(prev).filter(([key]) => nextKeys.has(key)))
     )
     setLoadingTransactionNotifications((prev) =>
       Object.fromEntries(
-        Object.entries(prev).filter(([txid, loading]) => nextTxids.has(txid) && loading)
+        Object.entries(prev).filter(([key, loading]) => nextKeys.has(key) && loading)
       )
     )
     setTransactionNotificationErrors((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([txid]) => nextTxids.has(txid)))
+      Object.fromEntries(Object.entries(prev).filter(([key]) => nextKeys.has(key)))
     )
   }, [])
 
@@ -241,46 +249,48 @@ export function useWalletDetail(walletChecksum: string | null) {
     }
   }, [applySharedData, handleRequestError, pruneNotificationCaches, requestWalletDetail])
 
-  const loadTransactionNotifications = useCallback(async (txid: string) => {
-    if (!isAuthenticated || !walletChecksum) {
+  const loadTransactionNotifications = useCallback(async (transactionWalletChecksum: string, txid: string) => {
+    if (!isAuthenticated) {
       return
     }
 
+    const cacheKey = getTransactionCacheKey(transactionWalletChecksum, txid)
+
     if (
-      transactionNotificationsRef.current[txid] ||
-      loadingTransactionNotificationsRef.current[txid]
+      transactionNotificationsRef.current[cacheKey] ||
+      loadingTransactionNotificationsRef.current[cacheKey]
     ) {
       return
     }
 
     setLoadingTransactionNotifications((prev) => ({
       ...prev,
-      [txid]: true,
+      [cacheKey]: true,
     }))
     setTransactionNotificationErrors((prev) => ({
       ...prev,
-      [txid]: null,
+      [cacheKey]: null,
     }))
 
     try {
-      const notifications = await api.getTransactionNotifications(walletChecksum, txid)
+      const notifications = await api.getTransactionNotifications(transactionWalletChecksum, txid)
       setTransactionNotifications((prev) => ({
         ...prev,
-        [txid]: notifications,
+        [cacheKey]: notifications,
       }))
     } catch (err) {
       console.error('Failed to fetch transaction notifications:', err)
       setTransactionNotificationErrors((prev) => ({
         ...prev,
-        [txid]: 'Failed to load transaction notifications',
+        [cacheKey]: 'Failed to load transaction notifications',
       }))
     } finally {
       setLoadingTransactionNotifications((prev) => ({
         ...prev,
-        [txid]: false,
+        [cacheKey]: false,
       }))
     }
-  }, [isAuthenticated, walletChecksum])
+  }, [isAuthenticated])
 
   const refresh = useCallback(() => {
     historyCursorRef.current = null
