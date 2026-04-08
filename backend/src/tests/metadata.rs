@@ -947,7 +947,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
 }
 
 #[tokio::test]
-async fn test_wallet_last_activity_prefers_confirmed_at() {
+async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions() {
     let (db, _temp_dir) = create_test_db().await;
 
     let user_id = db
@@ -987,7 +987,7 @@ async fn test_wallet_last_activity_prefers_confirmed_at() {
         fee_sats: None,
         block_height: Some(1),
         first_seen_at: now,
-        confirmed_at: Some(1231006505),
+        confirmed_at: Some(1231006505), // Bitcoin genesis block timestamp
         parent_txid: None,
         transaction_status: "confirmed".to_string(),
         replaced_by_txid: None,
@@ -1038,6 +1038,57 @@ async fn test_wallet_last_activity_prefers_confirmed_at() {
         wallets[0].last_activity.as_deref(),
         Some(expected_last_activity.as_str()),
         "Wallet last_activity should use the latest confirmed_at value, not first_seen_at"
+    );
+}
+
+#[tokio::test]
+async fn test_wallet_last_activity_falls_back_to_first_seen_at_for_pending_transactions() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-pending-last-activity@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Pending Wallet", "descriptor2", &user_id)
+        .await
+        .unwrap();
+
+    let pending_first_seen_at = 1740000200u64;
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_pending_only".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 750,
+        fee_sats: None,
+        block_height: None,
+        first_seen_at: pending_first_seen_at,
+        confirmed_at: None,
+        parent_txid: None,
+        transaction_status: "pending".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    let wallets = db.get_wallets_for_user(Some(&user_id)).await.unwrap();
+    let expected_last_activity = pending_first_seen_at.to_string();
+
+    assert_eq!(wallets.len(), 1);
+    assert_eq!(
+        wallets[0].last_activity.as_deref(),
+        Some(expected_last_activity.as_str()),
+        "Pending-only wallets should use first_seen_at as the last_activity fallback"
     );
 }
 
