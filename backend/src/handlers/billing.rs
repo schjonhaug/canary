@@ -125,11 +125,8 @@ pub async fn create_checkout_session(
                 }
             };
 
-            let redirect_url = format!(
-                "{}/subscription?success=true&provider=btcpay&tier={}&billing_period=monthly",
-                frontend_url,
-                tier.as_str()
-            );
+            let redirect_url =
+                format!("{}/subscription?success=true&provider=btcpay", frontend_url);
 
             btcpay
                 .create_cloud_subscription_checkout(tier, &redirect_url)
@@ -365,7 +362,8 @@ pub async fn get_billing_status(
         billing_provider: config
             .active_billing_provider()
             .map(|provider| provider.as_str().to_string()),
-        can_manage_billing: config.active_billing_provider() == Some(BillingProvider::Stripe),
+        can_manage_billing: config.active_billing_provider() == Some(BillingProvider::Stripe)
+            && user_record.stripe_customer_id.is_some(),
         stripe_customer_id: user_record.stripe_customer_id,
         wallet_count,
         contact_count,

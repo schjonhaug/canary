@@ -143,7 +143,7 @@ describe('PlansModal Basic Functionality', () => {
       expect(screen.getByTestId('plan-comparison')).toBeInTheDocument()
     })
 
-    it('marks active BTCPay subscribers as paid even without billing management', () => {
+    it('keeps change-plan actions available for active BTCPay subscribers', () => {
       render(
         <PlansModal
           {...defaultProps}
@@ -156,8 +156,12 @@ describe('PlansModal Basic Functionality', () => {
       )
 
       expect(mockPlanComparison).toHaveBeenCalled()
-      const lastCall = mockPlanComparison.mock.calls.at(-1)?.[0] as { hasPaidSubscription?: boolean }
+      const lastCall = mockPlanComparison.mock.calls.at(-1)?.[0] as {
+        hasPaidSubscription?: boolean
+        onUpgrade?: unknown
+      }
       expect(lastCall?.hasPaidSubscription).toBe(true)
+      expect(lastCall?.onUpgrade).toBeDefined()
     })
   })
 
