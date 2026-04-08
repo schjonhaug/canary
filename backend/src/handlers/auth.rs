@@ -25,6 +25,23 @@ use crate::auth::{
 
 /// Cookie name for storing the JWT token
 const AUTH_COOKIE_NAME: &str = "auth_token";
+const ENUMERATION_RESPONSE_FLOOR: std::time::Duration = std::time::Duration::from_millis(1500);
+const FORGOT_PASSWORD_SUCCESS_MESSAGE: &str =
+    "If an account with that email exists, a password reset link has been sent.";
+
+async fn pad_enumeration_response(start_time: std::time::Instant) {
+    pad_response_to_duration(start_time, ENUMERATION_RESPONSE_FLOOR).await;
+}
+
+async fn pad_response_to_duration(
+    start_time: std::time::Instant,
+    target_duration: std::time::Duration,
+) {
+    let elapsed = start_time.elapsed();
+    if elapsed < target_duration {
+        tokio::time::sleep(target_duration - elapsed).await;
+    }
+}
 
 /// Build an HttpOnly, Secure, SameSite=Lax cookie for authentication
 /// The cookie expires in 7 days, matching the JWT token expiration
@@ -152,11 +169,7 @@ pub async fn register(
             // Ensure response timing matches a real registration to prevent timing attacks.
             // Real registrations involve password hashing + Stripe + email (~1-2s).
             // Sleep for the remaining time up to the target, rather than a fixed delay.
-            let target_duration = std::time::Duration::from_millis(1500);
-            let elapsed = start_time.elapsed();
-            if elapsed < target_duration {
-                tokio::time::sleep(target_duration - elapsed).await;
-            }
+            pad_enumeration_response(start_time).await;
 
             let elapsed = start_time.elapsed();
             info!("register (existing email) completed in {:?}", elapsed);
@@ -948,8 +961,13 @@ pub async fn forgot_password(
         Ok(Some(user)) => user,
         Ok(None) => {
             // Don't reveal whether user exists or not
+            pad_enumeration_response(start_time).await;
+
+            let elapsed = start_time.elapsed();
+            info!("forgot_password (unknown email) completed in {:?}", elapsed);
+
             return Json(serde_json::json!({
-                "message": "If an account with that email exists, a password reset link has been sent."
+                "message": FORGOT_PASSWORD_SUCCESS_MESSAGE
             }))
             .into_response();
         }
@@ -1020,7 +1038,7 @@ pub async fn forgot_password(
     info!("forgot_password completed in {:?}", elapsed);
 
     Json(serde_json::json!({
-        "message": "If an account with that email exists, a password reset link has been sent."
+        "message": FORGOT_PASSWORD_SUCCESS_MESSAGE
     }))
     .into_response()
 }
@@ -1382,4 +1400,19 @@ pub async fn update_user(
     info!("update_user completed in {:?}", elapsed);
 
     Json(UpdateUserResponse { user: user_info }).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pad_response_to_duration;
+
+    #[tokio::test]
+    async fn pad_response_to_duration_waits_until_floor() {
+        let start_time = std::time::Instant::now();
+        let target_duration = std::time::Duration::from_millis(20);
+
+        pad_response_to_duration(start_time, target_duration).await;
+
+        assert!(start_time.elapsed() >= target_duration);
+    }
 }
