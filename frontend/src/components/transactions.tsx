@@ -48,6 +48,7 @@ export function Transactions({
   const t = useTranslations('transactions')
   const tCommon = useTranslations('common')
   const { formatTransactionAmount, formatDateTime } = useFormatters()
+  const loadOlderLabel = 'Load older'
 
   // Track when we've received data for the first time
   useEffect(() => {
@@ -207,7 +208,7 @@ export function Transactions({
               {hasMoreTransactions && onLoadMore && (
                 <div className="mt-4 flex justify-center">
                   <Button variant="outline" onClick={onLoadMore} disabled={isLoadingMore}>
-                    {isLoadingMore ? tCommon('loading') : tCommon('next')}
+                    {isLoadingMore ? tCommon('loading') : loadOlderLabel}
                   </Button>
                 </div>
               )}
@@ -307,7 +308,7 @@ export function Transactions({
             {hasMoreTransactions && onLoadMore && (
               <div className="mt-4 hidden justify-center md:flex">
                 <Button variant="outline" onClick={onLoadMore} disabled={isLoadingMore}>
-                  {isLoadingMore ? tCommon('loading') : tCommon('next')}
+                  {isLoadingMore ? tCommon('loading') : loadOlderLabel}
                 </Button>
               </div>
             )}

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/auth-context';
 import { getApiBaseUrl } from '../lib/utils';
 
 const DEFAULT_PAGE_SIZE = 100;
+const POLLING_PAGE_SIZE = 250;
 
 function getTransactionSortTimestamp(transaction: Transaction) {
   return transaction.confirmed_at ?? transaction.first_seen_at;
@@ -46,6 +47,8 @@ export function useWalletDetail(walletChecksum: string | null) {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const historyCursorRef = useRef<string | null>(null);
   const incrementalSinceTimestampRef = useRef<number | null>(null);
+  const isPollingRef = useRef(false);
+  const isLoadingMoreRef = useRef(false);
 
   // Get polling interval from billing status sync interval or default to 60 seconds
   const getPollingInterval = useCallback(() => {
@@ -56,6 +59,7 @@ export function useWalletDetail(walletChecksum: string | null) {
   const requestWalletDetail = useCallback(async (params?: {
     cursor?: string | null;
     sinceTimestamp?: number | null;
+    pageSize?: number;
   }) => {
     // Only fetch data if user is authenticated and walletChecksum is provided
     if (!isAuthenticated || !walletChecksum) {
@@ -64,7 +68,7 @@ export function useWalletDetail(walletChecksum: string | null) {
 
     const baseUrl = getApiBaseUrl();
     const searchParams = new URLSearchParams({
-      page_size: DEFAULT_PAGE_SIZE.toString(),
+      page_size: (params?.pageSize ?? DEFAULT_PAGE_SIZE).toString(),
     });
 
     if (params?.cursor) {
@@ -87,6 +91,24 @@ export function useWalletDetail(walletChecksum: string | null) {
 
     return (await response.json()) as WalletDetailResponse;
   }, [isAuthenticated, walletChecksum]);
+
+  const handleRequestError = useCallback((err: unknown, fallbackMessage: string) => {
+    if (err instanceof Response && err.status === 404) {
+      setError('Wallet not found');
+      setIsConnected(true);
+      return;
+    }
+
+    if (err instanceof Response && err.status === 403) {
+      setError('Access denied to wallet');
+      setIsConnected(true);
+      return;
+    }
+
+    console.error(fallbackMessage, err);
+    setError('Failed to load wallet detail');
+    setIsConnected(false);
+  }, []);
 
   const applySharedData = useCallback((data: WalletDetailResponse) => {
     setWallet(data.wallet);
@@ -113,71 +135,60 @@ export function useWalletDetail(walletChecksum: string | null) {
       setHasMoreTransactions(data.pagination.has_more);
       incrementalSinceTimestampRef.current = data.timestamp;
     } catch (err) {
-      if (err instanceof Response && err.status === 404) {
-        setError('Wallet not found');
-        setIsConnected(true);
-      } else if (err instanceof Response && err.status === 403) {
-        setError('Access denied to wallet');
-        setIsConnected(true);
-      } else {
-        console.error('Failed to fetch wallet detail:', err);
-        setError('Failed to load wallet detail');
-        setIsConnected(false);
-      }
+      handleRequestError(err, 'Failed to fetch wallet detail:');
     } finally {
       setIsLoading(false);
     }
-  }, [applySharedData, requestWalletDetail]);
+  }, [applySharedData, handleRequestError, requestWalletDetail]);
 
   const pollWalletDetail = useCallback(async () => {
+    if (isPollingRef.current) {
+      return;
+    }
+
     const sinceTimestamp = incrementalSinceTimestampRef.current;
     if (!sinceTimestamp) {
       await fetchWalletDetail();
       return;
     }
 
+    isPollingRef.current = true;
     try {
-      let cursor: string | null = null;
-      let firstResponseTimestamp: number | null = null;
-      const deltaTransactions: Transaction[] = [];
+      const data = await requestWalletDetail({
+        sinceTimestamp,
+        pageSize: POLLING_PAGE_SIZE,
+      });
+      if (!data) {
+        return;
+      }
 
-      do {
-        const data = await requestWalletDetail({ cursor, sinceTimestamp });
-        if (!data) {
-          return;
-        }
+      if (data.pagination.has_more) {
+        await fetchWalletDetail();
+        return;
+      }
 
-        if (firstResponseTimestamp === null) {
-          firstResponseTimestamp = data.timestamp;
-        }
-
-        applySharedData(data);
-        deltaTransactions.push(...data.transactions);
-        cursor = data.pagination.next_cursor;
-      } while (cursor);
-
-      if (deltaTransactions.length > 0) {
+      applySharedData(data);
+      if (data.transactions.length > 0) {
         setTransactions((currentTransactions) =>
-          mergeTransactions(currentTransactions, deltaTransactions)
+          mergeTransactions(currentTransactions, data.transactions)
         );
       }
 
-      if (firstResponseTimestamp !== null) {
-        incrementalSinceTimestampRef.current = firstResponseTimestamp;
-        setLastUpdate(firstResponseTimestamp);
-      }
+      incrementalSinceTimestampRef.current = data.timestamp;
+      setLastUpdate(data.timestamp);
     } catch (err) {
-      console.error('Failed to poll wallet detail:', err);
-      setError('Failed to load wallet detail');
-      setIsConnected(false);
+      handleRequestError(err, 'Failed to poll wallet detail:');
+    } finally {
+      isPollingRef.current = false;
     }
-  }, [applySharedData, fetchWalletDetail, requestWalletDetail]);
+  }, [applySharedData, fetchWalletDetail, handleRequestError, requestWalletDetail]);
 
   const loadMoreTransactions = useCallback(async () => {
-    if (!historyCursorRef.current) {
+    if (!historyCursorRef.current || isLoadingMoreRef.current) {
       return;
     }
 
+    isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
     try {
       const data = await requestWalletDetail({ cursor: historyCursorRef.current });
@@ -192,14 +203,16 @@ export function useWalletDetail(walletChecksum: string | null) {
       historyCursorRef.current = data.pagination.next_cursor;
       setHasMoreTransactions(data.pagination.has_more);
     } catch (err) {
-      console.error('Failed to load more transactions:', err);
-      setError('Failed to load wallet detail');
+      handleRequestError(err, 'Failed to load more transactions:');
     } finally {
+      isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [applySharedData, requestWalletDetail]);
+  }, [applySharedData, handleRequestError, requestWalletDetail]);
 
   const refresh = useCallback(() => {
+    historyCursorRef.current = null;
+    incrementalSinceTimestampRef.current = null;
     fetchWalletDetail();
   }, [fetchWalletDetail]);
 

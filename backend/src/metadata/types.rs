@@ -392,7 +392,7 @@ impl TransactionCursor {
             .parse::<u64>()
             .map_err(|_| ParseError("Invalid cursor".to_string()))?;
 
-        if txid.is_empty() {
+        if txid.len() != 64 || !txid.chars().all(|character| character.is_ascii_hexdigit()) {
             return Err(ParseError("Invalid cursor".to_string()));
         }
 

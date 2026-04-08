@@ -644,6 +644,16 @@ pub async fn get_wallet_detail(
             return (StatusCode::BAD_REQUEST, Json(error)).into_response();
         }
     }
+    if cursor.is_some() && query.since_timestamp.is_some() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "invalid_pagination_mode",
+                "cursor and since_timestamp cannot be combined",
+            )),
+        )
+            .into_response();
+    }
     let page_request = TransactionPageRequest {
         limit: page_size,
         cursor,

@@ -775,7 +775,7 @@ async fn test_get_wallet_detail_rejects_out_of_range_cursor_timestamp() {
     let (app, _temp_dir) = create_test_app().await;
     let cursor = TransactionCursor {
         sort_timestamp: u64::MAX,
-        txid: "txid".to_string(),
+        txid: "a".repeat(64),
     }
     .encode();
 
@@ -793,6 +793,31 @@ async fn test_get_wallet_detail_rejects_out_of_range_cursor_timestamp() {
 
     let body = body_to_json(response.into_body()).await;
     assert_eq!(body["error_code"], "invalid_cursor");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_combined_cursor_and_since_timestamp() {
+    let (app, _temp_dir) = create_test_app().await;
+    let cursor = TransactionCursor {
+        sort_timestamp: 1,
+        txid: "a".repeat(64),
+    }
+    .encode();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/nonexistent_checksum/detail?cursor={}&since_timestamp=1",
+            cursor
+        ))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_pagination_mode");
 }
 
 // =============================================================================
