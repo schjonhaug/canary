@@ -57,7 +57,10 @@ fn is_tx_confirmed(network: Network, height: i32, txid: &Txid) -> bool {
             && txid == &*MAINNET_GENESIS_COINBASE_TXID)
 }
 
+/// Convert a confirmed Electrum height into the persisted unsigned block height.
+/// Callers must only use this after `is_tx_confirmed(...)` returns true.
 fn confirmed_block_height(height: i32) -> u32 {
+    debug_assert!(height >= 0, "confirmed transactions must have a non-negative block height");
     u32::try_from(height).expect("confirmed transactions must have a non-negative block height")
 }
 
@@ -1904,6 +1907,9 @@ impl WalletSyncService {
                             None => {
                                 let ts = match client.get_block_header(confirmed_height).await {
                                     Ok(header) => header.timestamp,
+                                    // Grouped watchers can run on any configured network, so fall
+                                    // back to a generic timestamp when there is no mainnet genesis
+                                    // special-case to apply.
                                     Err(_) => genesis_block_timestamp(network, confirmed_height)
                                         .unwrap_or_else(|| {
                                             current_unix_timestamp_or(
@@ -2162,7 +2168,9 @@ mod tests {
 
     #[test]
     fn test_is_tx_confirmed_positive_height() {
-        let txid = Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX).unwrap();
+        let txid =
+            Txid::from_str("1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
 
         assert!(is_tx_confirmed(Network::Bitcoin, 1, &txid));
         assert!(is_tx_confirmed(Network::Testnet, 100, &txid));
@@ -2174,6 +2182,7 @@ mod tests {
         let txid = Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX).unwrap();
 
         assert!(!is_tx_confirmed(Network::Testnet, 0, &txid));
+        assert!(!is_tx_confirmed(Network::Regtest, 0, &txid));
     }
 
     #[test]
@@ -2199,10 +2208,26 @@ mod tests {
             0,
             &MAINNET_GENESIS_COINBASE_TXID
         ));
+        assert!(!is_tx_confirmed(
+            Network::Regtest,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID
+        ));
     }
 
     #[test]
     fn test_confirmed_block_height_accepts_genesis_height() {
         assert_eq!(confirmed_block_height(0), 0);
+    }
+
+    #[test]
+    fn test_genesis_block_timestamp_is_mainnet_only() {
+        assert_eq!(
+            genesis_block_timestamp(Network::Bitcoin, 0),
+            Some(MAINNET_GENESIS_BLOCK_TIMESTAMP)
+        );
+        assert_eq!(genesis_block_timestamp(Network::Testnet, 0), None);
+        assert_eq!(genesis_block_timestamp(Network::Regtest, 0), None);
+        assert_eq!(genesis_block_timestamp(Network::Bitcoin, 1), None);
     }
 }
