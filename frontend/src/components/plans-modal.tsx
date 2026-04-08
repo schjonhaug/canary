@@ -111,9 +111,8 @@ export function PlansModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent 
-        className="!max-w-none !w-[85vw] max-h-[90vh] overflow-y-auto p-8"
-        style={{ width: '85vw !important', maxWidth: 'none !important' }}
+      <DialogContent
+        className="!max-w-none !w-[calc(100%-1rem)] sm:!w-[calc(100%-2rem)] md:!w-[85vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6 md:p-8"
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -135,7 +134,7 @@ export function PlansModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {!isTrialUser && (
             <div className="text-sm text-muted-foreground text-center">
               {t('currentUsage', { count: currentCount, limit: currentLimit })}
