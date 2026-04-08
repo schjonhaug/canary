@@ -1,7 +1,9 @@
 use crate::api::AppServicesState;
 use crate::auth::AuthUser;
+use crate::config::AppConfig;
 use crate::metadata::{UserRecord, WalletMetadata};
 use crate::models::ErrorResponse;
+use crate::subscription::check_limit;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Json, Response},
@@ -10,6 +12,11 @@ use axum::{
 pub(crate) enum DatabaseErrorMessage {
     Raw,
     Prefix(&'static str),
+}
+
+pub(crate) enum ResourceLimit<'a> {
+    Wallet { user_id: &'a str },
+    Contact { wallet_checksum: &'a str },
 }
 
 fn error_response(
@@ -112,5 +119,68 @@ pub(crate) async fn require_recent_verification(
             None,
             format!("{error_prefix}: {error}"),
         )),
+    }
+}
+
+pub(crate) async fn check_resource_limit(
+    app_services: &AppServicesState,
+    config: &AppConfig,
+    user_record: &UserRecord,
+    resource: ResourceLimit<'_>,
+) -> Result<(), Response> {
+    if config.is_self_hosted_mode() || user_record.is_admin {
+        return Ok(());
+    }
+
+    let tier_limits = user_record.subscription_tier.limits_for_api();
+
+    match resource {
+        ResourceLimit::Wallet { user_id } => {
+            let wallet_count = app_services
+                .metadata_db
+                .count_wallets_for_user(user_id)
+                .await
+                .map_err(|error| {
+                    error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        None,
+                        format!("Failed to check wallet limit: {error}"),
+                    )
+                })?;
+
+            check_limit(wallet_count, tier_limits.max_wallets, "Wallet").map_err(|limit_error| {
+                error_response(
+                    StatusCode::FORBIDDEN,
+                    Some("wallet_limit_reached"),
+                    limit_error.to_string(),
+                )
+            })
+        }
+        ResourceLimit::Contact { wallet_checksum } => {
+            let contact_count = app_services
+                .metadata_db
+                .count_contacts_for_wallet(wallet_checksum)
+                .await
+                .map_err(|error| {
+                    error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        None,
+                        format!("Failed to check contact limit: {error}"),
+                    )
+                })?;
+
+            check_limit(
+                contact_count,
+                tier_limits.max_contacts_per_wallet,
+                "Contact",
+            )
+            .map_err(|limit_error| {
+                error_response(
+                    StatusCode::FORBIDDEN,
+                    Some("contact_limit_reached"),
+                    limit_error.to_string(),
+                )
+            })
+        }
     }
 }
