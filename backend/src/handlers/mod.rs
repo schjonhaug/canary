@@ -8,6 +8,7 @@ mod config;
 mod contact;
 mod contact_verification;
 pub(crate) mod donations;
+mod helpers;
 mod notifications;
 mod providers;
 mod user_preferences;
