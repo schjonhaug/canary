@@ -12,6 +12,7 @@ use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::{Address, Network, PublicKey, ScriptBuf, Txid};
 use bdk_wallet::{rusqlite::Connection, PersistedWallet};
 use std::str::FromStr;
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 use tokio::time::sleep;
@@ -20,15 +21,20 @@ use tracing::{debug, error, info, warn};
 /// Number of consecutive reconnection failures before sending an alert
 const ALERT_FAILURE_THRESHOLD: u32 = 3;
 
-/// The genesis coinbase txid — the only confirmed transaction at block height 0.
+/// The Bitcoin mainnet genesis coinbase txid — the only confirmed transaction at block height 0.
 /// Electrum returns height=0 for both mempool transactions and genesis block transactions,
-/// so we special-case this txid to correctly mark it as confirmed.
-const GENESIS_COINBASE_TXID: &str =
+/// so mainnet needs a typed txid special-case while non-mainnet networks treat height=0 as
+/// unconfirmed.
+const MAINNET_GENESIS_COINBASE_TXID_HEX: &str =
     "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b";
+static MAINNET_GENESIS_COINBASE_TXID: LazyLock<Txid> = LazyLock::new(|| {
+    Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX)
+        .expect("mainnet genesis coinbase txid must be valid")
+});
 
-/// Genesis block timestamp (2009-01-03T18:15:05Z) as a fallback when the Electrum
-/// server cannot serve the block 0 header.
-const GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
+/// Bitcoin mainnet genesis block timestamp (2009-01-03T18:15:05Z) as a fallback when the
+/// Electrum server cannot serve the block 0 header.
+const MAINNET_GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
 
 fn current_unix_timestamp_or(default: u64, context: &str) -> u64 {
     current_unix_timestamp().unwrap_or_else(|error| {
@@ -42,10 +48,25 @@ fn current_unix_timestamp_or(default: u64, context: &str) -> u64 {
 
 /// Check if a transaction is confirmed based on Electrum's height convention.
 /// height > 0: confirmed at that block height
-/// height == 0: unconfirmed (mempool), EXCEPT for the genesis coinbase
+/// height == 0: unconfirmed (mempool), EXCEPT for Bitcoin mainnet genesis coinbase
 /// height < 0: unconfirmed with unconfirmed parents
-fn is_tx_confirmed(height: i32, txid: &str) -> bool {
-    height > 0 || (height == 0 && txid == GENESIS_COINBASE_TXID)
+fn is_tx_confirmed(network: Network, height: i32, txid: &Txid) -> bool {
+    height > 0
+        || (height == 0
+            && matches!(network, Network::Bitcoin)
+            && txid == &*MAINNET_GENESIS_COINBASE_TXID)
+}
+
+fn confirmed_block_height(height: i32) -> u32 {
+    u32::try_from(height).expect("confirmed transactions must have a non-negative block height")
+}
+
+fn genesis_block_timestamp(network: Network, height: u32) -> Option<u64> {
+    if matches!(network, Network::Bitcoin) && height == 0 {
+        Some(MAINNET_GENESIS_BLOCK_TIMESTAMP)
+    } else {
+        None
+    }
 }
 
 /// Transaction summary: (txid, amount_sats, block_height, is_confirmed, first_seen_at, confirmed_at)
@@ -464,7 +485,7 @@ impl WalletSyncService {
                     .map(|tx| tx.first_seen_at)
                     .unwrap_or_else(|| {
                         current_unix_timestamp_or(
-                            GENESIS_BLOCK_TIMESTAMP,
+                            MAINNET_GENESIS_BLOCK_TIMESTAMP,
                             "canonical transaction timestamp",
                         )
                     });
@@ -1085,7 +1106,7 @@ impl WalletSyncService {
                 bdk_wallet::chain::ChainPosition::Confirmed { .. } => {
                     confirmed_at.unwrap_or_else(|| {
                         current_unix_timestamp_or(
-                            GENESIS_BLOCK_TIMESTAMP,
+                            MAINNET_GENESIS_BLOCK_TIMESTAMP,
                             "confirmed first-seen timestamp",
                         )
                     })
@@ -1093,7 +1114,7 @@ impl WalletSyncService {
                 bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => first_seen
                     .unwrap_or_else(|| {
                         current_unix_timestamp_or(
-                            GENESIS_BLOCK_TIMESTAMP,
+                            MAINNET_GENESIS_BLOCK_TIMESTAMP,
                             "unconfirmed first-seen timestamp",
                         )
                     }),
@@ -1538,9 +1559,9 @@ impl WalletSyncService {
     ) -> Result<bool> {
         let sync_start = Instant::now();
         debug!("[{}] Starting address-based sync", wallet_checksum);
+        let network = self.config.network.to_bdk_network();
 
-        let script =
-            Self::script_from_watch_descriptor(descriptor, self.config.network.to_bdk_network())?;
+        let script = Self::script_from_watch_descriptor(descriptor, network)?;
 
         // Get Electrum client
         let client = match electrum_manager {
@@ -1585,28 +1606,32 @@ impl WalletSyncService {
 
         // Process each transaction in history
         for hist_entry in &history {
+            let txid = hist_entry.tx_hash;
             let txid_str = hist_entry.tx_hash.to_string();
 
             if let Some(existing) = existing_tx_map.get(txid_str.as_str()) {
                 // Check if an existing pending transaction got confirmed
-                if is_tx_confirmed(hist_entry.height, &txid_str) && existing.block_height.is_none()
+                if is_tx_confirmed(network, hist_entry.height, &txid)
+                    && existing.block_height.is_none()
                 {
+                    let confirmed_height = confirmed_block_height(hist_entry.height);
                     // Transaction just confirmed
-                    let confirmed_at = match client.get_block_header(hist_entry.height as u32).await
-                    {
+                    let confirmed_at = match client.get_block_header(confirmed_height).await {
                         Ok(header) => header.timestamp,
-                        Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                        Err(_) => current_unix_timestamp_or(
-                            GENESIS_BLOCK_TIMESTAMP,
-                            "address-watch confirmation timestamp",
-                        ),
+                        Err(_) => genesis_block_timestamp(network, confirmed_height)
+                            .unwrap_or_else(|| {
+                                current_unix_timestamp_or(
+                                    MAINNET_GENESIS_BLOCK_TIMESTAMP,
+                                    "address-watch confirmation timestamp",
+                                )
+                            }),
                     };
 
                     self.metadata_db
                         .update_transaction_confirmation(
                             wallet_checksum,
                             &txid_str,
-                            hist_entry.height as u32,
+                            confirmed_height,
                             confirmed_at,
                         )
                         .await?;
@@ -1633,8 +1658,6 @@ impl WalletSyncService {
             }
 
             // New transaction - fetch full tx to determine amount
-            let txid = Txid::from_str(&txid_str)
-                .map_err(|e| anyhow!("Failed to parse txid {}: {}", txid_str, e))?;
             let full_tx = match client.transaction_get(&txid).await {
                 Ok(tx) => tx,
                 Err(e) => {
@@ -1700,19 +1723,19 @@ impl WalletSyncService {
                 (EventType::Receive, received)
             };
 
-            let is_confirmed = is_tx_confirmed(hist_entry.height, &txid_str);
+            let is_confirmed = is_tx_confirmed(network, hist_entry.height, &txid);
             let now = current_unix_timestamp_or(
-                GENESIS_BLOCK_TIMESTAMP,
+                MAINNET_GENESIS_BLOCK_TIMESTAMP,
                 "address-watch transaction timestamp",
             );
 
             let (confirmed_at, block_height) = if is_confirmed {
-                let timestamp = match client.get_block_header(hist_entry.height as u32).await {
+                let confirmed_height = confirmed_block_height(hist_entry.height);
+                let timestamp = match client.get_block_header(confirmed_height).await {
                     Ok(header) => header.timestamp,
-                    Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                    Err(_) => now,
+                    Err(_) => genesis_block_timestamp(network, confirmed_height).unwrap_or(now),
                 };
-                (Some(timestamp), Some(hist_entry.height as u32))
+                (Some(timestamp), Some(confirmed_height))
             } else {
                 (None, None)
             };
@@ -1811,14 +1834,14 @@ impl WalletSyncService {
         suppress_notifications: bool,
     ) -> Result<bool> {
         let sync_start = Instant::now();
+        let network = self.config.network.to_bdk_network();
         info!(
             "Starting grouped address watch sync for {} watchers (descriptor: {})",
             wallet_checksums.len(),
             descriptor
         );
 
-        let script =
-            Self::script_from_watch_descriptor(descriptor, self.config.network.to_bdk_network())?;
+        let script = Self::script_from_watch_descriptor(descriptor, network)?;
 
         // Get Electrum client
         let client = match electrum_manager {
@@ -1867,27 +1890,29 @@ impl WalletSyncService {
             let mut has_changes = false;
 
             for hist_entry in &history {
+                let txid = hist_entry.tx_hash;
                 let txid_str = hist_entry.tx_hash.to_string();
 
                 if let Some(existing) = existing_tx_map.get(txid_str.as_str()) {
                     // Check if an existing pending transaction got confirmed
-                    if is_tx_confirmed(hist_entry.height, &txid_str)
+                    if is_tx_confirmed(network, hist_entry.height, &txid)
                         && existing.block_height.is_none()
                     {
-                        let confirmed_at = match block_header_cache.get(&(hist_entry.height as u32))
-                        {
+                        let confirmed_height = confirmed_block_height(hist_entry.height);
+                        let confirmed_at = match block_header_cache.get(&confirmed_height) {
                             Some(&ts) => ts,
                             None => {
-                                let ts =
-                                    match client.get_block_header(hist_entry.height as u32).await {
-                                        Ok(header) => header.timestamp,
-                                        Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                                        Err(_) => current_unix_timestamp_or(
-                                            0,
-                                            "watcher confirmation timestamp",
-                                        ),
-                                    };
-                                block_header_cache.insert(hist_entry.height as u32, ts);
+                                let ts = match client.get_block_header(confirmed_height).await {
+                                    Ok(header) => header.timestamp,
+                                    Err(_) => genesis_block_timestamp(network, confirmed_height)
+                                        .unwrap_or_else(|| {
+                                            current_unix_timestamp_or(
+                                                0,
+                                                "watcher confirmation timestamp",
+                                            )
+                                        }),
+                                };
+                                block_header_cache.insert(confirmed_height, ts);
                                 ts
                             }
                         };
@@ -1896,7 +1921,7 @@ impl WalletSyncService {
                             .update_transaction_confirmation(
                                 wallet_checksum,
                                 &txid_str,
-                                hist_entry.height as u32,
+                                confirmed_height,
                                 confirmed_at,
                             )
                             .await?;
@@ -1918,8 +1943,6 @@ impl WalletSyncService {
                 }
 
                 // New transaction for this watcher - fetch full tx
-                let txid = Txid::from_str(&txid_str)
-                    .map_err(|e| anyhow!("Failed to parse txid {}: {}", txid_str, e))?;
                 let full_tx = match client.transaction_get(&txid).await {
                     Ok(tx) => tx,
                     Err(e) => {
@@ -1977,26 +2000,27 @@ impl WalletSyncService {
                     (EventType::Receive, received)
                 };
 
-                let is_confirmed = is_tx_confirmed(hist_entry.height, &txid_str);
+                let is_confirmed = is_tx_confirmed(network, hist_entry.height, &txid);
                 let now = current_unix_timestamp_or(
-                    GENESIS_BLOCK_TIMESTAMP,
+                    MAINNET_GENESIS_BLOCK_TIMESTAMP,
                     "watcher transaction timestamp",
                 );
 
                 let (confirmed_at, block_height) = if is_confirmed {
-                    let timestamp = match block_header_cache.get(&(hist_entry.height as u32)) {
+                    let confirmed_height = confirmed_block_height(hist_entry.height);
+                    let timestamp = match block_header_cache.get(&confirmed_height) {
                         Some(&ts) => ts,
                         None => {
-                            let ts = match client.get_block_header(hist_entry.height as u32).await {
+                            let ts = match client.get_block_header(confirmed_height).await {
                                 Ok(header) => header.timestamp,
-                                Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                                Err(_) => now,
+                                Err(_) => genesis_block_timestamp(network, confirmed_height)
+                                    .unwrap_or(now),
                             };
-                            block_header_cache.insert(hist_entry.height as u32, ts);
+                            block_header_cache.insert(confirmed_height, ts);
                             ts
                         }
                     };
-                    (Some(timestamp), Some(hist_entry.height as u32))
+                    (Some(timestamp), Some(confirmed_height))
                 } else {
                     (None, None)
                 };
@@ -2138,23 +2162,47 @@ mod tests {
 
     #[test]
     fn test_is_tx_confirmed_positive_height() {
-        assert!(is_tx_confirmed(1, "some_txid"));
-        assert!(is_tx_confirmed(100, "some_txid"));
-        assert!(is_tx_confirmed(800000, "some_txid"));
+        let txid = Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX).unwrap();
+
+        assert!(is_tx_confirmed(Network::Bitcoin, 1, &txid));
+        assert!(is_tx_confirmed(Network::Testnet, 100, &txid));
+        assert!(is_tx_confirmed(Network::Regtest, 800000, &txid));
     }
 
     #[test]
     fn test_is_tx_confirmed_mempool() {
-        assert!(!is_tx_confirmed(0, "some_mempool_txid"));
+        let txid = Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX).unwrap();
+
+        assert!(!is_tx_confirmed(Network::Testnet, 0, &txid));
     }
 
     #[test]
     fn test_is_tx_confirmed_unconfirmed_parents() {
-        assert!(!is_tx_confirmed(-1, "some_txid"));
+        let txid = Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX).unwrap();
+
+        assert!(!is_tx_confirmed(Network::Bitcoin, -1, &txid));
     }
 
     #[test]
     fn test_is_tx_confirmed_genesis_coinbase() {
-        assert!(is_tx_confirmed(0, GENESIS_COINBASE_TXID));
+        assert!(is_tx_confirmed(
+            Network::Bitcoin,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID
+        ));
+    }
+
+    #[test]
+    fn test_is_tx_confirmed_genesis_coinbase_requires_mainnet() {
+        assert!(!is_tx_confirmed(
+            Network::Testnet,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID
+        ));
+    }
+
+    #[test]
+    fn test_confirmed_block_height_accepts_genesis_height() {
+        assert_eq!(confirmed_block_height(0), 0);
     }
 }
