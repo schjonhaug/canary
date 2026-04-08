@@ -5,7 +5,9 @@ use crate::metadata::{
     BalanceAlertTriggerParams, EventType, MetadataDb, Transaction, TransactionInsert,
     TransactionNotification,
 };
-use crate::utils::{extract_address_from_descriptor, extract_pubkey_from_descriptor};
+use crate::utils::{
+    current_unix_timestamp, extract_address_from_descriptor, extract_pubkey_from_descriptor,
+};
 use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::{Address, Network, PublicKey, ScriptBuf, Txid};
 use bdk_wallet::{rusqlite::Connection, PersistedWallet};
@@ -27,6 +29,16 @@ const GENESIS_COINBASE_TXID: &str =
 /// Genesis block timestamp (2009-01-03T18:15:05Z) as a fallback when the Electrum
 /// server cannot serve the block 0 header.
 const GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
+
+fn current_unix_timestamp_or(default: u64, context: &str) -> u64 {
+    current_unix_timestamp().unwrap_or_else(|error| {
+        warn!(
+            "Failed to read current UNIX timestamp for {}: {}. Falling back to {}.",
+            context, error, default
+        );
+        default
+    })
+}
 
 /// Check if a transaction is confirmed based on Electrum's height convention.
 /// height > 0: confirmed at that block height
@@ -451,10 +463,7 @@ impl WalletSyncService {
                     .get(txid.as_str())
                     .map(|tx| tx.first_seen_at)
                     .unwrap_or_else(|| {
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs()
+                        current_unix_timestamp_or(0, "canonical transaction timestamp")
                     });
 
                 (
@@ -1050,22 +1059,18 @@ impl WalletSyncService {
                                     wallet_checksum, anchor.block_id.height, e
                                 );
                                 // Fallback to current time only if fetch fails
-                                Some(
-                                    std::time::SystemTime::now()
-                                        .duration_since(std::time::UNIX_EPOCH)
-                                        .unwrap()
-                                        .as_secs(),
-                                )
+                                Some(current_unix_timestamp_or(
+                                    0,
+                                    "confirmed transaction timestamp",
+                                ))
                             }
                         }
                     } else {
                         // No electrum client available, use current time as fallback
-                        Some(
-                            std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs(),
-                        )
+                        Some(current_unix_timestamp_or(
+                            0,
+                            "confirmed transaction timestamp",
+                        ))
                     };
                     (block_height, confirmed_at)
                 }
@@ -1076,18 +1081,12 @@ impl WalletSyncService {
             let first_seen_at = match &tx.chain_position {
                 bdk_wallet::chain::ChainPosition::Confirmed { .. } => {
                     confirmed_at.unwrap_or_else(|| {
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs()
+                        current_unix_timestamp_or(0, "confirmed first-seen timestamp")
                     })
                 }
                 bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => first_seen
                     .unwrap_or_else(|| {
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs()
+                        current_unix_timestamp_or(0, "unconfirmed first-seen timestamp")
                     }),
             };
 
@@ -1588,10 +1587,9 @@ impl WalletSyncService {
                     {
                         Ok(header) => header.timestamp,
                         Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                        Err(_) => std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs(),
+                        Err(_) => {
+                            current_unix_timestamp_or(0, "address-watch confirmation timestamp")
+                        }
                     };
 
                     self.metadata_db
@@ -1693,10 +1691,7 @@ impl WalletSyncService {
             };
 
             let is_confirmed = is_tx_confirmed(hist_entry.height, &txid_str);
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
+            let now = current_unix_timestamp_or(0, "address-watch transaction timestamp");
 
             let (confirmed_at, block_height) = if is_confirmed {
                 let timestamp = match client.get_block_header(hist_entry.height as u32).await {
@@ -1874,10 +1869,10 @@ impl WalletSyncService {
                                     match client.get_block_header(hist_entry.height as u32).await {
                                         Ok(header) => header.timestamp,
                                         Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                                        Err(_) => std::time::SystemTime::now()
-                                            .duration_since(std::time::UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs(),
+                                        Err(_) => current_unix_timestamp_or(
+                                            0,
+                                            "watcher confirmation timestamp",
+                                        ),
                                     };
                                 block_header_cache.insert(hist_entry.height as u32, ts);
                                 ts
@@ -1970,10 +1965,7 @@ impl WalletSyncService {
                 };
 
                 let is_confirmed = is_tx_confirmed(hist_entry.height, &txid_str);
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs();
+                let now = current_unix_timestamp_or(0, "watcher transaction timestamp");
 
                 let (confirmed_at, block_height) = if is_confirmed {
                     let timestamp = match block_header_cache.get(&(hist_entry.height as u32)) {

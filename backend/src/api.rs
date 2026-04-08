@@ -15,6 +15,7 @@ use crate::handlers::{
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
 use crate::stripe_billing::StripeBilling;
+use crate::utils::current_unix_timestamp;
 use crate::wallet::WalletCreationService;
 use axum::http::{HeaderName, HeaderValue, Method};
 use axum::{
@@ -23,7 +24,6 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
@@ -41,10 +41,8 @@ impl AppServices {
         is_admin: bool,
     ) -> Result<WalletsListResponse, anyhow::Error> {
         // Get current timestamp
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|error| anyhow::anyhow!("system clock is before UNIX_EPOCH: {}", error))?
-            .as_secs();
+        let timestamp = current_unix_timestamp()
+            .map_err(|error| anyhow::anyhow!("system clock is before UNIX_EPOCH: {}", error))?;
 
         // Get wallets based on user permissions - directly from metadata DB
         let wallets = if is_admin {

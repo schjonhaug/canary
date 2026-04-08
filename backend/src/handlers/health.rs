@@ -2,7 +2,7 @@ use crate::api::AppServicesState;
 use crate::extractors::AuthenticatedUser;
 use crate::models::{
     CheckResult, CleanupReport, DatabaseHealthResponse, DuplicatesReport, ErrorResponse,
-    IntegrityChecks, IntegrityCheckRequest, IntegrityReportResponse, OrphanedRecordsReport,
+    IntegrityCheckRequest, IntegrityChecks, IntegrityReportResponse, OrphanedRecordsReport,
     PoolHealth,
 };
 use axum::{
@@ -13,7 +13,9 @@ use axum::{
 use tracing::{info, warn};
 
 /// Build the full database health report (shared by both endpoints)
-async fn build_health_report(app_services: &AppServicesState) -> Result<DatabaseHealthResponse, Response> {
+async fn build_health_report(
+    app_services: &AppServicesState,
+) -> Result<DatabaseHealthResponse, Response> {
     let db = &app_services.metadata_db;
 
     // Pool health (synchronous, no DB query)
@@ -38,7 +40,10 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
     let sqlite_results = db.check_sqlite_integrity().await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("SQLite integrity check failed: {}", e))),
+            Json(ErrorResponse::new(format!(
+                "SQLite integrity check failed: {}",
+                e
+            ))),
         )
             .into_response()
     })?;
@@ -57,12 +62,20 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
     let fk_violations = db.check_foreign_keys().await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Foreign key check failed: {}", e))),
+            Json(ErrorResponse::new(format!(
+                "Foreign key check failed: {}",
+                e
+            ))),
         )
             .into_response()
     })?;
     let foreign_keys = CheckResult {
-        status: if fk_violations.is_empty() { "pass" } else { "fail" }.to_string(),
+        status: if fk_violations.is_empty() {
+            "pass"
+        } else {
+            "fail"
+        }
+        .to_string(),
         message: if fk_violations.is_empty() {
             "No foreign key violations".to_string()
         } else {
@@ -78,28 +91,40 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
     };
 
     // Orphaned records (run concurrently)
-    let (orphaned_contacts_r, orphaned_methods_r, orphaned_logs_r, orphaned_txs_r, orphaned_alerts_r, orphaned_alert_logs_r) =
-        tokio::try_join!(
-            db.find_orphaned_contacts(),
-            db.find_orphaned_notification_methods(),
-            db.find_orphaned_notification_logs(),
-            db.find_orphaned_transactions(),
-            db.find_orphaned_balance_alerts(),
-            db.find_orphaned_balance_alert_notification_logs(),
-        ).map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Orphan check failed: {}", e))),
-            )
-                .into_response()
-        })?;
+    let (
+        orphaned_contacts_r,
+        orphaned_methods_r,
+        orphaned_logs_r,
+        orphaned_txs_r,
+        orphaned_alerts_r,
+        orphaned_alert_logs_r,
+    ) = tokio::try_join!(
+        db.find_orphaned_contacts(),
+        db.find_orphaned_notification_methods(),
+        db.find_orphaned_notification_logs(),
+        db.find_orphaned_transactions(),
+        db.find_orphaned_balance_alerts(),
+        db.find_orphaned_balance_alert_notification_logs(),
+    )
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Orphan check failed: {}", e))),
+        )
+            .into_response()
+    })?;
     let orphaned_contacts = orphaned_contacts_r.len();
     let orphaned_methods = orphaned_methods_r.len();
     let orphaned_logs = orphaned_logs_r.len();
     let orphaned_txs = orphaned_txs_r.len();
     let orphaned_alerts = orphaned_alerts_r.len();
     let orphaned_alert_logs = orphaned_alert_logs_r.len();
-    let total_orphans = orphaned_contacts + orphaned_methods + orphaned_logs + orphaned_txs + orphaned_alerts + orphaned_alert_logs;
+    let total_orphans = orphaned_contacts
+        + orphaned_methods
+        + orphaned_logs
+        + orphaned_txs
+        + orphaned_alerts
+        + orphaned_alert_logs;
 
     let orphaned_records = OrphanedRecordsReport {
         status: if total_orphans == 0 { "pass" } else { "warn" }.to_string(),
@@ -113,13 +138,20 @@ async fn build_health_report(app_services: &AppServicesState) -> Result<Database
     };
 
     // Duplicates
-    let dup_methods = db.find_duplicate_notification_methods().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Duplicate notification methods check failed: {}", e))),
-        )
-            .into_response()
-    })?.len();
+    let dup_methods = db
+        .find_duplicate_notification_methods()
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Duplicate notification methods check failed: {}",
+                    e
+                ))),
+            )
+                .into_response()
+        })?
+        .len();
 
     let duplicates = DuplicatesReport {
         status: if dup_methods == 0 { "pass" } else { "warn" }.to_string(),
@@ -165,7 +197,10 @@ pub async fn get_database_health(
     if !user.is_admin {
         return (
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded("access_denied", "Admin access required")),
+            Json(ErrorResponse::coded(
+                "access_denied",
+                "Admin access required",
+            )),
         )
             .into_response();
     }
@@ -185,7 +220,10 @@ pub async fn run_integrity_check(
     if !user.is_admin {
         return (
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded("access_denied", "Admin access required")),
+            Json(ErrorResponse::coded(
+                "access_denied",
+                "Admin access required",
+            )),
         )
             .into_response();
     }
@@ -193,7 +231,10 @@ pub async fn run_integrity_check(
     let auto_fix = request.map(|r| r.auto_fix).unwrap_or(false);
 
     let cleanup = if auto_fix {
-        warn!("Admin user {} triggered database auto-fix cleanup", user.user_id);
+        warn!(
+            "Admin user {} triggered database auto-fix cleanup",
+            user.user_id
+        );
         let db = &app_services.metadata_db;
 
         match db.run_cleanup().await {
@@ -228,7 +269,10 @@ pub async fn run_integrity_check(
                 warn!("Database cleanup failed: {}", e);
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::coded("database_cleanup_failed", format!("Database cleanup failed: {}", e))),
+                    Json(ErrorResponse::coded(
+                        "database_cleanup_failed",
+                        format!("Database cleanup failed: {}", e),
+                    )),
                 )
                     .into_response();
             }

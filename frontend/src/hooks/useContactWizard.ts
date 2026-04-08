@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 
 interface UseContactWizardProps {
   name: string
@@ -35,28 +35,27 @@ export function useContactWizard({
   emailVerified,
 }: UseContactWizardProps): UseContactWizardReturn {
   const [currentStep, setCurrentStep] = useState(0)
-  // Track if user has entered the verification step to prevent jumping back
-  const enteredVerificationStep = useRef(false)
+  const [hasEnteredVerificationStep, setHasEnteredVerificationStep] = useState(false)
 
   const needsVerificationStep = smsVerificationRequired || emailVerificationRequired
 
   // Keep 3 steps if user is on or has visited verification step (prevents
   // jumping back when verification completes and requirements clear)
-  const totalSteps = (needsVerificationStep || enteredVerificationStep.current) ? 3 : 2
+  const totalSteps = needsVerificationStep || hasEnteredVerificationStep ? 3 : 2
 
   // Track when user enters step 2
   useEffect(() => {
     if (currentStep === 2) {
-      enteredVerificationStep.current = true
+      setHasEnteredVerificationStep(true)
     }
   }, [currentStep])
 
   // Clamp currentStep when totalSteps decreases and user hasn't entered verification
   useEffect(() => {
-    if (!enteredVerificationStep.current) {
+    if (!hasEnteredVerificationStep) {
       setCurrentStep(prev => Math.min(prev, totalSteps - 1))
     }
-  }, [totalSteps])
+  }, [hasEnteredVerificationStep, totalSteps])
 
   const hasAtLeastOneProvider = useMemo(() => {
     return Object.entries(enabledProviders).some(([key, enabled]) => {
@@ -85,10 +84,10 @@ export function useContactWizard({
   }, [smsVerificationRequired, smsVerified, emailVerificationRequired, emailVerified])
 
   const isLastStep = useMemo(() => {
-    if (currentStep === 1 && !needsVerificationStep && !enteredVerificationStep.current) return true
+    if (currentStep === 1 && !needsVerificationStep && !hasEnteredVerificationStep) return true
     if (currentStep === 2) return true
     return false
-  }, [currentStep, needsVerificationStep])
+  }, [currentStep, hasEnteredVerificationStep, needsVerificationStep])
 
   const goNext = useCallback(() => {
     if (canGoNext && currentStep < totalSteps - 1) {
@@ -104,7 +103,7 @@ export function useContactWizard({
 
   const reset = useCallback(() => {
     setCurrentStep(0)
-    enteredVerificationStep.current = false
+    setHasEnteredVerificationStep(false)
   }, [])
 
   return {
