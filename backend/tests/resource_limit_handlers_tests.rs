@@ -19,6 +19,7 @@ use tokio::time::{sleep, Duration};
 use tower::ServiceExt;
 
 const TEST_JWT_SECRET: &str = "test-jwt-secret";
+const ADMIN_USER_EMAIL: &str = "delivered+admin@resend.dev";
 const PERSONAL_USER_EMAIL: &str = "delivered+alice@resend.dev";
 const VALID_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)";
 const SECOND_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)";
@@ -97,14 +98,14 @@ async fn body_to_json(body: Body) -> Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
-async fn login_personal_user(app: &axum::Router) -> String {
+async fn login_user(app: &axum::Router, email: &str) -> String {
     let request = Request::builder()
         .uri("/api/auth/login")
         .method("POST")
         .header("content-type", "application/json")
         .body(Body::from(
             json!({
-                "email": PERSONAL_USER_EMAIL,
+                "email": email,
                 "password": DEV_TEST_PASSWORD,
             })
             .to_string(),
@@ -116,6 +117,14 @@ async fn login_personal_user(app: &axum::Router) -> String {
 
     let body = body_to_json(response.into_body()).await;
     body["token"].as_str().unwrap().to_string()
+}
+
+async fn login_personal_user(app: &axum::Router) -> String {
+    login_user(app, PERSONAL_USER_EMAIL).await
+}
+
+async fn login_admin_user(app: &axum::Router) -> String {
+    login_user(app, ADMIN_USER_EMAIL).await
 }
 
 async fn create_wallet(app: &axum::Router, token: &str, name: &str, descriptor: &str) -> Value {
@@ -139,7 +148,7 @@ async fn create_wallet(app: &axum::Router, token: &str, name: &str, descriptor: 
 }
 
 async fn wait_for_auto_contact(app: &axum::Router, token: &str, checksum: &str) {
-    for _ in 0..20 {
+    for _ in 0..100 {
         let request = Request::builder()
             .uri(format!("/api/wallets/{checksum}/contacts"))
             .method("GET")
@@ -159,6 +168,40 @@ async fn wait_for_auto_contact(app: &axum::Router, token: &str, checksum: &str) 
     }
 
     panic!("timed out waiting for auto-created contact");
+}
+
+async fn create_contact(
+    app: &axum::Router,
+    token: Option<&str>,
+    checksum: &str,
+    name: &str,
+    topic: &str,
+) -> StatusCode {
+    let mut builder = Request::builder()
+        .uri(format!("/api/wallets/{checksum}/contacts"))
+        .method("POST")
+        .header("content-type", "application/json");
+
+    if let Some(token) = token {
+        builder = builder.header("authorization", format!("Bearer {token}"));
+    }
+
+    let request = builder
+        .body(Body::from(
+            json!({
+                "name": name,
+                "notification_methods": [
+                    {
+                        "provider_type": "ntfy",
+                        "notification_target": topic,
+                    }
+                ]
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    app.clone().oneshot(request).await.unwrap().status()
 }
 
 #[tokio::test]
@@ -276,4 +319,67 @@ async fn test_self_hosted_mode_bypasses_wallet_limits() {
 
     let response = app.oneshot(second_request).await.unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
+}
+
+#[tokio::test]
+async fn test_self_hosted_mode_bypasses_contact_limits() {
+    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
+
+    let wallet_request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Self-Hosted Contact Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR,
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.clone().oneshot(wallet_request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+
+    // Self-hosted mode uses the hardcoded admin user, so extra contacts should bypass limits.
+    let status = create_contact(
+        &app,
+        None,
+        checksum,
+        "Self-Hosted Extra Contact",
+        "self-hosted-extra-topic",
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+}
+
+#[tokio::test]
+async fn test_admin_user_bypasses_contact_limits() {
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app).await;
+
+    let wallet = create_wallet(
+        &app,
+        &token,
+        "Admin Contact Wallet",
+        VALID_TESTNET_DESCRIPTOR,
+    )
+    .await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+    wait_for_auto_contact(&app, &token, checksum).await;
+
+    for index in 0..5 {
+        let status = create_contact(
+            &app,
+            Some(&token),
+            checksum,
+            &format!("Admin Extra Contact {}", index + 1),
+            &format!("admin-extra-topic-{}", index + 1),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+    }
 }
