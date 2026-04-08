@@ -1696,6 +1696,33 @@ impl WalletSyncService {
     ) -> std::collections::HashMap<String, String> {
         let mut replacements = std::collections::HashMap::new();
 
+        let mut candidate_states: Vec<_> = current_tx_states.iter().collect();
+        candidate_states.sort_by_key(|(txid, state)| (state.first_seen_at, txid.as_str()));
+
+        for (candidate_txid, candidate_state) in candidate_states {
+            if let Some((original_txid, replacement_txid)) =
+                Self::find_address_watch_replacement_for_state(
+                    candidate_txid,
+                    candidate_state,
+                    existing_transactions,
+                    disappeared_pending_txs,
+                )
+            {
+                replacements
+                    .entry(original_txid)
+                    .or_insert(replacement_txid);
+            }
+        }
+
+        replacements
+    }
+
+    fn find_address_watch_replacement_for_state(
+        candidate_txid: &str,
+        candidate_state: &AddressWatchTxState,
+        existing_transactions: &[crate::metadata::TransactionWithWallet],
+        disappeared_pending_txs: &std::collections::HashMap<String, BitcoinTransaction>,
+    ) -> Option<(String, String)> {
         for pending_tx in existing_transactions
             .iter()
             .filter(|tx| tx.transaction_status == "pending")
@@ -1715,33 +1742,27 @@ impl WalletSyncService {
                 continue;
             }
 
-            for (txid, state) in current_tx_states
+            if candidate_state.first_seen_at < pending_tx.first_seen_at {
+                continue;
+            }
+
+            if candidate_state.transaction_type != pending_tx.transaction_type {
+                continue;
+            }
+
+            let has_shared_input = candidate_state
+                .tx
+                .input
                 .iter()
-                .filter(|(_, state)| !state.is_confirmed)
-            {
-                if state.first_seen_at <= pending_tx.first_seen_at {
-                    continue;
-                }
+                .filter(|input| !input.previous_output.is_null())
+                .any(|input| disappeared_inputs.contains(&input.previous_output));
 
-                if state.transaction_type != pending_tx.transaction_type {
-                    continue;
-                }
-
-                let has_shared_input = state
-                    .tx
-                    .input
-                    .iter()
-                    .filter(|input| !input.previous_output.is_null())
-                    .any(|input| disappeared_inputs.contains(&input.previous_output));
-
-                if has_shared_input {
-                    replacements.insert(pending_tx.txid.clone(), txid.clone());
-                    break;
-                }
+            if has_shared_input {
+                return Some((pending_tx.txid.clone(), candidate_txid.to_string()));
             }
         }
 
-        replacements
+        None
     }
 
     async fn apply_address_watch_relationships(
@@ -2164,7 +2185,7 @@ impl WalletSyncService {
                 }
             }
 
-            let rbf_replacements = Self::detect_address_watch_rbf_replacements(
+            let mut rbf_replacements = Self::detect_address_watch_rbf_replacements(
                 &current_tx_states,
                 &existing_transactions,
                 &disappeared_pending_txs,
@@ -2225,8 +2246,11 @@ impl WalletSyncService {
                     }
                     continue;
                 }
-                let Some(state) = current_tx_states.get(&txid_str) else {
-                    let Some(state) = self
+                let owned_state;
+                let state = if let Some(state) = current_tx_states.get(&txid_str) {
+                    state
+                } else {
+                    let Some(fetched_state) = self
                         .fetch_address_watch_tx_state(
                             wallet_checksum,
                             &client,
@@ -2240,50 +2264,21 @@ impl WalletSyncService {
                         continue;
                     };
 
-                    let transaction = TransactionInsert {
-                        txid: txid_str.clone(),
-                        wallet_checksum: wallet_checksum.to_string(),
-                        transaction_type: state.transaction_type,
-                        amount_sats: state.amount_sats,
-                        fee_sats: None,
-                        block_height: state.block_height,
-                        first_seen_at: state.first_seen_at,
-                        confirmed_at: state.confirmed_at,
-                        parent_txid: cpfp_relationships.get(&txid_str).cloned(),
-                        transaction_status: if state.is_confirmed {
-                            "confirmed".to_string()
-                        } else {
-                            "pending".to_string()
-                        },
-                        replaced_by_txid: None,
-                        replaced_at: None,
-                    };
-
-                    self.metadata_db.insert_transaction(&transaction).await?;
-                    if !suppress_notifications {
-                        self.send_new_transaction_notification(&transaction).await?;
+                    if let Some((original_txid, replacement_txid)) =
+                        Self::find_address_watch_replacement_for_state(
+                            &txid_str,
+                            &fetched_state,
+                            &existing_transactions,
+                            &disappeared_pending_txs,
+                        )
+                    {
+                        rbf_replacements.insert(original_txid, replacement_txid);
                     }
 
-                    has_changes = true;
-                    info!(
-                        "[{}] New address watch tx: {} ({:?}, {} sats, {}{})",
-                        wallet_checksum,
-                        txid_str,
-                        state.transaction_type,
-                        state.amount_sats,
-                        if state.is_confirmed {
-                            "confirmed"
-                        } else {
-                            "pending"
-                        },
-                        if suppress_notifications {
-                            ", notifications suppressed"
-                        } else {
-                            ""
-                        }
-                    );
-                    continue;
+                    owned_state = fetched_state;
+                    &owned_state
                 };
+
                 let transaction = TransactionInsert {
                     txid: txid_str.clone(),
                     wallet_checksum: wallet_checksum.to_string(),
@@ -2475,6 +2470,22 @@ mod tests {
         }
     }
 
+    fn confirmed_state(
+        tx: BitcoinTransaction,
+        transaction_type: EventType,
+        first_seen_at: u64,
+    ) -> AddressWatchTxState {
+        AddressWatchTxState {
+            tx,
+            transaction_type,
+            amount_sats: 1_000,
+            is_confirmed: true,
+            block_height: Some(1),
+            first_seen_at,
+            confirmed_at: Some(first_seen_at),
+        }
+    }
+
     #[test]
     fn test_is_tx_confirmed_positive_height() {
         let txid =
@@ -2589,6 +2600,51 @@ mod tests {
         let current_tx_states = std::collections::HashMap::from([(
             replacement_txid.clone(),
             pending_state(replacement, EventType::Send, 200),
+        )]);
+        let existing_transactions = vec![TransactionWithWallet {
+            txid: original.compute_txid().to_string(),
+            wallet_checksum: "wallet".to_string(),
+            wallet_name: "wallet".to_string(),
+            transaction_type: EventType::Send,
+            amount_sats: 1_000,
+            fee_sats: None,
+            block_height: None,
+            first_seen_at: 100,
+            confirmed_at: None,
+            parent_txid: None,
+            transaction_status: "pending".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+            notification_status: vec![],
+        }];
+        let disappeared_pending_txs =
+            std::collections::HashMap::from([(existing_transactions[0].txid.clone(), original)]);
+
+        let replacements = WalletSyncService::detect_address_watch_rbf_replacements(
+            &current_tx_states,
+            &existing_transactions,
+            &disappeared_pending_txs,
+        );
+
+        assert_eq!(
+            replacements.get(&existing_transactions[0].txid),
+            Some(&replacement_txid)
+        );
+    }
+
+    #[test]
+    fn test_detect_address_watch_rbf_replacements_accepts_confirmed_candidate() {
+        let shared_input = OutPoint {
+            txid: test_tx(10, vec![], 1).compute_txid(),
+            vout: 0,
+        };
+        let original = test_tx(11, vec![shared_input], 1);
+        let replacement = test_tx(12, vec![shared_input], 1);
+        let replacement_txid = replacement.compute_txid().to_string();
+
+        let current_tx_states = std::collections::HashMap::from([(
+            replacement_txid.clone(),
+            confirmed_state(replacement, EventType::Send, 100),
         )]);
         let existing_transactions = vec![TransactionWithWallet {
             txid: original.compute_txid().to_string(),
