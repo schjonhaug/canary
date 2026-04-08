@@ -16,6 +16,7 @@ jest.mock('@/lib/api', () => ({
   api: {
     verifyEmail: (...args: unknown[]) => mockVerifyEmail(...args),
   },
+  ApiError: jest.requireActual('@/lib/utils').ApiError,
 }))
 
 describe('VerifyEmailPage', () => {

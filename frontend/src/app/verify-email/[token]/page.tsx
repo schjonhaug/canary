@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { getTranslatedApiError } from '@/lib/utils'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -25,7 +25,7 @@ export default function VerifyEmailPage() {
         setMessage(t('successMessage'))
       } catch (err) {
         setStatus('error')
-        setMessage(err instanceof Error ? getTranslatedApiError(err, tApiErrors) : t('invalidToken'))
+        setMessage(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('invalidToken'))
       }
     }
 

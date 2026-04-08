@@ -39,7 +39,7 @@ describe('ForgotPasswordPage', () => {
 
   it('shows translated ApiError messages from forgot password requests', async () => {
     const user = userEvent.setup()
-    mockForgotPassword.mockRejectedValue(new ApiError('User not found.', 'not_found', 404, 'user_not_found'))
+    mockForgotPassword.mockRejectedValue(new ApiError('Backend fallback text', 'not_found', 404, 'user_not_found'))
 
     render(<ForgotPasswordPage />)
 
