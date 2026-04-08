@@ -1055,3 +1055,46 @@ async fn test_include_notifications_batches_correctly() {
     assert_eq!(tx_b.notification_status[0].contact_name, "Charlie");
     assert_eq!(tx_b.notification_status[0].status, "failed");
 }
+
+#[tokio::test]
+async fn test_auth_rate_limit_blocks_after_threshold_within_window() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60, 60)
+        .await
+        .unwrap());
+    assert!(!db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_is_scoped_by_endpoint_and_identifier() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    for _ in 0..4 {
+        let _ = db
+            .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60, 60)
+            .await
+            .unwrap();
+    }
+
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("forgot_password", "other@example.com", 3, 60, 60)
+        .await
+        .unwrap());
+}
