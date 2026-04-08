@@ -814,59 +814,17 @@ pub async fn get_transaction_notifications(
     Path((checksum, txid)): Path<(String, String)>,
     State(app_services): State<AppServicesState>,
 ) -> Response {
-    let wallet = match app_services
-        .metadata_db
-        .get_wallet_by_checksum(&checksum)
-        .await
+    let wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
+    )
+    .await
     {
-        Ok(Some(wallet)) => wallet,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            warn!(
-                "Failed to load wallet {} while reading notifications: {}",
-                checksum, e
-            );
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Database error")),
-            )
-                .into_response();
-        }
+        Ok(wallet) => wallet,
+        Err(response) => return response,
     };
-
-    if !user.is_admin {
-        match app_services
-            .metadata_db
-            .is_wallet_owned_by_user(&checksum, &user.user_id)
-            .await
-        {
-            Ok(true) => {}
-            Ok(false) => {
-                return (
-                    StatusCode::FORBIDDEN,
-                    Json(ErrorResponse::coded("access_denied", "Access denied")),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                warn!(
-                    "Failed to verify wallet {} ownership for user {}: {}",
-                    checksum, user.user_id, e
-                );
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new("Database error")),
-                )
-                    .into_response();
-            }
-        }
-    }
 
     match app_services
         .metadata_db

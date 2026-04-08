@@ -82,7 +82,6 @@ describe('Transactions', () => {
       <Transactions
         selectedWalletChecksum="wallet-1"
         transactions={transactions}
-        isConnected
         error={null}
         lastUpdate={1001}
         walletsCount={1}
@@ -111,7 +110,6 @@ describe('Transactions', () => {
       <Transactions
         selectedWalletChecksum="wallet-1"
         transactions={transactions}
-        isConnected
         error={null}
         lastUpdate={1001}
         walletsCount={1}
@@ -130,7 +128,6 @@ describe('Transactions', () => {
       <Transactions
         selectedWalletChecksum="wallet-1"
         transactions={transactions}
-        isConnected
         error={null}
         lastUpdate={1001}
         walletsCount={1}
@@ -148,7 +145,6 @@ describe('Transactions', () => {
       <Transactions
         selectedWalletChecksum="wallet-1"
         transactions={transactions}
-        isConnected
         error={null}
         lastUpdate={1001}
         walletsCount={1}
@@ -168,7 +164,6 @@ describe('Transactions', () => {
       <Transactions
         selectedWalletChecksum="wallet-1"
         transactions={transactions}
-        isConnected
         error={null}
         lastUpdate={1001}
         walletsCount={1}

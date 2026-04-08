@@ -110,9 +110,7 @@ export function useWalletDetail(walletChecksum: string | null) {
       Object.fromEntries(Object.entries(prev).filter(([key]) => !nextKeysToRemove.has(key)))
     )
     setLoadingTransactionNotifications((prev) =>
-      Object.fromEntries(
-        Object.entries(prev).filter(([key, loading]) => !nextKeysToRemove.has(key) && loading)
-      )
+      Object.fromEntries(Object.entries(prev).filter(([key]) => !nextKeysToRemove.has(key)))
     )
     setTransactionNotificationErrors((prev) =>
       Object.fromEntries(
@@ -132,9 +130,7 @@ export function useWalletDetail(walletChecksum: string | null) {
       Object.fromEntries(Object.entries(prev).filter(([key]) => nextKeys.has(key)))
     )
     setLoadingTransactionNotifications((prev) =>
-      Object.fromEntries(
-        Object.entries(prev).filter(([key, loading]) => nextKeys.has(key) && loading)
-      )
+      Object.fromEntries(Object.entries(prev).filter(([key]) => nextKeys.has(key)))
     )
     setTransactionNotificationErrors((prev) =>
       Object.fromEntries(Object.entries(prev).filter(([key]) => nextKeys.has(key)))
@@ -208,7 +204,6 @@ export function useWalletDetail(walletChecksum: string | null) {
       applySharedData(data)
       clearNotificationCaches()
       setTransactions(nextTransactions)
-      pruneNotificationCaches(nextTransactions)
       historyCursorRef.current = data.pagination.next_cursor
       setHasMoreTransactions(data.pagination.has_more)
       incrementalSinceTimestampRef.current = data.timestamp
@@ -217,7 +212,7 @@ export function useWalletDetail(walletChecksum: string | null) {
     } finally {
       setIsLoading(false)
     }
-  }, [applySharedData, clearNotificationCaches, handleRequestError, pruneNotificationCaches, requestWalletDetail])
+  }, [applySharedData, clearNotificationCaches, handleRequestError, requestWalletDetail])
 
   const pollWalletDetail = useCallback(async () => {
     if (isPollingRef.current) {
