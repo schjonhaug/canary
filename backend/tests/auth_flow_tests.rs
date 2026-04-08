@@ -406,6 +406,59 @@ async fn test_cloud_mode_rejects_invalid_jwt() {
     assert_eq!(me_response.status(), StatusCode::UNAUTHORIZED);
 }
 
+async fn test_cookie_auth_ignores_malformed_authorization_header() {
+    let test_app = create_test_app(OperatingMode::Cloud).await;
+    create_user(
+        &test_app.app_services,
+        "cookie-user@example.com",
+        "password123",
+        true,
+    )
+    .await;
+
+    let login_request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "email": "cookie-user@example.com",
+                "password": "password123"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let login_response = test_app
+        .router
+        .clone()
+        .oneshot(login_request)
+        .await
+        .unwrap();
+    assert_eq!(login_response.status(), StatusCode::OK);
+
+    let auth_cookie = extract_auth_cookie(
+        login_response
+            .headers()
+            .get("set-cookie")
+            .unwrap()
+            .to_str()
+            .unwrap(),
+    )
+    .to_string();
+
+    let me_request = Request::builder()
+        .uri("/api/auth/me")
+        .method("GET")
+        .header("cookie", auth_cookie)
+        .header("authorization", "bad")
+        .body(Body::empty())
+        .unwrap();
+
+    let me_response = test_app.router.oneshot(me_request).await.unwrap();
+    assert_eq!(me_response.status(), StatusCode::OK);
+}
+
 #[tokio::test]
 async fn test_self_hosted_allows_authenticated_route_with_jwt() {
     let test_app = create_test_app(OperatingMode::SelfHosted).await;
