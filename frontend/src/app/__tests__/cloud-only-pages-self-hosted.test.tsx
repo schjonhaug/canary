@@ -11,6 +11,7 @@ import SignOutPage from '../sign-out/page'
 import DemoPage from '../demo/page'
 
 const mockPush = jest.fn()
+const mockSearchParamGet = jest.fn(() => null)
 const mockNotFound = jest.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
 })
@@ -24,7 +25,7 @@ jest.mock('next/navigation', () => ({
     token: 'test-token',
   }),
   useSearchParams: () => ({
-    get: jest.fn(() => null),
+    get: mockSearchParamGet,
   }),
 }))
 
@@ -62,6 +63,7 @@ jest.mock('../subscription/cancel', () => () => <div>Billing Cancel</div>)
 describe('cloud-only pages in self-hosted mode', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParamGet.mockReturnValue(null)
   })
 
   it.each([
@@ -77,6 +79,20 @@ describe('cloud-only pages in self-hosted mode', () => {
     ['demo', DemoPage],
   ])('calls notFound for %s', (_, PageComponent) => {
     expect(() => render(<PageComponent />)).toThrow('NEXT_NOT_FOUND')
+    expect(mockNotFound).toHaveBeenCalled()
+  })
+
+  it('calls notFound for subscription success state', () => {
+    mockSearchParamGet.mockImplementation((key: string) => key === 'success' ? 'true' : null)
+
+    expect(() => render(<SubscriptionPage />)).toThrow('NEXT_NOT_FOUND')
+    expect(mockNotFound).toHaveBeenCalled()
+  })
+
+  it('calls notFound for subscription cancelled state', () => {
+    mockSearchParamGet.mockImplementation((key: string) => key === 'cancelled' ? 'true' : null)
+
+    expect(() => render(<SubscriptionPage />)).toThrow('NEXT_NOT_FOUND')
     expect(mockNotFound).toHaveBeenCalled()
   })
 })

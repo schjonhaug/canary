@@ -21,7 +21,6 @@ export default function SubscriptionPage() {
 
   const t = useTranslations('subscriptionPage')
   const tBilling = useTranslations('billing')
-  const tCommon = useTranslations('common')
   const { user, billingStatus, isLoading, refreshBillingStatus, isSelfHostedMode } = useAuth()
   const [isPortalLoading, setIsPortalLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
@@ -33,12 +32,12 @@ export default function SubscriptionPage() {
     }
   }, [refreshBillingStatus, isLoading, user])
 
-  if (isSuccess) return <BillingSuccessPage />
-  if (isCancelled) return <BillingCancelPage />
-
   if (isSelfHostedMode) {
     notFound()
   }
+
+  if (isSuccess) return <BillingSuccessPage />
+  if (isCancelled) return <BillingCancelPage />
 
   const handleManageBilling = async () => {
     if (!billingStatus?.stripe_customer_id) return
