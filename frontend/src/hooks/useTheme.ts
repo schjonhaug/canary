@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from "react"
 import {
   applyTheme,
   isThemePreference,
@@ -16,6 +16,8 @@ interface UseThemeResult {
   resolvedTheme: ResolvedTheme
   setPreference: (nextPreference: ThemePreference) => void
 }
+
+const ThemeContext = createContext<UseThemeResult | null>(null)
 
 function getStoredThemePreference(): ThemePreference {
   if (typeof window === "undefined") {
@@ -34,7 +36,7 @@ function getSystemPrefersDark(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
 }
 
-export function useTheme(): UseThemeResult {
+function useThemeState(): UseThemeResult {
   const [mounted, setMounted] = useState(false)
   const [preference, setPreferenceState] = useState<ThemePreference>(() => getStoredThemePreference())
   const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => getSystemPrefersDark())
@@ -97,4 +99,20 @@ export function useTheme(): UseThemeResult {
   }
 
   return { mounted, preference, resolvedTheme, setPreference }
+}
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const value = useThemeState()
+
+  return createElement(ThemeContext.Provider, { value }, children)
+}
+
+export function useTheme(): UseThemeResult {
+  const context = useContext(ThemeContext)
+
+  if (!context) {
+    throw new Error("useTheme must be used within ThemeProvider")
+  }
+
+  return context
 }

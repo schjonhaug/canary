@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { THEME_STORAGE_KEY } from "@/lib/theme"
-import { useTheme } from "../useTheme"
+import { ThemeProvider, useTheme } from "../useTheme"
 
 type MediaListener = (event: MediaQueryListEvent) => void
 
@@ -49,6 +49,10 @@ describe("useTheme", () => {
     jest.restoreAllMocks()
   })
 
+  function wrapper({ children }: { children: React.ReactNode }) {
+    return <ThemeProvider>{children}</ThemeProvider>
+  }
+
   function emitSystemThemeChange(matches: boolean) {
     systemPrefersDark = matches
 
@@ -67,7 +71,7 @@ describe("useTheme", () => {
       throw new Error("storage unavailable")
     })
 
-    const { result } = renderHook(() => useTheme())
+    const { result } = renderHook(() => useTheme(), { wrapper })
 
     act(() => {
       result.current.setPreference("dark")
@@ -85,7 +89,7 @@ describe("useTheme", () => {
   })
 
   it("updates the theme when another tab changes the stored preference", async () => {
-    const { result } = renderHook(() => useTheme())
+    const { result } = renderHook(() => useTheme(), { wrapper })
 
     act(() => {
       window.dispatchEvent(
@@ -105,7 +109,7 @@ describe("useTheme", () => {
   it("falls back to the legacy MediaQueryList listener API", async () => {
     mockMatchMedia({ legacyOnly: true })
 
-    const { result } = renderHook(() => useTheme())
+    const { result } = renderHook(() => useTheme(), { wrapper })
 
     emitSystemThemeChange(true)
 
