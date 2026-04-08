@@ -207,14 +207,10 @@ impl Default for AdminNotifications {
 #[cfg(test)]
 mod tests {
     use super::AdminNotifications;
-    use std::sync::{Mutex, OnceLock};
     use std::time::Duration;
+    use tokio::sync::Mutex;
 
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-    fn env_lock() -> &'static Mutex<()> {
-        ENV_LOCK.get_or_init(|| Mutex::new(()))
-    }
+    static ENV_LOCK: Mutex<()> = Mutex::const_new(());
 
     struct EnvGuard {
         canary_mode: Option<String>,
@@ -231,10 +227,16 @@ mod tests {
             }
         }
 
-        fn restore(self) {
-            restore_env_var("CANARY_MODE", self.canary_mode);
-            restore_env_var("ADMIN_NOTIFICATION_TOPIC", self.admin_topic);
-            restore_env_var("NTFY_SERVER_URL", self.ntfy_server_url);
+        fn restore(&self) {
+            restore_env_var("CANARY_MODE", self.canary_mode.clone());
+            restore_env_var("ADMIN_NOTIFICATION_TOPIC", self.admin_topic.clone());
+            restore_env_var("NTFY_SERVER_URL", self.ntfy_server_url.clone());
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            self.restore();
         }
     }
 
@@ -246,11 +248,9 @@ mod tests {
         }
     }
 
-    #[test]
-    fn is_enabled_for_env_requires_cloud_mode_and_topic() {
-        let _lock = env_lock()
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
+    #[tokio::test]
+    async fn is_enabled_for_env_requires_cloud_mode_and_topic() {
+        let _lock = ENV_LOCK.lock().await;
         let env_guard = EnvGuard::capture();
 
         std::env::remove_var("CANARY_MODE");
@@ -267,14 +267,12 @@ mod tests {
         std::env::set_var("CANARY_MODE", "cloud");
         assert!(AdminNotifications::is_enabled_for_env());
 
-        env_guard.restore();
+        drop(env_guard);
     }
 
     #[tokio::test]
     async fn spawn_if_enabled_does_not_run_when_disabled() {
-        let _lock = env_lock()
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
+        let _lock = ENV_LOCK.lock().await;
         let env_guard = EnvGuard::capture();
 
         std::env::remove_var("CANARY_MODE");
@@ -291,14 +289,12 @@ mod tests {
             Ok(Err(_))
         ));
 
-        env_guard.restore();
+        drop(env_guard);
     }
 
     #[tokio::test]
     async fn spawn_if_enabled_runs_when_enabled() {
-        let _lock = env_lock()
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
+        let _lock = ENV_LOCK.lock().await;
         let env_guard = EnvGuard::capture();
 
         std::env::set_var("CANARY_MODE", "cloud");
@@ -314,6 +310,6 @@ mod tests {
             .await
             .is_ok());
 
-        env_guard.restore();
+        drop(env_guard);
     }
 }
