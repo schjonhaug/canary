@@ -9,6 +9,7 @@ mod contact;
 mod contact_verification;
 pub(crate) mod donations;
 mod health;
+mod helpers;
 mod notifications;
 mod providers;
 mod user_preferences;
