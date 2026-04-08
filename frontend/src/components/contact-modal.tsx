@@ -594,8 +594,10 @@ export function ContactModal({
     </div>
   )
 
+  const mobileVerificationPending = isMobile && wizard.currentStep === 2 && !wizard.allVerificationsComplete
+
   const submitButton = (
-    <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges)}>
+    <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges) || mobileVerificationPending}>
       {isSubmitting ? t('add.submitting') : (isEditMode ? t('edit.submit') : t('add.submit'))}
     </Button>
   )
