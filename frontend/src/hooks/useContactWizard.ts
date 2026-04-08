@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 
 interface UseContactWizardProps {
   name: string
@@ -38,6 +38,11 @@ export function useContactWizard({
   const needsVerificationStep = smsVerificationRequired || emailVerificationRequired
 
   const totalSteps = needsVerificationStep ? 3 : 2
+
+  // Clamp currentStep when totalSteps decreases (e.g. verification no longer required)
+  useEffect(() => {
+    setCurrentStep(prev => Math.min(prev, totalSteps - 1))
+  }, [totalSteps])
 
   const hasAtLeastOneProvider = useMemo(() => {
     return Object.entries(enabledProviders).some(([key, enabled]) => {

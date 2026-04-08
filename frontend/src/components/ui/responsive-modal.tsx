@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createContext, useContext } from "react"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import {
   Dialog,
@@ -21,6 +22,8 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 
+const ResponsiveModalContext = createContext(false)
+
 interface ResponsiveModalProps {
   children: React.ReactNode
   open?: boolean
@@ -30,10 +33,15 @@ interface ResponsiveModalProps {
 function ResponsiveModal({ children, ...props }: ResponsiveModalProps) {
   const isMobile = useIsMobile()
 
-  if (isMobile) {
-    return <Drawer {...props}>{children}</Drawer>
-  }
-  return <Dialog {...props}>{children}</Dialog>
+  return (
+    <ResponsiveModalContext.Provider value={isMobile}>
+      {isMobile ? (
+        <Drawer {...props}>{children}</Drawer>
+      ) : (
+        <Dialog {...props}>{children}</Dialog>
+      )}
+    </ResponsiveModalContext.Provider>
+  )
 }
 
 function ResponsiveModalContent({
@@ -43,7 +51,7 @@ function ResponsiveModalContent({
   onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogContent>) {
-  const isMobile = useIsMobile()
+  const isMobile = useContext(ResponsiveModalContext)
 
   if (isMobile) {
     return (
@@ -70,7 +78,7 @@ function ResponsiveModalHeader({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const isMobile = useIsMobile()
+  const isMobile = useContext(ResponsiveModalContext)
 
   if (isMobile) {
     return <DrawerHeader className={className} {...props} />
@@ -82,7 +90,7 @@ function ResponsiveModalTitle({
   className,
   ...props
 }: React.ComponentProps<typeof DialogTitle>) {
-  const isMobile = useIsMobile()
+  const isMobile = useContext(ResponsiveModalContext)
 
   if (isMobile) {
     return <DrawerTitle className={className} {...props} />
@@ -94,7 +102,7 @@ function ResponsiveModalDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogDescription>) {
-  const isMobile = useIsMobile()
+  const isMobile = useContext(ResponsiveModalContext)
 
   if (isMobile) {
     return <DrawerDescription className={className} {...props} />
@@ -106,7 +114,7 @@ function ResponsiveModalFooter({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const isMobile = useIsMobile()
+  const isMobile = useContext(ResponsiveModalContext)
 
   if (isMobile) {
     return <DrawerFooter className={className} {...props} />
@@ -117,7 +125,7 @@ function ResponsiveModalFooter({
 function ResponsiveModalClose({
   ...props
 }: React.ComponentProps<typeof DialogClose>) {
-  const isMobile = useIsMobile()
+  const isMobile = useContext(ResponsiveModalContext)
 
   if (isMobile) {
     return <DrawerClose {...props} />
