@@ -41,6 +41,10 @@ jest.mock('next-intl', () => {
     }, obj)
   }
 
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
   return {
     useTranslations: (namespace) => {
       const namespaceData = namespace ? getNestedValue(translations, namespace) : translations
@@ -86,7 +90,7 @@ jest.mock('next-intl', () => {
               const tagRegex = new RegExp(`<${k}>([^<]*)</${k}>`, 'g')
               value = value.replace(tagRegex, (match, content) => v(content))
             } else {
-              value = value.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+              value = value.replace(new RegExp(`\\{${escapeRegExp(k)}\\}`, 'g'), String(v))
             }
           })
         }
