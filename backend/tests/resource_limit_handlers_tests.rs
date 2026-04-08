@@ -2,6 +2,8 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use bdk_wallet::bitcoin::Network;
+use bdk_wallet::keys::DescriptorPublicKey;
 use canary::{
     api::{create_router_with_services, AppServices},
     auth::DEV_TEST_PASSWORD,
@@ -23,6 +25,7 @@ const ADMIN_USER_EMAIL: &str = "delivered+admin@resend.dev";
 const PERSONAL_USER_EMAIL: &str = "delivered+alice@resend.dev";
 const VALID_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)";
 const SECOND_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)";
+const VALID_TESTNET_XPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
 
 async fn create_test_app(
     operating_mode: OperatingMode,
@@ -204,6 +207,25 @@ async fn create_contact(
     app.clone().oneshot(request).await.unwrap().status()
 }
 
+fn derive_regtest_address(script_type: &str, index: u32) -> String {
+    let descriptor = match script_type {
+        "p2pkh" => format!("pkh({}/0/*)", VALID_TESTNET_XPUB),
+        "p2sh" => format!("sh(wpkh({}/0/*))", VALID_TESTNET_XPUB),
+        "p2wpkh" => format!("wpkh({}/0/*)", VALID_TESTNET_XPUB),
+        "p2tr" => format!("tr({}/0/*)", VALID_TESTNET_XPUB),
+        _ => panic!("unsupported script type"),
+    };
+
+    let descriptor: miniscript::descriptor::Descriptor<DescriptorPublicKey> =
+        descriptor.parse().unwrap();
+    descriptor
+        .at_derivation_index(index)
+        .unwrap()
+        .address(Network::Regtest)
+        .unwrap()
+        .to_string()
+}
+
 #[tokio::test]
 async fn test_personal_user_wallet_limit_is_enforced() {
     let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
@@ -381,5 +403,39 @@ async fn test_admin_user_bypasses_contact_limits() {
         )
         .await;
         assert_eq!(status, StatusCode::CREATED);
+    }
+}
+
+#[tokio::test]
+async fn test_admin_user_bypasses_wallet_limits() {
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app).await;
+
+    let wallet_inputs = vec![
+        VALID_TESTNET_DESCRIPTOR.to_string(),
+        SECOND_TESTNET_DESCRIPTOR.to_string(),
+        derive_regtest_address("p2pkh", 0),
+        derive_regtest_address("p2sh", 0),
+        derive_regtest_address("p2wpkh", 0),
+        derive_regtest_address("p2tr", 0),
+    ];
+
+    for (index, descriptor) in wallet_inputs.iter().enumerate() {
+        let request = Request::builder()
+            .uri("/api/wallets")
+            .method("POST")
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                json!({
+                    "name": format!("Admin Wallet {}", index + 1),
+                    "descriptor": descriptor,
+                })
+                .to_string(),
+            ))
+            .unwrap();
+
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::CREATED);
     }
 }
