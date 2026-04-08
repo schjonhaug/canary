@@ -58,6 +58,10 @@ async fn test_chain_of_unconfirmed_transactions() {
         "📊 After tx1: Bob has {} pending Receive transaction(s)",
         bob_pending_1.len()
     );
+    assert!(
+        !bob_pending_1.is_empty(),
+        "Bob should have at least 1 pending Receive after tx1 (mempool detection)"
+    );
 
     // Step 2: Send second transaction (unconfirmed, spends from Alice's change of tx1)
     println!("⚡ Step 2: Alice sends 0.1 BTC to Bob again (unconfirmed)");

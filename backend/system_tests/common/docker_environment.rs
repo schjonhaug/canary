@@ -1709,8 +1709,8 @@ volumes:
             ],
         );
 
-        // Get fresh addresses for each recipient and build the JSON map
-        let mut address_map_parts = Vec::new();
+        // Get fresh addresses for each recipient and build the JSON map using serde_json
+        let mut address_amounts = serde_json::Map::new();
         for (recipient_wallet, amount) in recipients {
             let address = Self::bitcoin_cli(
                 &bitcoin_container_name,
@@ -1720,14 +1720,23 @@ volumes:
             .trim_matches('"')
             .to_string();
 
-            address_map_parts.push(format!(r#""{}":"{}""#, address, amount));
+            let amount_f64: f64 = amount
+                .parse()
+                .map_err(|e| format!("Invalid amount '{}': {}", amount, e))?;
+            address_amounts.insert(
+                address,
+                serde_json::Value::Number(
+                    serde_json::Number::from_f64(amount_f64)
+                        .ok_or("Invalid float for JSON number")?,
+                ),
+            );
             println!(
                 "   {} -> {} ({} BTC)",
                 from_wallet, recipient_wallet, amount
             );
         }
 
-        let address_map = format!("{{{}}}", address_map_parts.join(","));
+        let address_map = serde_json::Value::Object(address_amounts).to_string();
 
         let txid = Self::bitcoin_cli(
             &bitcoin_container_name,

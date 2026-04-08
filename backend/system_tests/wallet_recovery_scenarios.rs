@@ -117,12 +117,19 @@ async fn test_no_duplicate_events_after_restart() {
         post_restart_bob_txs.len()
     );
 
-    // Verify transaction details match exactly
-    for (pre, post) in pre_restart_alice_txs
-        .iter()
-        .zip(post_restart_alice_txs.iter())
-    {
-        assert_eq!(pre.txid, post.txid, "Transaction IDs should match");
+    // Verify transaction details match exactly (order-independent comparison by txid)
+    let pre_by_txid: std::collections::HashMap<&str, &canary::metadata::TransactionWithWallet> =
+        pre_restart_alice_txs
+            .iter()
+            .map(|t| (t.txid.as_str(), t))
+            .collect();
+    for post in &post_restart_alice_txs {
+        let pre = pre_by_txid.get(post.txid.as_str()).unwrap_or_else(|| {
+            panic!(
+                "Post-restart Alice txid {} not found in pre-restart set",
+                post.txid
+            )
+        });
         assert_eq!(
             pre.transaction_type, post.transaction_type,
             "Transaction types should match for txid {}",
@@ -136,6 +143,31 @@ async fn test_no_duplicate_events_after_restart() {
         assert_eq!(
             pre.transaction_status, post.transaction_status,
             "Transaction statuses should match for txid {}",
+            pre.txid
+        );
+    }
+
+    // Also verify Bob's transactions match (order-independent)
+    let pre_bob_by_txid: std::collections::HashMap<&str, &canary::metadata::TransactionWithWallet> =
+        pre_restart_bob_txs
+            .iter()
+            .map(|t| (t.txid.as_str(), t))
+            .collect();
+    for post in &post_restart_bob_txs {
+        let pre = pre_bob_by_txid.get(post.txid.as_str()).unwrap_or_else(|| {
+            panic!(
+                "Post-restart Bob txid {} not found in pre-restart set",
+                post.txid
+            )
+        });
+        assert_eq!(
+            pre.transaction_type, post.transaction_type,
+            "Transaction types should match for Bob txid {}",
+            pre.txid
+        );
+        assert_eq!(
+            pre.amount_sats, post.amount_sats,
+            "Transaction amounts should match for Bob txid {}",
             pre.txid
         );
     }
@@ -183,6 +215,10 @@ async fn test_recovery_detects_transactions_during_downtime() {
         "📊 Before restart: Bob has txid {} in DB: {}",
         &txid[..8],
         has_tx_before
+    );
+    assert!(
+        !has_tx_before,
+        "Transaction should NOT be in database before sync (it was mined but not synced)"
     );
 
     // Step 2: Simulate service restart

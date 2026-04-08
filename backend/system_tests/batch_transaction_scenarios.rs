@@ -116,8 +116,8 @@ async fn test_batch_send_to_bob_and_charlie() {
         alice_send_amount as f64 / 100_000_000.0
     );
     assert!(
-        alice_send_amount >= 14_000_000 && alice_send_amount <= 16_000_000,
-        "Alice's send should be approximately 0.15 BTC (got {} sats)",
+        alice_send_amount >= 15_000_000 && alice_send_amount <= 15_050_000,
+        "Alice's send should be approximately 0.15 BTC + small fee (got {} sats)",
         alice_send_amount
     );
 
