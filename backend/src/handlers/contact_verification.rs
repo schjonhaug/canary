@@ -4,7 +4,7 @@ use crate::api::AppServicesState;
 use crate::auth::{load_twilio_config_from_env, AuthService};
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
-use crate::handlers::helpers::verify_wallet_access;
+use crate::handlers::helpers::{verify_wallet_access, DatabaseErrorMessage};
 use crate::metadata::Language;
 use crate::models::{
     validate_phone_number, ErrorResponse, SendContactVerificationRequest, VerifyContactRequest,
@@ -36,7 +36,14 @@ pub async fn send_contact_verification(
         .unwrap_or(Language::English);
 
     // Check if wallet exists and user has access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+    if let Err(response) = verify_wallet_access(
+        &app_services,
+        &user,
+        &wallet_checksum,
+        DatabaseErrorMessage::Raw,
+    )
+    .await
+    {
         return response;
     }
 
@@ -526,7 +533,14 @@ pub async fn verify_contact(
     let start_time = std::time::Instant::now();
 
     // Check if wallet exists and user has access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+    if let Err(response) = verify_wallet_access(
+        &app_services,
+        &user,
+        &wallet_checksum,
+        DatabaseErrorMessage::Raw,
+    )
+    .await
+    {
         return response;
     }
 

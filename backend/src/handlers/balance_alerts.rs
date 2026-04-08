@@ -3,7 +3,7 @@
 use crate::api::AppServicesState;
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::handlers::helpers::verify_wallet_access;
+use crate::handlers::helpers::{verify_wallet_access, DatabaseErrorMessage};
 use crate::metadata::BalanceAlertType;
 use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest, ErrorResponse};
 use axum::{
@@ -19,7 +19,14 @@ pub async fn get_wallet_balance_alerts(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // Check if wallet exists and user has access
-    let _wallet = match verify_wallet_access(&app_services, &user, &checksum).await {
+    let _wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
         Ok(wallet) => wallet,
         Err(response) => return response,
     };
@@ -55,7 +62,14 @@ pub async fn create_wallet_balance_alert(
     }
 
     // Check if wallet exists and user has access
-    let wallet = match verify_wallet_access(&app_services, &user, &checksum).await {
+    let wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
         Ok(wallet) => wallet,
         Err(response) => return response,
     };

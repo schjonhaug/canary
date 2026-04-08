@@ -2,6 +2,7 @@
 
 use crate::api::{AppServicesState, ConfigState, StripeBillingState};
 use crate::extractors::AuthenticatedUser;
+use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
 use crate::metadata::SubscriptionUpdateParams;
 use crate::models::{
     BillingStatusResponse, BillingTierLimits, CreateCheckoutSessionRequest,
@@ -43,22 +44,17 @@ pub async fn create_stripe_checkout_session(
     };
 
     // Get user record
-    let user_record = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
-        Ok(Some(user_record)) => user_record,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new("User not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response();
-        }
+    let user_record = match get_user_or_error(
+        &app_services,
+        &user.user_id,
+        None,
+        "User not found",
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
+        Ok(user_record) => user_record,
+        Err(response) => return response,
     };
 
     // Get Stripe billing from state
@@ -129,22 +125,17 @@ pub async fn create_stripe_customer_portal(
     let start_time = std::time::Instant::now();
 
     // Get user record
-    let user_record = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
-        Ok(Some(user_record)) => user_record,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new("User not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response();
-        }
+    let user_record = match get_user_or_error(
+        &app_services,
+        &user.user_id,
+        None,
+        "User not found",
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
+        Ok(user_record) => user_record,
+        Err(response) => return response,
     };
 
     // User must have a Stripe customer ID
@@ -218,22 +209,17 @@ pub async fn get_billing_status(
     let start_time = std::time::Instant::now();
 
     // Direct metadata access - no mutex blocking!
-    let user_record = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
-        Ok(Some(user_record)) => user_record,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new("User not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
-            )
-                .into_response();
-        }
+    let user_record = match get_user_or_error(
+        &app_services,
+        &user.user_id,
+        None,
+        "User not found",
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
+        Ok(user_record) => user_record,
+        Err(response) => return response,
     };
 
     // Get wallet count for this user

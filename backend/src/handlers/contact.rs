@@ -3,7 +3,9 @@
 use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::handlers::helpers::verify_wallet_access;
+use crate::handlers::helpers::{
+    get_user_or_error, require_recent_verification, verify_wallet_access, DatabaseErrorMessage,
+};
 use crate::metadata::ProviderType;
 use crate::models::{
     validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
@@ -61,31 +63,30 @@ pub async fn create_wallet_contact(
     }
 
     // Direct metadata access - no mutex blocking!
-    let _wallet = match verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+    let _wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &wallet_checksum,
+        DatabaseErrorMessage::Raw,
+    )
+    .await
+    {
         Ok(wallet) => wallet,
         Err(response) => return response,
     };
 
     // Get user's subscription tier and check contact limit
-    let user_record = match app_services.metadata_db.get_user_by_id(&user.user_id).await {
-        Ok(Some(record)) => record,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded("user_not_found", "User not found")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to get user information: {}",
-                    e
-                ))),
-            )
-                .into_response();
-        }
+    let user_record = match get_user_or_error(
+        &app_services,
+        &user.user_id,
+        Some("user_not_found"),
+        "User not found",
+        DatabaseErrorMessage::Prefix("Failed to get user information"),
+    )
+    .await
+    {
+        Ok(record) => record,
+        Err(response) => return response,
     };
 
     // Count existing contacts for the wallet and check limit unless limits are bypassed
@@ -169,35 +170,18 @@ pub async fn create_wallet_contact(
                 }
 
                 // SECURITY: Check if this phone number was recently verified for THIS wallet
-                match app_services
-                    .metadata_db
-                    .was_recently_verified(&wallet_checksum, &normalized_phone)
-                    .await
+                match require_recent_verification(
+                    &app_services,
+                    &wallet_checksum,
+                    &normalized_phone,
+                    "phone_not_verified",
+                    "Phone number must be verified before adding contact",
+                    "Failed to check phone verification",
+                )
+                .await
                 {
-                    Ok(true) => {
-                        // Phone was verified, safe to add
-                        processed_methods.push((ProviderType::Sms, normalized_phone));
-                    }
-                    Ok(false) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded(
-                                "phone_not_verified",
-                                "Phone number must be verified before adding contact",
-                            )),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!(
-                                "Failed to check phone verification: {}",
-                                e
-                            ))),
-                        )
-                            .into_response();
-                    }
+                    Ok(()) => processed_methods.push((ProviderType::Sms, normalized_phone)),
+                    Err(response) => return response,
                 }
             }
             ProviderType::Ntfy => {
@@ -249,35 +233,18 @@ pub async fn create_wallet_contact(
                 }
 
                 // SECURITY: Check if this email address was recently verified for THIS wallet
-                match app_services
-                    .metadata_db
-                    .was_recently_verified(&wallet_checksum, &email)
-                    .await
+                match require_recent_verification(
+                    &app_services,
+                    &wallet_checksum,
+                    &email,
+                    "email_not_verified_contact",
+                    "Email address must be verified before adding contact",
+                    "Failed to check email verification",
+                )
+                .await
                 {
-                    Ok(true) => {
-                        // Email was verified, safe to add
-                        processed_methods.push((ProviderType::Email, email));
-                    }
-                    Ok(false) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded(
-                                "email_not_verified_contact",
-                                "Email address must be verified before adding contact",
-                            )),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!(
-                                "Failed to check email verification: {}",
-                                e
-                            ))),
-                        )
-                            .into_response();
-                    }
+                    Ok(()) => processed_methods.push((ProviderType::Email, email)),
+                    Err(response) => return response,
                 }
             }
         }
@@ -373,7 +340,14 @@ pub async fn delete_wallet_contact(
     }
 
     // Direct metadata access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+    if let Err(response) = verify_wallet_access(
+        &app_services,
+        &user,
+        &wallet_checksum,
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
         return response;
     }
 
@@ -418,7 +392,14 @@ pub async fn update_wallet_contact(
     }
 
     // Check if wallet exists and user has access
-    let _wallet = match verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+    let _wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &wallet_checksum,
+        DatabaseErrorMessage::Raw,
+    )
+    .await
+    {
         Ok(wallet) => wallet,
         Err(response) => return response,
     };
@@ -524,34 +505,18 @@ pub async fn update_wallet_contact(
                     }
 
                     // Check if this phone number was recently verified for THIS wallet
-                    match app_services
-                        .metadata_db
-                        .was_recently_verified(&wallet_checksum, &normalized_phone)
-                        .await
+                    match require_recent_verification(
+                        &app_services,
+                        &wallet_checksum,
+                        &normalized_phone,
+                        "phone_not_verified",
+                        "Phone number must be verified before updating contact",
+                        "Failed to check phone verification",
+                    )
+                    .await
                     {
-                        Ok(true) => {
-                            processed_methods.push((ProviderType::Sms, normalized_phone));
-                        }
-                        Ok(false) => {
-                            return (
-                                StatusCode::BAD_REQUEST,
-                                Json(ErrorResponse::coded(
-                                    "phone_not_verified",
-                                    "Phone number must be verified before updating contact",
-                                )),
-                            )
-                                .into_response();
-                        }
-                        Err(e) => {
-                            return (
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                Json(ErrorResponse::new(format!(
-                                    "Failed to check phone verification: {}",
-                                    e
-                                ))),
-                            )
-                                .into_response();
-                        }
+                        Ok(()) => processed_methods.push((ProviderType::Sms, normalized_phone)),
+                        Err(response) => return response,
                     }
                 } else {
                     // Phone number hasn't changed, so we can reuse it without verification
@@ -608,34 +573,18 @@ pub async fn update_wallet_contact(
                     }
 
                     // Check if this email address was recently verified for THIS wallet
-                    match app_services
-                        .metadata_db
-                        .was_recently_verified(&wallet_checksum, &email)
-                        .await
+                    match require_recent_verification(
+                        &app_services,
+                        &wallet_checksum,
+                        &email,
+                        "email_not_verified_contact",
+                        "Email address must be verified before updating contact",
+                        "Failed to check email verification",
+                    )
+                    .await
                     {
-                        Ok(true) => {
-                            processed_methods.push((ProviderType::Email, email));
-                        }
-                        Ok(false) => {
-                            return (
-                                StatusCode::BAD_REQUEST,
-                                Json(ErrorResponse::coded(
-                                    "email_not_verified_contact",
-                                    "Email address must be verified before updating contact",
-                                )),
-                            )
-                                .into_response();
-                        }
-                        Err(e) => {
-                            return (
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                Json(ErrorResponse::new(format!(
-                                    "Failed to check email verification: {}",
-                                    e
-                                ))),
-                            )
-                                .into_response();
-                        }
+                        Ok(()) => processed_methods.push((ProviderType::Email, email)),
+                        Err(response) => return response,
                     }
                 } else {
                     // Email address hasn't changed, so we can reuse it without verification
@@ -763,7 +712,14 @@ pub async fn get_wallet_contacts(
     let start_time = std::time::Instant::now();
 
     // Direct metadata access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(&app_services, &user, &wallet_checksum).await {
+    if let Err(response) = verify_wallet_access(
+        &app_services,
+        &user,
+        &wallet_checksum,
+        DatabaseErrorMessage::Raw,
+    )
+    .await
+    {
         return response;
     }
 
