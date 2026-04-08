@@ -76,7 +76,7 @@ export function SmsProviderFields({
           className={phoneError ? 'border-red-500 focus:border-red-500' : ''}
         />
         {phoneError && (
-          <div className="text-sm text-red-600 mt-1">
+          <div role="alert" className="text-sm text-red-600 mt-1">
             {phoneError}
           </div>
         )}
@@ -131,7 +131,7 @@ export function SmsProviderFields({
               </Button>
             </div>
             {verificationError && (
-              <div className="text-sm text-red-600 mt-1">
+              <div role="alert" className="text-sm text-red-600 mt-1">
                 {verificationError}
               </div>
             )}

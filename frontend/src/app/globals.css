@@ -122,3 +122,14 @@
                       radial-gradient(circle at 80% 20%, rgba(246, 201, 25, 0.05) 0%, transparent 50%);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
