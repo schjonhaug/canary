@@ -94,7 +94,7 @@ describe('Transactions', () => {
     expect(expandButton).toHaveAttribute('aria-expanded', 'false')
     expect(expandButton).toHaveAttribute(
       'aria-controls',
-      `transaction-details-${transactions[0].txid}`,
+      `transaction-details-${transactions[0].wallet_checksum}:${transactions[0].txid}`,
     )
 
     fireEvent.click(expandButton)

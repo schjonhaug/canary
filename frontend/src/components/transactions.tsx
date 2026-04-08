@@ -48,6 +48,10 @@ function getTransactionRowKey(transaction: Transaction) {
   return `${transaction.wallet_checksum}:${transaction.txid}`
 }
 
+function getTransactionDetailsId(transaction: Transaction) {
+  return `transaction-details-${getTransactionRowKey(transaction)}`
+}
+
 function getDisplayTimestamp(transaction: Transaction) {
   if (transaction.confirmed_at === null) {
     return transaction.first_seen_at
@@ -376,7 +380,7 @@ export function Transactions({
                     const transaction = filteredTransactions[virtualRow.index]
                     const rowKey = getTransactionRowKey(transaction)
                     const isExpanded = expandedRows.has(rowKey)
-                    const detailsId = `transaction-details-${transaction.txid}`
+                    const detailsId = getTransactionDetailsId(transaction)
                     const notificationSummary = getUniqueProviderSummary(
                       transactionNotifications[rowKey],
                     )
